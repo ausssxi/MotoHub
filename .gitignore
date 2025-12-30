@@ -1,44 +1,24 @@
-# Environment variables
+*.log
+.DS_Store
 .env
 .env.backup
 .env.production
-
-# Laravel
-/vendor/
-/node_modules/
+.phpactor.json
+.phpunit.result.cache
+/.fleet
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/auth.json
+/node_modules
+/public/build
 /public/hot
 /public/storage
 /storage/*.key
-/storage/logs/
-/storage/framework/cache/
-/storage/framework/sessions/
-/storage/framework/views/
-/bootstrap/cache/
-*.log
-*.cache
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-env/
-ENV/
-.venv
-*.egg-info/
-dist/
-build/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Docker
-.docker/
-
+/storage/pail
+/vendor
+Homestead.json
+Homestead.yaml
+Thumbs.db
