@@ -22,3 +22,4 @@ RUN playwright install-deps chromium
 COPY scraper/ .
 
 CMD ["python", "main.py"]
+

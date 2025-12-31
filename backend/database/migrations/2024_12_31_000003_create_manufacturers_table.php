@@ -13,7 +13,8 @@ return new class extends Migration
     {
         Schema::create('manufacturers', function (Blueprint $table) {
             $table->id()->comment('ID (auto_increment)');
-            $table->string('name', 100)->comment('メーカー名');
+            $table->string('name', 100)->unique()->comment('メーカー名');
+            $table->string('name_kana', 100)->nullable()->comment('メーカー名カナ');
             $table->string('country', 50)->nullable()->comment('原産国');
             $table->timestamps();
         });
@@ -27,4 +28,3 @@ return new class extends Migration
         Schema::dropIfExists('manufacturers');
     }
 };
-
