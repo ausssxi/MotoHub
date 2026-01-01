@@ -59,7 +59,11 @@ async def collect_shops():
             pref_urls = []
             for link in pref_links:
                 href = await link.get_attribute("href")
-                pref_name = await link.inner_text()
+                raw_pref_name = await link.inner_text()
+                
+                # 沖縄(86) などの形式からカッコと数字を削除
+                pref_name = re.sub(r'[\(\uff08].*?[\)\uff09]', '', raw_pref_name).strip()
+                
                 if href:
                     pref_urls.append({
                         "name": pref_name,
@@ -70,60 +74,70 @@ async def collect_shops():
 
             db = SessionLocal()
 
-            # 2. 各都道府県のリストページを巡回（詳細ページには飛ばない）
+            # 2. 各都道府県のページを巡回
             for pref in pref_urls:
-                print(f"\n--- {pref['name']} の販売店を解析中 ---")
-                await page.goto(pref['url'], wait_until="domcontentloaded", timeout=60000)
+                current_page_url = pref['url']
+                page_count = 1
                 
-                # 販売店ブロックを取得
-                # リストページにおいて、各店舗は通常 .shop_header と .shop_address を持っています
-                shop_elements = await page.query_selector_all(".shop_header")
-                print(f"このページで {len(shop_elements)} 店発見しました。")
+                print(f"\n--- {pref['name']} の販売店を解析開始 ---")
+                
+                while current_page_url:
+                    print(f"  P.{page_count}: {current_page_url}")
+                    await page.goto(current_page_url, wait_until="domcontentloaded", timeout=60000)
+                    
+                    # 販売店ブロックを取得
+                    shop_elements = await page.query_selector_all(".shop_header")
+                    
+                    for shop_el in shop_elements:
+                        try:
+                            # 店名取得
+                            name_el = await shop_el.query_selector(".shop_name")
+                            name = (await name_el.inner_text()).strip() if name_el else ""
+                            
+                            if not name:
+                                continue
 
-                for shop_el in shop_elements:
-                    try:
-                        # 店名取得
-                        name_el = await shop_el.query_selector(".shop_name")
-                        name = (await name_el.inner_text()).strip() if name_el else ""
-                        
-                        if not name:
-                            continue
-
-                        # 住所取得（.shop_header の親要素または隣接要素から .shop_address を探す）
-                        # evaluate を使い JavaScript で隣接要素から住所を取得
-                        address = await page.evaluate(
-                            "(el) => { const addr = el.parentElement.querySelector('.shop_address'); return addr ? addr.innerText : ''; }", 
-                            shop_el
-                        )
-                        address = address.strip()
-
-                        # 重複チェック (店名と住所)
-                        existing = db.query(Shop).filter(
-                            Shop.name == name, 
-                            Shop.address == address
-                        ).first()
-
-                        if not existing:
-                            new_shop = Shop(
-                                name=name,
-                                prefecture=pref['name'],
-                                address=address
+                            # 住所取得
+                            address = await page.evaluate(
+                                "(el) => { const addr = el.parentElement.querySelector('.shop_address'); return addr ? addr.innerText : ''; }", 
+                                shop_el
                             )
-                            db.add(new_shop)
-                            print(f"  [登録] {name}")
-                        else:
-                            # 既に存在する場合は都道府県情報などを補完更新（必要あれば）
-                            if not existing.prefecture:
-                                existing.prefecture = pref['name']
-                            print(f"  [既知] {name}")
-                        
-                        # チャンクごとにコミット（1件ずつだと遅いため。ここでは小規模なので都度でもOK）
-                        db.commit()
+                            address = address.strip()
 
-                    except Exception as e:
-                        print(f"  店舗情報抽出エラー: {e}")
+                            # 重複チェック (店名と住所)
+                            existing = db.query(Shop).filter(
+                                Shop.name == name, 
+                                Shop.address == address
+                            ).first()
 
-                # ページあたりの負荷軽減（リストページのみなので短めでOK）
+                            if not existing:
+                                new_shop = Shop(
+                                    name=name,
+                                    prefecture=pref['name'],
+                                    address=address
+                                )
+                                db.add(new_shop)
+                                print(f"    [登録] {name}")
+                            else:
+                                if not existing.prefecture:
+                                    existing.prefecture = pref['name']
+                                # print(f"    [既知] {name}")
+                            
+                            db.commit()
+
+                        except Exception as e:
+                            print(f"    店舗情報抽出エラー: {e}")
+
+                    # ページネーション：次ページがあるか確認
+                    next_button = await page.query_selector(".pager_next a")
+                    if next_button:
+                        next_href = await next_button.get_attribute("href")
+                        current_page_url = base_url + next_href if next_href.startswith('/') else next_href
+                        page_count += 1
+                        await asyncio.sleep(1) # サーバー負荷軽減
+                    else:
+                        current_page_url = None
+
                 await asyncio.sleep(0.5)
 
             db.close()

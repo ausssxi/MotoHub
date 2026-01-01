@@ -4,7 +4,7 @@ import datetime
 import re
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
-from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime
+from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 # 環境変数の読み込み
@@ -26,26 +26,36 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 class Base(DeclarativeBase):
     pass
 
-# メーカー情報テーブル
+class Site(Base):
+    __tablename__ = "sites"
+    id = Column(BigInteger, primary_key=True)
+    name = Column(String(50), unique=True)
+
 class Manufacturer(Base):
     __tablename__ = "manufacturers"
     id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     name = Column(String(100), unique=True, nullable=False)
-    name_kana = Column(String(100), nullable=True)
     country = Column(String(50), nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.now)
-    updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
-# 車種マスタテーブル
 class BikeModel(Base):
     __tablename__ = "bike_models"
     id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     manufacturer_id = Column(BigInteger, nullable=False)
-    name = Column(String(255), nullable=False)
-    displacement = Column(Integer, nullable=True)
+    name = Column(String(255), nullable=False, unique=True)
     category = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.now)
     updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
+
+class BikeModelIdentifier(Base):
+    __tablename__ = "bike_model_identifiers"
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    bike_model_id = Column(BigInteger, ForeignKey("bike_models.id", ondelete="CASCADE"), nullable=False)
+    site_id = Column(BigInteger, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False)
+    identifier = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.now)
+    updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
+    
+    __table_args__ = (UniqueConstraint('site_id', 'identifier', name='_site_identifier_uc'),)
 
 async def collect_data():
     async with async_playwright() as p:
@@ -59,8 +69,16 @@ async def collect_data():
         base_url = "https://www.goobike.com"
         db = SessionLocal()
         
+        # サイトIDの取得 (GooBikeのIDを特定)
+        goobike_site = db.query(Site).filter(Site.name == "GooBike").first()
+        if not goobike_site:
+            print("エラー: sitesテーブルに 'GooBike' が登録されていません。Seederを実行してください。")
+            return
+        
+        site_id = goobike_site.id
+
         try:
-            # --- 1. メーカーと国籍の紐付け収集 ---
+            # 1. メーカーと国籍の同期
             print(f"メーカー一覧を取得中: {base_url}/maker-top/index.html")
             await page.goto(f"{base_url}/maker-top/index.html", wait_until="domcontentloaded", timeout=60000)
             
@@ -103,76 +121,85 @@ async def collect_data():
                             print(f"[メーカー新登録] {clean_name} ({country_name})")
                         else:
                             m_record.country = country_name
-            
             db.commit()
 
-            # --- 2. 各メーカーの車種収集 (名前のみ) ---
+            # 2. 各メーカーの車種と識別番号(site_id)の収集
             for target in maker_targets:
                 print(f"--- {target['name']} の車種を取得中 ---")
                 m_record = db.query(Manufacturer).filter(Manufacturer.name == target['name']).first()
                 try:
                     await page.goto(target['url'], wait_until="domcontentloaded", timeout=60000)
+                    
+                    # 各車種のリストアイテムを取得
+                    list_items = await page.query_selector_all("li.bike_list")
+                    
+                    for item in list_items:
+                        # 2.1 車種名の取得 (em b)
+                        name_elem = await item.query_selector("em b")
+                        if not name_elem: continue
+                        full_text = await name_elem.inner_text()
+                        model_name = re.sub(r'[\(\uff08].*?[\)\uff09]', '', full_text).strip()
+                        
+                        # 2.2 車両認識番号の取得 (input[name='model'] の value)
+                        input_elem = await item.query_selector("input[name='model']")
+                        identifier_val = await input_elem.get_attribute("value") if input_elem else None
+
+                        if not model_name: continue
+                        
+                        # BikeModelの保存・取得
+                        existing_model = db.query(BikeModel).filter(BikeModel.name == model_name).first()
+                        if not existing_model:
+                            existing_model = BikeModel(
+                                name=model_name, 
+                                manufacturer_id=m_record.id, 
+                                category="不明"
+                            )
+                            db.add(existing_model)
+                            db.flush() # IDを確定させる
+
+                        # 2.3 認識番号の保存 (site_id とセットで保存)
+                        if identifier_val:
+                            existing_idnt = db.query(BikeModelIdentifier).filter(
+                                BikeModelIdentifier.site_id == site_id,
+                                BikeModelIdentifier.identifier == identifier_val
+                            ).first()
+                            
+                            if not existing_idnt:
+                                new_idnt = BikeModelIdentifier(
+                                    bike_model_id=existing_model.id,
+                                    site_id=site_id,
+                                    identifier=identifier_val
+                                )
+                                db.add(new_idnt)
+                                print(f"  [登録] {model_name} (ID: {identifier_val})")
+                    
+                    db.commit()
+                except Exception as e:
+                    print(f"エラー ({target['name']}): {e}")
+
+            # 3. バイクスタイルの同期
+            print("\n--- バイクスタイル(ジャンル)の同期を開始します ---")
+            for i in range(1, 17):
+                genre_id = str(i).zfill(2)
+                genre_url = f"{base_url}/genre-{genre_id}/index.html"
+                try:
+                    await page.goto(genre_url, wait_until="domcontentloaded", timeout=60000)
+                    style_elem = await page.query_selector("li strong")
+                    if not style_elem: continue
+                    style_name = await style_elem.inner_text()
+                    
                     bike_elements = await page.query_selector_all("li.bike_list em b")
                     for bike_elem in bike_elements:
                         full_text = await bike_elem.inner_text()
                         model_name = re.sub(r'[\(\uff08].*?[\)\uff09]', '', full_text).strip()
                         if not model_name: continue
                         
-                        existing = db.query(BikeModel).filter(
-                            BikeModel.name == model_name,
-                            BikeModel.manufacturer_id == m_record.id
-                        ).first()
-
-                        if not existing:
-                            db.add(BikeModel(name=model_name, manufacturer_id=m_record.id, category="不明"))
-                    db.commit()
-                except Exception as e:
-                    print(f"エラー ({target['name']}): {e}")
-
-            # --- 3. バイクスタイルの同期 (ジャンル別巡回) ---
-            print("\n--- バイクスタイル(ジャンル)の同期を開始します ---")
-            # 通常 01 (ネイキッド) から 16 (スクランブラー) 程度まで存在します
-            for i in range(1, 17):
-                genre_id = str(i).zfill(2)
-                genre_url = f"{base_url}/genre-{genre_id}/index.html"
-                
-                try:
-                    print(f"ジャンル {genre_id} を解析中: {genre_url}")
-                    await page.goto(genre_url, wait_until="domcontentloaded", timeout=60000)
-                    
-                    # パンくずリストやヘッダーからスタイル名を取得
-                    # <li><a href='/'>バイクTOP</a></li><li><strong>ネイキッド</strong></li>
-                    style_elem = await page.query_selector("li strong")
-                    if not style_elem:
-                        continue
-                    
-                    style_name = await style_elem.inner_text()
-                    print(f"スタイル名: {style_name}")
-
-                    # このページに掲載されている車種をすべて取得
-                    bike_elements = await page.query_selector_all("li.bike_list em b")
-                    
-                    updated_count = 0
-                    for bike_elem in bike_elements:
-                        full_text = await bike_elem.inner_text()
-                        model_name = re.sub(r'[\(\uff08].*?[\)\uff09]', '', full_text).strip()
-                        
-                        if not model_name:
-                            continue
-
-                        # DB内の該当する車種のカテゴリーを一括更新
-                        # (メーカーを跨いで同じ名前の車種がある可能性を考慮し、全一致する車種を更新)
+                        # 全てのメーカーで名前が一致する車種のカテゴリーを更新
                         targets = db.query(BikeModel).filter(BikeModel.name == model_name).all()
                         for t in targets:
                             if t.category != style_name:
                                 t.category = style_name
-                                t.updated_at = datetime.datetime.now()
-                                updated_count += 1
-                    
                     db.commit()
-                    print(f"-> {updated_count} 件の車種にスタイル '{style_name}' を適用しました。")
-                    await asyncio.sleep(1)
-
                 except Exception as e:
                     print(f"ジャンル解析エラー (ID: {genre_id}): {e}")
 

@@ -12,21 +12,26 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('listings', function (Blueprint $table) {
-            $table->id()->comment('ID (auto_increment)');
-            $table->foreignId('bike_model_id')->constrained('bike_models')->comment('車種ID');
-            $table->foreignId('shop_id')->constrained('shops')->comment('販売店ID');
-            $table->string('source_platform', 50)->comment('取得元サイト名');
-            $table->string('source_id', 100)->nullable()->comment('取得元サイトでの固有ID');
-            $table->text('source_url')->comment('元記事へのリンク');
-            $table->decimal('price', 12, 0)->nullable()->comment('車両本体価格');
-            $table->decimal('total_price', 12, 0)->nullable()->comment('支払総額');
-            $table->unsignedSmallInteger('model_year')->nullable()->comment('年式 (西暦)');
-            $table->unsignedInteger('mileage')->nullable()->comment('走行距離 (km)');
-            $table->string('inspection_expiry', 100)->nullable()->comment('車検/自賠責');
-            $table->json('image_urls')->nullable()->comment('画像URLの配列');
-            $table->text('description')->nullable()->comment('出品説明文');
-            $table->boolean('is_sold_out')->default(false)->comment('売り切れフラグ');
-            $table->timestamp('created_at')->nullable()->comment('作成日時 (crawled_at兼用)');
+            $table->id();
+            // bike_model_id も念のため nullable にしておきます
+            $table->foreignId('bike_model_id')->nullable()->constrained('bike_models')->onDelete('cascade');
+            // shop_id を nullable に変更
+            $table->foreignId('shop_id')->nullable()->constrained('shops')->onDelete('set null');
+            
+            // 車両のタイトルカラムを追加
+            $table->string('title')->nullable()->comment('車両タイトル/キャッチコピー');
+            
+            $table->string('source_platform', 50);
+            $table->text('source_url');
+            $table->decimal('price', 12, 0)->nullable();
+            $table->decimal('total_price', 12, 0)->nullable();
+            $table->integer('model_year')->nullable();
+            $table->integer('mileage')->nullable();
+            $table->json('image_urls')->nullable();
+            $table->boolean('is_sold_out')->default(false);
+            
+            // 作成日時と更新日時にコメントを追加
+            $table->timestamp('created_at')->nullable()->comment('作成日時');
             $table->timestamp('updated_at')->nullable()->comment('更新日時');
         });
     }
@@ -39,4 +44,3 @@ return new class extends Migration
         Schema::dropIfExists('listings');
     }
 };
-
