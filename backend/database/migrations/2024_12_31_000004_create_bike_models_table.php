@@ -14,10 +14,9 @@ return new class extends Migration
         Schema::create('bike_models', function (Blueprint $table) {
             $table->id()->comment('ID (auto_increment)');
             $table->foreignId('manufacturer_id')->constrained('manufacturers')->comment('メーカーID');
-            $table->string('name', 255)->comment('モデル名');
-            $table->unsignedSmallInteger('displacement')->nullable()->comment('排気量 (cc)');
+            // モデル名に UNIQUE KEY を追加しました
+            $table->string('name', 255)->unique()->comment('モデル名');
             $table->string('category', 50)->nullable()->comment('カテゴリ');
-            $table->string('engine_type', 50)->nullable()->comment('エンジン種類');
             $table->timestamps();
         });
     }
@@ -30,4 +29,3 @@ return new class extends Migration
         Schema::dropIfExists('bike_models');
     }
 };
-

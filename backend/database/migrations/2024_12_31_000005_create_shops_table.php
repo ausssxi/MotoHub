@@ -11,15 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // 既存のテーブルを削除して作り直すか、カラムを追加します
+        // ここでは新規作成/再定義の形式で記述します
+        Schema::dropIfExists('shops');
+        
         Schema::create('shops', function (Blueprint $table) {
-            $table->id()->comment('ID (auto_increment)');
+            $table->id();
             $table->string('name', 255)->comment('店舗名');
-            $table->string('address', 500)->nullable()->comment('住所');
+            $table->string('prefecture', 20)->nullable()->comment('都道府県');
+            $table->text('address')->nullable()->comment('住所詳細');
             $table->string('phone', 20)->nullable()->comment('電話番号');
-            $table->string('email', 255)->nullable()->comment('メールアドレス');
-            $table->string('website', 500)->nullable()->comment('ウェブサイトURL');
-            $table->decimal('latitude', 10, 8)->nullable()->comment('緯度');
-            $table->decimal('longitude', 11, 8)->nullable()->comment('経度');
+            $table->text('website_url')->nullable()->comment('ホームページURL');
+            // geometry型が必要な場合は追加（今回はスクレイパーに合わせて省略）
             $table->timestamps();
         });
     }
@@ -32,4 +35,3 @@ return new class extends Migration
         Schema::dropIfExists('shops');
     }
 };
-
