@@ -19,8 +19,8 @@ return new class extends Migration
             $table->foreignId('site_id')->constrained('sites')->onDelete('cascade')->comment('サイトID');
             // サイト固有の識別番号 (例: GooBikeの '1010001' など)
             $table->string('identifier', 100)->comment('サイト固有の車種識別番号');
-            $table->timestamps();
-
+            $table->timestamp('created_at')->nullable()->comment('作成日時');
+            $table->timestamp('updated_at')->nullable()->comment('更新日時');
             // 同じサイト内で同じ識別番号が重複しないようにユニーク制約
             $table->unique(['site_id', 'identifier']);
         });

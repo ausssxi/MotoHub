@@ -17,13 +17,14 @@ return new class extends Migration
         
         Schema::create('shops', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 255)->comment('店舗名');
+            $table->string('name', 255)->unique()->comment('店舗名');
             $table->string('prefecture', 20)->nullable()->comment('都道府県');
-            $table->text('address')->nullable()->comment('住所詳細');
+            $table->string('address', 255)->unique()->comment('住所詳細');
             $table->string('phone', 20)->nullable()->comment('電話番号');
             $table->text('website_url')->nullable()->comment('ホームページURL');
             // geometry型が必要な場合は追加（今回はスクレイパーに合わせて省略）
-            $table->timestamps();
+            $table->timestamp('created_at')->nullable()->comment('作成日時');
+            $table->timestamp('updated_at')->nullable()->comment('更新日時');
         });
     }
 

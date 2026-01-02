@@ -11,10 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('sites', function (Blueprint $table) {
-            $table->id();
-            $table->string('name', 50)->unique()->comment('サイト名 (GooBike, BDS等)');
-            $table->string('base_url', 255)->nullable()->comment('サイトのトップURL');
+        Schema::create('manufacturers', function (Blueprint $table) {
+            $table->id()->comment('ID (auto_increment)');
+            $table->string('name', 100)->unique()->comment('メーカー名');
+            $table->string('name_kana', 100)->nullable()->comment('メーカー名カナ');
+            $table->string('country', 50)->nullable()->comment('原産国');
             $table->timestamp('created_at')->nullable()->comment('作成日時');
             $table->timestamp('updated_at')->nullable()->comment('更新日時');
         });
@@ -25,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('sites');
+        Schema::dropIfExists('manufacturers');
     }
 };

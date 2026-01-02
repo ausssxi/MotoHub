@@ -16,8 +16,10 @@ return new class extends Migration
             $table->foreignId('manufacturer_id')->constrained('manufacturers')->comment('メーカーID');
             // モデル名に UNIQUE KEY を追加しました
             $table->string('name', 255)->unique()->comment('モデル名');
+            $table->unsignedSmallInteger('displacement')->comment('排気量 (cc)');
             $table->string('category', 50)->nullable()->comment('カテゴリ');
-            $table->timestamps();
+            $table->timestamp('created_at')->nullable()->comment('作成日時');
+            $table->timestamp('updated_at')->nullable()->comment('更新日時');
         });
     }
 
