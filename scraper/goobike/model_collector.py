@@ -7,10 +7,10 @@ from playwright.async_api import async_playwright
 from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-# 環境変数の読み込み
+# 環境変数の読み込み (階層に合わせて修正)
 load_dotenv()
 if not os.getenv("DB_DATABASE"):
-    load_dotenv(dotenv_path='../.env')
+    load_dotenv(dotenv_path='../../.env')
 
 # データベース接続設定
 user = os.getenv("DB_USERNAME", "sail")
@@ -44,6 +44,7 @@ class BikeModel(Base):
     name = Column(String(255), nullable=False, unique=True)
     category = Column(String(50), nullable=True)
     displacement = Column(Integer, nullable=True)
+
 class BikeModelIdentifier(Base):
     __tablename__ = "bike_model_identifiers"
     id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
@@ -53,7 +54,7 @@ class BikeModelIdentifier(Base):
     
     __table_args__ = (UniqueConstraint('site_id', 'identifier', name='_site_identifier_uc'),)
 
-async def collect_data():
+async def collect():
     async with async_playwright() as p:
         print("GooBikeモデルコレクターを起動しています...")
         browser = await p.chromium.launch(headless=True)
@@ -108,12 +109,11 @@ async def collect_data():
                         
                         existing_model = db.query(BikeModel).filter(BikeModel.name == model_name).first()
                         if not existing_model:
-                            # 登録時に排気量を None に設定
                             existing_model = BikeModel(
                                 name=model_name, 
                                 manufacturer_id=m_record.id, 
                                 category="不明",
-                                displacement=None # 初期値
+                                displacement=None
                             )
                             db.add(existing_model)
                             db.flush()
@@ -127,12 +127,10 @@ async def collect_data():
                     print(f"エラー ({target['name']}): {e}")
                     db.rollback()
 
-            print("\nすべての同期が完了しました。")
-        except Exception as e:
-            print(f"致命的エラー: {e}")
+            print("\nGooBike車種マスタ同期が完了しました。")
         finally:
             db.close()
             await browser.close()
 
 if __name__ == "__main__":
-    asyncio.run(collect_data())
+    asyncio.run(collect())

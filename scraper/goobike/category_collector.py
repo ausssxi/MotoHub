@@ -10,7 +10,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 # 環境変数の読み込み
 load_dotenv()
 if not os.getenv("DB_DATABASE"):
-    load_dotenv(dotenv_path='../.env')
+    load_dotenv(dotenv_path='../../.env')
 
 # データベース接続設定
 user = os.getenv("DB_USERNAME", "sail")
@@ -32,7 +32,7 @@ class BikeModel(Base):
     name = Column(String(255), nullable=False)
     category = Column(String(50), nullable=True)
 
-async def collect_goobike_categories():
+async def collect():
     async with async_playwright() as p:
         print("GooBikeカテゴリー同期を開始します...")
         browser = await p.chromium.launch(headless=True)
@@ -51,20 +51,16 @@ async def collect_goobike_categories():
                 
                 try:
                     await page.goto(genre_url, wait_until="domcontentloaded", timeout=60000)
-                    
-                    # スタイル名の取得
                     style_elem = await page.query_selector("li strong")
                     if not style_elem: continue
                     style_name = (await style_elem.inner_text()).strip()
                     
-                    # ページ内の車種名を取得
                     bike_elements = await page.query_selector_all("li.bike_list em b")
                     for bike_elem in bike_elements:
                         raw_name = await bike_elem.inner_text()
                         model_name = re.sub(r'[\(\uff08].*?[\)\uff09]', '', raw_name).strip()
                         if not model_name: continue
                         
-                        # カテゴリーが空または不明のレコードを探して更新
                         targets = db.query(BikeModel).filter(
                             BikeModel.name == model_name,
                             or_(BikeModel.category == None, BikeModel.category == "不明")
@@ -72,8 +68,6 @@ async def collect_goobike_categories():
                         
                         for t in targets:
                             t.category = style_name
-                            print(f"    [更新] {model_name} -> {style_name}")
-                    
                     db.commit()
                 except Exception as e:
                     print(f"    エラー (ジャンル {genre_id}): {e}")
@@ -85,4 +79,4 @@ async def collect_goobike_categories():
             await browser.close()
 
 if __name__ == "__main__":
-    asyncio.run(collect_goobike_categories())
+    asyncio.run(collect())

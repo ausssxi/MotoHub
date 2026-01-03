@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\Bike;
 
 use App\Repositories\Bike\ListingRepository;
-use Illuminate\Support\Collection;
 
 /**
  * バイク出品情報の検索ロジックを担当

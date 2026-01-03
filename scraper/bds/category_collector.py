@@ -10,7 +10,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 # 環境変数の読み込み
 load_dotenv()
 if not os.getenv("DB_DATABASE"):
-    load_dotenv(dotenv_path='../.env')
+    load_dotenv(dotenv_path='../../.env')
 
 # データベース接続設定
 user = os.getenv("DB_USERNAME", "sail")
@@ -32,7 +32,8 @@ class BikeModel(Base):
     name = Column(String(255), nullable=False)
     category = Column(String(50), nullable=True)
 
-async def collect_bds_categories():
+
+async def collect():
     async with async_playwright() as p:
         print("BDSカテゴリー同期を開始します（固定リンク方式）...")
         browser = await p.chromium.launch(headless=True)
@@ -43,7 +44,7 @@ async def collect_bds_categories():
         base_url = "https://www.bds-bikesensor.net"
         db = SessionLocal()
 
-        # ソースコードにカテゴリーとスラッグを直接定義
+        # カテゴリーとスラッグの定義
         categories = [
             {"slug": "gentsuki", "name": "原付スクーター"},
             {"slug": "scooter51_125", "name": "スクーター/51～125cc"},
@@ -62,35 +63,28 @@ async def collect_bds_categories():
         ]
 
         try:
-            # 各カテゴリーページを順次巡回
             for cat in categories:
                 target_url = f"{base_url}/bike/type/{cat['slug']}"
                 print(f"  カテゴリー解析中: {cat['name']} ({target_url})")
                 
                 try:
-                    # ページの骨組みができるまで待機
                     await page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
                     
-                    # 車種名が描画されるのを待つ (少し時間がかかる場合があるため)
                     try:
                         await page.wait_for_selector(".c-search_name_block_text", timeout=10000)
                     except:
                         print(f"    [SKIP] 車種リストが見つかりませんでした")
                         continue
 
-                    # 車種名ブロックを取得
-                    # 例: <h3 class="c-search_name_block_text"> BJ (7台)</h3>
                     name_elements = await page.query_selector_all(".c-search_name_block_text")
                     
                     update_count = 0
                     for name_el in name_elements:
                         full_text = (await name_el.inner_text()).strip()
-                        # "BJ (7台)" の形式から "BJ" を抽出
                         model_name = re.sub(r'\s*[\(\uff08].*', '', full_text).strip()
                         
                         if not model_name: continue
 
-                        # カテゴリーが空または不明のレコードのみ更新対象とする
                         targets = db.query(BikeModel).filter(
                             BikeModel.name == model_name,
                             or_(BikeModel.category == None, BikeModel.category == "不明")
@@ -108,7 +102,6 @@ async def collect_bds_categories():
                     print(f"    エラー (スラッグ: {cat['slug']}): {e}")
                     db.rollback()
                 
-                # サーバー負荷軽減のためわずかに待機
                 await asyncio.sleep(1)
 
             print("\nBDSカテゴリー同期が完了しました。")
@@ -117,4 +110,4 @@ async def collect_bds_categories():
             await browser.close()
 
 if __name__ == "__main__":
-    asyncio.run(collect_bds_categories())
+    asyncio.run(collect())

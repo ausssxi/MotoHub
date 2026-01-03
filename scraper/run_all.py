@@ -42,24 +42,24 @@ def main():
     # 実行するスクリプトの最適な順番
     scripts = [
         # --- STEP 1: 車種マスタの作成とID紐付け ---
-        "goobike_model_collector.py",
-        "bds_model_collector.py",
+        "goobike/model_collector.py",
+        "bds/model_collector.py",
         
         # --- STEP 2: マスタ情報の補完 (カテゴリー/名前からの排気量) ---
-        "bike_model_displacement_fixer.py",  # 車種名から数値を抽出して更新
-        "goobike_category_collector.py",      # ジャンルページからスタイルを紐付け
-        "bds_category_collector.py",          # スタイル別ページからスタイルを紐付け
+        "bike_model_displacement_fixer.py",  # 車種名から数値を抽出して更新 (root)
+        "goobike/category_collector.py",      # ジャンルページからスタイルを紐付け
+        "bds/category_collector.py",          # スタイル別ページからスタイルを紐付け
         
         # --- STEP 3: 販売店情報の収集 ---
-        "goobike_shop_collector.py",
-        "bds_shop_collector.py",
+        "goobike/shop_collector.py",
+        "bds/shop_collector.py",
         
         # --- STEP 4: 詳細スペックの深掘り収集 ---
-        "bds_displacement_collector.py",      # 車両個別ページから正確な排気量を収集
+        "bds/displacement_collector.py",      # 車両個別ページから正確な排気量を収集
         
         # --- STEP 5: 出品情報の収集 ---
-        "goobike_listing_collector.py",
-        "bds_listing_collector.py"
+        "goobike/listing_collector.py",
+        "bds/listing_collector.py"
     ]
 
     print("MotoHub データ収集パイプラインを開始します...")

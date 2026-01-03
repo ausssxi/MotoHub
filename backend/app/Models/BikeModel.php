@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * 車種マスタモデル
  */
-class BikeModel extends Model
+final class BikeModel extends Model
 {
     /**
      * @var array<string, string>
