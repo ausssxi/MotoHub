@@ -2,9 +2,10 @@ import asyncio
 import os
 import datetime
 import re
+import unicodedata
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
-from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, ForeignKey, func
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 # 環境変数の読み込み
@@ -31,49 +32,44 @@ class Site(Base):
     id = Column(BigInteger, primary_key=True)
     name = Column(String(50), unique=True)
 
-class Manufacturer(Base):
-    __tablename__ = "manufacturers"
-    id = Column(BigInteger, primary_key=True)
-    name = Column(String(100), unique=True)
-
 class BikeModel(Base):
     __tablename__ = "bike_models"
     id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     manufacturer_id = Column(BigInteger)
     name = Column(String(255), nullable=False, unique=True)
-    category = Column(String(50), nullable=True)
-    displacement = Column(Integer, nullable=True) # 排気量カラム
-    created_at = Column(DateTime, default=datetime.datetime.now)
+    displacement = Column(Integer, nullable=True)
     updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
-class BikeModelIdentifier(Base):
-    __tablename__ = "bike_model_identifiers"
-    id = Column(BigInteger, primary_key=True)
-    bike_model_id = Column(BigInteger, ForeignKey("bike_models.id"))
-    site_id = Column(BigInteger)
-    identifier = Column(String(100))
+def robust_normalize(text):
+    """
+    文字のゆれを徹底的に排除する
+    1. NFKC正規化（全角英数字を半角へ）
+    2. 大文字化
+    3. 各種ハイフン・ダッシュ類を半角ハイフンに統一
+    4. 前後の空白削除
+    """
+    if not text:
+        return ""
+    # NFKC正規化
+    text = unicodedata.normalize('NFKC', text)
+    # 大文字化
+    text = text.upper()
+    # ハイフン類の統一 (長音、全角ハイフン、各種ダッシュを半角ハイフンへ)
+    text = re.sub(r'[ー－―—‐-]', '-', text)
+    # 前後の空白削除
+    return text.strip()
 
 async def collect_displacement():
     async with async_playwright() as p:
-        print("BDS排気量コレクターを起動しています...")
+        print("BDS排気量コレクター（強化マッチ版）を起動しています...")
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            viewport={'width': 1920, 'height': 1080}
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
         page = await context.new_page()
-
-        base_url = "https://www.bds-bikesensor.net"
         db = SessionLocal()
-        
-        # BDSのサイトIDを特定
-        bds_site = db.query(Site).filter(Site.name == "BDS").first()
-        if not bds_site:
-            print("エラー: sitesテーブルに 'BDS' が登録されていません。")
-            return
-        site_id = bds_site.id
 
-        # 直接定義したメーカーリスト
+        # 巡回するメーカー（全メーカーを追加）
         maker_list_raw = [
             {"slug": "honda", "name": "ホンダ"}, {"slug": "suzuki", "name": "スズキ"},
             {"slug": "yamaha", "name": "ヤマハ"}, {"slug": "kawasaki", "name": "カワサキ"},
@@ -107,80 +103,87 @@ async def collect_displacement():
 
         try:
             for m in maker_list_raw:
-                m_url = f"{base_url}/bike/maker/{m['slug']}"
-                print(f"\n--- {m['name']} のメーカーページを解析中: {m_url} ---")
+                m_url = f"https://www.bds-bikesensor.net/bike/maker/{m['slug']}"
+                print(f"\n--- {m['name']} の解析 ---")
                 
                 try:
                     await page.goto(m_url, wait_until="domcontentloaded", timeout=60000)
                     model_items = await page.query_selector_all(".model_item")
+                except Exception as e:
+                    print(f"  [エラー] メーカーページにアクセスできませんでした: {m['name']}")
+                    continue
+                
+                for item in model_items:
+                    m_link = await item.query_selector("a.c-bike_image")
+                    if not m_link: continue
                     
-                    for item in model_items:
-                        # 車種リンク情報の抽出
-                        m_link = await item.query_selector("a.c-bike_image")
-                        if not m_link: continue
-                        
-                        model_name = (await m_link.get_attribute("title") or "").strip()
-                        href = await m_link.get_attribute("href")
-                        
-                        if not model_name or not href: continue
+                    # サイト上の名前を取得
+                    raw_site_name = (await m_link.get_attribute("title") or "").strip()
+                    # 徹底的に正規化
+                    normalized_site_name = robust_normalize(raw_site_name)
+                    href = await m_link.get_attribute("href")
+                    
+                    if not normalized_site_name or not href: continue
 
-                        # DB確認：既に排気量がある場合はスキップ
-                        model_record = db.query(BikeModel).filter(BikeModel.name == model_name).first()
-                        if model_record and model_record.displacement and model_record.displacement > 0:
-                            # print(f"  [SKIP] {model_name} は既に排気量({model_record.displacement}cc)が登録済みです。")
+                    # DB検索も正規化を考慮して行う
+                    # 1. 完全一致で探す
+                    model_record = db.query(BikeModel).filter(BikeModel.name == raw_site_name).first()
+                    
+                    # 2. 見つからない場合、大文字小文字・ハイフンを無視して探す
+                    if not model_record:
+                        model_record = db.query(BikeModel).filter(func.upper(BikeModel.name) == normalized_site_name).first()
+
+                    # すでに排気量がある（0より大きい）ならスキップ
+                    if model_record and model_record.displacement and model_record.displacement > 0:
+                        continue
+
+                    # 検索ページURLの生成 (絶対パスか相対パスかを判定して結合)
+                    if href.startswith('http'):
+                        search_page_url = href
+                    else:
+                        search_page_url = "https://www.bds-bikesensor.net" + (href if href.startswith('/') else '/' + href)
+
+                    print(f"  >> 照合中: {normalized_site_name} (URL: {search_page_url})")
+                    
+                    sub_page = None
+                    try:
+                        sub_page = await context.new_page()
+                        # wait_untilをdomcontentloadedに早める
+                        await sub_page.goto(search_page_url, wait_until="domcontentloaded", timeout=30000)
+                        
+                        # 排気量情報の待機
+                        try:
+                            await sub_page.wait_for_selector(".c-search_status_col", timeout=5000)
+                        except:
+                            print(f"    [SKIP] 車両データが描画されませんでした: {normalized_site_name}")
+                            await sub_page.close()
                             continue
 
-                        # 各車種の車両一覧ページへ侵入
-                        search_page_url = base_url + href if href.startswith('/') else href
-                        print(f"  >> {model_name} の詳細ページを解析中...")
+                        status_cols = await sub_page.query_selector_all(".c-search_status_col")
+                        disp_val = None
+                        for col in status_cols:
+                            head = await col.query_selector(".c-search_status_head")
+                            if head and "排気量" in (await head.inner_text()):
+                                val_el = await col.query_selector(".c-search_status_title01")
+                                if val_el:
+                                    m_digit = re.search(r'(\d+)', await val_el.inner_text())
+                                    if m_digit: disp_val = int(m_digit.group(1))
+                                    break
                         
-                        try:
-                            # 2つ目のページオブジェクトを作って効率化
-                            sub_page = await context.new_page()
-                            await sub_page.goto(search_page_url, wait_until="networkidle", timeout=60000)
-                            
-                            # 排気量ブロックを探す
-                            # スマホ版・PC版の両方に対応できるよう汎用的なセレクターを使用
-                            status_cols = await sub_page.query_selector_all(".c-search_status_col")
-                            disp_val = None
-                            
-                            for col in status_cols:
-                                head_el = await col.query_selector(".c-search_status_head")
-                                if head_el and "排気量" in (await head_el.inner_text()):
-                                    # 値が入っている p.c-search_status_title01 を取得
-                                    val_el = await col.query_selector(".c-search_status_title01")
-                                    if val_el:
-                                        raw_val = (await val_el.inner_text()).strip()
-                                        # 数値のみ抽出
-                                        match = re.search(r'(\d+)', raw_val)
-                                        if match:
-                                            disp_val = int(match.group(1))
-                                            break # 排気量が見つかったらループ終了
-                            
-                            await sub_page.close()
+                        if disp_val and model_record:
+                            model_record.displacement = disp_val
+                            db.commit()
+                            print(f"    [更新] {model_record.name} -> {disp_val}cc")
+                        else:
+                            print(f"    [情報] 排気量情報が見つかりませんでした: {normalized_site_name}")
+                        
+                        await sub_page.close()
+                    except Exception as e:
+                        print(f"    [エラー] 解析中に問題が発生しました ({normalized_site_name}): {str(e)}")
+                        if sub_page: await sub_page.close()
 
-                            if disp_val:
-                                if model_record:
-                                    model_record.displacement = disp_val
-                                    db.commit()
-                                    print(f"    [更新成功] {model_name}: {disp_val}cc")
-                                # １回でも取得したら（この車種の解析が終わったら）、次の車種に移る
-                            else:
-                                print(f"    [警告] {model_name} の排気量が見つかりませんでした（在庫なし等）。")
+                await asyncio.sleep(0.5)
 
-                        except Exception as sub_e:
-                            print(f"    [エラー] 車種詳細取得中: {sub_e}")
-                            if 'sub_page' in locals(): await sub_page.close()
-
-                    await asyncio.sleep(0.5)
-
-                except Exception as e:
-                    print(f"  メーカーページ解析エラー ({m['name']}): {e}")
-
-            print("\nBDS排気量データの更新が完了しました。")
-
-        except Exception as e:
-            print(f"致命的なエラー: {e}")
         finally:
             db.close()
             await browser.close()

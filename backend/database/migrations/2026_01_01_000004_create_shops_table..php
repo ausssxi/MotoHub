@@ -23,8 +23,8 @@ return new class extends Migration
             $table->string('phone', 20)->nullable()->comment('電話番号');
             $table->text('website_url')->nullable()->comment('ホームページURL');
             // geometry型が必要な場合は追加（今回はスクレイパーに合わせて省略）
-            $table->timestamp('created_at')->nullable()->comment('作成日時');
-            $table->timestamp('updated_at')->nullable()->comment('更新日時');
+            $table->timestamp('created_at')->useCurrent()->comment('作成日時');
+            $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate()->comment('更新日時');
         });
     }
 

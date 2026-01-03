@@ -16,18 +16,14 @@ class SiteSeeder extends Seeder
         DB::table('sites')->updateOrInsert(
             ['name' => 'GooBike'],
             [
-                'base_url' => 'https://www.goobike.com',
-                'created_at' => now(),
-                'updated_at' => now()
+                'base_url' => 'https://www.goobike.com'
             ]
         );
 
         DB::table('sites')->updateOrInsert(
             ['name' => 'BDS'],
             [
-                'base_url' => 'https://www.bds-bikesensor.net',
-                'created_at' => now(),
-                'updated_at' => now()
+                'base_url' => 'https://www.bds-bikesensor.net'
             ]
         );
     }

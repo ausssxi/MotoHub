@@ -14,10 +14,9 @@ return new class extends Migration
         Schema::create('manufacturers', function (Blueprint $table) {
             $table->id()->comment('ID (auto_increment)');
             $table->string('name', 100)->unique()->comment('メーカー名');
-            $table->string('name_kana', 100)->nullable()->comment('メーカー名カナ');
             $table->string('country', 50)->nullable()->comment('原産国');
-            $table->timestamp('created_at')->nullable()->comment('作成日時');
-            $table->timestamp('updated_at')->nullable()->comment('更新日時');
+            $table->timestamp('created_at')->useCurrent()->comment('作成日時');
+            $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate()->comment('更新日時');
         });
     }
 

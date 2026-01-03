@@ -56,108 +56,108 @@ class ShopIdentifier(Base):
     
     __table_args__ = (UniqueConstraint('site_id', 'identifier', name='_shop_site_identifier_uc'),)
 
-async def collect_bds_shops():
+async def collect_shops():
     async with async_playwright() as p:
-        print("BDSショップコレクターを起動しています...")
+        print("ブラウザを起動しています...")
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            viewport={'width': 1920, 'height': 1080}
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
         page = await context.new_page()
 
-        base_url = "https://www.bds-bikesensor.net"
-        db = SessionLocal()
+        base_url = "https://www.goobike.com"
+        shop_top_url = f"{base_url}/shop/"
         
-        # BDSのサイトIDを取得
-        bds_site = db.query(Site).filter(Site.name == "BDS").first()
-        if not bds_site:
-            print("エラー: sitesテーブルに 'BDS' が登録されていません。")
+        db = SessionLocal()
+
+        # GooBikeのサイトIDを取得
+        goobike_site = db.query(Site).filter(Site.name == "GooBike").first()
+        if not goobike_site:
+            print("エラー: sitesテーブルに 'GooBike' が登録されていません。Seederを実行してください。")
             db.close()
             await browser.close()
             return
-        site_id = bds_site.id
-
-        # 都道府県コード 01 ～ 47 のマップ
-        pref_map = {
-            "01": "北海道", "02": "青森", "03": "岩手", "04": "宮城", "05": "秋田", "06": "山形", "07": "福島",
-            "08": "茨城", "09": "栃木", "10": "群馬", "11": "埼玉", "12": "千葉", "13": "東京", "14": "神奈川",
-            "15": "新潟", "16": "富山", "17": "石川", "18": "福井", "19": "山梨", "20": "長野", "21": "岐阜",
-            "22": "静岡", "23": "愛知", "24": "三重", "25": "滋賀", "26": "京都", "27": "大阪", "28": "兵庫",
-            "29": "奈良", "30": "和歌山", "31": "鳥取", "32": "島根", "33": "岡山", "34": "広島", "35": "山口",
-            "36": "徳島", "37": "香川", "38": "愛媛", "39": "高知", "40": "福岡", "41": "佐賀", "42": "長崎",
-            "43": "熊本", "44": "大分", "45": "宮崎", "46": "鹿児島", "47": "沖縄"
-        }
+        
+        site_id = goobike_site.id
 
         try:
-            for code, pref_name in pref_map.items():
-                current_url = f"{base_url}/shop?prefectureCodes%5B%5D={code}"
-                print(f"\n--- 都道府県: {pref_name} ({code}) を収集開始 ---")
+            print(f"販売店TOPにアクセス中: {shop_top_url}")
+            await page.goto(shop_top_url, wait_until="domcontentloaded", timeout=60000)
+            
+            # 1. 各都道府県のリンクを取得
+            pref_links = await page.query_selector_all(".mapBox li a")
+            pref_urls = []
+            for link in pref_links:
+                href = await link.get_attribute("href")
+                raw_pref_name = await link.inner_text()
                 
-                page_num = 1
-                while current_url:
-                    print(f"  解析中 P.{page_num}: {current_url}")
-                    await page.goto(current_url, wait_until="domcontentloaded", timeout=60000)
-                    
-                    # 各ショップのリストアイテムを取得
-                    shop_items = await page.query_selector_all("li.c-search_block_list_item.type_shop")
-                    
-                    if not shop_items:
-                        break
+                # 沖縄(86) などの形式からカッコと数字を削除
+                pref_name = re.sub(r'[\(\uff08].*?[\)\uff09]', '', raw_pref_name).strip()
+                
+                if href:
+                    pref_urls.append({
+                        "name": pref_name,
+                        "url": base_url + href if href.startswith('/') else href
+                    })
 
-                    for item in shop_items:
+            print(f"{len(pref_urls)} 都道府県のリンクを取得しました。")
+
+            # 2. 各都道府県のページを巡回
+            for pref in pref_urls:
+                current_page_url = pref['url']
+                page_count = 1
+                
+                print(f"\n--- {pref['name']} の販売店を解析開始 ---")
+                
+                while current_page_url:
+                    print(f"  P.{page_count}: {current_page_url}")
+                    await page.goto(current_page_url, wait_until="domcontentloaded", timeout=60000)
+                    
+                    # 販売店ブロックを取得
+                    shop_elements = await page.query_selector_all(".shop_header")
+                    
+                    for shop_el in shop_elements:
                         try:
-                            # 1. 店名と認識番号が含まれるリンクの取得
-                            name_el = await item.query_selector(".c-search_block_shop_title01 a")
-                            if not name_el: continue
-                            name = (await name_el.inner_text()).strip()
-
-                            # 詳細URLの取得 (例: /shop/client/60534)
-                            href = await name_el.get_attribute("href")
-                            detail_url = base_url + href if href.startswith('/') else href
-
-                            # 2. 認識番号の抽出 (client/ 以降の数字)
+                            # 店名と詳細URLリンク取得
+                            name_link_el = await shop_el.query_selector(".shop_name a")
+                            if not name_link_el:
+                                continue
+                            
+                            name = (await name_link_el.inner_text()).strip()
+                            href = await name_link_el.get_attribute("href") # 例: /shop/client_8502604/
+                            
+                            # 店舗認識番号を抽出 (client_(\d+) の形式から 8502604 を抜き出す)
                             identifier = None
                             if href:
-                                match = re.search(r'client/(\d+)', href)
+                                match = re.search(r'client_(\d+)', href)
                                 if match:
                                     identifier = match.group(1)
 
-                            # 3. 住所と電話番号の取得 (テーブル構造)
-                            address = ""
-                            phone = ""
-                            table_rows = await item.query_selector_all(".c-search_block_shop-info_table table tr")
-                            for row in table_rows:
-                                th = await row.query_selector("th")
-                                td = await row.query_selector("td")
-                                if th and td:
-                                    header = await th.inner_text()
-                                    if "住所" in header:
-                                        address = (await td.inner_text()).strip()
-                                    elif "電話番号" in header:
-                                        phone = (await td.inner_text()).strip()
+                            # 住所取得 (親要素から辿る)
+                            address = await page.evaluate(
+                                "(el) => { const addr = el.parentElement.querySelector('.shop_address'); return addr ? addr.innerText : ''; }", 
+                                shop_el
+                            )
+                            address = address.strip()
 
-                            if not name or not address:
-                                continue
-
-                            # 4. 重複チェック (名前 または 住所)
-                            existing_shop = db.query(Shop).filter(
+                            # --- DB登録処理 ---
+                            # 1. Shopテーブルの重複チェック (名前 または 住所)
+                            shop_record = db.query(Shop).filter(
                                 or_(Shop.name == name, Shop.address == address)
                             ).first()
 
-                            if not existing_shop:
-                                existing_shop = Shop(
+                            if not shop_record:
+                                shop_record = Shop(
                                     name=name,
-                                    prefecture=pref_name,
+                                    prefecture=pref['name'],
                                     address=address,
-                                    phone=phone,
-                                    website_url=detail_url
+                                    website_url=base_url + href if href and href.startswith('/') else href
                                 )
-                                db.add(existing_shop)
-                                db.flush() # ID確定
+                                db.add(shop_record)
+                                db.flush() # shop_idを確定させる
                                 print(f"    [新店登録] {name}")
                             
-                            # 5. ShopIdentifierの登録
+                            # 2. ShopIdentifierテーブルの登録 (サイト固有ID)
                             if identifier:
                                 existing_ident = db.query(ShopIdentifier).filter(
                                     ShopIdentifier.site_id == site_id,
@@ -166,35 +166,38 @@ async def collect_bds_shops():
 
                                 if not existing_ident:
                                     new_ident = ShopIdentifier(
-                                        shop_id=existing_shop.id,
+                                        shop_id=shop_record.id,
                                         site_id=site_id,
                                         identifier=identifier
                                     )
                                     db.add(new_ident)
-                                    print(f"      -> ID登録: {identifier}")
+                                    print(f"    [ID紐付] {name} (ID: {identifier})")
 
                             db.commit()
+
                         except Exception as e:
-                            print(f"    店舗個別解析エラー: {e}")
+                            print(f"    店舗情報抽出エラー: {e}")
                             db.rollback()
 
-                    # 6. ページネーション (次へボタン)
-                    next_btn = await page.query_selector("div.c-pager a.c-btn_next")
-                    if next_btn:
-                        href = await next_btn.get_attribute("href")
-                        current_url = base_url + href if href.startswith('/') else href
-                        page_num += 1
-                        await asyncio.sleep(1)
+                    # ページネーション：次ページがあるか確認
+                    next_button = await page.query_selector(".pager_next a")
+                    if next_button:
+                        next_href = await next_button.get_attribute("href")
+                        current_page_url = base_url + next_href if next_href.startswith('/') else next_href
+                        page_count += 1
+                        await asyncio.sleep(1) # サーバー負荷軽減
                     else:
-                        current_url = None
+                        current_page_url = None
 
-            print("\nBDS販売店の全件収集が完了しました。")
+                await asyncio.sleep(0.5)
+
+            print("\nすべての販売店データの収集が完了しました。")
 
         except Exception as e:
-            print(f"致命的なエラー: {e}")
+            print(f"致命的エラー: {e}")
         finally:
             db.close()
             await browser.close()
 
 if __name__ == "__main__":
-    asyncio.run(collect_bds_shops())
+    asyncio.run(collect_shops())

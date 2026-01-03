@@ -23,8 +23,8 @@ return new class extends Migration
             $table->integer('mileage')->nullable();
             $table->json('image_urls')->nullable();
             $table->boolean('is_sold_out')->default(false);
-            $table->timestamp('created_at')->nullable()->comment('作成日時');
-            $table->timestamp('updated_at')->nullable()->comment('更新日時');
+            $table->timestamp('created_at')->useCurrent()->comment('作成日時');
+            $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate()->comment('更新日時');
         });
     }
 

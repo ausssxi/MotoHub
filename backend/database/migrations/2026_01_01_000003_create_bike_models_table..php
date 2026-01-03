@@ -14,12 +14,12 @@ return new class extends Migration
         Schema::create('bike_models', function (Blueprint $table) {
             $table->id()->comment('ID (auto_increment)');
             $table->foreignId('manufacturer_id')->constrained('manufacturers')->comment('メーカーID');
-            // モデル名に UNIQUE KEY を追加しました
             $table->string('name', 255)->unique()->comment('モデル名');
-            $table->unsignedSmallInteger('displacement')->comment('排気量 (cc)');
+            // nullable() を追加して、最初は空でも登録できるようにします
+            $table->integer('displacement')->nullable()->comment('排気量 (cc)');
             $table->string('category', 50)->nullable()->comment('カテゴリ');
-            $table->timestamp('created_at')->nullable()->comment('作成日時');
-            $table->timestamp('updated_at')->nullable()->comment('更新日時');
+            $table->timestamp('created_at')->useCurrent()->comment('作成日時');
+            $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate()->comment('更新日時');
         });
     }
 

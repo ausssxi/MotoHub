@@ -1,7 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Bike\ListingSearchController;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+/**
+ * 中古バイク検索ページ
+ */
+Route::get('/', [ListingSearchController::class, 'index'])->name('bikes.index');

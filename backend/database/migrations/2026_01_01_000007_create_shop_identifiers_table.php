@@ -20,8 +20,8 @@ return new class extends Migration
             // サイト固有の店舗認識番号 (例: GooBikeの '8502604' など)
             $table->string('identifier', 100)->comment('サイト固有の店舗認識番号');
             
-            $table->timestamp('created_at')->nullable()->comment('作成日時');
-            $table->timestamp('updated_at')->nullable()->comment('更新日時');
+            $table->timestamp('created_at')->useCurrent()->comment('作成日時');
+            $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate()->comment('更新日時');
 
             // 同じサイト内で同じ識別番号が重複しないようにユニーク制約
             $table->unique(['site_id', 'identifier']);

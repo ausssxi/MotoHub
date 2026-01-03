@@ -34,8 +34,8 @@ class Listing(Base):
     id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     bike_model_id = Column(BigInteger, nullable=True)
     shop_id = Column(BigInteger, nullable=True)
-    title = Column(String(255), nullable=True) # タイトル追加
-    source_platform = Column(String(50))
+    site_id = Column(BigInteger, nullable=False) # source_platform から site_id に変更
+    title = Column(String(255), nullable=True)
     source_url = Column(Text, nullable=False)
     price = Column(Numeric(12, 0))
     total_price = Column(Numeric(12, 0), nullable=True)
@@ -138,7 +138,7 @@ async def scrape_goobike():
                                 
                                 v_path = await v_link_el.get_attribute("href")
                                 v_url = base_url + v_path if v_path.startswith('/') else v_path
-                                v_title = (await v_link_el.inner_text()).strip() # タイトル取得
+                                v_title = (await v_link_el.inner_text()).strip()
 
                                 # 価格解析
                                 price_val = 0
@@ -189,9 +189,9 @@ async def scrape_goobike():
                                 if not existing:
                                     new_listing = Listing(
                                         bike_model_id=bike_model_id,
-                                        shop_id=shop_id, # nullableなのでNoneでもOK
-                                        title=v_title,   # タイトル保存
-                                        source_platform="GooBike",
+                                        shop_id=shop_id,
+                                        site_id=site_id, # site_id を使用
+                                        title=v_title,
                                         source_url=v_url,
                                         price=price_val,
                                         total_price=total_price_val,
@@ -202,6 +202,7 @@ async def scrape_goobike():
                                     )
                                     db.add(new_listing)
                                 else:
+                                    existing.site_id = site_id
                                     existing.title = v_title
                                     existing.price = price_val
                                     existing.total_price = total_price_val
@@ -210,7 +211,6 @@ async def scrape_goobike():
                                 db.commit()
 
                             except Exception as e:
-                                # 個別の保存エラー時はロールバックして次へ
                                 db.rollback()
                                 print(f"    車両解析/保存エラー: {e}")
                         
