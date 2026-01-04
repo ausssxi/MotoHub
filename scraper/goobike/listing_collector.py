@@ -2,40 +2,31 @@ import asyncio
 import os
 import datetime
 import re
-import random
 import sys
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
-from sqlalchemy import create_engine, Column, BigInteger, String, Numeric, Integer, Boolean, Text, JSON, DateTime, or_
+from sqlalchemy import create_engine, Column, BigInteger, String, Numeric, Integer, Boolean, Text, JSON, DateTime, or_, update
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-# 環境変数の読み込み
-# 現在のファイル位置から見て、親ディレクトリにある .env を読み込む
+# 1. 環境変数の読み込み
 current_dir = os.path.dirname(os.path.abspath(__file__))
 env_path = os.path.join(current_dir, '..', '.env')
 load_dotenv(dotenv_path=env_path)
 
-# もし読み込めなかったらカレントディレクトリも確認
 if not os.getenv("DB_DATABASE"):
     load_dotenv()
 
 def get_env_or_exit(key, default=None, required=True):
-    """
-    環境変数を取得する。
-    required=True の場合、値が取得できなければプログラムを終了させる（セキュリティ対策）。
-    """
     val = os.getenv(key, default)
     if required and val is None:
         print(f"致命的エラー: 必須の環境変数 '{key}' が設定されていません。")
         sys.exit(1)
     return val
 
-# データベース接続設定: 機密情報はデフォルト値を設定せず必須（required=True）とする
+# データベース接続設定
 DB_USER = get_env_or_exit("DB_USERNAME")
 DB_PASS = get_env_or_exit("DB_PASSWORD")
 DB_NAME = get_env_or_exit("DB_DATABASE")
-
-# 接続先やポートは、機密情報ではないため利便性のためにデフォルト値を残しても許容される
 DB_HOST = get_env_or_exit("DB_HOST", default="db")
 DB_PORT = get_env_or_exit("DB_PORT", default="3306")
 
@@ -88,14 +79,14 @@ MAX_CONCURRENT_PAGES = 3
 semaphore = asyncio.Semaphore(MAX_CONCURRENT_PAGES)
 
 async def block_resources(route):
-    """画像、CSS、フォントなどの不要なリソースを遮断"""
+    """不要なリソースを遮断"""
     if route.request.resource_type in ["image", "media", "font", "stylesheet"]:
         await route.abort()
     else:
         await route.continue_()
 
-async def process_model_page(context, base_url, model_path, bike_model_id, site_id, shop_cache, known_urls):
-    """車種ごとの出品一覧ページを解析。既知のURLはスキップする。"""
+async def process_model_page(context, base_url, model_path, bike_model_id, site_id, shop_cache, known_urls, found_urls):
+    """車種ごとの出品一覧ページを解析"""
     async with semaphore:
         db = SessionLocal()
         page = await context.new_page()
@@ -110,16 +101,17 @@ async def process_model_page(context, base_url, model_path, bike_model_id, site_
             
             for v_el in vehicle_elements:
                 try:
-                    # まずURLだけを取得してチェック
                     v_link_el = await v_el.query_selector("h4 span a")
                     if not v_link_el: continue
                     v_url = base_url + (await v_link_el.get_attribute("href"))
 
-                    # --- 重複スキップ処理 ---
+                    # 今回の実行で見つかったURLとして記録（掲載終了判定用）
+                    found_urls.add(v_url)
+
+                    # 重複スキップ処理
                     if v_url in known_urls:
                         continue
 
-                    # ここから下は「新しいURL」の場合のみ実行される
                     v_title = (await v_link_el.inner_text()).strip()
 
                     # 価格の抽出
@@ -136,7 +128,7 @@ async def process_model_page(context, base_url, model_path, bike_model_id, site_
                         t_match = re.search(r'(\d+\.?\d*)', t_text.replace(',', ''))
                         if t_match: total_price_val = int(float(t_match.group(1)) * 10000)
 
-                    # 年式・走行距離の抽出
+                    # 年式・走行距離
                     year, mile = None, None
                     spec_lis = await v_el.query_selector_all(".cont01 ul li")
                     for li in spec_lis:
@@ -208,14 +200,17 @@ async def collect():
     model_ident_cache = {i.identifier: i.bike_model_id for i in db.query(BikeModelIdentifier).filter(BikeModelIdentifier.site_id == site_id).all()}
     shop_cache = {i.identifier: i.shop_id for i in db.query(ShopIdentifier).filter(ShopIdentifier.site_id == site_id).all()}
     
-    # URLキャッシュの構築
-    known_urls = {l.source_url for l in db.query(Listing.source_url).all()}
-    print(f"既知のURLを {len(known_urls)} 件ロードしました。")
+    # URLキャッシュの構築（現在DBにあるすべてのURL）
+    known_urls = {l.source_url for l in db.query(Listing.source_url).filter(Listing.site_id == site_id).all()}
     
+    # 今回の実行で見つかったURLを格納するセット
+    found_urls_in_this_run = set()
+    
+    print(f"既知のURLを {len(known_urls)} 件ロードしました。")
     db.close()
 
     async with async_playwright() as p:
-        print("GooBike出品情報コレクターを起動しています...")
+        print("GooBike出品情報コレクター（掲載終了判定機能付き）を起動しています...")
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -250,17 +245,47 @@ async def collect():
                         bike_model_id = model_ident_cache.get(identifier)
                         if bike_model_id:
                             process_tasks.append(
-                                process_model_page(context, base_url, model_path, bike_model_id, site_id, shop_cache, known_urls)
+                                process_model_page(context, base_url, model_path, bike_model_id, site_id, shop_cache, known_urls, found_urls_in_this_run)
                             )
                 
-                # メーカーごとに並列実行
                 if process_tasks:
                     await asyncio.gather(*process_tasks)
                 
                 await temp_page.close()
                 await asyncio.sleep(1)
 
-            print("\nすべての出品情報の同期が完了しました。")
+            # --- 掲載終了（完売）判定フェーズ ---
+            print("\n掲載終了車両の判定を行っています...")
+            db = SessionLocal()
+            
+            # DBにあって、今回の巡回で見つからなかったURLを特定
+            # ※ 1メーカーだけ回した時に他のメーカーを消さないよう、site_id で絞り込む
+            missing_urls = known_urls - found_urls_in_this_run
+            
+            if missing_urls:
+                # 大量のURLを一度に処理すると重いため、100件ずつ更新
+                missing_list = list(missing_urls)
+                chunk_size = 100
+                total_updated = 0
+                
+                for i in range(0, len(missing_list), chunk_size):
+                    chunk = missing_list[i:i + chunk_size]
+                    db.execute(
+                        update(Listing)
+                        .where(Listing.source_url.in_(chunk))
+                        .where(Listing.site_id == site_id)
+                        .values(is_sold_out=True, updated_at=datetime.datetime.now())
+                    )
+                    total_updated += len(chunk)
+                
+                db.commit()
+                print(f"  -> {total_updated} 件の車両を「掲載終了（完売）」として更新しました。")
+            else:
+                print("  -> 掲載終了した車両はありませんでした。")
+
+            print("\nすべての同期処理が完了しました。")
+            db.close()
+
         finally:
             await browser.close()
 

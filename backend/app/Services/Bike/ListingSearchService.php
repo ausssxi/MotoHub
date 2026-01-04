@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Bike;
 
 use App\Repositories\Bike\ListingRepository;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * バイク出品情報の検索ロジックを担当
@@ -42,7 +43,26 @@ final class ListingSearchService
             'store_name' => $item->shop->name ?? '個人出品等',
             'store_address' => $item->shop->prefecture ?? '',
             'url' => $item->source_url,
-            'images' => $item->image_urls,
+            // ストレージに保存されたパスがある場合はURLに変換、なければ空配列
+            'images' => $this->resolveImageUrls($item->local_image_paths),
         ])->toArray();
+    }
+
+    /**
+     * 保存済みの相対パスを公開URLの配列に変換する
+     * @param array|null $paths
+     * @return array
+     */
+    private function resolveImageUrls(?array $paths): array
+    {
+        if (empty($paths)) {
+            return [];
+        }
+
+        return array_map(function ($path) {
+            // storage/app/public/listings 配下に保存されている前提
+            // asset() や Storage::url() を使用
+            return Storage::disk('public')->url('listings/' . $path);
+        }, $paths);
     }
 }

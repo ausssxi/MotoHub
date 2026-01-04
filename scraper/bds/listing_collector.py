@@ -2,41 +2,32 @@ import asyncio
 import os
 import datetime
 import re
-import json
 import random
 import sys
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
-from sqlalchemy import create_engine, Column, BigInteger, String, Numeric, Integer, Boolean, Text, JSON, DateTime, ForeignKey, select, or_
+from sqlalchemy import create_engine, Column, BigInteger, String, Numeric, Integer, Boolean, Text, JSON, DateTime, ForeignKey, select, or_, update
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 # 1. 環境変数の読み込み
-# 現在のファイル位置 (scraper/bds/) から見て、2つ上の階層 (scraper/) にある .env を探す
 current_dir = os.path.dirname(os.path.abspath(__file__))
 env_path = os.path.join(current_dir, '..', '..', '.env')
 load_dotenv(dotenv_path=env_path)
 
-# もし読み込めなかったらカレントディレクトリも確認
 if not os.getenv("DB_DATABASE"):
     load_dotenv()
 
 def get_env_or_exit(key, default=None, required=True):
-    """
-    環境変数を取得する。
-    required=True の場合、値が取得できなければプログラムを終了させる（セキュリティ対策）。
-    """
     val = os.getenv(key, default)
     if required and val is None:
         print(f"致命的エラー: 必須の環境変数 '{key}' が設定されていません。")
         sys.exit(1)
     return val
 
-# データベース接続設定: 機密情報はデフォルト値を設定せず必須（required=True）とする
+# データベース接続設定
 DB_USER = get_env_or_exit("DB_USERNAME")
 DB_PASS = get_env_or_exit("DB_PASSWORD")
 DB_NAME = get_env_or_exit("DB_DATABASE")
-
-# 接続先やポートは、機密情報ではないため利便性のためにデフォルト値を残しても許容される
 DB_HOST = get_env_or_exit("DB_HOST", default="db")
 DB_PORT = get_env_or_exit("DB_PORT", default="3306")
 
@@ -84,25 +75,18 @@ class Site(Base):
     id = Column(BigInteger, primary_key=True)
     name = Column(String(50))
 
-class Shop(Base):
-    __tablename__ = "shops"
-    id = Column(BigInteger, primary_key=True)
-    name = Column(String(255))
-    address = Column(Text)
-
 # 同時接続数を制限
 MAX_CONCURRENT_PAGES = 3
 semaphore = asyncio.Semaphore(MAX_CONCURRENT_PAGES)
 
 async def block_resources(route):
-    """画像（メイン以外）、CSS、フォントなどの不要なリソースを遮断"""
     if route.request.resource_type in ["image", "media", "font", "stylesheet"]:
         await route.abort()
     else:
         await route.continue_()
 
-async def process_model_page(context, base_url, model_path, bike_model_id, site_id, shop_cache, known_urls):
-    """車種ごとの出品一覧を解析するタスク。リトライ機能付き。"""
+async def process_model_page(context, base_url, model_path, bike_model_id, site_id, shop_cache, known_urls, found_urls):
+    """車種ごとの出品一覧を解析。found_urls に見つけたURLを記録。"""
     async with semaphore:
         db = SessionLocal()
         page = await context.new_page()
@@ -131,6 +115,9 @@ async def process_model_page(context, base_url, model_path, bike_model_id, site_
                         if not title_el: continue
                         
                         v_url = base_url + (await title_el.get_attribute("href"))
+
+                        # 今回の巡回で見つけたURLを記録（重要）
+                        found_urls.add(v_url)
 
                         if v_url in known_urls:
                             continue
@@ -204,9 +191,8 @@ async def process_model_page(context, base_url, model_path, bike_model_id, site_
                         known_urls.add(v_url)
                         new_records += 1
 
-                    except Exception as e:
+                    except Exception:
                         db.rollback()
-                        print(f"      車両解析エラー: {e}")
 
                 if new_records > 0:
                     print(f"    [完了] {model_path}: {new_records}件の新着を登録")
@@ -232,12 +218,18 @@ async def collect():
     print("キャッシュを構築中...")
     model_ident_cache = {i.identifier: i.bike_model_id for i in db.query(BikeModelIdentifier).filter(BikeModelIdentifier.site_id == site_id).all()}
     shop_cache = {i.identifier: i.shop_id for i in db.query(ShopIdentifier).filter(ShopIdentifier.site_id == site_id).all()}
-    known_urls = {l.source_url for l in db.query(Listing.source_url).filter(Listing.site_id == site_id).all()}
-    print(f"既知のURLを {len(known_urls)} 件ロードしました。")
+    
+    # DBにある「販売中」のBDS車両URLをすべて取得
+    known_urls = {l.source_url for l in db.query(Listing.source_url).filter(Listing.site_id == site_id, Listing.is_sold_out == False).all()}
+    
+    # 今回の巡回で見つけたURLを保存するセット
+    found_urls_in_this_run = set()
+    
+    print(f"既知の販売中車両を {len(known_urls)} 件ロードしました。")
     db.close()
 
     async with async_playwright() as p:
-        print("BDSリスティングコレクター（セキュア版）を起動しています...")
+        print("BDSリスティングコレクター（完売判定機能付き）を起動しています...")
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -299,7 +291,7 @@ async def collect():
                             bike_model_id = model_ident_cache.get(identifier)
                             if bike_model_id:
                                 process_tasks.append(
-                                    process_model_page(context, base_url, href, bike_model_id, site_id, shop_cache, known_urls)
+                                    process_model_page(context, base_url, href, bike_model_id, site_id, shop_cache, known_urls, found_urls_in_this_run)
                                 )
 
                     if process_tasks:
@@ -311,7 +303,35 @@ async def collect():
                     await temp_page.close()
                     await asyncio.sleep(random.uniform(1, 2))
 
+            # --- 掲載終了（完売）判定フェーズ ---
+            print("\n掲載終了車両の判定を行っています...")
+            db = SessionLocal()
+            
+            # DBにあって、今回の巡回で見つからなかったURLを特定
+            missing_urls = known_urls - found_urls_in_this_run
+            
+            if missing_urls:
+                missing_list = list(missing_urls)
+                chunk_size = 100
+                total_updated = 0
+                
+                for i in range(0, len(missing_list), chunk_size):
+                    chunk = missing_list[i:i + chunk_size]
+                    db.execute(
+                        update(Listing)
+                        .where(Listing.source_url.in_(chunk))
+                        .where(Listing.site_id == site_id)
+                        .values(is_sold_out=True, updated_at=datetime.datetime.now())
+                    )
+                    total_updated += len(chunk)
+                
+                db.commit()
+                print(f"  -> {total_updated} 件の車両を「掲載終了（完売）」として更新しました。")
+            else:
+                print("  -> 掲載終了した車両はありませんでした。")
+
             print("\nBDS出品情報の同期が完了しました。")
+            db.close()
 
         finally:
             await browser.close()
