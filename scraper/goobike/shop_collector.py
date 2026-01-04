@@ -2,23 +2,44 @@ import asyncio
 import os
 import datetime
 import re
+import sys
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 from sqlalchemy import create_engine, Column, BigInteger, String, Text, DateTime, ForeignKey, UniqueConstraint, or_
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.exc import IntegrityError
 
-# 環境変数の読み込み
-load_dotenv()
+# 1. 環境変数の読み込み
+# 現在のファイル位置 (scraper/goobike/) から見て、1つ上の階層 (scraper/) にある .env を探す
+current_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(current_dir, '..', '.env')
+load_dotenv(dotenv_path=env_path)
+
+# もし読み込めなかったらカレントディレクトリも確認
 if not os.getenv("DB_DATABASE"):
-    load_dotenv(dotenv_path='../../.env')
+    load_dotenv()
 
-# データベース接続設定
-user = os.getenv("DB_USERNAME", "sail")
-password = os.getenv("DB_PASSWORD", "password")
-host = os.getenv("DB_HOST", "db")
-port = os.getenv("DB_PORT", "3306")
-database = os.getenv("DB_DATABASE", "motohub")
-DATABASE_URL = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
+def get_env_or_exit(key, default=None, required=True):
+    """
+    環境変数を取得する。
+    required=True の場合、値が取得できなければプログラムを終了させる（セキュリティ対策）。
+    """
+    val = os.getenv(key, default)
+    if required and val is None:
+        print(f"致命的エラー: 必須の環境変数 '{key}' が設定されていません。")
+        sys.exit(1)
+    return val
+
+# データベース接続設定: 機密情報はデフォルト値を設定せず必須（required=True）とする
+DB_USER = get_env_or_exit("DB_USERNAME")
+DB_PASS = get_env_or_exit("DB_PASSWORD")
+DB_NAME = get_env_or_exit("DB_DATABASE")
+
+# 接続先やポートは、機密情報ではないため利便性のためにデフォルト値を残しても許容される
+DB_HOST = get_env_or_exit("DB_HOST", default="db")
+DB_PORT = get_env_or_exit("DB_PORT", default="3306")
+
+DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -91,6 +112,7 @@ async def process_prefecture(context, pref, site_id, shop_cache, ident_cache):
                             match = re.search(r'client_(\d+)', href)
                             if match: identifier = match.group(1)
 
+                        # JSでDOMから住所を取得
                         address = await page.evaluate("(el) => { const addr = el.parentElement.querySelector('.shop_address'); return addr ? addr.innerText : ''; }", shop_el)
                         address = address.strip()
 
@@ -118,7 +140,7 @@ async def process_prefecture(context, pref, site_id, shop_cache, ident_cache):
                     except Exception:
                         db.rollback()
 
-                # ページネーション
+                # ページネーション処理
                 next_button = await page.query_selector(".pager_next a")
                 current_page_url = base_url + (await next_button.get_attribute("href")) if next_button else None
                 
@@ -130,7 +152,7 @@ async def process_prefecture(context, pref, site_id, shop_cache, ident_cache):
 
 async def collect():
     async with async_playwright() as p:
-        print("GooBikeショップコレクター（高速版）を起動しています...")
+        print("GooBikeショップコレクター（セキュア・高速版）を起動しています...")
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -149,7 +171,7 @@ async def collect():
         ident_cache = {(si.site_id, si.identifier) for si in db.query(ShopIdentifier).all()}
 
         try:
-            # 1. 都道府県一覧の取得
+            # 都道府県一覧の取得
             temp_page = await context.new_page()
             await temp_page.route("**/*", block_resources)
             await temp_page.goto("https://www.goobike.com/shop/", wait_until="domcontentloaded")
@@ -159,13 +181,14 @@ async def collect():
             for link in pref_links:
                 href = await link.get_attribute("href")
                 raw_pref_name = await link.inner_text()
+                # 括弧内の台数表示等を除去
                 pref_name = re.sub(r'[\(\uff08].*?[\)\uff09]', '', raw_pref_name).strip()
                 if href:
                     pref_urls.append({"name": pref_name, "url": "https://www.goobike.com" + href})
             
             await temp_page.close()
 
-            # 2. 都道府県ごとに並列実行
+            # 都道府県ごとに並列実行
             print(f"並列実行を開始します（最大 {MAX_CONCURRENT_PAGES} 並列）...")
             tasks = [
                 process_prefecture(context, pref, site_id, shop_cache, ident_cache)

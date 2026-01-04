@@ -2,23 +2,43 @@ import asyncio
 import os
 import datetime
 import re
+import sys
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, or_
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-# 環境変数の読み込み
-load_dotenv()
-if not os.getenv("DB_DATABASE"):
-    load_dotenv(dotenv_path='../../.env')
+# 1. 環境変数の読み込み
+# 現在のファイル位置（scraper/bds/）から見て、2つ上の階層（scraper/）にある .env を探す
+current_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(current_dir, '..', '..', '.env')
+load_dotenv(dotenv_path=env_path)
 
-# データベース接続設定
-user = os.getenv("DB_USERNAME", "sail")
-password = os.getenv("DB_PASSWORD", "password")
-host = os.getenv("DB_HOST", "db")
-port = os.getenv("DB_PORT", "3306")
-database = os.getenv("DB_DATABASE", "motohub")
-DATABASE_URL = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
+# もし読み込めなかったらカレントディレクトリも確認
+if not os.getenv("DB_DATABASE"):
+    load_dotenv()
+
+def get_env_or_exit(key, default=None, required=True):
+    """
+    環境変数を取得する。
+    required=True の場合、値が取得できなければプログラムを終了させる（セキュリティ対策）。
+    """
+    val = os.getenv(key, default)
+    if required and val is None:
+        print(f"致命的エラー: 必須の環境変数 '{key}' が設定されていません。")
+        sys.exit(1)
+    return val
+
+# データベース接続設定: 機密情報はデフォルト値を設定せず必須（required=True）とする
+DB_USER = get_env_or_exit("DB_USERNAME")
+DB_PASS = get_env_or_exit("DB_PASSWORD")
+DB_NAME = get_env_or_exit("DB_DATABASE")
+
+# 接続先やポートは、機密情報ではないため利便性のためにデフォルト値を残しても許容される
+DB_HOST = get_env_or_exit("DB_HOST", default="db")
+DB_PORT = get_env_or_exit("DB_PORT", default="3306")
+
+DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -32,7 +52,7 @@ class BikeModel(Base):
     name = Column(String(255), nullable=False)
     category = Column(String(50), nullable=True)
 
-# 同時接続数を制限（一度に5カテゴリー程度が効率的）
+# 同時接続数を制限
 MAX_CONCURRENT_PAGES = 5
 semaphore = asyncio.Semaphore(MAX_CONCURRENT_PAGES)
 
@@ -48,7 +68,6 @@ async def process_category(context, cat_info, base_url, model_cache):
     async with semaphore:
         db = SessionLocal()
         page = await context.new_page()
-        # リソース制限の適用
         await page.route("**/*", block_resources)
 
         target_url = f"{base_url}/bike/type/{cat_info['slug']}"
@@ -69,7 +88,6 @@ async def process_category(context, cat_info, base_url, model_cache):
             update_count = 0
             for name_el in name_elements:
                 full_text = (await name_el.inner_text()).strip()
-                # "(7台)" などの余計な文字を削除
                 model_name = re.sub(r'\s*[\(\uff08].*', '', full_text).strip()
                 
                 if not model_name:
@@ -79,7 +97,6 @@ async def process_category(context, cat_info, base_url, model_cache):
                 targets = model_cache.get(model_name, [])
                 
                 for t_id in targets:
-                    # DBからレコードを取得して更新
                     model_obj = db.query(BikeModel).get(t_id)
                     if model_obj and (model_obj.category is None or model_obj.category == "不明"):
                         model_obj.category = cat_info['name']
@@ -97,7 +114,7 @@ async def process_category(context, cat_info, base_url, model_cache):
 
 async def collect():
     async with async_playwright() as p:
-        print("BDSカテゴリー同期（高速版）を開始します...")
+        print("BDSカテゴリー同期（セキュア版）を開始します...")
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -106,7 +123,6 @@ async def collect():
         base_url = "https://www.bds-bikesensor.net"
         db = SessionLocal()
 
-        # インメモリキャッシュの構築
         print("キャッシュを構築中...")
         all_models = db.query(BikeModel).filter(
             or_(BikeModel.category == None, BikeModel.category == "不明")
@@ -120,7 +136,6 @@ async def collect():
         
         db.close()
 
-        # カテゴリーとスラッグの定義
         categories = [
             {"slug": "gentsuki", "name": "原付スクーター"},
             {"slug": "scooter51_125", "name": "スクーター/51～125cc"},
@@ -138,7 +153,6 @@ async def collect():
             {"slug": "other", "name": "その他"}
         ]
 
-        # 並列処理の実行
         tasks = [
             process_category(context, cat, base_url, model_cache)
             for cat in categories

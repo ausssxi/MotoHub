@@ -2,24 +2,44 @@ import asyncio
 import os
 import datetime
 import re
+import sys
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, ForeignKey, UniqueConstraint, or_
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.exc import IntegrityError
 
-# 環境変数の読み込み
-load_dotenv()
-if not os.getenv("DB_DATABASE"):
-    load_dotenv(dotenv_path='../../.env')
+# 1. 環境変数の読み込み
+# 現在のファイル位置 (scraper/bds/) から見て、2つ上の階層 (scraper/) にある .env を探す
+current_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(current_dir, '..', '..', '.env')
+load_dotenv(dotenv_path=env_path)
 
-# データベース接続設定
-user = os.getenv("DB_USERNAME", "sail")
-password = os.getenv("DB_PASSWORD", "password")
-host = os.getenv("DB_HOST", "db")
-port = os.getenv("DB_PORT", "3306")
-database = os.getenv("DB_DATABASE", "motohub")
-DATABASE_URL = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
+# もし読み込めなかったらカレントディレクトリも確認
+if not os.getenv("DB_DATABASE"):
+    load_dotenv()
+
+def get_env_or_exit(key, default=None, required=True):
+    """
+    環境変数を取得する。
+    required=True の場合、値が取得できなければプログラムを終了させる（セキュリティ対策）。
+    """
+    val = os.getenv(key, default)
+    if required and val is None:
+        print(f"致命的エラー: 必須の環境変数 '{key}' が設定されていません。")
+        sys.exit(1)
+    return val
+
+# データベース接続設定: 機密情報はデフォルト値を設定せず必須（required=True）とする
+DB_USER = get_env_or_exit("DB_USERNAME")
+DB_PASS = get_env_or_exit("DB_PASSWORD")
+DB_NAME = get_env_or_exit("DB_DATABASE")
+
+# 接続先やポートは、機密情報ではないため利便性のためにデフォルト値を残しても許容される
+DB_HOST = get_env_or_exit("DB_HOST", default="db")
+DB_PORT = get_env_or_exit("DB_PORT", default="3306")
+
+DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -58,7 +78,7 @@ class BikeModelIdentifier(Base):
     
     __table_args__ = (UniqueConstraint('site_id', 'identifier', name='_site_identifier_uc'),)
 
-# 並列実行の設定（一度に5ページ）
+# 並列実行の設定
 MAX_CONCURRENT_PAGES = 5
 semaphore = asyncio.Semaphore(MAX_CONCURRENT_PAGES)
 
@@ -99,15 +119,12 @@ async def process_maker(context, target, site_id, existing_models, manufacturer_
                 # キャッシュで重複チェック
                 model_id = existing_models.get(model_name)
                 
-                # キャッシュにない場合、並列処理による重複を防ぐためDBを再確認
                 if not model_id:
-                    # DBを直接確認
                     db_model = db.query(BikeModel).filter(BikeModel.name == model_name).first()
                     if db_model:
                         model_id = db_model.id
                         existing_models[model_name] = model_id
                     else:
-                        # 本当にない場合のみ登録を試みる
                         try:
                             new_model = BikeModel(
                                 name=model_name,
@@ -121,7 +138,6 @@ async def process_maker(context, target, site_id, existing_models, manufacturer_
                             existing_models[model_name] = model_id
                             new_models_count += 1
                         except IntegrityError:
-                            # タッチの差で他タスクが登録した場合の救済
                             db.rollback()
                             db_model = db.query(BikeModel).filter(BikeModel.name == model_name).first()
                             if db_model:
@@ -154,7 +170,7 @@ async def process_maker(context, target, site_id, existing_models, manufacturer_
 
 async def collect():
     async with async_playwright() as p:
-        print("BDSモデルコレクター（高速・フルリスト版）を起動しています...")
+        print("BDSモデルコレクター（セキュア・並列版）を起動しています...")
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -167,12 +183,10 @@ async def collect():
             return
         site_id = bds_site.id
 
-        # インメモリキャッシュの構築
         print("キャッシュを構築中...")
         existing_models = {m.name: m.id for m in db.query(BikeModel).all()}
         manufacturer_cache = {m.name: m.id for m in db.query(Manufacturer).all()}
 
-        # 巡回するメーカーのフルリスト
         maker_list_raw = [
             {"slug": "honda", "name": "ホンダ"}, {"slug": "suzuki", "name": "スズキ"},
             {"slug": "yamaha", "name": "ヤマハ"}, {"slug": "kawasaki", "name": "カワサキ"},
@@ -204,29 +218,24 @@ async def collect():
             {"slug": "mutt", "name": "MUTT"},
         ]
 
-        # ターゲットURLの生成とメーカーマスタの事前チェック
         maker_targets = []
         for m in maker_list_raw:
-            # キャッシュにあるか確認
             m_id = manufacturer_cache.get(m['name'])
             
             if not m_id:
-                # キャッシュになくても、DBに直接問い合わせて再確認（BMWエラー対策）
                 m_record = db.query(Manufacturer).filter(Manufacturer.name == m['name']).first()
                 if m_record:
                     m_id = m_record.id
                     manufacturer_cache[m['name']] = m_id
                 else:
-                    # 本当に存在しない場合のみ追加
                     try:
                         m_record = Manufacturer(name=m['name'])
                         db.add(m_record)
-                        db.flush() # IDを確定
+                        db.flush()
                         m_id = m_record.id
                         manufacturer_cache[m['name']] = m_id
                     except IntegrityError:
                         db.rollback()
-                        # 他のプロセスが先に登録した可能性を考慮し、再取得
                         m_record = db.query(Manufacturer).filter(Manufacturer.name == m['name']).first()
                         if m_record:
                             m_id = m_record.id
@@ -240,7 +249,6 @@ async def collect():
         
         db.commit()
 
-        # 並列実行の開始
         print(f"\n並列実行を開始します（最大 {MAX_CONCURRENT_PAGES} 並列）...")
         tasks = [
             process_maker(context, target, site_id, existing_models, manufacturer_cache)

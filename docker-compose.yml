@@ -51,10 +51,18 @@ services:
       dockerfile: ./docker/python/Dockerfile
     container_name: motohub-scraper
     volumes:
-      # スクレイパー専用フォルダを同期
       - ./scraper:/app
+      - ./backend:/backend
     environment:
+      # 個別の環境変数もコンテナに渡すように追加
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_HOST=db
+      - DB_PORT=3306
+      # アプリケーションが直接 URL を使う場合のための設定
       - DATABASE_URL=mysql+pymysql://${DB_USERNAME}:${DB_PASSWORD}@db:3306/${DB_DATABASE}
+      - IMAGE_STORAGE_PATH=/backend/storage/app/public/listings
     depends_on:
       - db
 
@@ -65,4 +73,5 @@ services:
 
 volumes:
   db-data:
+
 

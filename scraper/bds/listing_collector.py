@@ -4,23 +4,43 @@ import datetime
 import re
 import json
 import random
+import sys
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 from sqlalchemy import create_engine, Column, BigInteger, String, Numeric, Integer, Boolean, Text, JSON, DateTime, ForeignKey, select, or_
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-# .envファイルを読み込む
-load_dotenv()
-if not os.getenv("DB_DATABASE"):
-    load_dotenv(dotenv_path='../.env')
+# 1. 環境変数の読み込み
+# 現在のファイル位置 (scraper/bds/) から見て、2つ上の階層 (scraper/) にある .env を探す
+current_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(current_dir, '..', '..', '.env')
+load_dotenv(dotenv_path=env_path)
 
-# データベース接続設定
-user = os.getenv("DB_USERNAME", "sail")
-password = os.getenv("DB_PASSWORD", "password")
-host = os.getenv("DB_HOST", "db")
-port = os.getenv("DB_PORT", "3306")
-database = os.getenv("DB_DATABASE", "motohub")
-DATABASE_URL = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
+# もし読み込めなかったらカレントディレクトリも確認
+if not os.getenv("DB_DATABASE"):
+    load_dotenv()
+
+def get_env_or_exit(key, default=None, required=True):
+    """
+    環境変数を取得する。
+    required=True の場合、値が取得できなければプログラムを終了させる（セキュリティ対策）。
+    """
+    val = os.getenv(key, default)
+    if required and val is None:
+        print(f"致命的エラー: 必須の環境変数 '{key}' が設定されていません。")
+        sys.exit(1)
+    return val
+
+# データベース接続設定: 機密情報はデフォルト値を設定せず必須（required=True）とする
+DB_USER = get_env_or_exit("DB_USERNAME")
+DB_PASS = get_env_or_exit("DB_PASSWORD")
+DB_NAME = get_env_or_exit("DB_DATABASE")
+
+# 接続先やポートは、機密情報ではないため利便性のためにデフォルト値を残しても許容される
+DB_HOST = get_env_or_exit("DB_HOST", default="db")
+DB_PORT = get_env_or_exit("DB_PORT", default="3306")
+
+DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -70,15 +90,12 @@ class Shop(Base):
     name = Column(String(255))
     address = Column(Text)
 
-# 同時接続数を制限（BDSは過剰アクセスに厳しいため 3 程度が安全）
+# 同時接続数を制限
 MAX_CONCURRENT_PAGES = 3
 semaphore = asyncio.Semaphore(MAX_CONCURRENT_PAGES)
 
 async def block_resources(route):
     """画像（メイン以外）、CSS、フォントなどの不要なリソースを遮断"""
-    # 画像は data-src を取得するだけであればブロックして問題ありませんが、
-    # 描画を待つ必要がある場合は image を許可する必要があります。
-    # ここではテキストと属性のみ抽出するため image もブロックして高速化します。
     if route.request.resource_type in ["image", "media", "font", "stylesheet"]:
         await route.abort()
     else:
@@ -98,7 +115,6 @@ async def process_model_page(context, base_url, model_path, bike_model_id, site_
 
         while retry_count < max_retries and not success:
             try:
-                # 接続拒否対策：リトライ時は待機時間を設ける
                 if retry_count > 0:
                     wait = (retry_count * 3) + random.random()
                     await asyncio.sleep(wait)
@@ -106,7 +122,6 @@ async def process_model_page(context, base_url, model_path, bike_model_id, site_
                 await page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
                 success = True
 
-                # 出品ブロックの取得
                 bike_blocks = await page.query_selector_all("li.type_bike, li.type_bike_sp")
                 new_records = 0
 
@@ -117,7 +132,6 @@ async def process_model_page(context, base_url, model_path, bike_model_id, site_
                         
                         v_url = base_url + (await title_el.get_attribute("href"))
 
-                        # --- 重複スキップ ---
                         if v_url in known_urls:
                             continue
 
@@ -223,7 +237,7 @@ async def collect():
     db.close()
 
     async with async_playwright() as p:
-        print("BDSリスティングコレクター（高速・フルリスト版）を起動しています...")
+        print("BDSリスティングコレクター（セキュア版）を起動しています...")
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -231,7 +245,6 @@ async def collect():
         
         base_url = "https://www.bds-bikesensor.net"
         
-        # 巡回メーカーフルリスト
         maker_list = [
             {"slug": "honda", "name": "ホンダ"}, {"slug": "suzuki", "name": "スズキ"},
             {"slug": "yamaha", "name": "ヤマハ"}, {"slug": "kawasaki", "name": "カワサキ"},
@@ -289,7 +302,6 @@ async def collect():
                                     process_model_page(context, base_url, href, bike_model_id, site_id, shop_cache, known_urls)
                                 )
 
-                    # メーカー内の車種を並列実行
                     if process_tasks:
                         await asyncio.gather(*process_tasks)
                         
@@ -297,7 +309,6 @@ async def collect():
                     print(f"  メーカーページ巡回エラー ({m['name']}): {e}")
                 finally:
                     await temp_page.close()
-                    # サーバーへの配慮
                     await asyncio.sleep(random.uniform(1, 2))
 
             print("\nBDS出品情報の同期が完了しました。")

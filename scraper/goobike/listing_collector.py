@@ -3,23 +3,43 @@ import os
 import datetime
 import re
 import random
+import sys
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 from sqlalchemy import create_engine, Column, BigInteger, String, Numeric, Integer, Boolean, Text, JSON, DateTime, or_
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 # 環境変数の読み込み
-load_dotenv()
-if not os.getenv("DB_DATABASE"):
-    load_dotenv(dotenv_path='../../.env')
+# 現在のファイル位置から見て、親ディレクトリにある .env を読み込む
+current_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(current_dir, '..', '.env')
+load_dotenv(dotenv_path=env_path)
 
-# データベース接続設定
-user = os.getenv("DB_USERNAME", "sail")
-password = os.getenv("DB_PASSWORD", "password")
-host = os.getenv("DB_HOST", "db")
-port = os.getenv("DB_PORT", "3306")
-database = os.getenv("DB_DATABASE", "motohub")
-DATABASE_URL = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
+# もし読み込めなかったらカレントディレクトリも確認
+if not os.getenv("DB_DATABASE"):
+    load_dotenv()
+
+def get_env_or_exit(key, default=None, required=True):
+    """
+    環境変数を取得する。
+    required=True の場合、値が取得できなければプログラムを終了させる（セキュリティ対策）。
+    """
+    val = os.getenv(key, default)
+    if required and val is None:
+        print(f"致命的エラー: 必須の環境変数 '{key}' が設定されていません。")
+        sys.exit(1)
+    return val
+
+# データベース接続設定: 機密情報はデフォルト値を設定せず必須（required=True）とする
+DB_USER = get_env_or_exit("DB_USERNAME")
+DB_PASS = get_env_or_exit("DB_PASSWORD")
+DB_NAME = get_env_or_exit("DB_DATABASE")
+
+# 接続先やポートは、機密情報ではないため利便性のためにデフォルト値を残しても許容される
+DB_HOST = get_env_or_exit("DB_HOST", default="db")
+DB_PORT = get_env_or_exit("DB_PORT", default="3306")
+
+DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -116,17 +136,15 @@ async def process_model_page(context, base_url, model_path, bike_model_id, site_
                         t_match = re.search(r'(\d+\.?\d*)', t_text.replace(',', ''))
                         if t_match: total_price_val = int(float(t_match.group(1)) * 10000)
 
-                    # --- 追加: 年式・走行距離の抽出 ---
+                    # 年式・走行距離の抽出
                     year, mile = None, None
                     spec_lis = await v_el.query_selector_all(".cont01 ul li")
                     for li in spec_lis:
                         li_text = await li.inner_text()
                         if "年式" in li_text:
-                            # 例: 「初年度登録：2022年」
                             y_m = re.search(r'(\d{4})', li_text)
                             if y_m: year = int(y_m.group(1))
                         elif "走行" in li_text:
-                            # 例: 「走行距離：1,234Km」
                             m_m = re.search(r'(\d+,?\d*)', li_text.replace('Km', '').replace('km', ''))
                             if m_m: mile = int(m_m.group(1).replace(',', ''))
 

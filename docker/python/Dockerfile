@@ -24,3 +24,4 @@ COPY scraper/ .
 CMD ["python", "main.py"]
 
 
+
