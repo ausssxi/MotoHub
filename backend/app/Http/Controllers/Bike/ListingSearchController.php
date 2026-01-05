@@ -31,7 +31,7 @@ final class ListingSearchController extends Controller
     public function index(Request $request): View
     {
         // クエリパラメータからキーワードを取得（デフォルトは空文字または代表的な車種）
-        $keyword = (string) $request->query('keyword', 'Rebel 250');
+        $keyword = (string) $request->query('keyword', 'PCX');
 
         // 整形済みのデータをサービスから取得
         $bikes = $this->searchService->search($keyword);

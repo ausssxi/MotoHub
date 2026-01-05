@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MotoHub - バイクをまとめて検索</title>
+    <title>MotoHub - 中古・新車バイクをまとめて検索</title>
     
     <!-- Scripts -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,7 +19,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
             <a href="{{ route('bikes.index') }}" class="logo-link">
                 <img src="{{ asset('favicon.svg') }}" alt="MotoHub Logo" class="logo-icon">
-                <span class="logo-text">MOTOHUB</span>
+                <span class="logo-text">MotoHub</span>
             </a>
         </div>
     </nav>
@@ -28,8 +28,9 @@
         <!-- 検索セクション -->
         <section class="hero-bg py-10 sm:py-16 px-4 border-b border-gray-100 text-center">
             <div class="max-w-3xl mx-auto">
-                <h1 class="text-xl sm:text-3xl font-black text-black mb-3 tracking-tight">中古バイクをまとめて検索</h1>
-                <p class="text-gray-400 text-[13px] sm:text-sm mb-5">有名中古バイク販売サイトをまとめて一括検索！</p>
+                <h1 class="text-xl sm:text-3xl font-black text-black mb-3 tracking-tight">＼ バイク登録台数 No.1！ ／</h1>
+                <p class="text-gray-400 text-[13px] sm:text-sm mb-5">MotoHubは中古・新車バイクを<br>
+                まとめて一括検索できるサービスです</p>
                 
                 <form action="{{ route('bikes.index') }}" method="GET" class="max-w-2xl mx-auto">
                     <div class="search-container flex items-center bg-white rounded-xl p-1 shadow-sm">

@@ -4,3 +4,4 @@ sqlalchemy    ==2.0.36
 cryptography  ==44.0.0
 python-dotenv ==1.0.1
 httpx         ==0.28.1
+Scrapy        ==2.11.0

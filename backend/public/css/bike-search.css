@@ -81,14 +81,14 @@
      z-index: 2;
  }
  
- /* 【修正】ロゴテキスト：ウェイトを700に下げ、文字間隔をさらに調整 */
+ /* 【修正】ロゴテキスト：親しみやすく「かわいらしい」印象へ調整 */
  .logo-text {
      color: #4b5563 !important; /* 洗練された濃いグレー */
-     font-weight: 700;           /* 900から700へ変更して細くしました */
-     font-size: 1.1rem;         /* サイズもわずかに微調整 */
-     letter-spacing: 0.12em;    /* 文字間を少し広げて、細いフォントでも存在感を維持 */
+     font-weight: 600;           /* 700から600へ落とし、少し柔らかい表情に */
+     font-size: 1.2rem;         /* 文字を少しだけ大きくして愛嬌を出す */
+     letter-spacing: 0.02em;    /* 間隔を詰め、単語としてのまとまり（可愛さ）を強調 */
      line-height: 1;
-     text-transform: uppercase;
+     text-transform: none;      /* 強制大文字を解除。Blade側で「MotoHub」等と書くと反映されます */
  }
  
  /* ヒーローセクション背景 */
