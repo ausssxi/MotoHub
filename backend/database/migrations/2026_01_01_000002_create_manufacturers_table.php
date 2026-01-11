@@ -15,6 +15,10 @@ return new class extends Migration
             $table->id()->comment('ID (auto_increment)');
             $table->string('name', 100)->unique()->comment('メーカー名');
             $table->string('country', 50)->nullable()->comment('原産国');
+            // ロゴ画像関連のカラムを追加
+            $table->string('logo_url', 255)->nullable()->comment('ロゴ画像URL（外部サイト）');
+            $table->string('local_logo_path', 255)->nullable()->comment('ローカル保存用パス');
+            
             $table->timestamp('created_at')->useCurrent()->comment('作成日時');
             $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate()->comment('更新日時');
         });

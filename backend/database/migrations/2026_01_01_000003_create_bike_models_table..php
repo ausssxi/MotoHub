@@ -15,9 +15,13 @@ return new class extends Migration
             $table->id()->comment('ID (auto_increment)');
             $table->foreignId('manufacturer_id')->constrained('manufacturers')->comment('メーカーID');
             $table->string('name', 255)->unique()->comment('モデル名');
-            // nullable() を追加して、最初は空でも登録できるようにします
             $table->integer('displacement')->nullable()->comment('排気量 (cc)');
             $table->string('category', 50)->nullable()->comment('カテゴリ');
+            
+            // モデルの画像関連カラムを追加
+            $table->string('image_url', 255)->nullable()->comment('モデル画像URL（外部サイト）');
+            $table->string('local_image_path', 255)->nullable()->comment('ローカル保存用パス');
+            
             $table->timestamp('created_at')->useCurrent()->comment('作成日時');
             $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate()->comment('更新日時');
         });
