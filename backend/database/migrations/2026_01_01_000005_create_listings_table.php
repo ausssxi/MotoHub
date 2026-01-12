@@ -20,13 +20,20 @@ return new class extends Migration
             
             // 車両基本情報
             $table->string('title')->nullable()->comment('車両タイトル/キャッチコピー');
-            $table->text('source_url')->comment('元サイトURL');
+            
+            /**
+             * 元サイトURL
+             * ユニーク制約を付けるため text から string(512) に変更
+             * MySQL等のインデックスサイズ制限を考慮し、長さは必要十分な値を指定
+             */
+            $table->string('source_url', 512)->unique()->comment('元サイトURL');
+            
             $table->decimal('price', 12, 0)->nullable()->comment('本体価格');
             $table->decimal('total_price', 12, 0)->nullable()->comment('支払総額');
             $table->integer('model_year')->nullable()->comment('モデル年式');
             $table->integer('mileage')->nullable()->comment('走行距離(km)');
             
-            // 車両詳細スペック（追加分）
+            // 車両詳細スペック
             $table->string('first_registration')->nullable()->comment('初年度登録');
             $table->boolean('has_repair_history')->default(false)->comment('修復歴の有無');
             $table->string('condition')->nullable()->comment('車両コンディション(新車/中古)');

@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Bike;
+namespace App\Services;
 
-use App\Repositories\Bike\ListingRepository;
+use App\Repositories\ListingRepository;
 use Illuminate\Support\Facades\Storage;
 
 /**
  * バイク出品情報の検索ロジックを担当
+ * * 配置場所: app/Services/ListingSearchService.php
  */
 final class ListingSearchService
 {
@@ -38,12 +39,11 @@ final class ListingSearchService
             'year' => $item->model_year ? "{$item->model_year}年" : '年式不明',
             'mileage' => $item->mileage ? number_format($item->mileage) . 'km' : '走行不明',
             'displacement' => $item->bikeModel->displacement ? "{$item->bikeModel->displacement}cc" : '-',
-            'total_price' => $item->total_price ? number_format($item->total_price / 10000, 1) : '-',
-            'base_price' => $item->price ? number_format($item->price / 10000, 1) : '-',
+            'total_price' => $item->total_price ? number_format((float)($item->total_price / 10000), 1) : '-',
+            'base_price' => $item->price ? number_format((float)($item->price / 10000), 1) : '-',
             'store_name' => $item->shop->name ?? '個人出品等',
             'store_address' => $item->shop->prefecture ?? '',
             'url' => $item->source_url,
-            // ストレージに保存されたパスがある場合はURLに変換、なければ空配列
             'images' => $this->resolveImageUrls($item->local_image_paths),
         ])->toArray();
     }
@@ -60,8 +60,6 @@ final class ListingSearchService
         }
 
         return array_map(function ($path) {
-            // storage/app/public/listings 配下に保存されている前提
-            // asset() や Storage::url() を使用
             return Storage::disk('public')->url('listings/' . $path);
         }, $paths);
     }

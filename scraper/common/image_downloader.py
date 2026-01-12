@@ -1,48 +1,43 @@
 import os
 import asyncio
 import httpx
-import json
 import mimetypes
 import random
 import sys
-import time
-from sqlalchemy import create_engine, Column, BigInteger, JSON, Text
+from sqlalchemy import create_engine, Column, BigInteger, JSON, Text, String
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from dotenv import load_dotenv
 
-# 1. 環境変数の読み込み
-# 実行ファイルからの相対パスで .env を探す
+# ==========================================
+# 1. 環境設定 & データベース定義
+# ==========================================
 current_dir = os.path.dirname(os.path.abspath(__file__))
-env_path = os.path.join(current_dir, '..', '.env')
+env_path = os.path.join(current_dir, '..', '..', '.env')
 load_dotenv(dotenv_path=env_path)
 
 def get_env_or_exit(key, default=None, required=True):
-    """
-    環境変数を取得する。
-    required=True の場合、値が取得できなければプログラムを終了させる（セキュリティ対策）。
-    """
     val = os.getenv(key, default)
     if required and val is None:
         print(f"致命的エラー: 必須の環境変数 '{key}' が設定されていません。")
         sys.exit(1)
     return val
 
-# DB設定: セキュリティのため機密情報はデフォルト値を設定せず必須（required=True）とする
-DB_USER = get_env_or_exit("DB_USERNAME")
-DB_PASS = get_env_or_exit("DB_PASSWORD")
-DB_NAME = get_env_or_exit("DB_DATABASE")
+DATABASE_URL = f"mysql+pymysql://{get_env_or_exit('DB_USERNAME')}:{get_env_or_exit('DB_PASSWORD')}@{get_env_or_exit('DB_HOST', 'db')}:{get_env_or_exit('DB_PORT', '3306')}/{get_env_or_exit('DB_DATABASE')}"
 
-# 接続先やポートは、機密情報ではないため利便性のためにデフォルト値を残しても許容される
-DB_HOST = get_env_or_exit("DB_HOST", default="db")
-DB_PORT = get_env_or_exit("DB_PORT", default="3306")
-
-DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# 2. 保存先パスの設定
-DEFAULT_STORAGE_PATH = os.path.abspath(os.path.join(current_dir, "../../backend/storage/app/public/listings"))
-STORAGE_BASE_PATH = os.getenv("IMAGE_STORAGE_PATH", DEFAULT_STORAGE_PATH)
+# --- 保存先ベースパスの修正ロジック ---
+# デフォルトは backend/storage/app/public
+DEFAULT_STORAGE_PATH = os.path.abspath(os.path.join(current_dir, "../../backend/storage/app/public"))
+raw_base_path = os.getenv("IMAGE_STORAGE_PATH", DEFAULT_STORAGE_PATH)
+
+# もしベースパスが 'listings' で終わっていたら、その親（public）をベースにする
+# これにより、listings/shops のような入れ子を防ぎ、public/listings と public/shops を並列にします
+if raw_base_path.endswith("/listings") or raw_base_path.endswith("/listings/"):
+    STORAGE_BASE_PATH = os.path.dirname(raw_base_path.rstrip('/'))
+else:
+    STORAGE_BASE_PATH = raw_base_path
 
 class Base(DeclarativeBase): pass
 
@@ -53,115 +48,157 @@ class Listing(Base):
     image_urls = Column(JSON)
     local_image_paths = Column(JSON, nullable=True)
 
-async def download_image(client, url, site_name, shard, listing_id, index):
-    """1枚の画像をダウンロードして適切な拡張子で保存"""
+class BikeModel(Base):
+    __tablename__ = "bike_models"
+    id = Column(BigInteger, primary_key=True)
+    image_url = Column(Text)
+    local_image_path = Column(JSON, nullable=True)
+
+class Manufacturer(Base):
+    __tablename__ = "manufacturers"
+    id = Column(BigInteger, primary_key=True)
+    logo_url = Column(String(255))
+    local_logo_path = Column(String(255), nullable=True)
+
+class Shop(Base):
+    __tablename__ = "shops"
+    id = Column(BigInteger, primary_key=True)
+    image_url = Column(String(255))
+    local_image_path = Column(String(255), nullable=True)
+
+# ==========================================
+# 2. ダウンロード・コアロジック
+# ==========================================
+
+async def download_image(client, url, sub_dir):
+    """画像をダウンロードして保存し、相対パスを返す"""
+    if not url or not url.startswith("http"):
+        return None
+    
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         }
-        
-        # サーバー負荷軽減のためランダム待機
-        await asyncio.sleep(random.uniform(0.1, 0.3))
+        await asyncio.sleep(random.uniform(0.05, 0.2))
         
         resp = await client.get(url, headers=headers, timeout=15.0)
         if resp.status_code != 200:
             return None
 
         content_type = resp.headers.get("Content-Type", "")
-        ext = mimetypes.guess_extension(content_type.split(';')[0])
-        if not ext:
-            ext = ".jpg"
+        ext = mimetypes.guess_extension(content_type.split(';')[0]) or ".jpg"
         
-        filename = f"{index}{ext}"
-        rel_path = f"{site_name}/{shard}/{listing_id}/{filename}"
-        abs_path = os.path.join(STORAGE_BASE_PATH, rel_path)
-
-        # フォルダ作成
+        # 保存パスの構築（STORAGE_BASE_PATHは常に各カテゴリの親フォルダを指す）
+        save_rel_path = sub_dir + ext
+        abs_path = os.path.join(STORAGE_BASE_PATH, save_rel_path)
+        
         os.makedirs(os.path.dirname(abs_path), exist_ok=True)
         
         with open(abs_path, "wb") as f:
             f.write(resp.content)
             
-        return rel_path
+        return save_rel_path
 
     except Exception as e:
         print(f"      Download Error ({url}): {e}")
     return None
 
-async def process_listing(client, listing):
-    """1つの出品情報の画像を全て処理"""
-    if not listing.image_urls or not isinstance(listing.image_urls, list):
-        return None
+async def process_generic(client, item, table_name, url_attr):
+    """汎用的なテーブル別画像処理ロジック"""
+    urls = getattr(item, url_attr)
+    if not urls:
+        return []
 
-    site_name = "goobike" if listing.site_id == 1 else "bds"
-    shard = str(listing.id % 100).zfill(2)
+    url_list = urls if isinstance(urls, list) else [urls]
+    shard = str(item.id % 100).zfill(2)
     
+    # フォルダ構成を明示的に定義
+    if table_name == "listings":
+        site_name = "goobike" if item.site_id == 1 else "bds"
+        base_dir = f"listings/{site_name}/{shard}/{item.id}"
+    elif table_name == "manufacturers":
+        base_dir = f"manufacturers/{item.id}"
+    else:
+        # shops, bike_models
+        base_dir = f"{table_name}/{shard}/{item.id}"
+
     downloaded_paths = []
-    for i, url in enumerate(listing.image_urls):
-        saved_rel_path = await download_image(client, url, site_name, shard, listing.id, i)
-        if saved_rel_path:
-            downloaded_paths.append(saved_rel_path)
+    for i, url in enumerate(url_list):
+        sub_dir = f"{base_dir}/{i}"
+        path = await download_image(client, url, sub_dir)
+        if path:
+            downloaded_paths.append(path)
     
-    return downloaded_paths if downloaded_paths else None
+    return downloaded_paths
 
-async def run():
-    print(f"DEBUG: 画像保存ベースパス -> {STORAGE_BASE_PATH}")
-    
-    # 書き込み権限のチェック
-    if not os.path.exists(STORAGE_BASE_PATH):
-        os.makedirs(STORAGE_BASE_PATH, exist_ok=True)
-        
-    if not os.access(STORAGE_BASE_PATH, os.W_OK):
-        print(f"致命的エラー: {STORAGE_BASE_PATH} への書き込み権限がありません。")
-        return
+# ==========================================
+# 3. 実行制御ブロック
+# ==========================================
 
-    batch_count = 1
-    total_downloaded = 0
+async def run_sync_for_table(target_class, table_label, url_field, local_field):
+    """指定されたテーブルの未処理画像をバッチ処理"""
+    batch_size = 50
+    total_processed = 0
 
     while True:
         db = SessionLocal()
         try:
-            # 未処理のレコードを取得 (NULLのもの)
-            query = db.query(Listing).filter(
-                Listing.image_urls != None,
-                Listing.local_image_paths == None
+            query = db.query(target_class).filter(
+                getattr(target_class, url_field) != None,
+                getattr(target_class, local_field) == None
             )
-            
-            # バッチサイズを設定 (100件ずつ処理)
-            batch_size = 100
-            target_listings = query.limit(batch_size).all() 
+            items = query.limit(batch_size).all()
 
-            if not target_listings:
-                print("\nすべての未処理画像のダウンロードが完了しました。")
+            if not items:
+                print(f"[{table_label}] 同期完了。")
                 break
 
-            print(f"\n--- バッチ {batch_count}: {len(target_listings)} 件の処理を開始 ---")
-
+            print(f"[{table_label}] {len(items)} 件の処理中...")
             async with httpx.AsyncClient(follow_redirects=True) as client:
-                for listing in target_listings:
-                    print(f"  車両ID:{listing.id} の画像を処理中...")
-                    paths = await process_listing(client, listing)
+                for item in items:
+                    paths = await process_generic(client, item, table_label, url_field)
                     
                     if paths:
-                        listing.local_image_paths = paths
-                        db.commit() # 1件ごとにコミットして進捗を確実に保存
-                        total_downloaded += 1
-                        print(f"    -> {len(paths)} 枚保存完了 (累計: {total_downloaded}車両)")
+                        column_type = getattr(target_class, local_field).type
+                        if isinstance(column_type, String) and not isinstance(column_type, JSON):
+                            setattr(item, local_field, paths[0])
+                        else:
+                            setattr(item, local_field, paths)
                     else:
-                        # 取得できなかった場合は空配列をいれてスキップ（リトライループ防止）
-                        listing.local_image_paths = []
-                        db.commit()
-                        print(f"    -> 画像なしまたは取得失敗につきスキップ")
-
-            batch_count += 1
-            # 次のバッチの前に少し休止
-            await asyncio.sleep(1)
+                        column_type = getattr(target_class, local_field).type
+                        setattr(item, local_field, [] if isinstance(column_type, JSON) else "")
+                    
+                    db.commit()
+                    total_processed += 1
+            
+            print(f"  -> {total_processed} 件処理済み")
+            await asyncio.sleep(0.5)
 
         except Exception as e:
-            print(f"バッチ処理中にエラーが発生しました: {e}")
-            await asyncio.sleep(5) # エラー時は少し長めに待機
+            print(f"[{table_label}] エラー: {e}")
+            db.rollback()
+            await asyncio.sleep(5)
         finally:
             db.close()
 
+async def main():
+    # ログ出力で現在のベースパスを明示
+    print(f"--- 画像同期ツール起動 ---")
+    print(f"保存先ルート: {STORAGE_BASE_PATH}")
+    print(f"各フォルダ構成例:")
+    print(f"  - {STORAGE_BASE_PATH}/listings/...")
+    print(f"  - {STORAGE_BASE_PATH}/shops/...")
+    print(f"  - {STORAGE_BASE_PATH}/manufacturers/...")
+    print(f"--------------------------")
+    
+    if not os.path.exists(STORAGE_BASE_PATH):
+        os.makedirs(STORAGE_BASE_PATH, exist_ok=True)
+    
+    # カテゴリごとに実行（第2引数がベースパス直下のフォルダ名になります）
+    await run_sync_for_table(Manufacturer, "manufacturers", "logo_url", "local_logo_path")
+    await run_sync_for_table(Shop, "shops", "image_url", "local_image_path")
+    await run_sync_for_table(BikeModel, "bike_models", "image_url", "local_image_path")
+    await run_sync_for_table(Listing, "listings", "image_urls", "local_image_paths")
+
 if __name__ == "__main__":
-    asyncio.run(run())
+    asyncio.run(main())

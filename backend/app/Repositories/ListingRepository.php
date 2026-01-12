@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Repositories\Bike;
+namespace App\Repositories;
 
 use App\Models\Listing;
 use Illuminate\Support\Collection;
 
 /**
  * バイクの出品情報に関するデータ操作を担当
+ * * 配置場所: app/Repositories/ListingRepository.php
  */
 final class ListingRepository
 {
