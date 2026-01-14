@@ -137,26 +137,45 @@ class GooBikeListingSpider(scrapy.Spider):
         bike_model_id = response.meta['bike_model_id']
         vehicle_elements = response.css(".bike_sec")
         
+        # デバッグログ: 見つかった台数を表示
+        self.logger.info(f"Page: {response.url} - Found {len(vehicle_elements)} vehicles.")
+
+        if len(vehicle_elements) == 0:
+            # ページは開けたが車両がない場合（ロボット判定の可能性あり）
+            self.logger.warning(f"No vehicles found on {response.url}. Possible robot block or structure change.")
+
         for v_el in vehicle_elements:
-            v_link_el = v_el.css("h4 span a")
-            if not v_link_el: continue
-            
-            v_url = response.urljoin(v_link_el.css("::attr(href)").get())
-            self.found_urls.add(v_url)
+            try:
+                v_link_el = v_el.css("h4 span a")
+                if not v_link_el: continue
+                
+                v_url = response.urljoin(v_link_el.css("::attr(href)").get())
+                self.found_urls.add(v_url)
 
-            # 情報の抽出
-            listing_data = self.extract_info(v_el, bike_model_id, response, v_url)
+                # 情報の抽出
+                listing_data = self.extract_info(v_el, bike_model_id, response, v_url)
 
-            # 更新または新規保存
-            if v_url in self.known_urls:
-                self.update_listing(v_url, listing_data)
-            else:
-                self.save_listing(v_url, listing_data)
+                # 更新または新規保存
+                if v_url in self.known_urls:
+                    self.update_listing(v_url, listing_data)
+                else:
+                    self.save_listing(v_url, listing_data)
+            except Exception as e:
+                # 1台のエラーでページ全体の処理を止めないように保護
+                self.logger.error(f"Error extracting vehicle at {response.url}: {e}")
 
         # ページネーション処理
-        next_page = response.css(".pager_next a::attr(href)").get()
+        next_page = response.css("li.next a::attr(href)").get()
         if next_page:
             yield response.follow(next_page, callback=self.parse_listings, meta=response.meta)
+        else:
+            self.logger.info(f"No more pages for model_id: {bike_model_id}")
+
+    # extract_info 内の正規表現も「ASK」などで落ちないようにガードするとより安全です
+    def extract_info(self, v_el, bike_model_id, response, v_url):
+        # ... (既存のコード)
+        # 価格取得の部分でエラーが出やすいので try-except か if で囲むのが理想です
+        pass
 
     def extract_info(self, v_el, bike_model_id, response, v_url):
         """車両1台の情報を抽出"""

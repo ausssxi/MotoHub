@@ -1,0 +1,43 @@
+/**
+ * MotoHub Index Page Styles
+ */
+
+/* ヒーローセクションのグラデーション */
+.hero-gradient {
+    background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);
+    /* 横スクロール防止の安全策 */
+    width: 100%;
+    max-width: 100vw;
+}
+
+/* 都道府県リンクのホバー時スタイル */
+.pref-link {
+    display: inline-block;
+    background-color: transparent;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pref-link:hover {
+    color: #000;
+    background-color: #f3f4f6;
+    transform: translateY(-1px);
+}
+
+/* モバイルでのタップ領域の最適化 */
+@media (max-width: 640px) {
+    .pref-link {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+}
+
+/* フォーム入力時のフォーカスリングを少し柔らかく */
+input:focus {
+    outline: none;
+}
+
+/* 画像の読み込み待機中のプレースホルダーアニメーション（オプション） */
+.bg-gray-50 {
+    position: relative;
+    overflow: hidden;
+}
