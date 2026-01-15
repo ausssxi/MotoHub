@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Models\Listing;
-use Illuminate\Support\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
  * バイクの出品情報に関するデータ操作を担当
@@ -13,26 +13,24 @@ use Illuminate\Support\Collection;
 final class ListingRepository
 {
     /**
-     * キーワードに基づいて出品情報を取得（リミットあり）
+     * キーワードと並び替え条件に基づいて出品情報を取得
      */
-    public function searchByKeyword(string $keyword): Collection
+    public function searchByKeyword(string $keyword, string $sort = 'latest', int $perPage = 30): LengthAwarePaginator
     {
-        return $this->baseSearchQuery($keyword)
-            ->orderBy('created_at', 'desc')
-            ->limit(30)
-            ->get();
+        $query = $this->baseSearchQuery($keyword);
+
+        // 並び替えロジックの適用
+        $query = match ($sort) {
+            'price_asc'  => $query->orderBy('total_price', 'asc'),
+            'price_desc' => $query->orderBy('total_price', 'desc'),
+            default      => $query->orderBy('created_at', 'desc'), // latest
+        };
+
+        return $query->paginate($perPage)->withQueryString();
     }
 
     /**
-     * キーワードに一致する出品情報の総数を取得
-     */
-    public function countByKeyword(string $keyword): int
-    {
-        return $this->baseSearchQuery($keyword)->count();
-    }
-
-    /**
-     * 有効な出品情報（全サイト）の総数を取得
+     * 有効な出品情報の総数を取得
      */
     public function countActiveListings(): int
     {
@@ -40,7 +38,7 @@ final class ListingRepository
     }
 
     /**
-     * 検索の基本クエリ（重複を避けるために共通化）
+     * 検索の基本クエリ
      */
     private function baseSearchQuery(string $keyword)
     {

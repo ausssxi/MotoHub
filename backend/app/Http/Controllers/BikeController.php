@@ -9,52 +9,37 @@ use App\Services\ListingSearchService;
 use Illuminate\Http\Request;
 use Illuminate\Contracts\View\View;
 
-/**
- * 車種・出品情報の画面制御を担当
- */
 final class BikeController extends Controller
 {
-    /**
-     * @param BikeService $bikeService
-     * @param ListingSearchService $listingSearchService
-     */
     public function __construct(
         private readonly BikeService $bikeService,
         private readonly ListingSearchService $listingSearchService
     ) {}
 
-    /**
-     * トップページ（車種一覧）の表示
-     */
     public function index(): View
     {
         $popularBikes = $this->bikeService->getPopularBikesForTopPage();
-        $regions = config('bike.regions', []);
-        
         $totalListingsCount = $this->listingSearchService->getActiveCount();
 
-        return view('bikes.index', compact('popularBikes', 'regions', 'totalListingsCount'));
+        return view('bikes.index', compact('popularBikes', 'totalListingsCount'));
     }
 
     /**
-     * キーワードに基づく出品情報の検索
+     * 検索結果の表示
      */
     public function search(Request $request): View
     {
-        $keyword = $request->query('keyword', '');
-        
-        // 1. サービスから結果セットを取得
-        $result = $this->listingSearchService->search((string) $keyword);
-        
-        // 2. ナビゲーション用の総掲載台数を取得
+        $keyword = (string) $request->query('keyword', '');
+        $sort = (string) $request->query('sort', 'latest'); // デフォルトは新着順
+
+        $result = $this->listingSearchService->search($keyword, $sort);
         $totalListingsCount = $this->listingSearchService->getActiveCount();
 
         return view('bikes.search', [
-            // 修正：$result 全体ではなく、中身の 'items' だけを listings として渡す
-            'listings'         => $result['items'],
-            'totalSearchCount' => $result['total'],
-            'keyword'          => $keyword,
-            'regions'          => config('bike.regions', []),
+            'listings'           => $result['items'],
+            'pagination'         => $result['pagination'],
+            'keyword'            => $keyword,
+            'sort'               => $sort,
             'totalListingsCount' => $totalListingsCount,
         ]);
     }

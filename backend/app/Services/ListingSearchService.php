@@ -17,34 +17,40 @@ final class ListingSearchService
     ) {}
 
     /**
-     * 検索を実行し、結果と総件数を返す
+     * 検索を実行し、結果とページネーション情報を返す
      */
-    public function search(string $keyword): array
+    public function search(string $keyword, string $sort = 'latest', int $perPage = 30): array
     {
-        $listings = $this->repository->searchByKeyword($keyword);
-        $totalCount = $this->repository->countByKeyword($keyword);
+        $paginated = $this->repository->searchByKeyword($keyword, $sort, $perPage);
 
-        $formattedItems = $listings->map(fn($item) => [
+        $formattedItems = $paginated->getCollection()->map(fn($item) => [
             'id' => $item->id,
-            'source_id' => strtolower($item->site->name ?? 'other'),
-            'source' => $item->site->name ?? '不明',
-            // 修正：リレーションが null の場合に備えて null安全演算子 (?->) を使用
+            'source_id' => strtolower($item->site?->name ?? 'other'),
+            'source' => $item->site?->name ?? '不明',
             'maker' => $item->bikeModel?->manufacturer?->name ?? '不明',
             'name' => $item->title ?? $item->bikeModel?->name ?? '車種名不明',
-            'year' => $item->model_year ? "{$item->model_year}年" : '年式不明',
-            'mileage' => $item->mileage ? number_format($item->mileage) . 'km' : '走行不明',
+            'model_year' => $item->model_year ? "{$item->model_year}年" : '不明',
+            'first_registration' => $item->first_registration ? "{$item->first_registration}年" : '不明',
+            'mileage' => $item->mileage !== null ? number_format($item->mileage) . 'km' : '走行不明',
             'displacement' => $item->bikeModel?->displacement ? "{$item->bikeModel->displacement}cc" : '-',
+            'repair_history' => $item->has_repair_history ? 'あり' : 'なし',
+            'condition' => $item->is_new ? '新車' : '中古車',
             'total_price' => $item->total_price ? number_format((float)($item->total_price / 10000), 1) : '-',
             'base_price' => $item->price ? number_format((float)($item->price / 10000), 1) : '-',
-            'store_name' => $item->shop->name ?? '個人出品等',
-            'store_address' => $item->shop->prefecture ?? '',
+            'store_name' => $item->shop?->name ?? '個人出品等',
             'url' => $item->source_url,
             'images' => $this->resolveImageUrls($item->local_image_paths),
         ])->toArray();
 
         return [
             'items' => $formattedItems,
-            'total' => $totalCount
+            'pagination' => [
+                'total'        => $paginated->total(),
+                'current_page' => $paginated->currentPage(),
+                'last_page'    => $paginated->lastPage(),
+                'from'         => $paginated->firstItem(),
+                'to'           => $paginated->lastItem(),
+            ]
         ];
     }
 
