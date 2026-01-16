@@ -13,11 +13,11 @@ use Illuminate\Pagination\LengthAwarePaginator;
 final class ListingRepository
 {
     /**
-     * キーワードと並び替え条件に基づいて出品情報を取得
+     * キーワード、都道府県、および並び替え条件に基づいて出品情報を取得
      */
-    public function searchByKeyword(string $keyword, string $sort = 'latest', int $perPage = 30): LengthAwarePaginator
+    public function searchByKeyword(?string $keyword, ?string $prefecture = null, string $sort = 'latest', int $perPage = 30): LengthAwarePaginator
     {
-        $query = $this->baseSearchQuery($keyword);
+        $query = $this->baseSearchQuery($keyword, $prefecture);
 
         // 並び替えロジックの適用
         $query = match ($sort) {
@@ -40,10 +40,14 @@ final class ListingRepository
     /**
      * 検索の基本クエリ
      */
-    private function baseSearchQuery(string $keyword)
+    private function baseSearchQuery(?string $keyword, ?string $prefecture = null)
     {
-        return Listing::with(['bikeModel.manufacturer', 'shop', 'site'])
-            ->where(function($lq) use ($keyword) {
+        $query = Listing::with(['bikeModel.manufacturer', 'shop', 'site'])
+            ->where('is_sold_out', false);
+
+        // キーワード検索（車種名、メーカー名、タイトル）
+        if ($keyword) {
+            $query->where(function($lq) use ($keyword) {
                 $lq->where('title', 'like', "%{$keyword}%")
                       ->orWhereHas('bikeModel', function($bq) use ($keyword) {
                           $bq->where('name', 'like', "%{$keyword}%")
@@ -51,7 +55,16 @@ final class ListingRepository
                                 $mq->where('name', 'like', "%{$keyword}%");
                             });
                       });
-            })
-            ->where('is_sold_out', false);
+            });
+        }
+
+        // 都道府県検索（ショップの住所で絞り込み）
+        if ($prefecture) {
+            $query->whereHas('shop', function($sq) use ($prefecture) {
+                $sq->where('address', 'like', "{$prefecture}%");
+            });
+        }
+
+        return $query;
     }
 }

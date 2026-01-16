@@ -10,21 +10,32 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
     
-    {{-- ページごとの独自のCSS（indexのグラデーションなど）を受け取ります --}}
+    {{-- ページごとの独自のCSSを受け取ります --}}
     {{ $styles ?? '' }}
+
+    <style>
+        /* フッターリンクの共通ホバースタイル */
+        .footer-link {
+            transition: all 0.2s ease;
+        }
+        .footer-link:hover {
+            color: #000;
+            text-decoration: underline;
+        }
+    </style>
 </head>
-<body class="bg-white text-gray-900 font-sans min-h-screen">
+<body class="bg-white text-gray-900 font-sans min-h-screen flex flex-col">
 
     {{-- ナビゲーション（ヘッダー） --}}
     {{ $navigation }}
 
-    <main>
+    {{-- メインコンテンツ --}}
+    <main class="flex-grow">
         {{ $slot }}
     </main>
 
-    <footer class="py-10 text-center border-t border-gray-100 mt-20">
-        <p class="text-xs text-gray-400 font-bold tracking-widest uppercase">© {{ date('Y') }} MotoHub - All Rights Reserved.</p>
-    </footer>
+    {{-- フッターをコンポーネントとして呼び出し --}}
+    <x-footer />
 
     <script>lucide.createIcons();</script>
 </body>

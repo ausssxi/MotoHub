@@ -19,14 +19,15 @@ final class ListingSearchService
     /**
      * 検索を実行し、結果とページネーション情報を返す
      */
-    public function search(string $keyword, string $sort = 'latest', int $perPage = 30): array
+    public function search(?string $keyword, ?string $prefecture = null, string $sort = 'latest', int $perPage = 30): array
     {
-        $paginated = $this->repository->searchByKeyword($keyword, $sort, $perPage);
+        $paginated = $this->repository->searchByKeyword($keyword, $prefecture, $sort, $perPage);
 
         $formattedItems = $paginated->getCollection()->map(fn($item) => [
             'id' => $item->id,
             'source_id' => strtolower($item->site?->name ?? 'other'),
             'source' => $item->site?->name ?? '不明',
+            'source_domain' => $this->resolveSourceDomain(strtolower($item->site?->name ?? '')),
             'maker' => $item->bikeModel?->manufacturer?->name ?? '不明',
             'name' => $item->title ?? $item->bikeModel?->name ?? '車種名不明',
             'model_year' => $item->model_year ? "{$item->model_year}年" : '不明',
@@ -57,6 +58,16 @@ final class ListingSearchService
     public function getActiveCount(): int
     {
         return $this->repository->countActiveListings();
+    }
+
+    private function resolveSourceDomain(string $sourceName): string
+    {
+        $domains = [
+            'goobike' => 'goobike.com',
+            'bds' => 'bds-bikesensor.net',
+            'bikesensor' => 'bds-bikesensor.net'
+        ];
+        return $domains[$sourceName] ?? 'google.com';
     }
 
     private function resolveImageUrls(?array $paths): array

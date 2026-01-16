@@ -1,7 +1,16 @@
 <x-layout>
-    {{-- 1. タイトルの設定 --}}
+    {{-- 1. タイトルの設定 (ブラウザタブ用) --}}
     <x-slot:title>
-        @if($keyword) 「{{ $keyword }}」の検索結果 @else 車両一覧 @endif - MotoHub
+        @if($prefecture && $keyword)
+            {{ $prefecture }}の「{{ $keyword }}」の検索結果
+        @elseif($prefecture)
+            {{ $prefecture }}の車両一覧
+        @elseif($keyword)
+            「{{ $keyword }}」の検索結果
+        @else
+            車両一覧
+        @endif
+        - MotoHub
     </x-slot:title>
 
     {{-- 2. 共通ナビゲーションコンポーネントの使用 --}}
@@ -22,7 +31,20 @@
             <div class="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                 <div>
                     <h2 class="text-2xl font-black text-black">
-                        @if($keyword) 「{{ $keyword }}」の検索結果 @else 車両一覧 @endif
+                        @if($prefecture) 
+                            <span class="text-blue-600">{{ $prefecture }}</span>
+                        @endif
+
+                        @if($keyword) 
+                            @if($prefecture) <span class="text-gray-400 mx-1">の</span> @endif
+                            「{{ $keyword }}」
+                        @endif
+
+                        @if($prefecture || $keyword)
+                            <span class="text-gray-900">の検索結果</span>
+                        @else
+                            車両一覧
+                        @endif
                     </h2>
                     <p class="text-xs font-bold text-gray-400 mt-1 tracking-wider">
                         全 {{ number_format($pagination['total']) }} 件中 
@@ -33,8 +55,9 @@
                 <div class="flex gap-2">
                     {{-- 並び替えフォーム --}}
                     <form action="{{ route('bikes.search') }}" method="GET" id="sort-form">
-                        {{-- 既存の検索キーワードを保持 --}}
+                        {{-- 既存の検索条件を保持 --}}
                         <input type="hidden" name="keyword" value="{{ $keyword }}">
+                        <input type="hidden" name="prefecture" value="{{ $prefecture }}">
                         
                         <select 
                             name="sort" 
@@ -80,15 +103,7 @@
                             
                             {{-- 掲載元サイトのファビコンと名前 --}}
                             <div class="flex items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
-                                @php
-                                    $domains = [
-                                        'goobike' => 'goobike.com',
-                                        'bds' => 'bds-bikesensor.net',
-                                        'bikesensor' => 'bds-bikesensor.net'
-                                    ];
-                                    $domain = $domains[$listing['source_id']] ?? 'google.com';
-                                @endphp
-                                <img src="https://www.google.com/s2/favicons?domain={{ $domain }}&sz=32" 
+                                <img src="https://www.google.com/s2/favicons?domain={{ $listing['source_domain'] }}&sz=32" 
                                      class="w-3 h-3 rounded-sm filter grayscale group-hover:grayscale-0 transition-all" 
                                      alt="">
                                 <span class="text-[9px] font-bold text-gray-400 uppercase tracking-tight">
@@ -101,7 +116,7 @@
                             {{ $listing['name'] }}
                         </h3>
 
-                        <!-- 統合されたクイックビュー -->
+                        <!-- クイックビュー -->
                         <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-gray-500 mb-6">
                             <div class="flex items-center gap-1" title="モデル年式">
                                 <i data-lucide="calendar" class="w-3.5 h-3.5 text-gray-300"></i>
@@ -115,9 +130,7 @@
                                 <i data-lucide="gauge" class="w-3.5 h-3.5 text-gray-300"></i>
                                 {{ $listing['mileage'] }}
                             </div>
-
                             <div class="basis-full h-0"></div>
-
                             <div class="flex items-center gap-1" title="排気量">
                                 <i data-lucide="zap" class="w-3.5 h-3.5 text-gray-300"></i>
                                 {{ $listing['displacement'] }}
@@ -132,9 +145,8 @@
 
                         <!-- 価格バッジ -->
                         <div class="bg-gray-50 p-4 rounded-xl mt-auto border border-gray-100 group-hover:bg-blue-50/50 group-hover:border-blue-100 transition-colors">
-                            <!-- 車両価格 -->
                             <div class="flex justify-between items-center mb-1 pb-1 border-b border-gray-200/50">
-                                <span class="text-[9px] font-bold text-gray-600 uppercase tracking-tighter shrink-0 mr-2 leading-tight">
+                                <span class="text-[10px] font-bold text-gray-600 uppercase tracking-tighter shrink-0 mr-2 leading-tight">
                                     車両<br class="sm:hidden">価格
                                 </span>
                                 <div class="text-black text-right">
@@ -142,7 +154,6 @@
                                     <span class="text-[10px] font-bold ml-0.5">万円</span>
                                 </div>
                             </div>
-                            <!-- 総額価格 -->
                             <div class="flex justify-between items-center">
                                 <span class="text-[10px] font-black text-red-500 uppercase italic tracking-tighter shrink-0 mr-2 leading-tight">
                                     総額<br class="sm:hidden">価格
@@ -174,7 +185,7 @@
                         <i data-lucide="search-x" class="w-10 h-10 text-gray-300"></i>
                     </div>
                     <h3 class="text-lg font-bold text-black mb-2">一致する車両が見つかりませんでした</h3>
-                    <p class="text-gray-400 text-sm mb-8">キーワードを変えて再度お試しください。</p>
+                    <p class="text-gray-400 text-sm mb-8">条件を変えて再度お試しください。</p>
                     <a href="{{ route('bikes.index') }}" class="inline-flex items-center gap-2 bg-black text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-gray-800 transition-all">
                         <i data-lucide="arrow-left" class="w-4 h-4"></i> トップに戻って探す
                     </a>
@@ -182,7 +193,7 @@
                 @endforelse
             </div>
 
-            <!-- 動的ページネーション (スマホ最適化版) -->
+            <!-- 動的ページネーション -->
             @if($pagination['last_page'] > 1)
             <div class="mt-16 flex flex-col items-center gap-4">
                 <div class="flex items-center gap-1 sm:gap-2">
@@ -190,7 +201,6 @@
                         $current = $pagination['current_page'];
                         $last = $pagination['last_page'];
                         $pages = [];
-                        
                         for ($i = 1; $i <= $last; $i++) {
                             if ($i == 1 || $i == $last || ($i >= $current - 2 && $i <= $current + 2)) {
                                 $pages[] = $i;
@@ -198,7 +208,6 @@
                         }
                     @endphp
 
-                    <!-- 前へ -->
                     @if($current > 1)
                     <a href="{{ request()->fullUrlWithQuery(['page' => $current - 1]) }}" 
                        class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-black hover:text-black transition-all">
@@ -209,15 +218,8 @@
                     @php $cursor = 0; @endphp
                     @foreach($pages as $page)
                         @if($cursor > 0 && $page - $cursor > 1)
-                            @php
-                                $hideDotsOnMobile = ($page - $cursor == 2) && ($page == $current - 1 || $cursor == $current + 1);
-                            @endphp
-                            <span class="px-0.5 sm:px-1 text-gray-300 {{ $hideDotsOnMobile ? 'hidden sm:inline' : '' }}">...</span>
+                            <span class="px-0.5 sm:px-1 text-gray-300 {{ ($page - $cursor == 2) && ($page == $current - 1 || $cursor == $current + 1) ? 'hidden sm:inline' : '' }}">...</span>
                         @endif
-
-                        @php
-                            $isOuterPage = ($page == $current - 2 || $page == $current + 2) && $page != 1 && $page != $last;
-                        @endphp
 
                         @if($page == $current)
                             <span class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-black text-white font-bold text-sm shadow-lg shadow-black/10 transition-all">
@@ -225,14 +227,13 @@
                             </span>
                         @else
                             <a href="{{ request()->fullUrlWithQuery(['page' => $page]) }}" 
-                               class="{{ $isOuterPage ? 'hidden sm:flex' : 'flex' }} w-9 h-9 sm:w-10 sm:h-10 items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 hover:border-black hover:text-black transition-all">
+                               class="{{ ($page == $current - 2 || $page == $current + 2) && $page != 1 && $page != $last ? 'hidden sm:flex' : 'flex' }} w-9 h-9 sm:w-10 sm:h-10 items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 hover:border-black hover:text-black transition-all">
                                 {{ $page }}
                             </a>
                         @endif
                         @php $cursor = $page; @endphp
                     @endforeach
 
-                    <!-- 次へ -->
                     @if($current < $last)
                     <a href="{{ request()->fullUrlWithQuery(['page' => $current + 1]) }}" 
                        class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-black hover:text-black transition-all">
@@ -246,7 +247,6 @@
                 </p>
             </div>
             @endif
-
         </div>
     </div>
 </x-layout>
