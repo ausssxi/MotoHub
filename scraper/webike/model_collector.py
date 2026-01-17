@@ -13,14 +13,14 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 # 0. 共通ユーティリティの読み込み
 # ==========================================
 current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
+parent_dir = os.path.dirname(current_dir) # scraper フォルダ
 sys.path.append(parent_dir)
 
-# 排気量抽出ロジックをインポート
+# 共通関数をインポート (extract_displacement を追加)
 from utils import normalize_name, extract_displacement
 
 # ==========================================
-# 1. 環境設定 & セキュリティ強化
+# 1. 環境設定 & DB接続
 # ==========================================
 env_path = os.path.join(parent_dir, '..', '.env')
 load_dotenv(dotenv_path=env_path)
@@ -46,6 +46,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 class Base(DeclarativeBase):
     pass
 
+# --- DBモデル定義 ---
 class Site(Base):
     __tablename__ = "sites"
     id = Column(BigInteger, primary_key=True)
@@ -57,6 +58,7 @@ class Manufacturer(Base):
     id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     name = Column(String(100), unique=True, nullable=False)
     country = Column(String(50), nullable=True)
+    logo_url = Column(String(255), nullable=True)
 
 class BikeModel(Base):
     __tablename__ = "bike_models"
@@ -76,30 +78,30 @@ class BikeModelIdentifier(Base):
     __table_args__ = (UniqueConstraint('site_id', 'identifier', name='_site_identifier_uc'),)
 
 # ==========================================
-# 2. Scrapy Spider (モデルコレクター)
+# 2. Scrapy Spider (Webike モデルコレクター)
 # ==========================================
-class ModelSpider(scrapy.Spider):
-    name = "model_collector"
-    allowed_domains = ["www.goobike.com"]
-    start_urls = ["https://www.goobike.com/maker-top/index.html"]
+class WebikeModelSpider(scrapy.Spider):
+    name = "webike_model_collector"
+    allowed_domains = ["moto.webike.net", "img.webike-cdn.net"]
+    start_urls = ["https://moto.webike.net/maker/"]
 
     custom_settings = {
-        'REQUEST_FINGERPRINTER_IMPLEMENTATION': '2.7',
         'CONCURRENT_REQUESTS': 8,
-        'DOWNLOAD_DELAY': 1.0,
+        'DOWNLOAD_DELAY': 1.2,
         'COOKIES_ENABLED': False,
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     }
 
     def __init__(self, *args, **kwargs):
-        super(ModelSpider, self).__init__(*args, **kwargs)
+        super(WebikeModelSpider, self).__init__(*args, **kwargs)
         self.db = SessionLocal()
-
-        target_site_name = "GooBike"
+        
+        # --- Site管理 ---
+        target_site_name = "Webike"
         site = self.db.query(Site).filter(Site.name == target_site_name).first()
         if not site:
             try:
-                site = Site(name=target_site_name, base_url="https://www.goobike.com")
+                site = Site(name=target_site_name, base_url="https://moto.webike.net")
                 self.db.add(site)
                 self.db.commit()
             except IntegrityError:
@@ -113,79 +115,88 @@ class ModelSpider(scrapy.Spider):
         self.db.close()
 
     def parse(self, response):
-        maker_links = response.css('span.mj a')
-        for link in maker_links:
-            raw_name = link.css('::text').get()
-            href = link.css('::attr(href)').get()
-            if not raw_name or not href:
+        """1. メーカー一覧ページから情報を取得"""
+        sections = response.xpath('//div[contains(@class, "makersearchbox")]//div[contains(@class, "top") or contains(@class, "maker")]')
+        current_country = "不明"
+        
+        for section in sections:
+            classes = section.root.attrib.get('class', '')
+            if 'top' in classes:
+                current_country = section.css('span::text').get(default="不明").strip()
                 continue
-
-            maker_name = normalize_name(re.sub(r'[\(\uff08].*?[\)\uff09]', '', raw_name))
             
-            m_id = self.manufacturer_cache.get(maker_name)
-            if not m_id:
-                try:
-                    m_record = Manufacturer(name=maker_name, country="不明")
-                    self.db.add(m_record)
-                    self.db.commit()
-                    m_id = m_record.id
-                except IntegrityError:
-                    self.db.rollback()
-                    m_record = self.db.query(Manufacturer).filter(Manufacturer.name == maker_name).first()
-                    m_id = m_record.id if m_record else None
-                
-                if m_id:
-                    self.manufacturer_cache[maker_name] = m_id
+            if 'maker' in classes:
+                for li in section.css('ul.dotline li'):
+                    link = li.css('a')
+                    if link:
+                        raw_name = link.xpath('string(.)').get()
+                        href = link.css('::attr(href)').get()
+                    else:
+                        raw_name = li.css('span.no_bike::text').get()
+                        href = None
 
-            if m_id:
-                yield response.follow(
-                    href, 
-                    callback=self.parse_models, 
-                    meta={'maker_id': m_id, 'maker_name': maker_name}
-                )
+                    if not raw_name: continue
+
+                    clean_name = re.sub(r'\s*[\(\uff08].*?[\)\uff09]', '', raw_name).strip()
+                    maker_name = normalize_name(clean_name)
+
+                    m_id = self.manufacturer_cache.get(maker_name)
+                    if not m_id:
+                        try:
+                            m_record = Manufacturer(name=maker_name, country=current_country)
+                            self.db.add(m_record)
+                            self.db.commit()
+                            m_id = m_record.id
+                            self.manufacturer_cache[maker_name] = m_id
+                        except IntegrityError:
+                            self.db.rollback()
+                            m_id = self.db.query(Manufacturer).filter(Manufacturer.name == maker_name).first().id
+
+                    if m_id and href:
+                        yield response.follow(href, callback=self.parse_models, meta={'maker_id': m_id})
 
     def parse_models(self, response):
+        """2. メーカー別車種一覧ページからデータを抽出"""
         maker_id = response.meta['maker_id']
-        bike_list = response.css('li.bike_list')
+        bike_items = response.css('div.motoset ul.dotline li')
         
-        for bike in bike_list:
-            raw_model_name = bike.css('em b::text').get()
-            identifier_val = bike.css('input[name="model"]::attr(value)').get()
+        scraped_count = 0
+        for item in bike_items:
+            raw_model_name = item.css('p.model_name a::text').get()
+            identifier_val = item.css('input[name="model_code_checkList"]::attr(value)').get()
             
-            img_rel_url = bike.css('img.lazy::attr(data-original)').get() or bike.css('img::attr(src)').get()
-            image_url = response.urljoin(img_rel_url) if img_rel_url else None
+            img_url = item.css('img::attr(data-src)').get() or item.css('img::attr(src)').get()
+            image_url = response.urljoin(img_url) if img_url else None
             
-            if image_url and 'img_noimages.jpg' in image_url:
+            if image_url and ('moto_no_image' in image_url or 'sys_images/bg.png' in image_url):
                 image_url = None
 
-            if not raw_model_name:
+            if not raw_model_name or not identifier_val:
                 continue
 
-            clean_name = re.sub(r'[\(\uff08].*?[\)\uff09]', '', raw_model_name)
-            model_name = normalize_name(clean_name)
-            # 排気量を車種名から抽出
+            model_name = normalize_name(raw_model_name)
+            # 【重要】共通ユーティリティから排気量抽出を使用
             inferred_displacement = extract_displacement(raw_model_name)
-            
+
             try:
                 model_record = self.db.query(BikeModel).filter(BikeModel.name == model_name).first()
                 if not model_record:
-                    new_model = BikeModel(
+                    model_record = BikeModel(
                         name=model_name, 
                         manufacturer_id=maker_id, 
-                        category="不明",
+                        image_url=image_url,
                         displacement=inferred_displacement,
-                        image_url=image_url
+                        category="不明"
                     )
-                    self.db.add(new_model)
+                    self.db.add(model_record)
                     self.db.commit()
-                    model_id = new_model.id
+                    model_id = model_record.id
                 else:
                     model_id = model_record.id
                     needs_update = False
                     if image_url and not model_record.image_url:
                         model_record.image_url = image_url
                         needs_update = True
-                    # 排気量が空の場合のみ更新
                     if inferred_displacement and not model_record.displacement:
                         model_record.displacement = inferred_displacement
                         needs_update = True
@@ -193,29 +204,34 @@ class ModelSpider(scrapy.Spider):
                     if needs_update:
                         self.db.commit()
 
-                if self.site_id and identifier_val:
-                    exists = self.db.query(BikeModelIdentifier).filter(
-                        BikeModelIdentifier.site_id == self.site_id,
-                        BikeModelIdentifier.identifier == identifier_val
-                    ).first()
-                    if not exists:
-                        self.db.add(BikeModelIdentifier(
-                            bike_model_id=model_id, 
-                            site_id=self.site_id, 
-                            identifier=identifier_val
-                        ))
-                        self.db.commit()
-            
+                # 識別子の紐付け
+                exists = self.db.query(BikeModelIdentifier).filter(
+                    BikeModelIdentifier.site_id == self.site_id,
+                    BikeModelIdentifier.identifier == identifier_val
+                ).first()
+                
+                if not exists:
+                    self.db.add(BikeModelIdentifier(
+                        bike_model_id=model_id, 
+                        site_id=self.site_id, 
+                        identifier=identifier_val
+                    ))
+                    self.db.commit()
+                
+                scraped_count += 1
+
             except IntegrityError:
                 self.db.rollback()
                 continue
             except Exception as e:
                 self.db.rollback()
-                self.logger.error(f"Error in parse_models: {e}")
+                self.logger.error(f"Error processing {model_name}: {e}")
+
+        self.logger.info(f"Finished parsing models for maker_id {maker_id}. Found {scraped_count} models.")
 
 def main():
     process = CrawlerProcess()
-    process.crawl(ModelSpider)
+    process.crawl(WebikeModelSpider)
     process.start()
 
 if __name__ == "__main__":

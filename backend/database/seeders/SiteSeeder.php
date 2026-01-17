@@ -5,14 +5,17 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * サイト（情報ソース）の初期データを投入するシーダー
+ */
 class SiteSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * データベースへのデータ投入を実行
      */
     public function run(): void
     {
-        // 初期データの投入
+        // GooBike
         DB::table('sites')->updateOrInsert(
             ['name' => 'GooBike'],
             [
@@ -20,10 +23,19 @@ class SiteSeeder extends Seeder
             ]
         );
 
+        // BDSバイクセンサー
         DB::table('sites')->updateOrInsert(
             ['name' => 'BDS'],
             [
                 'base_url' => 'https://www.bds-bikesensor.net'
+            ]
+        );
+
+        // Webike
+        DB::table('sites')->updateOrInsert(
+            ['name' => 'Webike'],
+            [
+                'base_url' => 'https://moto.webike.net'
             ]
         );
     }

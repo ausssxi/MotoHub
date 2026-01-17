@@ -40,9 +40,9 @@ def main():
         # --- STEP 1: マスタデータの作成 (メーカー・車種) ---
         "goobike/model_collector.py",
         "bds/model_collector.py",
+        "webike/model_collector.py",
         
         # --- STEP 2: マスタの補完・修正 ---
-        "common/bike_model_displacement_fixer.py",
         "goobike/scrapy_category_collector.py",
         "bds/scrapy_category_collector.py",
         
