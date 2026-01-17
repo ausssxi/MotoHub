@@ -56,9 +56,12 @@
                                     <h3 class="text-[11px] sm:text-xs font-bold text-gray-800 truncate group-hover:text-blue-600 transition-colors leading-tight">
                                         {{ $bike->name }}
                                     </h3>
-                                    <p class="text-[9px] text-gray-400 mt-0.5">
-                                        <span class="text-blue-500 font-black">{{ number_format($bike->listings_count ?? 0) }}</span>台
-                                    </p>
+                                    {{-- バッジスタイルの台数表示 --}}
+                                    <div class="flex items-center mt-1">
+                                        <span class="text-[9px] font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
+                                            <span class="text-blue-500 font-bold mr-0.5">{{ number_format($bike->listings_count ?? 0) }}</span>台
+                                        </span>
+                                    </div>
                                 </div>
                             </a>
                             @endforeach

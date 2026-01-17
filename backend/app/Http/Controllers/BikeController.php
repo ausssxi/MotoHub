@@ -26,6 +26,7 @@ final class BikeController extends Controller
     public function index(): View
     {
         $popularBikes = $this->bikeService->getPopularBikesForTopPage();
+        // 地域データは config から取得（以前の定義を維持）
         $regions = config('bike.regions', []);
         $totalListingsCount = $this->listingSearchService->getActiveCount();
 
@@ -48,6 +49,7 @@ final class BikeController extends Controller
 
     /**
      * 検索結果の表示
+     * Service層で整形済みのデータを受け取り、Viewへ渡します
      */
     public function search(Request $request): View
     {
@@ -55,12 +57,13 @@ final class BikeController extends Controller
         $prefecture = $request->query('prefecture');
         $sort = (string) $request->query('sort', 'latest');
 
+        // Serviceから items と pagination(pages, display_textを含む) を取得
         $result = $this->listingSearchService->search($keyword, $prefecture, $sort);
         $totalListingsCount = $this->listingSearchService->getActiveCount();
 
         return view('bikes.search', [
-            'listings'           => $result['items'],
-            'pagination'         => $result['pagination'],
+            'items'              => $result['items'],      // Bladeの @forelse ($items...) に合わせる
+            'pagination'         => $result['pagination'],   // 整形済みデータ
             'keyword'            => $keyword,
             'prefecture'         => $prefecture,
             'sort'               => $sort,
@@ -77,19 +80,18 @@ final class BikeController extends Controller
         $totalListingsCount = $this->listingSearchService->getActiveCount();
 
         return view('bikes.models', [
-            'manufacturers' => $data['manufacturers'],
-            'totalModelsCount' => $data['totalModelsCount'],
+            'manufacturers'      => $data['manufacturers'],
+            'totalModelsCount'   => $data['totalModelsCount'],
             'totalListingsCount' => $totalListingsCount,
         ]);
     }
 
     /**
      * 運営者情報の表示
-     * AdSense 審査に必要な固定ページは pages フォルダ内で管理
      */
     public function about(): View
     {
-        // 検索件数の取得を削除してシンプルに
+        // 掲載台数などの動的データが必要な場合はここでも取得して渡せます
         return view('pages.about');
     }
 }

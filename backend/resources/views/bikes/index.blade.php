@@ -46,7 +46,7 @@
                     <!-- サジェスト結果ドロップダウン -->
                     <div id="suggest-results" class="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden hidden z-50 text-left">
                         <div id="suggest-list" class="py-2">
-                            <!-- JSでここに候補を挿入します -->
+                            <!-- JSでここに候補を挿入 -->
                         </div>
                     </div>
                 </div>
@@ -135,67 +135,6 @@
         </section>
     </main>
 
-    {{-- サジェスト用JavaScript --}}
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const searchInput = document.getElementById('search-input');
-            const suggestResults = document.getElementById('suggest-results');
-            const suggestList = document.getElementById('suggest-list');
-            let debounceTimer;
-
-            searchInput.addEventListener('input', (e) => {
-                const keyword = e.target.value.trim();
-                clearTimeout(debounceTimer);
-
-                if (keyword.length < 1) {
-                    suggestResults.classList.add('hidden');
-                    return;
-                }
-
-                debounceTimer = setTimeout(async () => {
-                    try {
-                        const response = await fetch(`/bikes/suggest?keyword=${encodeURIComponent(keyword)}`);
-                        const data = await response.json();
-
-                        if (data.length > 0) {
-                            suggestList.innerHTML = data.map(item => `
-                                <button type="button" class="w-full px-5 py-3 hover:bg-gray-50 flex items-center justify-between group transition-colors suggest-item" data-name="${item.name}">
-                                    <div class="flex items-center gap-3">
-                                        <div class="p-1.5 bg-gray-100 rounded-lg group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
-                                            <i data-lucide="bike" class="w-3.5 h-3.5"></i>
-                                        </div>
-                                        <span class="text-sm font-bold text-gray-700 group-hover:text-black">${item.name}</span>
-                                    </div>
-                                    <span class="text-[10px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded">${item.count}台</span>
-                                </button>
-                            `).join('');
-                            
-                            suggestResults.classList.remove('hidden');
-                            lucide.createIcons(); // アイコンを再描画
-
-                            // 候補クリック時の処理
-                            document.querySelectorAll('.suggest-item').forEach(item => {
-                                item.addEventListener('click', () => {
-                                    searchInput.value = item.dataset.name;
-                                    suggestResults.classList.add('hidden');
-                                    document.getElementById('search-form').submit();
-                                });
-                            });
-                        } else {
-                            suggestResults.classList.add('hidden');
-                        }
-                    } catch (error) {
-                        console.error('Suggestion fetch error:', error);
-                    }
-                }, 300); // 300msデバウンス
-            });
-
-            // 枠外クリックで閉じる
-            document.addEventListener('click', (e) => {
-                if (!document.getElementById('search-container').contains(e.target)) {
-                    suggestResults.classList.add('hidden');
-                }
-            });
-        });
-    </script>
+    {{-- 切り出したサジェスト用JavaScriptを読み込み --}}
+    <script src="{{ asset('js/search-suggest.js') }}"></script>
 </x-layout>

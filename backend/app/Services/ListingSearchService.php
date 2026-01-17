@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Repositories\ListingRepository;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
  * バイク出品情報の検索ロジックを担当
@@ -25,11 +26,8 @@ final class ListingSearchService
 
         $formattedItems = $paginated->getCollection()->map(fn($item) => [
             'id' => $item->id,
-            // システム用の識別キー（小文字・トリム済み）
             'source_id' => strtolower(trim($item->site?->name ?? 'other')),
-            // 画面表示用のサイト名
             'source' => $this->resolveSourceDisplayName($item->site?->name ?? ''),
-            // ファビコン取得用のドメイン
             'source_domain' => $this->resolveSourceDomain(strtolower(trim($item->site?->name ?? ''))),
             'maker' => $item->bikeModel?->manufacturer?->name ?? '不明',
             'name' => $item->title ?? $item->bikeModel?->name ?? '車種名不明',
@@ -48,13 +46,7 @@ final class ListingSearchService
 
         return [
             'items' => $formattedItems,
-            'pagination' => [
-                'total'        => $paginated->total(),
-                'current_page' => $paginated->currentPage(),
-                'last_page'    => $paginated->lastPage(),
-                'from'         => $paginated->firstItem(),
-                'to'           => $paginated->lastItem(),
-            ]
+            'pagination' => $this->formatPagination($paginated)
         ];
     }
 
@@ -64,38 +56,86 @@ final class ListingSearchService
     }
 
     /**
-     * 表示用のサイト名を解決する
-     * データベースの値が 'WEBIKE', 'webike', 'Webike ' などであっても正規化して判定します
+     * ページネーション情報をUI向けに整形
      */
+    private function formatPagination(LengthAwarePaginator $paginated): array
+    {
+        $currentPage = $paginated->currentPage();
+        $lastPage = $paginated->lastPage();
+        
+        // 【修正】現在のページの左右に表示する数を 2 から 1 に変更（計3ページ分にする）
+        $range = 1; 
+
+        $pages = [];
+        
+        // 常に1ページ目を追加
+        $pages[] = $this->makePageItem(1, $paginated);
+
+        // 前方の「...」判定
+        if ($currentPage - $range > 2) {
+            $pages[] = ['is_dot' => true];
+        }
+
+        // 中間のページ番号
+        for ($i = max(2, $currentPage - $range); $i <= min($lastPage - 1, $currentPage + $range); $i++) {
+            $pages[] = $this->makePageItem($i, $paginated);
+        }
+
+        // 後方の「...」判定
+        if ($currentPage + $range < $lastPage - 1) {
+            $pages[] = ['is_dot' => true];
+        }
+
+        // 最後のページを追加
+        if ($lastPage > 1) {
+            $pages[] = $this->makePageItem($lastPage, $paginated);
+        }
+
+        return [
+            'total'        => $paginated->total(),
+            'current_page' => $currentPage,
+            'last_page'    => $lastPage,
+            'from'         => $paginated->firstItem(),
+            'to'           => $paginated->lastItem(),
+            'prev_url'     => $paginated->previousPageUrl(),
+            'next_url'     => $paginated->nextPageUrl(),
+            'pages'        => $pages,
+            'display_text' => "全 {$lastPage} ページ中 {$currentPage} ページ"
+        ];
+    }
+
+    private function makePageItem(int $page, LengthAwarePaginator $paginated): array
+    {
+        return [
+            'label'     => $page,
+            'url'       => $paginated->url($page),
+            'is_active' => $page === $paginated->currentPage(),
+            'is_dot'    => false,
+        ];
+    }
+
     private function resolveSourceDisplayName(string $sourceName): string
     {
         $normalized = strtolower(trim($sourceName));
-
         return match ($normalized) {
-            'goobike'    => 'グーバイク',
-            'bds', 'bikesensor' => 'BDSバイクセンサー',
-            'webike'     => 'Webike', // 大文字小文字を正しく指定
-            default      => $sourceName ?: '不明',
+            'goobike'           => 'グーバイク DD',
+            'bds', 'bikesensor' => 'BDSバイクセンサー DD',
+            'webike'            => 'Webike DD',
+            default             => ($sourceName ?: '不明') . ' DD',
         };
     }
 
-    /**
-     * ファビコン用のドメインを解決する
-     */
     private function resolveSourceDomain(string $sourceName): string
     {
         $domains = [
             'goobike'    => 'goobike.com',
             'bds'        => 'bds-bikesensor.net',
             'bikesensor' => 'bds-bikesensor.net',
-            'webike'     => 'www.webike.net' // wwwありの方がアイコン取得率が高いため修正
+            'webike'     => 'www.webike.net'
         ];
         return $domains[$sourceName] ?? 'google.com';
     }
 
-    /**
-     * ローカルパスを公開URLに変換する
-     */
     private function resolveImageUrls(?array $paths): array
     {
         if (empty($paths)) return [];

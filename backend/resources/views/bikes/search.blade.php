@@ -18,7 +18,6 @@
         <x-navigation 
             :totalListingsCount="$totalListingsCount" 
             :showSearch="true" 
-            :showFilter="true" 
             :keyword="$keyword" 
         />
     </x-slot:navigation>
@@ -46,10 +45,10 @@
                             車両一覧
                         @endif
                     </h2>
-                    <p class="text-xs font-bold text-gray-400 mt-1 tracking-wider uppercase">
-                        FOUND {{ number_format($pagination['total']) }} RESULTS 
+                    <p class="text-xs font-bold text-gray-400 mt-1 tracking-wider">
+                        全 {{ number_format($pagination['total']) }} 件 
                         <span class="mx-2 text-gray-200">|</span> 
-                        {{ $pagination['from'] ?? 0 }} - {{ $pagination['to'] ?? 0 }}
+                        {{ $pagination['from'] ?? 0 }} - {{ $pagination['to'] ?? 0 }} 件を表示
                     </p>
                 </div>
                 
@@ -74,12 +73,16 @@
 
             <!-- 検索結果グリッド -->
             <div id="results-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                @forelse ($listings as $listing)
-                <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col group border border-gray-100 relative">
-                    <!-- ...車両カードの内容 (省略なし) ... -->
+                @forelse ($items as $listing)
+                <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col group border border-gray-100 relative cursor-pointer">
+                    
+                    {{-- カード全体を覆うリンクタグ --}}
+                    <a href="{{ $listing['url'] }}" target="_blank" rel="noopener noreferrer" class="absolute inset-0 z-20" aria-label="{{ $listing['name'] }} の詳細を見る"></a>
+
+                    {{-- サイト名（DD付き）とファビコン --}}
                     <div class="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur-sm px-2 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 border border-white/20">
                         <img src="https://www.google.com/s2/favicons?domain={{ $listing['source_domain'] }}&sz=32" class="w-3.5 h-3.5 rounded-sm" alt="">
-                        <span class="text-[9px] font-black text-gray-500 tracking-tighter">{{ $listing['source'] }}</span>
+                        <span class="text-[9px] font-black text-gray-500 uppercase tracking-tighter">{{ $listing['source'] }}</span>
                     </div>
 
                     <div class="aspect-[4/3] relative overflow-hidden bg-gray-50">
@@ -121,74 +124,57 @@
                             </div>
                         </div>
 
-                        <div class="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between gap-4">
+                        {{-- 下部の店舗情報セクションからボタンを削除 --}}
+                        <div class="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
                             <div class="flex items-center min-w-0">
                                 <i data-lucide="store" class="w-3.5 h-3.5 text-gray-300 mr-1.5 flex-shrink-0"></i>
                                 <span class="text-[10px] font-bold text-gray-400 truncate">{{ $listing['store_name'] }}</span>
                             </div>
-                            <a href="{{ $listing['url'] }}" target="_blank" rel="noopener noreferrer" class="bg-black text-white text-[11px] font-black px-4 py-2.5 rounded-xl hover:bg-blue-600 transition-all flex items-center gap-2 shadow-lg shadow-black/5 active:scale-95 whitespace-nowrap">
-                                VIEW INFO <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-                            </a>
+                            {{-- ボタンの代わりに「詳しく見る」などの小さな矢印アイコンのみを配置するのもおしゃれですが、今回はシンプルに情報を整理しました --}}
+                            <div class="text-gray-300 group-hover:text-blue-600 transition-colors">
+                                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
                 @empty
                 <div class="col-span-full py-24 text-center">
-                    <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <i data-lucide="search-x" class="w-10 h-10 text-gray-300"></i>
-                    </div>
-                    <h3 class="text-lg font-bold text-black mb-2">一致する車両が見つかりませんでした</h3>
-                    <a href="{{ route('bikes.index') }}" class="inline-flex items-center gap-2 bg-black text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-black/10">
-                        <i data-lucide="arrow-left" class="w-4 h-4"></i> 検索画面に戻る
-                    </a>
+                    <i data-lucide="search-x" class="w-12 h-12 text-gray-200 mx-auto mb-4"></i>
+                    <p class="text-gray-400 font-bold">一致する車両が見つかりませんでした</p>
                 </div>
                 @endforelse
             </div>
 
-            <!-- ページネーション (カスタム実装) -->
+            <!-- ページネーション -->
             @if($pagination['last_page'] > 1)
-            <div class="mt-20 flex flex-col items-center gap-6">
-                <nav class="flex items-center gap-1">
-                    {{-- 前のページ --}}
-                    @if($pagination['current_page'] > 1)
-                    <a href="{{ request()->fullUrlWithQuery(['page' => $pagination['current_page'] - 1]) }}" 
-                       class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-400 hover:border-black hover:text-black transition-all">
-                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+            <div class="mt-20 flex flex-col items-center gap-6 w-full">
+                <nav class="flex justify-center items-center gap-1 sm:gap-2 max-w-full">
+                    @if($pagination['prev_url'])
+                    <a href="{{ $pagination['prev_url'] }}" class="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg sm:rounded-xl bg-white border border-gray-200 text-gray-400 hover:border-black hover:text-black transition-all flex-shrink-0">
+                        <i data-lucide="chevron-left" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                     </a>
                     @endif
 
-                    {{-- ページ番号 --}}
-                    @php
-                        $start = max(1, $pagination['current_page'] - 2);
-                        $end = min($pagination['last_page'], $pagination['current_page'] + 2);
-                    @endphp
+                    @foreach($pagination['pages'] as $page)
+                        @if($page['is_dot'])
+                            <span class="px-0.5 text-gray-300 text-xs">...</span>
+                        @else
+                            <a href="{{ $page['url'] }}" 
+                               class="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg sm:rounded-xl font-black text-[10px] sm:text-sm transition-all flex-shrink-0 {{ $page['is_active'] ? 'bg-black text-white shadow-lg shadow-black/20' : 'bg-white border border-gray-200 text-gray-400 hover:border-black hover:text-black' }}">
+                                {{ $page['label'] }}
+                            </a>
+                        @endif
+                    @endforeach
 
-                    @if($start > 1)
-                        <span class="px-2 text-gray-300">...</span>
-                    @endif
-
-                    @for($i = $start; $i <= $end; $i++)
-                        <a href="{{ request()->fullUrlWithQuery(['page' => $i]) }}" 
-                           class="w-10 h-10 flex items-center justify-center rounded-xl font-black text-sm transition-all {{ $i === $pagination['current_page'] ? 'bg-black text-white shadow-lg shadow-black/20' : 'bg-white border border-gray-200 text-gray-400 hover:border-black hover:text-black' }}">
-                            {{ $i }}
-                        </a>
-                    @endfor
-
-                    @if($end < $pagination['last_page'])
-                        <span class="px-2 text-gray-300">...</span>
-                    @endif
-
-                    {{-- 次のページ --}}
-                    @if($pagination['current_page'] < $pagination['last_page'])
-                    <a href="{{ request()->fullUrlWithQuery(['page' => $pagination['current_page'] + 1]) }}" 
-                       class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-400 hover:border-black hover:text-black transition-all">
-                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    @if($pagination['next_url'])
+                    <a href="{{ $pagination['next_url'] }}" class="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg sm:rounded-xl bg-white border border-gray-200 text-gray-400 hover:border-black hover:text-black transition-all flex-shrink-0">
+                        <i data-lucide="chevron-right" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                     </a>
                     @endif
                 </nav>
 
-                <p class="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em]">
-                    Page {{ $pagination['current_page'] }} of {{ $pagination['last_page'] }}
+                <p class="text-[10px] font-black text-gray-300 tracking-[0.2em] uppercase text-center px-4">
+                    {{ $pagination['display_text'] }}
                 </p>
             </div>
             @endif
