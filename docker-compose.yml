@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # Laravel App (PHP-FPM)
   app:
@@ -71,11 +73,14 @@ services:
     image: redis:alpine
     container_name: motohub-redis
 
+  # MailHog - メールテスト用サーバー
+  mailhog:
+    image: mailhog/mailhog
+    container_name: motohub-mailhog
+    restart: unless-stopped
+    ports:
+      - "${MAIL_SMTP_PORT:-1025}:1025" # SMTPポート
+      - "${MAIL_UI_PORT:-8025}:8025"   # Web UIポート
+
 volumes:
   db-data:
-
-
-
-
-
-

@@ -15,7 +15,12 @@ Route::get('/search', [BikeController::class, 'search'])->name('bikes.search');
 // --- 固定ページ (PageController) ---
 Route::prefix('pages')->name('pages.')->group(function () {
     Route::get('/about', [PageController::class, 'about'])->name('about');
+    
+    // お問い合わせ (表示)
     Route::get('/contact', [PageController::class, 'contact'])->name('contact');
+    // お問い合わせ (送信処理)
+    Route::post('/contact', [PageController::class, 'send'])->name('contact.send');
+
     Route::get('/privacy-policy', [PageController::class, 'privacyPolicy'])->name('privacy-policy');
     Route::get('/terms', [PageController::class, 'terms'])->name('terms');
 });

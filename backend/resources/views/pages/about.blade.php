@@ -7,7 +7,7 @@
     {{-- 2. ナビゲーション --}}
     <x-slot:navigation>
         <x-navigation 
-            :totalListingsCount="$totalListingsCount ?? 0" 
+            :totalListingsCount="$totalListingsCount" 
             :showSearch="true" 
         />
     </x-slot:navigation>
