@@ -9,21 +9,37 @@ use Illuminate\Database\Eloquent\Collection;
 
 final class BikeService
 {
-    /**
-     * @param BikeRepository $repository
-     */
     public function __construct(
         private readonly BikeRepository $repository
     ) {}
 
-    /**
-     * トップページ用の人気車種データを取得
-     *
-     * @return Collection
-     */
     public function getPopularBikesForTopPage(): Collection
     {
-        // コンストラクタの引数名に合わせて $this->repository を使用
-        return $this->repository->getTopBikesByCount();
+        return $this->repository->getTopBikesByCount(16);
+    }
+
+    /**
+     * 検索候補を取得
+     */
+    public function getSearchSuggestions(string $keyword): array
+    {
+        // 10件程度に絞って候補を取得
+        $models = $this->repository->searchNamesByKeyword($keyword, 10);
+
+        return $models->map(fn($m) => [
+            'name' => $m->name,
+            'count' => $m->listings_count,
+        ])->toArray();
+    }
+
+    /**
+     * 全車種一覧ページ用のデータを取得
+     */
+    public function getAllModelsForIndex(): array
+    {
+        return [
+            'manufacturers' => $this->repository->getAllModelsGroupedByManufacturer(),
+            'totalModelsCount' => $this->repository->countAllModels(),
+        ];
     }
 }

@@ -25,9 +25,12 @@ final class ListingSearchService
 
         $formattedItems = $paginated->getCollection()->map(fn($item) => [
             'id' => $item->id,
-            'source_id' => strtolower($item->site?->name ?? 'other'),
-            'source' => $item->site?->name ?? '不明',
-            'source_domain' => $this->resolveSourceDomain(strtolower($item->site?->name ?? '')),
+            // システム用の識別キー（小文字・トリム済み）
+            'source_id' => strtolower(trim($item->site?->name ?? 'other')),
+            // 画面表示用のサイト名
+            'source' => $this->resolveSourceDisplayName($item->site?->name ?? ''),
+            // ファビコン取得用のドメイン
+            'source_domain' => $this->resolveSourceDomain(strtolower(trim($item->site?->name ?? ''))),
             'maker' => $item->bikeModel?->manufacturer?->name ?? '不明',
             'name' => $item->title ?? $item->bikeModel?->name ?? '車種名不明',
             'model_year' => $item->model_year ? "{$item->model_year}年" : '不明',
@@ -60,16 +63,39 @@ final class ListingSearchService
         return $this->repository->countActiveListings();
     }
 
+    /**
+     * 表示用のサイト名を解決する
+     * データベースの値が 'WEBIKE', 'webike', 'Webike ' などであっても正規化して判定します
+     */
+    private function resolveSourceDisplayName(string $sourceName): string
+    {
+        $normalized = strtolower(trim($sourceName));
+
+        return match ($normalized) {
+            'goobike'    => 'グーバイク',
+            'bds', 'bikesensor' => 'BDSバイクセンサー',
+            'webike'     => 'Webike', // 大文字小文字を正しく指定
+            default      => $sourceName ?: '不明',
+        };
+    }
+
+    /**
+     * ファビコン用のドメインを解決する
+     */
     private function resolveSourceDomain(string $sourceName): string
     {
         $domains = [
-            'goobike' => 'goobike.com',
-            'bds' => 'bds-bikesensor.net',
-            'bikesensor' => 'bds-bikesensor.net'
+            'goobike'    => 'goobike.com',
+            'bds'        => 'bds-bikesensor.net',
+            'bikesensor' => 'bds-bikesensor.net',
+            'webike'     => 'www.webike.net' // wwwありの方がアイコン取得率が高いため修正
         ];
         return $domains[$sourceName] ?? 'google.com';
     }
 
+    /**
+     * ローカルパスを公開URLに変換する
+     */
     private function resolveImageUrls(?array $paths): array
     {
         if (empty($paths)) return [];

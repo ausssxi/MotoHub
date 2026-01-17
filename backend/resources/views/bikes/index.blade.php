@@ -27,20 +27,29 @@
                     MotoHubは中古・新車バイクを<br class="sm:hidden">まとめて一括検索できるサービスです
                 </p>
 
-                <form action="{{ route('bikes.search') }}" method="GET" class="relative max-w-2xl mx-auto">
-                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center bg-white rounded-2xl p-1 sm:p-2 shadow-2xl border border-gray-100 gap-1 sm:gap-2">
-                        <div class="flex items-center flex-1 px-2 sm:px-4 min-w-0">
-                            <div class="flex-shrink-0 text-gray-400">
-                                <i data-lucide="search" class="w-5 h-5"></i>
+                <div class="relative max-w-2xl mx-auto" id="search-container">
+                    <form action="{{ route('bikes.search') }}" method="GET" autocomplete="off" id="search-form">
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center bg-white rounded-2xl p-1 sm:p-2 shadow-2xl border border-gray-100 gap-1 sm:gap-2">
+                            <div class="flex items-center flex-1 px-2 sm:px-4 min-w-0 relative">
+                                <div class="flex-shrink-0 text-gray-400">
+                                    <i data-lucide="search" class="w-5 h-5"></i>
+                                </div>
+                                <input type="text" name="keyword" id="search-input" placeholder="ホンダ レブル250, 400cc..." 
+                                    class="w-full px-2 py-3 text-sm sm:text-lg focus:outline-none bg-transparent">
                             </div>
-                            <input type="text" name="keyword" placeholder="ホンダ レブル250, 400cc..." 
-                                class="w-full px-2 py-3 text-sm sm:text-lg focus:outline-none bg-transparent">
+                            <button type="submit" class="bg-black hover:bg-gray-800 text-white font-bold px-6 py-3.5 sm:py-3.5 rounded-xl transition-all whitespace-nowrap text-sm sm:text-base active:scale-95">
+                                検索する
+                            </button>
                         </div>
-                        <button type="submit" class="bg-black hover:bg-gray-800 text-white font-bold px-6 py-3.5 sm:py-3.5 rounded-xl transition-all whitespace-nowrap text-sm sm:text-base active:scale-95">
-                            検索する
-                        </button>
+                    </form>
+
+                    <!-- サジェスト結果ドロップダウン -->
+                    <div id="suggest-results" class="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden hidden z-50 text-left">
+                        <div id="suggest-list" class="py-2">
+                            <!-- JSでここに候補を挿入します -->
+                        </div>
                     </div>
-                </form>
+                </div>
             </div>
         </section>
 
@@ -56,7 +65,8 @@
                         <p class="text-[10px] sm:text-xs text-gray-400">登録台数が多い人気の16車種</p>
                     </div>
                 </div>
-                <a href="{{ route('bikes.index') }}" class="group flex items-center text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">
+                {{-- 車種一覧ページへのリンク --}}
+                <a href="{{ route('bikes.models') }}" class="group flex items-center text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">
                     すべて見る
                     <i data-lucide="chevron-right" class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform"></i>
                 </a>
@@ -124,4 +134,68 @@
             </div>
         </section>
     </main>
+
+    {{-- サジェスト用JavaScript --}}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-input');
+            const suggestResults = document.getElementById('suggest-results');
+            const suggestList = document.getElementById('suggest-list');
+            let debounceTimer;
+
+            searchInput.addEventListener('input', (e) => {
+                const keyword = e.target.value.trim();
+                clearTimeout(debounceTimer);
+
+                if (keyword.length < 1) {
+                    suggestResults.classList.add('hidden');
+                    return;
+                }
+
+                debounceTimer = setTimeout(async () => {
+                    try {
+                        const response = await fetch(`/bikes/suggest?keyword=${encodeURIComponent(keyword)}`);
+                        const data = await response.json();
+
+                        if (data.length > 0) {
+                            suggestList.innerHTML = data.map(item => `
+                                <button type="button" class="w-full px-5 py-3 hover:bg-gray-50 flex items-center justify-between group transition-colors suggest-item" data-name="${item.name}">
+                                    <div class="flex items-center gap-3">
+                                        <div class="p-1.5 bg-gray-100 rounded-lg group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                                            <i data-lucide="bike" class="w-3.5 h-3.5"></i>
+                                        </div>
+                                        <span class="text-sm font-bold text-gray-700 group-hover:text-black">${item.name}</span>
+                                    </div>
+                                    <span class="text-[10px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded">${item.count}台</span>
+                                </button>
+                            `).join('');
+                            
+                            suggestResults.classList.remove('hidden');
+                            lucide.createIcons(); // アイコンを再描画
+
+                            // 候補クリック時の処理
+                            document.querySelectorAll('.suggest-item').forEach(item => {
+                                item.addEventListener('click', () => {
+                                    searchInput.value = item.dataset.name;
+                                    suggestResults.classList.add('hidden');
+                                    document.getElementById('search-form').submit();
+                                });
+                            });
+                        } else {
+                            suggestResults.classList.add('hidden');
+                        }
+                    } catch (error) {
+                        console.error('Suggestion fetch error:', error);
+                    }
+                }, 300); // 300msデバウンス
+            });
+
+            // 枠外クリックで閉じる
+            document.addEventListener('click', (e) => {
+                if (!document.getElementById('search-container').contains(e.target)) {
+                    suggestResults.classList.add('hidden');
+                }
+            });
+        });
+    </script>
 </x-layout>

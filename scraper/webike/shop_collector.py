@@ -5,7 +5,7 @@ import datetime
 import logging
 import scrapy
 from scrapy.crawler import CrawlerProcess
-from sqlalchemy import create_engine, Column, BigInteger, String, Text, DateTime, ForeignKey, UniqueConstraint, Numeric, or_
+from sqlalchemy import create_engine, Column, BigInteger, String, Text, DateTime, ForeignKey, UniqueConstraint, Numeric
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.exc import IntegrityError
 from dotenv import load_dotenv
@@ -71,30 +71,30 @@ class ShopIdentifier(Base):
     __table_args__ = (UniqueConstraint('site_id', 'identifier', name='_shop_site_identifier_uc'),)
 
 # ==========================================
-# 2. Scrapy Pipeline
+# 2. Scrapy Pipeline (名寄せ & 保存)
 # ==========================================
 class DatabasePipeline:
     def open_spider(self, spider):
         self.session = SessionLocal()
         
-        # 1. Site登録 (BDS)
-        target_site_name = "BDS"
+        # Site登録 (Webike)
+        target_site_name = "Webike"
         site = self.session.query(Site).filter(Site.name == target_site_name).first()
         if not site:
-            site = Site(name=target_site_name, base_url="https://www.bds-bikesensor.net")
+            site = Site(name=target_site_name, base_url="https://moto.webike.net")
             self.session.add(site)
             self.session.commit()
         self.site_id = site.id
 
-        # 2. 名寄せ用キャッシュの構築
-        spider.logger.info("Building cross-site shop matching cache...")
+        # 重複チェック用キャッシュ構築
+        spider.logger.info("Building cross-site matching cache...")
         all_shops = self.session.query(Shop).all()
         all_idents = self.session.query(ShopIdentifier).all()
 
-        self.phone_cache = {}    
-        self.name_addr_cache = {} # normalized_name -> [(normalized_address, shop_id)]
         self.ident_cache = {(si.site_id, si.identifier): si.shop_id for si in all_idents}
-
+        self.phone_cache = {}    
+        self.name_addr_cache = {} 
+        
         for s in all_shops:
             if s.phone:
                 p_norm = normalize_phone(s.phone)
@@ -109,12 +109,12 @@ class DatabasePipeline:
     def process_item(self, item, spider):
         try:
             name = item['name']
-            address = item['address'] or ''
+            address = item['address']
             phone = item['phone']
             identifier = item['identifier']
             shop_id = None
 
-            # 1. 識別子でチェック
+            # 1. サイト内識別子でチェック
             shop_id = self.ident_cache.get((self.site_id, identifier))
 
             if not shop_id:
@@ -123,32 +123,33 @@ class DatabasePipeline:
                     p_norm = normalize_phone(phone)
                     shop_id = self.phone_cache.get(p_norm)
 
-                # 3. 店名 + 住所 でチェック
+                # 3. 店名 + 住所 で名寄せ
                 if not shop_id:
                     n_norm = normalize_shop_name(name)
                     a_norm = normalize_address(address)
-                    
                     for cached_n_norm, addr_list in self.name_addr_cache.items():
                         if n_norm and cached_n_norm and (n_norm in cached_n_norm or cached_n_norm in n_norm):
                             for cached_a_norm, cached_id in addr_list:
-                                if a_norm in cached_a_norm or cached_a_norm in a_norm:
+                                if a_norm and cached_a_norm and (a_norm in cached_a_norm or cached_a_norm in a_norm):
                                     shop_id = cached_id
                                     break
                         if shop_id: break
 
+            # 4. 登録または更新
             if shop_id:
-                # 更新
                 shop_record = self.session.query(Shop).get(shop_id)
                 if shop_record:
-                    if not shop_record.phone and phone: shop_record.phone = phone
+                    # 情報を最新に更新
+                    if phone: shop_record.phone = phone
                     shop_record.business_hours = item['business_hours']
                     shop_record.regular_holiday = item['regular_holiday']
+                    shop_record.rating = item['rating']
                     if item['image_url']: shop_record.image_url = item['image_url']
             else:
-                # 新規登録
+                # 完全新規
                 shop_record = Shop(
                     name=name, prefecture=item['prefecture'], address=address,
-                    phone=phone, website_url=item['website_url'],
+                    phone=phone, website_url=item['website_url'], rating=item['rating'],
                     business_hours=item['business_hours'], regular_holiday=item['regular_holiday'],
                     image_url=item['image_url']
                 )
@@ -163,15 +164,15 @@ class DatabasePipeline:
                 if n_norm not in self.name_addr_cache: self.name_addr_cache[n_norm] = []
                 self.name_addr_cache[n_norm].append((normalize_address(address), shop_id))
 
-            # 識別子の紐付け
+            # 5. 識別子の紐付け
             if identifier and (self.site_id, identifier) not in self.ident_cache:
                 self.session.add(ShopIdentifier(shop_id=shop_id, site_id=self.site_id, identifier=identifier))
                 self.ident_cache[(self.site_id, identifier)] = shop_id
-            
+
             self.session.commit()
         except Exception as e:
             self.session.rollback()
-            spider.logger.error(f"Error saving BDS shop {item.get('name')}: {e}")
+            spider.logger.error(f"Error saving Webike shop {item.get('name')}: {e}")
         return item
 
     def close_spider(self, spider):
@@ -180,57 +181,77 @@ class DatabasePipeline:
 # ==========================================
 # 3. Scrapy Spider
 # ==========================================
-class BdsShopSpider(scrapy.Spider):
-    name = "bds_shop_collector"
-    allowed_domains = ["www.bds-bikesensor.net"]
-
-    PREF_MAP = {
-        "01": "北海道", "02": "青森県", "03": "岩手県", "04": "宮城県", "05": "秋田県", "06": "山形県", "07": "福島県",
-        "08": "茨城県", "09": "栃木県", "10": "群馬県", "11": "埼玉県", "12": "千葉県", "13": "東京都", "14": "神奈川県",
-        "15": "新潟県", "16": "富山県", "17": "石川県", "18": "福井県", "19": "山梨県", "20": "長野県", "21": "岐阜県",
-        "22": "静岡県", "23": "愛知県", "24": "三重県", "25": "滋賀県", "26": "京都府", "27": "大阪府", "28": "兵庫県",
-        "29": "奈良県", "30": "和歌山県", "31": "鳥取県", "32": "島根県", "33": "岡山県", "34": "広島県", "35": "山口県",
-        "36": "徳島県", "37": "香川県", "38": "愛媛県", "39": "高知県", "40": "福岡県", "41": "佐賀県", "42": "長崎県",
-        "43": "熊本県", "44": "大分県", "45": "宮崎県", "46": "鹿児島県", "47": "沖縄県"
-    }
-    
-    def start_requests(self):
-        base_url = "https://www.bds-bikesensor.net/shop?prefectureCodes%5B%5D="
-        for code, name in self.PREF_MAP.items():
-            yield scrapy.Request(base_url + code, callback=self.parse_shop_list, meta={'prefecture': name})
+class WebikeShopSpider(scrapy.Spider):
+    name = "webike_shop_collector"
+    allowed_domains = ["moto.webike.net"]
+    start_urls = ["https://moto.webike.net/shop-navi/"]
 
     custom_settings = {
-        'CONCURRENT_REQUESTS': 16,
-        'DOWNLOAD_DELAY': 0.5,
+        'CONCURRENT_REQUESTS': 8,
+        'DOWNLOAD_DELAY': 1.0,
         'COOKIES_ENABLED': False,
         'ITEM_PIPELINES': {'__main__.DatabasePipeline': 300},
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     }
 
+    def parse(self, response):
+        """トップページから各都道府県リンクを取得"""
+        pref_links = response.css('ul.map_todouhuken li a')
+        for link in pref_links:
+            url = response.urljoin(link.attrib['href'])
+            pref_name = link.css('::text').get().strip()
+            yield scrapy.Request(url, callback=self.parse_shop_list, meta={'prefecture': pref_name})
+
     def parse_shop_list(self, response):
+        """店舗一覧ページの解析（詳細情報取得対応版）"""
         pref_name = response.meta['prefecture']
-        shop_units = response.css("li.c-search_block_list_item.type_shop")
+        
+        # 読み込み中カードを除外
+        shop_units = response.css('div.shop-card.size-lg.v2:not(.wait-loading)')
 
         for unit in shop_units:
-            name_link = unit.css(".c-search_block_shop_title01 a")
-            if not name_link: continue
+            # 基本情報
+            name_raw = unit.css('h5.shop-title::text').get()
+            if not name_raw: continue
+            name = name_raw.strip()
+
+            identifier = unit.attrib.get('data-shop')
+            href = unit.css('a.title::attr(href)').get()
             
-            name = name_link.xpath("string(.)").get().strip()
-            href = name_link.attrib.get('href', '')
-            identifier = re.search(r'client/(\d+)', href).group(1) if href else None
+            # 住所 (アイコンを除去したテキストを取得)
+            address = "".join(unit.css('p.shop-address::text').getall()).strip()
+            # 電話番号
+            phone = "".join(unit.css('p.shop-phone::text').getall()).strip()
 
-            address, hours, holiday, phone = "", "", "", ""
-            rows = unit.css(".c-search_block_shop-info_table table tr")
-            for row in rows:
-                th_txt = row.css("th::text").get() or ""
-                td_txt = row.css("td::text").get() or ""
+            # 営業時間と定休日の抽出
+            # ラベル「営業時間」や「定休日」を含む span の後のテキストを取得
+            hours = None
+            holiday = None
+            working_times = unit.css('p.shop-working-time')
+            
+            for wt in working_times:
+                label = wt.css('span.pitin-title::text').get()
+                # string(.) でタグの中身を全て平滑化して取得し、ラベル部分を削る
+                full_text = wt.xpath('string(.)').get() or ""
+                clean_text = full_text.replace(label or "", "").strip()
                 
-                if "住所" in th_txt: address = td_txt.strip()
-                elif "営業時間" in th_txt: hours = td_txt.strip()
-                elif "定休日" in th_txt: holiday = td_txt.strip()
-                elif "電話番号" in th_txt: phone = td_txt.strip()
+                if label:
+                    if "営業時間" in label:
+                        hours = clean_text
+                    elif "定休日" in label:
+                        holiday = clean_text
 
-            img_url = unit.css("figure.c-delay_load::attr(data-src)").get()
+            # 評価
+            rating_text = unit.css('.review-star .point::text').get()
+            rating = 0.0
+            if rating_text and rating_text.strip() != "-":
+                try:
+                    rating = float(rating_text.strip())
+                except ValueError:
+                    rating = 0.0
+            
+            # 画像
+            img_url = unit.css('.shop-thumbnail img::attr(data-src)').get() or unit.css('.shop-thumbnail img::attr(src)').get()
 
             yield {
                 'name': name,
@@ -239,16 +260,18 @@ class BdsShopSpider(scrapy.Spider):
                 'phone': phone,
                 'website_url': response.urljoin(href) if href else None,
                 'identifier': identifier,
+                'rating': rating,
                 'business_hours': hours,
                 'regular_holiday': holiday,
                 'image_url': response.urljoin(img_url) if img_url else None
             }
 
-        next_page = response.css("div.c-pager a.c-btn_next::attr(href)").get()
+        # ページネーション (現在のページ番号 li.current の次の li a を取得)
+        next_page = response.css('ul.pagination li.current + li a.paging::attr(href)').get()
         if next_page:
             yield response.follow(next_page, callback=self.parse_shop_list, meta={'prefecture': pref_name})
 
 if __name__ == "__main__":
     process = CrawlerProcess()
-    process.crawl(BdsShopSpider)
+    process.crawl(WebikeShopSpider)
     process.start()

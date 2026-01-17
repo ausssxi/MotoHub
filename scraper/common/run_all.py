@@ -43,22 +43,25 @@ def main():
         "webike/model_collector.py",
         
         # --- STEP 2: マスタの補完・修正 ---
-        "goobike/scrapy_category_collector.py",
-        "bds/scrapy_category_collector.py",
+        "goobike/category_collector.py",
+        "bds/category_collector.py",
+        "webike/category_collector.py",
         
         # --- STEP 3: 販売店情報の収集 (両サイトともScrapy版) ---
-        "goobike/scrapy_shop_collector.py",
-        "bds/scrapy_shop_collector.py",
+        "goobike/shop_collector.py",
+        "bds/shop_collector.py",
+        "webike/shop_collector.py",
         
         # --- STEP 4: 詳細スペック（排気量等）の調整 ---
-        "bds/scrapy_displacement_collector.py", 
+        "bds/displacement_collector.py", 
         
         # --- STEP 5: 出品情報の収集 (両サイトともScrapy版) ---
-        "goobike/scrapy_listing_collector.py",
-        "bds/scrapy_listing_collector.py",
+        "goobike/listing_collector.py",
+        "bds/listing_collector.py",
+        "webike/listing_collector.py",
         
         # --- STEP 6: 画像のローカル同期 (全テーブル対応版) ---
-        "utils/image_downloader.py",
+        "utils/image_syncar.py",
     ]
 
     start_time = time.time()

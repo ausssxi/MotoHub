@@ -11,27 +11,31 @@ from sqlalchemy.exc import IntegrityError
 from dotenv import load_dotenv
 
 # ==========================================
-# 1. データベース設定 & モデル定義
+# 0. 共通ユーティリティの読み込み
 # ==========================================
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# プロジェクトルートの .env を読み込む
-env_path = os.path.join(current_dir, '..', '..', '.env')
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+
+from utils import normalize_shop_name, normalize_address
+
+# ==========================================
+# 1. 環境設定 & DB接続
+# ==========================================
+env_path = os.path.join(parent_dir, '..', '.env')
 load_dotenv(dotenv_path=env_path)
 
-def get_env_or_exit(key, default=None, required=True):
+def get_env_or_exit(key, default=None):
     val = os.getenv(key, default)
-    if required and val is None:
+    if val is None:
         logging.error(f"致命的エラー: 必須の環境変数 '{key}' が設定されていません。")
         sys.exit(1)
     return val
 
-DB_USER = get_env_or_exit("DB_USERNAME")
-DB_PASS = get_env_or_exit("DB_PASSWORD")
-DB_NAME = get_env_or_exit("DB_DATABASE")
-DB_HOST = get_env_or_exit("DB_HOST", default="db")
-DB_PORT = get_env_or_exit("DB_PORT", default="3306")
+DATABASE_URL = f"mysql+pymysql://{get_env_or_exit('DB_USERNAME')}:{get_env_or_exit('DB_PASSWORD')}@{get_env_or_exit('DB_HOST', 'db')}:{get_env_or_exit('DB_PORT', '3306')}/{get_env_or_exit('DB_DATABASE')}"
 
-DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class Base(DeclarativeBase):
     pass
@@ -40,6 +44,7 @@ class Site(Base):
     __tablename__ = "sites"
     id = Column(BigInteger, primary_key=True)
     name = Column(String(50), unique=True)
+    base_url = Column(String(255), nullable=True)
 
 class Shop(Base):
     __tablename__ = "shops"
@@ -49,14 +54,10 @@ class Shop(Base):
     address = Column(String(255), nullable=True)
     phone = Column(String(20), nullable=True)
     website_url = Column(Text, nullable=True)
-    
-    # 追加されたスクレイピング項目
     rating = Column(Numeric(3, 1), default=0.0)
     business_hours = Column(String(255), nullable=True)
     regular_holiday = Column(String(255), nullable=True)
     image_url = Column(String(255), nullable=True)
-    local_image_path = Column(String(255), nullable=True)
-    
     created_at = Column(DateTime, default=datetime.datetime.now)
     updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
@@ -66,96 +67,111 @@ class ShopIdentifier(Base):
     shop_id = Column(BigInteger, ForeignKey("shops.id", ondelete="CASCADE"), nullable=False)
     site_id = Column(BigInteger, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False)
     identifier = Column(String(100), nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.now)
-    updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
-    
     __table_args__ = (UniqueConstraint('site_id', 'identifier', name='_shop_site_identifier_uc'),)
 
 # ==========================================
-# 2. Scrapy Pipeline (DB保存処理)
+# 2. Scrapy Pipeline (高度な重複チェック実装)
 # ==========================================
 class DatabasePipeline:
     def open_spider(self, spider):
-        self.engine = create_engine(DATABASE_URL)
-        self.Session = sessionmaker(bind=self.engine)
-        self.session = self.Session()
+        self.session = SessionLocal()
         
-        # サイトIDの取得
-        site = self.session.query(Site).filter(Site.name == "GooBike").first()
+        # 1. Site登録 (GooBike)
+        target_site_name = "GooBike"
+        site = self.session.query(Site).filter(Site.name == target_site_name).first()
         if not site:
-            spider.logger.error("GooBike site not found in DB.")
-            raise Exception("GooBike site not found in DB.")
+            site = Site(name=target_site_name, base_url="https://www.goobike.com")
+            self.session.add(site)
+            self.session.commit()
         self.site_id = site.id
+
+        # 2. 名寄せ用キャッシュの構築
+        spider.logger.info("Building cross-site shop matching cache...")
+        all_shops = self.session.query(Shop).all()
+        all_idents = self.session.query(ShopIdentifier).all()
+
+        # 識別子キャッシュ: {(site_id, identifier): shop_id}
+        self.ident_cache = {(i.site_id, i.identifier): i.shop_id for i in all_idents}
+        
+        # 店名+住所キャッシュ: {normalized_name: [(normalized_address, shop_id), ...]}
+        self.name_addr_cache = {}
+        for s in all_shops:
+            n_norm = normalize_shop_name(s.name)
+            a_norm = normalize_address(s.address)
+            if n_norm not in self.name_addr_cache:
+                self.name_addr_cache[n_norm] = []
+            self.name_addr_cache[n_norm].append((a_norm, s.id))
 
     def process_item(self, item, spider):
         try:
             name = item['name']
-            address = item['address'] or ''
+            address = item['address']
             identifier = item['identifier']
-
-            # 1. 識別子から既存店舗を探す
             shop_id = None
-            if identifier:
-                existing_ident = self.session.query(ShopIdentifier).filter(
-                    ShopIdentifier.site_id == self.site_id,
-                    ShopIdentifier.identifier == identifier
-                ).first()
-                if existing_ident:
-                    shop_id = existing_ident.shop_id
 
-            # 2. 登録または更新
+            # 1. サイト固有の識別子でチェック (最優先)
+            shop_id = self.ident_cache.get((self.site_id, identifier))
+
+            # 2. 店名 + 住所 で他サイトデータとの重複チェック
             if not shop_id:
-                # 新規登録
+                n_norm = normalize_shop_name(name)
+                a_norm = normalize_address(address)
+                
+                # 店名の包含関係をループで回してチェック
+                for cached_n_norm, addr_list in self.name_addr_cache.items():
+                    # 店名がどちらかの包含関係にあるか
+                    if n_norm and cached_n_norm and (n_norm in cached_n_norm or cached_n_norm in n_norm):
+                        for cached_a_norm, cached_id in addr_list:
+                            # 住所が一致または包含関係にあるか
+                            if a_norm and cached_a_norm and (a_norm in cached_a_norm or cached_a_norm in a_norm):
+                                shop_id = cached_id
+                                break
+                    if shop_id: break
+
+            # 3. 登録または更新
+            if shop_id:
+                shop_record = self.session.query(Shop).get(shop_id)
+                if shop_record:
+                    shop_record.rating = item['rating']
+                    shop_record.business_hours = item['business_hours']
+                    shop_record.regular_holiday = item['regular_holiday']
+                    if item['image_url']: shop_record.image_url = item['image_url']
+            else:
+                # 完全新規
                 shop_record = Shop(
-                    name=name,
-                    prefecture=item['prefecture'],
-                    address=address,
-                    website_url=item['website_url'],
-                    rating=item['rating'],
-                    business_hours=item['business_hours'],
-                    regular_holiday=item['regular_holiday'],
+                    name=name, prefecture=item['prefecture'], address=address,
+                    website_url=item['website_url'], rating=item['rating'],
+                    business_hours=item['business_hours'], regular_holiday=item['regular_holiday'],
                     image_url=item['image_url']
                 )
                 self.session.add(shop_record)
                 self.session.flush()
                 shop_id = shop_record.id
-            else:
-                # 既存情報の更新（評価や営業時間は変動するため）
-                shop_record = self.session.query(Shop).get(shop_id)
-                shop_record.rating = item['rating']
-                shop_record.business_hours = item['business_hours']
-                shop_record.regular_holiday = item['regular_holiday']
-                if item['image_url']:
-                    shop_record.image_url = item['image_url']
-                shop_record.updated_at = datetime.datetime.now()
+                
+                # キャッシュ更新
+                n_norm = normalize_shop_name(name)
+                if n_norm not in self.name_addr_cache: self.name_addr_cache[n_norm] = []
+                self.name_addr_cache[n_norm].append((normalize_address(address), shop_id))
 
-            # 3. 識別子の紐付け
-            if identifier:
-                ident_exists = self.session.query(ShopIdentifier).filter(
-                    ShopIdentifier.site_id == self.site_id,
-                    ShopIdentifier.identifier == identifier
-                ).first()
-                if not ident_exists:
-                    self.session.add(ShopIdentifier(
-                        shop_id=shop_id, 
-                        site_id=self.site_id, 
-                        identifier=identifier
-                    ))
-            
+            # 4. 識別子の紐付け (未登録なら)
+            if (self.site_id, identifier) not in self.ident_cache:
+                self.session.add(ShopIdentifier(shop_id=shop_id, site_id=self.site_id, identifier=identifier))
+                self.ident_cache[(self.site_id, identifier)] = shop_id
+
             self.session.commit()
         except Exception as e:
             self.session.rollback()
-            spider.logger.error(f"Error saving item: {e}")
+            spider.logger.error(f"Error saving shop {item.get('name')}: {e}")
         return item
 
     def close_spider(self, spider):
         self.session.close()
 
 # ==========================================
-# 3. Scrapy Spider (巡回ロジック)
+# 3. Scrapy Spider
 # ==========================================
 class GoobikeShopSpider(scrapy.Spider):
-    name = "goobike_shop_spider"
+    name = "goobike_shop_collector"
     allowed_domains = ["www.goobike.com"]
     start_urls = ["https://www.goobike.com/shop/"]
 
@@ -163,63 +179,50 @@ class GoobikeShopSpider(scrapy.Spider):
         'CONCURRENT_REQUESTS': 16,
         'DOWNLOAD_DELAY': 0.5,
         'COOKIES_ENABLED': False,
-        'ITEM_PIPELINES': {
-            '__main__.DatabasePipeline': 300,
-        },
+        'ITEM_PIPELINES': {'__main__.DatabasePipeline': 300},
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     }
 
     def parse(self, response):
-        """都道府県一覧から各エリアへ"""
         pref_links = response.css(".mapBox li a")
         for link in pref_links:
             url = response.urljoin(link.attrib['href'])
-            raw_name = link.xpath("text()").get()
-            pref_name = re.sub(r'[\(\uff08].*?[\)\uff09]', '', raw_name).strip()
+            pref_name = re.sub(r'[\(\uff08].*?[\)\uff09]', '', link.xpath("text()").get() or "").strip()
             yield scrapy.Request(url, callback=self.parse_shop_list, meta={'prefecture': pref_name})
 
     def parse_shop_list(self, response):
-        """店舗一覧ページの解析"""
         pref_name = response.meta['prefecture']
-        shop_units = response.css("div.shop")
-
-        for unit in shop_units:
-            # 1. 店名・URL・識別子
+        for unit in response.css("div.shop"):
             name_link = unit.css(".shop_name a")
-            if not name_link:
-                continue
+            if not name_link: continue
             
             name = name_link.xpath("string(.)").get().strip()
             href = name_link.attrib.get('href', '')
             identifier = re.search(r'client_(\d+)', href).group(1) if href else None
 
-            # 2. 評価点 (例: 5.0)
-            # 文字列を結合して数値のみ抽出
+            # 評価点
             rating_text = "".join(unit.css(".review_point *::text").getall())
             rating_match = re.search(r'(\d+\.\d+)', rating_text)
             rating = float(rating_match.group(1)) if rating_match else 0.0
 
-            # 3. 住所・営業時間・定休日
-            address = unit.css(".shop_address::text").get()
-            hours = unit.css(".shop_time::text").get()
-            holiday = unit.css(".shop_holiday::text").get()
-
-            # 4. 店舗画像URL (data-original 優先)
+            # 住所・営業時間・定休日
+            address = (unit.css(".shop_address::text").get() or "").strip()
+            hours = (unit.css(".shop_time::text").get() or "").strip()
+            holiday = (unit.css(".shop_holiday::text").get() or "").strip()
             img_url = unit.css(".shop_img img::attr(data-original)").get() or unit.css(".shop_img img::attr(src)").get()
 
             yield {
                 'name': name,
                 'prefecture': pref_name,
-                'address': address.strip() if address else "",
+                'address': address,
                 'website_url': response.urljoin(href) if href else None,
                 'identifier': identifier,
                 'rating': rating,
-                'business_hours': hours.strip() if hours else None,
-                'regular_holiday': holiday.strip() if holiday else None,
+                'business_hours': hours if hours else None,
+                'regular_holiday': holiday if holiday else None,
                 'image_url': response.urljoin(img_url) if img_url else None
             }
 
-        # 次のページへ
         next_page = response.css(".pager_next a::attr(href)").get()
         if next_page:
             yield response.follow(next_page, callback=self.parse_shop_list, meta={'prefecture': pref_name})

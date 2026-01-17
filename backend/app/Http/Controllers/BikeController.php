@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Services\BikeService;
 use App\Services\ListingSearchService;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Contracts\View\View;
 
 /**
@@ -32,6 +33,20 @@ final class BikeController extends Controller
     }
 
     /**
+     * サジェスト用のJSONデータを返す
+     */
+    public function suggest(Request $request): JsonResponse
+    {
+        $keyword = $request->query('keyword');
+        if (empty($keyword)) {
+            return response()->json([]);
+        }
+
+        $suggestions = $this->bikeService->getSearchSuggestions($keyword);
+        return response()->json($suggestions);
+    }
+
+    /**
      * 検索結果の表示
      */
     public function search(Request $request): View
@@ -49,6 +64,21 @@ final class BikeController extends Controller
             'keyword'            => $keyword,
             'prefecture'         => $prefecture,
             'sort'               => $sort,
+            'totalListingsCount' => $totalListingsCount,
+        ]);
+    }
+
+    /**
+     * 全車種一覧ページの表示
+     */
+    public function models(): View
+    {
+        $data = $this->bikeService->getAllModelsForIndex();
+        $totalListingsCount = $this->listingSearchService->getActiveCount();
+
+        return view('bikes.models', [
+            'manufacturers' => $data['manufacturers'],
+            'totalModelsCount' => $data['totalModelsCount'],
             'totalListingsCount' => $totalListingsCount,
         ]);
     }

@@ -15,16 +15,19 @@
                 </p>
             </div>
 
-            <!-- AdSense審査に必須の4項目リンク -->
+            <!-- リンクメニュー -->
             <nav class="mb-10">
                 <ul class="flex flex-wrap justify-center gap-x-8 gap-y-4 text-xs font-bold text-gray-500 uppercase tracking-widest">
                     <li>
-                        {{-- route() ヘルパーを使用して、pages. プレフィックスを付けたルート名で指定します --}}
                         <a href="{{ route('pages.about') }}" class="footer-link">運営者情報</a>
                     </li>
                     <li>
                         <a href="{{ route('pages.contact') }}" class="footer-link">お問い合わせ</a>
                     </li>
+
+                    {{-- スマートフォン表示時のみ、ここで強制改行を入れる --}}
+                    <div class="basis-full h-0 sm:hidden"></div>
+
                     <li>
                         <a href="{{ route('pages.privacy-policy') }}" class="footer-link">プライバシーポリシー</a>
                     </li>

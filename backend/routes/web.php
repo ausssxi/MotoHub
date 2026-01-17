@@ -11,6 +11,8 @@ use App\Http\Controllers\PageController;
 // --- バイク検索機能 (BikeController) ---
 Route::get('/', [BikeController::class, 'index'])->name('bikes.index');
 Route::get('/search', [BikeController::class, 'search'])->name('bikes.search'); 
+Route::get('/models', [BikeController::class, 'models'])->name('bikes.models');
+Route::get('/bikes/suggest', [BikeController::class, 'suggest'])->name('bikes.suggest');
 
 // --- 固定ページ (PageController) ---
 Route::prefix('pages')->name('pages.')->group(function () {
