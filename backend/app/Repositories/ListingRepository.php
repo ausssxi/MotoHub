@@ -20,10 +20,19 @@ final class ListingRepository
         $query = $this->baseSearchQuery($keyword, $prefecture);
 
         // 並び替えロジックの適用
+        // 価格や走行距離の不明(NULL)を「高い/多い方」として扱うため orderByRaw を使用
         $query = match ($sort) {
-            'price_asc'  => $query->orderBy('total_price', 'asc'),
-            'price_desc' => $query->orderBy('total_price', 'desc'),
-            default      => $query->orderBy('created_at', 'desc'), // latest
+            // 安い順：NULL以外を先に（IS NULL ASC）、その中で昇順
+            'price_asc'    => $query->orderByRaw('total_price IS NULL ASC, total_price ASC'),
+            // 高い順：NULLを先に（IS NULL DESC）、その中で降順
+            'price_desc'   => $query->orderByRaw('total_price IS NULL DESC, total_price DESC'),
+            // 少ない順：NULL以外を先に（IS NULL ASC）、その中で昇順
+            'mileage_asc'  => $query->orderByRaw('mileage IS NULL ASC, mileage ASC'),
+            // 多い順：NULLを先に（IS NULL DESC）、その中で降順
+            'mileage_desc' => $query->orderByRaw('mileage IS NULL DESC, mileage DESC'),
+            'year_desc'    => $query->orderBy('model_year', 'desc'),
+            'year_asc'     => $query->orderBy('model_year', 'asc'),
+            default        => $query->orderBy('created_at', 'desc'), // latest: 新着順
         };
 
         return $query->paginate($perPage)->withQueryString();

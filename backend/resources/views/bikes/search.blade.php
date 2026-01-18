@@ -66,6 +66,10 @@
                             <option value="latest" {{ $sort === 'latest' ? 'selected' : '' }}>新着順</option>
                             <option value="price_asc" {{ $sort === 'price_asc' ? 'selected' : '' }}>価格の安い順</option>
                             <option value="price_desc" {{ $sort === 'price_desc' ? 'selected' : '' }}>価格の高い順</option>
+                            <option value="mileage_asc" {{ $sort === 'mileage_asc' ? 'selected' : '' }}>走行距離が少ない順</option>
+                            <option value="mileage_desc" {{ $sort === 'mileage_desc' ? 'selected' : '' }}>走行距離が多い順</option>
+                            <option value="year_desc" {{ $sort === 'year_desc' ? 'selected' : '' }}>年式が新しい順</option>
+                            <option value="year_asc" {{ $sort === 'year_asc' ? 'selected' : '' }}>年式が古い順</option>
                         </select>
                     </form>
                 </div>
@@ -124,13 +128,11 @@
                             </div>
                         </div>
 
-                        {{-- 下部の店舗情報セクションからボタンを削除 --}}
                         <div class="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
                             <div class="flex items-center min-w-0">
                                 <i data-lucide="store" class="w-3.5 h-3.5 text-gray-300 mr-1.5 flex-shrink-0"></i>
                                 <span class="text-[10px] font-bold text-gray-400 truncate">{{ $listing['store_name'] }}</span>
                             </div>
-                            {{-- ボタンの代わりに「詳しく見る」などの小さな矢印アイコンのみを配置するのもおしゃれですが、今回はシンプルに情報を整理しました --}}
                             <div class="text-gray-300 group-hover:text-blue-600 transition-colors">
                                 <i data-lucide="chevron-right" class="w-4 h-4"></i>
                             </div>

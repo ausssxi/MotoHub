@@ -118,10 +118,10 @@ final class ListingSearchService
     {
         $normalized = strtolower(trim($sourceName));
         return match ($normalized) {
-            'goobike'           => 'グーバイク DD',
-            'bds', 'bikesensor' => 'BDSバイクセンサー DD',
-            'webike'            => 'Webike DD',
-            default             => ($sourceName ?: '不明') . ' DD',
+            'goobike'           => 'グーバイク',
+            'bds', 'bikesensor' => 'BDSバイクセンサー',
+            'webike'            => 'Webike',
+            default             => ($sourceName ?: '不明'),
         };
     }
 
