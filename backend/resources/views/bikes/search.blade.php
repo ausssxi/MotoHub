@@ -86,7 +86,7 @@
                     {{-- サイト名（DD付き）とファビコン --}}
                     <div class="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur-sm px-2 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 border border-white/20">
                         <img src="https://www.google.com/s2/favicons?domain={{ $listing['source_domain'] }}&sz=32" class="w-3.5 h-3.5 rounded-sm" alt="">
-                        <span class="text-[9px] font-black text-gray-500 uppercase tracking-tighter">{{ $listing['source'] }}</span>
+                        <span class="text-[9px] font-black text-gray-500 tracking-tighter">{{ $listing['source'] }}</span>
                     </div>
 
                     <div class="aspect-[4/3] relative overflow-hidden bg-gray-50">
