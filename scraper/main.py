@@ -66,7 +66,7 @@ def main():
         
         # --- STEP 6: 画像のローカル同期 (最後に実行) ---
         # タイポ修正: image_syncar.py -> image_syncer.py
-        "image_syncer.py",
+        "common/image_syncer.py",
     ]
 
     start_time = time.time()
