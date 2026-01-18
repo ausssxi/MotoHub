@@ -23,16 +23,23 @@ from utils import normalize_name
 # ==========================================
 # 1. 環境設定 & データベース定義
 # ==========================================
-env_path = os.path.join(parent_dir, '..', '.env')
+# コンテナ環境では docker-compose から渡される環境変数が優先されます
+# ローカル実行時のために .env の読み込みも残しておきます
+env_path = os.path.join(parent_dir, '..', 'backend', '.env')
 load_dotenv(dotenv_path=env_path)
 
 def get_env_or_exit(key, default=None):
+    """
+    環境変数を取得する。存在しない場合は default を返し、
+    default もない場合はエラーログを出力して終了する。
+    """
     val = os.getenv(key, default)
     if val is None:
         logging.error(f"致命的エラー: 必須の環境変数 '{key}' が設定されていません。")
         sys.exit(1)
     return val
 
+# データベース接続情報の構築
 DATABASE_URL = f"mysql+pymysql://{get_env_or_exit('DB_USERNAME')}:{get_env_or_exit('DB_PASSWORD')}@{get_env_or_exit('DB_HOST', 'db')}:{get_env_or_exit('DB_PORT', '3306')}/{get_env_or_exit('DB_DATABASE')}"
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
@@ -159,7 +166,7 @@ class GooBikeListingSpider(scrapy.Spider):
             yield response.follow(next_page, callback=self.parse_listings, meta=response.meta)
 
     def extract_info(self, v_el, bike_model_id, response, v_url):
-        """車両1台の情報を抽出（パース部分を強化・二重定義を解消）"""
+        """車両1台の情報を抽出"""
         try:
             # 価格解析（万円）
             price_txt = "".join(v_el.css("td.num_td *::text").getall()).replace(',', '')
@@ -214,26 +221,23 @@ class GooBikeListingSpider(scrapy.Spider):
             return None
 
     def save_listing(self, url, data):
-        """新規保存（クロスサイト重複チェック機能を追加）"""
+        """新規保存"""
         shop_id = self.shop_cache.get(data['shop_site_id'])
         if not shop_id:
-            return # ショップが未登録の場合はスキップ
+            return
 
-        # 【重要】他サイト（BDS/Webike等）での重複チェック
-        # 同じ店舗、同じ車種、同じ年式、同じ走行距離であれば同一車両とみなす
+        # 他サイトとの重複チェック
         duplicate = self.db.query(Listing).filter(
             Listing.shop_id == shop_id,
             Listing.bike_model_id == data['bike_model_id'],
             Listing.model_year == data['model_year'],
             Listing.mileage == data['mileage'],
-            Listing.site_id != self.site_id, # GooBike以外のサイト
+            Listing.site_id != self.site_id,
             Listing.is_sold_out == False
         ).first()
 
         if duplicate:
-            # すでに他サイト経由で登録済みの場合は、その情報を更新（またはスキップ）
-            # ここでは他サイトの情報を維持しつつ、更新日だけ記録する運用にします
-            self.logger.info(f"  [DUP SKIP] Cross-site duplicate found: {data['title']} (from Site ID: {duplicate.site_id})")
+            self.logger.info(f"  [DUP SKIP] Cross-site duplicate found: {data['title']}")
             return
 
         new_listing = Listing(
@@ -256,7 +260,7 @@ class GooBikeListingSpider(scrapy.Spider):
         self.known_urls.add(url)
 
     def update_listing(self, url, data):
-        """価格・売切状態の更新"""
+        """更新"""
         self.db.execute(
             update(Listing).where(Listing.source_url == url)
             .values(
@@ -269,7 +273,7 @@ class GooBikeListingSpider(scrapy.Spider):
         self.db.commit()
 
     def spider_closed(self, spider):
-        """巡回終了時に一括で完売処理"""
+        """完売処理"""
         missing_urls = self.known_urls - self.found_urls
         if missing_urls:
             self.logger.info(f"Closing {len(missing_urls)} sold-out listings...")
