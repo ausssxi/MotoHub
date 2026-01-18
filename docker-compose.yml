@@ -1,6 +1,5 @@
 services:
   # Laravel App (PHP-FPM + Python Scraper)
-  # appコンテナの中でPythonも動くように統合します
   app:
     build:
       context: .
@@ -10,14 +9,17 @@ services:
     restart: unless-stopped
     working_dir: /var/www
     volumes:
+      # Laravel本体
       - ./backend:/var/www
-      - ./scraper:/var/www/scraper # Scraperコードもappから見えるようにマウント
+      # Scraperを/var/wwwの外にマウントすることで、backend配下に空フォルダができるのを防ぎます
+      - ./scraper:/var/scraper
     environment:
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_DATABASE=${DB_DATABASE}
       - DB_HOST=db
       - DB_PORT=3306
+      # Laravel側のパス設定
       - IMAGE_STORAGE_PATH=/var/www/storage/app/public/listings
     depends_on:
       - db
@@ -50,9 +52,6 @@ services:
       - "${DB_PORT}:3306"
     volumes:
       - db-data:/var/lib/mysql
-
-  # Scraperコンテナは「予備」または「手動実行用」として残すか、削除可能です。
-  # Laravelスケジューラからの実行は app コンテナが担当します。
 
   # Redis for Queues
   redis:
