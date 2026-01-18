@@ -18,21 +18,19 @@ final class ListingSearchService
     ) {}
 
     /**
-     * 検索を実行し、結果とページネーション情報を返す
+     * フィルター条件を含めて検索を実行
      */
-    public function search(?string $keyword, ?string $prefecture = null, string $sort = 'latest', int $perPage = 30): array
+    public function search(?string $keyword, ?string $prefecture = null, string $sort = 'latest', array $filters = [], int $perPage = 30): array
     {
-        $paginated = $this->repository->searchByKeyword($keyword, $prefecture, $sort, $perPage);
+        $paginated = $this->repository->searchByKeyword($keyword, $prefecture, $sort, $filters, $perPage);
 
         $formattedItems = $paginated->getCollection()->map(fn($item) => [
             'id' => $item->id,
-            'source_id' => strtolower(trim($item->site?->name ?? 'other')),
-            'source' => $this->resolveSourceDisplayName($item->site?->name ?? ''),
-            'source_domain' => $this->resolveSourceDomain(strtolower(trim($item->site?->name ?? ''))),
+            'source' => $item->site?->name ?? '不明',
+            'source_domain' => strtolower($item->site?->name ?? 'google.com') . '.com',
             'maker' => $item->bikeModel?->manufacturer?->name ?? '不明',
             'name' => $item->title ?? $item->bikeModel?->name ?? '車種名不明',
             'model_year' => $item->model_year ? "{$item->model_year}年" : '不明',
-            'first_registration' => $item->first_registration ? "{$item->first_registration}年" : '不明',
             'mileage' => $item->mileage !== null ? number_format($item->mileage) . 'km' : '走行不明',
             'displacement' => $item->bikeModel?->displacement ? "{$item->bikeModel->displacement}cc" : '-',
             'repair_history' => $item->has_repair_history ? 'あり' : 'なし',

@@ -57,8 +57,18 @@ final class BikeController extends Controller
         $prefecture = $request->query('prefecture');
         $sort = (string) $request->query('sort', 'latest');
 
+        // フィルター条件を抽出
+        $filters = [
+            'min_price'   => $request->query('min_price'),
+            'max_price'   => $request->query('max_price'),
+            'min_mileage' => $request->query('min_mileage'),
+            'max_mileage' => $request->query('max_mileage'),
+            'min_year'    => $request->query('min_year'),
+            'max_year'    => $request->query('max_year'),
+        ];
+
         // Serviceから items と pagination(pages, display_textを含む) を取得
-        $result = $this->listingSearchService->search($keyword, $prefecture, $sort);
+        $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
         $totalListingsCount = $this->listingSearchService->getActiveCount();
 
         return view('bikes.search', [
