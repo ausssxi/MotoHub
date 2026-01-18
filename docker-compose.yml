@@ -1,7 +1,6 @@
-version: '3.8'
-
 services:
-  # Laravel App (PHP-FPM)
+  # Laravel App (PHP-FPM + Python Scraper)
+  # appコンテナの中でPythonも動くように統合します
   app:
     build:
       context: .
@@ -11,8 +10,15 @@ services:
     restart: unless-stopped
     working_dir: /var/www
     volumes:
-      # ホストのbackendフォルダをコンテナの/var/wwwに同期
       - ./backend:/var/www
+      - ./scraper:/var/www/scraper # Scraperコードもappから見えるようにマウント
+    environment:
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_HOST=db
+      - DB_PORT=3306
+      - IMAGE_STORAGE_PATH=/var/www/storage/app/public/listings
     depends_on:
       - db
       - redis
@@ -25,7 +31,6 @@ services:
     ports:
       - "${HTTP_PORT}:80"
     volumes:
-      # NginxもLaravelのソースコード（public/index.php等）を参照する必要があるため同期
       - ./backend:/var/www
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
     depends_on:
@@ -46,41 +51,22 @@ services:
     volumes:
       - db-data:/var/lib/mysql
 
-  # Scraper (Python + Playwright)
-  scraper:
-    build:
-      context: .
-      dockerfile: ./docker/python/Dockerfile
-    container_name: motohub-scraper
-    volumes:
-      - ./scraper:/app
-      - ./backend:/backend
-    environment:
-      # 個別の環境変数もコンテナに渡すように追加
-      - DB_USERNAME=${DB_USERNAME}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_DATABASE=${DB_DATABASE}
-      - DB_HOST=db
-      - DB_PORT=3306
-      # アプリケーションが直接 URL を使う場合のための設定
-      - DATABASE_URL=mysql+pymysql://${DB_USERNAME}:${DB_PASSWORD}@db:3306/${DB_DATABASE}
-      - IMAGE_STORAGE_PATH=/backend/storage/app/public/listings
-    depends_on:
-      - db
+  # Scraperコンテナは「予備」または「手動実行用」として残すか、削除可能です。
+  # Laravelスケジューラからの実行は app コンテナが担当します。
 
   # Redis for Queues
   redis:
     image: redis:alpine
     container_name: motohub-redis
 
-  # MailHog - メールテスト用サーバー
+  # MailHog
   mailhog:
     image: mailhog/mailhog
     container_name: motohub-mailhog
     restart: unless-stopped
     ports:
-      - "${MAIL_SMTP_PORT:-1025}:1025" # SMTPポート
-      - "${MAIL_UI_PORT:-8025}:8025"   # Web UIポート
+      - "${MAIL_SMTP_PORT:-1025}:1025"
+      - "${MAIL_UI_PORT:-8025}:8025"
 
 volumes:
   db-data:

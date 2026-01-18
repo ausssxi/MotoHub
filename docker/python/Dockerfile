@@ -1,31 +1,26 @@
-# 安定版の Debian Bookworm ベースに変更
+# 軽量なPython 3.11の安定版を使用
 FROM python:3.11-slim-bookworm
+
+# システムのタイムゾーンを日本に設定
+ENV TZ=Asia/Tokyo
 
 WORKDIR /app
 
-# 依存関係解決に必要なツールをインストール
+# 依存関係のインストールに必要な最小限のツール
+# (mysql+pymysqlを使用するため、基本的なビルドツールが必要になる場合があります)
 RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# 先に requirements.txt をコピーしてライブラリを入れる
-COPY scraper/requirements.txt .
+# requirements.txtを先にコピーしてキャッシュを利用
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Playwright本体のインストール
-RUN playwright install chromium
+# クローラースクリプト一式をコピー
+COPY . .
 
-# 安定版 OS なので、Playwright の依存関係インストールが正常に動作します
-RUN playwright install-deps chromium
+# 実行権限の付与（必要に応じて）
+RUN chmod +x *.py
 
-COPY scraper/ .
-
+# デフォルトのコマンド（通常はスケジューラからexecされるため、コンテナ維持用かダミー）
 CMD ["python", "main.py"]
-
-
-
-
-
-
-
