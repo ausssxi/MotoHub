@@ -71,13 +71,12 @@ class ShopIdentifier(Base):
     __table_args__ = (UniqueConstraint('site_id', 'identifier', name='_shop_site_identifier_uc'),)
 
 # ==========================================
-# 2. Scrapy Pipeline
+# 2. Scrapy Pipeline (名寄せロジックの改善)
 # ==========================================
 class DatabasePipeline:
     def open_spider(self, spider):
         self.session = SessionLocal()
         
-        # 1. Site登録 (BDS)
         target_site_name = "BDS"
         site = self.session.query(Site).filter(Site.name == target_site_name).first()
         if not site:
@@ -86,13 +85,12 @@ class DatabasePipeline:
             self.session.commit()
         self.site_id = site.id
 
-        # 2. 名寄せ用キャッシュの構築
-        spider.logger.info("Building cross-site shop matching cache...")
+        spider.logger.info("名寄せ用キャッシュを構築中...")
         all_shops = self.session.query(Shop).all()
         all_idents = self.session.query(ShopIdentifier).all()
 
         self.phone_cache = {}    
-        self.name_addr_cache = {} # normalized_name -> [(normalized_address, shop_id)]
+        self.name_addr_cache = {} 
         self.ident_cache = {(si.site_id, si.identifier): si.shop_id for si in all_idents}
 
         for s in all_shops:
@@ -102,9 +100,10 @@ class DatabasePipeline:
             
             n_norm = normalize_shop_name(s.name)
             a_norm = normalize_address(s.address)
-            if n_norm not in self.name_addr_cache:
-                self.name_addr_cache[n_norm] = []
-            self.name_addr_cache[n_norm].append((a_norm, s.id))
+            if n_norm:
+                if n_norm not in self.name_addr_cache:
+                    self.name_addr_cache[n_norm] = []
+                self.name_addr_cache[n_norm].append((a_norm, s.id))
 
     def process_item(self, item, spider):
         try:
@@ -114,38 +113,40 @@ class DatabasePipeline:
             identifier = item['identifier']
             shop_id = None
 
-            # 1. 識別子でチェック
+            # 1. BDSの識別子で既に登録済みかチェック
             shop_id = self.ident_cache.get((self.site_id, identifier))
 
             if not shop_id:
-                # 2. 電話番号でチェック
+                # 2. 電話番号で他サイト(GooBike等)との重複をチェック
                 if phone:
                     p_norm = normalize_phone(phone)
-                    shop_id = self.phone_cache.get(p_norm)
+                    if p_norm:
+                        shop_id = self.phone_cache.get(p_norm)
 
-                # 3. 店名 + 住所 でチェック
-                if not shop_id:
+                # 3. 店名 + 住所 でチェック（住所が取れている場合のみ）
+                if not shop_id and address:
                     n_norm = normalize_shop_name(name)
                     a_norm = normalize_address(address)
                     
-                    for cached_n_norm, addr_list in self.name_addr_cache.items():
-                        if n_norm and cached_n_norm and (n_norm in cached_n_norm or cached_n_norm in n_norm):
-                            for cached_a_norm, cached_id in addr_list:
-                                if a_norm in cached_a_norm or cached_a_norm in a_norm:
-                                    shop_id = cached_id
-                                    break
-                        if shop_id: break
+                    # 店名が完全一致するものを探す（in判定はやめて厳密にする）
+                    addr_list = self.name_addr_cache.get(n_norm, [])
+                    for cached_a_norm, cached_id in addr_list:
+                        # 住所も完全一致、またはどちらかが包含
+                        if a_norm and cached_a_norm and (a_norm in cached_a_norm or cached_a_norm in a_norm):
+                            shop_id = cached_id
+                            break
 
             if shop_id:
-                # 更新
+                # 既存ショップの情報を更新（新規登録ではない）
                 shop_record = self.session.query(Shop).get(shop_id)
                 if shop_record:
                     if not shop_record.phone and phone: shop_record.phone = phone
+                    if not shop_record.address and address: shop_record.address = address
                     shop_record.business_hours = item['business_hours']
                     shop_record.regular_holiday = item['regular_holiday']
                     if item['image_url']: shop_record.image_url = item['image_url']
             else:
-                # 新規登録
+                # 【新規登録】
                 shop_record = Shop(
                     name=name, prefecture=item['prefecture'], address=address,
                     phone=phone, website_url=item['website_url'],
@@ -153,17 +154,18 @@ class DatabasePipeline:
                     image_url=item['image_url']
                 )
                 self.session.add(shop_record)
-                self.session.flush()
+                self.session.flush() # ID確定
                 shop_id = shop_record.id
                 
-                # キャッシュ更新
+                # キャッシュを更新して次のループでの二重登録を防ぐ
                 p_norm = normalize_phone(phone)
                 if p_norm: self.phone_cache[p_norm] = shop_id
                 n_norm = normalize_shop_name(name)
-                if n_norm not in self.name_addr_cache: self.name_addr_cache[n_norm] = []
-                self.name_addr_cache[n_norm].append((normalize_address(address), shop_id))
+                if n_norm:
+                    if n_norm not in self.name_addr_cache: self.name_addr_cache[n_norm] = []
+                    self.name_addr_cache[n_norm].append((normalize_address(address), shop_id))
 
-            # 識別子の紐付け
+            # BDS識別子とショップIDを紐付け
             if identifier and (self.site_id, identifier) not in self.ident_cache:
                 self.session.add(ShopIdentifier(shop_id=shop_id, site_id=self.site_id, identifier=identifier))
                 self.ident_cache[(self.site_id, identifier)] = shop_id
@@ -178,7 +180,7 @@ class DatabasePipeline:
         self.session.close()
 
 # ==========================================
-# 3. Scrapy Spider
+# 3. Scrapy Spider (セレクタの改善)
 # ==========================================
 class BdsShopSpider(scrapy.Spider):
     name = "bds_shop_collector"
@@ -200,8 +202,8 @@ class BdsShopSpider(scrapy.Spider):
             yield scrapy.Request(base_url + code, callback=self.parse_shop_list, meta={'prefecture': name})
 
     custom_settings = {
-        'CONCURRENT_REQUESTS': 16,
-        'DOWNLOAD_DELAY': 0.5,
+        'CONCURRENT_REQUESTS': 8,
+        'DOWNLOAD_DELAY': 1.0,
         'COOKIES_ENABLED': False,
         'ITEM_PIPELINES': {'__main__.DatabasePipeline': 300},
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -217,33 +219,39 @@ class BdsShopSpider(scrapy.Spider):
             
             name = name_link.xpath("string(.)").get().strip()
             href = name_link.attrib.get('href', '')
+            # URLから識別子を抜く (例: /shop/client/12345)
             identifier = re.search(r'client/(\d+)', href).group(1) if href else None
 
             address, hours, holiday, phone = "", "", "", ""
+            # テーブルの各行をループ
             rows = unit.css(".c-search_block_shop-info_table table tr")
             for row in rows:
-                th_txt = row.css("th::text").get() or ""
-                td_txt = row.css("td::text").get() or ""
+                # string(.) を使うことで、thやtdの中にアイコンやspanが混ざっていてもテキストを全て連結して取得
+                th_txt = row.xpath("string(th)").get() or ""
+                td_txt = row.xpath("string(td)").get() or ""
                 
                 if "住所" in th_txt: address = td_txt.strip()
                 elif "営業時間" in th_txt: hours = td_txt.strip()
                 elif "定休日" in th_txt: holiday = td_txt.strip()
                 elif "電話番号" in th_txt: phone = td_txt.strip()
 
-            img_url = unit.css("figure.c-delay_load::attr(data-src)").get()
+            # 画像は data-src または src から取得
+            img_url = unit.css("figure.c-delay_load::attr(data-src)").get() or unit.css("figure.c-delay_load img::attr(src)").get()
 
-            yield {
-                'name': name,
-                'prefecture': pref_name,
-                'address': address,
-                'phone': phone,
-                'website_url': response.urljoin(href) if href else None,
-                'identifier': identifier,
-                'business_hours': hours,
-                'regular_holiday': holiday,
-                'image_url': response.urljoin(img_url) if img_url else None
-            }
+            if name:
+                yield {
+                    'name': name,
+                    'prefecture': pref_name,
+                    'address': address,
+                    'phone': phone,
+                    'website_url': response.urljoin(href) if href else None,
+                    'identifier': identifier,
+                    'business_hours': hours,
+                    'regular_holiday': holiday,
+                    'image_url': response.urljoin(img_url) if img_url else None
+                }
 
+        # ページネーション
         next_page = response.css("div.c-pager a.c-btn_next::attr(href)").get()
         if next_page:
             yield response.follow(next_page, callback=self.parse_shop_list, meta={'prefecture': pref_name})
