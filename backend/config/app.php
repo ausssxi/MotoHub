@@ -65,7 +65,7 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => 'Asia/Tokyo',
 
     /*
     |--------------------------------------------------------------------------
@@ -78,11 +78,22 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    'locale' => env('APP_LOCALE', 'ja'),
 
-    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
+    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'ja'),
 
-    'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
+    'faker_locale' => env('APP_FAKER_LOCALE', 'ja_JP'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | External IDs (Google Analytics / AdSense)
+    |--------------------------------------------------------------------------
+    | 外部サービスの計測IDや広告IDを.envから取得します。
+    */
+
+    'ga_id' => env('GA_MEASUREMENT_ID'),
+
+    'adsense_id' => env('ADSENSE_PUBLISHER_ID'),
 
     /*
     |--------------------------------------------------------------------------
