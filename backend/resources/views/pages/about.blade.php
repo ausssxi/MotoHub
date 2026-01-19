@@ -54,7 +54,7 @@
                                     <th class="py-4 pr-6 font-black text-black">サイトURL</th>
                                     <td class="py-4 text-gray-600">
                                         {{-- サイトのURLを記載 --}}
-                                        <a href="#" class="text-blue-600 hover:underline">https://your-domain.com</a>
+                                        <a href="{{ config('app.url') }}" class="text-blue-600 hover:underline">{{ config('app.url') }}</a>
                                     </td>
                                 </tr>
                                 <tr>
@@ -78,7 +78,7 @@
                     <p class="text-xs sm:text-sm text-gray-500 leading-relaxed mb-6">
                         当サイトの運営に関するお問い合わせ、または権利関係のご相談については「お問い合わせ」ページよりご連絡ください。
                     </p>
-                    <a href="/contact" class="inline-flex items-center justify-center bg-black text-white px-6 py-3 rounded-xl text-xs font-black hover:bg-gray-800 transition-all uppercase tracking-widest">
+                    <a href="contact" class="inline-flex items-center justify-center bg-black text-white px-6 py-3 rounded-xl text-xs font-black hover:bg-gray-800 transition-all uppercase tracking-widest">
                         お問い合わせはこちら <i data-lucide="arrow-right" class="w-4 h-4 ml-2"></i>
                     </a>
                 </section>
