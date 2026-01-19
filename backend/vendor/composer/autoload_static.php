@@ -601,6 +601,7 @@ class ComposerStaticInitbdd322c0e38390e4756fe5d081118aeb
     );
 
     public static $classMap = array (
+        'App\\Console\\Commands\\GenerateSitemap' => __DIR__ . '/../..' . '/app/Console/Commands/GenerateSitemap.php',
         'App\\Http\\Controllers\\BikeController' => __DIR__ . '/../..' . '/app/Http/Controllers/BikeController.php',
         'App\\Http\\Controllers\\Controller' => __DIR__ . '/../..' . '/app/Http/Controllers/Controller.php',
         'App\\Http\\Controllers\\PageController' => __DIR__ . '/../..' . '/app/Http/Controllers/PageController.php',
