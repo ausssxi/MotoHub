@@ -26,9 +26,7 @@ final class ListingSearchService
 
         $formattedItems = $paginated->getCollection()->map(fn($item) => [
             'id' => $item->id,
-            // サイト名を日本語名に変換
             'source' => $this->resolveSourceDisplayName($item->site?->name ?? ''),
-            // 正しいドメインを取得（ファビコン表示用）
             'source_domain' => $this->resolveSourceDomain($item->site?->name ?? ''),
             'maker' => $item->bikeModel?->manufacturer?->name ?? '不明',
             'name' => $item->title ?? $item->bikeModel?->name ?? '車種名不明',
@@ -51,6 +49,40 @@ final class ListingSearchService
     }
 
     /**
+     * 現在のフィルター条件下での合計ヒット件数を取得
+     * スマホ版の「◯◯件を表示」ボタンのリアルタイム更新に使用
+     */
+    public function getFilteredCount(?string $keyword, ?string $prefecture, array $filters): int
+    {
+        // 1件だけ取得することで、クエリ全体の total() (該当件数) を効率的に取得します
+        $paginated = $this->repository->searchByKeyword($keyword, $prefecture, 'latest', $filters, 1);
+        return (int) $paginated->total();
+    }
+
+    /**
+     * 絞り込みスライダーの境界値（最小・最大）を取得
+     */
+    public function getSearchMetadata(): array
+    {
+        $stats = $this->repository->getMinMaxStats();
+
+        return [
+            'price' => [
+                'min' => 0,
+                'max' => 300,
+            ],
+            'mileage' => [
+                'min' => 0,
+                'max' => 50000,
+            ],
+            'year' => [
+                'min' => (int)($stats->min_year ?? 1990),
+                'max' => (int)($stats->max_year ?? (int)date('Y')),
+            ]
+        ];
+    }
+
+    /**
      * 有効な出品の総数を取得
      */
     public function getActiveCount(): int
@@ -65,31 +97,19 @@ final class ListingSearchService
     {
         $currentPage = $paginated->currentPage();
         $lastPage = $paginated->lastPage();
-        
-        // 現在のページの左右に表示するページ数
         $range = 1; 
-
         $pages = [];
         
-        // 常に1ページ目を追加
         $pages[] = $this->makePageItem(1, $paginated);
-
-        // 前方の「...」判定
         if ($currentPage - $range > 2) {
             $pages[] = ['is_dot' => true];
         }
-
-        // 中間のページ番号
         for ($i = max(2, $currentPage - $range); $i <= min($lastPage - 1, $currentPage + $range); $i++) {
             $pages[] = $this->makePageItem($i, $paginated);
         }
-
-        // 後方の「...」判定
         if ($currentPage + $range < $lastPage - 1) {
             $pages[] = ['is_dot' => true];
         }
-
-        // 最後のページを追加
         if ($lastPage > 1) {
             $pages[] = $this->makePageItem($lastPage, $paginated);
         }
@@ -117,9 +137,6 @@ final class ListingSearchService
         ];
     }
 
-    /**
-     * サイトの内部名を日本語の表示名に変換
-     */
     private function resolveSourceDisplayName(string $sourceName): string
     {
         $normalized = strtolower(trim($sourceName));
@@ -131,9 +148,6 @@ final class ListingSearchService
         };
     }
 
-    /**
-     * サイト名から正しいドメインを解決（ファビコン取得用）
-     */
     private function resolveSourceDomain(string $sourceName): string
     {
         $normalized = strtolower(trim($sourceName));
@@ -146,14 +160,10 @@ final class ListingSearchService
         return $domains[$normalized] ?? 'google.com';
     }
 
-    /**
-     * ローカル保存されたパスをフルURLに変換
-     */
     private function resolveImageUrls(?array $paths): array
     {
         if (empty($paths)) return [];
         return array_map(function ($path) {
-            // storage/listings/... などのパスをフルURLに変換
             return Storage::disk('public')->url(ltrim($path, '/'));
         }, $paths);
     }
