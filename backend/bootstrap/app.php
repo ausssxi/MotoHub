@@ -20,15 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     /**
-     * MotoHub クローリングタスクのスケジュール設定
+     * MotoHub クローリングタスクのスケジュール設定（パス修正版）
      */
     ->withSchedule(function (Schedule $schedule): void {
-        /**
-         * 実行スクリプトのベースパス
-         * Docker環境で /var/scraper にマウントしているため、絶対パスで指定します
-         */
+        // 実行スクリプトのベースパス
         $basePath = '/var/scraper';
-        
         // ログ出力先
         $logPath = storage_path('logs/crawling.log');
 
@@ -46,7 +42,8 @@ return Application::configure(basePath: dirname(__DIR__))
         }
 
         // 画像のローカル同期 (毎日 深夜4:30)
-        $schedule->exec("python3 {$basePath}/image_syncer.py")
+        // 【修正】common フォルダ内のパスを指定
+        $schedule->exec("python3 {$basePath}/common/image_syncer.py")
                  ->dailyAt('04:30')
                  ->withoutOverlapping()
                  ->appendOutputTo($logPath);
@@ -83,11 +80,5 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->monthlyOn(1, '01:45')
                  ->withoutOverlapping()
                  ->appendOutputTo($logPath);
-                 
-        /**
-         * 補足: もし全てのタスクを順番に実行する main.py を使いたい場合は
-         * 以下のように1行で記述することも可能です（上記をコメントアウトして使用）
-         * $schedule->exec("python3 {$basePath}/main.py")->dailyAt('02:00')->appendOutputTo($logPath);
-         */
     })
     ->create();
