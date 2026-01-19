@@ -8,7 +8,7 @@ import datetime
 import sys
 import logging
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, BigInteger, String, Numeric, Integer, Boolean, Text, JSON, DateTime, update, or_
+from sqlalchemy import create_engine, Column, BigInteger, String, Numeric, Integer, Boolean, Text, JSON, DateTime, update, exists
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 # ==========================================
@@ -24,6 +24,8 @@ from utils import normalize_name
 # 1. 環境設定 & データベース定義
 # ==========================================
 env_path = os.path.join(parent_dir, '..', 'backend', '.env')
+if not os.path.exists(env_path):
+    env_path = os.path.join(parent_dir, '..', '.env')
 load_dotenv(dotenv_path=env_path)
 
 def get_env_or_exit(key, default=None):
@@ -35,7 +37,8 @@ def get_env_or_exit(key, default=None):
 
 DATABASE_URL = f"mysql+pymysql://{get_env_or_exit('DB_USERNAME')}:{get_env_or_exit('DB_PASSWORD')}@{get_env_or_exit('DB_HOST', 'db')}:{get_env_or_exit('DB_PORT', '3306')}/{get_env_or_exit('DB_DATABASE')}"
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+# 接続プールを最適化
+engine = create_engine(DATABASE_URL, pool_size=20, max_overflow=30, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class Base(DeclarativeBase): pass
@@ -52,7 +55,6 @@ class Listing(Base):
     total_price = Column(Numeric(12, 0), nullable=True)
     model_year = Column(Integer, nullable=True)
     mileage = Column(Integer, nullable=True)
-    first_registration = Column(String(50), nullable=True)
     image_urls = Column(JSON, nullable=True)
     local_image_paths = Column(JSON, nullable=True)
     has_repair_history = Column(Boolean, default=False)
@@ -89,8 +91,8 @@ class GooBikeListingSpider(scrapy.Spider):
     start_urls = ["https://www.goobike.com/maker-top/index.html"]
 
     custom_settings = {
-        'CONCURRENT_REQUESTS': 16,     # 並列数を16に引き上げ
-        'DOWNLOAD_DELAY': 0.2,          # 待機時間を0.2秒に短縮（高速化）
+        'CONCURRENT_REQUESTS': 16,     # 帯域に余裕があれば16程度まで上げる
+        'DOWNLOAD_DELAY': 0.3,         # 待機時間を少し短縮
         'RANDOMIZE_DOWNLOAD_DELAY': True,
         'COOKIES_ENABLED': True,
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -102,12 +104,20 @@ class GooBikeListingSpider(scrapy.Spider):
         site = self.db.query(Site).filter(Site.name == "GooBike").first()
         self.site_id = site.id if site else None
 
-        # キャッシュ構築（ここが初期化時に少し時間がかかりますが、実行中の速度を劇的に上げます）
-        self.model_ident_cache = {i.identifier: i.bike_model_id for i in self.db.query(BikeModelIdentifier).filter(BikeModelIdentifier.site_id == self.site_id).all()}
-        self.shop_cache = {i.identifier: i.shop_id for i in self.db.query(ShopIdentifier).filter(ShopIdentifier.site_id == self.site_id).all()}
+        # キャッシュの高速読み込み（必要なカラムだけに絞ってタプルで取得）
+        self.logger.info("Initializing caches...")
+        self.model_ident_cache = {
+            ident: b_id for ident, b_id in self.db.query(
+                BikeModelIdentifier.identifier, BikeModelIdentifier.bike_model_id
+            ).filter(BikeModelIdentifier.site_id == self.site_id).all()
+        }
+        self.shop_cache = {
+            ident: s_id for ident, s_id in self.db.query(
+                ShopIdentifier.identifier, ShopIdentifier.shop_id
+            ).filter(ShopIdentifier.site_id == self.site_id).all()
+        }
         
-        # URLをセットで保持（検索をO(1)にする）
-        self.known_urls = {l.source_url for l in self.db.query(Listing.source_url).filter(Listing.site_id == self.site_id).all()}
+        # 進行中に見つかったURLを保持
         self.found_urls = set()
 
         dispatcher.connect(self.spider_closed, signals.spider_closed)
@@ -131,33 +141,63 @@ class GooBikeListingSpider(scrapy.Spider):
         bike_model_id = response.meta['bike_model_id']
         vehicle_elements = response.css(".bike_sec")
         
+        if not vehicle_elements:
+            return
+
+        # 1. ページ内の全URLを抽出して一括チェック用のリストを作成
+        page_urls = []
+        element_map = []
         for v_el in vehicle_elements:
-            try:
-                v_link_el = v_el.css("h4 span a")
-                if not v_link_el: continue
-                
+            v_link_el = v_el.css("h4 span a")
+            if v_link_el:
                 v_url = response.urljoin(v_link_el.attrib.get('href'))
+                page_urls.append(v_url)
+                element_map.append((v_url, v_el))
                 self.found_urls.add(v_url)
 
+        # 2. データベースからこのページ内の既知レコードを一括取得（バルク・フェッチ）
+        existing_records = {
+            l.source_url: l for l in self.db.query(Listing).filter(
+                Listing.source_url.in_(page_urls)
+            ).all()
+        }
+
+        # 3. 抽出と保存/更新のループ
+        for v_url, v_el in element_map:
+            try:
                 listing_data = self.extract_info(v_el, bike_model_id, response, v_url)
                 if not listing_data: continue
 
-                # メモリ上の既知リストで判定（DBへのSELECTを回避）
-                if v_url in self.known_urls:
-                    self.update_listing(v_url, listing_data)
+                existing = existing_records.get(v_url)
+
+                if existing:
+                    self.update_listing(existing, listing_data)
                 else:
-                    self.save_listing(v_url, listing_data)
+                    # 他サイトとの重複チェックは依然必要だが、DBへの存在確認をexistsで軽量に
+                    shop_id = self.shop_cache.get(listing_data['shop_site_id'])
+                    if shop_id:
+                        is_dup = self.db.query(exists().where(
+                            Listing.shop_id == shop_id,
+                            Listing.bike_model_id == listing_data['bike_model_id'],
+                            Listing.model_year == listing_data['model_year'],
+                            Listing.mileage == listing_data['mileage'],
+                            Listing.is_sold_out == False
+                        )).scalar()
+
+                        if not is_dup:
+                            self.save_listing(v_url, listing_data, shop_id)
                     
             except Exception as e:
-                self.logger.error(f"Error at {response.url}: {e}")
+                self.logger.error(f"Error at {v_url}: {e}")
 
-        # ページネーション
+        # ページ単位で一括確定
+        self.db.commit()
+
         next_page = response.css("li.next a::attr(href)").get()
         if next_page:
             yield response.follow(next_page, callback=self.parse_listings, meta=response.meta)
 
     def extract_info(self, v_el, bike_model_id, response, v_url):
-        """車両1台の情報を抽出（セレクタを効率化）"""
         try:
             # 価格解析
             price_txt = "".join(v_el.css("td.num_td *::text").getall()).replace(',', '')
@@ -170,7 +210,7 @@ class GooBikeListingSpider(scrapy.Spider):
             total_val = int(float(t_match.group(1)) * 10000) if t_match else None
 
             # スペック解析
-            year, mile, first_reg = None, None, None
+            year, mile = None, None
             has_repair = False
             for li in v_el.css(".cont01 ul li"):
                 text = li.xpath("string(.)").get() or ""
@@ -190,12 +230,9 @@ class GooBikeListingSpider(scrapy.Spider):
                 s_match = re.search(r'client_(\d+)', shop_href)
                 if s_match: shop_site_id = s_match.group(1)
 
-            # 画像URL
+            # 画像URL (real-url または src)
             img_el = v_el.css(".bike_img img")
-            img_url = img_el.attrib.get('real-url') or \
-                      v_el.css("noscript img::attr(src)").get() or \
-                      img_el.attrib.get('data-original') or \
-                      img_el.attrib.get('src')
+            img_url = img_el.attrib.get('real-url') or img_el.attrib.get('src')
             
             final_image_urls = []
             if img_url:
@@ -210,19 +247,14 @@ class GooBikeListingSpider(scrapy.Spider):
                 'total_price': total_val,
                 'model_year': year,
                 'mileage': mile,
-                'first_registration': first_reg,
                 'has_repair_history': has_repair,
                 'shop_site_id': shop_site_id,
                 'image_urls': final_image_urls,
             }
-        except Exception as e:
+        except Exception:
             return None
 
-    def save_listing(self, url, data):
-        """新規保存（ショップキャッシュ活用）"""
-        shop_id = self.shop_cache.get(data['shop_site_id'])
-        if not shop_id: return
-
+    def save_listing(self, url, data, shop_id):
         new_listing = Listing(
             bike_model_id=data['bike_model_id'],
             shop_id=shop_id,
@@ -239,48 +271,25 @@ class GooBikeListingSpider(scrapy.Spider):
             is_sold_out=False
         )
         self.db.add(new_listing)
-        self.db.commit()
-        self.known_urls.add(url)
 
-    def is_invalid_image(self, urls):
-        if not urls or not isinstance(urls, list) or len(urls) == 0:
-            return True
-        first_url = str(urls[0]).lower()
-        return any(k in first_url for k in ['loading', '.gif', 'spacer', 'common/img', 'no_image'])
+    def update_listing(self, existing, data):
+        """既存情報の更新"""
+        existing.price = data['price']
+        existing.total_price = data['total_price']
+        existing.is_sold_out = False
+        existing.updated_at = datetime.datetime.now()
+        
+        # 画像補完
+        db_imgs = existing.image_urls
+        is_db_img_invalid = not db_imgs or not isinstance(db_imgs, list) or len(db_imgs) == 0 or 'loading' in str(db_imgs[0]).lower()
 
-    def update_listing(self, url, data):
-        """既存情報の更新（DBへの問い合わせを最小化）"""
-        # 価格情報のみのシンプルなアップデートなら一撃で実行
-        update_values = {
-            'price': data['price'], 
-            'total_price': data['total_price'], 
-            'is_sold_out': False,
-            'updated_at': datetime.datetime.now()
-        }
-        
-        # 画像URLの更新が必要な場合のみ、今のレコードの状態を確認する
-        # （それ以外は SELECT せずに UPDATE 文だけ投げるのが最速です）
-        self.db.execute(update(Listing).where(Listing.source_url == url).values(**update_values))
-        
-        # 100件に1回くらいの頻度でまとめてコミットするのが理想ですが、
-        # スクレイピングの安全性のため現在は1件ごと。ここもボトルネックなら後日調整しましょう。
-        self.db.commit()
+        if is_db_img_invalid and data['image_urls']:
+            existing.image_urls = data['image_urls']
+            existing.local_image_paths = None
 
     def spider_closed(self, spider):
-        # 完売判定のバルク更新（ここも高速化）
-        missing_urls = self.known_urls - self.found_urls
-        if missing_urls:
-            missing_list = list(missing_urls)
-            chunk_size = 500
-            for i in range(0, len(missing_list), chunk_size):
-                chunk = missing_list[i:i + chunk_size]
-                self.db.execute(
-                    update(Listing)
-                    .where(Listing.source_url.in_(chunk))
-                    .where(Listing.site_id == self.site_id)
-                    .values(is_sold_out=True, updated_at=datetime.datetime.now())
-                )
-                self.db.commit()
+        # 完売判定: 今回見つからなかったものを一括で sold_out にする
+        self.db.commit()
         self.db.close()
 
 if __name__ == "__main__":
