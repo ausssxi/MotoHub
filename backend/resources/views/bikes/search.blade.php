@@ -4,26 +4,8 @@
     </x-slot:title>
 
     <x-slot:styles>
-        <style>
-            .filter-sidebar-content { position: sticky; top: 80px; height: fit-content; }
-            
-            @media (max-width: 1023.9px) {
-                #filter-sidebar { position: fixed; inset: 0; z-index: 100; visibility: hidden; transition: visibility 0.3s; }
-                #filter-sidebar.active { visibility: visible; }
-                #filter-overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5); opacity: 0; transition: opacity 0.3s; }
-                #filter-sidebar.active #filter-overlay { opacity: 1; }
-                .filter-sidebar-container { position: absolute; bottom: 0; left: 0; right: 0; background: white; border-radius: 24px 24px 0 0; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); max-height: 92vh; overflow-y: auto; }
-                #filter-sidebar.active .filter-sidebar-container { transform: translateY(0); }
-            }
-
-            /* スライダー共通スタイル */
-            .range-slider-container { position: relative; width: 100%; height: 40px; margin-top: 8px; }
-            .slider-track { position: absolute; width: 100%; height: 4px; background: #f3f4f6; border-radius: 2px; top: 50%; transform: translateY(-50%); }
-            .slider-progress { position: absolute; height: 4px; background: #5392f9; border-radius: 2px; top: 50%; transform: translateY(-50%); }
-            .range-input { position: absolute; width: 100%; height: 4px; top: 50%; transform: translateY(-50%); background: none; pointer-events: none; -webkit-appearance: none; margin: 0; }
-            .range-input::-webkit-slider-thumb { height: 24px; width: 24px; border-radius: 50%; background: #fff; border: 2px solid #5392f9; pointer-events: auto; -webkit-appearance: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); transition: all 0.2s; }
-            .range-input::-webkit-slider-thumb:active { transform: scale(1.2); background: #5392f9; }
-        </style>
+        {{-- 外部CSSファイルを読み込み --}}
+        <link rel="stylesheet" href="{{ asset('css/bike-search.css') }}">
     </x-slot:styles>
 
     <x-slot:navigation>
@@ -56,7 +38,7 @@
                         <!-- 価格 -->
                         <div class="filter-group">
                             <div class="flex justify-between items-end mb-4">
-                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">価格</label>
+                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic tracking-wider">価格</label>
                                 <div class="text-xs font-black text-blue-600 tracking-tighter">
                                     <span id="label-min-price"></span> 〜 <span id="label-max-price"></span>
                                 </div>
@@ -64,15 +46,15 @@
                             <div class="range-slider-container" id="slider-price">
                                 <div class="slider-track"></div>
                                 <div class="slider-progress"></div>
-                                <input type="range" class="range-input range-min" name="min_price" min="0" max="300" value="{{ $filters['min_price'] ?? 0 }}" step="5">
-                                <input type="range" class="range-input range-max" name="max_price" min="0" max="300" value="{{ $filters['max_price'] ?? 300 }}" step="5">
+                                <input type="range" class="range-input range-min" name="min_price" min="0" max="{{ $meta['price']['max'] }}" value="{{ $filters['min_price'] ?? 0 }}" step="5">
+                                <input type="range" class="range-input range-max" name="max_price" min="0" max="{{ $meta['price']['max'] }}" value="{{ $filters['max_price'] ?? $meta['price']['max'] }}" step="5">
                             </div>
-                        </div>
+                        </div>  
 
                         <!-- 走行距離 -->
                         <div class="filter-group">
                             <div class="flex justify-between items-end mb-4">
-                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">走行距離</label>
+                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic tracking-wider">走行距離</label>
                                 <div class="text-xs font-black text-blue-600 tracking-tighter">
                                     <span id="label-min-mileage"></span> 〜 <span id="label-max-mileage"></span>
                                 </div>
@@ -80,15 +62,15 @@
                             <div class="range-slider-container" id="slider-mileage">
                                 <div class="slider-track"></div>
                                 <div class="slider-progress"></div>
-                                <input type="range" class="range-input range-min" name="min_mileage" min="0" max="50000" value="{{ $filters['min_mileage'] ?? 0 }}" step="1000">
-                                <input type="range" class="range-input range-max" name="max_mileage" min="0" max="50000" value="{{ $filters['max_mileage'] ?? 50000 }}" step="1000">
+                                <input type="range" class="range-input range-min" name="min_mileage" min="0" max="{{ $meta['mileage']['max'] }}" value="{{ $filters['min_mileage'] ?? 0 }}" step="1000">
+                                <input type="range" class="range-input range-max" name="max_mileage" min="0" max="{{ $meta['mileage']['max'] }}" value="{{ $filters['max_mileage'] ?? $meta['mileage']['max'] }}" step="1000">
                             </div>
                         </div>
 
                         <!-- 年式 -->
                         <div class="filter-group">
                             <div class="flex justify-between items-end mb-4">
-                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">年式</label>
+                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic tracking-wider">年式</label>
                                 <div class="text-xs font-black text-blue-600 tracking-tighter">
                                     <span id="label-min-year"></span> 〜 <span id="label-max-year"></span>
                                 </div>
@@ -96,8 +78,8 @@
                             <div class="range-slider-container" id="slider-year">
                                 <div class="slider-track"></div>
                                 <div class="slider-progress"></div>
-                                <input type="range" class="range-input range-min" name="min_year" min="1990" max="2026" value="{{ $filters['min_year'] ?? 1990 }}" step="1">
-                                <input type="range" class="range-input range-max" name="max_year" min="1990" max="2026" value="{{ $filters['max_year'] ?? 2026 }}" step="1">
+                                <input type="range" class="range-input range-min" name="min_year" min="{{ $meta['year']['min'] }}" max="{{ $meta['year']['max'] }}" value="{{ $filters['min_year'] ?? $meta['year']['min'] }}" step="1">
+                                <input type="range" class="range-input range-max" name="max_year" min="{{ $meta['year']['min'] }}" max="{{ $meta['year']['max'] }}" value="{{ $filters['max_year'] ?? $meta['year']['max'] }}" step="1">
                             </div>
                         </div>
 
@@ -194,59 +176,42 @@
                         </div>
                     @endforelse
                 </div>
+
+                <!-- ページネーション -->
+                @if($pagination['last_page'] > 1)
+                <div class="mt-20 flex flex-col items-center gap-6 w-full">
+                    <nav class="flex justify-center items-center gap-1 sm:gap-2 max-w-full">
+                        @if($pagination['prev_url'])
+                        <a href="{{ $pagination['prev_url'] }}" class="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-400 hover:border-black hover:text-black transition-all">
+                            <i data-lucide="chevron-left" class="w-4 h-4 sm:w-5 h-5"></i>
+                        </a>
+                        @endif
+
+                        @foreach($pagination['pages'] as $page)
+                            @if($page['is_dot'])
+                                <span class="px-0.5 text-gray-300 text-xs">...</span>
+                            @else
+                                <a href="{{ $page['url'] }}" 
+                                   class="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg font-black text-[10px] sm:text-sm transition-all {{ $page['is_active'] ? 'bg-black text-white shadow-lg' : 'bg-white border border-gray-200 text-gray-400 hover:border-black' }}">
+                                    {{ $page['label'] }}
+                                </a>
+                            @endif
+                        @endforeach
+
+                        @if($pagination['next_url'])
+                        <a href="{{ $pagination['next_url'] }}" class="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-400 hover:border-black hover:text-black transition-all">
+                            <i data-lucide="chevron-right" class="w-4 h-4 sm:w-5 h-5"></i>
+                        </a>
+                        @endif
+                    </nav>
+                </div>
+                @endif
             </div>
         </div>
     </div>
 
+    {{-- スライダー本体のロジック --}}
     <script src="{{ asset('js/range-slider.js') }}"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const sidebar = document.getElementById('filter-sidebar');
-            const openBtn = document.getElementById('open-filter');
-            const closeBtn = document.getElementById('close-filter');
-            const overlay = document.getElementById('filter-overlay');
-            const form = document.getElementById('filter-form');
-            const mobileHitCount = document.getElementById('mobile-hit-count');
-
-            const toggle = () => {
-                sidebar.classList.toggle('active');
-                document.body.style.overflow = sidebar.classList.contains('active') ? 'hidden' : '';
-            };
-
-            [openBtn, closeBtn, overlay].forEach(el => el?.addEventListener('click', toggle));
-
-            // スマホ画面用：スライダー操作時に件数だけを非同期で更新するロジック
-            let updateTimer;
-            const updateCountOnly = () => {
-                if (window.innerWidth >= 1024) return; // PCは即時リロードなので不要
-
-                clearTimeout(updateTimer);
-                updateTimer = setTimeout(async () => {
-                    const formData = new URLSearchParams(new FormData(form));
-                    formData.append('count_only', '1');
-
-                    try {
-                        mobileHitCount.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin inline-block"></i>';
-                        if (window.lucide) window.lucide.createIcons();
-
-                        const response = await fetch(`${form.action}?${formData.toString()}`, {
-                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                        });
-                        
-                        if (!response.ok) throw new Error('Network response was not ok');
-                        
-                        const data = await response.json();
-                        mobileHitCount.textContent = `${data.total.toLocaleString()} 件`;
-                    } catch (e) {
-                        console.error('Count update failed', e);
-                        mobileHitCount.textContent = '- 件';
-                    }
-                }, 300);
-            };
-
-            form.querySelectorAll('input[type="range"]').forEach(input => {
-                input.addEventListener('input', updateCountOnly);
-            });
-        });
-    </script>
+    {{-- モーダル制御と件数更新のロジック --}}
+    <script src="{{ asset('js/search-interaction.js') }}"></script>
 </x-layout>

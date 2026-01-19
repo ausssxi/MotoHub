@@ -1,5 +1,6 @@
-/* * MotoHub - 検索結果ページ専用スタイル
- * 保存先: backend/public/css/bike-search.css
+/**
+ * MotoHub - 検索結果ページ総合スタイル
+ * 機能（スライダー・モーダル）とデザイン（ロゴ・カード）を統合
  */
 
  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap');
@@ -9,7 +10,8 @@
      --accent-red: #ef4444;
      --accent-orange: #f97316;
      --border-light: #f3f4f6;
-     --nav-bg: #f9fafb; /* ナビゲーションの薄いグレー */
+     --nav-bg: #f9fafb;
+     --agoda-blue: #5392f9;
  }
  
  body {
@@ -19,7 +21,9 @@
      margin: 0;
  }
  
- /* ナビゲーションバー */
+ /* ==========================================
+  * 1. ヘッダー & ロゴ
+  * ========================================== */
  .nav-header {
      background-color: var(--nav-bg);
      border-bottom: 1px solid #e5e7eb;
@@ -31,7 +35,6 @@
      align-items: center;
  }
  
- /* ロゴ全体のコンテナ */
  .logo-link {
      display: flex;
      align-items: center;
@@ -44,7 +47,6 @@
      opacity: 0.7;
  }
  
- /* ロゴアイコン */
  .logo-icon {
      width: 28px;
      height: 28px;
@@ -58,7 +60,6 @@
      overflow: hidden;
  }
  
- /* アイコン内部のスポーク（✖） */
  .logo-icon::before {
      content: '';
      position: absolute;
@@ -71,7 +72,6 @@
      border: 2.5px solid var(--nav-bg);
  }
  
- /* アイコン中心軸 */
  .logo-icon::after {
      content: '';
      width: 5px;
@@ -81,17 +81,18 @@
      z-index: 2;
  }
  
- /* 【修正】ロゴテキスト：親しみやすく「かわいらしい」印象へ調整 */
  .logo-text {
-     color: #4b5563 !important; /* 洗練された濃いグレー */
-     font-weight: 600;           /* 700から600へ落とし、少し柔らかい表情に */
-     font-size: 1.2rem;         /* 文字を少しだけ大きくして愛嬌を出す */
-     letter-spacing: 0.02em;    /* 間隔を詰め、単語としてのまとまり（可愛さ）を強調 */
+     color: #4b5563 !important;
+     font-weight: 600;
+     font-size: 1.2rem;
+     letter-spacing: 0.02em;
      line-height: 1;
-     text-transform: none;      /* 強制大文字を解除。Blade側で「MotoHub」等と書くと反映されます */
+     text-transform: none;
  }
  
- /* ヒーローセクション背景 */
+ /* ==========================================
+  * 2. レイアウト & 検索セクション
+  * ========================================== */
  .hero-bg {
      background-color: #ffffff;
      background-image: linear-gradient(#fcfcfc 1px, transparent 1px), 
@@ -99,7 +100,6 @@
      background-size: 25px 25px;
  }
  
- /* 検索バーコンテナ */
  .search-container {
      border: 1px solid var(--border-light);
      transition: all 0.2s ease;
@@ -110,7 +110,120 @@
      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
  }
  
- /* バイクカードのアニメーション */
+ /* ==========================================
+  * 3. サイドバー / モバイルモーダル (機能)
+  * ========================================== */
+ .filter-sidebar-content {
+     position: sticky;
+     top: 80px;
+     height: fit-content;
+ }
+ 
+ @media (max-width: 1023.9px) {
+     #filter-sidebar {
+         position: fixed;
+         inset: 0;
+         z-index: 100;
+         visibility: hidden;
+         transition: visibility 0.3s;
+     }
+ 
+     #filter-sidebar.active {
+         visibility: visible;
+     }
+ 
+     #filter-overlay {
+         position: absolute;
+         inset: 0;
+         background: rgba(0, 0, 0, 0.5);
+         opacity: 0;
+         transition: opacity 0.3s;
+     }
+ 
+     #filter-sidebar.active #filter-overlay {
+         opacity: 1;
+     }
+ 
+     .filter-sidebar-container {
+         position: absolute;
+         bottom: 0;
+         left: 0;
+         right: 0;
+         background: white;
+         border-radius: 24px 24px 0 0;
+         transform: translateY(100%);
+         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+         max-height: 92vh;
+         overflow-y: auto;
+     }
+ 
+     #filter-sidebar.active .filter-sidebar-container {
+         transform: translateY(0);
+     }
+ }
+ 
+ /* ==========================================
+  * 4. デュアルレンジスライダー (機能)
+  * ========================================== */
+ .range-slider-container {
+     position: relative;
+     width: 100%;
+     height: 40px;
+     margin-top: 8px;
+ }
+ 
+ .slider-track {
+     position: absolute;
+     width: 100%;
+     height: 4px;
+     background: #f3f4f6;
+     border-radius: 2px;
+     top: 50%;
+     transform: translateY(-50%);
+ }
+ 
+ .slider-progress {
+     position: absolute;
+     height: 4px;
+     background: var(--agoda-blue);
+     border-radius: 2px;
+     top: 50%;
+     transform: translateY(-50%);
+ }
+ 
+ .range-input {
+     position: absolute;
+     width: 100%;
+     height: 4px;
+     top: 50%;
+     transform: translateY(-50%);
+     background: none;
+     pointer-events: none;
+     -webkit-appearance: none;
+     margin: 0;
+ }
+ 
+ .range-input::-webkit-slider-thumb {
+     height: 24px;
+     width: 24px;
+     border-radius: 50%;
+     background: #fff;
+     border: 2px solid var(--agoda-blue);
+     pointer-events: auto;
+     -webkit-appearance: none;
+     cursor: pointer;
+     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+     transition: all 0.2s;
+ }
+ 
+ .range-input::-webkit-slider-thumb:active {
+     transform: scale(1.2);
+     background: var(--agoda-blue);
+ }
+ 
+ /* ==========================================
+  * 5. バイクカード (デザイン & アニメーション)
+  * ========================================== */
  .bike-card {
      transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
      border: 1px solid var(--border-light);
@@ -124,7 +237,6 @@
      }
  }
  
- /* 画像のズーム */
  .bike-img {
      width: 100%;
      height: 100%;
