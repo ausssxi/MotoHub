@@ -80,5 +80,7 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->monthlyOn(1, '01:45')
                  ->withoutOverlapping()
                  ->appendOutputTo($logPath);
+
+        $schedule->command('sitemap:generate')->dailyAt('05:00');
     })
     ->create();
