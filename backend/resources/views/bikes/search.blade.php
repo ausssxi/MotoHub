@@ -129,13 +129,13 @@
                 <!-- 結果グリッド -->
                 <div id="results-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                     @forelse ($items as $listing)
-                        <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col group border border-gray-100 relative cursor-pointer">
+                        <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col group border border-gray-100 relative cursor-pointer bike-card">
                             <a href="{{ $listing['url'] }}" target="_blank" rel="noopener noreferrer" class="absolute inset-0 z-20"></a>
                             <div class="aspect-[4/3] relative overflow-hidden bg-gray-50">
                                 @if(!empty($listing['images']) && isset($listing['images'][0]))
-                                    <img src="{{ $listing['images'][0] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="">
+                                    <img src="{{ $listing['images'][0] }}" class="bike-img" alt="">
                                 @endif
-                                <div class="absolute top-3 right-3 z-10 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/20">
+                                <div class="absolute top-3 right-3 z-10 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/20 shadow-sm">
                                     <img src="https://www.google.com/s2/favicons?domain={{ $listing['source_domain'] }}&sz=32" class="w-3 h-3 rounded-sm" alt="">
                                     <span class="text-[8px] font-black text-gray-500">{{ $listing['source'] }}</span>
                                 </div>
@@ -143,16 +143,33 @@
                             <div class="p-5 flex-grow flex flex-col">
                                 <div class="flex items-center gap-2 mb-2">
                                     <span class="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">{{ $listing['maker'] }}</span>
+                                    <span class="text-[9px] font-black text-gray-500 bg-gray-100 px-2 py-0.5 rounded uppercase">{{ $listing['condition'] }}</span>
                                 </div>
                                 <h3 class="text-sm font-black text-gray-800 mb-4 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">{{ $listing['name'] }}</h3>
                                 
-                                <div class="flex items-center gap-4 text-[10px] font-bold text-gray-400 mb-6">
-                                    <div class="flex items-center gap-1.5"><i data-lucide="calendar" class="w-3.5 h-3.5 text-gray-300"></i>{{ $listing['model_year'] }}</div>
-                                    <div class="flex items-center gap-1.5"><i data-lucide="gauge" class="w-3.5 h-3.5 text-gray-300"></i>{{ $listing['mileage'] }}</div>
+                                {{-- 車両スペック詳細 (4項目グリッド) --}}
+                                <div class="grid grid-cols-2 gap-y-2.5 gap-x-2 text-[10px] font-bold text-gray-400 mb-6">
+                                    <div class="flex items-center gap-1.5">
+                                        <i data-lucide="calendar" class="w-3.5 h-3.5 text-gray-300"></i>
+                                        <span>{{ $listing['model_year'] }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <i data-lucide="gauge" class="w-3.5 h-3.5 text-gray-300"></i>
+                                        <span>{{ $listing['mileage'] }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <i data-lucide="droplet" class="w-3.5 h-3.5 text-gray-300"></i>
+                                        <span>{{ $listing['displacement'] }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <i data-lucide="wrench" class="w-3.5 h-3.5 text-gray-300"></i>
+                                        <span class="truncate">修復歴: {{ $listing['repair_history'] }}</span>
+                                    </div>
                                 </div>
 
+                                {{-- 価格とショップ情報 --}}
                                 <div class="mt-auto bg-gray-50 p-4 rounded-xl border border-gray-100 group-hover:bg-blue-50 transition-all duration-300">
-                                    <div class="flex justify-between items-end">
+                                    <div class="flex justify-between items-end mb-3">
                                         <div>
                                             <span class="text-[8px] font-black text-gray-400 block uppercase tracking-tighter">支払総額</span>
                                             <div class="text-red-500 font-black italic">
@@ -165,6 +182,12 @@
                                                 <span class="text-lg tracking-tighter">{{ $listing['base_price'] }}</span><span class="text-[9px] ml-0.5">万円</span>
                                             </div>
                                         </div>
+                                    </div>
+                                    
+                                    {{-- ショップ名 --}}
+                                    <div class="pt-2 border-t border-gray-200/50 flex items-center gap-1.5 text-[9px] text-gray-400 font-bold group-hover:text-blue-400 transition-colors">
+                                        <i data-lucide="store" class="w-3 h-3"></i>
+                                        <span class="truncate">{{ $listing['store_name'] }}</span>
                                     </div>
                                 </div>
                             </div>
