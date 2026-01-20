@@ -178,14 +178,6 @@ final class ListingRepository
 
     /**
      * キーワードと地域による絞り込みロジックを共通化
-     * 
-     * キーワード検索はタイトル、車種名、メーカー名に対して部分一致検索を実行します。
-     * 都道府県による絞り込みは店舗の住所で前方一致検索を実行します。
-     * 
-     * @param Builder $query クエリビルダー
-     * @param string|null $keyword 検索キーワード
-     * @param string|null $prefecture 都道府県名
-     * @return void
      */
     private function applySearchFilters(Builder $query, ?string $keyword, ?string $prefecture): void
     {

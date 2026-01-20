@@ -81,35 +81,25 @@ final class ListingSearchService
         return (int) $paginated->total();
     }
 
-    /**
-     * 絞り込みスライダーの境界値（最小・最大）を取得
-     * 
-     * 指定されたキーワード・都道府県条件に基づいて、価格・走行距離・年式の
-     * 最小値および最大値を計算し、UIスライダーで使用する範囲情報として返します。
-     * 価格と走行距離については、最低値（300万円 / 50,000km）を保証します。
-     * 
-     * @param string|null $keyword 検索キーワード
-     * @param string|null $prefecture 都道府県名
-     * @return array スライダー用メタデータ（'price', 'mileage', 'year' の各範囲情報）
+  /**
+     * 絞り込みスライダーの境界値を取得
      */
     public function getSearchMetadata(?string $keyword = null, ?string $prefecture = null): array
     {
-        // 検索条件に一致する範囲内での統計を取得
         $stats = $this->repository->getMinMaxStats($keyword, $prefecture);
 
-        // 異常値チェック後の数値を使用
+        // --- 修正箇所：UIのステップ(1000km)に合わせて切り上げを行う ---
         $dbMaxPrice = (int) ceil(($stats->max_price ?? 0) / 10000);
-        $dbMaxMileage = (int) ($stats->max_mileage ?? 0);
+        // 53,450km の場合、(int)ceil(53450/1000)*1000 = 54,000 となるように修正
+        $dbMaxMileage = (int) ceil(($stats->max_mileage ?? 0) / 1000) * 1000;
 
         return [
             'price' => [
                 'min' => 0,
-                // 指定されたキーワードでの最高価格に基づき、最低300万円を保証
                 'max' => max(300, $dbMaxPrice),
             ],
             'mileage' => [
                 'min' => 0,
-                // 指定されたキーワードでの最高距離に基づき、最低50,000kmを保証
                 'max' => max(50000, $dbMaxMileage),
             ],
             'year' => [
