@@ -26,19 +26,20 @@ final class ListingSearchService
     /**
      * フィルター条件を含めて検索を実行し、結果を整形して返す
      * 
-     * キーワード、都道府県、各種フィルター条件に基づいて出品情報を検索し、
-     * ページネーション情報と合わせて、UI表示向けの配列形式に整形して返します。
+     * キーワード、都道府県、ソート順、各種フィルター条件に基づいて出品情報を検索し、
+     * UI表示用に整形したデータとページネーション情報、価格相場統計を返します。
      * 
-     * @param string|null $keyword 検索キーワード（タイトル・車種名・メーカー名に部分一致）
-     * @param string|null $prefecture 都道府県名（店舗住所の前方一致で絞り込み）
-     * @param string $sort ソート順（latest, price_asc, price_desc, mileage_asc, mileage_desc, year_asc, year_desc）
+     * @param string|null $keyword 検索キーワード（車種名、メーカー名、タイトルに部分一致）
+     * @param string|null $prefecture 都道府県名（店舗の都道府県で絞り込み）
+     * @param string $sort ソート順（latest, price_asc, price_desc, mileage_asc, year_desc）
      * @param array $filters フィルター条件（min_price, max_price, min_mileage, max_mileage, min_year, max_year）
-     * @param int $perPage 1ページあたりの件数
-     * @return array 検索結果とページネーション情報（'items', 'pagination' キーを含む）
+     * @param int $perPage 1ページあたりの表示件数（デフォルト: 30）
+     * @return array 整形された検索結果（'items' => 出品情報配列, 'pagination' => ページネーション情報, 'stats' => 価格相場統計）
      */
     public function search(?string $keyword, ?string $prefecture = null, string $sort = 'latest', array $filters = [], int $perPage = 30): array
     {
         $paginated = $this->repository->searchByKeyword($keyword, $prefecture, $sort, $filters, $perPage);
+        $statsRaw = $this->repository->getPriceStats($keyword, $prefecture, $filters);
 
         $formattedItems = $paginated->getCollection()->map(fn($item) => [
             'id' => $item->id,
@@ -60,7 +61,13 @@ final class ListingSearchService
 
         return [
             'items' => $formattedItems,
-            'pagination' => $this->formatPagination($paginated)
+            'pagination' => $this->formatPagination($paginated),
+            'stats' => [
+                'avg'   => $statsRaw->avg_price ? number_format((float)($statsRaw->avg_price / 10000), 1) : null,
+                'min'   => $statsRaw->min_price ? number_format((float)($statsRaw->min_price / 10000), 1) : null,
+                'max'   => $statsRaw->max_price ? number_format((float)($statsRaw->max_price / 10000), 1) : null,
+                'count' => $statsRaw->count,
+            ]
         ];
     }
 
@@ -81,8 +88,16 @@ final class ListingSearchService
         return (int) $paginated->total();
     }
 
-  /**
+    /**
      * 絞り込みスライダーの境界値を取得
+     * 
+     * 指定されたキーワードと都道府県の条件に基づいて、価格・走行距離・年式の
+     * 最小値・最大値を取得します。スライダーの上限値はUIのステップ単位（価格は1万円単位、
+     * 走行距離は1,000km単位）に合わせて切り上げ処理を行います。
+     * 
+     * @param string|null $keyword 検索キーワード（指定された場合はその条件で絞り込み）
+     * @param string|null $prefecture 都道府県名（指定された場合はその条件で絞り込み）
+     * @return array スライダー用の境界値（'price' => ['min' => int, 'max' => int], 'mileage' => ['min' => int, 'max' => int], 'year' => ['min' => int, 'max' => int]）
      */
     public function getSearchMetadata(?string $keyword = null, ?string $prefecture = null): array
     {

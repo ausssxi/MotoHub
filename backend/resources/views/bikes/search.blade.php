@@ -15,7 +15,7 @@
     <div class="bg-gray-50 min-h-screen py-8">
         <div class="max-w-7xl mx-auto px-4 flex flex-col lg:flex-row gap-8">
             
-            <!-- サイドバー / モバイルモーダル -->
+            <!-- 1. サイドバー / モバイルモーダル (機能維持) -->
             <aside id="filter-sidebar" class="w-full lg:w-72 flex-shrink-0">
                 <div id="filter-overlay" class="lg:hidden"></div>
                 
@@ -32,10 +32,10 @@
 
                     <form action="{{ route('bikes.search') }}" method="GET" id="filter-form" class="p-6 space-y-10 overflow-y-auto">
                         <input type="hidden" name="keyword" value="{{ $keyword }}">
-                        <input type="hidden" name="prefecture" value="{{ $prefecture }}">
+                        <input type="hidden" name="prefecture" value="{{ $prefecture ?? '' }}">
                         <input type="hidden" name="sort" value="{{ $sort }}">
 
-                        <!-- 価格 -->
+                        <!-- 価格スライダー -->
                         <div class="filter-group">
                             <div class="flex justify-between items-end mb-4">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic tracking-wider">価格</label>
@@ -46,12 +46,12 @@
                             <div class="range-slider-container" id="slider-price">
                                 <div class="slider-track"></div>
                                 <div class="slider-progress"></div>
-                                <input type="range" class="range-input range-min" name="min_price" min="0" max="{{ $meta['price']['max'] }}" value="{{ $filters['min_price'] ?? 0 }}" step="5">
-                                <input type="range" class="range-input range-max" name="max_price" min="0" max="{{ $meta['price']['max'] }}" value="{{ $filters['max_price'] ?? $meta['price']['max'] }}" step="5">
+                                <input type="range" class="range-input range-min" name="min_price" min="0" max="{{ $meta['price']['max'] ?? 300 }}" value="{{ $filters['min_price'] ?? 0 }}" step="5">
+                                <input type="range" class="range-input range-max" name="max_price" min="0" max="{{ $meta['price']['max'] ?? 300 }}" value="{{ $filters['max_price'] ?? ($meta['price']['max'] ?? 300) }}" step="5">
                             </div>
                         </div>  
 
-                        <!-- 走行距離 -->
+                        <!-- 走行距離スライダー -->
                         <div class="filter-group">
                             <div class="flex justify-between items-end mb-4">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic tracking-wider">走行距離</label>
@@ -62,12 +62,12 @@
                             <div class="range-slider-container" id="slider-mileage">
                                 <div class="slider-track"></div>
                                 <div class="slider-progress"></div>
-                                <input type="range" class="range-input range-min" name="min_mileage" min="0" max="{{ $meta['mileage']['max'] }}" value="{{ $filters['min_mileage'] ?? 0 }}" step="1000">
-                                <input type="range" class="range-input range-max" name="max_mileage" min="0" max="{{ $meta['mileage']['max'] }}" value="{{ $filters['max_mileage'] ?? $meta['mileage']['max'] }}" step="1000">
+                                <input type="range" class="range-input range-min" name="min_mileage" min="0" max="{{ $meta['mileage']['max'] ?? 50000 }}" value="{{ $filters['min_mileage'] ?? 0 }}" step="1000">
+                                <input type="range" class="range-input range-max" name="max_mileage" min="0" max="{{ $meta['mileage']['max'] ?? 50000 }}" value="{{ $filters['max_mileage'] ?? ($meta['mileage']['max'] ?? 50000) }}" step="1000">
                             </div>
                         </div>
 
-                        <!-- 年式 -->
+                        <!-- 年式スライダー -->
                         <div class="filter-group">
                             <div class="flex justify-between items-end mb-4">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic tracking-wider">年式</label>
@@ -78,8 +78,8 @@
                             <div class="range-slider-container" id="slider-year">
                                 <div class="slider-track"></div>
                                 <div class="slider-progress"></div>
-                                <input type="range" class="range-input range-min" name="min_year" min="{{ $meta['year']['min'] }}" max="{{ $meta['year']['max'] }}" value="{{ $filters['min_year'] ?? $meta['year']['min'] }}" step="1">
-                                <input type="range" class="range-input range-max" name="max_year" min="{{ $meta['year']['min'] }}" max="{{ $meta['year']['max'] }}" value="{{ $filters['max_year'] ?? $meta['year']['max'] }}" step="1">
+                                <input type="range" class="range-input range-min" name="min_year" min="{{ $meta['year']['min'] ?? 1990 }}" max="{{ $meta['year']['max'] ?? date('Y') }}" value="{{ $filters['min_year'] ?? ($meta['year']['min'] ?? 1990) }}" step="1">
+                                <input type="range" class="range-input range-max" name="max_year" min="{{ $meta['year']['min'] ?? 1990 }}" max="{{ $meta['year']['max'] ?? date('Y') }}" value="{{ $filters['max_year'] ?? ($meta['year']['max'] ?? date('Y')) }}" step="1">
                             </div>
                         </div>
 
@@ -96,13 +96,15 @@
                 </div>
             </aside>
 
-            <!-- メインコンテンツ -->
+            <!-- 2. メインコンテンツ -->
             <div class="flex-1">
+                
+                {{-- ページタイトルとソート選択 --}}
                 <div class="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                     <div>
                         <h2 class="text-2xl font-black text-black tracking-tighter italic">
                             @if($keyword) 「{{ $keyword }}」 @else 車両一覧 @endif 
-                            <span class="text-xs text-gray-400 font-bold ml-2 not-italic">({{ number_format($pagination['total']) }}台)</span>
+                            <span class="text-xs text-gray-400 font-bold ml-2 not-italic">({{ number_format($pagination['total']) }}台見つかりました)</span>
                         </h2>
                     </div>
                     
@@ -126,24 +128,65 @@
                     </div>
                 </div>
 
-                <!-- 結果グリッド -->
+                {{-- ✨【新設】価格相場パネル --}}
+                @if(isset($stats['avg']) && $stats['avg'] && $stats['count'] > 0)
+                <div class="mb-8 bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden flex flex-col sm:flex-row animate-in fade-in slide-in-from-top-4 duration-500">
+                    {{-- 左：ラベルエリア (中央寄せに調整) --}}
+                    <div class="bg-blue-600 px-6 py-4 sm:w-48 flex flex-col justify-center items-center text-center text-white">
+                        <span class="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Market Report</span>
+                        <span class="text-sm font-black italic">価格相場</span>
+                    </div>
+                    
+                    {{-- 中：統計数値エリア --}}
+                    <div class="flex-1 grid grid-cols-3 divide-x divide-gray-50 text-center py-4">
+                        <div class="px-2">
+                            <span class="block text-[9px] font-black text-gray-400 uppercase mb-1">平均総額</span>
+                            <span class="text-xl font-black text-blue-600 tabular-nums italic">{{ $stats['avg'] }}<small class="text-[10px] ml-0.5 font-bold not-italic">万円</small></span>
+                        </div>
+                        <div class="px-2">
+                            <span class="block text-[9px] font-black text-gray-400 uppercase mb-1">最安値</span>
+                            <span class="text-xl font-black text-gray-800 tabular-nums italic">{{ $stats['min'] }}<small class="text-[10px] ml-0.5 font-bold not-italic">万円</small></span>
+                        </div>
+                        <div class="px-2">
+                            <span class="block text-[9px] font-black text-gray-400 uppercase mb-1">最高値</span>
+                            <span class="text-xl font-black text-gray-800 tabular-nums italic">{{ $stats['max'] }}<small class="text-[10px] ml-0.5 font-bold not-italic">万円</small></span>
+                        </div>
+                    </div>
+
+                    {{-- 右：台数注釈（デスクトップのみ） --}}
+                    <div class="hidden xl:flex items-center pr-6 pl-4 border-l border-gray-50">
+                        <p class="text-[9px] text-gray-400 leading-tight font-bold">
+                            ※現在の条件に一致する<br>
+                            <span class="text-blue-500 font-black">{{ number_format($stats['count']) }}台</span> の平均
+                        </p>
+                    </div>
+                </div>
+                @endif
+
+                {{-- 結果グリッド --}}
                 <div id="results-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                     @forelse ($items as $listing)
                         <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col group border border-gray-100 relative cursor-pointer bike-card">
                             <a href="{{ $listing['url'] }}" target="_blank" rel="noopener noreferrer" class="absolute inset-0 z-20"></a>
+                            
+                            {{-- 画像エリア --}}
                             <div class="aspect-[4/3] relative overflow-hidden bg-gray-50">
                                 @if(!empty($listing['images']) && isset($listing['images'][0]))
                                     <img src="{{ $listing['images'][0] }}" class="bike-img" alt="">
                                 @endif
-                                <!-- ✨ お気に入りボタンを追加 -->
+                                
+                                {{-- お気に入りボタン --}}
                                 <button class="wishlist-btn absolute top-3 left-3 z-30 w-9 h-9 bg-white/80 backdrop-blur rounded-full flex items-center justify-center text-gray-400 shadow-sm hover:scale-110 active:scale-90 transition-all border border-white/50" data-id="{{ $listing['id'] }}">
                                     <i data-lucide="heart" class="w-4 h-4"></i>
                                 </button>
+                                
+                                {{-- 出典元サイトバッジ --}}
                                 <div class="absolute top-3 right-3 z-10 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/20 shadow-sm">
-                                    <img src="https://www.google.com/s2/favicons?domain={{ $listing['source_domain'] }}&sz=32" class="w-3 h-3 rounded-sm" alt="">
+                                    <img src="https://www.google.com/s2/favicons?domain={{ $listing['source_domain'] ?? 'google.com' }}&sz=32" class="w-3 h-3 rounded-sm" alt="">
                                     <span class="text-[8px] font-black text-gray-500">{{ $listing['source'] }}</span>
                                 </div>
                             </div>
+
                             <div class="p-5 flex-grow flex flex-col">
                                 <div class="flex items-center gap-2 mb-2">
                                     <span class="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">{{ $listing['maker'] }}</span>
@@ -151,7 +194,7 @@
                                 </div>
                                 <h3 class="text-sm font-black text-gray-800 mb-4 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">{{ $listing['name'] }}</h3>
                                 
-                                {{-- 車両スペック詳細 (4項目グリッド) --}}
+                                {{-- 車両スペック詳細 --}}
                                 <div class="grid grid-cols-2 gap-y-2.5 gap-x-2 text-[10px] font-bold text-gray-400 mb-6">
                                     <div class="flex items-center gap-1.5">
                                         <i data-lucide="calendar" class="w-3.5 h-3.5 text-gray-300"></i>
@@ -188,7 +231,6 @@
                                         </div>
                                     </div>
                                     
-                                    {{-- ショップ名 --}}
                                     <div class="pt-2 border-t border-gray-200/50 flex items-center gap-1.5 text-[9px] text-gray-400 font-bold group-hover:text-blue-400 transition-colors">
                                         <i data-lucide="store" class="w-3 h-3"></i>
                                         <span class="truncate">{{ $listing['store_name'] }}</span>
@@ -204,7 +246,7 @@
                     @endforelse
                 </div>
 
-                <!-- ページネーション -->
+                {{-- ページネーション (機能維持) --}}
                 @if($pagination['last_page'] > 1)
                 <div class="mt-20 flex flex-col items-center gap-6 w-full">
                     <nav class="flex justify-center items-center gap-1 sm:gap-2 max-w-full">
@@ -233,6 +275,7 @@
                     </nav>
                 </div>
                 @endif
+
             </div>
         </div>
     </div>

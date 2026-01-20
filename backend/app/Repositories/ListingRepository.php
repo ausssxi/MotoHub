@@ -6,95 +6,95 @@ namespace App\Repositories;
 
 use App\Models\Listing;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
  * バイクの出品情報に関するデータ操作を担当するリポジトリ
- * 
- * 出品情報の検索、フィルタリング、ソート、統計情報の取得などの
- * データベース操作を提供します。
+ *
+ * 検索・フィルタリング・ソートによる一覧取得のほか、
+ * 価格相場や最小/最大値の統計取得、有効出品件数のカウントなどを行います。
  */
 final class ListingRepository
 {
     /**
-     * 検索、フィルタリング、および並び替えを実行
-     * 
+     * ページネーション付き検索
+     *
      * キーワード、都道府県、各種フィルター条件に基づいて出品情報を検索し、
-     * 指定されたソート順で並び替えてページネーション付きで返します。
-     * 
-     * @param string|null $keyword 検索キーワード（車種名、メーカー名、タイトルに部分一致）
-     * @param string|null $prefecture 都道府県名（店舗の住所で絞り込み）
-     * @param string $sort ソート順（latest, price_asc, price_desc, mileage_asc, mileage_desc, year_asc, year_desc）
-     * @param array $filters フィルター条件（min_price, max_price, min_mileage, max_mileage, min_year, max_year）
-     * @param int $perPage 1ページあたりの表示件数（デフォルト: 30）
-     * @return LengthAwarePaginator ページネーション付きの検索結果
-     * @throws \Exception 検索処理中にエラーが発生した場合
+     * 指定されたソート順で並び替えてページネーション付きの結果を返します。
+     * 検索条件のクエリパラメータはページ送り時にも維持されます。
+     *
+     * @param string|null $keyword    検索キーワード（タイトル・車種名・メーカー名に部分一致）
+     * @param string|null $prefecture 都道府県名（店舗の都道府県カラムで前方一致）
+     * @param string      $sort       ソートキー（price_asc, price_desc, mileage_asc, year_desc など）
+     * @param array       $filters    価格・走行距離・年式のフィルター条件
+     * @param int         $perPage    1ページあたりの表示件数
+     *
+     * @return LengthAwarePaginator 検索結果のページネーター
      */
-    public function searchByKeyword(
-        ?string $keyword, 
-        ?string $prefecture = null, 
-        string $sort = 'latest', 
-        array $filters = [], 
-        int $perPage = 30
-    ): LengthAwarePaginator {
-        try {
-            $query = $this->baseSearchQuery($keyword, $prefecture, $filters);
+    public function searchByKeyword(?string $keyword, ?string $prefecture, string $sort, array $filters, int $perPage): LengthAwarePaginator
+    {
+        $query = $this->baseSearchQuery($keyword, $prefecture, $filters);
 
-            switch ($sort) {
-                case 'price_asc':
-                    $query->orderByRaw('total_price IS NULL ASC, total_price ASC');
-                    break;
-                case 'price_desc':
-                    $query->orderByRaw('total_price IS NULL DESC, total_price DESC');
-                    break;
-                case 'mileage_asc':
-                    $query->orderByRaw('mileage IS NULL ASC, mileage ASC');
-                    break;
-                case 'mileage_desc':
-                    $query->orderByRaw('mileage IS NULL DESC, mileage DESC');
-                    break;
-                case 'year_desc':
-                    $query->orderBy('model_year', 'desc');
-                    break;
-                case 'year_asc':
-                    $query->orderBy('model_year', 'asc');
-                    break;
-                default:
-                    $query->orderBy('created_at', 'desc');
-                    break;
-            }
+        $query = match ($sort) {
+            'price_asc'   => $query->orderBy('total_price', 'asc'),
+            'price_desc'  => $query->orderBy('total_price', 'desc'),
+            'mileage_asc' => $query->orderBy('mileage', 'asc'),
+            'year_desc'   => $query->orderBy('model_year', 'desc'),
+            default       => $query->orderBy('created_at', 'desc'),
+        };
 
-            return $query->paginate($perPage)->withQueryString();
-
-        } catch (\Exception $e) {
-            Log::error("Search Error: " . $e->getMessage());
-            throw $e;
-        }
+        return $query->paginate($perPage)->withQueryString();
     }
 
     /**
-     * 現在の検索条件に基づいた最小・最大統計値を取得
-     * 
-     * 指定されたキーワードと都道府県の条件に基づいて、価格、走行距離、年式の
-     * 最小値・最大値を取得します。既知の異常値（マジックナンバー）を除外して
-     * 正確な統計値を算出します。
-     * 
-     * @param string|null $keyword 検索キーワード（指定された場合はその条件で絞り込み）
-     * @param string|null $prefecture 都道府県名（指定された場合はその条件で絞り込み）
-     * @return object 統計情報を含むオブジェクト（max_price, max_mileage, min_year, max_year）
+     * 価格相場統計を取得
+     *
+     * 指定された検索条件に一致する出品情報について、価格の平均・最小・最大値、
+     * および件数を集計して返します。異常値を除外するため、一定範囲外の価格は
+     * 対象から外しています。
+     *
+     * @param string|null $keyword    検索キーワード
+     * @param string|null $prefecture 都道府県名
+     * @param array       $filters    価格・走行距離・年式のフィルター条件
+     *
+     * @return object 統計情報を持つオブジェクト（avg_price, min_price, max_price, count）
+     */
+    public function getPriceStats(?string $keyword, ?string $prefecture, array $filters): object
+    {
+        $query = $this->baseSearchQuery($keyword, $prefecture, $filters);
+
+        return $query->select([
+                DB::raw('AVG(total_price) as avg_price'),
+                DB::raw('MIN(total_price) as min_price'),
+                DB::raw('MAX(total_price) as max_price'),
+                DB::raw('COUNT(*) as count')
+            ])
+            ->where('total_price', '>', 10000)
+            ->where('total_price', '<', 10000000)
+            ->first();
+    }
+    
+    /**
+     * 最小・最大統計値を取得
+     *
+     * 現在の検索条件に基づいて、価格・走行距離・年式それぞれの
+     * 最小値および最大値を取得します。既知の異常値（極端に高い価格や距離）
+     * は事前に除外した上で集計します。
+     *
+     * @param string|null $keyword    検索キーワード
+     * @param string|null $prefecture 都道府県名
+     *
+     * @return object 統計情報を持つオブジェクト（max_price, max_mileage, min_year, max_year）
      */
     public function getMinMaxStats(?string $keyword = null, ?string $prefecture = null): object
     {
         $query = Listing::query()
             ->where('is_sold_out', false)
-            // 既知のマジックナンバー（ASK=998万, 不明=99万km）と未来の年式を排除
-            ->where('total_price', '<', 9000000)
-            ->where('mileage', '<', 900000)
+            ->where('total_price', '<', 10000000)
+            ->where('mileage', '<', 1000000)
             ->where('model_year', '<=', (int)date('Y') + 1);
 
-        // 検索条件を適用
         $this->applySearchFilters($query, $keyword, $prefecture);
 
         return $query->select([
@@ -109,9 +109,10 @@ final class ListingRepository
 
     /**
      * 有効な出品情報の総数を取得
-     * 
-     * 売り切れでない出品情報の総件数を返します。
-     * 
+     *
+     * 売り切れでない出品レコードの総件数を返します。
+     * サイト全体の掲載台数表示などに使用されます。
+     *
      * @return int 有効な出品情報の総数
      */
     public function countActiveListings(): int
@@ -120,52 +121,50 @@ final class ListingRepository
     }
 
     /**
-     * 検索の基本クエリ構築
-     * 
-     * キーワード、都道府県、各種フィルター条件を適用した
-     * 検索クエリビルダーを構築します。リレーション（車種、メーカー、店舗）も
-     * 事前に読み込みます。
-     * 
-     * @param string|null $keyword 検索キーワード
+     * 検索の基本クエリ構築（内部利用用）
+     *
+     * リレーション（車種・メーカー・店舗・サイト）を読み込んだ上で、
+     * キーワード・都道府県・価格・走行距離・年式のフィルター条件を適用した
+     * 共通のクエリビルダーを構築します。価格と走行距離の上限は、UIスライダーに
+     * 合わせて 5万円単位・1,000km単位で切り上げて判定します。
+     *
+     * @param string|null $keyword    検索キーワード
      * @param string|null $prefecture 都道府県名
-     * @param array $filters フィルター条件（min_price, max_price, min_mileage, max_mileage, min_year, max_year）
+     * @param array       $filters    価格・走行距離・年式のフィルター条件
+     *
      * @return Builder 検索条件が適用されたクエリビルダー
      */
-    private function baseSearchQuery(?string $keyword, ?string $prefecture = null, array $filters = [])
+    private function baseSearchQuery(?string $keyword, ?string $prefecture = null, array $filters = []): Builder
     {
-        $query = Listing::with(['bikeModel.manufacturer', 'shop'])
+        $query = Listing::with(['bikeModel.manufacturer', 'shop', 'site'])
             ->where('is_sold_out', false);
 
-        // キーワードと地域条件を適用
         $this->applySearchFilters($query, $keyword, $prefecture);
 
-        // スライダーの上限判定用のメタ統計（この条件での最大値）
+        // メタ統計の取得
         $stats = $this->getMinMaxStats($keyword, $prefecture);
-        $uiMaxPrice = max(300, (int) ceil(($stats->max_price ?? 0) / 10000));
-        $uiMaxMileage = max(50000, (int) ($stats->max_mileage ?? 0));
+        
+        // --- 端数処理（切り上げ）の適用 ---
+        // 価格は5万円単位、走行距離は1,000km単位でスライダーが動くため、その単位で切り上げる
+        $uiMaxPrice = max(300, (int) ceil(($stats->max_price ?? 0) / 50000) * 5); 
+        $uiMaxMileage = max(50000, (int) ceil(($stats->max_mileage ?? 0) / 1000) * 1000);
 
-        // 価格フィルタ
         if (!empty($filters['min_price']) && (int)$filters['min_price'] > 0) {
             $query->where('total_price', '>=', (int)$filters['min_price'] * 10000);
         }
-        if (!empty($filters['max_price'])) {
-            // 上限なし（右端）でない場合のみ、絞り込みを適用
-            if ((int)$filters['max_price'] < $uiMaxPrice) {
-                $query->where('total_price', '<=', (int)$filters['max_price'] * 10000);
-            }
+        // 上限判定：切り上げた最大値より小さい場合のみフィルタを適用
+        if (!empty($filters['max_price']) && (int)$filters['max_price'] < $uiMaxPrice) {
+            $query->where('total_price', '<=', (int)$filters['max_price'] * 10000);
         }
 
-        // 走行距離フィルタ
         if (!empty($filters['min_mileage']) && (int)$filters['min_mileage'] > 0) {
             $query->where('mileage', '>=', (int)$filters['min_mileage']);
         }
-        if (!empty($filters['max_mileage'])) {
-            if ((int)$filters['max_mileage'] < $uiMaxMileage) {
-                $query->where('mileage', '<=', (int)$filters['max_mileage']);
-            }
+        // 上限判定：切り上げた最大値より小さい場合のみフィルタを適用
+        if (!empty($filters['max_mileage']) && (int)$filters['max_mileage'] < $uiMaxMileage) {
+            $query->where('mileage', '<=', (int)$filters['max_mileage']);
         }
 
-        // 年式
         if (!empty($filters['min_year'])) {
             $query->where('model_year', '>=', (int)$filters['min_year']);
         }
@@ -177,7 +176,16 @@ final class ListingRepository
     }
 
     /**
-     * キーワードと地域による絞り込みロジックを共通化
+     * 絞り込みロジックの共通化
+     *
+     * キーワードはタイトル・車種名・メーカー名に対して部分一致検索を行い、
+     * 都道府県は店舗テーブルの都道府県カラムを前方一致で絞り込みます。
+     *
+     * @param Builder     $query      絞り込み対象のクエリビルダー
+     * @param string|null $keyword    検索キーワード
+     * @param string|null $prefecture 都道府県名
+     *
+     * @return void
      */
     private function applySearchFilters(Builder $query, ?string $keyword, ?string $prefecture): void
     {
@@ -195,7 +203,7 @@ final class ListingRepository
 
         if ($prefecture) {
             $query->whereHas('shop', function($sq) use ($prefecture) {
-                $sq->where('address', 'like', "{$prefecture}%");
+                $sq->where('prefecture', 'like', "{$prefecture}%");
             });
         }
     }
