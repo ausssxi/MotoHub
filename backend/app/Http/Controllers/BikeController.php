@@ -143,4 +143,48 @@ final class BikeController extends Controller
         $totalListingsCount = $this->listingSearchService->getActiveCount();
         return view('pages.about', compact('totalListingsCount'));
     }
+
+    /**
+     * お気に入り一覧ページの表示
+     * 
+     * サイト全体の有効掲載台数を取得してお気に入り一覧ページを表示します。
+     * 
+     * @return View お気に入り一覧ページのビュー
+     */
+    public function wishlist(): View
+    {
+        $totalListingsCount = $this->listingSearchService->getActiveCount();
+        return view('pages.wishlist', compact('totalListingsCount'));
+    }
+
+    /**
+     * お気に入りデータの非同期取得API
+     * 
+     * 指定されたIDリスト（カンマ区切り）に基づいて有効な出品情報を取得し、
+     * UI表示用に整形してJSON形式で返します。IDが空の場合は空配列を返します。
+     * 
+     * @param Request $request お気に入りIDリストを含むリクエスト（ids: カンマ区切りのID文字列）
+     * @return JsonResponse 有効な出品情報の配列を含むJSONレスポンス（各要素は id, name, price, image, url, store を含む）
+     */
+    public function fetchWishlist(Request $request): JsonResponse
+    {
+        $ids = explode(',', $request->query('ids', ''));
+        if (empty($ids) || $ids[0] === '') return response()->json([]);
+
+        // IDに基づいて有効な出品情報を取得
+        $items = \App\Models\Listing::with(['bikeModel', 'shop', 'site'])
+            ->whereIn('id', $ids)
+            ->where('is_sold_out', false)
+            ->get()
+            ->map(fn($l) => [
+                'id' => $l->id,
+                'name' => $l->title ?? $l->bikeModel?->name,
+                'price' => number_format((float)($l->total_price / 10000), 1),
+                'image' => !empty($l->local_image_paths) ? \Illuminate\Support\Facades\Storage::url($l->local_image_paths[0]) : null,
+                'url' => $l->source_url,
+                'store' => $l->shop?->name,
+            ]);
+
+        return response()->json($items);
+    }
 }

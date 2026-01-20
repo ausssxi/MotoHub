@@ -35,6 +35,10 @@
     <style>
         .footer-link { transition: all 0.2s ease; }
         .footer-link:hover { color: #000; text-decoration: underline; }
+        
+        /* お気に入りボタンのアニメーション補助 */
+        .wishlist-btn i { transition: transform 0.2s ease, fill 0.2s ease; }
+        .wishlist-btn:active i { transform: scale(1.2); }
     </style>
 </head>
 <body class="bg-white text-gray-900 font-sans min-h-screen flex flex-col">
@@ -50,6 +54,15 @@
     {{-- フッター --}}
     <x-footer />
 
-    <script>lucide.createIcons();</script>
+    {{-- 
+        お気に入り機能のコアロジックを読み込み
+        Lucideの後に読み込むことで、JS内でのアイコン描画を確実にします
+    --}}
+    <script src="{{ asset('js/wishlist.js') }}"></script>
+    
+    <script>
+        // ページ読み込み時にアイコンを初期化
+        lucide.createIcons();
+    </script>
 </body>
 </html>

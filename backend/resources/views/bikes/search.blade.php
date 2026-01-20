@@ -135,6 +135,10 @@
                                 @if(!empty($listing['images']) && isset($listing['images'][0]))
                                     <img src="{{ $listing['images'][0] }}" class="bike-img" alt="">
                                 @endif
+                                <!-- ✨ お気に入りボタンを追加 -->
+                                <button class="wishlist-btn absolute top-3 left-3 z-30 w-9 h-9 bg-white/80 backdrop-blur rounded-full flex items-center justify-center text-gray-400 shadow-sm hover:scale-110 active:scale-90 transition-all border border-white/50" data-id="{{ $listing['id'] }}">
+                                    <i data-lucide="heart" class="w-4 h-4"></i>
+                                </button>
                                 <div class="absolute top-3 right-3 z-10 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/20 shadow-sm">
                                     <img src="https://www.google.com/s2/favicons?domain={{ $listing['source_domain'] }}&sz=32" class="w-3 h-3 rounded-sm" alt="">
                                     <span class="text-[8px] font-black text-gray-500">{{ $listing['source'] }}</span>

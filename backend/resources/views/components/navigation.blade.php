@@ -6,9 +6,11 @@
 
 <nav class="border-b border-gray-100 py-4 sticky top-0 bg-white/80 backdrop-blur-md z-50">
     <div class="max-w-7xl mx-auto px-4 flex justify-between items-center gap-4">
+        
         <!-- 左側: ロゴ -->
-        <a href="{{ route('bikes.index') }}" class="flex items-center gap-2 flex-shrink-0">
-            <img src="{{ asset('favicon.svg') }}" alt="MotoHub" class="w-8 h-8">
+        <a href="{{ route('bikes.index') }}" class="flex items-center gap-2 flex-shrink-0 group">
+            <img src="{{ asset('favicon.svg') }}" alt="MotoHub" class="w-8 h-8 group-hover:scale-110 transition-transform">
+            {{-- uppercase italic を削除済み --}}
             <span class="text-xl font-black tracking-tighter">MotoHub</span>
         </a>
 
@@ -34,15 +36,40 @@
         </div>
         @endif
 
-        <!-- 右側: 掲載台数 -->
-        <div class="flex items-center gap-3 flex-shrink-0">
-            <div class="hidden sm:flex items-center gap-2 mr-2">
-                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">掲載台数</span>
-                <div class="flex items-baseline gap-0.5">
-                    <span class="text-lg font-black text-black leading-none">{{ number_format($totalListingsCount) }}</span>
-                    <span class="text-[10px] font-bold text-gray-500">台</span>
+        <!-- 右側: アクションエリア (お気に入り & 掲載台数) -->
+        <div class="flex items-center gap-3 sm:gap-5 flex-shrink-0">
+            
+            <!-- ✨ お気に入りボタン (アイコンの上にテキストを配置) -->
+            <a href="{{ route('wishlist') }}" class="relative flex flex-col items-center justify-center min-w-[56px] px-1 py-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all group" title="お気に入り一覧">
+                {{-- アイコンの上に「お気に入り」テキストを追加 --}}
+                <span class="text-[9px] font-black leading-none mb-1 tracking-tighter">お気に入り</span>
+                
+                <div class="relative">
+                    <i data-lucide="heart" class="w-6 h-6 group-active:scale-125 transition-transform"></i>
+                    <!-- 件数バッジ (wishlist.js がここを書き換えます) -->
+                    <span id="wishlist-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black min-w-[15px] h-3.5 flex items-center justify-center rounded-full px-1 border border-white hidden shadow-sm">
+                        0
+                    </span>
+                </div>
+            </a>
+
+            <!-- 掲載台数表示 -->
+            <div class="hidden sm:flex items-center gap-2 border-l border-gray-100 pl-5">
+                <div class="text-right">
+                    <span class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block leading-none mb-1">掲載台数</span>
+                    <div class="flex items-baseline gap-0.5">
+                        <span class="text-lg font-black text-black leading-none">{{ number_format($totalListingsCount) }}</span>
+                        <span class="text-[10px] font-bold text-gray-500">台</span>
+                    </div>
                 </div>
             </div>
+            
+            <!-- モバイル用検索アイコン (スマホでshowSearch=trueの時のみ表示) -->
+            @if($showSearch)
+            <button class="md:hidden p-2 text-gray-400 hover:text-black">
+                <i data-lucide="search" class="w-6 h-6"></i>
+            </button>
+            @endif
         </div>
     </div>
 </nav>
