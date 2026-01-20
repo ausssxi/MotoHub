@@ -1,15 +1,10 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- 外側の円（タイヤ） -->
-  <circle cx="16" cy="16" r="16" fill="black"/>
-  
-  <!-- スポーク（✖）部分：白い線で描画 -->
-  <path d="M10 10L22 22" stroke="white" stroke-width="3" stroke-linecap="round"/>
-  <path d="M22 10L10 22" stroke="white" stroke-width="3" stroke-linecap="round"/>
-  
-  <!-- くり抜きリング -->
-  <circle cx="16" cy="16" r="9" stroke="white" stroke-width="3"/>
-  
-  <!-- 中心軸（ハブ） -->
-  <circle cx="16" cy="16" r="3.5" fill="black"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512"><svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512"><svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="112" fill="#111827"></rect>
+  <circle cx="256" cy="256" r="160" stroke="white" stroke-width="40"></circle>
+  <path d="M142.843 142.843L369.157 369.157" stroke="white" stroke-width="40" stroke-linecap="round"></path>
+  <path d="M369.157 142.843L142.843 369.157" stroke="white" stroke-width="40" stroke-linecap="round"></path>
+  <circle cx="256" cy="256" r="40" fill="white"></circle>
+  <circle cx="256" cy="256" r="20" fill="#111827"></circle>
+</svg></svg><style>@media (prefers-color-scheme: light) { :root { filter: none; } }
+@media (prefers-color-scheme: dark) { :root { filter: none; } }
+</style></svg>
