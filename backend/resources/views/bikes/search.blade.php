@@ -30,7 +30,7 @@
 
                     <form action="{{ route('bikes.search') }}" method="GET" id="filter-form" class="p-6 space-y-10 overflow-y-auto">
                         <input type="hidden" name="keyword" value="{{ $keyword }}">
-                        <input type="hidden" name="sort" value="{{ $sort }}">
+                        <input type="hidden" id="sort-hidden-input" name="sort" value="{{ $sort }}">
 
                         <!-- 価格スライダー -->
                         <div class="filter-group">
@@ -104,23 +104,55 @@
                     </div>
                     
                     <div class="flex items-center gap-3">
-                        <button id="open-filter" class="lg:hidden flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 text-xs font-black shadow-sm active:bg-gray-50 transition-all">
+                        <button id="open-filter" class="lg:hidden flex-shrink-0 flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 text-xs font-black shadow-sm active:bg-gray-50 transition-all">
                             <i data-lucide="sliders-horizontal" class="w-4 h-4 text-blue-500"></i>
                             <span>絞り込み</span>
                         </button>
 
-                        <div class="relative">
-                            <select name="sort" onchange="const f=document.getElementById('filter-form'); f.elements['sort'].value=this.value; f.submit();"
-                                    class="bg-white border border-gray-100 rounded-xl px-4 py-2.5 text-xs font-black focus:outline-none cursor-pointer hover:border-blue-500 transition-all appearance-none pr-10 shadow-sm">
-                                <option value="latest" {{ $sort === 'latest' ? 'selected' : '' }}>新着順</option>
-                                <option value="price_asc" {{ $sort === 'price_asc' ? 'selected' : '' }}>価格の安い順</option>
-                                <option value="price_desc" {{ $sort === 'price_desc' ? 'selected' : '' }}>価格の高い順</option>
-                                <option value="mileage_asc" {{ $sort === 'mileage_asc' ? 'selected' : '' }}>走行距離が少ない</option>
-                                <option value="mileage_desc" {{ $sort === 'mileage_desc' ? 'selected' : '' }}>走行距離が多い</option>
-                                <option value="year_desc" {{ $sort === 'year_desc' ? 'selected' : '' }}>年式が新しい</option>
-                                <option value="year_asc" {{ $sort === 'year_asc' ? 'selected' : '' }}>年式が古い</option>
-                            </select>
-                            <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                        {{-- ✨ カスタムドロップダウンUI --}}
+                        <div class="relative flex-1 sm:w-56">
+                            <!-- 表示用ボタン -->
+                            <button type="button" id="custom-sort-btn" class="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm hover:border-blue-500 transition-all">
+                                <span id="custom-sort-label" class="text-xs font-black text-gray-800">
+                                    @switch($sort)
+                                        @case('price_asc') 価格の安い順 @break
+                                        @case('price_desc') 価格の高い順 @break
+                                        @case('mileage_asc') 走行距離が少ない @break
+                                        @case('mileage_desc') 走行距離が多い @break
+                                        @case('year_desc') 年式が新しい @break
+                                        @case('year_asc') 年式が古い @break
+                                        @default 新着順
+                                    @endswitch
+                                </span>
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
+                            </button>
+
+                            <!-- 選択肢リスト (スマホで大きく見せる) -->
+                            <div id="custom-sort-menu" class="hidden absolute right-0 top-full mt-2 w-full sm:w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 z-[200] overflow-hidden">
+                                <div class="py-2">
+                                    @php
+                                        $options = [
+                                            'latest' => '新着順',
+                                            'price_asc' => '価格の安い順',
+                                            'price_desc' => '価格の高い順',
+                                            'mileage_asc' => '走行距離が少ない',
+                                            'mileage_desc' => '走行距離が多い',
+                                            'year_desc' => '年式が新しい',
+                                            'year_asc' => '年式が古い',
+                                        ];
+                                    @endphp
+                                    @foreach($options as $value => $label)
+                                    <button type="button" class="dropdown-item w-full text-left px-5 py-4 sm:py-3 hover:bg-blue-50 transition-colors flex items-center justify-between group" data-value="{{ $value }}">
+                                        <span class="text-xs font-bold text-gray-700 group-hover:text-blue-600 {{ $sort === $value ? 'text-blue-600' : '' }}">
+                                            {{ $label }}
+                                        </span>
+                                        @if($sort === $value)
+                                            <i data-lucide="check" class="w-4 h-4 text-blue-600"></i>
+                                        @endif
+                                    </button>
+                                    @endforeach
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -279,4 +311,5 @@
 
     {{-- スライダー本体のロジック --}}
     <script src="{{ asset('js/range-slider.js') }}"></script>
+    <script src="{{ asset('js/custom-dropdown.js') }}"></script>
 </x-layout>
