@@ -110,7 +110,7 @@
                         </button>
 
                         {{-- ✨ カスタムドロップダウンUI --}}
-                        <div class="relative flex-1 sm:w-56">
+                        <div class="relative flex-1">
                             <!-- 表示用ボタン -->
                             <button type="button" id="custom-sort-btn" class="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm hover:border-blue-500 transition-all">
                                 <span id="custom-sort-label" class="text-xs font-black text-gray-800">
