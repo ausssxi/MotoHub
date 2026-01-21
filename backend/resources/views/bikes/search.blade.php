@@ -116,7 +116,9 @@
                                 <option value="price_asc" {{ $sort === 'price_asc' ? 'selected' : '' }}>価格の安い順</option>
                                 <option value="price_desc" {{ $sort === 'price_desc' ? 'selected' : '' }}>価格の高い順</option>
                                 <option value="mileage_asc" {{ $sort === 'mileage_asc' ? 'selected' : '' }}>走行距離が少ない</option>
+                                <option value="mileage_desc" {{ $sort === 'mileage_desc' ? 'selected' : '' }}>走行距離が多い</option>
                                 <option value="year_desc" {{ $sort === 'year_desc' ? 'selected' : '' }}>年式が新しい</option>
+                                <option value="year_asc" {{ $sort === 'year_asc' ? 'selected' : '' }}>年式が古い</option>
                             </select>
                             <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                         </div>

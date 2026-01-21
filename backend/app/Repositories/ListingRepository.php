@@ -37,10 +37,19 @@ final class ListingRepository
         $query = $this->baseSearchQuery($keyword, $prefecture, $filters);
 
         $query = match ($sort) {
-            'price_asc'   => $query->orderBy('total_price', 'asc'),
-            'price_desc'  => $query->orderBy('total_price', 'desc'),
-            'mileage_asc' => $query->orderBy('mileage', 'asc'),
+            // 価格順：価格がNULL（ASKなど）の車両を除外してソート
+            'price_asc'    => $query->whereNotNull('total_price')->orderBy('total_price', 'asc'),
+            'price_desc'   => $query->whereNotNull('total_price')->orderBy('total_price', 'desc'),
+            
+            // 走行距離順：走行不明の車両を除外してソート
+            'mileage_asc'  => $query->whereNotNull('mileage')->orderBy('mileage', 'asc'),
+            'mileage_desc' => $query->whereNotNull('mileage')->orderBy('mileage', 'desc'),
+
+            // 年式順：通常は全件対象（年式不明は稀なため）
             'year_desc'   => $query->orderBy('model_year', 'desc'),
+            'year_asc'    => $query->orderBy('model_year', 'asc'),
+
+            // デフォルト（新着順）：すべての有効在庫を表示
             default       => $query->orderBy('created_at', 'desc'),
         };
 
@@ -71,7 +80,7 @@ final class ListingRepository
                 DB::raw('COUNT(*) as count')
             ])
             ->where('total_price', '>', 10000)
-            ->where('total_price', '<', 10000000)
+            ->where('total_price', '<', 50000000)
             ->first();
     }
     
@@ -91,7 +100,7 @@ final class ListingRepository
     {
         $query = Listing::query()
             ->where('is_sold_out', false)
-            ->where('total_price', '<', 10000000)
+            ->where('total_price', '<', 100000000)
             ->where('mileage', '<', 1000000)
             ->where('model_year', '<=', (int)date('Y') + 1);
 
