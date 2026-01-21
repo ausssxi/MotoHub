@@ -15,13 +15,11 @@
     <div class="bg-gray-50 min-h-screen py-8">
         <div class="max-w-7xl mx-auto px-4 flex flex-col lg:flex-row gap-8">
             
-            <!-- 1. サイドバー / モバイルモーダル (機能維持) -->
             <aside id="filter-sidebar" class="w-full lg:w-72 flex-shrink-0">
                 <div id="filter-overlay" class="lg:hidden"></div>
-                
                 <div class="filter-sidebar-container filter-sidebar-content bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col">
-                    <div class="p-5 border-b border-gray-50 flex items-center justify-between flex-shrink-0">
-                        <h3 class="text-xs font-black text-black flex items-center gap-2 uppercase tracking-widest">
+                    <div class="p-5 border-b border-gray-50 flex items-center justify-between">
+                        <h3 class="text-xs font-black text-black flex items-center gap-2 uppercase tracking-widest italic">
                             <i data-lucide="filter" class="w-4 h-4 text-blue-500"></i> 絞り込み条件
                         </h3>
                         <div class="flex items-center gap-4">
@@ -32,7 +30,6 @@
 
                     <form action="{{ route('bikes.search') }}" method="GET" id="filter-form" class="p-6 space-y-10 overflow-y-auto">
                         <input type="hidden" name="keyword" value="{{ $keyword }}">
-                        <input type="hidden" name="prefecture" value="{{ $prefecture ?? '' }}">
                         <input type="hidden" name="sort" value="{{ $sort }}">
 
                         <!-- 価格スライダー -->
@@ -85,26 +82,24 @@
 
                         <!-- モバイル専用：検索ボタン（件数をリアルタイム更新） -->
                         <div class="pt-4 lg:hidden">
-                            <button type="submit" id="mobile-search-btn" class="w-full bg-[#5392f9] text-white font-black py-4 rounded-2xl text-[11px] uppercase tracking-[0.1em] shadow-xl shadow-blue-100 hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2">
+                            <button type="submit" id="mobile-search-btn" class="w-full bg-[#5392f9] text-white font-black py-4 rounded-2xl text-[11px] uppercase tracking-[0.1em] shadow-xl shadow-blue-100 active:scale-95 transition-all flex items-center justify-center gap-2">
                                 <span>この条件で検索</span>
                                 <span id="mobile-hit-count" class="bg-white/20 px-2 py-0.5 rounded text-[10px] min-w-[3rem]">
-                                    {{ number_format($pagination['total']) }} 件
+                                    ({{ number_format($pagination['total']) }}台)
                                 </span>
                             </button>
                         </div>
                     </form>
                 </div>
-            </aside>
+            </aside>                        
 
             <!-- 2. メインコンテンツ -->
             <div class="flex-1">
-                
-                {{-- ページタイトルとソート選択 --}}
                 <div class="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                     <div>
                         <h2 class="text-2xl font-black text-black tracking-tighter italic">
                             @if($keyword) 「{{ $keyword }}」 @else 車両一覧 @endif 
-                            <span class="text-xs text-gray-400 font-bold ml-2 not-italic">({{ number_format($pagination['total']) }}台見つかりました)</span>
+                            <span class="text-xs text-gray-400 font-bold ml-2 not-italic">({{ number_format($pagination['total']) }}台)</span>
                         </h2>
                     </div>
                     
@@ -282,6 +277,4 @@
 
     {{-- スライダー本体のロジック --}}
     <script src="{{ asset('js/range-slider.js') }}"></script>
-    {{-- モーダル制御と件数更新のロジック --}}
-    <script src="{{ asset('js/search-interaction.js') }}"></script>
 </x-layout>

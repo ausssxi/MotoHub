@@ -1,6 +1,6 @@
 /**
  * MotoHub Search Suggest Logic (Universal & Resilient Version)
- * トップページとナビゲーションの検索窓を独立して確実に初期化します。
+ * トップページ、ナビゲーション(PC)、ナビゲーション(スマホ)の全検索窓をサポートします。
  */
 const initMotoHubSuggest = () => {
     /**
@@ -13,7 +13,7 @@ const initMotoHubSuggest = () => {
         const form = document.getElementById(config.formId);
         const container = document.getElementById(config.containerId);
         
-        // 必須要素が一つでも足りない場合は、この検索窓の初期化だけをスキップ（他には影響させない）
+        // 必須要素が不足している場合はスキップ
         if (!input || !results || !list || !form || !container) return;
 
         // 二重初期化を防止
@@ -49,14 +49,14 @@ const initMotoHubSuggest = () => {
                             window.lucide.createIcons();
                         }
 
-                        // 候補クリックイベントの登録（より確実な addEventListener を使用）
+                        // 候補クリックイベントの登録
                         list.querySelectorAll('.suggest-clickable').forEach(btn => {
-                            btn.addEventListener('click', (event) => {
+                            btn.onclick = (event) => {
                                 event.preventDefault();
                                 input.value = btn.dataset.name;
                                 results.classList.add('hidden');
                                 form.submit();
-                            });
+                            };
                         });
                     } else {
                         results.classList.add('hidden');
@@ -70,7 +70,7 @@ const initMotoHubSuggest = () => {
 
         // 検索窓の外をクリックしたら閉じる
         document.addEventListener('click', (e) => {
-            if (!container.contains(e.target)) {
+            if (!container.contains(e.target) && !results.contains(e.target)) {
                 results.classList.add('hidden');
             }
         });
@@ -85,7 +85,7 @@ const initMotoHubSuggest = () => {
     };
 
     // ---------------------------------------------------------
-    // 各検索窓の初期化（片方が失敗してももう片方に影響しないよう独立して実行）
+    // 各検索窓の初期化
     // ---------------------------------------------------------
 
     // 1. トップページ用 (大きな検索窓)
@@ -110,7 +110,7 @@ const initMotoHubSuggest = () => {
         });
     } catch (e) { console.error("Top search init failed", e); }
 
-    // 2. ナビゲーション用 (ヘッダーの検索窓)
+    // 2. ナビゲーション用 (ヘッダーのデスクトップ検索窓)
     try {
         setupSuggest({
             inputId: 'nav-search-input',
@@ -131,6 +131,28 @@ const initMotoHubSuggest = () => {
             `
         });
     } catch (e) { console.error("Nav search init failed", e); }
+
+    // 3. ✨ ナビゲーション用 (モバイルドロップダウン検索窓)
+    try {
+        setupSuggest({
+            inputId: 'mobile-nav-search-input',
+            resultsId: 'mobile-nav-suggest-results',
+            listId: 'mobile-nav-suggest-list',
+            formId: 'mobile-nav-search-form',
+            containerId: 'mobile-nav-search-bar', // トグルで表示されるコンテナ全体
+            template: (item) => `
+                <button type="button" class="w-full px-4 py-3 hover:bg-gray-50 flex items-center justify-between group transition-colors suggest-clickable" data-name="${item.name}">
+                    <div class="flex items-center gap-3">
+                        <div class="p-1.5 bg-gray-100 rounded-lg group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                            <i data-lucide="bike" class="w-4 h-4"></i>
+                        </div>
+                        <span class="text-sm font-bold text-gray-700 group-hover:text-black">${item.name}</span>
+                    </div>
+                    <span class="text-[10px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded">${item.count.toLocaleString()}台</span>
+                </button>
+            `
+        });
+    } catch (e) { console.error("Mobile nav search init failed", e); }
 };
 
 // 実行タイミングの制御

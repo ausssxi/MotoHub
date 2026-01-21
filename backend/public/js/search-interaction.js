@@ -1,68 +1,88 @@
 /**
- * MotoHub Search Page Interaction Logic
- * サイドバー（モバイルモーダル）の制御と、件数の非同期更新を担当します。
+ * MotoHub UI Interaction Logic
+ * ナビゲーションの検索窓トグルと、絞り込みサイドバーの両方を安定して制御します。
  */
-document.addEventListener('DOMContentLoaded', () => {
-    const sidebar = document.getElementById('filter-sidebar');
-    const openBtn = document.getElementById('open-filter');
-    const closeBtn = document.getElementById('close-filter');
-    const overlay = document.getElementById('filter-overlay');
-    const form = document.getElementById('filter-form');
-    const mobileHitCount = document.getElementById('mobile-hit-count');
+(function() {
+    const setupInteractions = () => {
+        // --- A. ナビゲーション：モバイル検索バーのトグル ---
+        try {
+            const toggle = document.getElementById('mobile-nav-search-toggle');
+            const bar = document.getElementById('mobile-nav-search-bar');
+            const input = document.getElementById('mobile-nav-search-input');
 
-    /**
-     * サイドバー（モバイル用モーダル）の表示切り替え
-     */
-    const toggle = () => {
-        if (!sidebar) return;
-        sidebar.classList.toggle('active');
-        // モーダルが開いている間は背景のスクロールを禁止
-        document.body.style.overflow = sidebar.classList.contains('active') ? 'hidden' : '';
-    };
+            if (toggle && bar) {
+                toggle.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const isHidden = bar.classList.toggle('hidden');
+                    if (!isHidden && input) {
+                        setTimeout(() => input.focus(), 100);
+                    }
+                };
 
-    if (openBtn) openBtn.addEventListener('click', toggle);
-    if (closeBtn) closeBtn.addEventListener('click', toggle);
-    if (overlay) overlay.addEventListener('click', toggle);
-
-    /**
-     * スマホ画面用：スライダー操作時に件数だけを非同期で更新するロジック
-     */
-    let updateTimer;
-    const updateCountOnly = () => {
-        // デスクトップ表示（1024px以上）の場合は即時リロードが行われるため何もしない
-        if (window.innerWidth >= 1024) return;
-        if (!mobileHitCount || !form) return;
-
-        clearTimeout(updateTimer);
-        updateTimer = setTimeout(async () => {
-            const formData = new URLSearchParams(new FormData(form));
-            formData.append('count_only', '1'); // コントローラー側で件数だけ返すためのフラグ
-
-            try {
-                // ローディング表示
-                mobileHitCount.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin inline-block"></i>';
-                if (window.lucide) window.lucide.createIcons();
-
-                const response = await fetch(`${form.action}?${formData.toString()}`, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                // 外側をタップしたら閉じる
+                document.addEventListener('click', (e) => {
+                    if (!bar.classList.contains('hidden') && !bar.contains(e.target) && !toggle.contains(e.target)) {
+                        bar.classList.add('hidden');
+                    }
                 });
-                
-                if (!response.ok) throw new Error('Network response was not ok');
-                
-                const data = await response.json();
-                // 取得した件数を反映
-                mobileHitCount.textContent = `${data.total.toLocaleString()} 件`;
-            } catch (e) {
-                console.error('Count update failed', e);
-                mobileHitCount.textContent = '- 件';
             }
-        }, 300); // 連続操作を考慮し、300ms待機してからリクエストを送信
+        } catch (e) { console.error("Nav Error:", e); }
+
+        // --- B. 検索結果：絞り込みサイドバーの制御 ---
+        try {
+            const sidebar = document.getElementById('filter-sidebar');
+            const openBtn = document.getElementById('open-filter');
+            const closeBtn = document.getElementById('close-filter');
+            const overlay = document.getElementById('filter-overlay');
+
+            const toggleSidebar = (e) => {
+                if (e) e.preventDefault();
+                if (!sidebar) return;
+                const isActive = sidebar.classList.toggle('active');
+                document.body.style.overflow = isActive ? 'hidden' : '';
+            };
+
+            if (openBtn) openBtn.onclick = toggleSidebar;
+            if (closeBtn) closeBtn.onclick = toggleSidebar;
+            if (overlay) overlay.onclick = toggleSidebar;
+        } catch (e) { console.error("Sidebar Error:", e); }
+
+        // --- C. モバイル専用：絞り込み件数の非同期更新 ---
+        try {
+            const form = document.getElementById('filter-form');
+            const mobileHitCount = document.getElementById('mobile-hit-count');
+
+            if (form && mobileHitCount) {
+                let timer;
+                const updateCount = () => {
+                    if (window.innerWidth >= 1024) return;
+                    clearTimeout(timer);
+                    timer = setTimeout(async () => {
+                        const formData = new URLSearchParams(new FormData(form));
+                        formData.append('count_only', '1');
+                        try {
+                            mobileHitCount.innerHTML = '<span class="animate-spin inline-block text-[8px]">⌛</span>';
+                            const response = await fetch(`${form.action}?${formData.toString()}`, {
+                                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                            });
+                            const data = await response.json();
+                            mobileHitCount.textContent = `(${data.total.toLocaleString()}台)`;
+                        } catch (err) { mobileHitCount.textContent = '- 台'; }
+                    }, 400);
+                };
+
+                form.querySelectorAll('input[type="range"]').forEach(input => {
+                    input.oninput = updateCount;
+                });
+            }
+        } catch (e) { console.error("Count Update Error:", e); }
     };
 
-    // すべてのレンジ入力要素に対して、値が変更されたら件数更新を実行
-    if (form) {
-        form.querySelectorAll('input[type="range"]').forEach(input => {
-            input.addEventListener('input', updateCountOnly);
-        });
+    // DOMの準備ができ次第、実行
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupInteractions);
+    } else {
+        setupInteractions();
     }
-});
+})();
