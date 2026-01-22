@@ -135,6 +135,10 @@ class BDSListingSpider(BaseBikeSpider):
     def extract_bike_data(self, response, bike, bike_model_id, v_url):
         """BDS特有のHTML解析ロジック"""
         try:
+            # コンディション（新車・中古車）の取得
+            condition = bike.css(".c-search_block_circle_text::text").get()
+            condition = condition.strip() if condition else "中古車"
+
             price_val, total_price_val = 0, None
             for p_item in bike.css(".c-search_block_price"):
                 l_text = p_item.css(".c-search_block_price_title::text").get()
@@ -175,6 +179,7 @@ class BDSListingSpider(BaseBikeSpider):
                 'total_price': total_price_val,
                 'model_year': year,
                 'mileage': mile,
+                'condition': condition,
                 'has_repair_history': has_repair,
                 'image_urls': [response.urljoin(img_url)] if img_url else []
             }

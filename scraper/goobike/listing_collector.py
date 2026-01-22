@@ -22,7 +22,7 @@ from common.base_spider import BaseBikeSpider
 class GooBikeListingSpider(BaseBikeSpider):
     """
     GooBikeの出品情報を収集するスパイダー。
-    Ctrl+C で即座に停止するように最適化されています。
+    モデル年式と初度登録年を分けて抽出し、1:1でDBに保存します。
     """
     name = "goobike_listings"
     site_name = "GooBike"
@@ -35,7 +35,6 @@ class GooBikeListingSpider(BaseBikeSpider):
         'RANDOMIZE_DOWNLOAD_DELAY': True,
         'COOKIES_ENABLED': True,
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-        # 画像パイプラインを有効化
         'ITEM_PIPELINES': {
             'common.pipelines.MotoHubImagePipeline': 300,
         },
@@ -82,12 +81,16 @@ class GooBikeListingSpider(BaseBikeSpider):
                     )
 
     def parse_listings(self, response):
+        if not self.crawler.engine.running: return
+
         bike_model_id = response.meta['bike_model_id']
         vehicle_elements = response.css(".bike_sec")
         
         if not vehicle_elements: return
 
         for v_el in vehicle_elements:
+            if not self.crawler.engine.running: break
+
             v_link_el = v_el.css("h4 span a")
             if not v_link_el: continue
             
@@ -105,10 +108,9 @@ class GooBikeListingSpider(BaseBikeSpider):
                 else:
                     if not self.is_cross_site_duplicate(listing_data):
                         self.save_listing(listing_data)
-                        self.db.flush() # IDを取得するために一時保存
+                        self.db.flush()
                         record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
 
-                # パイプラインにデータを流す
                 if record and listing_data.get('image_urls'):
                     yield {
                         'target_type': 'listing',
@@ -119,7 +121,6 @@ class GooBikeListingSpider(BaseBikeSpider):
             except Exception as e:
                 self.logger.error(f"Error processing {v_url}: {e}")
 
-        # ページ単位でコミット
         try:
             self.db.commit()
         except Exception as e:
@@ -132,6 +133,7 @@ class GooBikeListingSpider(BaseBikeSpider):
 
     def extract_info(self, v_el, bike_model_id, response, v_url):
         try:
+            # 1. 価格の抽出
             price_txt = "".join(v_el.css("td.num_td *::text").getall()).replace(',', '')
             total_txt = "".join(v_el.css("span.total *::text, .price_total *::text").getall()).replace(',', '')
             p_match = re.search(r'(\d+\.?\d*)', price_txt)
@@ -139,24 +141,36 @@ class GooBikeListingSpider(BaseBikeSpider):
             t_match = re.search(r'(\d+\.?\d*)', total_txt)
             total_val = int(float(t_match.group(1)) * 10000) if t_match else None
 
-            year, mile, has_repair = None, None, False
-            for li in v_el.css(".cont01 ul li"):
-                text = li.xpath("string(.)").get() or ""
-                if "年式" in text:
-                    y_m = re.search(r'(\d{4})', text)
-                    if y_m: year = int(y_m.group(1))
-                elif "走行" in text:
-                    m_m = re.search(r'(\d+)', text.replace(',', ''))
-                    if m_m: mile = int(m_m.group(1))
-                elif "修復" in text:
-                    has_repair = "あり" in text
+            # 2. スペックの抽出 (モデル年式 / 初度登録年 / 走行距離 / 修復歴)
+            model_year = None
+            first_registration = None
+            mile = None
+            has_repair = False
 
+            for li in v_el.css(".cont01 ul li"):
+                label = li.css("span::text").get() or ""
+                value = li.css("b::text").get() or ""
+                
+                if "モデル年式" in label:
+                    m = re.search(r'(\d{4})', value)
+                    if m: model_year = int(m.group(1))
+                elif "初度登録年" in label:
+                    m = re.search(r'(\d{4})', value)
+                    if m: first_registration = int(m.group(1))
+                elif "走行距離" in label:
+                    m = re.search(r'(\d+)', value.replace(',', ''))
+                    if m: mile = int(m.group(1))
+                elif "修復歴" in label:
+                    has_repair = "あり" in value
+
+            # 3. ショップIDの抽出
             shop_site_id = None
             shop_href = v_el.css(".shop_name a::attr(href)").get()
             if shop_href:
                 s_match = re.search(r'client_(\d+)', shop_href)
                 if s_match: shop_site_id = s_match.group(1)
 
+            # 4. 画像URLの取得
             img_el = v_el.css(".bike_img img")
             img_url = img_el.attrib.get('real-url') or img_el.attrib.get('src')
             image_urls = [response.urljoin(img_url)] if img_url and 'loading' not in img_url.lower() else []
@@ -168,7 +182,8 @@ class GooBikeListingSpider(BaseBikeSpider):
                 'source_url': v_url,
                 'price': price_val,
                 'total_price': total_val,
-                'model_year': year,
+                'model_year': model_year,
+                'first_registration': first_registration,
                 'mileage': mile,
                 'has_repair_history': has_repair,
                 'image_urls': image_urls,
@@ -176,17 +191,8 @@ class GooBikeListingSpider(BaseBikeSpider):
         except Exception: return None
 
     def closed(self, reason):
-        """
-        重要：Ctrl+C で中断された場合は重い処理をスキップする
-        """
-        # reason == 'finished' は、途中で止めずに最後まで終わった場合のみ
         if reason == 'finished':
-            self.logger.info("Normal finish. Running heavy sold-out cleanup...")
             self.handle_sold_out(self.known_urls)
-        else:
-            # Ctrl+C の場合は reason が 'shutdown' や 'cancelled' になります
-            self.logger.info(f"Spider closed by user ({reason}). Skipping heavy cleanup for quick exit.")
-        
         super().closed(reason)
 
 if __name__ == "__main__":
