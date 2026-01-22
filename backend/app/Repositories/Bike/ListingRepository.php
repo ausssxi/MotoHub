@@ -2,39 +2,20 @@
 
 declare(strict_types=1);
 
-namespace App\Repositories;
+namespace App\Repositories\Bike;
 
 use App\Models\Listing;
-use App\Models\Manufacturer;
-use App\Models\BikeModel;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
- * バイクの出品情報に関するデータ操作を担当するリポジトリ
+ * バイクの出品情報に関する検索・統計操作を担当
+ * マスターデータの取得は ManufacturerRepository / BikeModelRepository に分離しました
  */
 final class ListingRepository
 {
-    /**
-     * サイドバーのドロップダウン用：すべてのメーカーを取得（ID順）
-     */
-    public function getAllManufacturers(): Collection
-    {
-        return Manufacturer::orderBy('id', 'asc')->get();
-    }
-
-    /**
-     * ドリルダウン用：特定のメーカーに紐づく車種一覧を取得
-     */
-    public function getModelsByManufacturer(int $manufacturerId): Collection
-    {
-        return BikeModel::where('manufacturer_id', $manufacturerId)
-            ->orderBy('name', 'asc')
-            ->get();
-    }
-
     /**
      * ページネーション付きの高度な検索
      */
@@ -42,7 +23,7 @@ final class ListingRepository
     {
         $query = $this->baseSearchQuery($keyword, $prefecture, $filters);
 
-        // 並び替えロジック（NULL値を除外してソートの精度を高める）
+        // 並び替えロジック
         $query = match ($sort) {
             'price_asc'    => $query->whereNotNull('total_price')->orderBy('total_price', 'asc'),
             'price_desc'   => $query->whereNotNull('total_price')->orderBy('total_price', 'desc'),
@@ -114,16 +95,15 @@ final class ListingRepository
             ->where('is_sold_out', false);
 
         // 1. 基本フィルタ（キーワード、都道府県）
-        $this->applySearchFilters($query, $keyword, $prefecture);
+        $this->applySearchFilters($query, $keyword, $prefecture, $filters);
 
-        // 2. ✨ 条件フィルタ修正：is_new カラムを condition カラムでの検索に書き換え
+        // 2. ✨ 条件フィルタ：is_new を condition カラムでの検索に読み替え
         if (isset($filters['is_new']) && $filters['is_new'] !== '') {
-            // パラメータが '1' なら '新車'、'0' なら '中古車' として検索
             $conditionValue = ($filters['is_new'] === '1' || $filters['is_new'] === true) ? '新車' : '中古車';
             $query->where('condition', $conditionValue);
         }
 
-        // 3. ✨ 追加フィルタ：修復歴（あり/なし）
+        // 3. ✨ 追加フィルタ：修復歴
         if (isset($filters['has_repair_history']) && $filters['has_repair_history'] !== '') {
             $query->where('has_repair_history', (bool)$filters['has_repair_history']);
         }
@@ -145,20 +125,15 @@ final class ListingRepository
     }
 
     /**
-     * 絞り込みロジックの共通化
+     * キーワードと地域のフィルタを適用（衝突回避ロジック維持）
      */
     private function applySearchFilters(Builder $query, ?string $keyword, ?string $prefecture, array $filters = []): void
     {
         if ($keyword) {
             $query->where(function($lq) use ($keyword, $filters) {
-                // 出品タイトルへのキーワード検索は常に有効（例：SP、ABS、限定車などの絞り込みに有用）
                 $lq->where('title', 'like', "%{$keyword}%");
 
-                /**
-                 * ✨ 改善：特定の車種ID(bike_model_id)が指定されている場合は、
-                 * 車種名テーブル(bike_models)へのキーワード検索をスキップする。
-                 * これにより「キーワード=カブ 且つ 車種=ズーク」の時に、カブを探しに行って0件になるのを防ぐ。
-                 */
+                // 車種IDがある場合は車種名へのキーワード検索をスキップして衝突を防ぐ
                 if (empty($filters['bike_model_id'])) {
                     $lq->orWhereHas('bikeModel', function($bq) use ($keyword) {
                         $bq->where('name', 'like', "%{$keyword}%")
@@ -178,7 +153,7 @@ final class ListingRepository
     }
 
     /**
-     * 範囲指定フィルタの適用（UIのステップに合わせた端数処理）
+     * 範囲指定フィルタの適用
      */
     private function applyRangeFilters(Builder $query, array $filters, ?string $keyword, ?string $prefecture): void
     {

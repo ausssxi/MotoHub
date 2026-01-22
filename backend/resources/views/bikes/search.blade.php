@@ -180,32 +180,13 @@
                         <div class="relative flex-1 sm:w-64">
                             <button type="button" id="custom-sort-btn" class="w-full flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm hover:border-blue-500 transition-all">
                                 <span id="custom-sort-label" class="text-xs font-black text-gray-800">
-                                    @switch($sort)
-                                        @case('price_asc') 価格の安い順 @break
-                                        @case('price_desc') 価格の高い順 @break
-                                        @case('mileage_asc') 走行距離が少ない @break
-                                        @case('mileage_desc') 走行距離が多い @break
-                                        @case('year_desc') 年式が新しい @break
-                                        @case('year_asc') 年式が古い @break
-                                        @default 新着順
-                                    @endswitch
+                                    {{ $sortOptions[$sort] ?? '新着順' }}
                                 </span>
                                 <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
                             </button>
 
                             <div id="custom-sort-menu" class="hidden absolute right-0 top-full mt-2 w-full bg-white rounded-2xl shadow-2xl border border-gray-100 z-[200] overflow-hidden">
                                 <div class="py-2">
-                                    @php
-                                        $sortOptions = [
-                                            'latest' => '新着順',
-                                            'price_asc' => '価格の安い順',
-                                            'price_desc' => '価格の高い順',
-                                            'mileage_asc' => '走行距離が少ない',
-                                            'mileage_desc' => '走行距離が多い',
-                                            'year_desc' => '年式が新しい',
-                                            'year_asc' => '年式が古い',
-                                        ];
-                                    @endphp
                                     @foreach($sortOptions as $value => $label)
                                     <button type="button" class="dropdown-item w-full text-left px-5 py-4 sm:py-3 hover:bg-blue-50 flex items-center justify-between group" data-value="{{ $value }}">
                                         <span class="text-xs font-bold text-gray-700 group-hover:text-blue-600 {{ $sort === $value ? 'text-blue-600' : '' }}">{{ $label }}</span>

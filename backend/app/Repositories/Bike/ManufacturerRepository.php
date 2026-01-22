@@ -1,0 +1,30 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Repositories\Bike;
+
+use App\Models\Manufacturer;
+use Illuminate\Support\Collection;
+
+/**
+ * メーカー情報のデータ操作を担当
+ */
+final class ManufacturerRepository
+{
+    /**
+     * すべてのメーカーをID順に取得
+     */
+    public function getAll(): Collection
+    {
+        return Manufacturer::orderBy('id', 'asc')->get();
+    }
+
+    /**
+     * 名前順で取得
+     */
+    public function getAllSortedByName(): Collection
+    {
+        return Manufacturer::orderBy('name', 'asc')->get();
+    }
+}
