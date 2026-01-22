@@ -80,7 +80,7 @@ final class ListingSearchService
                 'max'   => $statsRaw->max_price ? number_format((float)($statsRaw->max_price / 10000), 1) : null,
                 'count' => $statsRaw->count,
             ],
-            'manufacturers' => $this->manufacturerRepo->getAllSortedByName(),
+            'manufacturers' => $this->manufacturerRepo->getAll(),
             'models'        => $models,
             'prefectures'   => $this->getPrefectures(),
             'filters'       => $filters,

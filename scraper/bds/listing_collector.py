@@ -1,167 +1,58 @@
+import sys
+import os
+
+# 0. インポートパスの解決
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
+
 import scrapy
 from scrapy.crawler import CrawlerProcess
-from scrapy.signalmanager import dispatcher
-from scrapy import signals
-import os
 import re
-import datetime
-import sys
 import logging
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, BigInteger, String, Numeric, Integer, Boolean, Text, JSON, DateTime, update, or_
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-# ==========================================
-# 0. 共通ユーティリティの読み込み
-# ==========================================
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir) # scraper フォルダ
-sys.path.append(parent_dir)
+# 共通基盤のインポート
+from common.database import Listing, BikeModelIdentifier, ShopIdentifier
+from common.base_spider import BaseBikeSpider
 
-from utils import normalize_name
-
-# ==========================================
-# 1. 環境設定 & データベース定義
-# ==========================================
-env_path = os.path.join(parent_dir, '..', '.env')
-load_dotenv(dotenv_path=env_path)
-
-def get_env_or_exit(key, default=None):
-    val = os.getenv(key, default)
-    if val is None:
-        logging.error(f"致命的エラー: 必須の環境変数 '{key}' が設定されていません。")
-        sys.exit(1)
-    return val
-
-DATABASE_URL = f"mysql+pymysql://{get_env_or_exit('DB_USERNAME')}:{get_env_or_exit('DB_PASSWORD')}@{get_env_or_exit('DB_HOST', 'db')}:{get_env_or_exit('DB_PORT', '3306')}/{get_env_or_exit('DB_DATABASE')}"
-
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-class Base(DeclarativeBase): pass
-
-class Listing(Base):
-    __tablename__ = "listings"
-    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
-    bike_model_id = Column(BigInteger, nullable=True)
-    shop_id = Column(BigInteger, nullable=True)
-    site_id = Column(BigInteger, nullable=False)
-    title = Column(String(255), nullable=True)
-    source_url = Column(Text, nullable=False)
-    price = Column(Numeric(12, 0))
-    total_price = Column(Numeric(12, 0), nullable=True)
-    model_year = Column(Integer, nullable=True)
-    mileage = Column(Integer, nullable=True)
-    first_registration = Column(String(50), nullable=True)
-    image_urls = Column(JSON, nullable=True)
-    has_repair_history = Column(Boolean, default=False)
-    condition = Column(String(50), nullable=True)
-    color = Column(String(50), nullable=True)
-    is_sold_out = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.datetime.now)
-    updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
-
-class BikeModelIdentifier(Base):
-    __tablename__ = "bike_model_identifiers"
-    id = Column(BigInteger, primary_key=True)
-    bike_model_id = Column(BigInteger, nullable=False)
-    site_id = Column(BigInteger, nullable=False)
-    identifier = Column(String(100), nullable=False)
-
-class ShopIdentifier(Base):
-    __tablename__ = "shop_identifiers"
-    id = Column(BigInteger, primary_key=True)
-    shop_id = Column(BigInteger, nullable=False)
-    site_id = Column(BigInteger, nullable=False)
-    identifier = Column(String(100), nullable=False)
-
-class Site(Base):
-    __tablename__ = "sites"
-    id = Column(BigInteger, primary_key=True)
-    name = Column(String(50))
-
-# ==========================================
-# 2. Database Pipeline (新規保存と更新を分離)
-# ==========================================
-class ListingPipeline:
-    def open_spider(self, spider):
-        self.session = SessionLocal()
-
-    def process_item(self, item, spider):
-        try:
-            if item.get('is_update'):
-                # 既存商品の価格更新
-                self.session.execute(
-                    update(Listing).where(Listing.source_url == item['source_url'])
-                    .values(
-                        price=item['price'],
-                        total_price=item['total_price'],
-                        is_sold_out=False, # 再掲載対応
-                        updated_at=datetime.datetime.now()
-                    )
-                )
-            else:
-                # 新規保存 (一括ではなく1件ずつのほうがクロスサイトチェックが容易)
-                new_listing = Listing(
-                    bike_model_id=item['bike_model_id'],
-                    shop_id=item['shop_id'],
-                    site_id=spider.site_id,
-                    title=item['title'],
-                    source_url=item['source_url'],
-                    price=item['price'],
-                    total_price=item['total_price'],
-                    model_year=item['model_year'],
-                    mileage=item['mileage'],
-                    first_registration=item.get('first_registration'),
-                    has_repair_history=item.get('has_repair_history', False),
-                    condition='中古車',
-                    color=item.get('color'),
-                    image_urls=item['image_urls'],
-                    is_sold_out=False
-                )
-                self.session.add(new_listing)
-            
-            self.session.commit()
-        except Exception as e:
-            self.session.rollback()
-            spider.logger.error(f"DB保存エラー: {e}")
-        return item
-
-    def close_spider(self, spider):
-        self.session.close()
-
-# ==========================================
-# 3. Scrapy Spider
-# ==========================================
-class BDSListingSpider(scrapy.Spider):
+class BDSListingSpider(BaseBikeSpider):
+    """
+    BDSバイクセンサーの出品情報を収集するスパイダー。
+    """
     name = "bds_listings"
+    site_name = "BDS"
     allowed_domains = ["www.bds-bikesensor.net"]
 
     custom_settings = {
-        'CONCURRENT_REQUESTS': 16,
-        'DOWNLOAD_DELAY': 0.5,
+        'CONCURRENT_REQUESTS': 8,
+        'DOWNLOAD_DELAY': 0.7,
         'COOKIES_ENABLED': False,
-        'ITEM_PIPELINES': {'__main__.ListingPipeline': 300},
-        'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
     }
 
     MAKER_LIST = ["honda", "suzuki", "yamaha", "kawasaki", "bmw", "ktm", "ducati", "harley_davidson", "triumph"]
 
     def __init__(self, *args, **kwargs):
-        super(BDSListingSpider, self).__init__(*args, **kwargs)
-        db = SessionLocal()
-        site = db.query(Site).filter(Site.name == "BDS").first()
-        self.site_id = site.id if site else 0
-
-        self.model_ident_cache = {i.identifier: i.bike_model_id for i in db.query(BikeModelIdentifier).filter(BikeModelIdentifier.site_id == self.site_id).all()}
-        self.shop_cache = {i.identifier: i.shop_id for i in db.query(ShopIdentifier).filter(ShopIdentifier.site_id == self.site_id).all()}
-        # 現在「出品中」の全サイトの車両をキャッシュ（クロスサイト重複チェック用）
-        self.active_listings = db.query(Listing).filter(Listing.is_sold_out == False).all()
+        super().__init__(*args, **kwargs)
         
-        self.known_urls = {l.source_url for l in self.active_listings if l.site_id == self.site_id}
-        self.found_urls = set()
-        db.close()
-        dispatcher.connect(self.spider_closed, signals.spider_closed)
+        self.logger.info("Initializing BDS caches...")
+        self.model_ident_cache = {
+            i.identifier: i.bike_model_id for i in self.db.query(
+                BikeModelIdentifier.identifier, BikeModelIdentifier.bike_model_id
+            ).filter(BikeModelIdentifier.site_id == self.site_id).all()
+        }
+        self.shop_cache = {
+            i.identifier: i.shop_id for i in self.db.query(
+                ShopIdentifier.identifier, ShopIdentifier.shop_id
+            ).filter(ShopIdentifier.site_id == self.site_id).all()
+        }
+        
+        self.known_urls = {
+            l.source_url for l in self.db.query(Listing.source_url).filter(
+                Listing.site_id == self.site_id, Listing.is_sold_out == False
+            ).all()
+        }
 
     def start_requests(self):
         base_url = "https://www.bds-bikesensor.net/bike/maker/"
@@ -187,99 +78,67 @@ class BDSListingSpider(scrapy.Spider):
             if not v_url: continue
             self.found_urls.add(v_url)
 
-            # データ抽出
             item_data = self.extract_bike_data(response, bike, bike_model_id, v_url)
             if not item_data: continue
 
-            # 1. URLが既知なら「更新」
             if v_url in self.known_urls:
-                item_data['is_update'] = True
-                yield item_data
+                self.update_listing(v_url, item_data)
             else:
-                # 2. 新規の場合、クロスサイト重複チェック
-                # 同じ店、同じ車種、同じ年式、同じ距離なら別サイトの同一車両
-                if item_data['shop_id']:
-                    is_dup = any(
-                        l.shop_id == item_data['shop_id'] and 
-                        l.bike_model_id == item_data['bike_model_id'] and
-                        l.model_year == item_data['model_year'] and
-                        l.mileage == item_data['mileage']
-                        for l in self.active_listings
-                    )
-                    if is_dup:
-                        self.logger.info(f"  [DUP SKIP] Cross-site duplicate: {item_data['title']}")
-                        continue
-                
-                item_data['is_new'] = True
-                yield item_data
+                if not self.is_cross_site_duplicate(item_data):
+                    self.save_listing(item_data)
 
-        # ページネーション
+        self.db.commit()
         next_page = response.css("div.c-pager a.c-btn_next::attr(href)").get()
         if next_page:
             yield response.follow(next_page, callback=self.parse_listings, meta=response.meta)
 
     def extract_bike_data(self, response, bike, bike_model_id, v_url):
-        # 価格、スペック、店舗、画像の抽出（ロジックは概ね維持しつつ整理）
-        price_val, total_price_val = 0, None
-        for p_item in bike.css(".c-search_block_price"):
-            l_text = p_item.css(".c-search_block_price_title::text").get()
-            v_text = "".join(p_item.css(".c-search_block_price_text *::text").getall()).replace(',', '').strip()
-            match = re.search(r'(\d+\.?\d*)', v_text)
-            if match:
-                num = int(float(match.group(1)) * 10000)
-                if l_text and "本体価格" in l_text: price_val = num
-                elif l_text and "支払総額" in l_text: total_price_val = num
+        """BDS特有のHTML解析ロジック"""
+        try:
+            price_val, total_price_val = 0, None
+            for p_item in bike.css(".c-search_block_price"):
+                l_text = p_item.css(".c-search_block_price_title::text").get()
+                v_text = "".join(p_item.css(".c-search_block_price_text *::text").getall()).replace(',', '').strip()
+                match = re.search(r'(\d+\.?\d*)', v_text)
+                if match:
+                    num = int(float(match.group(1)) * 10000)
+                    if l_text and "本体価格" in l_text: price_val = num
+                    elif l_text and "支払総額" in l_text: total_price_val = num
 
-        year, mile, first_reg, color = None, None, None, None
-        has_repair = False
-        for col in bike.css(".c-search_status_col"):
-            h_txt = col.css(".c-search_status_head::text").get() or ""
-            v_txt = "".join(col.css(".c-search_status_title01 *::text").getall()).strip()
-            if "モデル年" in h_txt:
-                y_m = re.search(r'(\d{4})', v_txt)
-                if y_m: year = int(y_m.group(1))
-            elif "距離" in h_txt:
-                m_m = re.search(r'(\d+)', v_txt.replace(',', ''))
-                if m_m: mile = int(m_m.group(1))
-            elif "初度登録" in h_txt: first_reg = v_txt
-            elif "修復歴" in h_txt: has_repair = "あり" in v_txt
-            elif "色" in h_txt: color = v_txt
+            year, mile, has_repair = None, None, False
+            for col in bike.css(".c-search_status_col"):
+                h_txt = col.css(".c-search_status_head::text").get() or ""
+                v_txt = "".join(col.css(".c-search_status_title01 *::text").getall()).strip()
+                if "モデル年" in h_txt:
+                    y_m = re.search(r'(\d{4})', v_txt); year = int(y_m.group(1)) if y_m else None
+                elif "距離" in h_txt:
+                    m_m = re.search(r'(\d+)', v_txt.replace(',', '')); mile = int(m_m.group(1)) if m_m else None
+                elif "修復歴" in h_txt: has_repair = "あり" in v_txt
 
-        shop_href = bike.css(".c-search_block_bottom_lead a::attr(href), .c-search_block_shop_title01 a::attr(href)").get()
-        shop_id = None
-        if shop_href:
-            id_match = re.search(r'client/(\d+)', shop_href)
-            if id_match: shop_id = self.shop_cache.get(id_match.group(1))
+            shop_href = bike.css(".c-search_block_bottom_lead a::attr(href), .c-search_block_shop_title01 a::attr(href)").get()
+            shop_id = self.shop_cache.get(re.search(r'client/(\d+)', shop_href).group(1)) if shop_href else None
 
-        if not shop_id: return None # ショップが見つからない車両は登録しない
+            if not shop_id: return None
 
-        img_url = bike.css("figure.c-img_cover::attr(data-src)").get() or bike.css("figure.c-img_cover::attr(src)").get()
+            img_url = bike.css("figure.c-img_cover::attr(data-src)").get() or bike.css("figure.c-img_cover::attr(src)").get()
 
-        return {
-            'bike_model_id': bike_model_id,
-            'shop_id': shop_id,
-            'title': (bike.css(".c-search_block_title a::text, .c-search_block_title02 a::text").get() or "").strip(),
-            'source_url': v_url,
-            'price': price_val,
-            'total_price': total_price_val,
-            'model_year': year,
-            'mileage': mile,
-            'first_registration': first_reg,
-            'has_repair_history': has_repair,
-            'color': color,
-            'image_urls': [response.urljoin(img_url)] if img_url else []
-        }
+            return {
+                'bike_model_id': bike_model_id,
+                'shop_id': shop_id,
+                'title': (bike.css(".c-search_block_title a::text, .c-search_block_title02 a::text").get() or "").strip(),
+                'source_url': v_url,
+                'price': price_val,
+                'total_price': total_price_val,
+                'model_year': year,
+                'mileage': mile,
+                'has_repair_history': has_repair,
+                'image_urls': [response.urljoin(img_url)] if img_url else []
+            }
+        except Exception: return None
 
-    def spider_closed(self, spider):
-        session = SessionLocal()
-        missing_urls = self.known_urls - self.found_urls
-        if missing_urls:
-            missing_list = list(missing_urls)
-            for i in range(0, len(missing_list), 100):
-                chunk = missing_list[i:i + 100]
-                session.execute(update(Listing).where(Listing.source_url.in_(chunk)).where(Listing.site_id == self.site_id).values(is_sold_out=True, updated_at=datetime.datetime.now()))
-            session.commit()
-        session.close()
+    def closed(self, reason):
+        self.handle_sold_out(self.known_urls)
+        super().closed(reason)
 
 if __name__ == "__main__":
     process = CrawlerProcess()

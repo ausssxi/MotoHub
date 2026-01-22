@@ -44,7 +44,7 @@ final class BikeService
      */
     public function getAllModelsForIndex(): array
     {
-        $manufacturers = $this->manufacturerRepo->getAllSortedByName();
+        $manufacturers = $this->manufacturerRepo->getAll();
         
         // 各メーカーに車種を紐付けて取得
         $manufacturers->each(function ($m) {
