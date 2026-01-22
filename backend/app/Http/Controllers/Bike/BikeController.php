@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Bike;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Bike\ListingResource;
 use App\Services\Bike\BikeService;
 use App\Services\Bike\ListingSearchService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Facades\Storage;
 use App\Models\Listing;
 
 /**
@@ -35,15 +35,8 @@ final class BikeController extends Controller
         $popularBikes = $this->bikeService->getPopularBikesForTopPage();
         $totalListingsCount = $this->listingSearchService->getActiveCount();
         
-        // 都道府県別の地域分けデータ
-        $regions = [
-            '北海道・東北' => ['北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県'],
-            '関東' => ['茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県'],
-            '中部' => ['新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県', '静岡県', '愛知県'],
-            '近畿' => ['三重県', '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県'],
-            '中国・四国' => ['鳥取県', '島根県', '岡山県', '広島県', '山口県', '徳島県', '香川県', '愛媛県', '高知県'],
-            '九州・沖縄' => ['福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'],
-        ];
+        // ✨ config/bike.php から地域データを取得
+        $regions = config('bike.regions');
 
         return view('bikes.index', compact('popularBikes', 'totalListingsCount', 'regions'));
     }
@@ -150,19 +143,12 @@ final class BikeController extends Controller
             return response()->json([]);
         }
 
-        $items = Listing::with(['bikeModel', 'shop', 'site'])
+        // ✨ 修正：ここでも ListingResource を使うことでロジックを統一
+        $listings = Listing::with(['bikeModel.manufacturer', 'shop', 'site'])
             ->whereIn('id', $ids)
             ->where('is_sold_out', false)
-            ->get()
-            ->map(fn($l) => [
-                'id'    => $l->id,
-                'name'  => $l->title ?? $l->bikeModel?->name,
-                'price' => $l->total_price ? number_format((float)($l->total_price / 10000), 1) : '-',
-                'image' => !empty($l->local_image_paths) ? Storage::disk('public')->url($l->local_image_paths[0]) : null,
-                'url'   => $l->source_url,
-                'store' => $l->shop?->name ?? '販売店情報なし',
-            ]);
+            ->get();
 
-        return response()->json($items);
+        return response()->json(ListingResource::collection($listings)->resolve());
     }
 }
