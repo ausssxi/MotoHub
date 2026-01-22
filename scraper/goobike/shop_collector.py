@@ -21,24 +21,34 @@ from utils import normalize_prefecture
 class GoobikeShopSpider(BaseBikeSpider):
     """
     GooBikeの店舗情報を収集するスパイダー。
-    名寄せとDB保存のロジックは親クラスの ShopManager に委譲しています。
+    画像処理は MotoHubImagePipeline に委譲し、中断時の高速停止に対応しています。
     """
     name = "goobike_shop_collector"
     site_name = "GooBike"
     allowed_domains = ["www.goobike.com"]
     start_urls = ["https://www.goobike.com/shop/"]
 
+    # ✨ 修正：パイプラインの設定を追加
     custom_settings = {
         'CONCURRENT_REQUESTS': 8,
         'DOWNLOAD_DELAY': 0.8,
         'COOKIES_ENABLED': False,
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'ITEM_PIPELINES': {
+            'common.pipelines.MotoHubImagePipeline': 300,
+        },
     }
 
     def parse(self, response):
         """トップページのマップから各都道府県のリンクを取得"""
+        # 💡 中断信号を受けている場合は停止
+        if not self.crawler.engine.running:
+            return
+
         pref_links = response.css(".mapBox li a")
         for link in pref_links:
+            if not self.crawler.engine.running: break
+
             url = response.urljoin(link.attrib['href'])
             
             # 都道府県名の取得と正規化 (例: "東京(123)" -> "東京都")
@@ -54,9 +64,17 @@ class GoobikeShopSpider(BaseBikeSpider):
 
     def parse_shop_list(self, response):
         """店舗一覧ページから各店舗の情報を抽出"""
+        # 💡 中断信号を受けている場合は停止
+        if not self.crawler.engine.running:
+            return
+
         pref_name = response.meta['prefecture']
         
         for unit in response.css("div.shop"):
+            # 💡 ループ内でも停止状態をチェック
+            if not self.crawler.engine.running:
+                break
+
             name_link = unit.css(".shop_name a")
             if not name_link:
                 continue
@@ -85,28 +103,46 @@ class GoobikeShopSpider(BaseBikeSpider):
                 'business_hours': (unit.css(".shop_time::text").get() or "").strip(),
                 'regular_holiday': (unit.css(".shop_holiday::text").get() or "").strip(),
                 'image_url': unit.css(".shop_img img::attr(data-original)").get() or unit.css(".shop_img img::attr(src)").get(),
-                # 電話番号は一覧に無い場合はNone（ShopManagerが他サイトの情報から補完します）
                 'phone': None 
             }
 
             # --- ✨ 共通 ShopManager を呼び出して保存・名寄せを実行 ---
-            if identifier and data['name']:
+            if identifier and name:
                 try:
-                    self.shop_manager.get_or_create_shop(self.site_id, identifier, data)
-                    # 1件ごとにコミット（またはページ単位でも可）
+                    # get_or_create_shop は保存された Shop オブジェクトを返す
+                    shop = self.shop_manager.get_or_create_shop(self.site_id, identifier, data)
                     self.db.commit()
+
+                    # ✨ 修正：共通パイプラインにアイテムを渡す（店舗画像保存用）
+                    if shop and data.get('image_url'):
+                        yield {
+                            'target_type': 'shop',
+                            'id': shop.id,
+                            'image_urls': [response.urljoin(data['image_url'])]
+                        }
+
                 except Exception as e:
                     self.db.rollback()
                     self.logger.error(f"Failed to process shop {name}: {e}")
 
         # ページネーションの処理
         next_page = response.css(".pager_next a::attr(href)").get()
-        if next_page:
+        if next_page and self.crawler.engine.running:
             yield response.follow(
                 next_page, 
                 callback=self.parse_shop_list, 
                 meta={'prefecture': pref_name}
             )
+
+    def closed(self, reason):
+        """
+        終了処理。Ctrl+C (shutdown) 時はログを出力して速やかに終了します。
+        """
+        if reason != 'finished':
+            self.logger.info(f"Spider stopped by user ({reason}).")
+        else:
+            self.logger.info("Shop collection completed successfully.")
+        super().closed(reason)
 
 if __name__ == "__main__":
     process = CrawlerProcess()

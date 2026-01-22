@@ -7,8 +7,6 @@ import logging
 # ==========================================
 # 1. パス設定
 # ==========================================
-# コンテナ内での実行を基準にする (/var/www/scraper/main.py として実行される想定)
-# もしローカルで実行する場合も、スクリプトがある場所を基準に相対パスで構築します
 SCRAPER_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def run_script(script_path):
@@ -26,8 +24,7 @@ def run_script(script_path):
         return False
 
     try:
-        # コンテナ内の環境で現在のPythonインタープリタを使用して実行
-        # stdout/stderr をそのまま流すことで、Scrapyのログをリアルタイムで表示
+        # リアルタイムでログを表示
         result = subprocess.run([sys.executable, full_path], check=True)
         return result.returncode == 0
     except subprocess.CalledProcessError as e:
@@ -38,10 +35,12 @@ def run_script(script_path):
         return False
 
 def main():
-    # 実行順序（依存関係を考慮）
-    # ファイル名やディレクトリ構造を最新の状態（横並び構成）に合わせて修正
+    # 実行順序
+    # 各コレクターが pipelines.py を通じて画像保存を行うようになったため、
+    # 最後に一括同期する工程は不要になりました。
     scripts = [
         # --- STEP 1: マスタデータの作成 (メーカー・車種) ---
+        # ※ 内部で MotoHubImagePipeline が走り、カタログ画像を保存します
         "goobike/model_collector.py",
         "bds/model_collector.py",
         "webike/model_collector.py",
@@ -49,25 +48,27 @@ def main():
         # --- STEP 2: マスタの補完 (カテゴリー) ---
         "goobike/category_collector.py",
         "bds/category_collector.py",
-        # "webike/category_collector.py", # 必要に応じて作成
         
         # --- STEP 3: 販売店情報の収集 ---
+        # ※ 内部で MotoHubImagePipeline が走り、店舗外観画像を保存します
         "goobike/shop_collector.py",
         "bds/shop_collector.py",
         "webike/shop_collector.py",
         
-        # --- STEP 4: 排気量データの補完 (BDS等の不足分) ---
+        # --- STEP 4: 排気量データの補完 ---
         "bds/displacement_collector.py", 
         
-        # --- STEP 5: 出品情報の収集 (メインのクローリング) ---
+        # --- STEP 5: 出品情報の収集 (メイン) ---
+        # ※ 内部で MotoHubImagePipeline が走り、バイクの出品写真を保存します
         "goobike/listing_collector.py",
         "bds/listing_collector.py",
         "webike/listing_collector.py",
-        
-        # --- STEP 6: 画像のローカル同期 (最後に実行) ---
-        # タイポ修正: image_syncar.py -> image_syncer.py
-        "common/image_syncer.py",
     ]
+
+    # --- (参考) image_syncer.py について ---
+    # ネットワークエラー等で漏れた画像を補完したい場合は、
+    # 以下のコマンドを個別に実行してください。
+    # python common/image_syncer.py
 
     start_time = time.time()
     success_count = 0
@@ -78,7 +79,6 @@ def main():
         if run_script(script):
             success_count += 1
         else:
-            # エラー時も停止せず、次のサイトのクローリングを継続する
             print(f"\n[WARNING] {script} failed. Skipping to next...")
 
     end_time = time.time()
@@ -88,6 +88,7 @@ def main():
     print(f" 全工程終了レポート")
     print(f" 成功数: {success_count} / {len(scripts)}")
     print(f" 総実行時間: {duration/60:.2f} 分")
+    print(f" ※ 画像保存は各コレクター内で並列処理されました。")
     print(f"{'#'*60}")
 
 if __name__ == "__main__":

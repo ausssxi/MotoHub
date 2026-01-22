@@ -1,22 +1,24 @@
-import scrapy
-from scrapy.crawler import CrawlerProcess
-import os
-import re
 import sys
-import logging
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, ForeignKey, UniqueConstraint
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+import os
 
 # ==========================================
-# 0. 共通ユーティリティの読み込み
+# 0. インポートパスの解決（相対インポートエラー対策）
 # ==========================================
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir) # scraper フォルダ
-sys.path.append(parent_dir)
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
 
-# 共通関数をインポート (extract_displacement を追加)
+import scrapy
+from scrapy.crawler import CrawlerProcess
+import re
+import logging
+from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from dotenv import load_dotenv
+
+# 共通ユーティリティをインポート
 from utils import normalize_name, extract_displacement
 
 # ==========================================
@@ -40,13 +42,12 @@ DB_NAME = get_env_or_exit("DB_DATABASE")
 
 DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class Base(DeclarativeBase):
     pass
 
-# --- DBモデル定義 ---
 class Site(Base):
     __tablename__ = "sites"
     id = Column(BigInteger, primary_key=True)
@@ -85,18 +86,21 @@ class WebikeModelSpider(scrapy.Spider):
     allowed_domains = ["moto.webike.net", "img.webike-cdn.net"]
     start_urls = ["https://moto.webike.net/maker/"]
 
+    # ✨ 修正：パイプラインと中断設定を追加
     custom_settings = {
         'CONCURRENT_REQUESTS': 8,
         'DOWNLOAD_DELAY': 1.2,
         'COOKIES_ENABLED': False,
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'ITEM_PIPELINES': {
+            'common.pipelines.MotoHubImagePipeline': 300,
+        },
     }
 
     def __init__(self, *args, **kwargs):
         super(WebikeModelSpider, self).__init__(*args, **kwargs)
         self.db = SessionLocal()
         
-        # --- Site管理 ---
         target_site_name = "Webike"
         site = self.db.query(Site).filter(Site.name == target_site_name).first()
         if not site:
@@ -111,15 +115,16 @@ class WebikeModelSpider(scrapy.Spider):
         self.site_id = site.id
         self.manufacturer_cache = {m.name: m.id for m in self.db.query(Manufacturer).all()}
 
-    def closed(self, reason):
-        self.db.close()
-
     def parse(self, response):
         """1. メーカー一覧ページから情報を取得"""
         sections = response.xpath('//div[contains(@class, "makersearchbox")]//div[contains(@class, "top") or contains(@class, "maker")]')
         current_country = "不明"
         
         for section in sections:
+            # 💡 中断信号を受けている場合は停止
+            if not self.crawler.engine.running:
+                return
+
             classes = section.root.attrib.get('class', '')
             if 'top' in classes:
                 current_country = section.css('span::text').get(default="不明").strip()
@@ -127,6 +132,8 @@ class WebikeModelSpider(scrapy.Spider):
             
             if 'maker' in classes:
                 for li in section.css('ul.dotline li'):
+                    if not self.crawler.engine.running: break
+
                     link = li.css('a')
                     if link:
                         raw_name = link.xpath('string(.)').get()
@@ -157,11 +164,19 @@ class WebikeModelSpider(scrapy.Spider):
 
     def parse_models(self, response):
         """2. メーカー別車種一覧ページからデータを抽出"""
+        # 💡 中断信号を受けている場合は停止
+        if not self.crawler.engine.running:
+            return
+
         maker_id = response.meta['maker_id']
         bike_items = response.css('div.motoset ul.dotline li')
         
         scraped_count = 0
         for item in bike_items:
+            # 💡 ループ内でも停止状態をチェック
+            if not self.crawler.engine.running:
+                break
+
             raw_model_name = item.css('p.model_name a::text').get()
             identifier_val = item.css('input[name="model_code_checkList"]::attr(value)').get()
             
@@ -175,10 +190,10 @@ class WebikeModelSpider(scrapy.Spider):
                 continue
 
             model_name = normalize_name(raw_model_name)
-            # 【重要】共通ユーティリティから排気量抽出を使用
             inferred_displacement = extract_displacement(raw_model_name)
 
             try:
+                model_id = None
                 model_record = self.db.query(BikeModel).filter(BikeModel.name == model_name).first()
                 if not model_record:
                     model_record = BikeModel(
@@ -205,18 +220,27 @@ class WebikeModelSpider(scrapy.Spider):
                         self.db.commit()
 
                 # 識別子の紐付け
-                exists = self.db.query(BikeModelIdentifier).filter(
-                    BikeModelIdentifier.site_id == self.site_id,
-                    BikeModelIdentifier.identifier == identifier_val
-                ).first()
+                if self.site_id and identifier_val:
+                    exists = self.db.query(BikeModelIdentifier).filter(
+                        BikeModelIdentifier.site_id == self.site_id,
+                        BikeModelIdentifier.identifier == identifier_val
+                    ).first()
+                    
+                    if not exists:
+                        self.db.add(BikeModelIdentifier(
+                            bike_model_id=model_id, 
+                            site_id=self.site_id, 
+                            identifier=identifier_val
+                        ))
+                        self.db.commit()
                 
-                if not exists:
-                    self.db.add(BikeModelIdentifier(
-                        bike_model_id=model_id, 
-                        site_id=self.site_id, 
-                        identifier=identifier_val
-                    ))
-                    self.db.commit()
+                # ✨ 修正：共通パイプラインにアイテムを渡す（カタログ画像保存用）
+                if model_id and image_url:
+                    yield {
+                        'target_type': 'model',
+                        'id': model_id,
+                        'image_urls': [image_url]
+                    }
                 
                 scraped_count += 1
 
@@ -228,6 +252,11 @@ class WebikeModelSpider(scrapy.Spider):
                 self.logger.error(f"Error processing {model_name}: {e}")
 
         self.logger.info(f"Finished parsing models for maker_id {maker_id}. Found {scraped_count} models.")
+
+    def closed(self, reason):
+        if reason != 'finished':
+            self.logger.info(f"Spider closed by user ({reason}). Stopping collection.")
+        self.db.close()
 
 def main():
     process = CrawlerProcess()

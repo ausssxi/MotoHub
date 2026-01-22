@@ -2,7 +2,7 @@ import sys
 import os
 
 # ==========================================
-# 0. インポートパスの解決（相対インポートエラー対策）
+# 0. インポートパスの解決
 # ==========================================
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -22,7 +22,7 @@ from common.base_spider import BaseBikeSpider
 class GooBikeListingSpider(BaseBikeSpider):
     """
     GooBikeの出品情報を収集するスパイダー。
-    保存・更新・完売判定は BaseBikeSpider の共通メソッドを使用します。
+    Ctrl+C で即座に停止するように最適化されています。
     """
     name = "goobike_listings"
     site_name = "GooBike"
@@ -35,13 +35,16 @@ class GooBikeListingSpider(BaseBikeSpider):
         'RANDOMIZE_DOWNLOAD_DELAY': True,
         'COOKIES_ENABLED': True,
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        # 画像パイプラインを有効化
+        'ITEM_PIPELINES': {
+            'common.pipelines.MotoHubImagePipeline': 300,
+        },
     }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
         self.logger.info("Initializing GooBike caches...")
-        # モデル・ショップの識別子キャッシュ構築
         self.model_ident_cache = {
             ident: b_id for ident, b_id in self.db.query(
                 BikeModelIdentifier.identifier, BikeModelIdentifier.bike_model_id
@@ -53,7 +56,6 @@ class GooBikeListingSpider(BaseBikeSpider):
             ).filter(ShopIdentifier.site_id == self.site_id).all()
         }
         
-        # 完売判定用に、現在の「出品中」URLリストを取得
         self.known_urls = {
             l.source_url for l in self.db.query(Listing.source_url).filter(
                 Listing.site_id == self.site_id, Listing.is_sold_out == False
@@ -96,25 +98,39 @@ class GooBikeListingSpider(BaseBikeSpider):
                 listing_data = self.extract_info(v_el, bike_model_id, response, v_url)
                 if not listing_data: continue
 
-                # 共通メソッドを使用して保存・更新
+                record = None
                 if v_url in self.known_urls:
                     self.update_listing(v_url, listing_data)
+                    record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
                 else:
-                    # 他サイト重複チェックも共通メソッドで
                     if not self.is_cross_site_duplicate(listing_data):
                         self.save_listing(listing_data)
+                        self.db.flush() # IDを取得するために一時保存
+                        record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
+
+                # パイプラインにデータを流す
+                if record and listing_data.get('image_urls'):
+                    yield {
+                        'target_type': 'listing',
+                        'id': record.id,
+                        'image_urls': listing_data['image_urls']
+                    }
+
             except Exception as e:
-                self.logger.error(f"Error at {v_url}: {e}")
+                self.logger.error(f"Error processing {v_url}: {e}")
 
         # ページ単位でコミット
-        self.db.commit()
+        try:
+            self.db.commit()
+        except Exception as e:
+            self.db.rollback()
+            self.logger.error(f"Commit failed: {e}")
 
         next_page = response.css("li.next a::attr(href)").get()
         if next_page:
             yield response.follow(next_page, callback=self.parse_listings, meta=response.meta)
 
     def extract_info(self, v_el, bike_model_id, response, v_url):
-        """GooBike特有のHTML解析ロジック（抽出のみ担当）"""
         try:
             price_txt = "".join(v_el.css("td.num_td *::text").getall()).replace(',', '')
             total_txt = "".join(v_el.css("span.total *::text, .price_total *::text").getall()).replace(',', '')
@@ -160,8 +176,17 @@ class GooBikeListingSpider(BaseBikeSpider):
         except Exception: return None
 
     def closed(self, reason):
-        """完売処理を共通メソッドで実行"""
-        self.handle_sold_out(self.known_urls)
+        """
+        重要：Ctrl+C で中断された場合は重い処理をスキップする
+        """
+        # reason == 'finished' は、途中で止めずに最後まで終わった場合のみ
+        if reason == 'finished':
+            self.logger.info("Normal finish. Running heavy sold-out cleanup...")
+            self.handle_sold_out(self.known_urls)
+        else:
+            # Ctrl+C の場合は reason が 'shutdown' や 'cancelled' になります
+            self.logger.info(f"Spider closed by user ({reason}). Skipping heavy cleanup for quick exit.")
+        
         super().closed(reason)
 
 if __name__ == "__main__":

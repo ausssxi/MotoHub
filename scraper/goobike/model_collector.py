@@ -1,26 +1,31 @@
-import scrapy
-from scrapy.crawler import CrawlerProcess
-import os
-import re
 import sys
-import logging
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, ForeignKey, UniqueConstraint
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+import os
 
 # ==========================================
-# 0. 共通ユーティリティの読み込み
+# 0. インポートパスの解決（相対インポートエラー対策）
 # ==========================================
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
 
-# 排気量抽出ロジックをインポート
+import scrapy
+from scrapy.crawler import CrawlerProcess
+import re
+import datetime
+import logging
+from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from dotenv import load_dotenv
+
+# 共通ユーティリティをインポート
 from utils import normalize_name, extract_displacement
+# 共通基盤（必要に応じて common からインポートする形式に合わせることも可能ですが、現状の定義を維持します）
+# from common.database import Site, Manufacturer, BikeModel, BikeModelIdentifier
 
 # ==========================================
-# 1. 環境設定 & セキュリティ強化
+# 1. 環境設定 & DB接続
 # ==========================================
 env_path = os.path.join(parent_dir, '..', '.env')
 load_dotenv(dotenv_path=env_path)
@@ -40,7 +45,7 @@ DB_NAME = get_env_or_exit("DB_DATABASE")
 
 DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class Base(DeclarativeBase):
@@ -83,12 +88,16 @@ class ModelSpider(scrapy.Spider):
     allowed_domains = ["www.goobike.com"]
     start_urls = ["https://www.goobike.com/maker-top/index.html"]
 
+    # ✨ 修正：パイプラインと中断設定を追加
     custom_settings = {
         'REQUEST_FINGERPRINTER_IMPLEMENTATION': '2.7',
         'CONCURRENT_REQUESTS': 8,
         'DOWNLOAD_DELAY': 1.0,
         'COOKIES_ENABLED': False,
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'ITEM_PIPELINES': {
+            'common.pipelines.MotoHubImagePipeline': 300,
+        },
     }
 
     def __init__(self, *args, **kwargs):
@@ -109,12 +118,13 @@ class ModelSpider(scrapy.Spider):
         self.site_id = site.id
         self.manufacturer_cache = {m.name: m.id for m in self.db.query(Manufacturer).all()}
 
-    def closed(self, reason):
-        self.db.close()
-
     def parse(self, response):
         maker_links = response.css('span.mj a')
         for link in maker_links:
+            # 💡 中断信号を受けている場合はリクエストを停止
+            if not self.crawler.engine.running:
+                return
+
             raw_name = link.css('::text').get()
             href = link.css('::attr(href)').get()
             if not raw_name or not href:
@@ -145,10 +155,18 @@ class ModelSpider(scrapy.Spider):
                 )
 
     def parse_models(self, response):
+        # 💡 中断信号を受けている場合は処理をスキップ
+        if not self.crawler.engine.running:
+            return
+
         maker_id = response.meta['maker_id']
         bike_list = response.css('li.bike_list')
         
         for bike in bike_list:
+            # 💡 ループ内でも停止状態をチェック
+            if not self.crawler.engine.running:
+                break
+
             raw_model_name = bike.css('em b::text').get()
             identifier_val = bike.css('input[name="model"]::attr(value)').get()
             
@@ -163,11 +181,12 @@ class ModelSpider(scrapy.Spider):
 
             clean_name = re.sub(r'[\(\uff08].*?[\)\uff09]', '', raw_model_name)
             model_name = normalize_name(clean_name)
-            # 排気量を車種名から抽出
             inferred_displacement = extract_displacement(raw_model_name)
             
             try:
+                model_id = None
                 model_record = self.db.query(BikeModel).filter(BikeModel.name == model_name).first()
+                
                 if not model_record:
                     new_model = BikeModel(
                         name=model_name, 
@@ -185,7 +204,6 @@ class ModelSpider(scrapy.Spider):
                     if image_url and not model_record.image_url:
                         model_record.image_url = image_url
                         needs_update = True
-                    # 排気量が空の場合のみ更新
                     if inferred_displacement and not model_record.displacement:
                         model_record.displacement = inferred_displacement
                         needs_update = True
@@ -193,6 +211,7 @@ class ModelSpider(scrapy.Spider):
                     if needs_update:
                         self.db.commit()
 
+                # 識別子の紐付け
                 if self.site_id and identifier_val:
                     exists = self.db.query(BikeModelIdentifier).filter(
                         BikeModelIdentifier.site_id == self.site_id,
@@ -205,6 +224,14 @@ class ModelSpider(scrapy.Spider):
                             identifier=identifier_val
                         ))
                         self.db.commit()
+
+                # ✨ 修正：共通パイプラインにアイテムを渡す（カタログ画像保存用）
+                if model_id and image_url:
+                    yield {
+                        'target_type': 'model',
+                        'id': model_id,
+                        'image_urls': [image_url]
+                    }
             
             except IntegrityError:
                 self.db.rollback()
@@ -212,6 +239,13 @@ class ModelSpider(scrapy.Spider):
             except Exception as e:
                 self.db.rollback()
                 self.logger.error(f"Error in parse_models: {e}")
+
+    def closed(self, reason):
+        # モデルコレクターは listings のような重い完売チェックはありませんが、
+        # 中断された場合はその旨をログに残します。
+        if reason != 'finished':
+            self.logger.info(f"Spider closed by {reason}. Stopping model collection.")
+        self.db.close()
 
 def main():
     process = CrawlerProcess()

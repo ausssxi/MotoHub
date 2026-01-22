@@ -2,17 +2,15 @@ import sys
 import os
 
 # ==========================================
-# 0. インポートパスの解決（相対インポートエラー対策）
+# 0. インポートパスの解決
 # ==========================================
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.append(parent_dir)
 
-import scrapy
 from scrapy.crawler import CrawlerProcess
 import re
-import logging
 
 # 共通基盤のインポート
 from common.database import Listing, BikeModelIdentifier, ShopIdentifier
@@ -21,18 +19,22 @@ from common.base_spider import BaseBikeSpider
 class WebikeListingSpider(BaseBikeSpider):
     """
     Webikeの出品情報を収集するスパイダー。
-    共通ロジックは BaseBikeSpider に集約されています。
+    画像処理は MotoHubImagePipeline に委譲し、中断時の高速停止に対応しています。
     """
     name = "webike_listings"
     site_name = "Webike"
     allowed_domains = ["moto.webike.net"]
     start_urls = ["https://moto.webike.net/maker/"]
 
+    # ✨ 修正：パイプラインの設定を追加
     custom_settings = {
         'CONCURRENT_REQUESTS': 16,
         'DOWNLOAD_DELAY': 0.5,
         'COOKIES_ENABLED': False,
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'ITEM_PIPELINES': {
+            'common.pipelines.MotoHubImagePipeline': 300,
+        },
     }
 
     def __init__(self, *args, **kwargs):
@@ -52,7 +54,7 @@ class WebikeListingSpider(BaseBikeSpider):
             ).filter(ShopIdentifier.site_id == self.site_id).all()
         }
         
-        # このサイトの既知のURLを取得（完売判定用）
+        # 完売判定用に現在の「出品中」URLリストを取得
         self.known_urls = {
             l.source_url for l in self.db.query(Listing.source_url).filter(
                 Listing.site_id == self.site_id, 
@@ -93,10 +95,18 @@ class WebikeListingSpider(BaseBikeSpider):
 
     def parse_listings(self, response):
         """出品一覧ページの解析"""
+        # 💡 中断信号を受けている場合は処理を行わない
+        if not self.crawler.engine.running:
+            return
+
         bike_model_id = response.meta['bike_model_id']
         listings = response.css('li.li_bike_list:not(.recommend-block)')
         
         for li in listings:
+            # 💡 ループ内でも停止状態をチェック
+            if not self.crawler.engine.running:
+                break
+
             v_link = li.css('a.flex::attr(href)').get()
             if not v_link: continue
             
@@ -106,19 +116,39 @@ class WebikeListingSpider(BaseBikeSpider):
             item_data = self.extract_listing_data(response, li, bike_model_id, v_url)
             if not item_data: continue
 
-            # 共通メソッドを使用して保存・更新
-            if v_url in self.known_urls:
-                self.update_listing(v_url, item_data)
-            else:
-                # クロスサイト重複チェックも共通メソッドで実行
-                if not self.is_cross_site_duplicate(item_data):
-                    self.save_listing(item_data)
+            try:
+                record = None
+                # 共通メソッドを使用して保存・更新
+                if v_url in self.known_urls:
+                    self.update_listing(v_url, item_data)
+                    record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
+                else:
+                    # クロスサイト重複チェックも共通メソッドで実行
+                    if not self.is_cross_site_duplicate(item_data):
+                        self.save_listing(item_data)
+                        self.db.flush() # ID確定
+                        record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
 
-        self.db.commit()
+                # ✨ 修正：共通パイプラインにアイテムを渡す（画像保存用）
+                if record and item_data.get('image_urls'):
+                    yield {
+                        'target_type': 'listing',
+                        'id': record.id,
+                        'image_urls': item_data['image_urls']
+                    }
+            except Exception as e:
+                self.logger.error(f"Error processing {v_url}: {e}")
+
+        # ページ単位でコミット
+        try:
+            self.db.commit()
+        except Exception as e:
+            self.db.rollback()
+            self.logger.error(f"Commit error: {e}")
 
         # ページネーション
         next_page = response.css('ul.pagination li.current + li a.paging::attr(href)').get()
-        if next_page:
+        if next_page and self.crawler.engine.running:
             yield response.follow(next_page, callback=self.parse_listings, meta=response.meta)
 
     def extract_listing_data(self, response, li, bike_model_id, v_url):
@@ -181,8 +211,15 @@ class WebikeListingSpider(BaseBikeSpider):
             return None
 
     def closed(self, reason):
-        """完売処理を共通メソッドで実行"""
-        self.handle_sold_out(self.known_urls)
+        """
+        終了処理。Ctrl+C (shutdown) 時は重たい完売チェックをスキップします。
+        """
+        if reason == 'finished':
+            self.logger.info("Normal finish. Running sold-out cleanup...")
+            self.handle_sold_out(self.known_urls)
+        else:
+            self.logger.info(f"Spider closed by {reason}. Skipping heavy cleanup for quick exit.")
+            
         super().closed(reason)
 
 if __name__ == "__main__":
