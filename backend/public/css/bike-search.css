@@ -113,9 +113,10 @@
   * 3. サイドバー / モバイルモーダル (機能)
   * ========================================== */
  .filter-sidebar-content {
-     position: sticky;
-     top: 80px;
-     height: fit-content;
+     /* ✨ 修正: sticky を解除し、メインコンテンツと一緒に動くように変更 */
+     position: relative;
+     top: 0;
+     height: auto;
  }
  
  @media (max-width: 1023.9px) {
@@ -249,3 +250,29 @@
      }
  }
 
+ /* ==========================================
+  * 6. フォーム要素のモバイル最適化 (最終改訂版)
+  * ========================================== */
+ @media (max-width: 640px) {
+    select {
+        font-size: 16px !important; 
+        font-weight: 800 !important; 
+        height: 42px !important;
+        padding: 0 32px 0 12px !important;
+        border-radius: 12px !important;
+        border: 1px solid #e5e7eb !important;
+        background-color: #fff !important;
+        color: #111827 !important;
+        appearance: none;
+        -webkit-appearance: none;
+    }
+
+    option {
+        font-size: 16px !important;
+        font-weight: 700 !important;
+    }
+
+    input[type="text"], input[type="search"] {
+        font-size: 16px !important;
+    }
+ }
