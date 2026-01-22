@@ -147,17 +147,26 @@ final class ListingRepository
     /**
      * 絞り込みロジックの共通化
      */
-    private function applySearchFilters(Builder $query, ?string $keyword, ?string $prefecture): void
+    private function applySearchFilters(Builder $query, ?string $keyword, ?string $prefecture, array $filters = []): void
     {
         if ($keyword) {
-            $query->where(function($lq) use ($keyword) {
-                $lq->where('title', 'like', "%{$keyword}%")
-                  ->orWhereHas('bikeModel', function($bq) use ($keyword) {
-                      $bq->where('name', 'like', "%{$keyword}%")
-                        ->orWhereHas('manufacturer', function($mq) use ($keyword) {
-                            $mq->where('name', 'like', "%{$keyword}%");
-                        });
-                  });
+            $query->where(function($lq) use ($keyword, $filters) {
+                // 出品タイトルへのキーワード検索は常に有効（例：SP、ABS、限定車などの絞り込みに有用）
+                $lq->where('title', 'like', "%{$keyword}%");
+
+                /**
+                 * ✨ 改善：特定の車種ID(bike_model_id)が指定されている場合は、
+                 * 車種名テーブル(bike_models)へのキーワード検索をスキップする。
+                 * これにより「キーワード=カブ 且つ 車種=ズーク」の時に、カブを探しに行って0件になるのを防ぐ。
+                 */
+                if (empty($filters['bike_model_id'])) {
+                    $lq->orWhereHas('bikeModel', function($bq) use ($keyword) {
+                        $bq->where('name', 'like', "%{$keyword}%")
+                          ->orWhereHas('manufacturer', function($mq) use ($keyword) {
+                              $mq->where('name', 'like', "%{$keyword}%");
+                          });
+                    });
+                }
             });
         }
 
