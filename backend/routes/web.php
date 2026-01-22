@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BikeController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\Api\BikeApiController;
 
 /**
  * MotoHub Route Definitions
@@ -19,6 +20,14 @@ Route::get('/bikes/suggest', [BikeController::class, 'suggest'])->name('bikes.su
 Route::get('/wishlist', [BikeController::class, 'wishlist'])->name('wishlist');
 Route::get('/api/wishlist/fetch', [BikeController::class, 'fetchWishlist'])->name('api.wishlist.fetch');
 
+// --- API関連 (JavaScriptからの非同期リクエスト用) ---
+Route::prefix('api')->group(function () {
+    // 車両の条件一致件数を取得するAPI (JSは /api/bikes/count を呼ぶ)
+    Route::get('/bikes/count', [BikeApiController::class, 'count']);
+
+    // メーカー・車種連動用API (JSは /api/manufacturers/{id}/models を呼ぶ)
+    Route::get('/manufacturers/{manufacturer}/models', [BikeApiController::class, 'models']);
+});
 // --- 固定・情報ページ (PageController) ---
 // 運営情報や法的ページなど、情報の閲覧がメインのページをグループ化します
 Route::prefix('pages')->name('pages.')->group(function () {

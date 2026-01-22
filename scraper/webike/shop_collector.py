@@ -17,7 +17,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir) # scraper フォルダ
 sys.path.append(parent_dir)
 
-from utils import normalize_shop_name, normalize_address, normalize_phone
+# ✨ normalize_prefecture をインポートに追加
+from utils import normalize_shop_name, normalize_address, normalize_phone, normalize_prefecture
 
 # ==========================================
 # 1. 環境設定 & DB接続
@@ -200,6 +201,10 @@ class WebikeShopSpider(scrapy.Spider):
         for link in pref_links:
             url = response.urljoin(link.attrib['href'])
             pref_name = link.css('::text').get().strip()
+            
+            # ✨ 都道府県名を正規化 (例: "東京" -> "東京都")
+            pref_name = normalize_prefecture(pref_name)
+            
             yield scrapy.Request(url, callback=self.parse_shop_list, meta={'prefecture': pref_name})
 
     def parse_shop_list(self, response):
@@ -224,14 +229,12 @@ class WebikeShopSpider(scrapy.Spider):
             phone = "".join(unit.css('p.shop-phone::text').getall()).strip()
 
             # 営業時間と定休日の抽出
-            # ラベル「営業時間」や「定休日」を含む span の後のテキストを取得
             hours = None
             holiday = None
             working_times = unit.css('p.shop-working-time')
             
             for wt in working_times:
                 label = wt.css('span.pitin-title::text').get()
-                # string(.) でタグの中身を全て平滑化して取得し、ラベル部分を削る
                 full_text = wt.xpath('string(.)').get() or ""
                 clean_text = full_text.replace(label or "", "").strip()
                 

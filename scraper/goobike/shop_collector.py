@@ -17,7 +17,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from utils import normalize_shop_name, normalize_address
+# ✨ normalize_prefecture をインポートに追加
+from utils import normalize_shop_name, normalize_address, normalize_prefecture
 
 # ==========================================
 # 1. 環境設定 & DB接続
@@ -187,7 +188,16 @@ class GoobikeShopSpider(scrapy.Spider):
         pref_links = response.css(".mapBox li a")
         for link in pref_links:
             url = response.urljoin(link.attrib['href'])
-            pref_name = re.sub(r'[\(\uff08].*?[\)\uff09]', '', link.xpath("text()").get() or "").strip()
+            
+            # 1. 元のテキストを取得 (例: "東京(123)")
+            raw_pref = link.xpath("text()").get() or ""
+            
+            # 2. 台数カウントなどのカッコを除去 (例: "東京")
+            pref_name = re.sub(r'[\(\uff08].*?[\)\uff09]', '', raw_pref).strip()
+            
+            # ✨ 3. Canvasで指定された関数で正規化 (例: "東京" -> "東京都")
+            pref_name = normalize_prefecture(pref_name)
+            
             yield scrapy.Request(url, callback=self.parse_shop_list, meta={'prefecture': pref_name})
 
     def parse_shop_list(self, response):

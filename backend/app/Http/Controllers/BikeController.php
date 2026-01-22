@@ -19,6 +19,7 @@ use Illuminate\Contracts\View\View;
 final class BikeController extends Controller
 {
     /**
+     * PHP 8.1+ のコンストラクタプロパティプロモーションを使用した依存注入
      * @param BikeService $bikeService バイク情報を取得するサービス
      * @param ListingSearchService $listingSearchService 出品情報の検索を担当するサービス
      */
@@ -30,9 +31,8 @@ final class BikeController extends Controller
     /**
      * 検索結果の表示
      *
-     * リクエストパラメータからキーワード・都道府県・ソート順・各種フィルター条件を受け取り、
-     * 出品情報を検索して検索結果画面を表示します。`count_only` パラメータが指定された場合は、
-     * 一覧の代わりに件数のみを JSON 形式で返します。
+     * 強化されたフィルタ条件（メーカー・車種・コンディション・修復歴・地域）に対応し、
+     * UI構築に必要なマスターデータ（メーカー一覧等）を合わせて提供します。
      *
      * @param Request $request 検索条件を含むリクエスト
      * @return View|JsonResponse 検索結果ビュー、または件数のみを含むJSONレスポンス
@@ -44,14 +44,20 @@ final class BikeController extends Controller
         $prefecture = $request->query('prefecture');
         $sort = (string) $request->query('sort', 'latest');
 
-        // 2. フィルター条件の抽出
+        // 2. フィルター条件の抽出（拡張版）
         $filters = [
-            'min_price'   => $request->query('min_price'),
-            'max_price'   => $request->query('max_price'),
-            'min_mileage' => $request->query('min_mileage'),
-            'max_mileage' => $request->query('max_mileage'),
-            'min_year'    => $request->query('min_year'),
-            'max_year'    => $request->query('max_year'),
+            'min_price'          => $request->query('min_price'),
+            'max_price'          => $request->query('max_price'),
+            'min_mileage'        => $request->query('min_mileage'),
+            'max_mileage'        => $request->query('max_mileage'),
+            'min_year'           => $request->query('min_year'),
+            'max_year'           => $request->query('max_year'),
+            // ✨ 追加されたフィルタ項目
+            'manufacturer_id'    => $request->query('manufacturer_id'),
+            'bike_model_id'      => $request->query('bike_model_id'),
+            'is_new'             => $request->query('is_new'),
+            'has_repair_history' => $request->query('has_repair_history'),
+            'prefecture'         => $request->query('prefecture'),
         ];
 
         // モバイル版モーダルからの「件数のみ取得」リクエストへの対応 (機能維持)
@@ -61,7 +67,7 @@ final class BikeController extends Controller
         }
 
         // 3. 検索実行
-        // result には [items, pagination, stats] が含まれます
+        // Service内でキーワードからのメーカー推論や車種IDからの逆算補完が行われます
         $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
         
         // 4. スライダーの境界値を現在のキーワードに合わせて取得 (機能維持)
@@ -73,23 +79,34 @@ final class BikeController extends Controller
         return view('bikes.search', [
             'items'              => $result['items'],
             'pagination'         => $result['pagination'],
-            'stats'              => $result['stats'], // ✨ 新規追加：価格相場データをビューへ
+            'stats'              => $result['stats'],
+            'manufacturers'      => $result['manufacturers'], // サイドバー用：全メーカー
+            'models'             => $result['models'],        // サイドバー用：選択中メーカーの車種
+            'prefectures'        => $result['prefectures'],   // サイドバー用：都道府県
             'keyword'            => $keyword,
             'prefecture'         => $prefecture,
             'sort'               => $sort,
-            'filters'            => $filters,
+            'filters'            => $result['filters'],       // 補完されたフィルタ条件（重要）
             'meta'               => $searchMeta,
             'totalListingsCount' => $totalListingsCount,
         ]);
     }
 
     /**
-     * トップページの表示
+     * 車種取得API (JavaScriptからのFetch用)
+     * サイドバーのドリルダウン（メーカー選択時に車種リストを更新）で使用します。
      *
-     * 人気車種一覧・地域情報・サイト全体の有効掲載台数を取得し、
-     * トップページのビューを返します。
-     *
-     * @return View トップページのビュー
+     * @param int $manufacturerId メーカーID
+     * @return JsonResponse 車種一覧のJSON
+     */
+    public function getModels(int $manufacturerId): JsonResponse
+    {
+        $models = $this->listingSearchService->getModelsByManufacturer($manufacturerId);
+        return response()->json($models);
+    }
+
+    /**
+     * トップページの表示 (機能維持)
      */
     public function index(): View
     {
@@ -100,13 +117,7 @@ final class BikeController extends Controller
     }
 
     /**
-     * 検索候補の取得
-     *
-     * 入力されたキーワードに基づいて車種名の検索候補を取得し、
-     * JSON 形式で返します。キーワードが空の場合は空配列を返します。
-     *
-     * @param Request $request 検索キーワードを含むリクエスト
-     * @return JsonResponse 検索候補の配列を含むJSONレスポンス
+     * 検索候補の取得 (機能維持)
      */
     public function suggest(Request $request): JsonResponse
     {
@@ -117,12 +128,7 @@ final class BikeController extends Controller
     }
 
     /**
-     * 車種一覧ページの表示
-     *
-     * メーカーごとにグループ化された全車種情報と有効掲載台数を取得し、
-     * 車種一覧ページのビューを返します。
-     *
-     * @return View 車種一覧ページのビュー
+     * 車種一覧ページの表示 (機能維持)
      */
     public function models(): View
     {
@@ -132,24 +138,7 @@ final class BikeController extends Controller
     }
 
     /**
-     * アバウトページの表示
-     *
-     * サイト全体の有効掲載台数を取得し、アバウトページのビューを返します。
-     *
-     * @return View アバウトページのビュー
-     */
-    public function about(): View
-    {
-        $totalListingsCount = $this->listingSearchService->getActiveCount();
-        return view('pages.about', compact('totalListingsCount'));
-    }
-
-    /**
-     * お気に入り一覧ページの表示
-     *
-     * サイト全体の有効掲載台数を取得し、お気に入り一覧ページのビューを返します。
-     *
-     * @return View お気に入り一覧ページのビュー
+     * お気に入り一覧ページの表示 (機能維持)
      */
     public function wishlist(): View
     {
@@ -158,14 +147,7 @@ final class BikeController extends Controller
     }
 
     /**
-     * お気に入りデータの非同期取得API
-     *
-     * クエリパラメータ `ids` で指定されたIDリスト（カンマ区切り）に基づいて
-     * 有効な出品情報を取得し、UI表示用に整形して JSON 形式で返します。
-     * ID が空の場合は空配列を返します。
-     *
-     * @param Request $request お気に入りIDリストを含むリクエスト（ids）
-     * @return JsonResponse 有効な出品情報の配列を含むJSONレスポンス
+     * お気に入りデータの非同期取得API (機能維持)
      */
     public function fetchWishlist(Request $request): JsonResponse
     {
