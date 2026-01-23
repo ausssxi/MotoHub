@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Services\ListingSearchService;
+use App\Services\Bike\ListingSearchService;
 use App\Mail\ContactMail;
 use App\Http\Requests\ContactRequest; // 追加
 use Illuminate\Support\Facades\Mail;

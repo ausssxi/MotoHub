@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Services\ListingSearchService;
+use App\Services\Bike\ListingSearchService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 

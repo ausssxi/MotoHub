@@ -316,6 +316,6 @@
             </div>
         </div>
     </div>
-    <script src="{{ asset('js/bike-search-sidebar.js') }}"></script>
+    <script src="{{ asset('js/search-sidebar.js') }}"></script>
     <script src="{{ asset('js/custom-dropdown.js') }}"></script>
 </x-layout>

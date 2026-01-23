@@ -14,25 +14,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!filterForm) return;
 
     /**
-     * 【新規】スマートフォン用：条件一致件数の非同期更新
+     * スマートフォン用：条件一致件数の非同期更新
      * フィルタが変更されるたびに、適用ボタン内の「(〇〇台)」を更新します。
      */
     const updateMobileHitCount = () => {
-        // デスクトップ版（1024px以上）では実行しない
         if (window.innerWidth >= 1024 || !mobileHitCount) return;
 
         clearTimeout(countTimer);
-        // 連続操作時の負荷を抑えるため、入力を止めてから400ms後にリクエスト
         countTimer = setTimeout(async () => {
             const formData = new URLSearchParams(new FormData(filterForm));
             
-            // 1. 空の値を整理（URLを綺麗に保つ）
+            // 空の値を整理
             const keys = Array.from(formData.keys());
             keys.forEach(key => {
                 if (!formData.get(key)) formData.delete(key);
             });
 
-            // 2. 件数取得モードのフラグを付与
             formData.append('count_only', '1');
             
             try {
@@ -50,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
-     * 全てのフィルタ条件を初期状態（リセット）にする関数
+     * すべてのフィルタ条件を初期状態（リセット）にする関数
      */
     const resetAllFilters = () => {
         if (keywordInput) keywordInput.value = "";
@@ -89,9 +86,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    /**
-     * フォーム送信イベントのフック
-     */
     filterForm.addEventListener('submit', (e) => {
         cleanFormBeforeSubmit();
         return true;
@@ -99,7 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * フィルタ変更時の処理
-     * @param {boolean} shouldReset パラメータをリセットするかどうか
      */
     const handleFilterChange = (shouldReset = false) => {
         if (shouldReset) {
@@ -107,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (window.innerWidth >= 1024) {
-            // PC版は即座に送信
             setTimeout(() => {
                 if (typeof filterForm.requestSubmit === 'function') {
                     filterForm.requestSubmit();
@@ -116,7 +108,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, 50);
         } else {
-            // スマホ版は件数表示を更新
             updateMobileHitCount();
         }
     };
@@ -170,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         rangeInputs.forEach(input => {
             input.addEventListener("input", (e) => {
                 updateUI(e);
-                updateMobileHitCount(); // つまみを動かしている最中も件数を更新
+                updateMobileHitCount(); 
             });
             input.addEventListener("change", () => handleFilterChange(false));
         });
@@ -206,35 +197,30 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { console.error(e); }
     };
 
-    // メーカー変更時
     mSelect?.addEventListener('change', () => {
         resetAllFilters(); 
         if (window.innerWidth >= 1024) {
             handleFilterChange(false);
         } else {
             updateModelList(null);
-            updateMobileHitCount(); // メーカー変更後の件数を反映
+            updateMobileHitCount();
         }
     });
 
-    // 車種変更時
     modelSelect?.addEventListener('change', () => {
         handleFilterChange(true);
     });
 
-    // 地域・コンディション・修復歴の変更監視
-    // ✨ ここにイベントを追加することで、ご指摘の項目でも件数が更新されるようになります。
     const filterSelectors = ['select[name="prefecture"]', 'input[name="is_new"]', 'input[name="has_repair_history"]'];
     filterSelectors.forEach(selector => {
         filterForm.querySelectorAll(selector).forEach(input => {
             input.addEventListener('change', () => {
                 handleFilterChange(false);
-                updateMobileHitCount(); // スマホ版での件数更新を明示的に呼び出し
+                updateMobileHitCount();
             });
         });
     });
 
-    // 初期化
     initDualSlider("slider-price", 5);
     initDualSlider("slider-mileage", 2000);
     initDualSlider("slider-year", 1);
