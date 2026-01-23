@@ -2,23 +2,59 @@
  * MotoHub Sidebar UI Logic
  * 車種やメーカーが変更された際、キーワードだけでなく
  * 価格・距離などのパラメータもリセットして「全件表示」に近い状態から再開させます。
+ * また、スマホ版ではあらゆるフィルタ変更時に「適用ボタン」のヒット件数を同期します。
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     const filterForm = document.getElementById('filter-form');
     const keywordInput = filterForm?.querySelector('input[name="keyword"]');
+    const mobileHitCount = document.getElementById('mobile-hit-count');
+    let countTimer;
+
     if (!filterForm) return;
 
     /**
-     * すべてのフィルタ条件を初期状態（リセット）にする関数
+     * 【新規】スマートフォン用：条件一致件数の非同期更新
+     * フィルタが変更されるたびに、適用ボタン内の「(〇〇台)」を更新します。
+     */
+    const updateMobileHitCount = () => {
+        // デスクトップ版（1024px以上）では実行しない
+        if (window.innerWidth >= 1024 || !mobileHitCount) return;
+
+        clearTimeout(countTimer);
+        // 連続操作時の負荷を抑えるため、入力を止めてから400ms後にリクエスト
+        countTimer = setTimeout(async () => {
+            const formData = new URLSearchParams(new FormData(filterForm));
+            
+            // 1. 空の値を整理（URLを綺麗に保つ）
+            const keys = Array.from(formData.keys());
+            keys.forEach(key => {
+                if (!formData.get(key)) formData.delete(key);
+            });
+
+            // 2. 件数取得モードのフラグを付与
+            formData.append('count_only', '1');
+            
+            try {
+                mobileHitCount.innerHTML = '<span class="inline-block animate-spin text-[8px] opacity-50">⌛</span>';
+                const res = await fetch(`${filterForm.action}?${formData.toString()}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await res.json();
+                mobileHitCount.textContent = `(${data.total.toLocaleString()}台)`;
+            } catch (e) {
+                console.error("Count Fetch Error:", e);
+                mobileHitCount.textContent = "";
+            }
+        }, 400);
+    };
+
+    /**
+     * 全てのフィルタ条件を初期状態（リセット）にする関数
      */
     const resetAllFilters = () => {
-        // 1. キーワードをクリア
-        if (keywordInput) {
-            keywordInput.value = "";
-        }
+        if (keywordInput) keywordInput.value = "";
 
-        // 2. スライダーをリセット（最小・最大値へ戻す）
         const sliders = filterForm.querySelectorAll('input[type="range"]');
         sliders.forEach(slider => {
             if (slider.classList.contains('range-min')) {
@@ -26,43 +62,40 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (slider.classList.contains('range-max')) {
                 slider.value = slider.getAttribute('max');
             }
-            // 表示（ラベルやプログレスバー）を更新するためにinputイベントを発火
             slider.dispatchEvent(new Event('input'));
         });
     };
 
     /**
-     * フォーム送信時のクリーンアップ
+     * フォーム送信直前のクリーンアップ
      */
-    const submitCleanForm = () => {
+    const cleanFormBeforeSubmit = () => {
         const inputs = filterForm.querySelectorAll('input, select');
-        
         inputs.forEach(input => {
             const val = input.value;
             const name = input.name;
 
-            // 空の値を無効化してURLを綺麗にする
             if (!val && name !== 'sort') {
                 input.disabled = true;
                 return;
             }
 
-            // スライダーがデフォルト境界値（下限なし・上限なし）にある場合は除外
             if (input.type === 'range') {
                 const minAttr = input.getAttribute('min');
                 const maxAttr = input.getAttribute('max');
-                
-                if (input.classList.contains('range-min') && val === minAttr) {
-                    input.disabled = true;
-                }
-                if (input.classList.contains('range-max') && val === maxAttr) {
-                    input.disabled = true;
-                }
+                if (input.classList.contains('range-min') && val === minAttr) input.disabled = true;
+                if (input.classList.contains('range-max') && val === maxAttr) input.disabled = true;
             }
         });
-
-        filterForm.submit();
     };
+
+    /**
+     * フォーム送信イベントのフック
+     */
+    filterForm.addEventListener('submit', (e) => {
+        cleanFormBeforeSubmit();
+        return true;
+    });
 
     /**
      * フィルタ変更時の処理
@@ -75,11 +108,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (window.innerWidth >= 1024) {
             // PC版は即座に送信
-            setTimeout(() => submitCleanForm(), 50);
+            setTimeout(() => {
+                if (typeof filterForm.requestSubmit === 'function') {
+                    filterForm.requestSubmit();
+                } else {
+                    filterForm.submit();
+                }
+            }, 50);
+        } else {
+            // スマホ版は件数表示を更新
+            updateMobileHitCount();
         }
     };
 
-    // --- デュアルレンジスライダーの初期化 (UI制御用) ---
+    // --- デュアルレンジスライダーの初期化 ---
     const initDualSlider = (containerId, minGap = 1) => {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -126,7 +168,10 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         rangeInputs.forEach(input => {
-            input.addEventListener("input", updateUI);
+            input.addEventListener("input", (e) => {
+                updateUI(e);
+                updateMobileHitCount(); // つまみを動かしている最中も件数を更新
+            });
             input.addEventListener("change", () => handleFilterChange(false));
         });
 
@@ -161,26 +206,31 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { console.error(e); }
     };
 
-    // ✨ メーカー変更時：条件を完全にリセットする
+    // メーカー変更時
     mSelect?.addEventListener('change', () => {
+        resetAllFilters(); 
         if (window.innerWidth >= 1024) {
-            handleFilterChange(true);
+            handleFilterChange(false);
         } else {
-            // スマホ版は車種リストだけ更新（パラメータのリセットは車種決定時に行う）
-            resetAllFilters();
             updateModelList(null);
+            updateMobileHitCount(); // メーカー変更後の件数を反映
         }
     });
 
-    // ✨ 車種変更時：条件を完全にリセットする
+    // 車種変更時
     modelSelect?.addEventListener('change', () => {
         handleFilterChange(true);
     });
 
+    // 地域・コンディション・修復歴の変更監視
+    // ✨ ここにイベントを追加することで、ご指摘の項目でも件数が更新されるようになります。
     const filterSelectors = ['select[name="prefecture"]', 'input[name="is_new"]', 'input[name="has_repair_history"]'];
     filterSelectors.forEach(selector => {
         filterForm.querySelectorAll(selector).forEach(input => {
-            input.addEventListener('change', () => handleFilterChange(false));
+            input.addEventListener('change', () => {
+                handleFilterChange(false);
+                updateMobileHitCount(); // スマホ版での件数更新を明示的に呼び出し
+            });
         });
     });
 
