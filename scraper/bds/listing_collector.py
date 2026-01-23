@@ -12,8 +12,6 @@ if parent_dir not in sys.path:
 import scrapy
 from scrapy.crawler import CrawlerProcess
 import re
-import datetime
-import logging
 
 # 共通基盤のインポート
 from common.database import Listing, BikeModelIdentifier, ShopIdentifier
@@ -22,7 +20,7 @@ from common.base_spider import BaseBikeSpider
 class BDSListingSpider(BaseBikeSpider):
     """
     BDSバイクセンサーの出品情報を収集するスパイダー。
-    Ctrl+C で即座に停止し、重い処理をスキップするように最適化されています。
+    DB確定タイミングを1件ごとにすることで、画像処理との競合を回避します。
     """
     name = "bds_listings"
     site_name = "BDS"
@@ -44,17 +42,21 @@ class BDSListingSpider(BaseBikeSpider):
         super().__init__(*args, **kwargs)
         
         self.logger.info("Initializing BDS caches...")
+        # 車種マスタのキャッシュ
         self.model_ident_cache = {
             i.identifier: i.bike_model_id for i in self.db.query(
                 BikeModelIdentifier.identifier, BikeModelIdentifier.bike_model_id
             ).filter(BikeModelIdentifier.site_id == self.site_id).all()
         }
+        
+        # ショップ情報のキャッシュ（shop_managerを使わないため起動時に全ロード）
         self.shop_cache = {
             i.identifier: i.shop_id for i in self.db.query(
                 ShopIdentifier.identifier, ShopIdentifier.shop_id
             ).filter(ShopIdentifier.site_id == self.site_id).all()
         }
         
+        # 完売判定用
         self.known_urls = {
             l.source_url for l in self.db.query(Listing.source_url).filter(
                 Listing.site_id == self.site_id, Listing.is_sold_out == False
@@ -81,51 +83,48 @@ class BDSListingSpider(BaseBikeSpider):
                     )
 
     def parse_listings(self, response):
-        # 💡 中断信号を受けている場合は処理を行わずに終了
-        if not self.crawler.engine.running:
-            return
+        if not self.crawler.engine.running: return
 
         bike_model_id = response.meta['bike_model_id']
         bike_blocks = response.css("li.type_bike, li.type_bike_sp")
         
         for bike in bike_blocks:
-            # 💡 ループ内でも停止状態をチェックして即時離脱を助ける
-            if not self.crawler.engine.running:
-                break
+            if not self.crawler.engine.running: break
 
             v_url = response.urljoin(bike.css(".c-search_block_title a::attr(href), .c-search_block_title02 a::attr(href)").get())
             if not v_url: continue
             self.found_urls.add(v_url)
 
+            # 1. 車両情報の抽出
             item_data = self.extract_bike_data(response, bike, bike_model_id, v_url)
             if not item_data: continue
 
             try:
-                record = None
+                # 2. 💾 DBへの保存・更新
+                # 注意: shop_id が None の場合、現在のロジックでは保存されません
                 if v_url in self.known_urls:
                     self.update_listing(v_url, item_data)
-                    record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
                 else:
                     if not self.is_cross_site_duplicate(item_data):
                         self.save_listing(item_data)
-                        self.db.flush() 
-                        record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
 
+                # ✨【重要】Pipelineがレコードを見つけられるよう、1台ごとにcommitしてロックを解放します
+                self.db.commit()
+
+                # 最新の物理IDを取得（Pipelineでの画像パス更新に必須）
+                record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
+
+                # 3. 画像ダウンロードタスクを Pipeline へ投げる
                 if record and item_data.get('image_urls'):
                     yield {
                         'target_type': 'listing',
                         'id': record.id,
                         'image_urls': item_data['image_urls']
                     }
-            except Exception as e:
-                self.logger.error(f"Error processing {v_url}: {e}")
 
-        # 💡 中断時はコミットをスキップまたは最小限にする
-        try:
-            self.db.commit()
-        except Exception as e:
-            self.db.rollback()
-            self.logger.error(f"Commit error: {e}")
+            except Exception as e:
+                self.db.rollback()
+                self.logger.error(f"Error processing {v_url}: {e}")
 
         # ページネーション
         next_page = response.css("div.c-pager a.c-btn_next::attr(href)").get()
@@ -133,12 +132,13 @@ class BDSListingSpider(BaseBikeSpider):
             yield response.follow(next_page, callback=self.parse_listings, meta=response.meta)
 
     def extract_bike_data(self, response, bike, bike_model_id, v_url):
-        """BDS特有のHTML解析ロジック"""
+        """BDS特有のHTML構造から情報を抽出"""
         try:
-            # コンディション（新車・中古車）の取得
+            # 基本情報
             condition = bike.css(".c-search_block_circle_text::text").get()
             condition = condition.strip() if condition else "中古車"
 
+            # 価格情報の解析
             price_val, total_price_val = 0, None
             for p_item in bike.css(".c-search_block_price"):
                 l_text = p_item.css(".c-search_block_price_title::text").get()
@@ -149,6 +149,7 @@ class BDSListingSpider(BaseBikeSpider):
                     if l_text and "本体価格" in l_text: price_val = num
                     elif l_text and "支払総額" in l_text: total_price_val = num
 
+            # スペック情報の解析
             year, mile, has_repair = None, None, False
             for col in bike.css(".c-search_status_col"):
                 h_txt = col.css(".c-search_status_head::text").get() or ""
@@ -159,14 +160,22 @@ class BDSListingSpider(BaseBikeSpider):
                     m_m = re.search(r'(\d+)', v_txt.replace(',', '')); mile = int(m_m.group(1)) if m_m else None
                 elif "修復歴" in h_txt: has_repair = "あり" in v_txt
 
-            shop_href = bike.css(".c-search_block_bottom_lead a::attr(href), .c-search_block_shop_title01 a::attr(href)").get()
+            # ✨ ショップIDの特定（キャッシュを使用）
             shop_id = None
+            shop_href = bike.css(".c-search_block_bottom_lead a::attr(href), .c-search_block_shop_title01 a::attr(href)").get()
             if shop_href:
                 id_match = re.search(r'client/(\d+)', shop_href)
                 if id_match:
-                    shop_id = self.shop_cache.get(id_match.group(1))
+                    site_shop_id = id_match.group(1)
+                    shop_id = self.shop_cache.get(site_shop_id)
+                    
+                    # 🔍 デバッグログ
+                    self.logger.info(f"DEBUG: [BDS ShopID: {site_shop_id}] -> [Internal ID: {shop_id}]")
 
-            if not shop_id: return None
+            # ショップが見つからない車両は保存をスキップ（デグレーション防止のガード）
+            if not shop_id:
+                self.logger.warning(f"Shop not found in cache for {v_url}. Listing skipped.")
+                return None
 
             img_url = bike.css("figure.c-img_cover::attr(data-src)").get() or bike.css("figure.c-img_cover::attr(src)").get()
 
@@ -186,16 +195,8 @@ class BDSListingSpider(BaseBikeSpider):
         except Exception: return None
 
     def closed(self, reason):
-        """
-        終了処理。Ctrl+C (shutdown) 時は重たい完売チェックをスキップして即座に終了します。
-        """
         if reason == 'finished':
-            self.logger.info("Normal finish. Running sold-out cleanup...")
             self.handle_sold_out(self.known_urls)
-        else:
-            # reason が 'shutdown' (Ctrl+C) や 'cancelled' の場合はこちら
-            self.logger.info(f"Spider closed by user ({reason}). Skipping heavy cleanup for quick exit.")
-            
         super().closed(reason)
 
 if __name__ == "__main__":

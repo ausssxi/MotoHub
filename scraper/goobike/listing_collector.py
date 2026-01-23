@@ -101,15 +101,18 @@ class GooBikeListingSpider(BaseBikeSpider):
                 listing_data = self.extract_info(v_el, bike_model_id, response, v_url)
                 if not listing_data: continue
 
-                record = None
+                # --- 💾 DB保存・更新 ---
                 if v_url in self.known_urls:
                     self.update_listing(v_url, listing_data)
-                    record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
                 else:
                     if not self.is_cross_site_duplicate(listing_data):
                         self.save_listing(listing_data)
-                        self.db.flush()
-                        record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
+
+                # ✨ 重要：Pipelineがレコードを見つけられるよう、1台ごとにcommitしてDBを確定させます
+                self.db.commit()
+
+                # 最新のIDを取得（Pipelineでの画像パス更新に必須）
+                record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
 
                 if record and listing_data.get('image_urls'):
                     yield {
@@ -119,14 +122,10 @@ class GooBikeListingSpider(BaseBikeSpider):
                     }
 
             except Exception as e:
+                self.db.rollback()
                 self.logger.error(f"Error processing {v_url}: {e}")
 
-        try:
-            self.db.commit()
-        except Exception as e:
-            self.db.rollback()
-            self.logger.error(f"Commit failed: {e}")
-
+        # ページネーション
         next_page = response.css("li.next a::attr(href)").get()
         if next_page:
             yield response.follow(next_page, callback=self.parse_listings, meta=response.meta)
@@ -141,11 +140,8 @@ class GooBikeListingSpider(BaseBikeSpider):
             t_match = re.search(r'(\d+\.?\d*)', total_txt)
             total_val = int(float(t_match.group(1)) * 10000) if t_match else None
 
-            # 2. スペックの抽出 (モデル年式 / 初度登録年 / 走行距離 / 修復歴)
-            model_year = None
-            first_registration = None
-            mile = None
-            has_repair = False
+            # 2. スペックの抽出
+            model_year, first_registration, mile, has_repair = None, None, None, False
 
             for li in v_el.css(".cont01 ul li"):
                 label = li.css("span::text").get() or ""
@@ -170,6 +166,13 @@ class GooBikeListingSpider(BaseBikeSpider):
                 s_match = re.search(r'client_(\d+)', shop_href)
                 if s_match: shop_site_id = s_match.group(1)
 
+            # 🔍 デバッグ：shop_id の紐付け確認
+            internal_shop_id = self.shop_cache.get(shop_site_id)
+            self.logger.info(f"DEBUG: [SiteShopID: {shop_site_id}] -> [InternalShopID: {internal_shop_id}]")
+
+            if internal_shop_id is None:
+                self.logger.warning(f"⚠️ ShopIDが見つかりません: {shop_site_id} (URL: {v_url})")
+
             # 4. 画像URLの取得
             img_el = v_el.css(".bike_img img")
             img_url = img_el.attrib.get('real-url') or img_el.attrib.get('src')
@@ -177,7 +180,7 @@ class GooBikeListingSpider(BaseBikeSpider):
 
             return {
                 'bike_model_id': bike_model_id,
-                'shop_id': self.shop_cache.get(shop_site_id),
+                'shop_id': internal_shop_id,
                 'title': v_el.css("h4 span a::text").get(default="").strip(),
                 'source_url': v_url,
                 'price': price_val,

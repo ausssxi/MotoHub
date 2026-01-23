@@ -9,8 +9,11 @@ parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.append(parent_dir)
 
+import scrapy
 from scrapy.crawler import CrawlerProcess
 import re
+import datetime
+import logging
 
 # 共通基盤のインポート
 from common.database import Listing, BikeModelIdentifier, ShopIdentifier
@@ -19,17 +22,17 @@ from common.base_spider import BaseBikeSpider
 class WebikeListingSpider(BaseBikeSpider):
     """
     Webikeの出品情報を収集するスパイダー。
-    画像処理は MotoHubImagePipeline に委譲し、中断時の高速停止に対応しています。
+    GooBike/BDSと同様に、1件ごとのDB確定により画像同期の安定性を高めています。
     """
     name = "webike_listings"
     site_name = "Webike"
     allowed_domains = ["moto.webike.net"]
     start_urls = ["https://moto.webike.net/maker/"]
 
-    # ✨ 修正：パイプラインの設定を追加
     custom_settings = {
         'CONCURRENT_REQUESTS': 16,
         'DOWNLOAD_DELAY': 0.5,
+        'RANDOMIZE_DOWNLOAD_DELAY': True,
         'COOKIES_ENABLED': False,
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
         'ITEM_PIPELINES': {
@@ -40,21 +43,22 @@ class WebikeListingSpider(BaseBikeSpider):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        self.logger.info("Initializing Webike specific caches...")
+        self.logger.info("Initializing Webike caches...")
         
-        # モデル・ショップ識別子キャッシュ
+        # 車種識別子キャッシュ
         self.model_ident_cache = {
             i.identifier: i.bike_model_id for i in self.db.query(
                 BikeModelIdentifier.identifier, BikeModelIdentifier.bike_model_id
             ).filter(BikeModelIdentifier.site_id == self.site_id).all()
         }
+        # ショップ識別子キャッシュ（起動時に全ロード）
         self.shop_cache = {
             i.identifier: i.shop_id for i in self.db.query(
                 ShopIdentifier.identifier, ShopIdentifier.shop_id
             ).filter(ShopIdentifier.site_id == self.site_id).all()
         }
         
-        # 完売判定用に現在の「出品中」URLリストを取得
+        # 完売判定用
         self.known_urls = {
             l.source_url for l in self.db.query(Listing.source_url).filter(
                 Listing.site_id == self.site_id, 
@@ -63,20 +67,17 @@ class WebikeListingSpider(BaseBikeSpider):
         }
 
     def parse(self, response):
-        """メーカー一覧ページから全メーカーURLを取得"""
         maker_links = response.css('div.maker ul.dotline li a::attr(href)').getall()
         for href in set(maker_links):
             yield response.follow(href, callback=self.parse_models)
 
     def parse_models(self, response):
-        """車種一覧ページから各車種の出品一覧ページ(/list/)へ"""
         bike_items = response.css('div.motoset ul.dotline li, div#category_search_list div.moto ul li')
         
         for item in bike_items:
             href = item.css('p.model_name a::attr(href)').get() or item.css('a.img-thumbnail::attr(href)').get()
             if not href: continue
 
-            # 識別子の抽出
             identifier = item.css('input[name="model_code_checkList"]::attr(value)').get()
             if not identifier:
                 parts = [p for p in href.split('/') if p]
@@ -94,18 +95,13 @@ class WebikeListingSpider(BaseBikeSpider):
                     )
 
     def parse_listings(self, response):
-        """出品一覧ページの解析"""
-        # 💡 中断信号を受けている場合は処理を行わない
-        if not self.crawler.engine.running:
-            return
+        if not self.crawler.engine.running: return
 
         bike_model_id = response.meta['bike_model_id']
         listings = response.css('li.li_bike_list:not(.recommend-block)')
         
         for li in listings:
-            # 💡 ループ内でも停止状態をチェック
-            if not self.crawler.engine.running:
-                break
+            if not self.crawler.engine.running: break
 
             v_link = li.css('a.flex::attr(href)').get()
             if not v_link: continue
@@ -113,23 +109,25 @@ class WebikeListingSpider(BaseBikeSpider):
             v_url = response.urljoin(v_link)
             self.found_urls.add(v_url)
 
+            # 1. データ抽出
             item_data = self.extract_listing_data(response, li, bike_model_id, v_url)
             if not item_data: continue
 
             try:
-                record = None
-                # 共通メソッドを使用して保存・更新
+                # 2. 💾 保存・更新
                 if v_url in self.known_urls:
                     self.update_listing(v_url, item_data)
-                    record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
                 else:
-                    # クロスサイト重複チェックも共通メソッドで実行
                     if not self.is_cross_site_duplicate(item_data):
                         self.save_listing(item_data)
-                        self.db.flush() # ID確定
-                        record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
 
-                # ✨ 修正：共通パイプラインにアイテムを渡す（画像保存用）
+                # ✨【重要】Pipelineが参照できるように即座にcommit
+                self.db.commit()
+
+                # IDが確定した状態でレコードを再取得
+                record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
+
+                # 3. 画像同期タスクを Pipeline へ渡す
                 if record and item_data.get('image_urls'):
                     yield {
                         'target_type': 'listing',
@@ -137,14 +135,8 @@ class WebikeListingSpider(BaseBikeSpider):
                         'image_urls': item_data['image_urls']
                     }
             except Exception as e:
+                self.db.rollback()
                 self.logger.error(f"Error processing {v_url}: {e}")
-
-        # ページ単位でコミット
-        try:
-            self.db.commit()
-        except Exception as e:
-            self.db.rollback()
-            self.logger.error(f"Commit error: {e}")
 
         # ページネーション
         next_page = response.css('ul.pagination li.current + li a.paging::attr(href)').get()
@@ -152,7 +144,6 @@ class WebikeListingSpider(BaseBikeSpider):
             yield response.follow(next_page, callback=self.parse_listings, meta=response.meta)
 
     def extract_listing_data(self, response, li, bike_model_id, v_url):
-        """Webike特有のHTML構造から情報を抽出"""
         try:
             # 価格解析 (ASK対応)
             price_text = li.css('.prices li.small-price span::text').get() or "0"
@@ -179,22 +170,26 @@ class WebikeListingSpider(BaseBikeSpider):
             y_match = re.search(r'(\d{4})', year_text)
             if y_match: year = int(y_match.group(1))
 
-            # ショップIDの解決
+            # ✨ ショップIDの特定とデバッグログ
             shop_id = None
             shop_href = li.css('.shop_name a::attr(href)').get()
             if shop_href:
                 s_match = re.search(r'shop/(\d+)', shop_href)
-                if s_match: shop_id = self.shop_cache.get(s_match.group(1))
+                if s_match:
+                    site_shop_id = s_match.group(1)
+                    shop_id = self.shop_cache.get(site_shop_id)
+                    
+                    # 🔍 紐付け確認用ログ
+                    self.logger.info(f"DEBUG: [Webike ShopID: {site_shop_id}] -> [Internal ID: {shop_id}]")
 
-            if not shop_id: return None
+            # ショップが見つからない場合はスキップ（デグレーション防止ガード）
+            if not shop_id:
+                self.logger.warning(f"Shop not found in cache for {v_url}. Listing skipped.")
+                return None
 
-            # 画像URLの取得
-            main_img = li.css('.img_bike_list img::attr(data-src)').get()
-            sub_imgs = li.css('.img_bike_list ul li ul li img::attr(data-src)').getall()
-            image_urls = []
-            if main_img: image_urls.append(response.urljoin(main_img))
-            for img in sub_imgs:
-                image_urls.append(response.urljoin(img))
+            # 画像URL (Lazy load用のdata-srcを優先)
+            main_img = li.css('.img_bike_list img::attr(data-src)').get() or li.css('.img_bike_list img::attr(src)').get()
+            image_urls = [response.urljoin(main_img)] if main_img and 'loading' not in main_img.lower() else []
 
             return {
                 'bike_model_id': bike_model_id,
@@ -207,19 +202,13 @@ class WebikeListingSpider(BaseBikeSpider):
                 'mileage': mile,
                 'image_urls': image_urls
             }
-        except Exception:
+        except Exception as e:
+            self.logger.error(f"Extraction failed: {e}")
             return None
 
     def closed(self, reason):
-        """
-        終了処理。Ctrl+C (shutdown) 時は重たい完売チェックをスキップします。
-        """
         if reason == 'finished':
-            self.logger.info("Normal finish. Running sold-out cleanup...")
             self.handle_sold_out(self.known_urls)
-        else:
-            self.logger.info(f"Spider closed by {reason}. Skipping heavy cleanup for quick exit.")
-            
         super().closed(reason)
 
 if __name__ == "__main__":

@@ -45,14 +45,17 @@ class Listing extends Model
         return $query->where(function (Builder $q) use ($keyword, $excludeModelSearch) {
             $q->where('title', 'like', "%{$keyword}%");
 
-            if (!$excludeModelSearch) {
-                $q->orWhereHas('bikeModel', function (Builder $bq) use ($keyword) {
-                    $bq->where('name', 'like', "%{$keyword}%")
-                      ->orWhereHas('manufacturer', function (Builder $mq) use ($keyword) {
-                          $mq->where('name', 'like', "%{$keyword}%");
-                      });
-                });
-            }
+            /**
+             * ✨ 改善: excludeModelSearch が true (ID指定あり) の場合でも、
+             * 完全に車種名検索を捨てるのではなく、OR条件として残す。
+             * これにより「マスタ側の名前」と「キーワード」に多少のズレがあってもヒットしやすくなる。
+             */
+            $q->orWhereHas('bikeModel', function (Builder $bq) use ($keyword) {
+                $bq->where('name', 'like', "%{$keyword}%")
+                  ->orWhereHas('manufacturer', function (Builder $mq) use ($keyword) {
+                      $mq->where('name', 'like', "%{$keyword}%");
+                  });
+            });
         });
     }
 

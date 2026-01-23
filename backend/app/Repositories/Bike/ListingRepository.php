@@ -52,19 +52,35 @@ final class ListingRepository
             ->first();
     }
 
-    /**
-     * スライダー境界値の取得
+/**
+     * スライダーの境界値を計算
+     * ✨ 修正：現在の「価格」「走行距離」などの範囲指定は絶対に含めない
      */
-    public function getMinMaxStats(?string $keyword = null, ?string $prefecture = null): object
+    public function getMinMaxStats(?string $keyword = null, ?string $prefecture = null, array $filters = []): object
     {
-        $query = Listing::query()->active()
-            ->where('total_price', '<', 100000000)
-            ->where('mileage', '<', 1000000)
-            ->where('model_year', '<=', (int)date('Y') + 1);
+        // 1. 真っさらなクエリを作成
+        $query = Listing::query()->active();
 
-        // スライダー境界値計算用のキーワード・地域フィルタ（現状維持）
-        if ($keyword) $query->where('title', 'like', "%{$keyword}%");
-        if ($prefecture) $query->whereHas('shop', fn($sq) => $sq->where('prefecture', 'like', "{$prefecture}%"));
+        // 2. 「構造的」な条件のみを適用（これらはスライダーの「器」を決める）
+        if (!empty($filters['bike_model_id'])) {
+            $query->where('bike_model_id', (int)$filters['bike_model_id']);
+        } elseif (!empty($filters['manufacturer_id'])) {
+            $query->whereHas('bikeModel', fn($q) => $q->where('manufacturer_id', (int)$filters['manufacturer_id']));
+        }
+
+        // 3. 地域条件
+        if ($prefecture || !empty($filters['prefecture'])) {
+            $pref = $prefecture ?: ($filters['prefecture'] ?? null);
+            $query->whereHas('shop', fn($sq) => $sq->where('prefecture', 'like', "{$pref}%"));
+        }
+
+        // 4. キーワード条件（ID指定がない場合のみ反映）
+        if (empty($filters['bike_model_id']) && empty($filters['manufacturer_id']) && $keyword) {
+            $query->where('title', 'like', "%{$keyword}%");
+        }
+
+        // ❌ 重要：ここで $filters['max_price'] などは絶対に適用しない！
+        // これを適用してしまうと、カブ(35万)からPCX(65万)へ切り替えた時に 0件ヒット(NULL)になる。
 
         return $query->select([
                 DB::raw('MAX(total_price) as max_price'),
@@ -72,6 +88,8 @@ final class ListingRepository
                 DB::raw('MIN(model_year) as min_year'),
                 DB::raw('MAX(model_year) as max_year'),
             ])
+            ->where('total_price', '>', 10000)
+            ->where('total_price', '<', 50000000)
             ->toBase()
             ->first();
     }
@@ -90,7 +108,7 @@ final class ListingRepository
      */
     private function buildFilteredQuery(?string $keyword, ?string $prefecture, array $filters): Builder
     {
-        $meta = $this->getMinMaxStats($keyword, $prefecture);
+        $meta = $this->getMinMaxStats($keyword, $prefecture, $filters);
         $uiMaxPrice = max(300, (int) ceil(($meta->max_price ?? 0) / 50000) * 5); 
         $uiMaxMileage = max(50000, (int) ceil(($meta->max_mileage ?? 0) / 1000) * 1000);
 

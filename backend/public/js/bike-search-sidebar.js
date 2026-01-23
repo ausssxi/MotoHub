@@ -1,89 +1,89 @@
 /**
  * MotoHub Sidebar UI Logic
- * - フィルター選択時にキーワードを確実に消去する版
+ * 車種やメーカーが変更された際、キーワードだけでなく
+ * 価格・距離などのパラメータもリセットして「全件表示」に近い状態から再開させます。
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     const filterForm = document.getElementById('filter-form');
+    const keywordInput = filterForm?.querySelector('input[name="keyword"]');
     if (!filterForm) return;
 
-    const mobileHitCountEl = document.querySelector('#mobile-hit-count');
-    let debounceTimer;
+    /**
+     * すべてのフィルタ条件を初期状態（リセット）にする関数
+     */
+    const resetAllFilters = () => {
+        // 1. キーワードをクリア
+        if (keywordInput) {
+            keywordInput.value = "";
+        }
+
+        // 2. スライダーをリセット（最小・最大値へ戻す）
+        const sliders = filterForm.querySelectorAll('input[type="range"]');
+        sliders.forEach(slider => {
+            if (slider.classList.contains('range-min')) {
+                slider.value = slider.getAttribute('min');
+            } else if (slider.classList.contains('range-max')) {
+                slider.value = slider.getAttribute('max');
+            }
+            // 表示（ラベルやプログレスバー）を更新するためにinputイベントを発火
+            slider.dispatchEvent(new Event('input'));
+        });
+    };
 
     /**
-     * ✨ 修正：キーワード入力欄を全消去する関数
+     * フォーム送信時のクリーンアップ
      */
-    const clearKeywordInputs = () => {
-        console.log(">>> [UI] Clearing keyword inputs...");
+    const submitCleanForm = () => {
+        const inputs = filterForm.querySelectorAll('input, select');
         
-        // 1. フォーム内の隠しフィールド(hidden)や通常の入力欄をすべて対象にする
-        const keywords = document.querySelectorAll('input[name="keyword"]');
-        keywords.forEach(input => {
-            input.value = '';
+        inputs.forEach(input => {
+            const val = input.value;
+            const name = input.name;
+
+            // 空の値を無効化してURLを綺麗にする
+            if (!val && name !== 'sort') {
+                input.disabled = true;
+                return;
+            }
+
+            // スライダーがデフォルト境界値（下限なし・上限なし）にある場合は除外
+            if (input.type === 'range') {
+                const minAttr = input.getAttribute('min');
+                const maxAttr = input.getAttribute('max');
+                
+                if (input.classList.contains('range-min') && val === minAttr) {
+                    input.disabled = true;
+                }
+                if (input.classList.contains('range-max') && val === maxAttr) {
+                    input.disabled = true;
+                }
+            }
         });
 
-        // 2. ナビゲーションバーにある検索窓（PC/スマホ両方）も空にする
-        const navInputs = [
-            'nav-search-input',
-            'search-input',
-            'mobile-nav-search-input'
-        ];
-        navInputs.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
-        });
-    };
-
-    // --- 1. 共通：検索結果件数の更新 ---
-    const updateHitCount = async () => {
-        if (!mobileHitCountEl) return;
-        mobileHitCountEl.style.opacity = '0.5';
-        try {
-            const formData = new FormData(filterForm);
-            const cleanParams = new URLSearchParams();
-            for (const [key, value] of formData.entries()) {
-                if (value !== "" && value !== null) cleanParams.append(key, value);
-            }
-            const response = await fetch(`/api/bikes/count?${cleanParams.toString()}`);
-            const data = await response.json();
-            if (data.count !== undefined) {
-                mobileHitCountEl.textContent = `(${data.count.toLocaleString()}台)`;
-            }
-        } catch (e) { console.error(e); }
-        finally { mobileHitCountEl.style.opacity = '1'; }
-    };
-
-    const debouncedUpdate = () => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            if (window.innerWidth < 1024) {
-                updateHitCount();
-            } else {
-                filterForm.submit();
-            }
-        }, 400);
+        filterForm.submit();
     };
 
     /**
-     * ✨ 修正：フィルタ変更時の処理（manual引数を追加）
+     * フィルタ変更時の処理
+     * @param {boolean} shouldReset パラメータをリセットするかどうか
      */
-    const handleFilterChange = (isManualSelection = false) => {
-        // メーカーや車種を直接選んだ場合は、古い検索ワードを消す
-        if (isManualSelection) {
-            clearKeywordInputs();
+    const handleFilterChange = (shouldReset = false) => {
+        if (shouldReset) {
+            resetAllFilters();
         }
 
         if (window.innerWidth >= 1024) {
-            setTimeout(() => filterForm.submit(), 50);
-        } else {
-            updateHitCount();
+            // PC版は即座に送信
+            setTimeout(() => submitCleanForm(), 50);
         }
     };
 
-    // --- 2. スライダー初期化 ---
+    // --- デュアルレンジスライダーの初期化 (UI制御用) ---
     const initDualSlider = (containerId, minGap = 1) => {
         const container = document.getElementById(containerId);
         if (!container) return;
+
         const rangeInputs = container.querySelectorAll("input");
         const progress = container.querySelector(".slider-progress");
         const type = containerId.split('-')[1];
@@ -93,6 +93,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const updateUI = (event) => {
             let minVal = parseInt(rangeInputs[0].value);
             let maxVal = parseInt(rangeInputs[1].value);
+            const minLimit = parseInt(rangeInputs[0].min);
+            const maxLimit = parseInt(rangeInputs[0].max);
+
             if (maxVal - minVal < minGap) {
                 if (event && event.target.className.includes("range-min")) {
                     rangeInputs[0].value = maxVal - minGap;
@@ -102,31 +105,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     maxVal = minVal + minGap;
                 }
             }
+
             const formatLabel = (val, type, isMin) => {
-                if (isMin && val <= parseInt(rangeInputs[0].min)) return "下限なし";
-                if (!isMin && val >= parseInt(rangeInputs[0].max)) return "上限なし";
-                if (type === 'price') return `${val.toLocaleString()}万円`;
-                if (type === 'mileage') return `${val.toLocaleString()}km`;
-                return `${val}年`;
+                if (isMin && val <= minLimit) return "下限なし";
+                if (!isMin && val >= maxLimit) return "上限なし";
+                const formattedNum = val.toLocaleString();
+                if (type === 'price') return `${formattedNum}万円`;
+                if (type === 'mileage') return `${formattedNum}km`;
+                if (type === 'year') return `${val}年`;
+                return val;
             };
+
             if (labelMin) labelMin.textContent = formatLabel(minVal, type, true);
             if (labelMax) labelMax.textContent = formatLabel(maxVal, type, false);
+
             const minPercent = (minVal - rangeInputs[0].min) / (rangeInputs[0].max - rangeInputs[0].min) * 100;
             const maxPercent = (maxVal - rangeInputs[1].min) / (rangeInputs[1].max - rangeInputs[1].min) * 100;
             progress.style.left = minPercent + "%";
             progress.style.width = (maxPercent - minPercent) + "%";
         };
+
         rangeInputs.forEach(input => {
-            input.addEventListener("input", (e) => {
-                updateUI(e);
-                if (window.innerWidth < 1024) debouncedUpdate();
-            });
+            input.addEventListener("input", updateUI);
             input.addEventListener("change", () => handleFilterChange(false));
         });
+
         updateUI();
     };
 
-    // --- 3. メーカー・車種連動 ---
+    // --- メーカー・車種連動 ---
     const mSelect = document.getElementById('manufacturer-select');
     const modelSelect = document.getElementById('model-select');
     const modelContainer = document.getElementById('model-select-container');
@@ -141,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         modelSelect.disabled = false;
         modelContainer?.classList.remove('opacity-40');
+
         try {
             const res = await fetch(`/api/manufacturers/${mid}/models`);
             const models = await res.json();
@@ -153,30 +161,35 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { console.error(e); }
     };
 
-    mSelect?.addEventListener('change', async () => {
-        if (window.innerWidth < 1024) {
-            clearKeywordInputs(); // スマホ版でも手動変更時はキーワードを消す
-            await updateModelList(null);
-            updateHitCount();
+    // ✨ メーカー変更時：条件を完全にリセットする
+    mSelect?.addEventListener('change', () => {
+        if (window.innerWidth >= 1024) {
+            handleFilterChange(true);
         } else {
-            handleFilterChange(true); // PC版：引数をtrueにしてキーワードを消す
+            // スマホ版は車種リストだけ更新（パラメータのリセットは車種決定時に行う）
+            resetAllFilters();
+            updateModelList(null);
         }
     });
 
-    modelSelect?.addEventListener('change', () => handleFilterChange(true));
+    // ✨ 車種変更時：条件を完全にリセットする
+    modelSelect?.addEventListener('change', () => {
+        handleFilterChange(true);
+    });
 
-    // --- 4. その他（地域など） ---
-    const otherInputs = filterForm.querySelectorAll('select[name="prefecture"], input[name="is_new"], input[name="has_repair_history"]');
-    otherInputs.forEach(input => {
-        input.addEventListener('change', () => handleFilterChange(false));
+    const filterSelectors = ['select[name="prefecture"]', 'input[name="is_new"]', 'input[name="has_repair_history"]'];
+    filterSelectors.forEach(selector => {
+        filterForm.querySelectorAll(selector).forEach(input => {
+            input.addEventListener('change', () => handleFilterChange(false));
+        });
     });
 
     // 初期化
     initDualSlider("slider-price", 5);
     initDualSlider("slider-mileage", 2000);
     initDualSlider("slider-year", 1);
+
     if (mSelect && mSelect.value && modelSelect && modelSelect.options.length <= 1) {
         updateModelList(modelSelect.dataset.selectedId);
     }
-    if (window.lucide) window.lucide.createIcons();
 });

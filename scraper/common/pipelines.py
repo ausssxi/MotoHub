@@ -2,7 +2,6 @@ import os
 import requests
 import hashlib
 import logging
-from sqlalchemy.orm import Session
 from common.database import SessionLocal, Listing, BikeModel, Shop, Manufacturer
 
 class MotoHubImagePipeline:
@@ -11,10 +10,13 @@ class MotoHubImagePipeline:
     適切なディレクトリに保存し、DBの local_image_paths などを更新する共通パイプライン。
     """
     def open_spider(self, spider):
-        # スパイダー開始時にDBセッションを開く
-        self.db = SessionLocal()
         # Laravel側の public storage パスを基準にする
+        # Docker環境 (/var/www) またはローカル開発環境のパスを考慮
         self.storage_base = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../backend/storage/app/public"))
+        if not os.path.exists(self.storage_base):
+            # 万が一パスが解決できない場合の予備（Docker環境想定）
+            self.storage_base = "/var/www/storage/app/public"
+            
         self.logger = logging.getLogger(__name__)
 
     def process_item(self, item, spider):
@@ -43,6 +45,7 @@ class MotoHubImagePipeline:
                 sub_dir = f"{target_type}s"
                 
                 if target_type == 'listing':
+                    # サイト名ごとに分ける (goobike, bds, webike)
                     site_name = spider.site_name.lower() if hasattr(spider, 'site_name') else 'other'
                     save_dir = os.path.join(self.storage_base, sub_dir, site_name, shard)
                 else:
@@ -64,6 +67,7 @@ class MotoHubImagePipeline:
                             f.write(res.content)
                 
                 # Web（Laravel）からアクセス可能な相対パスを保持
+                # 例: listings/goobike/01/hash.jpg
                 rel_path = os.path.relpath(filepath, self.storage_base)
                 local_paths.append(rel_path)
 
@@ -81,7 +85,9 @@ class MotoHubImagePipeline:
     def update_db(self, item):
         """
         取得したローカルパスをDBの各テーブルに書き込みます。
+        トランザクション分離問題を避けるため、都度セッションを作成します。
         """
+        db = SessionLocal()
         try:
             target_id = item.get('id')
             target_type = item.get('target_type')
@@ -91,18 +97,16 @@ class MotoHubImagePipeline:
                 return
 
             if target_type == 'listing':
-                self.db.query(Listing).filter(Listing.id == target_id).update({"local_image_paths": paths})
+                db.query(Listing).filter(Listing.id == target_id).update({"local_image_paths": paths})
             elif target_type == 'model':
-                self.db.query(BikeModel).filter(BikeModel.id == target_id).update({"local_image_path": paths})
+                db.query(BikeModel).filter(BikeModel.id == target_id).update({"local_image_path": paths})
             elif target_type == 'shop':
                 # shopは通常代表画像1枚
-                self.db.query(Shop).filter(Shop.id == target_id).update({"local_image_path": paths[0]})
+                db.query(Shop).filter(Shop.id == target_id).update({"local_image_path": paths[0]})
             
-            self.db.commit()
+            db.commit()
         except Exception as e:
-            self.db.rollback()
+            db.rollback()
             self.logger.error(f"DB update error in pipeline: {e}")
-
-    def close_spider(self, spider):
-        # スパイダー終了時にセッションを閉じる
-        self.db.close()
+        finally:
+            db.close()

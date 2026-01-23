@@ -76,7 +76,7 @@ final class BikeController extends Controller
         $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
         
         // 4. 付加情報の取得
-        $searchMeta = $this->listingSearchService->getSearchMetadata($keyword, $prefecture);
+        $searchMeta = $this->listingSearchService->getSearchMetadata($keyword, $prefecture, $filters);
         $totalListingsCount = $this->listingSearchService->getActiveCount();
 
         return view('bikes.search', array_merge($result, [

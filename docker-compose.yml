@@ -29,11 +29,11 @@ services:
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443" # ✨ HTTPS用のポートを開放
+      #- "${HTTPS_PORT:-443}:443" # ✨ HTTPS用のポートを開放
     volumes:
       - ./backend:/var/www
       # ✨ 本番用のSSL対応設定ファイルを読み込む
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./docker/nginx/${NGINX_CONF:-default.conf}:/etc/nginx/conf.d/default.conf:ro
       # ✨ ホストOSにあるSSL証明書をコンテナ内から見れるようにマウント
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
