@@ -76,6 +76,6 @@
             </div>
         </div>
     </div>
-    <script src="{{ asset('js/compare-manager.js') }}"></script>
-    <script src="{{ asset('js/compare-page.js') }}"></script>
+    <script src="{{ asset('js/compare/manager.js') }}"></script>
+    <script src="{{ asset('js/compare/page.js') }}"></script>
 </x-layout>

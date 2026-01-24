@@ -136,5 +136,5 @@
     </main>
 
     {{-- 切り出したサジェスト用JavaScriptを読み込み --}}
-    <script src="{{ asset('js/search-suggest.js') }}"></script>
+    <script src="{{ asset('js/search/suggest.js') }}"></script>
 </x-layout>

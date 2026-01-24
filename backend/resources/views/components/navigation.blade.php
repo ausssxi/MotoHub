@@ -87,5 +87,5 @@
 
 @if($showSearch)
     {{-- サジェスト機能は単独で動作するように切り分けています --}}
-    <script src="{{ asset('js/search-suggest.js') }}"></script>
+    <script src="{{ asset('js/search/suggest.js') }}"></script>
 @endif

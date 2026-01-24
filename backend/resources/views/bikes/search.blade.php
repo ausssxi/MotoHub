@@ -323,8 +323,8 @@
             </div>
         </div>
     </div>
-    <script src="{{ asset('js/search-sidebar.js') }}"></script>
-    <script src="{{ asset('js/custom-dropdown.js') }}"></script>
-    <script src="{{ asset('js/compare-manager.js') }}"></script>
-    <script src="{{ asset('js/compare-ui.js') }}"></script>
+    <script src="{{ asset('js/search/sidebar.js') }}"></script>
+    <script src="{{ asset('js/common/custom-dropdown.js') }}"></script>
+    <script src="{{ asset('js/compare/manager.js') }}"></script>
+    <script src="{{ asset('js/compare/ui.js') }}"></script>
 </x-layout>

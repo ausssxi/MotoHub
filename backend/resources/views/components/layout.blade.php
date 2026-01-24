@@ -58,8 +58,8 @@
         お気に入り機能のコアロジックを読み込み
         Lucideの後に読み込むことで、JS内でのアイコン描画を確実にします
     --}}
-    <script src="{{ asset('js/wishlist.js') }}"></script>
-    <script src="{{ asset('js/search-interaction.js') }}"></script>
+    <script src="{{ asset('js/wishlist/manager.js') }}"></script>
+    <script src="{{ asset('js/search/interaction.js') }}"></script>
     {{ $scripts ?? '' }}
     <script>
         // ページ読み込み時にアイコンを初期化
