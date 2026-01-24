@@ -1,68 +1,72 @@
 import sys
 import os
 import json
+import time
 
 # ------------------------------------------------------------------
-# パス設定: commonモジュールをインポートできるようにする
+# 設定: ここで開始位置を指定します
+# ------------------------------------------------------------------
+START_INDEX = 85100  # ← 85100件目までスキップします
+
+# ------------------------------------------------------------------
+# パス設定
 # ------------------------------------------------------------------
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# 1つ上の階層（プロジェクトルート）をパスに追加
-sys.path.append(os.path.dirname(current_dir))
+sys.path.append(current_dir)
+project_root = os.path.dirname(current_dir)
+
+# 画像ストレージパスの決定
+STORAGE_PUBLIC_DIR = os.path.join(project_root, 'backend', 'storage', 'app', 'public')
+if not os.path.exists(STORAGE_PUBLIC_DIR):
+    STORAGE_PUBLIC_DIR = os.path.join(project_root, 'storage', 'app', 'public')
+    if not os.path.exists(STORAGE_PUBLIC_DIR):
+        STORAGE_PUBLIC_DIR = '/var/www/storage/app/public'
 
 try:
     from common.database import SessionLocal, Listing
 except ImportError:
     print("エラー: common.database が見つかりません。")
-    print("scripts ディレクトリの中で実行しているか確認してください。")
     sys.exit(1)
 
 def get_site_name(site_id):
-    """site_id からディレクトリ名を決定"""
-    site_map = {
-        1: "goobike",
-        2: "bds",
-        3: "webike"
-    }
+    site_map = {1: "goobike", 2: "bds", 3: "webike"}
     return site_map.get(site_id, "other")
 
 def get_extension(url):
-    """URLから拡張子を簡易推定"""
-    if not url:
-        return "jpg"
-    
-    # クエリパラメータ削除 (?v=123 等)
+    if not url: return "jpg"
     clean_url = url.split('?')[0]
-    # 最後のドット以降を取得
     parts = clean_url.split('.')
     if len(parts) > 1:
         ext = parts[-1].lower()
         if ext in ['png', 'gif', 'webp', 'jpeg', 'bmp']:
             if ext == 'jpeg': return 'jpg'
             return ext
-    
-    # デフォルトはjpg
     return "jpg"
 
 def fix_listing_paths():
     db = SessionLocal()
     try:
-        # local_image_paths が NULL でない（画像を持っている）レコードを取得
-        # ※全件処理したい場合はフィルタを外してください
+        print(f"画像ストレージの基準パス: {STORAGE_PUBLIC_DIR}")
         print("DBからデータを取得中...")
         listings = db.query(Listing).filter(Listing.image_urls != None).all()
         
         total = len(listings)
         print(f"対象レコード数: {total} 件")
-        print("パスの修復を開始します...")
+        print(f"★ {START_INDEX} 件目までスキップし、そこから処理を再開します...")
 
         count = 0
         updated_count = 0
+        missing_files_count = 0
 
         for item in listings:
-            # 画像URLリストの取得
+            count += 1
+            
+            # 【再開ロジック】指定件数まではスキップ
+            if count < START_INDEX:
+                continue
+
             image_urls = item.image_urls
             
-            # DBドライバによってはJSONが文字列で返ってくる場合の対応
             if isinstance(image_urls, str):
                 try:
                     image_urls = json.loads(image_urls)
@@ -72,41 +76,43 @@ def fix_listing_paths():
             if not image_urls or not isinstance(image_urls, list):
                 continue
 
-            # -------------------------------------------------
-            # 新しいパスの生成 
-            # 形式: listings/{site_name}/{shard}/{id}/{index}.{ext}
-            # -------------------------------------------------
-            
-            # シャード (IDの下2桁 00-99)
+            # パス生成
             shard = str(item.id % 100).zfill(2)
-            
-            # サイト名
             site_name = get_site_name(item.site_id)
-            
             new_paths = []
+            file_missing = False
+
             for i, url in enumerate(image_urls):
                 ext = get_extension(url)
+                rel_path = f"listings/{site_name}/{shard}/{item.id}/{i}.{ext}"
+                new_paths.append(rel_path)
                 
-                # パス生成
-                path = f"listings/{site_name}/{shard}/{item.id}/{i}.{ext}"
-                new_paths.append(path)
+                # 実在チェック
+                full_path = os.path.join(STORAGE_PUBLIC_DIR, rel_path)
+                if not os.path.exists(full_path):
+                    if not file_missing:
+                        file_missing = True
+                        missing_files_count += 1
 
-            # DB更新
-            # 配列をそのまま入れる（SQLAlchemyがJSON型として処理）
             item.local_image_paths = new_paths
             
-            count += 1
             updated_count += 1
             
-            # 進捗表示 & 定期コミット
-            if count % 100 == 0:
-                print(f"{count}/{total} 件処理完了...")
+            # 進捗表示 & コミット (頻度を高めに維持)
+            if updated_count % 10 == 0:
+                print(f"現在位置: {count}/{total} (今回処理: {updated_count}件) 完了...")
                 db.commit()
+                # ロック回避のため極小のウェイトを入れる
+                time.sleep(0.01)
 
-        # 最終コミット
         db.commit()
         print("-" * 30)
-        print(f"完了: 合計 {updated_count} 件のパスを以前の形式（IDフォルダ型）に修正しました。")
+        print(f"完了: 合計 {updated_count} 件のDBパスを修正しました。")
+        
+        if missing_files_count > 0:
+            print(f"\n【重要】 今回の処理範囲で {missing_files_count} 件のレコードで画像ファイルが見つかりませんでした。")
+        else:
+            print("\nすべての画像ファイルが正しく存在しています。")
 
     except Exception as e:
         print(f"エラーが発生しました: {e}")
@@ -115,13 +121,7 @@ def fix_listing_paths():
         db.close()
 
 if __name__ == "__main__":
-    print("=" * 50)
-    print("【 Listingパス修復スクリプト 】")
-    print("DBの 'local_image_paths' を強制的に 'listings/site/shard/id/番号.jpg' 形式に書き換えます。")
-    print("※注意: 実際のファイル移動は行いません。整合性を取るために実行してください。")
-    print("=" * 50)
-    
-    val = input("実行しますか？ (y/n): ")
+    val = input(f"{START_INDEX}件目から再開しますか？ (y/n): ")
     if val.lower() == 'y':
         fix_listing_paths()
     else:

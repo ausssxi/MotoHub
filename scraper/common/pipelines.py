@@ -1,13 +1,12 @@
 import os
 import requests
-import hashlib
 import logging
 from common.database import SessionLocal, Listing, BikeModel, Shop, Manufacturer
 
 class MotoHubImagePipeline:
     """
-    あらゆる種類のクローラーから送られてくる画像を、
-    適切なディレクトリに保存し、DBの local_image_paths などを更新する共通パイプライン。
+    画像をダウンロードし、IDごとのフォルダに連番(0.jpg, 1.jpg...)で保存するパイプライン。
+    DBの local_image_paths も更新します。
     """
     def open_spider(self, spider):
         # Laravel側の public storage パスを基準にする
@@ -21,8 +20,8 @@ class MotoHubImagePipeline:
 
     def process_item(self, item, spider):
         """
-        item内の 'image_urls' を見てダウンロードし、
-        'target_type' (listing, model, shop) に応じてフォルダを振り分けます。
+        保存ロジックを変更: 
+        ハッシュ名ではなく、IDフォルダを作成し、その中に連番(0.jpg, 1.jpg)で保存します。
         """
         image_urls = item.get('image_urls')
         if not image_urls:
@@ -33,43 +32,64 @@ class MotoHubImagePipeline:
             image_urls = [image_urls]
 
         target_type = item.get('target_type', 'listing') 
-        local_paths = []
+        target_id = item.get('id')
 
-        for url in image_urls:
+        # IDがない場合は保存場所が決まらないためスキップ
+        if not target_id:
+            return item
+
+        local_paths = []
+        
+        # 1. 保存先ディレクトリの決定
+        shard = str(target_id % 100).zfill(2)
+        
+        # サイト名取得 (listingsの場合)
+        if target_type == 'listing':
+            site_name = spider.site_name.lower() if hasattr(spider, 'site_name') else 'other'
+            # 構成: listings/site_name/shard/id
+            rel_dir = f"{target_type}s/{site_name}/{shard}/{target_id}"
+        elif target_type == 'manufacturer':
+            # 構成: manufacturers/id
+            rel_dir = f"{target_type}s/{target_id}"
+        else:
+            # shops/shard/id, bike_models/shard/id
+            rel_dir = f"{target_type}s/{shard}/{target_id}"
+
+        # 絶対パスの生成とフォルダ作成
+        abs_dir = os.path.join(self.storage_base, rel_dir)
+        os.makedirs(abs_dir, exist_ok=True)
+
+        # 2. 連番で保存処理
+        for i, url in enumerate(image_urls):
             if not url or not url.startswith('http'):
                 continue
                 
             try:
-                # 1. 保存先ディレクトリの決定 (IDの下2桁でシャッフルして1フォルダのファイル数を抑える)
-                shard = str(item.get('id', 0) % 100).zfill(2) if item.get('id') else "00"
-                sub_dir = f"{target_type}s"
-                
-                if target_type == 'listing':
-                    # サイト名ごとに分ける (goobike, bds, webike)
-                    site_name = spider.site_name.lower() if hasattr(spider, 'site_name') else 'other'
-                    save_dir = os.path.join(self.storage_base, sub_dir, site_name, shard)
-                else:
-                    save_dir = os.path.join(self.storage_base, sub_dir, shard)
-
-                os.makedirs(save_dir, exist_ok=True)
-
-                # 2. ファイル名の生成 (URLのMD5ハッシュ値を使用して重複を防ぐ)
-                ext = url.split('.')[-1].split('?')[0] or 'jpg'
+                # 拡張子判定
+                clean_url = url.split('?')[0]
+                parts = clean_url.split('.')
+                ext = parts[-1].lower() if len(parts) > 1 else 'jpg'
                 if len(ext) > 4: ext = 'jpg'
-                filename = f"{hashlib.md5(url.encode()).hexdigest()}.{ext}"
-                filepath = os.path.join(save_dir, filename)
+                
+                # ファイル名: 0.jpg, 1.jpg ...
+                filename = f"{i}.{ext}"
+                filepath = os.path.join(abs_dir, filename)
 
-                # 3. ダウンロード (未保存の場合のみ)
+                # ダウンロード (上書きモード、または存在チェック)
+                # 画像が更新されている可能性もあるため、基本的には上書き推奨ですが
+                # 負荷軽減のため存在チェックを入れる場合は以下のようにします
                 if not os.path.exists(filepath):
                     res = requests.get(url, timeout=15)
                     if res.status_code == 200:
                         with open(filepath, 'wb') as f:
                             f.write(res.content)
+                    else:
+                        self.logger.warning(f"Image download failed status {res.status_code}: {url}")
                 
-                # Web（Laravel）からアクセス可能な相対パスを保持
-                # 例: listings/goobike/01/hash.jpg
-                rel_path = os.path.relpath(filepath, self.storage_base)
-                local_paths.append(rel_path)
+                # DB保存用の相対パス
+                # listings/goobike/01/12345/0.jpg
+                rel_file_path = f"{rel_dir}/{filename}"
+                local_paths.append(rel_file_path)
 
             except Exception as e:
                 self.logger.warning(f"Failed to download image: {url} - {e}")
@@ -103,6 +123,8 @@ class MotoHubImagePipeline:
             elif target_type == 'shop':
                 # shopは通常代表画像1枚
                 db.query(Shop).filter(Shop.id == target_id).update({"local_image_path": paths[0]})
+            elif target_type == 'manufacturer':
+                db.query(Manufacturer).filter(Manufacturer.id == target_id).update({"local_logo_path": paths[0]})
             
             db.commit()
         except Exception as e:
