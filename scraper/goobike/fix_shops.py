@@ -24,14 +24,15 @@ from common.database import SessionLocal, Listing, Shop, ShopIdentifier, Site
 class GooBikeShopFixSpider(scrapy.Spider):
     """
     GooBikeのリスティングで shop_id が NULL のものを対象に
-    詳細ページを巡回し、ショップ情報を補完するスパイダー
+    詳細ページを巡回し、ショップIDを特定して紐付けを行うスパイダー。
+    DB制約（住所必須など）に対応するため、住所情報も取得して保存します。
     """
     name = "goobike_shop_fix"
     site_name = "GooBike"
     allowed_domains = ["www.goobike.com"]
 
     custom_settings = {
-        'CONCURRENT_REQUESTS': 8, # 修復用なので負荷をかけすぎないように少し抑えめ
+        'CONCURRENT_REQUESTS': 8,
         'DOWNLOAD_DELAY': 0.5,
         'RANDOMIZE_DOWNLOAD_DELAY': True,
         'COOKIES_ENABLED': True,
@@ -42,22 +43,17 @@ class GooBikeShopFixSpider(scrapy.Spider):
     def start_requests(self):
         self.db = SessionLocal()
         try:
-            # 1. GooBikeのサイトIDを取得
-            # common/database.py の定義に基づき Site.name で検索
+            # サイトIDの取得
             site = self.db.query(Site).filter(Site.name == 'GooBike').first()
-            
             if not site:
-                self.logger.error("GooBike site record not found (searched by name='GooBike').")
-                # 名前が小文字登録されている可能性も考慮して再トライ
                 site = self.db.query(Site).filter(Site.name == 'goobike').first()
-
             if not site:
                 self.logger.error("GooBike site record not found. Aborting.")
                 return
             
             self.site_id = site.id
 
-            # 2. shop_id が NULL の GooBike リスティングを取得
+            # 対象リスティングの取得
             targets = self.db.query(Listing).filter(
                 Listing.site_id == self.site_id,
                 Listing.shop_id == None,
@@ -83,34 +79,68 @@ class GooBikeShopFixSpider(scrapy.Spider):
             # -------------------------------------------------
             # 1. ショップ識別子 (client_id) の抽出
             # -------------------------------------------------
-            shop_href = response.css('a[href*="client_"]::attr(href)').get()
-            
             shop_identifier = None
-            if shop_href:
-                m = re.search(r'client_(\d+)', shop_href)
-                if m:
-                    shop_identifier = m.group(1)
+            
+            # A. input hidden (name="client_id")
+            shop_identifier = response.css('input[name="client_id"]::attr(value)').get()
+            
+            # B. input hidden (name="g_client_id")
+            if not shop_identifier:
+                shop_identifier = response.css('input[name="g_client_id"]::attr(value)').get()
+
+            # C. JavaScript変数
+            if not shop_identifier:
+                script_text = response.xpath('//script[contains(text(), "var client_id")]/text()').get()
+                if script_text:
+                    m = re.search(r"var\s+client_id\s*=\s*['\"](\d+)['\"]", script_text)
+                    if m: shop_identifier = m.group(1)
+
+            # D. リンク
+            if not shop_identifier:
+                shop_href = response.css('a[href*="client_"]::attr(href)').get()
+                if shop_href:
+                    m = re.search(r'client_(\d+)', shop_href)
+                    if m: shop_identifier = m.group(1)
 
             if not shop_identifier:
                 self.logger.warning(f"Could not find shop identifier for listing {listing_id} ({response.url})")
                 return
 
             # -------------------------------------------------
-            # 2. ショップ詳細情報の抽出
+            # 2. ショップ情報の抽出
             # -------------------------------------------------
-            shop_name = response.css('.shop_info_area h3 a::text').get() or \
-                        response.css('.shop_info_area h3::text').get() or \
-                        response.css('.detail_shop_name a::text').get() or \
-                        "不明な販売店"
             
-            shop_name = shop_name.strip()
+            # 店名
+            shop_name = response.css('a.exp::text').get()
+            if not shop_name:
+                shop_name = response.css('.shop_info_area h3 a::text').get()
+            if not shop_name:
+                title_text = response.css('title::text').get()
+                if title_text:
+                    parts = title_text.split('｜')
+                    if len(parts) >= 2:
+                        shop_name = parts[1].strip()
+            if not shop_name:
+                candidates = response.css('a[href*="client_"]::text').getall()
+                for c in candidates:
+                    c = c.strip()
+                    if c and "見積" not in c and "問合" not in c and "レビュー" not in c:
+                        shop_name = c
+                        break
+            
+            shop_name = shop_name.strip() if shop_name else f"GooBike_Shop_{shop_identifier}"
 
-            # 住所・TEL
-            address = response.css('.shop_address::text').get() or ""
-            tel = response.css('.shop_tel::text').get() or ""
+            # 住所・電話番号 (テーブル構造からXPathで取得)
+            address = response.xpath('//td[contains(., "住所")]/following-sibling::td[1]//span/text()').get() or \
+                      response.xpath('//td[contains(., "住所")]/following-sibling::td[1]/text()').get() or ""
+            address = address.strip().replace('\n', '').replace('\r', '')
+
+            tel = response.xpath('//td[contains(., "TEL")]/following-sibling::td[1]//span/text()').get() or \
+                  response.xpath('//td[contains(., "TEL")]/following-sibling::td[1]/text()').get() or ""
+            tel = tel.strip().replace('\n', '').replace('\r', '')
             
             # -------------------------------------------------
-            # 3. DB更新処理
+            # 3. DB更新処理 (住所と電話番号も渡す)
             # -------------------------------------------------
             self.update_database(listing_id, shop_identifier, shop_name, address, tel)
 
@@ -123,7 +153,7 @@ class GooBikeShopFixSpider(scrapy.Spider):
         """
         db: Session = SessionLocal()
         try:
-            # A. 既存のショップがあるか確認
+            # A. 既存のショップ識別子があるか確認
             shop_ident_record = db.query(ShopIdentifier).filter(
                 ShopIdentifier.site_id == self.site_id,
                 ShopIdentifier.identifier == identifier
@@ -132,23 +162,26 @@ class GooBikeShopFixSpider(scrapy.Spider):
             internal_shop_id = None
 
             if shop_ident_record:
-                # 既に存在する店舗
+                # 既に存在する店舗ならそのIDを使う
                 internal_shop_id = shop_ident_record.shop_id
                 self.logger.info(f"Found existing shop: {name} (ID: {internal_shop_id})")
             else:
-                # 新規店舗の作成
+                # 新規店舗の場合
                 self.logger.info(f"Creating NEW shop: {name} (Client: {identifier})")
                 
-                # 都道府県の簡易抽出 (住所の先頭3~4文字)
+                # 都道府県の簡易抽出
                 prefecture = ""
                 if address:
                     m = re.match(r'(東京都|北海道|大阪府|京都府|.{2,3}県)', address)
                     if m: prefecture = m.group(1)
 
+                # DBのNOT NULL制約対策：空の場合はダミー値を入れる
+                safe_address = address if address else "-" 
+
                 new_shop = Shop(
                     name=name,
-                    address=address,
-                    phone=tel, # 修正: Shopモデルの定義は 'phone' なので 'tel' ではなく 'phone' に代入
+                    address=safe_address,
+                    phone=tel,
                     prefecture=prefecture,
                 )
                 db.add(new_shop)
@@ -156,7 +189,7 @@ class GooBikeShopFixSpider(scrapy.Spider):
 
                 internal_shop_id = new_shop.id
 
-                # 識別子の紐付け
+                # 識別子の紐付け作成
                 new_ident = ShopIdentifier(
                     shop_id=new_shop.id,
                     site_id=self.site_id,
