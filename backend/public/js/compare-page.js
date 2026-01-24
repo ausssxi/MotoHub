@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <i data-lucide="x-circle" class="w-5 h-5 sm:w-6 sm:h-6 bg-white/50 rounded-full"></i>
                 </button>
                 
-                <div class="aspect-[4/3] rounded-lg sm:rounded-xl overflow-hidden mb-2 sm:mb-3 shadow-sm bg-gray-50 relative">
+                <div class="aspect-square sm:aspect-[4/3] rounded-lg sm:rounded-xl overflow-hidden mb-2 sm:mb-3 shadow-sm bg-gray-50 relative">
                     <img src="${displayImage}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                 </div>
                 
