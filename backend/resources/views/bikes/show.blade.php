@@ -3,6 +3,12 @@
         {{ $listing->name }} | MotoHub
     </x-slot:title>
 
+    {{-- 比較機能用のスクリプトを読み込み --}}
+    <x-slot:scripts>
+        <script src="{{ asset('js/compare/manager.js') }}"></script>
+        <script src="{{ asset('js/compare/ui.js') }}"></script>
+    </x-slot:scripts>
+
     <x-slot:navigation>
         <x-navigation :totalListingsCount="$totalListingsCount" :showSearch="true" />
     </x-slot:navigation>
@@ -11,11 +17,30 @@
     <div class="bg-white border-b border-gray-100">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <nav class="flex text-xs font-bold text-gray-400" aria-label="Breadcrumb">
-                <ol class="flex items-center space-x-2">
+                <ol class="flex items-center space-x-2 whitespace-nowrap overflow-x-auto scrollbar-hide">
                     <li><a href="/" class="hover:text-gray-600 transition-colors">HOME</a></li>
-                    <li><span class="text-gray-300">/</span></li>
-                    <li><a href="{{ route('bikes.search') }}" class="hover:text-gray-600 transition-colors">中古車検索</a></li>
-                    <li><span class="text-gray-300">/</span></li>
+                    
+                    {{-- メーカー --}}
+                    @if($listing->manufacturer_id)
+                        <li><span class="text-gray-300">＞</span></li>
+                        <li>
+                            <a href="{{ route('bikes.search', ['manufacturer_id' => $listing->manufacturer_id]) }}" class="hover:text-gray-600 transition-colors">
+                                {{ $listing->maker }}
+                            </a>
+                        </li>
+                    @endif
+
+                    {{-- 車種 --}}
+                    @if($listing->bike_model_id && $listing->bike_model_name)
+                        <li><span class="text-gray-300">＞</span></li>
+                        <li>
+                            <a href="{{ route('bikes.search', ['manufacturer_id' => $listing->manufacturer_id, 'bike_model_id' => $listing->bike_model_id]) }}" class="hover:text-gray-600 transition-colors">
+                                {{ $listing->bike_model_name }}
+                            </a>
+                        </li>
+                    @endif
+
+                    <li><span class="text-gray-300">＞</span></li>
                     <li><span class="text-gray-800">{{ $listing->name }}</span></li>
                 </ol>
             </nav>
@@ -31,10 +56,18 @@
                     
                     {{-- 1. 画像ギャラリー --}}
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                        {{-- メイン画像 --}}
-                        <div class="aspect-[4/3] bg-gray-100 relative group">
+                        {{-- メイン画像エリア --}}
+                        <div class="aspect-[4/3] bg-gray-100 relative group overflow-hidden">
                             @if(!empty($listing->images) && count($listing->images) > 0)
-                                <img src="{{ $listing->images[0] }}" alt="{{ $listing->name }}" class="w-full h-full object-cover">
+                                {{-- A. 背景用（拡大・ぼかし） --}}
+                                <div class="absolute inset-0 z-0">
+                                    <img src="{{ $listing->images[0] }}" class="w-full h-full object-cover blur-2xl opacity-50 scale-110" aria-hidden="true">
+                                </div>
+                                
+                                {{-- B. 表示用（元サイズ維持・中央配置） --}}
+                                <div class="absolute inset-0 z-10 flex items-center justify-center p-1">
+                                    <img src="{{ $listing->images[0] }}" alt="{{ $listing->name }}" class="max-w-full max-h-full object-contain shadow-sm">
+                                </div>
                             @else
                                 <div class="flex items-center justify-center h-full text-gray-300">
                                     <i data-lucide="image-off" class="w-12 h-12"></i>
@@ -42,7 +75,7 @@
                             @endif
                             
                             {{-- 画像枚数バッジ --}}
-                            <div class="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm">
+                            <div class="absolute bottom-4 right-4 z-20 bg-black/70 text-white px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm">
                                 <i data-lucide="camera" class="w-3 h-3 inline mr-1"></i>
                                 {{ count($listing->images ?? []) }}枚
                             </div>
@@ -50,9 +83,9 @@
 
                         {{-- サムネイルリスト（横スクロール） --}}
                         @if(!empty($listing->images) && count($listing->images) > 1)
-                        <div class="flex gap-2 p-4 overflow-x-auto scrollbar-hide">
+                        <div class="flex gap-2 p-4 overflow-x-auto scrollbar-hide bg-white border-t border-gray-100">
                             @foreach($listing->images as $img)
-                                <button class="shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-600 transition-all">
+                                <button class="shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-600 transition-all bg-gray-50">
                                     <img src="{{ $img }}" class="w-full h-full object-cover">
                                 </button>
                             @endforeach
@@ -67,13 +100,14 @@
                                 <h1 class="text-2xl sm:text-3xl font-black text-gray-900 leading-tight mb-2">{{ $listing->name }}</h1>
                                 <div class="flex items-center gap-3 text-sm font-bold text-gray-500">
                                     <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded">{{ $listing->maker }}</span>
-                                    <span>ID: {{ $listing->id }}</span>
+                                    {{-- ID表示を削除しました --}}
                                 </div>
                             </div>
                             
                             {{-- お気に入り・比較ボタン --}}
                             <div class="flex items-center gap-2">
-                                <button class="compare-toggle-btn w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors" data-id="{{ $listing->id }}">
+                                {{-- 修正: クラス名を compare-toggle-btn から compare-btn に変更 --}}
+                                <button class="compare-btn w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors" data-id="{{ $listing->id }}">
                                     <i data-lucide="layers" class="w-5 h-5"></i>
                                 </button>
                                 <button class="wishlist-btn w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors" data-id="{{ $listing->id }}">
@@ -84,11 +118,6 @@
 
                         {{-- スペックグリッド --}}
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-                            {{-- 
-                                修正箇所：
-                                ListingResourceですでに「～年」「～km」「～cc」「あり/なし」の文字列になっているため、
-                                Blade側では number_format や 単位の付与を行わず、そのまま表示します。
-                            --}}
                             <div class="bg-gray-50 rounded-2xl p-4 text-center">
                                 <div class="text-xs font-bold text-gray-400 mb-1">年式</div>
                                 <div class="text-lg font-black text-gray-900">{{ $listing->model_year }}</div>
@@ -110,28 +139,45 @@
                         {{-- 説明文エリア --}}
                         <div class="prose prose-sm max-w-none text-gray-600">
                             <h3 class="text-lg font-black text-gray-900 mb-3">車両の状態・コメント</h3>
-                            <div class="whitespace-pre-wrap leading-relaxed">
-                                @if(!empty($listing->description))
+                            
+                            @if(!empty($listing->description))
+                                <div class="whitespace-pre-wrap leading-relaxed">
                                     {{ $listing->description }}
-                                @else
-                                    <p>ご覧いただきありがとうございます。<br>
-                                    {{ $listing->maker }} {{ $listing->name }} の掲載車両です。</p>
+                                </div>
+                            @else
+                                <div class="leading-normal text-sm">
+                                    <p class="mb-3">
+                                        ご覧いただきありがとうございます。<br>
+                                        <span class="font-bold text-gray-800">{{ $listing->maker }} {{ $listing->name }}</span> の掲載車両です。
+                                    </p>
 
-                                    <ul class="list-disc pl-5 my-4 space-y-1">
-                                        <li>年式: {{ $listing->model_year }}</li>
-                                        <li>走行距離: {{ $listing->mileage }}</li>
-                                        {{-- Resourceで「〇〇.〇」の形式になっているので単位は「万円」にします --}}
-                                        <li>支払総額: {{ $listing->total_price }} 万円</li>
-                                    </ul>
+                                    <div class="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-100">
+                                        <ul class="space-y-1">
+                                            <li class="flex gap-2">
+                                                <span class="text-gray-400 text-xs w-16 pt-0.5">年式</span>
+                                                <span class="font-bold text-gray-800">{{ $listing->model_year }}</span>
+                                            </li>
+                                            <li class="flex gap-2">
+                                                <span class="text-gray-400 text-xs w-16 pt-0.5">走行距離</span>
+                                                <span class="font-bold text-gray-800">{{ $listing->mileage }}</span>
+                                            </li>
+                                            <li class="flex gap-2">
+                                                <span class="text-gray-400 text-xs w-16 pt-0.5">支払総額</span>
+                                                <span class="font-black text-red-500">{{ $listing->total_price }} 万円</span>
+                                            </li>
+                                        </ul>
+                                    </div>
 
-                                    <p>本車両は「{{ $listing->shop_name }}」にて販売中です。<br>
-                                    車両の状態や見積もりの詳細については、ページ内の「在庫確認・見積もり」ボタンから販売店へ直接お問い合わせください。</p>
+                                    <p class="mb-4">
+                                        本車両は「<span class="font-bold">{{ $listing->shop_name }}</span>」にて販売中です。<br>
+                                        車両の状態や見積もりの詳細については、ページ内の「在庫確認・見積もり」ボタンから販売店へ直接お問い合わせください。
+                                    </p>
                                     
-                                    <p class="text-xs text-gray-400 mt-4">
+                                    <p class="text-xs text-gray-400 pt-4 border-t border-dashed border-gray-200">
                                         ※このコメントは車両データから自動生成されています。詳細は販売店にご確認ください。
                                     </p>
-                                @endif
-                            </div>
+                                </div>
+                            @endif
                         </div>
                     </div>
 
@@ -170,7 +216,6 @@
                             <div class="text-center mb-6">
                                 <div class="text-sm font-bold text-gray-400 mb-1">支払総額</div>
                                 <div class="text-4xl font-black text-red-500 tracking-tight">
-                                    {{-- Resource側で1/10000されているため、単位は「万円」が適切 --}}
                                     {{ $listing->total_price }}
                                     <span class="text-sm text-gray-500 font-bold ml-1">万円</span>
                                 </div>
@@ -186,9 +231,20 @@
                                     在庫確認・見積もり
                                     <span class="block text-[10px] font-medium opacity-80 mt-0.5">（外部サイトへ移動します）</span>
                                 </a>
-                                <button class="block w-full bg-white border-2 border-gray-100 hover:border-blue-600 text-gray-700 hover:text-blue-600 font-bold text-center py-3 rounded-xl transition-all">
-                                    電話で問い合わせる
-                                </button>
+                                
+                                @if(!empty($listing->shop_tel) && $listing->shop_tel !== '-')
+                                    <a href="tel:{{ str_replace('-', '', $listing->shop_tel) }}" class="block w-full bg-white border-2 border-gray-100 hover:border-blue-600 text-gray-700 hover:text-blue-600 font-bold text-center py-3 rounded-xl transition-all group">
+                                        <span class="flex items-center justify-center gap-2">
+                                            <i data-lucide="phone" class="w-5 h-5 group-hover:text-blue-600 transition-colors"></i>
+                                            電話で問い合わせる
+                                        </span>
+                                        <span class="block text-xs font-normal text-gray-400 mt-0.5 group-hover:text-blue-500">{{ $listing->shop_tel }}</span>
+                                    </a>
+                                @else
+                                    <button class="block w-full bg-gray-50 border-2 border-gray-50 text-gray-300 font-bold text-center py-3 rounded-xl cursor-not-allowed" disabled>
+                                        電話番号なし
+                                    </button>
+                                @endif
                             </div>
                             
                             <div class="mt-6 pt-6 border-t border-gray-100 text-center">
@@ -217,7 +273,6 @@
         </div>
     </div>
 
-    {{-- 履歴保存用スクリプト --}}
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             if (window.HistoryManager) {

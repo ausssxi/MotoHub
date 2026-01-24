@@ -26,6 +26,11 @@ class ListingResource extends JsonResource
             'source_domain'  => $this->resolveSourceDomain($this->site?->name ?? ''),
             
             'maker'          => $this->bikeModel?->manufacturer?->name ?? 'メーカー不明',
+            // パンくずリスト用のIDを追加
+            'manufacturer_id' => $this->bikeModel?->manufacturer_id,
+            'bike_model_id'   => $this->bike_model_id,
+            'bike_model_name' => $this->bikeModel?->name,
+
             'name'           => $this->title ?? $this->bikeModel?->name ?? '車種名不明',
             'model_year'     => $this->model_year ? "{$this->model_year}年" : '不明',
             'mileage'        => $this->mileage !== null ? number_format($this->mileage) . 'km' : '走行不明',

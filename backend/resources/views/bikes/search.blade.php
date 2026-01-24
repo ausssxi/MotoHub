@@ -7,6 +7,14 @@
         <link rel="stylesheet" href="{{ asset('css/bike-search.css') }}">
     </x-slot:styles>
 
+    {{-- 比較機能用のスクリプト --}}
+    <x-slot:scripts>
+        <script src="{{ asset('js/search/sidebar.js') }}"></script>
+        <script src="{{ asset('js/common/custom-dropdown.js') }}"></script>
+        <script src="{{ asset('js/compare/manager.js') }}"></script>
+        <script src="{{ asset('js/compare/ui.js') }}"></script>
+    </x-slot:scripts>
+
     <x-slot:navigation>
         <x-navigation :totalListingsCount="$totalListingsCount" :showSearch="true" :keyword="$keyword" />
     </x-slot:navigation>
@@ -148,7 +156,7 @@
                             </div>
                         </div>
 
-                        <!-- 💡 【修正】モバイル・タブレット版のみ表示。PC版(lg:1024px以上)はオートリロードされるため非表示 -->
+                        <!-- モバイル用検索ボタン -->
                         <div class="pt-4 lg:hidden">
                             <button type="submit" class="w-full bg-[#5392f9] text-white font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest shadow-xl shadow-blue-100 active:scale-95 transition-all flex items-center justify-center gap-2">
                                 <span>条件を適用する</span>
@@ -235,7 +243,9 @@
                 <div id="results-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                     @forelse ($items as $listing)
                         <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col group border border-gray-100 relative cursor-pointer bike-card">
-                            <a href="{{ $listing['url'] }}" target="_blank" rel="noopener noreferrer" class="absolute inset-0 z-20"></a>
+                            
+                            {{-- ★ここを変更しました：詳細ページへのリンク --}}
+                            <a href="{{ route('bikes.show', $listing['id']) }}" class="absolute inset-0 z-20"></a>
                             
                             <div class="aspect-[4/3] relative overflow-hidden bg-gray-50">
                                 @if(!empty($listing['images']) && isset($listing['images'][0]))
@@ -252,7 +262,7 @@
                                     <i data-lucide="heart" class="w-5 h-5"></i>
                                 </button>
                                 
-                                <!-- ✨ 右下：掲載元バッジ（bottom-3 に変更） -->
+                                <!-- 右下：掲載元バッジ -->
                                 <div class="absolute bottom-3 right-3 z-10 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-sm">
                                     <img src="https://www.google.com/s2/favicons?domain={{ $listing['source_domain'] ?? 'google.com' }}&sz=32" class="w-3 h-3 rounded-sm brightness-110" alt="">
                                     <span class="text-[8px] font-black text-white/90">{{ $listing['source'] }}</span>
@@ -323,8 +333,4 @@
             </div>
         </div>
     </div>
-    <script src="{{ asset('js/search/sidebar.js') }}"></script>
-    <script src="{{ asset('js/common/custom-dropdown.js') }}"></script>
-    <script src="{{ asset('js/compare/manager.js') }}"></script>
-    <script src="{{ asset('js/compare/ui.js') }}"></script>
 </x-layout>
