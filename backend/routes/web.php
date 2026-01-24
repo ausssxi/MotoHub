@@ -11,9 +11,14 @@ use App\Http\Controllers\Api\BikeApiController;
 
 // --- メイン機能 (BikeController) ---
 Route::get('/', [BikeController::class, 'index'])->name('bikes.index');
-Route::get('/search', [BikeController::class, 'search'])->name('bikes.search'); 
-Route::get('/models', [BikeController::class, 'models'])->name('bikes.models');
-Route::get('/bikes/suggest', [BikeController::class, 'suggest'])->name('bikes.suggest');
+
+// '/bikes' で始まるルートをグループ化
+Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group(function () {
+    Route::get('/search', 'search')->name('search');    // URL: /bikes/search, Name: bikes.search
+    Route::get('/models', 'models')->name('models');    // URL: /bikes/models, Name: bikes.models
+    Route::get('/suggest', 'suggest')->name('suggest'); // URL: /bikes/suggest, Name: bikes.suggest
+    Route::get('/{id}', 'show')->name('show');          // URL: /bikes/{id}, Name: bikes.show
+});
 
 // --- お気に入り機能 (Wishlist) ---
 // URLを /wishlist にして独立させ、主要機能としての扱いを明確にします

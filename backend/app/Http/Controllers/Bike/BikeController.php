@@ -5,23 +5,19 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Bike;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Bike\ListingResource;
-use App\Services\Bike\BikeService;
-use App\Services\Bike\ListingSearchService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Contracts\View\View;
 use App\Models\Listing;
+use App\Services\Bike\BikeService;
+use App\Services\Bike\ListingSearchService;
+use App\Http\Resources\Bike\ListingResource; // 名前空間に注意
 
 /**
  * バイク検索・表示機能を提供するメインコントローラー
  */
 final class BikeController extends Controller
 {
-    /**
-     * @param BikeService $bikeService バイクマスタ関連サービス
-     * @param ListingSearchService $listingSearchService 出品検索関連サービス
-     */
     public function __construct(
         private readonly BikeService $bikeService,
         private readonly ListingSearchService $listingSearchService
@@ -34,8 +30,6 @@ final class BikeController extends Controller
     {
         $popularBikes = $this->bikeService->getPopularBikesForTopPage();
         $totalListingsCount = $this->listingSearchService->getActiveCount();
-        
-        // ✨ config/bike.php から地域データを取得
         $regions = config('bike.regions');
 
         return view('bikes.index', compact('popularBikes', 'totalListingsCount', 'regions'));
@@ -46,12 +40,10 @@ final class BikeController extends Controller
      */
     public function search(Request $request): View|JsonResponse
     {
-        // 1. パラメータの取得
         $keyword = $request->query('keyword');
         $prefecture = $request->query('prefecture');
         $sort = (string) $request->query('sort', 'latest');
 
-        // 2. フィルタ条件の整理
         $filters = [
             'min_price'          => $request->query('min_price'),
             'max_price'          => $request->query('max_price'),
@@ -66,16 +58,12 @@ final class BikeController extends Controller
             'prefecture'         => $request->query('prefecture'),
         ];
 
-        // モバイル版：件数のみ取得リクエストへの対応
         if ($request->has('count_only')) {
             $count = $this->listingSearchService->getFilteredCount($keyword, $prefecture, $filters);
             return response()->json(['total' => $count]);
         }
 
-        // 3. 検索実行（Service内で推論ロジック等が走る）
         $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
-        
-        // 4. 付加情報の取得
         $searchMeta = $this->listingSearchService->getSearchMetadata($keyword, $prefecture, $filters);
         $totalListingsCount = $this->listingSearchService->getActiveCount();
 
@@ -89,17 +77,33 @@ final class BikeController extends Controller
     }
 
     /**
-     * 車種取得API (サイドバーのドリルダウン用)
+     * 車両詳細ページを表示
      */
+    public function show($id)
+    {
+
+        $totalListingsCount = $this->listingSearchService->getActiveCount();
+
+        // 1. データを取得
+        $listing = Listing::with(['shop', 'bikeModel.manufacturer'])->findOrFail($id);
+
+        // 2. Resourceを使って整形 (配列化してからオブジェクトに変換)
+        // Blade側で $listing->name のようにアクセスできるように (object) キャストします
+        $data = (object) (new ListingResource($listing))->resolve();
+
+        // compactではなく、配列形式で渡すのが最も確実で可読性が高いです
+        return view('bikes.show', [
+            'listing' => $data,
+            'totalListingsCount' => $totalListingsCount,
+        ]);
+    }
+
     public function getModels(int $manufacturerId): JsonResponse
     {
         $models = $this->listingSearchService->getModelsByManufacturer($manufacturerId);
         return response()->json($models);
     }
 
-    /**
-     * 検索サジェスト用API
-     */
     public function suggest(Request $request): JsonResponse
     {
         $keyword = (string) $request->query('keyword', '');
@@ -111,9 +115,6 @@ final class BikeController extends Controller
         return response()->json($suggestions);
     }
 
-    /**
-     * 車種一覧ページの表示
-     */
     public function models(): View
     {
         $data = $this->bikeService->getAllModelsForIndex();
@@ -124,18 +125,12 @@ final class BikeController extends Controller
         ]));
     }
 
-    /**
-     * お気に入り一覧ページの表示
-     */
     public function wishlist(): View
     {
         $totalListingsCount = $this->listingSearchService->getActiveCount();
         return view('pages.wishlist', compact('totalListingsCount'));
     }
 
-    /**
-     * お気に入りデータの非同期取得API
-     */
     public function fetchWishlist(Request $request): JsonResponse
     {
         $ids = explode(',', $request->query('ids', ''));
@@ -143,7 +138,6 @@ final class BikeController extends Controller
             return response()->json([]);
         }
 
-        // ✨ 修正：ここでも ListingResource を使うことでロジックを統一
         $listings = Listing::with(['bikeModel.manufacturer', 'shop', 'site'])
             ->whereIn('id', $ids)
             ->where('is_sold_out', false)
@@ -152,9 +146,6 @@ final class BikeController extends Controller
         return response()->json(ListingResource::collection($listings)->resolve());
     }
 
-    /**
-    * 比較ページの表示
-    */
     public function compare(): View
     {
         $totalListingsCount = $this->listingSearchService->getActiveCount();

@@ -9,8 +9,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * 出品データをフロントエンド向けのJSONに変換するリソースクラス。
- * これまで Service 内にあった整形ロジックをここに集約します。
+ * 出品データをフロントエンド向けのJSON/配列に変換するリソースクラス。
+ * APIとBladeビューの両方で使用します。
  */
 class ListingResource extends JsonResource
 {
@@ -21,34 +21,40 @@ class ListingResource extends JsonResource
     {
         return [
             'id'             => $this->id,
-            // JSが 'site_name' を探しているので、ここに追加
             'site_name'      => $this->resolveSourceDisplayName($this->site?->name ?? ''),
-            
             'source'         => $this->resolveSourceDisplayName($this->site?->name ?? ''),
             'source_domain'  => $this->resolveSourceDomain($this->site?->name ?? ''),
-            'maker'          => $this->bikeModel?->manufacturer?->name ?? '不明',
+            
+            'maker'          => $this->bikeModel?->manufacturer?->name ?? 'メーカー不明',
             'name'           => $this->title ?? $this->bikeModel?->name ?? '車種名不明',
             'model_year'     => $this->model_year ? "{$this->model_year}年" : '不明',
             'mileage'        => $this->mileage !== null ? number_format($this->mileage) . 'km' : '走行不明',
             'displacement'   => $this->bikeModel?->displacement ? "{$this->bikeModel->displacement}cc" : '-',
             'repair_history' => $this->has_repair_history ? 'あり' : 'なし',
-            'condition'      => $this->condition ?? '不明', 
-            'total_price'    => $this->total_price ? number_format((float)($this->total_price / 10000), 1) : '-',
-            'base_price'     => $this->price ? number_format((float)($this->price / 10000), 1) : '-',
-            'store_name'     => $this->shop?->name ?? '個人出品等',
+            'condition'      => $this->condition ?? '不明',
             
-            // JSが 'prefecture' を探しているので、ここに追加
-            // ※ Shopモデルに prefecture カラムがあると仮定しています
+            // 価格フォーマット (Bladeでの表示に合わせて整形)
+            'total_price'    => $this->total_price ? number_format((float)($this->total_price / 10000), 1) : '-',
+            'price'          => $this->price ? number_format((float)($this->price / 10000), 1) : '-',
+            'base_price'     => $this->price ? number_format((float)($this->price / 10000), 1) : '-', // API互換用
+            
+            // 店舗情報
+            'store_name'     => $this->shop?->name ?? '不明な販売店', // API互換用
+            'shop_name'      => $this->shop?->name ?? '不明な販売店', // Blade互換用
+            'shop_address'   => $this->shop?->address,
+            'shop_tel'       => $this->shop?->phone,
+            'shop_hours'     => $this->shop?->business_hours,
             'prefecture'     => $this->shop?->prefecture ?? '全国',
 
+            // 詳細情報
+            'description'    => $this->description,
             'url'            => $this->source_url,
-            'images'         => $this->resolveImageUrls($this->local_image_paths),
+            
+            // 画像 (ローカルパスがあれば優先してURL化)
+            'images'         => $this->resolveImageUrls($this->local_image_paths, $this->image_urls),
         ];
     }
 
-    /**
-     * サイト名の日本語表示を解決
-     */
     private function resolveSourceDisplayName(string $name): string
     {
         return match (strtolower(trim($name))) {
@@ -59,9 +65,6 @@ class ListingResource extends JsonResource
         };
     }
 
-    /**
-     * 出典サイトのドメインを解決
-     */
     private function resolveSourceDomain(string $name): string
     {
         $domains = [
@@ -74,13 +77,26 @@ class ListingResource extends JsonResource
     }
 
     /**
-     * 保存済みの画像パスをフルURLに変換
+     * 画像URLの解決
+     * local_image_paths があればそれを優先し、なければ image_urls (外部URL) を使う
      */
-    private function resolveImageUrls(?array $paths): array
+    private function resolveImageUrls($localPaths, $remoteUrls): array
     {
-        if (empty($paths)) {
-            return [];
+        // 1. ローカル画像の確認
+        if (is_string($localPaths)) $localPaths = json_decode($localPaths, true);
+        
+        if (!empty($localPaths) && is_array($localPaths)) {
+            // Storage::url() で /storage/listings/... の形式に変換
+            return array_map(fn($p) => Storage::disk('public')->url(ltrim($p, '/')), $localPaths);
         }
-        return array_map(fn($p) => Storage::disk('public')->url(ltrim($p, '/')), $paths);
+
+        // 2. なければ外部URLの確認 (フォールバック)
+        if (is_string($remoteUrls)) $remoteUrls = json_decode($remoteUrls, true);
+        
+        if (!empty($remoteUrls) && is_array($remoteUrls)) {
+            return $remoteUrls;
+        }
+
+        return [];
     }
 }
