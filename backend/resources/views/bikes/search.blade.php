@@ -203,7 +203,7 @@
                 @if(isset($stats['avg']) && $stats['avg'] && $stats['count'] > 0)
                 <div class="mb-8 bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden flex flex-col sm:flex-row animate-in fade-in slide-in-from-top-4 duration-500">
                     <div class="bg-blue-600 px-6 py-4 sm:w-48 flex flex-col justify-center items-center text-center text-white">
-                        <span class="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Market Report</span>
+                        <span class="text-[10px] font-black tracking-widest opacity-80 mb-1">Market Report</span>
                         <span class="text-sm font-black italic">価格相場</span>
                     </div>
                     
@@ -241,14 +241,21 @@
                                 @if(!empty($listing['images']) && isset($listing['images'][0]))
                                     <img src="{{ $listing['images'][0] }}" class="bike-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="">
                                 @endif
-                                
-                                <button class="wishlist-btn absolute top-3 left-3 z-30 w-9 h-9 bg-white/80 backdrop-blur rounded-full flex items-center justify-center text-gray-400 shadow-sm hover:scale-110 active:scale-90 transition-all border border-white/50" data-id="{{ $listing['id'] }}">
-                                    <i data-lucide="heart" class="w-4 h-4"></i>
+
+                                <!-- 左上：比較ボタン -->
+                                <button class="compare-btn absolute top-3 left-3 z-20 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 border border-gray-100 shadow-sm transition-all hover:scale-110 active:scale-95" data-id="{{ $listing['id'] }}">
+                                    <i data-lucide="layers" class="w-5 h-5"></i>
                                 </button>
                                 
-                                <div class="absolute top-3 right-3 z-10 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/20 shadow-sm">
-                                    <img src="https://www.google.com/s2/favicons?domain={{ $listing['source_domain'] ?? 'google.com' }}&sz=32" class="w-3 h-3 rounded-sm" alt="">
-                                    <span class="text-[8px] font-black text-gray-500">{{ $listing['source'] }}</span>
+                                <!-- 右上：お気に入りボタン -->
+                                <button class="wishlist-btn absolute top-3 right-3 z-20 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 shadow-sm border border-gray-100" data-id="{{ $listing['id'] }}">
+                                    <i data-lucide="heart" class="w-5 h-5"></i>
+                                </button>
+                                
+                                <!-- ✨ 右下：掲載元バッジ（bottom-3 に変更） -->
+                                <div class="absolute bottom-3 right-3 z-10 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-sm">
+                                    <img src="https://www.google.com/s2/favicons?domain={{ $listing['source_domain'] ?? 'google.com' }}&sz=32" class="w-3 h-3 rounded-sm brightness-110" alt="">
+                                    <span class="text-[8px] font-black text-white/90">{{ $listing['source'] }}</span>
                                 </div>
                             </div>
 
@@ -318,4 +325,6 @@
     </div>
     <script src="{{ asset('js/search-sidebar.js') }}"></script>
     <script src="{{ asset('js/custom-dropdown.js') }}"></script>
+    <script src="{{ asset('js/compare-manager.js') }}"></script>
+    <script src="{{ asset('js/compare-ui.js') }}"></script>
 </x-layout>

@@ -19,6 +19,7 @@ Route::get('/bikes/suggest', [BikeController::class, 'suggest'])->name('bikes.su
 // URLを /wishlist にして独立させ、主要機能としての扱いを明確にします
 Route::get('/wishlist', [BikeController::class, 'wishlist'])->name('wishlist');
 Route::get('/api/wishlist/fetch', [BikeController::class, 'fetchWishlist'])->name('api.wishlist.fetch');
+Route::get('/compare', [BikeController::class, 'compare'])->name('bikes.compare');
 
 // --- API関連 (JavaScriptからの非同期リクエスト用) ---
 Route::prefix('api')->group(function () {

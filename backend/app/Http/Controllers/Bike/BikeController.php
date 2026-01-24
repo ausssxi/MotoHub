@@ -151,4 +151,13 @@ final class BikeController extends Controller
 
         return response()->json(ListingResource::collection($listings)->resolve());
     }
+
+    /**
+    * 比較ページの表示
+    */
+    public function compare(): View
+    {
+        $totalListingsCount = $this->listingSearchService->getActiveCount();
+        return view('pages.compare', compact('totalListingsCount'));
+    }
 }

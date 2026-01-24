@@ -21,6 +21,9 @@ class ListingResource extends JsonResource
     {
         return [
             'id'             => $this->id,
+            // JSが 'site_name' を探しているので、ここに追加
+            'site_name'      => $this->resolveSourceDisplayName($this->site?->name ?? ''),
+            
             'source'         => $this->resolveSourceDisplayName($this->site?->name ?? ''),
             'source_domain'  => $this->resolveSourceDomain($this->site?->name ?? ''),
             'maker'          => $this->bikeModel?->manufacturer?->name ?? '不明',
@@ -33,6 +36,11 @@ class ListingResource extends JsonResource
             'total_price'    => $this->total_price ? number_format((float)($this->total_price / 10000), 1) : '-',
             'base_price'     => $this->price ? number_format((float)($this->price / 10000), 1) : '-',
             'store_name'     => $this->shop?->name ?? '個人出品等',
+            
+            // JSが 'prefecture' を探しているので、ここに追加
+            // ※ Shopモデルに prefecture カラムがあると仮定しています
+            'prefecture'     => $this->shop?->prefecture ?? '全国',
+
             'url'            => $this->source_url,
             'images'         => $this->resolveImageUrls($this->local_image_paths),
         ];
