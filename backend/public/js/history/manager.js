@@ -47,7 +47,6 @@ const HistoryManager = {
 
         try {
             // 既存のAPI（お気に入り取得用）を流用してデータ取得
-            // ※比較機能と同じAPIエンドポイントを使用
             const response = await fetch(`/api/wishlist/fetch?ids=${ids.join(',')}`);
             if (!response.ok) throw new Error('API Error');
             
@@ -60,7 +59,6 @@ const HistoryManager = {
             }
 
             // IDの順番通り（最近見た順）に並び替え
-            // APIのレスポンス順は保証されないため、ids配列の順序でソート
             bikes.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
 
             // HTMLの生成（横スクロール・スナップ対応）
@@ -78,8 +76,9 @@ const HistoryManager = {
                     ? `<span class="text-red-500 text-lg font-black">${bike.total_price}</span><span class="text-xs font-bold text-gray-500 ml-0.5">万円</span>`
                     : '<span class="text-gray-400 text-sm font-bold">価格未定</span>';
 
+                // ★修正箇所: リンク先を内部の詳細ページに変更
                 html += `
-                    <a href="${bike.url}" target="_blank" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
+                    <a href="/bikes/${bike.id}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
                         <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
                             <img src="${image}" class="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500" alt="">
                             ${bike.sold ? '<div class="absolute inset-0 bg-gray-900/50 flex items-center justify-center text-white font-black text-xs">SOLD OUT</div>' : ''}
@@ -110,5 +109,5 @@ const HistoryManager = {
     }
 };
 
-// グローバルに公開（HTML側から呼び出せるように）
+// グローバルに公開
 window.HistoryManager = HistoryManager;
