@@ -59,10 +59,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <i data-lucide="x-circle" class="w-5 h-5 sm:w-6 sm:h-6 bg-white/50 rounded-full"></i>
                 </button>
                 
-                <div class="aspect-[4/3] rounded-lg sm:rounded-xl overflow-hidden mb-2 sm:mb-3 shadow-sm bg-gray-50 relative">
-                    <img src="${displayImage}" class="w-full h-full object-contain sm:object-cover object-center group-hover:scale-105 transition-transform duration-500">
+                <div class="rounded-lg sm:rounded-xl overflow-hidden mb-2 sm:mb-3 shadow-sm bg-gray-50 relative">
+                    <img src="${displayImage}" class="w-full h-auto object-center group-hover:scale-105 transition-transform duration-500">
                 </div>
-                
+
                 <div class="bike-name-container text-left font-bold text-gray-800 text-xs sm:text-sm leading-tight line-clamp-2 min-h-[2.5em]"></div>
                 
                 <a href="${bike.url}" target="_blank" class="mt-2 inline-flex items-center gap-1 text-[10px] font-black text-blue-600 hover:text-blue-700">
