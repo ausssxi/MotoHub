@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </button>
                 
                 <div class="aspect-[4/3] rounded-lg sm:rounded-xl overflow-hidden mb-2 sm:mb-3 shadow-sm bg-gray-50 relative">
-                    <img src="${displayImage}" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500">
+                    <img src="${displayImage}" class="w-full h-full object-contain sm:object-cover object-center group-hover:scale-105 transition-transform duration-500">
                 </div>
                 
                 <div class="bike-name-container text-left font-bold text-gray-800 text-xs sm:text-sm leading-tight line-clamp-2 min-h-[2.5em]"></div>
