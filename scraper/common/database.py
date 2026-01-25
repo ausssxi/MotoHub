@@ -67,6 +67,7 @@ class Listing(Base):
     local_image_paths = Column(JSON)
     has_repair_history = Column(Boolean, default=False)
     condition = Column(String(50))
+    description = Column(Text)
     is_sold_out = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
