@@ -59,6 +59,7 @@ Route::get('/compare', [BikeController::class, 'compare'])->name('bikes.compare'
 Route::prefix('api')->group(function () {
     Route::get('/bikes/count', [BikeApiController::class, 'count']);
     Route::get('/manufacturers/{manufacturer}/models', [BikeApiController::class, 'models']);
+    Route::get('/stats/price/{bikeModelId}', [App\Http\Controllers\Api\StatsController::class, 'getPriceStats']);
 });
 
 // 固定ページ (運営者情報など)

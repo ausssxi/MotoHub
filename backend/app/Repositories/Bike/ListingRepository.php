@@ -8,7 +8,7 @@ use App\Models\Listing;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Builder;
-
+use Illuminate\Support\Collection;
 /**
  * バイクの出品情報に関する検索・統計操作を担当
  */
@@ -124,5 +124,20 @@ final class ListingRepository
             ->priceBetween($filters['min_price'] ?? null, $filters['max_price'] ?? null, $uiMaxPrice)
             ->mileageBetween($filters['min_mileage'] ?? null, $filters['max_mileage'] ?? null, $uiMaxMileage)
             ->yearBetween($filters['min_year'] ?? null, $filters['max_year'] ?? null);
+    }
+
+    /**
+     * 車種ごとの有効な支払総額リストを取得
+     * * @param int $bikeModelId
+     * @return Collection<int>
+     */
+    public function getValidTotalPricesByModelId(int $bikeModelId): Collection
+    {
+        return Listing::where('bike_model_id', $bikeModelId)
+            ->where('is_sold_out', false)
+            ->whereNotNull('total_price')
+            ->where('total_price', '>', 0)
+            ->pluck('total_price') // 価格の配列のみ取得
+            ->map(fn($p) => (int)$p);
     }
 }

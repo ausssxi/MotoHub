@@ -7,6 +7,8 @@
     <x-slot:scripts>
         <script src="{{ asset('js/compare/manager.js') }}"></script>
         <script src="{{ asset('js/compare/ui.js') }}"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="{{ asset('js/bikes/stats.js') }}"></script>
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -180,6 +182,67 @@
                             @endif
                         </div>
                     </div>
+
+                    {{-- ★相場分析チャート --}}
+                    @if($listing->model_year && $listing->total_price)
+                    {{-- 
+                        JSにデータを渡すためのIDとデータ属性を追加
+                        id="price-stats-container"
+                        data-model-id: 車種ID
+                        data-total-price: 車両価格
+                    --}}
+                    <div id="price-stats-container" 
+                         data-model-id="{{ $listing->bike_model_id ?? '' }}" 
+                         data-total-price="{{ $listing->total_price ?? 0 }}"
+                         class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 overflow-hidden">
+                         
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
+                                <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">市場価格分析</h3>
+                        </div>
+
+                        <!-- 統計サマリー -->
+                        <div id="price-stats-loading" class="text-center py-10">
+                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                            <p class="text-xs text-gray-400 font-bold mt-3">市場データを分析中...</p>
+                        </div>
+
+                        <div id="price-stats-content" class="hidden">
+                            {{-- スマホ対策：パディングを小さく、文字サイズを調整 --}}
+                            <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-8">
+                                <div class="bg-gray-50 rounded-xl p-2 sm:p-4 text-center border border-gray-100">
+                                    <div class="text-[10px] font-bold text-gray-400 mb-1">相場平均</div>
+                                    <div class="text-sm sm:text-xl font-black text-gray-800">
+                                        <span id="stat-avg">---</span><span class="text-[10px] sm:text-xs ml-0.5">万円</span>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-50 rounded-xl p-2 sm:p-4 text-center border border-gray-100">
+                                    <div class="text-[10px] font-bold text-gray-400 mb-1">最安値</div>
+                                    <div class="text-sm sm:text-xl font-black text-blue-600">
+                                        <span id="stat-min">---</span><span class="text-[10px] sm:text-xs ml-0.5">万円</span>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-50 rounded-xl p-2 sm:p-4 text-center border border-gray-100">
+                                    <div class="text-[10px] font-bold text-gray-400 mb-1">最高値</div>
+                                    <div class="text-sm sm:text-xl font-black text-red-500">
+                                        <span id="stat-max">---</span><span class="text-[10px] sm:text-xs ml-0.5">万円</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- チャートキャンバス -->
+                            <div class="relative h-64 w-full">
+                                <canvas id="priceChart"></canvas>
+                            </div>
+
+                            <p class="text-[10px] text-gray-400 mt-4 text-right">
+                                ※MotoHubに掲載中の「{{ $listing->name }}」全車両のデータから算出
+                            </p>
+                        </div>
+                    </div>
+                    @endif
 
                     {{-- 3. 販売店情報 --}}
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
