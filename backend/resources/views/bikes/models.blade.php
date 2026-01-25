@@ -1,6 +1,10 @@
 <x-layout>
     <x-slot:title>車種一覧から探す - MotoHub</x-slot:title>
 
+    <x-slot:scripts>
+        <script src="{{ asset('js/bikes/models.js') }}"></script>
+    </x-slot:scripts>
+
     <x-slot:navigation>
         <x-navigation :totalListingsCount="$totalListingsCount" :showSearch="true" />
     </x-slot:navigation>
@@ -178,42 +182,4 @@
             </div>
         </div>
     </div>
-
-    {{-- アコーディオン制御スクリプト --}}
-    <script>
-        // メーカー（第1階層）の切り替え
-        function toggleMaker(id) {
-            const list = document.getElementById('maker-list-' + id);
-            const icon = document.getElementById('maker-icon-' + id);
-            const section = document.getElementById('maker-section-' + id);
-            
-            if (list.classList.contains('hidden')) {
-                list.classList.remove('hidden');
-                list.classList.add('animate-in', 'fade-in', 'slide-in-from-top-2');
-                icon.style.transform = 'rotate(180deg)';
-                section.classList.add('ring-2', 'ring-blue-100');
-            } else {
-                list.classList.add('hidden');
-                list.classList.remove('animate-in', 'fade-in', 'slide-in-from-top-2');
-                icon.style.transform = 'rotate(0deg)';
-                section.classList.remove('ring-2', 'ring-blue-100');
-            }
-        }
-
-        // 50音グループ（第2階層）の切り替え
-        function toggleSubGroup(id) {
-            const list = document.getElementById('sub-list-' + id);
-            const icon = document.getElementById('sub-icon-' + id);
-            
-            if (list.classList.contains('hidden')) {
-                list.classList.remove('hidden');
-                list.classList.add('animate-in', 'fade-in', 'slide-in-from-top-1');
-                icon.style.transform = 'rotate(180deg)';
-            } else {
-                list.classList.add('hidden');
-                list.classList.remove('animate-in', 'fade-in', 'slide-in-from-top-1');
-                icon.style.transform = 'rotate(0deg)';
-            }
-        }
-    </script>
 </x-layout>
