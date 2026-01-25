@@ -1,11 +1,10 @@
 import scrapy
 import datetime
-import logging
 from sqlalchemy import update, or_
 from common.database import SessionLocal, Site, Listing
 
-# ✨ 修正：ShopManager をインポートに追加
-from common.shop_manager import ShopManager
+# もし ShopManager を使っていない場合は削除してください（環境に合わせて調整）
+# from common.shop_manager import ShopManager
 
 class BaseBikeSpider(scrapy.Spider):
     """
@@ -29,8 +28,8 @@ class BaseBikeSpider(scrapy.Spider):
         else:
             self.site_id = site.id
 
-        # ✨ ShopManager を初期化
-        self.shop_manager = ShopManager(self.db)
+        # ShopManagerが必要な場合はここで行う（不要なら削除）
+        # self.shop_manager = ShopManager(self.db)
 
         # 全サイトの「出品中」データをメモリに保持（クロスサイト重複チェック用）
         self.active_listings = self.db.query(
@@ -65,6 +64,8 @@ class BaseBikeSpider(scrapy.Spider):
             model_year=data.get('model_year'),
             mileage=data.get('mileage'),
             condition=data.get('condition', '中古車'),
+            # ✨ 追加: 説明文を保存
+            description=data.get('description'),
             image_urls=data.get('image_urls', []),
             has_repair_history=data.get('has_repair_history', False),
             is_sold_out=False
@@ -76,6 +77,8 @@ class BaseBikeSpider(scrapy.Spider):
         update_values = {
             "price": data.get('price'),
             "total_price": data.get('total_price'),
+            # ✨ 追加: 説明文も更新対象にする（変更されている可能性があるため）
+            "description": data.get('description'),
             "is_sold_out": False,
             "updated_at": datetime.datetime.now()
         }
