@@ -7,8 +7,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Models\Listing;
 use App\Models\BikeModel;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\URL; // 追加
+use Illuminate\Support\Facades\URL;
 
 class GenerateSitemap extends Command
 {
@@ -17,20 +16,43 @@ class GenerateSitemap extends Command
 
     public function handle(): void
     {
-        // 1. URLの強制設定 (localhostになるのを防ぐ)
-        // .envの値を取得、もし取れなければ直接指定
-        $appUrl = config('app.url');
-        if (empty($appUrl) || str_contains($appUrl, 'localhost')) {
-            $appUrl = 'https://motohub.jp';
-        }
+        // 念のためメモリ制限を少し緩和（必須ではありませんが安全のため）
+        ini_set('memory_limit', '256M');
 
-        URL::forceRootUrl($appUrl);
-        URL::forceScheme('https');
-
-        $this->info("サイトマップ生成開始 (Base URL: {$appUrl})");
+        $this->info("サイトマップの生成を開始します...");
         $startTime = microtime(true);
 
-        $urls = [];
+        $path = public_path('sitemap.xml');
+        
+        // ★変更点: ファイルを書き込みモードで開き、直接書き込んでいく方式に変更
+        $handle = fopen($path, 'w');
+
+        if ($handle === false) {
+            $this->error("ファイルを開けませんでした: {$path}");
+            return;
+        }
+
+        // XMLヘッダー書き込み
+        fwrite($handle, '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL);
+        fwrite($handle, '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL);
+
+        $totalCount = 0;
+
+        // URL書き込み用ヘルパー関数（メモリを食わないよう都度書き出し）
+        $writeUrl = function ($loc, $lastmod, $freq, $priority) use ($handle, &$totalCount) {
+            // XMLエスケープ処理
+            $loc = htmlspecialchars($loc, ENT_XML1, 'UTF-8');
+            
+            $xml = "    <url>\n";
+            $xml .= "        <loc>{$loc}</loc>\n";
+            $xml .= "        <lastmod>{$lastmod}</lastmod>\n";
+            $xml .= "        <changefreq>{$freq}</changefreq>\n";
+            $xml .= "        <priority>{$priority}</priority>\n";
+            $xml .= "    </url>\n";
+            
+            fwrite($handle, $xml);
+            $totalCount++;
+        };
 
         // ---------------------------------------------------------
         // 2. 固定ページ
@@ -49,63 +71,60 @@ class GenerateSitemap extends Command
         ];
 
         foreach ($staticPages as $page) {
-            $urls[] = [
-                'loc' => route($page['route']),
-                'lastmod' => date('Y-m-d'),
-                'changefreq' => $page['freq'],
-                'priority' => $page['priority'],
-            ];
+            $writeUrl(
+                route($page['route']),
+                date('Y-m-d'),
+                $page['freq'],
+                $page['priority']
+            );
         }
 
         // ---------------------------------------------------------
         // 3. 車種別ページ (検索結果)
         // ---------------------------------------------------------
         $this->info('車種別ページを追加中...');
-        BikeModel::chunk(500, function ($models) use (&$urls) {
+        // chunkを使ってメモリ消費を抑えつつ処理
+        BikeModel::select('name')->chunk(500, function ($models) use ($writeUrl) {
             foreach ($models as $model) {
-                // ここで route() を使うと forceRootUrl の効果で https://motohub.jp になります
-                $urls[] = [
-                    'loc' => route('bikes.search', ['keyword' => $model->name]),
-                    'lastmod' => date('Y-m-d'),
-                    'changefreq' => 'daily',
-                    'priority' => '0.8',
-                ];
+                $writeUrl(
+                    route('bikes.search', ['keyword' => $model->name]),
+                    date('Y-m-d'),
+                    'daily',
+                    '0.8'
+                );
             }
         });
 
         // ---------------------------------------------------------
-        // 4. 車両詳細ページ (一番最後に追加されます)
+        // 4. 車両詳細ページ
         // ---------------------------------------------------------
         $this->info('車両詳細ページを追加中...');
-        $listingCount = 0;
+        $listingProcessCount = 0;
         
         Listing::where('is_sold_out', false)
             ->select('id', 'updated_at')
             ->orderBy('updated_at', 'desc')
-            ->chunk(1000, function ($listings) use (&$urls, &$listingCount) {
+            ->chunk(1000, function ($listings) use ($writeUrl, &$listingProcessCount) {
                 foreach ($listings as $listing) {
-                    $urls[] = [
-                        'loc' => route('bikes.show', $listing->id),
-                        'lastmod' => $listing->updated_at->format('Y-m-d'),
-                        'changefreq' => 'weekly',
-                        'priority' => '0.6',
-                    ];
-                    $listingCount++;
+                    $writeUrl(
+                        route('bikes.show', $listing->id),
+                        $listing->updated_at->format('Y-m-d'),
+                        'weekly',
+                        '0.6'
+                    );
+                    $listingProcessCount++;
                 }
-                $this->comment("  -> {$listingCount} 件処理完了...");
+                $this->comment("  -> {$listingProcessCount} 件処理完了...");
             });
 
-        // ---------------------------------------------------------
-        // 5. 書き出し
-        // ---------------------------------------------------------
-        $content = view('sitemap', ['urls' => $urls])->render();
-        $path = public_path('sitemap.xml');
-        File::put($path, $content);
+        // XMLフッター書き込み
+        fwrite($handle, '</urlset>');
+        fclose($handle);
 
         $duration = round(microtime(true) - $startTime, 2);
         $this->info("完了！");
         $this->info("- 出力先: {$path}");
-        $this->info("- 合計URL数: " . count($urls));
+        $this->info("- 合計URL数: {$totalCount}");
         $this->info("- 所要時間: {$duration}秒");
     }
 }
