@@ -7,8 +7,9 @@
     <x-slot:scripts>
         <script src="{{ asset('js/compare/manager.js') }}"></script>
         <script src="{{ asset('js/compare/ui.js') }}"></script>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script src="{{ asset('js/bikes/stats.js') }}"></script>
+        <script src="{{ asset('js/bikes/loan-simulator.js') }}"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -241,6 +242,82 @@
                                 ※MotoHubに掲載中の「{{ $listing->name }}」全車両のデータから算出
                             </p>
                         </div>
+                    </div>
+                    @endif
+
+                    @if($listing->total_price)
+                    <div id="loan-simulator" data-total-price="{{ $listing->total_price }}" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mt-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-green-50 rounded-lg text-green-600">
+                                <i data-lucide="calculator" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">ローンシミュレーション</h3>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {{-- 入力エリア --}}
+                            <div class="space-y-6">
+                                {{-- 頭金 --}}
+                                <div>
+                                    <div class="flex justify-between mb-2">
+                                        <label class="text-xs font-bold text-gray-500">頭金</label>
+                                        <span class="text-xs font-black text-gray-900"><span id="disp-down-payment">0</span>万円</span>
+                                    </div>
+                                    <input type="range" id="loan-down-payment" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600" 
+                                        min="0" max="{{ floor($listing->total_price) }}" step="1" value="0">
+                                </div>
+
+                                {{-- 支払回数 --}}
+                                <div>
+                                    <label class="text-xs font-bold text-gray-500 block mb-2">支払回数</label>
+                                    <div class="relative">
+                                        <select id="loan-installments" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl focus:ring-green-500 focus:border-green-500 block p-3 appearance-none">
+                                            <option value="6">6回 (半年)</option>
+                                            <option value="12">12回 (1年)</option>
+                                            <option value="24">24回 (2年)</option>
+                                            <option value="36" selected>36回 (3年)</option>
+                                            <option value="48">48回 (4年)</option>
+                                            <option value="60">60回 (5年)</option>
+                                            <option value="72">72回 (6年)</option>
+                                            <option value="84">84回 (7年)</option>
+                                        </select>
+                                        <i data-lucide="chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
+                                    </div>
+                                </div>
+
+                                {{-- 金利 (隠し項目または詳細設定として) --}}
+                                <div>
+                                    <label class="text-xs font-bold text-gray-500 block mb-2">実質年率 (%)</label>
+                                    <input type="number" id="loan-rate" value="5.9" step="0.1" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl focus:ring-green-500 focus:border-green-500 block p-3">
+                                </div>
+                                
+                                {{-- ボーナス払いは今回省略（UIをシンプルにするため） --}}
+                                <input type="hidden" id="loan-bonus" value="0">
+                            </div>
+
+                            {{-- 結果表示エリア --}}
+                            <div class="bg-green-50 rounded-2xl p-6 flex flex-col justify-center items-center text-center border border-green-100">
+                                <p class="text-xs font-bold text-green-600 mb-1">月々のお支払い目安</p>
+                                <div class="text-4xl font-black text-green-700 tracking-tight mb-2">
+                                    <span id="disp-monthly-payment">0</span><span class="text-sm ml-1">円</span>
+                                </div>
+                                
+                                <div class="w-full border-t border-green-200/50 my-4"></div>
+                                
+                                <div class="w-full flex justify-between text-xs font-bold text-gray-600 mb-1">
+                                    <span>ローン元金</span>
+                                    <span><span id="disp-loan-amount">0</span>万円</span>
+                                </div>
+                                <div class="w-full flex justify-between text-xs font-bold text-gray-600">
+                                    <span>支払総額(目安)</span>
+                                    <span>約<span id="disp-total-payment">0</span>万円</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <p class="text-[10px] text-gray-400 mt-4 text-right">
+                            ※シミュレーション結果は概算です。実際の契約内容や金利により異なります。
+                        </p>
                     </div>
                     @endif
 
