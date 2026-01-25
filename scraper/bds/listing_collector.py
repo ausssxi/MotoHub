@@ -20,6 +20,7 @@ from common.base_spider import BaseBikeSpider
 class BDSListingSpider(BaseBikeSpider):
     """
     BDSバイクセンサーの出品情報を収集するスパイダー。
+    定義された全メーカーリストに基づいて巡回します。
     """
     name = "bds_listings"
     site_name = "BDS"
@@ -35,7 +36,24 @@ class BDSListingSpider(BaseBikeSpider):
         },
     }
 
-    MAKER_LIST = ["honda", "suzuki", "yamaha", "kawasaki", "bmw", "ktm", "ducati", "harley_davidson", "triumph"]
+    # ★修正: HTMLソースから抽出した全メーカーリスト
+    MAKER_LIST = [
+        # 国内メーカー
+        "honda", "suzuki", "yamaha", "kawasaki", 
+        "daihatsu", "bridgestone", "meguro", "rodeo", "plot", "other_japanese_maker",
+        
+        # 外車メーカー
+        "bmw", "ktm", "aprilia", "mv_agusta", "gilera", "ducati", "triumph", 
+        "norton", "harley_davidson", "husqvarna", "bimota", "buell", "vespa", 
+        "moto_guzzi", "royal_enfield", "daelim", "gg", "pgo", "sym", "italjet", 
+        "gasgas", "kymco", "krauser", "sachs", "derbi", "tomos", "piaggio", 
+        "bsa", "fantic", "peugeot", "beta", "benelli", "magni", "moto_morini", 
+        "mondial", "montesa", "lambretta", "adiva", "megelli", "indian", "gpx", 
+        "phoenix", "leonart", "brp", "brixton", "mutt", 
+        
+        # その他
+        "other_overseas_maker", "other_electric", "other"
+    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -60,23 +78,34 @@ class BDSListingSpider(BaseBikeSpider):
         }
 
     def start_requests(self):
+        # ★修正: 静的リストを使って各メーカーページをリクエスト
         base_url = "https://www.bds-bikesensor.net/bike/maker/"
         for slug in self.MAKER_LIST:
             yield scrapy.Request(url=base_url + slug, callback=self.parse_maker_page)
 
     def parse_maker_page(self, response):
+        """
+        メーカーごとのページ（車種一覧）を解析
+        """
         model_items = response.css("div.col, .model_item")
+        
+        found_models = 0
         for item in model_items:
             m_input = item.css("input.model-checkbox::attr(value)").get()
             href = item.css("a.c-bike_image::attr(href), a.c-link_block::attr(href)").get()
+            
             if m_input and href:
                 bike_model_id = self.model_ident_cache.get(m_input)
                 if bike_model_id:
+                    found_models += 1
                     yield response.follow(
                         href, 
                         callback=self.parse_listings, 
                         meta={'bike_model_id': bike_model_id}
                     )
+        
+        if found_models == 0:
+            self.logger.debug(f"No matching models found on {response.url}.")
 
     def parse_listings(self, response):
         if not self.crawler.engine.running: return
@@ -101,12 +130,17 @@ class BDSListingSpider(BaseBikeSpider):
                 else:
                     if not self.is_cross_site_duplicate(item_data):
                         self.save_listing(item_data)
+                
+                # descriptionの追加保存処理
+                if item_data.get('description'):
+                    record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
+                    if record:
+                        record.description = item_data['description']
 
                 self.db.commit()
 
                 record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
 
-                # 画像パイプラインへの引き渡し（ここには description は含まれません）
                 if record and item_data.get('image_urls'):
                     yield {
                         'target_type': 'listing',
@@ -155,20 +189,17 @@ class BDSListingSpider(BaseBikeSpider):
                     site_shop_id = id_match.group(1)
                     shop_id = self.shop_cache.get(site_shop_id)
 
-            # ★修正: shop_id がない場合はスキップ（元の仕様に戻しました）
+            # ShopIDがなくても保存（説明文取得のため）
             if not shop_id:
-                # 頻繁に出るためログレベルを WARNING から DEBUG に下げても良いですが、今回は確認のため WARNING のままにします
-                self.logger.warning(f"Shop not found in cache for {v_url}. Listing skipped.")
-                return None
+                pass
             
-            # ✨ 説明文の取得と確認ログ
+            # 説明文の取得
             description = ""
             desc_el = bike.css(".c-search_block_lead, .c-search_block_comment")
             if desc_el:
                 text_list = desc_el.css("*::text").getall()
                 description = "".join([t.strip() for t in text_list if t.strip()])
             
-            # ★確認用ログ: 説明文が取れているか出力します
             if description:
                 self.logger.info(f"📄 Description found: {description[:20]}...")
             else:
@@ -180,7 +211,7 @@ class BDSListingSpider(BaseBikeSpider):
                 'bike_model_id': bike_model_id,
                 'shop_id': shop_id,
                 'title': (bike.css(".c-search_block_title a::text, .c-search_block_title02 a::text").get() or "").strip(),
-                'description': description, # これがDBに入ります
+                'description': description,
                 'source_url': v_url,
                 'price': price_val,
                 'total_price': total_price_val,
