@@ -9,6 +9,28 @@ use App\Http\Controllers\Api\BikeApiController;
  * MotoHub Route Definitions
  */
 
+ // ====================================================
+// ▼ 旧URLからの 301リダイレクト設定 (SEO評価引き継ぎ用)
+// ====================================================
+
+// 1. 車種一覧ページ
+// 旧: /models -> 新: /bikes/models
+Route::redirect('/models', '/bikes/models', 301);
+
+// 2. 検索ページ (クエリパラメータ ?keyword=... を引き継ぐ)
+// 旧: /search -> 新: /bikes/search
+Route::get('/search', function (Request $request) {
+    // 301: 恒久的な移動（Googleに「引っ越しました」と伝える）
+    return redirect()->route('bikes.search', $request->all(), 301);
+});
+
+// 3. サジェスト機能 (もし旧URLが使われていた場合)
+// 旧: /suggest -> 新: /bikes/suggest
+Route::get('/suggest', function (Request $request) {
+    return redirect()->route('bikes.suggest', $request->all(), 301);
+});
+
+
 // --- メイン機能 (BikeController) ---
 Route::get('/', [BikeController::class, 'index'])->name('bikes.index');
 
