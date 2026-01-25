@@ -3,10 +3,9 @@
  * 閲覧履歴の保存(LocalStorage)と、ウィジェットの描画を担当します。
  */
 const HISTORY_KEY = 'motohub_history';
-const MAX_HISTORY = 20; // 最大保存件数
+const MAX_HISTORY = 20;
 
 const HistoryManager = {
-    // 保存されているIDを取得
     getIds() {
         try {
             const stored = localStorage.getItem(HISTORY_KEY);
@@ -17,24 +16,15 @@ const HistoryManager = {
         }
     },
 
-    // 履歴に追加（詳細ページ閲覧時に呼び出し）
     push(id) {
         if (!id) return;
         let ids = this.getIds();
-        
-        // 重複があれば削除し、先頭に追加し直す（「最近見た」順にするため）
         ids = ids.filter(i => i !== id);
         ids.unshift(id);
-        
-        // 上限を超えたら古いものを削除
-        if (ids.length > MAX_HISTORY) {
-            ids = ids.slice(0, MAX_HISTORY);
-        }
-        
+        if (ids.length > MAX_HISTORY) ids = ids.slice(0, MAX_HISTORY);
         localStorage.setItem(HISTORY_KEY, JSON.stringify(ids));
     },
 
-    // 指定したコンテナに「最近見た車両」ウィジェットを描画
     async render(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -46,7 +36,7 @@ const HistoryManager = {
         }
 
         try {
-            // 既存のAPI（お気に入り取得用）を流用してデータ取得
+            // APIからデータ取得
             const response = await fetch(`/api/wishlist/fetch?ids=${ids.join(',')}`);
             if (!response.ok) throw new Error('API Error');
             
@@ -58,36 +48,44 @@ const HistoryManager = {
                 return;
             }
 
-            // IDの順番通り（最近見た順）に並び替え
+            // 並び替え（履歴順）
             bikes.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
 
-            // HTMLの生成（横スクロール・スナップ対応）
+            // HTML生成（詳細ページの「関連車両」のデザインに統一）
             let html = `
-                <div class="px-4 sm:px-0 mb-4 flex items-center gap-2">
-                    <i data-lucide="history" class="w-5 h-5 text-gray-400"></i>
-                    <h3 class="text-lg font-black text-gray-800">最近見た車両</h3>
+                <div class="flex items-center gap-2 mb-6">
+                    <div class="p-2 bg-gray-100 rounded-lg text-gray-600">
+                        <i data-lucide="history" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-lg font-black text-gray-900">最近見た車両</h3>
                 </div>
-                <div class="flex gap-3 sm:gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scroll-pl-4 sm:scroll-pl-0 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+                <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
             `;
 
             bikes.forEach(bike => {
                 const image = (bike.images && bike.images.length > 0) ? bike.images[0] : '/images/placeholder-bike.png';
-                const price = bike.total_price 
-                    ? `<span class="text-red-500 text-lg font-black">${bike.total_price}</span><span class="text-xs font-bold text-gray-500 ml-0.5">万円</span>`
-                    : '<span class="text-gray-400 text-sm font-bold">価格未定</span>';
+                
+                // 価格表示ロジック
+                const priceBadge = bike.total_price 
+                    ? `<div class="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-black">${bike.total_price}万円</div>`
+                    : '<div class="absolute bottom-2 right-2 bg-gray-500/80 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-bold">価格未定</div>';
 
-                // ★修正箇所: リンク先を内部の詳細ページに変更
                 html += `
                     <a href="/bikes/${bike.id}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
                         <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
-                            <img src="${image}" class="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500" alt="">
-                            ${bike.sold ? '<div class="absolute inset-0 bg-gray-900/50 flex items-center justify-center text-white font-black text-xs">SOLD OUT</div>' : ''}
+                            <img src="${image}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="${bike.name}">
+                            ${priceBadge}
                         </div>
                         <div class="p-3">
-                            <div class="text-xs font-bold text-gray-400 mb-0.5 line-clamp-1">${bike.maker || ''}</div>
-                            <h4 class="text-sm font-black text-gray-800 leading-tight line-clamp-2 mb-2 h-[2.5em]">${bike.name}</h4>
-                            <div class="flex items-end justify-between">
-                                <div>${price}</div>
+                            <div class="text-[10px] font-bold text-gray-400 mb-0.5 flex items-center gap-1">
+                                <span class="bg-gray-100 px-1.5 rounded">${bike.model_year || '不明'}</span>
+                                <span>${bike.mileage || '不明'}</span>
+                            </div>
+                            <h4 class="text-xs font-black text-gray-800 leading-tight line-clamp-2 mb-2 h-[2.5em] group-hover:text-blue-600 transition-colors">
+                                ${bike.name}
+                            </h4>
+                            <div class="flex items-end justify-between border-t border-gray-100 pt-2">
+                                <div class="text-[10px] text-gray-400 truncate w-full">${bike.prefecture || '全国'}</div>
                             </div>
                         </div>
                     </a>
@@ -99,7 +97,6 @@ const HistoryManager = {
             container.innerHTML = html;
             container.classList.remove('hidden');
 
-            // アイコン再描画
             if (window.lucide) window.lucide.createIcons();
 
         } catch (error) {
@@ -109,5 +106,4 @@ const HistoryManager = {
     }
 };
 
-// グローバルに公開
 window.HistoryManager = HistoryManager;

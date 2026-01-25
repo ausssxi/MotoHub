@@ -346,10 +346,14 @@
                     @if(!empty($relatedListings) && count($relatedListings) > 0)
                     <div class="pt-8 border-t border-gray-200">
                         <div class="flex items-center justify-between mb-6">
-                            <h3 class="text-lg font-black text-gray-900 flex items-center gap-2">
-                                <i data-lucide="layers" class="w-5 h-5 text-blue-500"></i>
-                                この車種の他の車両
-                            </h3>
+                            {{-- ヘッダーデザインを統一（アイコン＋背景） --}}
+                            <div class="flex items-center gap-2">
+                                <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
+                                    <i data-lucide="layers" class="w-5 h-5"></i>
+                                </div>
+                                <h3 class="text-lg font-black text-gray-900">この車種の他の車両</h3>
+                            </div>
+                            
                             <a href="{{ route('bikes.search', ['bike_model_id' => $listing->bike_model_id]) }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
                                 すべて見る <i data-lucide="chevron-right" class="w-4 h-4 inline-block align-text-bottom"></i>
                             </a>
@@ -357,7 +361,8 @@
                         
                         <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
                             @foreach($relatedListings as $related)
-                            <a href="{{ route('bikes.show', $related['id']) }}" class="snap-start shrink-0 w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
+                            {{-- 幅をレスポンシブに: w-40 (スマホ) / w-48 (PC) --}}
+                            <a href="{{ route('bikes.show', $related['id']) }}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
                                 <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
                                     @if(!empty($related['images']) && isset($related['images'][0]))
                                         <img src="{{ $related['images'][0] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="">
@@ -381,7 +386,7 @@
                                         {{ $related['name'] }}
                                     </h4>
                                     <div class="flex items-end justify-between border-t border-gray-100 pt-2">
-                                        <div class="text-[10px] text-gray-400">{{ $related['prefecture'] }}</div>
+                                        <div class="text-[10px] text-gray-400 truncate w-full">{{ $related['prefecture'] }}</div>
                                     </div>
                                 </div>
                             </a>
