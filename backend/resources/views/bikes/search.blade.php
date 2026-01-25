@@ -16,7 +16,7 @@
     </x-slot:scripts>
 
     <x-slot:navigation>
-        <x-navigation  :showSearch="true" :keyword="$keyword" />
+        <x-navigation :showSearch="true" :keyword="$keyword" />
     </x-slot:navigation>
 
     <div class="bg-gray-50 min-h-screen py-8">
@@ -216,17 +216,23 @@
                     </div>
                     
                     <div class="flex-1 grid grid-cols-3 divide-x divide-gray-50 text-center py-4">
-                        <div class="px-2">
+                        <div class="px-1 sm:px-2">
                             <span class="block text-[9px] font-black text-gray-400 uppercase mb-1">平均総額</span>
-                            <span class="text-xl font-black text-blue-600 tabular-nums italic">{{ $stats['avg'] }}<small class="text-[10px] ml-0.5 font-bold not-italic">万円</small></span>
+                            <span class="text-base sm:text-xl font-black text-blue-600 tabular-nums italic whitespace-nowrap">
+                                {{ $stats['avg'] }}<small class="text-[9px] sm:text-[10px] ml-0.5 font-bold not-italic">万円</small>
+                            </span>
                         </div>
-                        <div class="px-2">
+                        <div class="px-1 sm:px-2">
                             <span class="block text-[9px] font-black text-gray-400 uppercase mb-1">最安値</span>
-                            <span class="text-xl font-black text-gray-800 tabular-nums italic">{{ $stats['min'] }}<small class="text-[10px] ml-0.5 font-bold not-italic">万円</small></span>
+                            <span class="text-base sm:text-xl font-black text-gray-800 tabular-nums italic whitespace-nowrap">
+                                {{ $stats['min'] }}<small class="text-[9px] sm:text-[10px] ml-0.5 font-bold not-italic">万円</small>
+                            </span>
                         </div>
-                        <div class="px-2">
+                        <div class="px-1 sm:px-2">
                             <span class="block text-[9px] font-black text-gray-400 uppercase mb-1">最高値</span>
-                            <span class="text-xl font-black text-gray-800 tabular-nums italic">{{ $stats['max'] }}<small class="text-[10px] ml-0.5 font-bold not-italic">万円</small></span>
+                            <span class="text-base sm:text-xl font-black text-gray-800 tabular-nums italic whitespace-nowrap">
+                                {{ $stats['max'] }}<small class="text-[9px] sm:text-[10px] ml-0.5 font-bold not-italic">万円</small>
+                            </span>
                         </div>
                     </div>
 
