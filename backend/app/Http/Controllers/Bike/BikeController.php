@@ -11,7 +11,7 @@ use Illuminate\Contracts\View\View;
 use App\Models\Listing;
 use App\Services\Bike\BikeService;
 use App\Services\Bike\ListingSearchService;
-use App\Http\Resources\Bike\ListingResource; // 名前空間に注意
+use App\Http\Resources\Bike\ListingResource;
 
 /**
  * バイク検索・表示機能を提供するメインコントローラー
@@ -29,10 +29,10 @@ final class BikeController extends Controller
     public function index(): View
     {
         $popularBikes = $this->bikeService->getPopularBikesForTopPage();
-        $totalListingsCount = $this->listingSearchService->getActiveCount();
         $regions = config('bike.regions');
 
-        return view('bikes.index', compact('popularBikes', 'totalListingsCount', 'regions'));
+        // totalListingsCount は自動注入されるため削除
+        return view('bikes.index', compact('popularBikes', 'regions'));
     }
 
     /**
@@ -65,14 +65,13 @@ final class BikeController extends Controller
 
         $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
         $searchMeta = $this->listingSearchService->getSearchMetadata($keyword, $prefecture, $filters);
-        $totalListingsCount = $this->listingSearchService->getActiveCount();
 
+        // totalListingsCount を削除
         return view('bikes.search', array_merge($result, [
-            'keyword'            => $keyword,
-            'prefecture'         => $prefecture,
-            'sort'               => $sort,
-            'meta'               => $searchMeta,
-            'totalListingsCount' => $totalListingsCount,
+            'keyword'    => $keyword,
+            'prefecture' => $prefecture,
+            'sort'       => $sort,
+            'meta'       => $searchMeta,
         ]));
     }
 
@@ -81,21 +80,14 @@ final class BikeController extends Controller
      */
     public function show($id)
     {
-
-        $totalListingsCount = $this->listingSearchService->getActiveCount();
-
         // 1. データを取得
         $listing = Listing::with(['shop', 'bikeModel.manufacturer'])->findOrFail($id);
 
-        // 2. Resourceを使って整形 (配列化してからオブジェクトに変換)
-        // Blade側で $listing->name のようにアクセスできるように (object) キャストします
+        // 2. Resourceを使って整形
         $data = (object) (new ListingResource($listing))->resolve();
 
-        // compactではなく、配列形式で渡すのが最も確実で可読性が高いです
-        return view('bikes.show', [
-            'listing' => $data,
-            'totalListingsCount' => $totalListingsCount,
-        ]);
+        // totalListingsCount を削除
+        return view('bikes.show', ['listing' => $data]);
     }
 
     public function getModels(int $manufacturerId): JsonResponse
@@ -115,20 +107,25 @@ final class BikeController extends Controller
         return response()->json($suggestions);
     }
 
+    /**
+     * 車種一覧ページの表示
+     */
     public function models(): View
     {
         $data = $this->bikeService->getAllModelsForIndex();
-        $totalListingsCount = $this->listingSearchService->getActiveCount();
-
-        return view('bikes.models', array_merge($data, [
-            'totalListingsCount' => $totalListingsCount
-        ]));
+        
+        // totalListingsCount を削除
+        // 配列のマージが不要になったのでシンプルに渡せます
+        return view('bikes.models', $data);
     }
 
+    /**
+     * お気に入り一覧ページの表示
+     */
     public function wishlist(): View
     {
-        $totalListingsCount = $this->listingSearchService->getActiveCount();
-        return view('pages.wishlist', compact('totalListingsCount'));
+        // 変数が不要になったのでそのままビューを返します
+        return view('pages.wishlist');
     }
 
     public function fetchWishlist(Request $request): JsonResponse
@@ -146,9 +143,12 @@ final class BikeController extends Controller
         return response()->json(ListingResource::collection($listings)->resolve());
     }
 
+    /**
+     * 比較ページの表示
+     */
     public function compare(): View
     {
-        $totalListingsCount = $this->listingSearchService->getActiveCount();
-        return view('pages.compare', compact('totalListingsCount'));
+        // 変数が不要になったのでそのままビューを返します
+        return view('pages.compare');
     }
 }

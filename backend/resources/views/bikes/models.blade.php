@@ -6,7 +6,7 @@
     </x-slot:scripts>
 
     <x-slot:navigation>
-        <x-navigation :totalListingsCount="$totalListingsCount" :showSearch="true" />
+        <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
     <div class="bg-gray-50 min-h-screen py-12 sm:py-20">
@@ -18,7 +18,7 @@
                     車種から探す
                 </h1>
                 <p class="text-gray-400 text-xs font-bold tracking-widest uppercase">
-                    {{ number_format($totalModelsCount) }} MODELS AVAILABLE
+                    {{ number_format($totalModelsCount) }} 車種
                 </p>
             </div>
 

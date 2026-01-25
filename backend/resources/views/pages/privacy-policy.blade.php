@@ -6,10 +6,7 @@
 
     {{-- 2. ナビゲーション --}}
     <x-slot:navigation>
-        <x-navigation 
-            :totalListingsCount="$totalListingsCount ?? 0" 
-            :showSearch="true" 
-        />
+        <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
     {{-- 3. メインコンテンツ --}}

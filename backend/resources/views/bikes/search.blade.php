@@ -16,7 +16,7 @@
     </x-slot:scripts>
 
     <x-slot:navigation>
-        <x-navigation :totalListingsCount="$totalListingsCount" :showSearch="true" :keyword="$keyword" />
+        <x-navigation  :showSearch="true" :keyword="$keyword" />
     </x-slot:navigation>
 
     <div class="bg-gray-50 min-h-screen py-8">

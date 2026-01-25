@@ -1,5 +1,5 @@
 @props([
-    'totalListingsCount' => 0,
+    // totalListingsCount は AppServiceProvider から自動で渡されるため削除します
     'showSearch' => false,
     'keyword' => ''
 ])
@@ -35,7 +35,7 @@
             <!-- 右側: アクションエリア -->
             <div class="flex items-center gap-3 sm:gap-5 flex-shrink-0">
                 
-                <!-- スマホ用検索ボタン (JSで見つけるためのIDを追加しました) -->
+                <!-- スマホ用検索ボタン -->
                 @if($showSearch)
                 <button id="mobile-nav-search-toggle" class="md:hidden p-2 text-gray-400 hover:text-black rounded-full transition-all">
                     <i data-lucide="search" class="w-6 h-6"></i>
@@ -56,6 +56,7 @@
                     <div class="text-right">
                         <span class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block leading-none mb-1">掲載台数</span>
                         <div class="flex items-baseline gap-0.5">
+                            {{-- ここでは View Composer から渡された $totalListingsCount が使われます --}}
                             <span class="text-lg font-black text-black leading-none">{{ number_format($totalListingsCount) }}</span>
                             <span class="text-[10px] font-bold text-gray-500">台</span>
                         </div>
@@ -64,7 +65,7 @@
             </div>
         </div>
 
-        <!-- ✨ スマホ用ドロップダウン検索バー (初期状態はhidden) -->
+        <!-- スマホ用ドロップダウン検索バー -->
         @if($showSearch)
         <div id="mobile-nav-search-bar" class="md:hidden hidden pt-4 pb-2 relative animate-in slide-in-from-top-2 duration-200">
             <form action="{{ route('bikes.search') }}" method="GET" class="w-full" id="mobile-nav-search-form" autocomplete="off">
@@ -76,7 +77,6 @@
                         class="w-full bg-gray-100 border-none rounded-xl pl-10 pr-4 py-3 text-base focus:ring-2 focus:ring-black transition-all">
                 </div>
             </form>
-            <!-- スマホ用サジェスト結果表示エリア -->
             <div id="mobile-nav-suggest-results" class="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden hidden z-[120] text-left">
                 <div id="mobile-nav-suggest-list" class="py-2 max-h-[300px] overflow-y-auto"></div>
             </div>
@@ -86,6 +86,5 @@
 </nav>
 
 @if($showSearch)
-    {{-- サジェスト機能は単独で動作するように切り分けています --}}
     <script src="{{ asset('js/search/suggest.js') }}"></script>
 @endif

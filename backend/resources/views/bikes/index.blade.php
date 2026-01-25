@@ -11,10 +11,7 @@
 
     {{-- 3. 共通ナビゲーションコンポーネントの使用 --}}
     <x-slot:navigation>
-        <x-navigation 
-            :totalListingsCount="$totalListingsCount" 
-            :showSearch="false" 
-        />
+        <x-navigation :showSearch="false" />
     </x-slot:navigation>
 
     {{-- 4. メインコンテンツ --}}

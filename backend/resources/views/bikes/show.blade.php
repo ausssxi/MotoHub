@@ -10,7 +10,7 @@
     </x-slot:scripts>
 
     <x-slot:navigation>
-        <x-navigation :totalListingsCount="$totalListingsCount" :showSearch="true" />
+        <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
     {{-- パンくずリスト --}}

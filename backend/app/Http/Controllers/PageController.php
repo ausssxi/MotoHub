@@ -35,8 +35,7 @@ final class PageController extends Controller
      */
     public function about(): View
     {
-        $totalListingsCount = $this->listingSearchService->getActiveCount();
-        return view('pages.about', compact('totalListingsCount'));
+        return view('pages.about');
     }
 
     /**
@@ -48,8 +47,7 @@ final class PageController extends Controller
      */
     public function contact(): View
     {
-        $totalListingsCount = $this->listingSearchService->getActiveCount();
-        return view('pages.contact', compact('totalListingsCount'));
+        return view('pages.contact');
     }
 
     /**
@@ -90,8 +88,7 @@ final class PageController extends Controller
      */
     public function privacyPolicy(): View
     {
-        $totalListingsCount = $this->listingSearchService->getActiveCount();
-        return view('pages.privacy-policy', compact('totalListingsCount'));
+        return view('pages.privacy-policy');
     }
 
     /**
@@ -103,7 +100,7 @@ final class PageController extends Controller
      */
     public function terms(): View
     {
-        $totalListingsCount = $this->listingSearchService->getActiveCount();
+        return view('pages.terms');
         return view('pages.terms', compact('totalListingsCount'));
     }
 }

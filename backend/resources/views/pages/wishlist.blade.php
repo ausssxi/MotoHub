@@ -7,10 +7,7 @@
     {{-- 2. ナビゲーション --}}
     {{-- 検索窓を表示し、掲載台数(totalListingsCount)を渡します --}}
     <x-slot:navigation>
-        <x-navigation 
-            :totalListingsCount="$totalListingsCount ?? 0" 
-            :showSearch="true" 
-        />
+        <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
     {{-- 3. メインコンテンツ --}}
