@@ -1,17 +1,18 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
+// コントローラーの読み込み
 use App\Http\Controllers\Bike\BikeController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\Api\BikeApiController;
 
 /**
  * MotoHub Route Definitions
+ * ==========================================
+ * リダイレクト設定 (SEO評価引き継ぎ用)
+ * ==========================================
  */
-
- // ====================================================
-// ▼ 旧URLからの 301リダイレクト設定 (SEO評価引き継ぎ用)
-// ====================================================
 
 // 1. 車種一覧ページ
 // 旧: /models -> 新: /bikes/models
@@ -20,51 +21,51 @@ Route::redirect('/models', '/bikes/models', 301);
 // 2. 検索ページ (クエリパラメータ ?keyword=... を引き継ぐ)
 // 旧: /search -> 新: /bikes/search
 Route::get('/search', function (Request $request) {
-    // 301: 恒久的な移動（Googleに「引っ越しました」と伝える）
+    // 301リダイレクト (クエリパラメータを維持)
     return redirect()->route('bikes.search', $request->all(), 301);
 });
 
-// 3. サジェスト機能 (もし旧URLが使われていた場合)
+// 3. サジェスト機能
 // 旧: /suggest -> 新: /bikes/suggest
 Route::get('/suggest', function (Request $request) {
     return redirect()->route('bikes.suggest', $request->all(), 301);
 });
 
+/**
+ * ==========================================
+ * メインルート設定
+ * ==========================================
+ */
 
-// --- メイン機能 (BikeController) ---
+// トップページ
 Route::get('/', [BikeController::class, 'index'])->name('bikes.index');
 
-// '/bikes' で始まるルートをグループ化
+// '/bikes' グループ (検索・一覧・詳細)
 Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group(function () {
-    Route::get('/search', 'search')->name('search');    // URL: /bikes/search, Name: bikes.search
-    Route::get('/models', 'models')->name('models');    // URL: /bikes/models, Name: bikes.models
-    Route::get('/suggest', 'suggest')->name('suggest'); // URL: /bikes/suggest, Name: bikes.suggest
-    Route::get('/{id}', 'show')->name('show');          // URL: /bikes/{id}, Name: bikes.show
+    Route::get('/search', 'search')->name('search');    // /bikes/search
+    Route::get('/models', 'models')->name('models');    // /bikes/models
+    Route::get('/suggest', 'suggest')->name('suggest'); // /bikes/suggest
+    
+    // 詳細ページ (ID指定) - 他の固定ルートより後に書く
+    Route::get('/{id}', 'show')->name('show')->where('id', '[0-9]+'); 
 });
 
-// --- お気に入り機能 (Wishlist) ---
-// URLを /wishlist にして独立させ、主要機能としての扱いを明確にします
+// お気に入り機能
 Route::get('/wishlist', [BikeController::class, 'wishlist'])->name('wishlist');
 Route::get('/api/wishlist/fetch', [BikeController::class, 'fetchWishlist'])->name('api.wishlist.fetch');
 Route::get('/compare', [BikeController::class, 'compare'])->name('bikes.compare');
 
-// --- API関連 (JavaScriptからの非同期リクエスト用) ---
+// API関連
 Route::prefix('api')->group(function () {
-    // 車両の条件一致件数を取得するAPI (JSは /api/bikes/count を呼ぶ)
     Route::get('/bikes/count', [BikeApiController::class, 'count']);
-
-    // メーカー・車種連動用API (JSは /api/manufacturers/{id}/models を呼ぶ)
     Route::get('/manufacturers/{manufacturer}/models', [BikeApiController::class, 'models']);
 });
-// --- 固定・情報ページ (PageController) ---
-// 運営情報や法的ページなど、情報の閲覧がメインのページをグループ化します
+
+// 固定ページ (運営者情報など)
 Route::prefix('pages')->name('pages.')->group(function () {
     Route::get('/about', [PageController::class, 'about'])->name('about');
-    
-    // お問い合わせ
     Route::get('/contact', [PageController::class, 'contact'])->name('contact');
     Route::post('/contact', [PageController::class, 'send'])->name('contact.send');
-
     Route::get('/privacy-policy', [PageController::class, 'privacyPolicy'])->name('privacy-policy');
     Route::get('/terms', [PageController::class, 'terms'])->name('terms');
 });
