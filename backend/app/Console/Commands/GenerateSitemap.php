@@ -8,31 +8,32 @@ use Illuminate\Console\Command;
 use App\Models\Listing;
 use App\Models\BikeModel;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\URL; // 追加
 
 class GenerateSitemap extends Command
 {
-    /**
-     * コンソールコマンドの名前
-     */
     protected $signature = 'sitemap:generate';
-
-    /**
-     * コマンドの説明
-     */
     protected $description = 'サイトマップ(sitemap.xml)を生成してpublicディレクトリに保存します';
 
-    /**
-     * コマンドの実行処理
-     */
     public function handle(): void
     {
-        $this->info('サイトマップの生成を開始します...');
+        // 1. URLの強制設定 (localhostになるのを防ぐ)
+        // .envの値を取得、もし取れなければ直接指定
+        $appUrl = config('app.url');
+        if (empty($appUrl) || str_contains($appUrl, 'localhost')) {
+            $appUrl = 'https://motohub.jp';
+        }
+
+        URL::forceRootUrl($appUrl);
+        URL::forceScheme('https');
+
+        $this->info("サイトマップ生成開始 (Base URL: {$appUrl})");
         $startTime = microtime(true);
 
         $urls = [];
 
         // ---------------------------------------------------------
-        // 1. 固定ページの追加
+        // 2. 固定ページ
         // ---------------------------------------------------------
         $this->info('固定ページを追加中...');
         $staticPages = [
@@ -57,29 +58,27 @@ class GenerateSitemap extends Command
         }
 
         // ---------------------------------------------------------
-        // 2. 車種ごとの検索結果ページ (SEO対策)
-        // 例: /bikes/search?keyword=CB400SF
+        // 3. 車種別ページ (検索結果)
         // ---------------------------------------------------------
         $this->info('車種別ページを追加中...');
         BikeModel::chunk(500, function ($models) use (&$urls) {
             foreach ($models as $model) {
+                // ここで route() を使うと forceRootUrl の効果で https://motohub.jp になります
                 $urls[] = [
                     'loc' => route('bikes.search', ['keyword' => $model->name]),
                     'lastmod' => date('Y-m-d'),
-                    'changefreq' => 'daily', // 在庫は日々変わるのでdaily
+                    'changefreq' => 'daily',
                     'priority' => '0.8',
                 ];
             }
         });
 
         // ---------------------------------------------------------
-        // 3. 車両詳細ページ (最重要)
-        // 例: /bikes/12345
+        // 4. 車両詳細ページ (一番最後に追加されます)
         // ---------------------------------------------------------
         $this->info('車両詳細ページを追加中...');
         $listingCount = 0;
         
-        // メモリ節約のため必要なカラムだけ取得して分割処理
         Listing::where('is_sold_out', false)
             ->select('id', 'updated_at')
             ->orderBy('updated_at', 'desc')
@@ -97,17 +96,16 @@ class GenerateSitemap extends Command
             });
 
         // ---------------------------------------------------------
-        // 4. XML書き出し
+        // 5. 書き出し
         // ---------------------------------------------------------
         $content = view('sitemap', ['urls' => $urls])->render();
-        
         $path = public_path('sitemap.xml');
         File::put($path, $content);
 
         $duration = round(microtime(true) - $startTime, 2);
         $this->info("完了！");
         $this->info("- 出力先: {$path}");
-        $this->info("- URL数: " . count($urls));
+        $this->info("- 合計URL数: " . count($urls));
         $this->info("- 所要時間: {$duration}秒");
     }
 }
