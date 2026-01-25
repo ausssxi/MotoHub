@@ -20,7 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     /**
-     * MotoHub クローリングタスクのスケジュール設定（パス修正版）
+     * MotoHub クローリングタスクのスケジュール設定
      */
     ->withSchedule(function (Schedule $schedule): void {
         // 実行スクリプトのベースパス
@@ -42,7 +42,6 @@ return Application::configure(basePath: dirname(__DIR__))
         }
 
         // 画像のローカル同期 (毎日 深夜4:30)
-        // 【修正】common フォルダ内のパスを指定
         $schedule->exec("python3 {$basePath}/common/image_syncer.py")
                  ->dailyAt('04:30')
                  ->withoutOverlapping()
@@ -81,6 +80,9 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->withoutOverlapping()
                  ->appendOutputTo($logPath);
 
-        $schedule->command('sitemap:generate')->dailyAt('05:00');
+        // サイトマップ生成 (毎日 03:00)
+        // ※スクレイピング(03:00開始)と被りますが、Laravelの処理とPythonは別プロセスで動くので並行稼働します。
+        // もしスクレイピング完了後に更新したい場合は時間をずらす(例: 06:00)のがおすすめです。
+        $schedule->command('sitemap:generate')->dailyAt('03:00');
     })
     ->create();
