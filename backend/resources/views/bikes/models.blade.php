@@ -31,7 +31,11 @@
                         </div>
 
                         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                            @foreach($manufacturer->bikeModels as $bike)
+                            {{-- 
+                                ✨ 修正: bikeModels ではなく bike_models を使用 
+                                BikeServiceでセットした「カウント情報付き」のコレクションを使います
+                            --}}
+                            @foreach($manufacturer->bike_models as $bike)
                             <a href="{{ route('bikes.search', ['keyword' => $bike->name]) }}"
                                 class="group flex items-center bg-white p-2 sm:p-3 rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200">
                                 
@@ -59,6 +63,7 @@
                                     {{-- バッジスタイルの台数表示 --}}
                                     <div class="flex items-center mt-1">
                                         <span class="text-[9px] font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
+                                            {{-- Repositoryの修正により listings_count が取得できるようになります --}}
                                             <span class="text-blue-500 font-bold mr-0.5">{{ number_format($bike->listings_count ?? 0) }}</span>台
                                         </span>
                                     </div>

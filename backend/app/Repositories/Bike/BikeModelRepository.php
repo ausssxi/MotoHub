@@ -14,7 +14,6 @@ final class BikeModelRepository
 {
     /**
      * IDから特定の車種を取得する
-     * ✨ ListingSearchService のエラーを解消するために追加
      */
     public function find(int $id): ?BikeModel
     {
@@ -23,10 +22,13 @@ final class BikeModelRepository
 
     /**
      * 特定のメーカーに紐づく車種一覧をID順で取得
+     * ✨ 修正: listings_count (出品数) を取得するように変更
      */
     public function getByManufacturerId(int $manufacturerId): Collection
     {
         return BikeModel::where('manufacturer_id', $manufacturerId)
+            // 販売中の車両（is_sold_out = false）の数をカウントして listings_count に入れる
+            ->withCount(['listings' => fn($q) => $q->where('is_sold_out', false)])
             ->orderBy('id', 'asc')
             ->get();
     }
