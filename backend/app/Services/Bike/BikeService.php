@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Bike;
 
 use App\Repositories\Bike\BikeModelRepository;
+use App\Repositories\Bike\ListingRepository;
 use App\Repositories\Bike\ManufacturerRepository;
 use Illuminate\Support\Collection;
 
@@ -16,7 +17,8 @@ final class BikeService
 {
     public function __construct(
         private readonly BikeModelRepository $modelRepo,
-        private readonly ManufacturerRepository $manufacturerRepo
+        private readonly ManufacturerRepository $manufacturerRepo,
+        private readonly ListingRepository $listingRepo
     ) {}
 
     /**
@@ -56,5 +58,13 @@ final class BikeService
             'manufacturers' => $manufacturers,
             'totalModelsCount' => $manufacturers->sum('bike_models_count')
         ];
+    }
+
+    /**
+     * ★追加: 関連車両の取得 (Repositoryへ委譲)
+     */
+    public function getRelatedListings(int $bikeModelId, int $excludeId, int $limit = 8): Collection
+    {
+        return $this->listingRepo->getRelatedListings($bikeModelId, $excludeId, $limit);
     }
 }

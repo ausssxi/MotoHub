@@ -342,6 +342,54 @@
                         </div>
                     </div>
 
+                    {{-- ★ここに追加: 類似車両（同じ車種の他の車両） --}}
+                    @if(!empty($relatedListings) && count($relatedListings) > 0)
+                    <div class="pt-8 border-t border-gray-200">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-lg font-black text-gray-900 flex items-center gap-2">
+                                <i data-lucide="layers" class="w-5 h-5 text-blue-500"></i>
+                                この車種の他の車両
+                            </h3>
+                            <a href="{{ route('bikes.search', ['bike_model_id' => $listing->bike_model_id]) }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                                すべて見る <i data-lucide="chevron-right" class="w-4 h-4 inline-block align-text-bottom"></i>
+                            </a>
+                        </div>
+                        
+                        <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+                            @foreach($relatedListings as $related)
+                            <a href="{{ route('bikes.show', $related['id']) }}" class="snap-start shrink-0 w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
+                                <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
+                                    @if(!empty($related['images']) && isset($related['images'][0]))
+                                        <img src="{{ $related['images'][0] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="">
+                                    @else
+                                        <div class="flex items-center justify-center h-full text-gray-300">
+                                            <i data-lucide="image-off" class="w-8 h-8"></i>
+                                        </div>
+                                    @endif
+                                    
+                                    {{-- 価格バッジ --}}
+                                    <div class="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-black">
+                                        {{ $related['total_price'] }}万円
+                                    </div>
+                                </div>
+                                <div class="p-3">
+                                    <div class="text-[10px] font-bold text-gray-400 mb-0.5 flex items-center gap-1">
+                                        <span class="bg-gray-100 px-1.5 rounded">{{ $related['model_year'] }}</span>
+                                        <span>{{ $related['mileage'] }}</span>
+                                    </div>
+                                    <h4 class="text-xs font-black text-gray-800 leading-tight line-clamp-2 mb-2 h-[2.5em] group-hover:text-blue-600 transition-colors">
+                                        {{ $related['name'] }}
+                                    </h4>
+                                    <div class="flex items-end justify-between border-t border-gray-100 pt-2">
+                                        <div class="text-[10px] text-gray-400">{{ $related['prefecture'] }}</div>
+                                    </div>
+                                </div>
+                            </a>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
                     {{-- 4. 最近見た車両 --}}
                     <div id="history-widget-container" class="pt-8">
                         <div id="history-widget" class="hidden"></div>

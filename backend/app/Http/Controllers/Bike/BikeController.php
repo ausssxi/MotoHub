@@ -83,11 +83,21 @@ final class BikeController extends Controller
         // 1. データを取得
         $listing = Listing::with(['shop', 'bikeModel.manufacturer'])->findOrFail($id);
 
-        // 2. Resourceを使って整形
+        // 2. 関連車両（同じ車種）を取得
+        // ★修正: リポジトリ直接ではなく、Service経由で取得
+        $relatedListings = collect();
+        if ($listing->bike_model_id) {
+            $relatedRaw = $this->bikeService->getRelatedListings($listing->bike_model_id, $listing->id, 8);
+            $relatedListings = ListingResource::collection($relatedRaw)->resolve();
+        }
+
+        // 3. Resourceを使って整形
         $data = (object) (new ListingResource($listing))->resolve();
 
-        // totalListingsCount を削除
-        return view('bikes.show', ['listing' => $data]);
+        return view('bikes.show', [
+            'listing' => $data,
+            'relatedListings' => $relatedListings,
+        ]);
     }
 
     public function getModels(int $manufacturerId): JsonResponse

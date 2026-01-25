@@ -140,4 +140,23 @@ final class ListingRepository
             ->pluck('total_price') // 価格の配列のみ取得
             ->map(fn($p) => (int)$p);
     }
+
+    /**
+     * 同じ車種の関連車両を取得（価格の安い順）
+     * @param int $bikeModelId 車種ID
+     * @param int $excludeId 除外する車両ID（自分自身）
+     * @param int $limit 取得件数
+     */
+    public function getRelatedListings(int $bikeModelId, int $excludeId, int $limit = 10): Collection
+    {
+        return Listing::with(['shop']) // 画像などのリレーションはResourceで解決するため最小限に
+            ->where('bike_model_id', $bikeModelId)
+            ->where('id', '!=', $excludeId) // 自分自身を除外
+            ->where('is_sold_out', false)
+            ->whereNotNull('total_price')
+            ->where('total_price', '>', 0)
+            ->orderBy('total_price', 'asc') // 安い順
+            ->limit($limit)
+            ->get();
+    }
 }
