@@ -121,6 +121,12 @@ class WebikeListingSpider(BaseBikeSpider):
                     if not self.is_cross_site_duplicate(item_data):
                         self.save_listing(item_data)
 
+                # ✨ descriptionの追加保存処理 (ここを追加)
+                if item_data.get('description'):
+                    record = self.db.query(Listing).filter(Listing.source_url == v_url).first()
+                    if record:
+                        record.description = item_data['description']
+
                 # ✨【重要】Pipelineが参照できるように即座にcommit
                 self.db.commit()
 
@@ -186,6 +192,17 @@ class WebikeListingSpider(BaseBikeSpider):
             if not shop_id:
                 self.logger.warning(f"Shop not found in cache for {v_url}. Listing skipped.")
                 return None
+            
+            # ✨ 説明文の取得 (キャッチコピー + 本文)
+            catch_copy = li.css('p.catch-copy::text').get() or ""
+            # spanタグは他の要素の中にもあるので、li直下のspanを狙うためにxpathを使用
+            comment_text = li.xpath('./span/text()').get() or ""
+            
+            description = f"{catch_copy}\n{comment_text}".strip()
+            
+            # 確認用ログ
+            if description:
+                self.logger.info(f"📄 Description found: {description[:20]}...")
 
             # 画像URL (Lazy load用のdata-srcを優先)
             main_img = li.css('.img_bike_list img::attr(data-src)').get() or li.css('.img_bike_list img::attr(src)').get()
@@ -195,6 +212,7 @@ class WebikeListingSpider(BaseBikeSpider):
                 'bike_model_id': bike_model_id,
                 'shop_id': shop_id,
                 'title': li.css('h2 strong::text').get(default="").strip(),
+                'description': description, # 追加
                 'source_url': v_url,
                 'price': price_val,
                 'total_price': total_val,
