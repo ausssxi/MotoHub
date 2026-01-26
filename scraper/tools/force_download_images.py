@@ -38,6 +38,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ==========================================
+# 設定: 開始位置
+# ==========================================
+START_INDEX = 100000  # ← 100000件目までスキップして開始
+
+# ==========================================
 # 1. 保存先ディレクトリの特定
 # ==========================================
 CANDIDATE_PATHS = [
@@ -105,7 +110,7 @@ def main():
         listings = db.query(Listing).filter(Listing.image_urls != None).all()
         
         total = len(listings)
-        logger.info(f"Found {total} listings. Starting recovery process...")
+        logger.info(f"Found {total} listings. Skipping first {START_INDEX} items...")
 
         processed_count = 0
         download_count = 0
@@ -113,6 +118,10 @@ def main():
 
         for listing in listings:
             processed_count += 1
+            
+            # 【再開ロジック】指定件数まではスキップ
+            if processed_count < START_INDEX:
+                continue
             
             image_urls = listing.image_urls
             if isinstance(image_urls, str):
@@ -157,7 +166,6 @@ def main():
                     except: current_paths = []
                 
                 # 差分がある場合のみ更新
-                # (JSON配列としての比較を確実にするためリスト同士で比較)
                 if json.dumps(current_paths) != json.dumps(local_paths):
                     listing.local_image_paths = local_paths
                     updated_count += 1
@@ -180,13 +188,5 @@ def main():
         db.close()
 
 if __name__ == "__main__":
-    print("----------------------------------------------------------------")
-    print("【画像強制ダウンロード＆修復ツール】")
-    print("ツールの場所: scraper/tools/")
-    print("----------------------------------------------------------------")
-    
-    val = input("実行しますか？ (y/n): ")
-    if val.lower() == 'y':
-        main()
-    else:
-        print("キャンセルしました。")
+    print(f"--- 画像強制ダウンロード＆修復ツール (Start Index: {START_INDEX}) ---")
+    main()
