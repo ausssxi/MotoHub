@@ -25,7 +25,7 @@ class Listing extends Model
     public function shop(): BelongsTo { return $this->belongsTo(Shop::class); }
     public function site(): BelongsTo { return $this->belongsTo(Site::class); }
 
-    // --- Query Scopes (現状のロジックをそのまま移行) ---
+    // --- Query Scopes ---
 
     /**
      * 販売中の車両のみ
@@ -36,7 +36,7 @@ class Listing extends Model
     }
 
     /**
-     * キーワード検索（車種ID指定時は衝突を避ける仕様を維持）
+     * キーワード検索
      */
     public function scopeWithKeyword(Builder $query, ?string $keyword, bool $excludeModelSearch = false): Builder
     {
@@ -45,11 +45,6 @@ class Listing extends Model
         return $query->where(function (Builder $q) use ($keyword, $excludeModelSearch) {
             $q->where('title', 'like', "%{$keyword}%");
 
-            /**
-             * ✨ 改善: excludeModelSearch が true (ID指定あり) の場合でも、
-             * 完全に車種名検索を捨てるのではなく、OR条件として残す。
-             * これにより「マスタ側の名前」と「キーワード」に多少のズレがあってもヒットしやすくなる。
-             */
             $q->orWhereHas('bikeModel', function (Builder $bq) use ($keyword) {
                 $bq->where('name', 'like', "%{$keyword}%")
                   ->orWhereHas('manufacturer', function (Builder $mq) use ($keyword) {
@@ -82,7 +77,7 @@ class Listing extends Model
     }
 
     /**
-     * コンディション（is_new パラメータを condition カラムに読み替え）
+     * コンディション
      */
     public function scopeByCondition(Builder $query, $isNew): Builder
     {
@@ -102,21 +97,35 @@ class Listing extends Model
 
     /**
      * 価格範囲
+     * ✨ 修正: $uiMaxLimit を null許容にし、デフォルト値を設定
      */
-    public function scopePriceBetween(Builder $query, ?int $min, ?int $max, int $uiMaxLimit): Builder
+    public function scopePriceBetween(Builder $query, ?int $min, ?int $max, ?int $uiMaxLimit = null): Builder
     {
         if ($min > 0) $query->where('total_price', '>=', $min * 10000);
-        if ($max && $max < $uiMaxLimit) $query->where('total_price', '<=', $max * 10000);
+        
+        if ($max) {
+            // uiMaxLimit が指定されている場合: max値が上限未満のときだけフィルタ（上限＝無制限扱い）
+            // uiMaxLimit が null の場合: 常にフィルタ（単純な範囲検索として動作）
+            if ($uiMaxLimit === null || $max < $uiMaxLimit) {
+                $query->where('total_price', '<=', $max * 10000);
+            }
+        }
         return $query;
     }
 
     /**
      * 走行距離範囲
+     * ✨ 修正: $uiMaxLimit を null許容にし、デフォルト値を設定
      */
-    public function scopeMileageBetween(Builder $query, ?int $min, ?int $max, int $uiMaxLimit): Builder
+    public function scopeMileageBetween(Builder $query, ?int $min, ?int $max, ?int $uiMaxLimit = null): Builder
     {
         if ($min > 0) $query->where('mileage', '>=', $min);
-        if ($max && $max < $uiMaxLimit) $query->where('mileage', '<=', $max);
+        
+        if ($max) {
+            if ($uiMaxLimit === null || $max < $uiMaxLimit) {
+                $query->where('mileage', '<=', $max);
+            }
+        }
         return $query;
     }
 

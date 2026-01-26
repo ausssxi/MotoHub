@@ -4,15 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Bike\Search;
 
-use App\Repositories\Bike\ListingRepository;
+use App\Repositories\Bike\ListingStatsRepository;
 
-/**
- * 検索結果の統計情報（スライダーの上限値など）を計算するクラス
- */
 final class SearchMetadataGenerator
 {
     public function __construct(
-        private readonly ListingRepository $listingRepo
+        private readonly ListingStatsRepository $statsRepo // ✨ 変更: Statsリポジトリを使用
     ) {}
 
     /**
@@ -21,10 +18,12 @@ final class SearchMetadataGenerator
     public function generate(?string $keyword, ?string $prefecture, array $filters): array
     {
         // 範囲フィルタを除外して「その車種の全体像」を取得
+        // (例: 35万円以下で絞り込んでいても、スライダーの右端は全体の最大値にするため)
         $rangeKeys = ['min_price', 'max_price', 'min_mileage', 'max_mileage', 'min_year', 'max_year'];
         $cleanFilters = array_diff_key($filters, array_flip($rangeKeys));
 
-        $stats = $this->listingRepo->getMinMaxStats($keyword, $prefecture, $cleanFilters);
+        // StatsRepoを使って最小・最大値を取得
+        $stats = $this->statsRepo->getMinMaxStats($keyword, $prefecture, $cleanFilters);
 
         $rawPrice = $stats->max_price ? (int) ceil($stats->max_price / 10000) : 0;
         $rawMileage = (int) ($stats->max_mileage ?? 0);
@@ -32,11 +31,13 @@ final class SearchMetadataGenerator
         return [
             'price' => [
                 'min' => 0,
-                'max' => $this->roundUpPrice($rawPrice)
+                'max' => $this->roundUpPrice($rawPrice),
+                'raw_max' => $stats->max_price // 生の値も保持
             ],
             'mileage' => [
                 'min' => 0,
-                'max' => $this->roundUpMileage($rawMileage)
+                'max' => $this->roundUpMileage($rawMileage),
+                'raw_max' => $stats->max_mileage
             ],
             'year' => [
                 'min' => (int) ($stats->min_year ?? 1990),
@@ -46,7 +47,20 @@ final class SearchMetadataGenerator
     }
 
     /**
-     * 平均・最小・最大価格のフォーマット
+     * ✨ 追加: 検索クエリ用のUIリミット値を計算して返す
+     * コントローラー側でこれを呼び出し、ListingRepositoryに渡します
+     */
+    public function calculateUiLimits(array $meta): array
+    {
+        return [
+            // メタデータの計算済みMAX値を使用
+            'max_price' => $meta['price']['max'] ?? 300,
+            'max_mileage' => $meta['mileage']['max'] ?? 50000,
+        ];
+    }
+
+    /**
+     * 統計データのフォーマット
      */
     public function formatStats(object $stats): array
     {
@@ -57,6 +71,8 @@ final class SearchMetadataGenerator
             'count' => $stats->count,
         ];
     }
+
+    // --- 以下、プライベートヘルパーメソッド ---
 
     private function roundUpPrice(int $price): int
     {

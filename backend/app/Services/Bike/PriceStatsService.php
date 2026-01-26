@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Bike;
 
-use App\Repositories\Bike\ListingRepository;
+use App\Repositories\Bike\ListingStatsRepository; // ✨ 変更
 use Illuminate\Support\Collection;
 
 final class PriceStatsService
 {
     public function __construct(
-        private readonly ListingRepository $listingRepo
+        private readonly ListingStatsRepository $statsRepo // ✨ 変更
     ) {}
 
     /**
@@ -18,8 +18,8 @@ final class PriceStatsService
      */
     public function getModelStats(int $bikeModelId): array
     {
-        // リポジトリから価格リスト（整数）を取得
-        $prices = $this->listingRepo->getValidTotalPricesByModelId($bikeModelId);
+        // ListingStatsRepository から取得
+        $prices = $this->statsRepo->getValidTotalPricesByModelId($bikeModelId);
 
         if ($prices->isEmpty()) {
             return [];
@@ -31,7 +31,6 @@ final class PriceStatsService
         $avg = $prices->avg() / 10000;
 
         // 2. ヒストグラム（分布）データの作成
-        // 価格帯の刻み幅を動的に決定（例: 5万円刻み、10万円刻み）
         $step = $this->calculateStep($min, $max);
         $distribution = $this->createDistribution($prices, $step);
 
