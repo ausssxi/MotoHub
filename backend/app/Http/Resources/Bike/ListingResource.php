@@ -44,6 +44,8 @@ class ListingResource extends JsonResource
             'base_price'     => $this->price ? number_format((float)($this->price / 10000), 1) : '-', // API互換用
             
             // 店舗情報
+            'shop_id'        => $this->shop_id,
+            'shop_image'     => $this->shop?->display_image_url,
             'store_name'     => $this->shop?->name ?? '不明な販売店', // API互換用
             'shop_name'      => $this->shop?->name ?? '不明な販売店', // Blade互換用
             'shop_address'   => $this->shop?->address,

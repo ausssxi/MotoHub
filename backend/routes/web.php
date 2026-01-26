@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Bike\BikeController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\Api\BikeApiController;
+use App\Http\Controllers\Shop\ShopController;
 
 /**
  * MotoHub Route Definitions
@@ -49,6 +50,8 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     // 詳細ページ (ID指定) - 他の固定ルートより後に書く
     Route::get('/{id}', 'show')->name('show')->where('id', '[0-9]+'); 
 });
+
+Route::get('/shops/{id}', [ShopController::class, 'show'])->name('shops.show')->where('id', '[0-9]+');
 
 // お気に入り機能
 Route::get('/wishlist', [BikeController::class, 'wishlist'])->name('wishlist');

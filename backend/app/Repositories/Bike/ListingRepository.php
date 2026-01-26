@@ -38,6 +38,19 @@ final class ListingRepository
     }
 
     /**
+     * 店舗ごとの在庫一覧を取得 (追加メソッド)
+     */
+    public function getByShopId(int $shopId, int $perPage = 30): LengthAwarePaginator
+    {
+        return Listing::query()
+            ->with(['bikeModel.manufacturer', 'shop', 'site'])
+            ->active()
+            ->where('shop_id', $shopId)
+            ->orderBy('created_at', 'desc') // 新着順
+            ->paginate($perPage);
+    }
+
+    /**
      * 全有効台数
      */
     public function countActiveListings(): int

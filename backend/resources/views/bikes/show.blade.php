@@ -328,15 +328,22 @@
                             販売店情報
                         </h3>
                         <div class="flex items-start gap-6">
-                            <div class="w-16 h-16 bg-gray-100 rounded-full shrink-0 overflow-hidden flex items-center justify-center">
-                                <i data-lucide="map-pin" class="w-8 h-8 text-gray-300"></i>
+                            <div class="w-16 h-16 rounded-full shrink-0 overflow-hidden flex items-center justify-center border border-gray-100">
+                                @if(!empty($listing->shop_image))
+                                    <img src="{{ $listing->shop_image }}" alt="{{ $listing->shop_name }}" class="w-full h-full object-cover">
+                                @else
+                                    <i data-lucide="map-pin" class="w-8 h-8 text-gray-300"></i>
+                                @endif
                             </div>
                             <div>
-                                <div class="font-black text-xl text-gray-900 mb-2">{{ $listing->shop_name }}</div>
-                                <div class="text-sm font-bold text-gray-500 space-y-1">
-                                    <p>{{ $listing->shop_address ?? '住所情報なし' }}</p>
-                                    <p>TEL: {{ $listing->shop_tel ?? '-' }}</p>
-                                    <p>営業時間: {{ $listing->shop_hours ?? '-' }}</p>
+                                <div class="font-black text-xl text-gray-900 mb-2">
+                                    @if(isset($listing->shop_id))
+                                        <a href="{{ route('shops.show', $listing->shop_id) }}" class="hover:text-blue-600 hover:underline decoration-2 underline-offset-4 transition-colors">
+                                            {{ $listing->shop_name }}
+                                        </a>
+                                    @else
+                                        {{ $listing->shop_name }}
+                                    @endif
                                 </div>
                             </div>
                         </div>

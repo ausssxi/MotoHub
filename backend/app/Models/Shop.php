@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -12,6 +13,33 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 final class Shop extends Model
 {
+    protected $guarded = ['id'];
+
+    /**
+     * 表示用の画像URLを取得するアクセサ (モダン記法)
+     * 呼び出し方: $shop->display_image_url
+     */
+    protected function displayImageUrl(): Attribute
+    {
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) {
+                // 1. ローカル保存された画像がある場合
+                if (!empty($attributes['local_image_path'])) {
+                    // storage/shops/... の形式にして返す
+                    return asset('storage/' . ltrim($attributes['local_image_path'], '/'));
+                }
+                
+                // 2. 外部URLがある場合
+                if (!empty($attributes['image_url'])) {
+                    return $attributes['image_url'];
+                }
+
+                // 3. 画像がない場合
+                return null;
+            },
+        );
+    }
+
     /**
      * この店舗が出品している車両を取得
      */

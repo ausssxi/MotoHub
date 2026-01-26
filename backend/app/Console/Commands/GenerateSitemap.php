@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Models\Listing;
 use App\Models\BikeModel;
+use App\Models\Shop; // 追加
 use Illuminate\Support\Facades\File;
 
 class GenerateSitemap extends Command
@@ -54,7 +55,6 @@ class GenerateSitemap extends Command
         }
 
         // 車種別ページ (検索結果)
-        // ここで車種が5万件を超えることは稀なのでメインに入れますが、多すぎる場合はここも分割が必要です
         BikeModel::select('name')->chunk(500, function ($models) use ($handle, &$count) {
             foreach ($models as $model) {
                 $this->writeUrl(
@@ -74,7 +74,37 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
-        // 2. 車両詳細ページ (50,000件ごとにファイルを分割)
+        // 2. 店舗詳細サイトマップ (sitemap-shops.xml)
+        // =========================================================
+        $this->info("店舗詳細サイトマップを生成中...");
+        
+        // 店舗数が増えても良いように独立したファイルにします
+        $shopFileName = 'sitemap-shops.xml';
+        $handle = $this->openSitemap($shopFileName);
+        $sitemapFiles[] = $shopFileName;
+        $shopCount = 0;
+
+        Shop::select('id', 'updated_at')
+            ->orderBy('updated_at', 'desc')
+            ->chunk(1000, function ($shops) use ($handle, &$shopCount) {
+                foreach ($shops as $shop) {
+                    $this->writeUrl(
+                        $handle,
+                        route('shops.show', $shop->id),
+                        $shop->updated_at->format('Y-m-d'),
+                        'weekly',
+                        '0.7' // 車両詳細(0.6)より少し高めに設定
+                    );
+                    $shopCount++;
+                }
+            });
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$shopCount} URL (完了)");
+
+
+        // =========================================================
+        // 3. 車両詳細ページ (50,000件ごとにファイルを分割)
         // =========================================================
         $this->info("車両詳細サイトマップを生成中...");
         
@@ -122,7 +152,7 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
-        // 3. サイトマップインデックス (目次) の生成
+        // 4. サイトマップインデックス (目次) の生成
         // =========================================================
         $this->info("インデックスファイル (sitemap.xml) を生成中...");
         $this->generateIndexFile($sitemapFiles);
