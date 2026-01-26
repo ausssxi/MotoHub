@@ -12,31 +12,45 @@ class MotoHubImagePipeline:
         self.logger = logging.getLogger(__name__)
         
         # ---------------------------------------------------------
-        # 保存先パスの決定 (環境によるパスずれを防止)
+        # 保存先パスの決定ロジック (強化版)
         # ---------------------------------------------------------
-        # このファイル(pipelines.py)から見たプロジェクトルートを特定
-        # pipelines.py -> common -> scraper -> (root)
+        # 1. 環境変数からの指定（Dockerの設定を最優先）
+        env_path = os.getenv("IMAGE_STORAGE_PATH")
+        
+        # 環境変数で listings まで指定されている場合があるので、親の public を基準にする調整
+        if env_path and env_path.endswith('/listings'):
+            env_path = os.path.dirname(env_path) # .../public になる
+
+        # パス候補リスト
+        candidates = []
+        if env_path:
+            candidates.append(env_path)
+        
+        # その他の候補（自動検知）
         current_dir = os.path.dirname(os.path.abspath(__file__))
         scraper_root = os.path.dirname(current_dir)
         project_root = os.path.dirname(scraper_root)
 
-        # 候補1: ローカル開発/標準構成 (backend/storage/app/public)
-        path_candidate_1 = os.path.join(project_root, "backend", "storage", "app", "public")
-        # 候補2: Docker本番環境 (/var/www/storage/app/public)
-        path_candidate_2 = "/var/www/storage/app/public"
-        # 候補3: 簡易構成 (storage/app/public)
-        path_candidate_3 = os.path.join(project_root, "storage", "app", "public")
+        candidates.append("/var/www/storage/app/public") # Docker本番標準
+        candidates.append(os.path.join(project_root, "backend", "storage", "app", "public"))
+        candidates.append(os.path.join(project_root, "storage", "app", "public"))
 
-        if os.path.exists(path_candidate_1):
-            self.storage_base = path_candidate_1
-        elif os.path.exists(path_candidate_2):
-            self.storage_base = path_candidate_2
-        elif os.path.exists(path_candidate_3):
-            self.storage_base = path_candidate_3
-        else:
-            # 最終手段としてDockerパスを強制設定（ディレクトリ作成を試みるため）
-            self.storage_base = path_candidate_2
-            
+        # 有効なパスを探索
+        self.storage_base = None
+        for path in candidates:
+            if os.path.exists(path):
+                self.storage_base = path
+                break
+        
+        # 見つからなかった場合、Docker標準パスを強制使用し、作成を試みる
+        if not self.storage_base:
+            self.storage_base = "/var/www/storage/app/public"
+            try:
+                os.makedirs(self.storage_base, exist_ok=True)
+                self.logger.info(f"Created storage directory: {self.storage_base}")
+            except Exception as e:
+                self.logger.error(f"Failed to create storage directory: {e}")
+
         self.logger.info(f"📷 Image storage root: {self.storage_base}")
 
     def process_item(self, item, spider):
@@ -67,7 +81,13 @@ class MotoHubImagePipeline:
             rel_dir = f"{target_type}s/{shard}/{target_id}"
 
         abs_dir = os.path.join(self.storage_base, rel_dir)
-        os.makedirs(abs_dir, exist_ok=True)
+        
+        # 権限エラーなどで落ちないようにtry-exceptで囲む
+        try:
+            os.makedirs(abs_dir, exist_ok=True)
+        except Exception as e:
+            self.logger.error(f"Directory creation failed: {abs_dir} - {e}")
+            return item
 
         # 2. ダウンロード & 保存処理
         for i, url in enumerate(image_urls):
@@ -84,15 +104,13 @@ class MotoHubImagePipeline:
                 filepath = os.path.join(abs_dir, filename)
                 rel_file_path = f"{rel_dir}/{filename}"
 
-                # ★修正ポイント: ダウンロード成功フラグ
+                # ダウンロード成功フラグ
                 save_success = False
 
                 if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
-                    # 既にファイルがあり、サイズが0でなければ成功とみなす
                     save_success = True
                 else:
-                    # ダウンロード実行
-                    # ★修正: User-Agentを設定してブロックを回避 (403エラー対策)
+                    # User-Agentを設定してブロック回避
                     headers = {
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                     }
@@ -105,7 +123,6 @@ class MotoHubImagePipeline:
                     else:
                         self.logger.warning(f"Download failed (Status {res.status_code}): {url}")
 
-                # ★成功したときだけパスリストに追加
                 if save_success:
                     local_paths.append(rel_file_path)
 
@@ -130,9 +147,6 @@ class MotoHubImagePipeline:
             if not target_id:
                 return
 
-            # 画像が1枚も取れなかった場合は、空配列（またはNULL）で更新するか、更新しないか
-            # ここでは「現状を反映する」ため、空でも更新します
-            
             if target_type == 'listing':
                 db.query(Listing).filter(Listing.id == target_id).update({"local_image_paths": paths})
             elif target_type == 'model':
