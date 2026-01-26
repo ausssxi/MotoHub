@@ -276,9 +276,11 @@
                             </div>
 
                             <div class="p-5 flex-grow flex flex-col">
-                                <div class="flex items-center gap-2 mb-2">
+                                {{-- ★修正箇所：メーカー(青)、コンディション(緑)、都道府県(紫) で色分け --}}
+                                <div class="flex items-center gap-2 mb-2 flex-wrap">
                                     <span class="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">{{ $listing['maker'] }}</span>
-                                    <span class="text-[9px] font-black text-gray-500 bg-gray-100 px-2 py-0.5 rounded uppercase">{{ $listing['condition'] }}</span>
+                                    <span class="text-[9px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded uppercase">{{ $listing['condition'] }}</span>
+                                    <span class="text-[9px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded uppercase">{{ $listing['prefecture'] }}</span>
                                 </div>
                                 <h3 class="text-sm font-black text-gray-800 mb-4 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">{{ $listing['name'] }}</h3>
                                 

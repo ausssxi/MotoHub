@@ -3,7 +3,7 @@
         {{ $listing->name }} | MotoHub
     </x-slot:title>
 
-    {{-- 比較機能用のスクリプトを読み込み --}}
+    {{-- 比較機能・チャート・ローン計算用のスクリプト --}}
     <x-slot:scripts>
         <script src="{{ asset('js/compare/manager.js') }}"></script>
         <script src="{{ asset('js/compare/ui.js') }}"></script>
@@ -100,16 +100,18 @@
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
                         <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
                             <div>
-                                <h1 class="text-2xl sm:text-3xl font-black text-gray-900 leading-tight mb-2">{{ $listing->name }}</h1>
-                                <div class="flex items-center gap-3 text-sm font-bold text-gray-500">
-                                    <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded">{{ $listing->maker }}</span>
-                                    {{-- ID表示を削除しました --}}
+                                <h1 class="text-2xl sm:text-3xl font-black text-gray-900 leading-tight mb-3">{{ $listing->name }}</h1>
+                                
+                                {{-- ★修正: メーカー、コンディション、都道府県を色分けバッジで表示 --}}
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">{{ $listing->maker }}</span>
+                                    <span class="text-[10px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded uppercase">{{ $listing->condition }}</span>
+                                    <span class="text-[10px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded uppercase">{{ $listing->prefecture }}</span>
                                 </div>
                             </div>
                             
                             {{-- お気に入り・比較ボタン --}}
                             <div class="flex items-center gap-2">
-                                {{-- 修正: クラス名を compare-toggle-btn から compare-btn に変更 --}}
                                 <button class="compare-btn w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors" data-id="{{ $listing->id }}">
                                     <i data-lucide="layers" class="w-5 h-5"></i>
                                 </button>
@@ -186,12 +188,6 @@
 
                     {{-- ★相場分析チャート --}}
                     @if($listing->model_year && $listing->total_price)
-                    {{-- 
-                        JSにデータを渡すためのIDとデータ属性を追加
-                        id="price-stats-container"
-                        data-model-id: 車種ID
-                        data-total-price: 車両価格
-                    --}}
                     <div id="price-stats-container" 
                          data-model-id="{{ $listing->bike_model_id ?? '' }}" 
                          data-total-price="{{ $listing->total_price ?? 0 }}"
@@ -211,7 +207,6 @@
                         </div>
 
                         <div id="price-stats-content" class="hidden">
-                            {{-- スマホ対策：パディングを小さく、文字サイズを調整 --}}
                             <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-8">
                                 <div class="bg-gray-50 rounded-xl p-2 sm:p-4 text-center border border-gray-100">
                                     <div class="text-[10px] font-bold text-gray-400 mb-1">相場平均</div>
@@ -285,13 +280,11 @@
                                     </div>
                                 </div>
 
-                                {{-- 金利 (隠し項目または詳細設定として) --}}
+                                {{-- 金利 --}}
                                 <div>
                                     <label class="text-xs font-bold text-gray-500 block mb-2">実質年率 (%)</label>
                                     <input type="number" id="loan-rate" value="5.9" step="0.1" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl focus:ring-green-500 focus:border-green-500 block p-3">
                                 </div>
-                                
-                                {{-- ボーナス払いは今回省略（UIをシンプルにするため） --}}
                                 <input type="hidden" id="loan-bonus" value="0">
                             </div>
 
@@ -336,7 +329,7 @@
                                 @endif
                             </div>
                             <div>
-                                <div class="font-black text-xl text-gray-900 mb-2">
+                                <div class="font-black text-xl text-gray-900 mb-1">
                                     @if(isset($listing->shop_id))
                                         <a href="{{ route('shops.show', $listing->shop_id) }}" class="hover:text-blue-600 hover:underline decoration-2 underline-offset-4 transition-colors">
                                             {{ $listing->shop_name }}
@@ -345,15 +338,20 @@
                                         {{ $listing->shop_name }}
                                     @endif
                                 </div>
+                                <div class="text-sm font-bold text-gray-500 space-y-1">
+                                    {{-- ★修正: スマホ画面のみリスト内に住所を表示 --}}
+                                    <p>{{ $listing->shop_address ?? '住所情報なし' }}</p>
+                                    <p>TEL: {{ $listing->shop_tel ?? '-' }}</p>
+                                    <p>営業時間: {{ $listing->shop_hours ?? '-' }}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {{-- ★ここに追加: 類似車両（同じ車種の他の車両） --}}
+                    {{-- 4. 類似車両（同じ車種の他の車両） --}}
                     @if(!empty($relatedListings) && count($relatedListings) > 0)
                     <div class="pt-8 border-t border-gray-200">
                         <div class="flex items-center justify-between mb-6">
-                            {{-- ヘッダーデザインを統一（アイコン＋背景） --}}
                             <div class="flex items-center gap-2">
                                 <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
                                     <i data-lucide="layers" class="w-5 h-5"></i>
@@ -368,7 +366,6 @@
                         
                         <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
                             @foreach($relatedListings as $related)
-                            {{-- 幅をレスポンシブに: w-40 (スマホ) / w-48 (PC) --}}
                             <a href="{{ route('bikes.show', $related['id']) }}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
                                 <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
                                     @if(!empty($related['images']) && isset($related['images'][0]))
@@ -379,7 +376,6 @@
                                         </div>
                                     @endif
                                     
-                                    {{-- 価格バッジ --}}
                                     <div class="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-black">
                                         {{ $related['total_price'] }}万円
                                     </div>
@@ -402,7 +398,7 @@
                     </div>
                     @endif
 
-                    {{-- 4. 最近見た車両 --}}
+                    {{-- 5. 最近見た車両 --}}
                     <div id="history-widget-container" class="pt-8">
                         <div id="history-widget" class="hidden"></div>
                     </div>
