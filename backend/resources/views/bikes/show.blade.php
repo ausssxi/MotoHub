@@ -187,7 +187,7 @@
                     </div>
 
                     {{-- ★相場分析チャート --}}
-                    @if($listing->model_year && $listing->total_price)
+                    @if($listing->model_year && is_numeric($listing->total_price))
                     <div id="price-stats-container" 
                          data-model-id="{{ $listing->bike_model_id ?? '' }}" 
                          data-total-price="{{ $listing->total_price ?? 0 }}"
@@ -240,7 +240,7 @@
                     </div>
                     @endif
 
-                    @if($listing->total_price)
+                    @if(is_numeric($listing->total_price))
                     <div id="loan-simulator" data-total-price="{{ $listing->total_price }}" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mt-8">
                         <div class="flex items-center gap-2 mb-6">
                             <div class="p-2 bg-green-50 rounded-lg text-green-600">
