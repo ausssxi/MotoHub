@@ -189,9 +189,10 @@ class BDSListingSpider(BaseBikeSpider):
                     site_shop_id = id_match.group(1)
                     shop_id = self.shop_cache.get(site_shop_id)
 
-            # ShopIDがなくても保存（説明文取得のため）
+            # ★修正: ShopIDがない場合は保存せずスキップする
             if not shop_id:
-                pass
+                self.logger.warning(f"Shop not found in cache for {v_url}. Listing skipped.")
+                return None
             
             # 説明文の取得
             description = ""
