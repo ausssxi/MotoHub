@@ -29,10 +29,11 @@ final class BikeController extends Controller
     public function index(): View
     {
         $popularBikes = $this->bikeService->getPopularBikesForTopPage();
+        $categories = $this->bikeService->getCategoriesForTopPage();
         $regions = config('bike.regions');
 
         // totalListingsCount は自動注入されるため削除
-        return view('bikes.index', compact('popularBikes', 'regions'));
+        return view('bikes.index', compact('popularBikes', 'categories', 'regions'));
     }
 
     /**

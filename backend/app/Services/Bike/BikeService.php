@@ -7,6 +7,7 @@ namespace App\Services\Bike;
 use App\Repositories\Bike\BikeModelRepository;
 use App\Repositories\Bike\ListingRepository;
 use App\Repositories\Bike\ManufacturerRepository;
+use App\Repositories\Bike\CategoryRepository;
 use Illuminate\Support\Collection;
 
 /**
@@ -18,8 +19,18 @@ final class BikeService
     public function __construct(
         private readonly BikeModelRepository $modelRepo,
         private readonly ManufacturerRepository $manufacturerRepo,
-        private readonly ListingRepository $listingRepo
+        private readonly ListingRepository $listingRepo,
+        private readonly CategoryRepository $categoryRepo
     ) {}
+
+    /**
+     * トップページ用カテゴリ一覧
+     * ★修正: 画像があるカテゴリのみを返すように変更
+     */
+    public function getCategoriesForTopPage(): Collection
+    {
+        return $this->categoryRepo->getWithImagesSorted();
+    }
 
     /**
      * トップページ用の人気車種

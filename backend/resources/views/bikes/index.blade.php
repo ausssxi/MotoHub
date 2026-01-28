@@ -1,137 +1,163 @@
 <x-layout>
-    {{-- 1. タイトルの設定 --}}
-    <x-slot:title>
-        MotoHub - 中古・新車バイクをまとめて検索
-    </x-slot:title>
+    <x-slot:title>MotoHub - 中古・新車バイク一括検索</x-slot:title>
 
-    {{-- 2. indexページ専用のスタイルの読み込み --}}
-    <x-slot:styles>
-        <link rel="stylesheet" href="{{ asset('css/bikes-index.css') }}">
-    </x-slot:styles>
-
-    {{-- 3. 共通ナビゲーションコンポーネントの使用 --}}
     <x-slot:navigation>
+        {{-- トップページでは検索バーはメインビジュアルにあるのでヘッダーには出さない --}}
         <x-navigation :showSearch="false" />
     </x-slot:navigation>
 
-    {{-- 4. メインコンテンツ --}}
-    <main class="overflow-x-hidden">
-        <!-- 検索セクション -->
-        <section class="hero-gradient py-10 sm:py-24 px-4 border-b border-gray-50">
-            <div class="max-w-4xl mx-auto text-center">
-                <h1 class="text-xl sm:text-3xl font-black text-black mb-3 tracking-tight">＼ バイク登録台数 No.1！ ／</h1>
-                <p class="text-gray-400 text-xs sm:text-sm mb-8 leading-relaxed">
-                    MotoHubは中古・新車バイクを<br class="sm:hidden">まとめて一括検索できるサービスです
-                </p>
+    {{-- メインビジュアル & 検索ボックス --}}
+    <div class="relative bg-black h-[500px] sm:h-[600px] flex items-center justify-center overflow-hidden">
+        <div class="absolute inset-0 z-0">
+             {{-- ★修正: ローカル画像の代わりにUnsplashのフリー画像を使用 --}}
+             <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=2070&auto=format&fit=crop" 
+                  alt="Motorcycle Background" 
+                  class="w-full h-full object-cover opacity-40">
+        </div>
+        
+        <div class="relative z-10 w-full max-w-4xl px-4 text-center">
+            <h1 class="text-3xl sm:text-5xl font-black text-white mb-4 tracking-tight leading-tight">
+                掲載台数<span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">&nbsp;No.1！</span>
+            </h1>
+            <p class="text-gray-300 text-xs sm:text-sm font-bold mb-8 tracking-widest">
+                日本最大級のバイク検索・比較プラットフォーム
+            </p>
 
-                <div class="relative max-w-2xl mx-auto" id="search-container">
-                    <form action="{{ route('bikes.search') }}" method="GET" autocomplete="off" id="search-form">
-                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center bg-white rounded-2xl p-1 sm:p-2 shadow-2xl border border-gray-100 gap-1 sm:gap-2">
-                            <div class="flex items-center flex-1 px-2 sm:px-4 min-w-0 relative">
-                                <div class="flex-shrink-0 text-gray-400">
-                                    <i data-lucide="search" class="w-5 h-5"></i>
-                                </div>
-                                <input type="text" name="keyword" id="search-input" placeholder="ホンダ レブル250, 400cc..." 
-                                    class="w-full px-2 py-3 text-sm sm:text-lg focus:outline-none bg-transparent">
-                            </div>
-                            <button type="submit" class="bg-black hover:bg-gray-800 text-white font-bold px-6 py-3.5 sm:py-3.5 rounded-xl transition-all whitespace-nowrap text-sm sm:text-base active:scale-95">
-                                検索する
-                            </button>
-                        </div>
-                    </form>
-
-                    <!-- サジェスト結果ドロップダウン -->
-                    <div id="suggest-results" class="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden hidden z-50 text-left">
-                        <div id="suggest-list" class="py-2">
-                            <!-- JSでここに候補を挿入 -->
-                        </div>
+            <form action="{{ route('bikes.search') }}" method="GET" class="relative max-w-2xl mx-auto">
+                <div class="relative group">
+                    <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                        <i data-lucide="search" class="w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors"></i>
                     </div>
+                    <input type="text" name="keyword" 
+                        class="w-full h-14 pl-12 pr-4 rounded-full border-none focus:ring-4 focus:ring-blue-500/30 text-base font-bold shadow-2xl placeholder:text-gray-400 transition-all"
+                        placeholder="車種名、メーカー名、キーワードを入力..." autocomplete="off">
+                    <button type="submit" class="absolute right-2 top-2 h-10 px-6 bg-black text-white rounded-full text-xs font-black hover:bg-gray-800 transition-all flex items-center gap-2">
+                        検索
+                    </button>
                 </div>
-            </div>
-        </section>
-
-        <!-- おすすめ車種セクション -->
-        <section class="max-w-7xl mx-auto px-4 py-12 sm:py-16">
-            <div class="flex flex-col sm:flex-row sm:items-end justify-between mb-8 border-b border-gray-100 pb-4 gap-4">
-                <div class="flex items-start gap-2">
-                    <div class="p-1.5 bg-orange-50 rounded-lg sm:bg-transparent sm:p-0">
-                        <i data-lucide="sparkles" class="w-5 h-5 text-orange-500"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-lg sm:text-xl font-black uppercase tracking-widest text-black">おすすめモデル</h2>
-                        <p class="text-[10px] sm:text-xs text-gray-400">登録台数が多い人気の16車種</p>
-                    </div>
-                </div>
-                {{-- 車種一覧ページへのリンク --}}
-                <a href="{{ route('bikes.models') }}" class="group flex items-center text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">
-                    すべて見る
-                    <i data-lucide="chevron-right" class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform"></i>
-                </a>
-            </div>
-
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                @foreach($popularBikes as $bike)
-                <a href="{{ route('bikes.search', ['keyword' => $bike->name]) }}"
-                    class="group flex items-center bg-white p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 hover:-translate-y-0.5 transition-all duration-200 min-w-0">
-
-                    <!-- 画像 -->
-                    <div class="w-10 h-10 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl bg-gray-50 overflow-hidden flex-shrink-0 mr-3 sm:mr-4 border border-gray-50">
-                        @if($bike->image_url)
-                        <img
-                            src="{{ $bike->image_url }}"
-                            alt="{{ $bike->name }}"
-                            class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
-                            onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 width%3D%2224%22 height%3D%2224%22 viewBox%3D%220 0 24 24%22 fill%3D%22none%3D%22 stroke%3D%22%23ccc%22 stroke-width%3D%222%22 stroke-linecap%3D%22round%22 stroke-linejoin%3D%22round%22%3E%3Cpath d%3D%22M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2%22%2F%3E%3Ccircle cx%3D%227%22 cy%3D%2217%22 r%3D%222%22%2F%3E%3Cpath d%3D%22M9 17h6%22%2F%3E%3Ccircle cx%3D%2217%22 cy%3D%2217%22 r%3D%222%22%2F%3E%3C%2Fsvg%3E';this.className='w-full h-full object-center p-2 sm:p-3 opacity-30';">
-                        @else
-                        <div class="w-full h-full flex items-center justify-center text-gray-300">
-                            <i data-lucide="bike" class="w-5 h-5"></i>
-                        </div>
-                        @endif
-                    </div>
-
-                    <!-- テキスト -->
-                    <div class="flex-1 min-w-0">
-                        <h3 class="text-xs sm:text-sm font-bold text-gray-800 truncate group-hover:text-blue-600 transition-colors leading-tight">
-                            {{ $bike->name }}
-                        </h3>
-                        <div class="flex items-center mt-1">
-                            <span class="text-[9px] sm:text-[11px] font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
-                                <span class="text-blue-500 font-bold mr-0.5">{{ number_format($bike->listings_count ?? 0) }}</span>台
-                            </span>
-                        </div>
-                    </div>
-                </a>
+            </form>
+            
+            {{-- クイックリンク --}}
+            <div class="mt-6 flex flex-wrap justify-center gap-3">
+                @foreach(['Honda', 'Yamaha', 'Suzuki', 'Kawasaki', 'Harley-Davidson'] as $maker)
+                    <a href="{{ route('bikes.search', ['keyword' => $maker]) }}" class="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold border border-white/10 backdrop-blur-sm transition-all">
+                        {{ $maker }}
+                    </a>
                 @endforeach
             </div>
-        </section>
+        </div>
+    </div>
 
-        <!-- 3. 地域から探すセクション -->
-        <section class="bg-gray-50 py-12 sm:py-16">
-            <div class="max-w-7xl mx-auto px-4">
-                <div class="flex items-center gap-2 mb-8 text-gray-500">
-                    <i data-lucide="map-pin" class="w-5 h-5"></i>
-                    <h2 class="text-lg sm:text-xl font-black uppercase tracking-widest text-black">地域から探す</h2>
+    <div class="bg-gray-50 py-16 sm:py-24">
+        <div class="max-w-7xl mx-auto px-4">
+            
+            {{-- タイプから探す --}}
+            <section class="mb-20">
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            タイプから探す
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Search by Body Type</p>
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    @foreach($regions as $regionName => $prefs)
-                    <div class="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <h3 class="text-xs sm:text-sm font-black text-gray-400 mb-4 border-b border-gray-50 pb-2 uppercase tracking-tighter">{{ $regionName }}</h3>
-                        <div class="flex flex-wrap gap-1.5 sm:gap-2">
-                            @foreach($prefs as $pref)
-                            <a href="{{ route('bikes.search', ['prefecture' => $pref]) }}" 
-                               class="pref-link px-2.5 sm:px-3 py-2 rounded-lg text-xs sm:text-sm text-gray-600 font-medium transition-all border border-transparent hover:border-gray-200">
-                                {{ $pref }}
-                            </a>
-                            @endforeach
-                        </div>
-                    </div>
+                <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+                    @foreach($categories as $category)
+                        <a href="{{ route('bikes.search', ['keyword' => $category->name]) }}" 
+                           class="group bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col items-center text-center h-full">
+                            
+                            <div class="w-16 h-12 sm:w-20 sm:h-14 mb-3 relative flex items-center justify-center">
+                                <img src="{{ $category->display_icon_url }}" 
+                                     alt="{{ $category->name }}" 
+                                     class="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-500">
+                            </div>
+                            
+                            <span class="text-xs font-bold text-gray-700 group-hover:text-blue-600 transition-colors leading-tight">
+                                {{ $category->name }}
+                            </span>
+                        </a>
                     @endforeach
                 </div>
-            </div>
-        </section>
-    </main>
+            </section>
 
-    {{-- 切り出したサジェスト用JavaScriptを読み込み --}}
-    <script src="{{ asset('js/search/suggest.js') }}"></script>
+            {{-- 人気車種セクション --}}
+            <section class="mb-20">
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            人気車種
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Popular Models</p>
+                    </div>
+                    <a href="{{ route('bikes.models') }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 group">
+                        すべて見る <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+                    </a>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    @foreach($popularBikes as $bike)
+                        <a href="{{ route('bikes.search', ['keyword' => $bike->name]) }}" 
+                           class="group flex items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-300">
+                            
+                            <div class="w-14 h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 border border-gray-50 relative">
+                                @if($bike->image_url)
+                                    <img src="{{ $bike->image_url }}" alt="{{ $bike->name }}" 
+                                         class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500">
+                                @else
+                                    <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                        <i data-lucide="bike" class="w-6 h-6"></i>
+                                    </div>
+                                @endif
+                            </div>
+                            
+                            <div class="ml-3 flex-1 min-w-0">
+                                <p class="text-[9px] font-bold text-gray-400 mb-0.5">{{ $bike->manufacturer?->name }}</p>
+                                <h3 class="text-sm font-black text-gray-800 leading-tight truncate group-hover:text-blue-600 transition-colors">
+                                    {{ $bike->name }}
+                                </h3>
+                                <div class="mt-1">
+                                    <span class="inline-flex items-center text-[9px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
+                                        {{ number_format($bike->listings_count) }}台
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-blue-400 group-hover:translate-x-1 transition-all"></i>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+
+            {{-- 都道府県から探す --}}
+            <section>
+                <div class="bg-gray-900 rounded-3xl p-8 sm:p-12 text-center relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+                        <img src="{{ asset('images/map-pattern.svg') }}" class="w-full h-full object-cover" alt="">
+                    </div>
+                    
+                    <div class="relative z-10">
+                        <h2 class="text-2xl font-black text-white mb-2 tracking-tighter">地域から探す</h2>
+                        <p class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-8">Search by Area</p>
+                        
+                        <div class="flex flex-wrap justify-center gap-3">
+                            @foreach(['東京', '神奈川', '埼玉', '千葉', '大阪', '愛知', '福岡', '北海道'] as $pref)
+                                <a href="{{ route('bikes.search', ['prefecture' => $pref]) }}" 
+                                   class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">
+                                    {{ $pref }}
+                                </a>
+                            @endforeach
+                        </div>
+                        
+                        <div class="mt-8">
+                            <button onclick="document.getElementById('nav-search-input')?.focus()" class="text-gray-400 text-xs font-bold hover:text-white transition-colors flex items-center justify-center gap-2">
+                                <i data-lucide="map" class="w-4 h-4"></i> すべての地域を見る
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </div>
 </x-layout>
