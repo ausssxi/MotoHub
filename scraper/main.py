@@ -48,6 +48,7 @@ def main():
         # --- STEP 2: マスタの補完 (カテゴリー) ---
         "goobike/category_collector.py",
         "bds/category_collector.py",
+        "webike/category_collector.py",
         
         # --- STEP 3: 販売店情報の収集 ---
         # ※ 内部で MotoHubImagePipeline が走り、店舗外観画像を保存します

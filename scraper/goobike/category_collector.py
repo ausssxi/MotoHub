@@ -45,11 +45,21 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 class Base(DeclarativeBase):
     pass
 
+# ★追加: カテゴリテーブルの定義
+class Category(Base):
+    __tablename__ = "categories"
+    id = Column(BigInteger, primary_key=True)
+    name = Column(String(255), unique=True)
+    slug = Column(String(255))
+
 class BikeModel(Base):
     __tablename__ = "bike_models"
     id = Column(BigInteger, primary_key=True)
     name = Column(String(255), nullable=False)
-    category = Column(String(50), nullable=True)
+    
+    # ★修正: category(文字列)ではなく category_id(外部キー) を更新対象にする
+    category_id = Column(BigInteger, nullable=True)
+    
     displacement = Column(Integer, nullable=True)
     updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
@@ -57,11 +67,37 @@ class BikeModel(Base):
 # 2. Scrapy Pipeline (DB更新処理)
 # ==========================================
 class CategoryPipeline:
+    # GooBikeのジャンル名とDBのカテゴリ名の対応表
+    # { "GooBike上の名前": "DB上の名前" }
+    CATEGORY_MAPPING = {
+        "原付スクーター": "スクーター",
+        "ミニバイク": "ミニバイク",
+        "ストリート": "ネイキッド", # ストリートはネイキッドに分類（またはその他）
+        "ネイキッド": "ネイキッド",
+        "アメリカン": "アメリカン",
+        "スポーツ・レプリカ": "スーパースポーツ", # 表記ゆれ対応
+        "ツアラー": "ツアラー",
+        "ビッグスクーター": "スクーター", # 一旦スクーターに統合
+        "オフロード": "オフロード",
+        "輸入車": "その他",      # 輸入車はカテゴリではないためその他へ
+        "コンペティション": "オフロード",
+        "ＥＶバイク": "電動バイク",
+        "電動スクーター": "電動バイク",
+        "その他": "その他",
+        "ビジネスバイク": "ビジネス", # もしあれば
+    }
+
     def open_spider(self, spider):
-        spider.logger.info("名寄せ用キャッシュを構築中...")
+        spider.logger.info("DB接続とキャッシュ構築を開始...")
         self.session = SessionLocal()
         
-        # 全車種をキャッシュ（正規化名をキーにする）
+        # 1. カテゴリIDのキャッシュ作成
+        # DBにあるカテゴリ名(name)からID(id)を引ける辞書を作る
+        categories = self.session.query(Category).all()
+        self.cat_id_map = {cat.name: cat.id for cat in categories}
+        spider.logger.info(f"カテゴリ定義をロード: {self.cat_id_map}")
+
+        # 2. 車種IDのキャッシュ作成
         all_models = self.session.query(BikeModel).all()
         self.model_cache = {}
         for m in all_models:
@@ -70,30 +106,39 @@ class CategoryPipeline:
                 self.model_cache[norm_key] = []
             self.model_cache[norm_key].append(m.id)
         
-        spider.logger.info(f"キャッシュ構築完了: {len(self.model_cache)}件の車種を対象にします。")
+        spider.logger.info(f"車種キャッシュ構築完了: {len(self.model_cache)}件")
 
     def process_item(self, item, spider):
-        style_name = item['style_name']
+        goobike_style_name = item['style_name']
         model_names = item['model_names']
+        
+        # マッピングを使ってDB上のカテゴリ名を決定
+        # マッピングになければそのままの名前を使ってみる
+        db_cat_name = self.CATEGORY_MAPPING.get(goobike_style_name, goobike_style_name)
+        
+        # カテゴリIDを取得
+        category_id = self.cat_id_map.get(db_cat_name)
+        
+        if not category_id:
+            spider.logger.warning(f"⚠️ カテゴリIDが見つかりません: '{goobike_style_name}' -> '{db_cat_name}' (DB未登録)")
+            # IDがない場合は更新できないのでスキップ（または 'その他' のIDを入れる等の対応も可）
+            return item
+
         update_count = 0
 
         for raw_name in model_names:
-            # 車種名のクリーニングと正規化
             clean_name = re.sub(r'[\(\uff08].*?[\)\uff09]', '', raw_name).strip()
             norm_name = normalize_name(clean_name)
-            
-            # 排気量の抽出
             inferred_disp = extract_displacement(raw_name)
             
-            # キャッシュから該当する車種IDを取得
             target_ids = self.model_cache.get(norm_name, [])
             
             for t_id in target_ids:
                 try:
-                    # カテゴリーの更新、および排気量が空なら補完
-                    update_values = {"category": style_name}
+                    # ★修正: category_id を更新する
+                    update_values = {"category_id": category_id}
+                    
                     if inferred_disp:
-                        # 排気量がまだDBにない場合のみセットする
                         model_obj = self.session.query(BikeModel).get(t_id)
                         if model_obj and not model_obj.displacement:
                             update_values["displacement"] = inferred_disp
@@ -107,7 +152,7 @@ class CategoryPipeline:
 
         if update_count > 0:
             self.session.commit()
-            spider.logger.info(f"ジャンル '{style_name}': {update_count}件のレコードを更新/補完しました。")
+            spider.logger.info(f"ジャンル '{goobike_style_name}' (ID:{category_id}): {update_count}件を更新しました。")
         
         return item
 
@@ -142,7 +187,7 @@ class GoobikeCategorySpider(scrapy.Spider):
         
         if style_name:
             style_name = style_name.strip()
-            # 【重要】GooBikeの正しいセレクタに戻しました
+            # 【重要】GooBikeの正しいセレクタ
             model_names = response.css('li.bike_list em b::text').getall()
             
             yield {
@@ -151,7 +196,7 @@ class GoobikeCategorySpider(scrapy.Spider):
             }
 
 if __name__ == "__main__":
-    print(">>> GooBike Category Collector Started.")
+    print(">>> GooBike Category Collector (ID Update Ver) Started.")
     logging.basicConfig(level=logging.INFO)
     
     process = CrawlerProcess()
