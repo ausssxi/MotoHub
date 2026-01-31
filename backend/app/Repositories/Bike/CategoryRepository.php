@@ -10,6 +10,14 @@ use Illuminate\Support\Collection;
 final class CategoryRepository
 {
     /**
+     * IDでカテゴリを取得
+     */
+    public function find(int $id): ?Category
+    {
+        return Category::find($id);
+    }
+    
+    /**
      * 全カテゴリを表示順で取得
      */
     public function getAllSorted(): Collection

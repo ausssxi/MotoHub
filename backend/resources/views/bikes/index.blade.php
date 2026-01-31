@@ -2,20 +2,19 @@
     <x-slot:title>MotoHub - 中古・新車バイク一括検索</x-slot:title>
 
     <x-slot:navigation>
-        {{-- トップページでは検索バーはメインビジュアルにあるのでヘッダーには出さない --}}
         <x-navigation :showSearch="false" />
     </x-slot:navigation>
 
     {{-- メインビジュアル & 検索ボックス --}}
     <div class="relative bg-black h-[500px] sm:h-[600px] flex items-center justify-center overflow-hidden">
         <div class="absolute inset-0 z-0">
-             {{-- ★修正: ローカル画像の代わりにUnsplashのフリー画像を使用 --}}
              <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=2070&auto=format&fit=crop" 
                   alt="Motorcycle Background" 
                   class="w-full h-full object-cover opacity-40">
         </div>
         
         <div class="relative z-10 w-full max-w-4xl px-4 text-center">
+            {{-- ★修正: キャッチコピー変更 --}}
             <h1 class="text-3xl sm:text-5xl font-black text-white mb-4 tracking-tight leading-tight">
                 掲載台数<span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">&nbsp;No.1！</span>
             </h1>
@@ -37,12 +36,11 @@
                 </div>
             </form>
             
-            {{-- クイックリンク（主要メーカー） --}}
+            {{-- ★修正: 指定のメーカーのみをID検索リンクで表示 --}}
             <div class="mt-6 flex flex-wrap justify-center gap-3">
-                {{-- ★修正: 文字列配列ではなく、DBから取得したメーカーデータを使用 --}}
-                @foreach($majorManufacturers as $maker)
-                    <a href="{{ route('bikes.search', ['manufacturer_id' => $maker->id]) }}" 
-                       class="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold border border-white/10 backdrop-blur-sm transition-all">
+                {{-- ★修正: メーカーのみを表示 --}}
+                @foreach($manufacturers as $maker)
+                    <a href="{{ route('bikes.search', ['manufacturer_id' => $maker->id]) }}" class="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold border border-white/10 backdrop-blur-sm transition-all">
                         {{ $maker->name }}
                     </a>
                 @endforeach
@@ -66,9 +64,11 @@
 
                 <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
                     @foreach($categories as $category)
-                        <a href="{{ route('bikes.search', ['keyword' => $category->name]) }}" 
+                        {{-- ★修正: 画像があるカテゴリのみ表示 --}}
+                        @if($category->display_icon_url)
+                        <a href="{{ route('bikes.search', ['category_id' => $category->id]) }}" 
                            class="group bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col items-center text-center h-full">
-                            
+                              
                             <div class="w-16 h-12 sm:w-20 sm:h-14 mb-3 relative flex items-center justify-center">
                                 <img src="{{ $category->display_icon_url }}" 
                                      alt="{{ $category->name }}" 
@@ -79,6 +79,7 @@
                                 {{ $category->name }}
                             </span>
                         </a>
+                        @endif
                     @endforeach
                 </div>
             </section>
@@ -99,7 +100,8 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     @foreach($popularBikes as $bike)
-                        <a href="{{ route('bikes.search', ['keyword' => $bike->name]) }}" 
+                        {{-- ★修正: keyword検索から bike_model_id 検索に変更 --}}
+                        <a href="{{ route('bikes.search', ['bike_model_id' => $bike->id]) }}" 
                            class="group flex items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-300">
                             
                             <div class="w-14 h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 border border-gray-50 relative">
@@ -152,9 +154,9 @@
                         </div>
                         
                         <div class="mt-8">
-                            <button onclick="document.getElementById('nav-search-input')?.focus()" class="text-gray-400 text-xs font-bold hover:text-white transition-colors flex items-center justify-center gap-2">
+                            <a href="{{ route('bikes.prefectures') }}" class="text-gray-400 text-xs font-bold hover:text-white transition-colors inline-flex items-center justify-center gap-2">
                                 <i data-lucide="map" class="w-4 h-4"></i> すべての地域を見る
-                            </button>
+                            </a>
                         </div>
                     </div>
                 </div>

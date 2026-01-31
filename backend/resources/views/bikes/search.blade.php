@@ -1,5 +1,6 @@
 <x-layout>
     <x-slot:title>
+        {{-- ★修正: コントローラーで生成されたページタイトルを表示 --}}
         {{ $pageTitle }} - MotoHub
     </x-slot:title>
 
@@ -174,6 +175,7 @@
                 <div class="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                     <div>
                         <h2 class="text-2xl font-black text-black tracking-tighter italic">
+                            {{-- ★修正: コントローラーで生成されたページタイトルを表示 --}}
                             {{ $pageTitle }}
                             <span class="text-xs text-gray-400 font-bold ml-2 not-italic">({{ number_format($pagination['total']) }}台)</span>
                         </h2>
@@ -279,6 +281,7 @@
                                 {{-- ★修正箇所：メーカー(青)、コンディション(緑)、都道府県(紫) で色分け --}}
                                 <div class="flex items-center gap-2 mb-2 flex-wrap">
                                     <span class="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">{{ $listing['maker'] }}</span>
+                                    <span class="text-[9px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded uppercase">{{ $listing['category'] }}</span>
                                     <span class="text-[9px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded uppercase">{{ $listing['condition'] }}</span>
                                     <span class="text-[9px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded uppercase">{{ $listing['prefecture'] }}</span>
                                 </div>

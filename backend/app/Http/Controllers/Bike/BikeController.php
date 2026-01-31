@@ -30,11 +30,21 @@ final class BikeController extends Controller
     {
         $popularBikes = $this->bikeService->getPopularBikesForTopPage();
         $categories = $this->bikeService->getCategoriesForTopPage();
-        $majorManufacturers = $this->bikeService->getMajorManufacturers();
+        
+        $manufacturers = $this->bikeService->getMajorManufacturers();
+        
         $regions = config('bike.regions');
 
-        // totalListingsCount は自動注入されるため削除
-        return view('bikes.index', compact('popularBikes', 'categories', 'majorManufacturers', 'regions'));
+        return view('bikes.index', compact('popularBikes', 'categories', 'manufacturers', 'regions'));
+    }
+
+    /**
+     * ★追加: 都道府県一覧ページの表示
+     */
+    public function prefectures(): View
+    {
+        $regions = $this->bikeService->getRegions();
+        return view('bikes.prefectures', compact('regions'));
     }
 
     /**
@@ -55,6 +65,7 @@ final class BikeController extends Controller
             'max_year'           => $request->query('max_year'),
             'manufacturer_id'    => $request->query('manufacturer_id'),
             'bike_model_id'      => $request->query('bike_model_id'),
+            'category_id'        => $request->query('category_id'),
             'is_new'             => $request->query('is_new'),
             'has_repair_history' => $request->query('has_repair_history'),
             'prefecture'         => $request->query('prefecture'),
@@ -66,17 +77,15 @@ final class BikeController extends Controller
         }
 
         $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
-        $searchMeta = $this->listingSearchService->getSearchMetadata($keyword, $prefecture, $filters);
+        
         // ★修正: ページタイトルをサービスで生成
         $pageTitle = $this->listingSearchService->generatePageTitle($keyword, $prefecture, $filters);
 
-
-        // totalListingsCount を削除
+        // $result の中に 'meta' も含まれているため、getSearchMetadata の再呼び出しは削除しました
         return view('bikes.search', array_merge($result, [
             'keyword'    => $keyword,
             'prefecture' => $prefecture,
             'sort'       => $sort,
-            'meta'       => $searchMeta,
             'pageTitle'  => $pageTitle,
         ]));
     }
@@ -86,18 +95,14 @@ final class BikeController extends Controller
      */
     public function show($id)
     {
-        // 1. データを取得
         $listing = Listing::with(['shop', 'bikeModel.manufacturer'])->findOrFail($id);
 
-        // 2. 関連車両（同じ車種）を取得
-        // ★修正: リポジトリ直接ではなく、Service経由で取得
         $relatedListings = collect();
         if ($listing->bike_model_id) {
             $relatedRaw = $this->bikeService->getRelatedListings($listing->bike_model_id, $listing->id, 8);
             $relatedListings = ListingResource::collection($relatedRaw)->resolve();
         }
 
-        // 3. Resourceを使って整形
         $data = (object) (new ListingResource($listing))->resolve();
 
         return view('bikes.show', [
@@ -123,24 +128,14 @@ final class BikeController extends Controller
         return response()->json($suggestions);
     }
 
-    /**
-     * 車種一覧ページの表示
-     */
     public function models(): View
     {
         $data = $this->bikeService->getAllModelsForIndex();
-        
-        // totalListingsCount を削除
-        // 配列のマージが不要になったのでシンプルに渡せます
         return view('bikes.models', $data);
     }
 
-    /**
-     * お気に入り一覧ページの表示
-     */
     public function wishlist(): View
     {
-        // 変数が不要になったのでそのままビューを返します
         return view('pages.wishlist');
     }
 
@@ -159,12 +154,8 @@ final class BikeController extends Controller
         return response()->json(ListingResource::collection($listings)->resolve());
     }
 
-    /**
-     * 比較ページの表示
-     */
     public function compare(): View
     {
-        // 変数が不要になったのでそのままビューを返します
         return view('pages.compare');
     }
 }

@@ -24,22 +24,51 @@ final class BikeService
     ) {}
 
     /**
-     * ★追加: トップページ表示用の主要メーカーを取得
+     * ★追加: 地域・都道府県データを取得
+     */
+    public function getRegions(): array
+    {
+        return config('bike.regions', []);
+    }
+
+    /**
+     * トップページ表示用の主要メーカーを取得
+     * (ホンダ、ヤマハ、スズキ、カワサキ、ハーレー の順で取得)
      */
     public function getMajorManufacturers(): Collection
     {
-        // DBに登録されている可能性のある名前をリストアップ
-        $targetMakers = [
-            'ホンダ', 'Honda', 'HONDA',
-            'ヤマハ', 'Yamaha', 'YAMAHA',
-            'スズキ', 'Suzuki', 'SUZUKI',
-            'カワサキ', 'Kawasaki', 'KAWASAKI',
-            'ハーレーダビッドソン', 'Harley-Davidson',
-        ];
+        // 全メーカーを取得
+        $allMakers = $this->manufacturerRepo->getAllSortedByName();
+        
+        // 表示したいメーカー名のリスト（順序を維持したい場合）
+        $targetNames = ['ホンダ', 'ヤマハ', 'スズキ', 'カワサキ', 'ハーレーダビッドソン'];
+        
+        $results = new Collection();
 
-        return $this->manufacturerRepo->getByNames($targetMakers);
+        foreach ($targetNames as $name) {
+            // 名前で検索（部分一致など柔軟に）
+            $found = $allMakers->first(function ($m) use ($name) {
+                return str_contains($m->name, $name) || str_contains(strtolower($m->name), strtolower($name));
+            });
+
+            if ($found) {
+                $results->push($found);
+            }
+        }
+
+        return $results;
     }
 
+    /**
+     * ★修正: 全てのメーカーを取得するメソッドに変更
+     * （以前の getMajorManufacturers を置き換え）
+     */
+    public function getAllManufacturers(): Collection
+    {
+        // ManufacturerRepository に getAllSortedByName がある前提です
+        // もしエラーになる場合は getAll() に変えてください
+        return $this->manufacturerRepo->getAllSortedByName();
+    }
 
     /**
      * トップページ用カテゴリ一覧

@@ -24,6 +24,7 @@ final class BikeModel extends Model
         'local_image_path',
         'displacement',
         'manufacturer_id',
+        'category_id',
     ];
 
     /**
@@ -52,6 +53,14 @@ final class BikeModel extends Model
                 return asset('storage/' . $path);
             },
         );
+    }
+
+    /**
+     * 所属するカテゴリを取得
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 
     /**

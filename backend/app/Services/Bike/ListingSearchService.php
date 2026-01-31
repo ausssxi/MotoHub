@@ -8,6 +8,7 @@ use App\Repositories\Bike\ListingRepository;
 use App\Repositories\Bike\ListingStatsRepository; // ✨ 追加: 統計用リポジトリ
 use App\Repositories\Bike\ManufacturerRepository;
 use App\Repositories\Bike\BikeModelRepository;
+use App\Repositories\Bike\CategoryRepository;
 use App\Http\Resources\Bike\ListingResource;
 use App\Services\Bike\Search\KeywordInferrer;     // ✨ 追加
 use App\Services\Bike\Search\SearchMetadataGenerator; // ✨ 追加
@@ -25,6 +26,7 @@ final class ListingSearchService
         private readonly ListingStatsRepository $statsRepo, // ✨ 統計用
         private readonly ManufacturerRepository $manufacturerRepo,
         private readonly BikeModelRepository $modelRepo,
+        private readonly CategoryRepository $categoryRepo,
         // ✨ 新しいヘルパークラス
         private readonly KeywordInferrer $inferrer,
         private readonly SearchMetadataGenerator $metaGenerator,
@@ -104,6 +106,14 @@ final class ListingSearchService
             $maker = $makers->firstWhere('id', $filters['manufacturer_id']);
             if ($maker) {
                 return "{$maker->name} の車両一覧";
+            }
+        }
+
+        // ★追加: カテゴリーIDがある場合
+        if (!empty($filters['category_id'])) {
+            $category = $this->categoryRepo->find((int)$filters['category_id']);
+            if ($category) {
+                return "{$category->name} の車両一覧";
             }
         }
 

@@ -77,6 +77,15 @@ class Listing extends Model
     }
 
     /**
+     * ★追加: カテゴリーIDでの絞り込み
+     */
+    public function scopeByCategory(Builder $query, ?int $categoryId): Builder
+    {
+        if (!$categoryId) return $query;
+        return $query->whereHas('bikeModel', fn($q) => $q->where('category_id', $categoryId));
+    }
+
+    /**
      * コンディション
      */
     public function scopeByCondition(Builder $query, $isNew): Builder

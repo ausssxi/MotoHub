@@ -33,6 +33,7 @@ final class ListingStatsRepository
             ->withKeyword($keyword, !empty($filters['bike_model_id']))
             ->byPrefecture($prefecture ?: ($filters['prefecture'] ?? null))
             ->byModel($filters['manufacturer_id'] ?? null, $filters['bike_model_id'] ?? null)
+            ->byCategory($filters['category_id'] ?? null)
             ->byCondition($filters['is_new'] ?? null)
             ->byRepairHistory($filters['has_repair_history'] ?? null);
 
@@ -65,6 +66,10 @@ final class ListingStatsRepository
             $query->where('bike_model_id', (int)$filters['bike_model_id']);
         } elseif (!empty($filters['manufacturer_id'])) {
             $query->whereHas('bikeModel', fn($q) => $q->where('manufacturer_id', (int)$filters['manufacturer_id']));
+        }
+
+        if (!empty($filters['category_id'])) {
+            $query->whereHas('bikeModel', fn($q) => $q->where('category_id', (int)$filters['category_id']));
         }
 
         if ($prefecture || !empty($filters['prefecture'])) {

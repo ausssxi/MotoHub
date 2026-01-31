@@ -85,12 +85,13 @@ final class ListingRepository
         $maxMileage = $uiParams['max_mileage'] ?? null;
 
         return Listing::query()
-            ->with(['bikeModel.manufacturer', 'shop', 'site'])
+            ->with(['bikeModel.manufacturer', 'bikeModel.category', 'shop', 'site'])
             ->active()
             // Model Scope を活用して可読性を向上
             ->withKeyword($keyword, !empty($filters['bike_model_id']))
             ->byPrefecture($prefecture ?: ($filters['prefecture'] ?? null))
             ->byModel($filters['manufacturer_id'] ?? null, $filters['bike_model_id'] ?? null)
+            ->byCategory($filters['category_id'] ?? null)
             ->byCondition($filters['is_new'] ?? null)
             ->byRepairHistory($filters['has_repair_history'] ?? null)
             ->priceBetween($filters['min_price'] ?? null, $filters['max_price'] ?? null, $maxPrice)
