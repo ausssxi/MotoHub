@@ -24,6 +24,24 @@ final class BikeService
     ) {}
 
     /**
+     * ★追加: トップページ表示用の主要メーカーを取得
+     */
+    public function getMajorManufacturers(): Collection
+    {
+        // DBに登録されている可能性のある名前をリストアップ
+        $targetMakers = [
+            'ホンダ', 'Honda', 'HONDA',
+            'ヤマハ', 'Yamaha', 'YAMAHA',
+            'スズキ', 'Suzuki', 'SUZUKI',
+            'カワサキ', 'Kawasaki', 'KAWASAKI',
+            'ハーレーダビッドソン', 'Harley-Davidson',
+        ];
+
+        return $this->manufacturerRepo->getByNames($targetMakers);
+    }
+
+
+    /**
      * トップページ用カテゴリ一覧
      * ★修正: 画像があるカテゴリのみを返すように変更
      */

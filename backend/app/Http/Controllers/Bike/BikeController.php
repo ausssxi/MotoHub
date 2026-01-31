@@ -30,10 +30,11 @@ final class BikeController extends Controller
     {
         $popularBikes = $this->bikeService->getPopularBikesForTopPage();
         $categories = $this->bikeService->getCategoriesForTopPage();
+        $majorManufacturers = $this->bikeService->getMajorManufacturers();
         $regions = config('bike.regions');
 
         // totalListingsCount は自動注入されるため削除
-        return view('bikes.index', compact('popularBikes', 'categories', 'regions'));
+        return view('bikes.index', compact('popularBikes', 'categories', 'majorManufacturers', 'regions'));
     }
 
     /**
@@ -66,6 +67,9 @@ final class BikeController extends Controller
 
         $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
         $searchMeta = $this->listingSearchService->getSearchMetadata($keyword, $prefecture, $filters);
+        // ★修正: ページタイトルをサービスで生成
+        $pageTitle = $this->listingSearchService->generatePageTitle($keyword, $prefecture, $filters);
+
 
         // totalListingsCount を削除
         return view('bikes.search', array_merge($result, [
@@ -73,6 +77,7 @@ final class BikeController extends Controller
             'prefecture' => $prefecture,
             'sort'       => $sort,
             'meta'       => $searchMeta,
+            'pageTitle'  => $pageTitle,
         ]));
     }
 

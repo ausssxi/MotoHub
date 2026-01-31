@@ -83,6 +83,39 @@ final class ListingSearchService
     }
 
     /**
+     * ★追加: 検索条件に基づいてページタイトルを生成
+     */
+    public function generatePageTitle(?string $keyword, ?string $prefecture, array $filters): string
+    {
+        if ($keyword) {
+            return "「{$keyword}」の検索結果";
+        }
+
+        if (!empty($filters['bike_model_id'])) {
+            $model = $this->modelRepo->find((int)$filters['bike_model_id']);
+            if ($model) {
+                return "{$model->name} の車両一覧";
+            }
+        }
+
+        if (!empty($filters['manufacturer_id'])) {
+            // メーカー名を取得（Repositoryにfindがない場合はgetAllから検索）
+            $makers = $this->manufacturerRepo->getAllSortedByName();
+            $maker = $makers->firstWhere('id', $filters['manufacturer_id']);
+            if ($maker) {
+                return "{$maker->name} の車両一覧";
+            }
+        }
+
+        if ($prefecture || !empty($filters['prefecture'])) {
+            $pref = $prefecture ?: ($filters['prefecture'] ?? '');
+            return "{$pref} の車両一覧";
+        }
+
+        return '車両一覧';
+    }
+
+    /**
      * スライダー用メタデータを取得
      */
     public function getSearchMetadata(?string $keyword = null, ?string $prefecture = null, array $filters = []): array

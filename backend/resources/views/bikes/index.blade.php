@@ -37,11 +37,13 @@
                 </div>
             </form>
             
-            {{-- クイックリンク --}}
+            {{-- クイックリンク（主要メーカー） --}}
             <div class="mt-6 flex flex-wrap justify-center gap-3">
-                @foreach(['Honda', 'Yamaha', 'Suzuki', 'Kawasaki', 'Harley-Davidson'] as $maker)
-                    <a href="{{ route('bikes.search', ['keyword' => $maker]) }}" class="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold border border-white/10 backdrop-blur-sm transition-all">
-                        {{ $maker }}
+                {{-- ★修正: 文字列配列ではなく、DBから取得したメーカーデータを使用 --}}
+                @foreach($majorManufacturers as $maker)
+                    <a href="{{ route('bikes.search', ['manufacturer_id' => $maker->id]) }}" 
+                       class="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold border border-white/10 backdrop-blur-sm transition-all">
+                        {{ $maker->name }}
                     </a>
                 @endforeach
             </div>

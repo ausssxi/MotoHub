@@ -16,6 +16,8 @@ import logging
 
 # 共通基盤のインポート
 from common.base_spider import BaseBikeSpider
+# ★追加: ShopManagerをインポート
+from common.shop_manager import ShopManager
 from utils import normalize_prefecture
 
 class GoobikeShopSpider(BaseBikeSpider):
@@ -38,6 +40,11 @@ class GoobikeShopSpider(BaseBikeSpider):
             'common.pipelines.MotoHubImagePipeline': 300,
         },
     }
+
+     # ★追加: コンストラクタでShopManagerを初期化
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.shop_manager = ShopManager(self.db)
 
     def parse(self, response):
         """トップページのマップから各都道府県のリンクを取得"""

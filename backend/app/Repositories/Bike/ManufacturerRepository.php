@@ -27,4 +27,13 @@ final class ManufacturerRepository
     {
         return Manufacturer::orderBy('name', 'asc')->get();
     }
+    
+    /**
+     * ★追加: 指定された名前リストに一致するメーカーを取得
+     * トップページのクイックリンク用
+     */
+    public function getByNames(array $names): Collection
+    {
+        return Manufacturer::whereIn('name', $names)->get();
+    }
 }

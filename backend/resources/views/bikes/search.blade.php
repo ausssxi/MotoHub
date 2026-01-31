@@ -1,6 +1,6 @@
 <x-layout>
     <x-slot:title>
-        @if($keyword) 「{{ $keyword }}」の検索結果 @else 車両一覧 @endif - MotoHub
+        {{ $pageTitle }} - MotoHub
     </x-slot:title>
 
     <x-slot:styles>
@@ -174,7 +174,7 @@
                 <div class="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                     <div>
                         <h2 class="text-2xl font-black text-black tracking-tighter italic">
-                            @if($keyword) 「{{ $keyword }}」 @else 車両一覧 @endif 
+                            {{ $pageTitle }}
                             <span class="text-xs text-gray-400 font-bold ml-2 not-italic">({{ number_format($pagination['total']) }}台)</span>
                         </h2>
                     </div>

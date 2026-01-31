@@ -2,7 +2,7 @@ import sys
 import os
 
 # ==========================================
-# 0. インポートパスの解決（相対インポートエラー対策）
+# 0. インポートパスの解決
 # ==========================================
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -16,6 +16,8 @@ import logging
 
 # 共通基盤のインポート
 from common.base_spider import BaseBikeSpider
+# ★追加: ShopManagerをインポート
+from common.shop_manager import ShopManager
 from utils import normalize_prefecture
 
 class BdsShopSpider(BaseBikeSpider):
@@ -48,6 +50,11 @@ class BdsShopSpider(BaseBikeSpider):
         "36": "徳島県", "37": "香川県", "38": "愛媛県", "39": "高知県", "40": "福岡県", "41": "佐賀県", "42": "長崎県",
         "43": "熊本県", "44": "大分県", "45": "宮崎県", "46": "鹿児島県", "47": "沖縄県"
     }
+
+    # ★追加: コンストラクタでShopManagerを初期化
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.shop_manager = ShopManager(self.db)
 
     def start_requests(self):
         """都道府県ごとにリクエストを開始"""
