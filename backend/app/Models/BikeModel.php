@@ -58,9 +58,9 @@ final class BikeModel extends Model
     /**
      * 所属するカテゴリを取得
      */
-    public function category(): BelongsTo
+    public function categoryData(): BelongsTo
     {
-        return $this->belongsTo(Category::class);
+        return $this->belongsTo(Category::class, 'category_id');
     }
 
     /**

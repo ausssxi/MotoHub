@@ -1,6 +1,5 @@
 <x-layout>
     <x-slot:title>
-        {{-- ★修正: コントローラーで生成されたページタイトルを表示 --}}
         {{ $pageTitle }} - MotoHub
     </x-slot:title>
 
@@ -175,7 +174,6 @@
                 <div class="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                     <div>
                         <h2 class="text-2xl font-black text-black tracking-tighter italic">
-                            {{-- ★修正: コントローラーで生成されたページタイトルを表示 --}}
                             {{ $pageTitle }}
                             <span class="text-xs text-gray-400 font-bold ml-2 not-italic">({{ number_format($pagination['total']) }}台)</span>
                         </h2>
@@ -252,12 +250,26 @@
                     @forelse ($items as $listing)
                         <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col group border border-gray-100 relative cursor-pointer bike-card">
                             
-                            {{-- ★ここを変更しました：詳細ページへのリンク --}}
+                            {{-- ★詳細ページへのリンク --}}
                             <a href="{{ route('bikes.show', $listing['id']) }}" class="absolute inset-0 z-20"></a>
                             
                             <div class="aspect-[4/3] relative overflow-hidden bg-gray-50">
                                 @if(!empty($listing['images']) && isset($listing['images'][0]))
-                                    <img src="{{ $listing['images'][0] }}" class="bike-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="">
+                                    <img src="{{ $listing['images'][0] }}" 
+                                         class="bike-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                         alt="{{ $listing['name'] }}"
+                                         {{-- ★修正: ダミー画像URLを変更 (トップページと同じUnsplash画像を使用) --}}
+                                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');">
+                                @else
+                                    {{-- ★修正: ダミー画像URLを変更 --}}
+                                    <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop" 
+                                         class="bike-img w-full h-full object-cover grayscale opacity-50 group-hover:scale-105 transition-transform duration-500" 
+                                         alt="No Image">
+                                    
+                                    {{-- オプション: No Image アイコンを重ねる場合 --}}
+                                    <div class="absolute inset-0 flex items-center justify-center">
+                                        <i data-lucide="image-off" class="w-10 h-10 text-white/50"></i>
+                                    </div>
                                 @endif
 
                                 <!-- 左上：比較ボタン -->
@@ -278,7 +290,7 @@
                             </div>
 
                             <div class="p-5 flex-grow flex flex-col">
-                                {{-- ★修正箇所：メーカー(青)、コンディション(緑)、都道府県(紫) で色分け --}}
+                                {{-- ★メーカー(青)、カテゴリー(橙)、コンディション(緑)、都道府県(紫) で色分け --}}
                                 <div class="flex items-center gap-2 mb-2 flex-wrap">
                                     <span class="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">{{ $listing['maker'] }}</span>
                                     <span class="text-[9px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded uppercase">{{ $listing['category'] }}</span>

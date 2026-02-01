@@ -26,7 +26,7 @@ class ListingResource extends JsonResource
             'source_domain'  => $this->resolveSourceDomain($this->site?->name ?? ''),
             
             'maker'          => $this->bikeModel?->manufacturer?->name ?? 'メーカー不明',
-            'category'       => $this->bikeModel?->category?->name ?? 'その他',
+            'category'       => $this->bikeModel?->categoryData?->name ?? 'その他',
             // パンくずリスト用のIDを追加
             'manufacturer_id' => $this->bikeModel?->manufacturer_id,
             'bike_model_id'   => $this->bike_model_id,
