@@ -18,7 +18,7 @@
                     車種から探す
                 </h1>
                 <p class="text-gray-400 text-xs font-bold tracking-widest uppercase">
-                    {{ number_format($totalModelsCount) }} モデル
+                    {{ number_format($totalModelsCount) }} MODELS AVAILABLE
                 </p>
             </div>
 
@@ -27,10 +27,7 @@
                 @foreach($manufacturers as $manufacturer)
                     @if($manufacturer->bike_models_count > 0)
                     
-                    {{-- 
-                        1. 代表車種の抽出 (画像用)
-                        掲載台数が多い順にソートし、画像を持っているモデルを優先的に取得
-                    --}}
+                    {{-- 代表車種の抽出 --}}
                     @php
                         $topModel = $manufacturer->bike_models->sortByDesc('listings_count')->first(function($model) {
                             return !empty($model->image_url);
@@ -39,23 +36,16 @@
                         $makerImage = $topModel?->image_url;
                     @endphp
 
-                    {{-- 
-                        2. グループ分けロジック (A-Z, 50音, 数字)
-                    --}}
+                    {{-- グループ分けロジック --}}
                     @php
                         $groups = [];
-                        
-                        // A-Z
                         foreach (range('A', 'Z') as $char) $groups[$char] = [];
-                        // かな行
                         foreach (['あ行', 'か行', 'さ行', 'た行', 'な行', 'は行', 'ま行', 'や行', 'ら行', 'わ行'] as $row) $groups[$row] = [];
-                        // 数字・その他
                         $groups['0-9'] = [];
                         $groups['その他'] = [];
                         
                         foreach($manufacturer->bike_models as $bike) {
                             $initial = mb_convert_kana(mb_substr($bike->name, 0, 1), 'KaC');
-                            
                             if (preg_match('/^[0-9]/', $initial)) {
                                 $groups['0-9'][] = $bike;
                             } elseif (preg_match('/^[A-Za-z]/', $initial)) {
@@ -93,7 +83,6 @@
                         {{-- アコーディオンヘッダー --}}
                         <button onclick="toggleMaker({{ $manufacturer->id }})" class="w-full flex items-center justify-between px-4 sm:px-6 py-4 bg-white hover:bg-gray-50/50 transition-colors text-left group cursor-pointer focus:outline-none">
                             <div class="flex items-center gap-4">
-                                {{-- ★ここを追加: 代表車種の丸画像 --}}
                                 <div class="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center group-hover:border-blue-200 transition-colors">
                                     @if($makerImage)
                                         <img src="{{ $makerImage }}" alt="{{ $manufacturer->name }}" class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500">
@@ -103,24 +92,21 @@
                                 </div>
 
                                 <div class="flex flex-col">
-                                    {{-- メーカー名 --}}
                                     <h2 class="text-lg sm:text-xl font-black text-gray-800 tracking-tight group-hover:text-blue-600 transition-colors leading-none mb-1">
                                         {{ $manufacturer->name }}
                                     </h2>
-                                    {{-- モデル数 --}}
                                     <span class="text-[10px] font-bold text-gray-400">
-                                        {{ $manufacturer->bike_models_count }} モデル
+                                        {{ $manufacturer->bike_models_count }} Models
                                     </span>
                                 </div>
                             </div>
                             
-                            {{-- 開閉アイコン --}}
                             <div class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-all duration-300 transform" id="maker-icon-{{ $manufacturer->id }}">
                                 <i data-lucide="chevron-down" class="w-5 h-5"></i>
                             </div>
                         </button>
 
-                        {{-- メーカー詳細エリア（初期状態は hidden で非表示） --}}
+                        {{-- メーカー詳細エリア --}}
                         <div id="maker-list-{{ $manufacturer->id }}" class="hidden border-t border-gray-100 bg-gray-50/30">
                             <div class="p-2 sm:p-4 space-y-2">
                                 
@@ -139,7 +125,8 @@
                                             <div id="sub-list-{{ $subId }}" class="hidden border-t border-gray-100 p-3 sm:p-4 bg-gray-50/50">
                                                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                                                     @foreach($list as $bike)
-                                                    <a href="{{ route('bikes.search', ['keyword' => $bike->name]) }}"
+                                                    {{-- ★修正: keyword検索から bike_model_id 検索に変更 --}}
+                                                    <a href="{{ route('bikes.search', ['bike_model_id' => $bike->id]) }}"
                                                         class="group/item flex items-center p-3 bg-white rounded-xl border border-gray-200 hover:border-blue-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                                                         
                                                         <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 mr-3 border border-gray-100 relative">
