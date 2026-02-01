@@ -11,6 +11,7 @@ use Illuminate\Contracts\View\View;
 use App\Models\Listing;
 use App\Services\Bike\BikeService;
 use App\Services\Bike\ListingSearchService;
+use App\Services\Bike\SeoLandingService; 
 use App\Http\Resources\Bike\ListingResource;
 
 /**
@@ -20,7 +21,8 @@ final class BikeController extends Controller
 {
     public function __construct(
         private readonly BikeService $bikeService,
-        private readonly ListingSearchService $listingSearchService
+        private readonly ListingSearchService $listingSearchService,
+        private readonly SeoLandingService $seoLandingService
     ) {}
 
     /**
@@ -157,5 +159,32 @@ final class BikeController extends Controller
     public function compare(): View
     {
         return view('pages.compare');
+    }
+
+    /**
+     * ★追加: SEO着地ページ (地域 × メーカー/カテゴリ)
+     */
+    public function landing(string $prefecture, string $slug): View
+    {
+        // ページ情報を解決
+        $pageInfo = $this->seoLandingService->resolvePageInfo($prefecture, $slug);
+
+        if (empty($pageInfo)) {
+            abort(404);
+        }
+
+        $filters = $pageInfo['filters'];
+        $meta = $pageInfo['meta'];
+
+        // 検索実行
+        $result = $this->listingSearchService->search(null, $prefecture, 'latest', $filters);
+        
+        // 検索結果ページと似ているが、SEOに特化した専用ビューを表示
+        return view('bikes.landing', array_merge($result, [
+            'pageInfo' => $meta,
+            'keyword' => '', // 検索窓用
+            'prefecture' => $prefecture,
+            'sort' => 'latest',
+        ]));
     }
 }

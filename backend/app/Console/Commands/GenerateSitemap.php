@@ -7,7 +7,9 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Models\Listing;
 use App\Models\BikeModel;
-use App\Models\Shop; // 追加
+use App\Models\Shop;
+use App\Models\Manufacturer; // 追加
+use App\Models\Category;     // 追加
 use Illuminate\Support\Facades\File;
 
 class GenerateSitemap extends Command
@@ -15,7 +17,7 @@ class GenerateSitemap extends Command
     protected $signature = 'sitemap:generate';
     protected $description = 'サイトマップを分割生成し、インデックスファイルを作成します';
 
-    // 1ファイルあたりのURL上限（安全のため45,000件に設定）
+    // 1ファイルあたりのURL上限
     private const MAX_URLS_PER_FILE = 45000;
 
     public function handle(): void
@@ -24,11 +26,14 @@ class GenerateSitemap extends Command
         $this->info("サイトマップの分割生成を開始します...");
         $startTime = microtime(true);
 
-        // 生成されたサブサイトマップのファイル名を記録する配列
         $sitemapFiles = [];
 
+        // 都道府県リストの取得（configからフラットな配列にする）
+        $regions = config('bike.regions', []);
+        $allPrefectures = collect($regions)->flatten();
+
         // =========================================================
-        // 1. メインサイトマップ (固定ページ + 車種検索結果)
+        // 1. メインサイトマップ (固定ページ + 基本検索)
         // =========================================================
         $mainFileName = 'sitemap-main.xml';
         $this->info("メインサイトマップ ({$mainFileName}) を生成中...");
@@ -36,17 +41,18 @@ class GenerateSitemap extends Command
         $handle = $this->openSitemap($mainFileName);
         $count = 0;
 
-        // 固定ページ
+        // 固定ページリスト
         $staticPages = [
-            ['route' => 'bikes.index',   'priority' => '1.0', 'freq' => 'daily'],
-            ['route' => 'bikes.search',  'priority' => '0.9', 'freq' => 'daily'],
-            ['route' => 'bikes.models',  'priority' => '0.9', 'freq' => 'weekly'],
-            ['route' => 'bikes.compare', 'priority' => '0.5', 'freq' => 'daily'],
-            ['route' => 'wishlist',      'priority' => '0.5', 'freq' => 'monthly'],
-            ['route' => 'pages.about',   'priority' => '0.3', 'freq' => 'monthly'],
-            ['route' => 'pages.contact', 'priority' => '0.3', 'freq' => 'monthly'],
+            ['route' => 'bikes.index',       'priority' => '1.0', 'freq' => 'daily'],
+            ['route' => 'bikes.prefectures', 'priority' => '0.9', 'freq' => 'monthly'], // 追加: 地域一覧
+            ['route' => 'bikes.search',      'priority' => '0.9', 'freq' => 'daily'],
+            ['route' => 'bikes.models',      'priority' => '0.9', 'freq' => 'weekly'],
+            ['route' => 'bikes.compare',     'priority' => '0.5', 'freq' => 'daily'],
+            ['route' => 'wishlist',          'priority' => '0.5', 'freq' => 'monthly'],
+            ['route' => 'pages.about',       'priority' => '0.3', 'freq' => 'monthly'],
+            ['route' => 'pages.contact',     'priority' => '0.3', 'freq' => 'monthly'],
             ['route' => 'pages.privacy-policy', 'priority' => '0.1', 'freq' => 'yearly'],
-            ['route' => 'pages.terms',   'priority' => '0.1', 'freq' => 'yearly'],
+            ['route' => 'pages.terms',       'priority' => '0.1', 'freq' => 'yearly'],
         ];
 
         foreach ($staticPages as $page) {
@@ -54,7 +60,21 @@ class GenerateSitemap extends Command
             $count++;
         }
 
-        // 車種別ページ (検索結果)
+        // 都道府県別の検索結果ページ
+        // 例: /bikes/search?prefecture=東京都
+        foreach ($allPrefectures as $pref) {
+            $this->writeUrl(
+                $handle,
+                route('bikes.search', ['prefecture' => $pref]),
+                date('Y-m-d'),
+                'daily',
+                '0.8'
+            );
+            $count++;
+        }
+
+        // 車種別の検索結果ページ
+        // 例: /bikes/search?keyword=CB400SF
         BikeModel::select('name')->chunk(500, function ($models) use ($handle, &$count) {
             foreach ($models as $model) {
                 $this->writeUrl(
@@ -70,15 +90,56 @@ class GenerateSitemap extends Command
 
         $this->closeSitemap($handle);
         $sitemapFiles[] = $mainFileName;
-        $this->info(" -> {$count} URL");
+        $this->info(" -> {$count} URL (Main)");
 
 
         // =========================================================
-        // 2. 店舗詳細サイトマップ (sitemap-shops.xml)
+        // 2. SEOランディングページ (sitemap-landings.xml)
+        // =========================================================
+        $this->info("SEOランディングサイトマップを生成中...");
+        $landingFileName = 'sitemap-landings.xml';
+        $handle = $this->openSitemap($landingFileName);
+        $sitemapFiles[] = $landingFileName;
+        $landingCount = 0;
+
+        $manufacturers = Manufacturer::all();
+        $categories = Category::all();
+
+        // 組み合わせ: 都道府県 × (メーカー + カテゴリ)
+        foreach ($allPrefectures as $pref) {
+            // 例: /bikes/area/東京都/ホンダ
+            foreach ($manufacturers as $maker) {
+                $this->writeUrl(
+                    $handle,
+                    route('landing', ['prefecture' => $pref, 'slug' => $maker->name]),
+                    date('Y-m-d'),
+                    'weekly',
+                    '0.7'
+                );
+                $landingCount++;
+            }
+
+            // 例: /bikes/area/東京都/ネイキッド
+            foreach ($categories as $cat) {
+                $this->writeUrl(
+                    $handle,
+                    route('landing', ['prefecture' => $pref, 'slug' => $cat->name]),
+                    date('Y-m-d'),
+                    'weekly',
+                    '0.7'
+                );
+                $landingCount++;
+            }
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$landingCount} URL (Landings)");
+
+
+        // =========================================================
+        // 3. 店舗詳細サイトマップ (sitemap-shops.xml)
         // =========================================================
         $this->info("店舗詳細サイトマップを生成中...");
-        
-        // 店舗数が増えても良いように独立したファイルにします
         $shopFileName = 'sitemap-shops.xml';
         $handle = $this->openSitemap($shopFileName);
         $sitemapFiles[] = $shopFileName;
@@ -93,18 +154,18 @@ class GenerateSitemap extends Command
                         route('shops.show', $shop->id),
                         $shop->updated_at->format('Y-m-d'),
                         'weekly',
-                        '0.7' // 車両詳細(0.6)より少し高めに設定
+                        '0.7'
                     );
                     $shopCount++;
                 }
             });
 
         $this->closeSitemap($handle);
-        $this->info(" -> {$shopCount} URL (完了)");
+        $this->info(" -> {$shopCount} URL (Shops)");
 
 
         // =========================================================
-        // 3. 車両詳細ページ (50,000件ごとにファイルを分割)
+        // 4. 車両詳細ページ (50,000件ごとにファイルを分割)
         // =========================================================
         $this->info("車両詳細サイトマップを生成中...");
         
@@ -112,18 +173,16 @@ class GenerateSitemap extends Command
             ->select('id', 'updated_at')
             ->orderBy('updated_at', 'desc');
 
-        $totalListings = $listingQuery->count();
         $fileIndex = 1;
         $currentUrlCount = 0;
+        $totalListingsCount = 0;
         
-        // 最初のファイルを開く
         $currentFileName = "sitemap-listings-{$fileIndex}.xml";
         $handle = $this->openSitemap($currentFileName);
         $sitemapFiles[] = $currentFileName;
 
-        $listingQuery->chunk(1000, function ($listings) use (&$handle, &$currentUrlCount, &$fileIndex, &$sitemapFiles) {
+        $listingQuery->chunk(1000, function ($listings) use (&$handle, &$currentUrlCount, &$fileIndex, &$sitemapFiles, &$totalListingsCount) {
             foreach ($listings as $listing) {
-                // 上限に達したらファイルを閉じて、次を作る
                 if ($currentUrlCount >= self::MAX_URLS_PER_FILE) {
                     $this->closeSitemap($handle);
                     $this->info("  -> 分割: sitemap-listings-{$fileIndex}.xml 完了");
@@ -144,27 +203,24 @@ class GenerateSitemap extends Command
                     '0.6'
                 );
                 $currentUrlCount++;
+                $totalListingsCount++;
             }
         });
 
-        $this->closeSitemap($handle); // 最後のファイルを閉じる
-        $this->info("  -> 分割: sitemap-listings-{$fileIndex}.xml 完了");
+        $this->closeSitemap($handle);
+        $this->info(" -> {$totalListingsCount} URL (Listings)");
 
 
         // =========================================================
-        // 4. サイトマップインデックス (目次) の生成
+        // 5. サイトマップインデックス (目次) の生成
         // =========================================================
         $this->info("インデックスファイル (sitemap.xml) を生成中...");
         $this->generateIndexFile($sitemapFiles);
-
 
         $duration = round(microtime(true) - $startTime, 2);
         $this->info("全ての処理が完了しました！ ({$duration}秒)");
     }
 
-    /**
-     * ファイルを開き、XMLヘッダーを書き込む
-     */
     private function openSitemap(string $filename)
     {
         $path = public_path($filename);
@@ -174,9 +230,6 @@ class GenerateSitemap extends Command
         return $handle;
     }
 
-    /**
-     * URL要素を1つ書き込む
-     */
     private function writeUrl($handle, $loc, $lastmod, $freq, $priority)
     {
         $loc = htmlspecialchars($loc, ENT_XML1, 'UTF-8');
@@ -189,19 +242,12 @@ class GenerateSitemap extends Command
         fwrite($handle, $xml);
     }
 
-    /**
-     * XMLフッターを書き込んでファイルを閉じる
-     */
     private function closeSitemap($handle)
     {
         fwrite($handle, '</urlset>');
         fclose($handle);
     }
 
-    /**
-     * インデックスファイル (sitemap.xml) を生成する
-     * これがGoogleに提出する親ファイルになります
-     */
     private function generateIndexFile(array $files)
     {
         $indexPath = public_path('sitemap.xml');
@@ -211,10 +257,8 @@ class GenerateSitemap extends Command
         fwrite($handle, '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL);
 
         foreach ($files as $file) {
-            // ファイルの最終更新日時を取得
             $lastmod = date('Y-m-d\TH:i:sP', filemtime(public_path($file)));
-            $loc = url($file); // https://motohub.jp/sitemap-main.xml 等
-
+            $loc = url($file);
             $xml = "    <sitemap>\n";
             $xml .= "        <loc>{$loc}</loc>\n";
             $xml .= "        <lastmod>{$lastmod}</lastmod>\n";
