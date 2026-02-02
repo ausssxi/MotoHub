@@ -73,6 +73,36 @@ class GenerateSitemap extends Command
             $count++;
         }
 
+        // ★追加: メーカー別の検索結果ページ
+        // 例: /bikes/search?manufacturer_id=1
+        Manufacturer::chunk(100, function ($makers) use ($handle, &$count) {
+            foreach ($makers as $maker) {
+                $this->writeUrl(
+                    $handle,
+                    route('bikes.search', ['manufacturer_id' => $maker->id]),
+                    date('Y-m-d'),
+                    'daily',
+                    '0.8'
+                );
+                $count++;
+            }
+        });
+
+        // ★追加: カテゴリ別の検索結果ページ
+        // 例: /bikes/search?category_id=1
+        Category::chunk(100, function ($cats) use ($handle, &$count) {
+            foreach ($cats as $cat) {
+                $this->writeUrl(
+                    $handle,
+                    route('bikes.search', ['category_id' => $cat->id]),
+                    date('Y-m-d'),
+                    'daily',
+                    '0.8'
+                );
+                $count++;
+            }
+        });
+
         // 車種別の検索結果ページ
         // 例: /bikes/search?keyword=CB400SF
         BikeModel::select('name')->chunk(500, function ($models) use ($handle, &$count) {

@@ -1,6 +1,10 @@
 <x-layout>
     <x-slot:title>MotoHub - 中古・新車バイク一括検索</x-slot:title>
 
+    <x-slot:scripts>
+        <script src="{{ asset('js/search/suggest.js') }}"></script>
+    </x-slot:scripts>
+
     <x-slot:navigation>
         <x-navigation :showSearch="false" />
     </x-slot:navigation>
@@ -13,8 +17,8 @@
                   class="w-full h-full object-cover opacity-40">
         </div>
         
-        <div class="relative z-10 w-full max-w-4xl px-4 text-center">
-            {{-- ★修正: キャッチコピー変更 --}}
+        {{-- ★修正: 親要素に id="search-container" を追加 --}}
+        <div class="relative z-10 w-full max-w-4xl px-4 text-center" id="search-container">
             <h1 class="text-3xl sm:text-5xl font-black text-white mb-4 tracking-tight leading-tight">
                 掲載台数<span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">&nbsp;No.1！</span>
             </h1>
@@ -22,23 +26,29 @@
                 日本最大級のバイク検索・比較プラットフォーム
             </p>
 
-            <form action="{{ route('bikes.search') }}" method="GET" class="relative max-w-2xl mx-auto">
+            {{-- ★修正: id="search-form" に変更 --}}
+            <form action="{{ route('bikes.search') }}" method="GET" class="relative max-w-2xl mx-auto" id="search-form" autocomplete="off">
                 <div class="relative group">
                     <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
                         <i data-lucide="search" class="w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors"></i>
                     </div>
-                    <input type="text" name="keyword" 
+                    {{-- ★修正: id="search-input" に変更 --}}
+                    <input type="text" name="keyword" id="search-input"
                         class="w-full h-14 pl-12 pr-4 rounded-full border-none focus:ring-4 focus:ring-blue-500/30 text-base font-bold shadow-2xl placeholder:text-gray-400 transition-all"
                         placeholder="車種名、メーカー名、キーワードを入力..." autocomplete="off">
                     <button type="submit" class="absolute right-2 top-2 h-10 px-6 bg-black text-white rounded-full text-xs font-black hover:bg-gray-800 transition-all flex items-center gap-2">
                         検索
                     </button>
                 </div>
+
+                {{-- ★追加: サジェスト結果表示エリア (id="suggest-results", id="suggest-list") --}}
+                <div id="suggest-results" class="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden hidden z-[110] text-left">
+                    <div id="suggest-list" class="py-2 max-h-[400px] overflow-y-auto"></div>
+                </div>
             </form>
             
-            {{-- ★修正: 指定のメーカーのみをID検索リンクで表示 --}}
+            {{-- クイックリンク --}}
             <div class="mt-6 flex flex-wrap justify-center gap-3">
-                {{-- ★修正: メーカーのみを表示 --}}
                 @foreach($manufacturers as $maker)
                     <a href="{{ route('bikes.search', ['manufacturer_id' => $maker->id]) }}" class="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold border border-white/10 backdrop-blur-sm transition-all">
                         {{ $maker->name }}
@@ -48,9 +58,9 @@
         </div>
     </div>
 
+    {{-- 以下変更なし --}}
     <div class="bg-gray-50 py-16 sm:py-24">
         <div class="max-w-7xl mx-auto px-4">
-            
             {{-- タイプから探す --}}
             <section class="mb-20">
                 <div class="flex items-end justify-between mb-8 px-2">
@@ -64,11 +74,10 @@
 
                 <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
                     @foreach($categories as $category)
-                        {{-- ★修正: 画像があるカテゴリのみ表示 --}}
                         @if($category->display_icon_url)
                         <a href="{{ route('bikes.search', ['category_id' => $category->id]) }}" 
                            class="group bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col items-center text-center h-full">
-                              
+                            
                             <div class="w-16 h-12 sm:w-20 sm:h-14 mb-3 relative flex items-center justify-center">
                                 <img src="{{ $category->display_icon_url }}" 
                                      alt="{{ $category->name }}" 
@@ -100,7 +109,6 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     @foreach($popularBikes as $bike)
-                        {{-- ★修正: keyword検索から bike_model_id 検索に変更 --}}
                         <a href="{{ route('bikes.search', ['bike_model_id' => $bike->id]) }}" 
                            class="group flex items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-300">
                             
@@ -136,9 +144,9 @@
             {{-- 都道府県から探す --}}
             <section>
                 <div class="bg-gray-900 rounded-3xl p-8 sm:p-12 text-center relative overflow-hidden">
-                    <div class="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-                        <img src="{{ asset('images/map-pattern.svg') }}" class="w-full h-full object-cover" alt="">
-                    </div>
+                    <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 pointer-events-none"></div>
+                    <div class="absolute -top-24 -left-24 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="absolute -bottom-24 -right-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
                     
                     <div class="relative z-10">
                         <h2 class="text-2xl font-black text-white mb-2 tracking-tighter">地域から探す</h2>
@@ -161,7 +169,6 @@
                     </div>
                 </div>
             </section>
-
         </div>
     </div>
 </x-layout>
