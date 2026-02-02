@@ -8,14 +8,15 @@ use Illuminate\Console\Command;
 use App\Models\Listing;
 use App\Models\BikeModel;
 use App\Models\Shop;
-use App\Models\Manufacturer; // 追加
-use App\Models\Category;     // 追加
+use App\Models\Manufacturer;
+use App\Models\Category;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http; // ★追加: HTTPリクエスト用
 
 class GenerateSitemap extends Command
 {
     protected $signature = 'sitemap:generate';
-    protected $description = 'サイトマップを分割生成し、インデックスファイルを作成します';
+    protected $description = 'サイトマップを分割生成し、インデックスファイルを作成してGoogleに通知します';
 
     // 1ファイルあたりのURL上限
     private const MAX_URLS_PER_FILE = 45000;
@@ -28,7 +29,7 @@ class GenerateSitemap extends Command
 
         $sitemapFiles = [];
 
-        // 都道府県リストの取得（configからフラットな配列にする）
+        // 都道府県リストの取得
         $regions = config('bike.regions', []);
         $allPrefectures = collect($regions)->flatten();
 
@@ -44,7 +45,7 @@ class GenerateSitemap extends Command
         // 固定ページリスト
         $staticPages = [
             ['route' => 'bikes.index',       'priority' => '1.0', 'freq' => 'daily'],
-            ['route' => 'bikes.prefectures', 'priority' => '0.9', 'freq' => 'monthly'], // 追加: 地域一覧
+            ['route' => 'bikes.prefectures', 'priority' => '0.9', 'freq' => 'monthly'],
             ['route' => 'bikes.search',      'priority' => '0.9', 'freq' => 'daily'],
             ['route' => 'bikes.models',      'priority' => '0.9', 'freq' => 'weekly'],
             ['route' => 'bikes.compare',     'priority' => '0.5', 'freq' => 'daily'],
@@ -61,7 +62,6 @@ class GenerateSitemap extends Command
         }
 
         // 都道府県別の検索結果ページ
-        // 例: /bikes/search?prefecture=東京都
         foreach ($allPrefectures as $pref) {
             $this->writeUrl(
                 $handle,
@@ -73,8 +73,7 @@ class GenerateSitemap extends Command
             $count++;
         }
 
-        // ★追加: メーカー別の検索結果ページ
-        // 例: /bikes/search?manufacturer_id=1
+        // メーカー別の検索結果ページ
         Manufacturer::chunk(100, function ($makers) use ($handle, &$count) {
             foreach ($makers as $maker) {
                 $this->writeUrl(
@@ -88,8 +87,7 @@ class GenerateSitemap extends Command
             }
         });
 
-        // ★追加: カテゴリ別の検索結果ページ
-        // 例: /bikes/search?category_id=1
+        // カテゴリ別の検索結果ページ
         Category::chunk(100, function ($cats) use ($handle, &$count) {
             foreach ($cats as $cat) {
                 $this->writeUrl(
@@ -104,7 +102,6 @@ class GenerateSitemap extends Command
         });
 
         // 車種別の検索結果ページ
-        // 例: /bikes/search?keyword=CB400SF
         BikeModel::select('name')->chunk(500, function ($models) use ($handle, &$count) {
             foreach ($models as $model) {
                 $this->writeUrl(
@@ -137,7 +134,6 @@ class GenerateSitemap extends Command
 
         // 組み合わせ: 都道府県 × (メーカー + カテゴリ)
         foreach ($allPrefectures as $pref) {
-            // 例: /bikes/area/東京都/ホンダ
             foreach ($manufacturers as $maker) {
                 $this->writeUrl(
                     $handle,
@@ -149,7 +145,6 @@ class GenerateSitemap extends Command
                 $landingCount++;
             }
 
-            // 例: /bikes/area/東京都/ネイキッド
             foreach ($categories as $cat) {
                 $this->writeUrl(
                     $handle,
@@ -249,6 +244,40 @@ class GenerateSitemap extends Command
 
         $duration = round(microtime(true) - $startTime, 2);
         $this->info("全ての処理が完了しました！ ({$duration}秒)");
+
+        // =========================================================
+        // ★追加: GoogleへのPing送信
+        // =========================================================
+        $this->pingGoogle();
+    }
+
+    /**
+     * Googleにサイトマップの更新を通知する
+     */
+    private function pingGoogle(): void
+    {
+        // 本番環境以外では送信しない
+        if (!app()->isProduction()) {
+            $this->info("GoogleへのPing送信をスキップしました (ローカル環境のため)");
+            return;
+        }
+
+        $sitemapUrl = url('sitemap.xml');
+        $googleUrl = "http://www.google.com/ping?sitemap={$sitemapUrl}";
+
+        $this->info("Googleへサイトマップ更新を通知中...: {$sitemapUrl}");
+
+        try {
+            $response = Http::get($googleUrl);
+
+            if ($response->successful()) {
+                $this->info("✅ GoogleへのPing送信に成功しました。");
+            } else {
+                $this->error("❌ GoogleへのPing送信に失敗しました: " . $response->status());
+            }
+        } catch (\Exception $e) {
+            $this->error("❌ GoogleへのPing送信中にエラーが発生しました: " . $e->getMessage());
+        }
     }
 
     private function openSitemap(string $filename)

@@ -3,6 +3,11 @@
         {{ $listing->name }} | MotoHub
     </x-slot:title>
 
+    {{-- ★追加: 構造化データ (JSON-LD) --}}
+    {{-- これによりGoogle検索結果でリッチに表示されるようになります --}}
+    <x-json-ld.product :listing="$listing" />
+    <x-json-ld.breadcrumb :listing="$listing" />
+
     {{-- 比較機能・チャート・ローン計算用のスクリプト --}}
     <x-slot:scripts>
         <script src="{{ asset('js/compare/manager.js') }}"></script>
