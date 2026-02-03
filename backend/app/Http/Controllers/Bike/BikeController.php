@@ -97,7 +97,7 @@ final class BikeController extends Controller
      */
     public function show($id)
     {
-        $listing = Listing::with(['shop', 'bikeModel.manufacturer'])->findOrFail($id);
+        $listing = Listing::with(['shop', 'bikeModel.manufacturer', 'bikeModel.categoryData'])->findOrFail($id);
 
         $relatedListings = collect();
         if ($listing->bike_model_id) {
@@ -105,11 +105,16 @@ final class BikeController extends Controller
             $relatedListings = ListingResource::collection($relatedRaw)->resolve();
         }
 
+        // 3. ★追加: SEO用リンク集の生成
+        // Resource変換前の $listing モデルを渡す
+        $seoLinks = $this->bikeService->getSeoLinks($listing);
+
         $data = (object) (new ListingResource($listing))->resolve();
 
         return view('bikes.show', [
             'listing' => $data,
             'relatedListings' => $relatedListings,
+            'seoLinks' => $seoLinks,
         ]);
     }
 

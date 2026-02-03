@@ -8,6 +8,7 @@ use App\Repositories\Bike\BikeModelRepository;
 use App\Repositories\Bike\ListingRepository;
 use App\Repositories\Bike\ManufacturerRepository;
 use App\Repositories\Bike\CategoryRepository;
+use App\Models\Listing;
 use Illuminate\Support\Collection;
 
 /**
@@ -124,5 +125,69 @@ final class BikeService
     public function getRelatedListings(int $bikeModelId, int $excludeId, int $limit = 8): Collection
     {
         return $this->listingRepo->getRelatedListings($bikeModelId, $excludeId, $limit);
+    }
+
+    /**
+     * ★追加: 詳細ページ用のSEOリンク集を生成
+     */
+    public function getSeoLinks(Listing $listing): array
+    {
+        $links = [];
+        
+        // ★修正: リレーション経由でデータを正しく取得
+        // Listingモデルには直接 prefecture や maker カラムはないため、関連モデルから取得します
+        $pref = $listing->shop->prefecture ?? null;
+        $maker = $listing->bikeModel->manufacturer->name ?? null;
+        
+        // カテゴリ名はリレーション名 'categoryData' を使用
+        $catName = $listing->bikeModel->categoryData->name ?? null;
+        
+        // カテゴリIDの取得
+        $catId = $listing->bikeModel?->category_id;
+        
+        // メーカーID
+        $makerId = $listing->manufacturer_id ?? $listing->bikeModel?->manufacturer_id;
+
+        // 1. エリア × メーカー
+        if ($pref && $maker && $makerId) {
+            $links[] = [
+                'label' => "{$pref}の{$maker}在庫一覧",
+                'url' => route('bikes.landing', ['prefecture' => $pref, 'slug' => $maker]),
+            ];
+        }
+
+        // 2. エリア × カテゴリ
+        if ($pref && $catName && $catName !== 'その他') {
+            $links[] = [
+                'label' => "{$pref}の{$catName}一覧",
+                'url' => route('bikes.landing', ['prefecture' => $pref, 'slug' => $catName]),
+            ];
+        }
+
+        // 3. メーカー × カテゴリ (全国)
+        if ($maker && $catName && $makerId && $catId) {
+            $links[] = [
+                'label' => "{$maker}の{$catName} (全国)",
+                'url' => route('bikes.search', ['manufacturer_id' => $makerId, 'category_id' => $catId]),
+            ];
+        }
+
+        // 4. エリアの全車両
+        if ($pref) {
+            $links[] = [
+                'label' => "{$pref}のバイク一覧",
+                'url' => route('bikes.search', ['prefecture' => $pref]),
+            ];
+        }
+
+        // 5. メーカーの全車両
+        if ($maker && $makerId) {
+            $links[] = [
+                'label' => "{$maker}の中古・新車一覧",
+                'url' => route('bikes.search', ['manufacturer_id' => $makerId]),
+            ];
+        }
+
+        return $links;
     }
 }
