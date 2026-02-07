@@ -100,7 +100,6 @@ final class PageController extends Controller
      */
     public function terms(): View
     {
-        return view('pages.terms');
         return view('pages.terms', compact('totalListingsCount'));
     }
 }

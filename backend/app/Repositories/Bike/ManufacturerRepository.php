@@ -29,7 +29,7 @@ final class ManufacturerRepository
     }
     
     /**
-     * ★追加: 指定された名前リストに一致するメーカーを取得
+     * 指定された名前リストに一致するメーカーを取得
      * トップページのクイックリンク用
      */
     public function getByNames(array $names): Collection
