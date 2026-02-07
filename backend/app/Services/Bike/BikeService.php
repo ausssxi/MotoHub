@@ -190,4 +190,99 @@ final class BikeService
 
         return $links;
     }
+
+    /**
+     * 車種の相場分析データを取得（統計情報 + ヒストグラム）
+     */
+    public function getMarketAnalysis(?int $bikeModelId, ?int $currentPrice): array
+    {
+        // デフォルト値
+        $defaultStats = [
+            'avg' => 0, 'min' => 0, 'max' => 0, 'count' => 0,
+            'rank' => 'unknown', 'diff' => 0
+        ];
+        $defaultHistogram = ['labels' => [], 'data' => []];
+
+        if (!$bikeModelId) {
+            return ['stats' => $defaultStats, 'histogram' => $defaultHistogram];
+        }
+
+        // 1. 価格データの取得
+        $prices = $this->listingRepo->findValidPricesByModelId($bikeModelId);
+
+        $count = count($prices);
+        if ($count === 0) {
+            return ['stats' => $defaultStats, 'histogram' => $defaultHistogram];
+        }
+
+        // 2. 統計計算
+        $avg = round(array_sum($prices) / $count, 1);
+        $min = min($prices);
+        $max = max($prices);
+        $currentPrice = $currentPrice ?? 0;
+        $diff = round($currentPrice - $avg, 1);
+
+        // ランク判定
+        $rank = 'unknown';
+        if ($currentPrice > 0) {
+            if ($currentPrice < $avg * 0.9) {
+                $rank = 'S';
+            } elseif ($currentPrice < $avg) {
+                $rank = 'A';
+            } elseif ($currentPrice < $avg * 1.1) {
+                $rank = 'B';
+            } else {
+                $rank = 'C';
+            }
+        }
+
+        $stats = [
+            'avg' => $avg,
+            'min' => $min,
+            'max' => $max,
+            'count' => $count,
+            'rank' => $rank,
+            'diff' => $diff,
+        ];
+
+        // 3. ヒストグラム生成
+        $histogram = $this->generateHistogram($prices);
+
+        return [
+            'stats' => $stats,
+            'histogram' => $histogram
+        ];
+    }
+
+    /**
+     * ヒストグラムデータの生成
+     */
+    private function generateHistogram(array $prices): array
+    {
+        if (empty($prices)) return ['labels' => [], 'data' => []];
+
+        $min = floor(min($prices) / 10) * 10;
+        $max = ceil(max($prices) / 10) * 10;
+        $step = 10;
+
+        // 幅調整
+        if ($max - $min < $step * 3) {
+            $min = max(0, $min - $step);
+            $max = $max + $step;
+        }
+
+        $labels = [];
+        $data = [];
+
+        for ($i = $min; $i <= $max; $i += $step) {
+            $labels[] = $i . '万円台';
+            $count = 0;
+            foreach ($prices as $p) {
+                if ($p >= $i && $p < $i + $step) $count++;
+            }
+            $data[] = $count;
+        }
+
+        return ['labels' => $labels, 'data' => $data];
+    }
 }
