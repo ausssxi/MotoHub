@@ -8,7 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Bike\PriceStatsService;
 use Illuminate\Http\JsonResponse;
 
-class StatsController extends Controller
+class StatsApiController extends Controller
 {
     public function __construct(
         private readonly PriceStatsService $statsService
