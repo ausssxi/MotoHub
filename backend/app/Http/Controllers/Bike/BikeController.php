@@ -105,9 +105,13 @@ final class BikeController extends Controller
             $relatedListings = ListingResource::collection($relatedRaw)->resolve();
         }
 
-        // 3. ★追加: SEO用リンク集の生成
-        // Resource変換前の $listing モデルを渡す
+        // 2. SEO用リンク集の生成
         $seoLinks = $this->bikeService->getSeoLinks($listing);
+
+        $marketAnalysis = $this->bikeService->getMarketAnalysis(
+            $listing->bike_model_id, 
+            (int)$listing->total_price
+        );
 
         $data = (object) (new ListingResource($listing))->resolve();
 
@@ -115,6 +119,8 @@ final class BikeController extends Controller
             'listing' => $data,
             'relatedListings' => $relatedListings,
             'seoLinks' => $seoLinks,
+            'stats' => $marketAnalysis['stats'],     
+            'histogram' => $marketAnalysis['histogram'] 
         ]);
     }
 

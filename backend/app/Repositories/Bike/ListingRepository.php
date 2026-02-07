@@ -98,4 +98,18 @@ final class ListingRepository
             ->mileageBetween($filters['min_mileage'] ?? null, $filters['max_mileage'] ?? null, $maxMileage)
             ->yearBetween($filters['min_year'] ?? null, $filters['max_year'] ?? null);
     }
+    
+    /**
+     * 特定のモデルIDに紐づく有効な価格リストを取得する
+     * (価格未定や0円を除外した配列を返す)
+     * * @return array<int> 価格の配列
+     */
+    public function findValidPricesByModelId(int $bikeModelId): array
+    {
+        return Listing::where('bike_model_id', $bikeModelId)
+            ->whereNotNull('total_price')
+            ->where('total_price', '>', 0)
+            ->pluck('total_price')
+            ->toArray();
+    }
 }

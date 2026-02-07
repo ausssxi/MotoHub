@@ -140,6 +140,41 @@
                             </div>
                         </div>
 
+                        {{-- ★追加: AI相場判定バッジ (ここから) --}}
+                        @if(isset($stats['rank']) && $stats['rank'] !== 'unknown')
+                        <div class="mb-6">
+                            <div class="flex items-center gap-3 bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                                {{-- ランクアイコン --}}
+                                <div class="flex-shrink-0">
+                                    @if($stats['rank'] === 'S')
+                                        <div class="w-12 h-12 rounded-full bg-red-600 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-red-200">S</div>
+                                    @elseif($stats['rank'] === 'A')
+                                        <div class="w-12 h-12 rounded-full bg-green-500 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-green-200">A</div>
+                                    @elseif($stats['rank'] === 'B')
+                                        <div class="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-blue-200">B</div>
+                                    @else
+                                        <div class="w-12 h-12 rounded-full bg-gray-400 text-white flex items-center justify-center font-black text-xl">C</div>
+                                    @endif
+                                </div>
+                                {{-- 判定テキスト --}}
+                                <div>
+                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">AI Market Price</p>
+                                    <div class="text-sm font-bold text-gray-800">
+                                        @if($stats['rank'] === 'S')
+                                            <span class="text-red-600 text-base">激アツ！相場より {{ abs($stats['diff']) }}万円 お買い得</span>
+                                        @elseif($stats['rank'] === 'A')
+                                            <span class="text-green-600">お買い得！平均より {{ abs($stats['diff']) }}万円 安い</span>
+                                        @elseif($stats['rank'] === 'B')
+                                            <span class="text-blue-600">適正価格です（平均との差 {{ abs($stats['diff']) }}万円）</span>
+                                        @else
+                                            <span class="text-gray-600">こだわり車両（平均より高め）</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+
                         {{-- スペックグリッド --}}
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
                             <div class="bg-gray-50 rounded-2xl p-4 text-center">
