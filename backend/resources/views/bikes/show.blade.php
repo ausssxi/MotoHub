@@ -425,6 +425,22 @@
                         <div id="history-widget" class="hidden"></div>
                     </div>
 
+                    {{-- ★追加: 関連条件へのSEOリンク集 --}}
+                    @if(!empty($seoLinks))
+                    <div class="pt-12 mt-4">
+                        <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
+                            関連する検索条件
+                        </h3>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($seoLinks as $link)
+                                <a href="{{ $link['url'] }}" class="text-xs font-bold text-gray-600 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg transition-colors">
+                                    {{ $link['label'] }}
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
                 </div>
 
                 {{-- サイドバー（右側：価格・CV・追従） --}}
