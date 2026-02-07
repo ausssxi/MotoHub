@@ -84,5 +84,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // ※スクレイピング(03:00開始)と被りますが、Laravelの処理とPythonは別プロセスで動くので並行稼働します。
         // もしスクレイピング完了後に更新したい場合は時間をずらす(例: 06:00)のがおすすめです。
         $schedule->command('sitemap:generate')->dailyAt('03:00');
+        
+        // ★追加: お買い得車両の自動ツイート (1時間に1回実行)
+        // ※Twitter APIの投稿制限に注意してください
+        $schedule->command('bikes:tweet-bargains')->hourly();
     })
     ->create();

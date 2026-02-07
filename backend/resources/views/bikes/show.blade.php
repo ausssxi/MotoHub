@@ -3,12 +3,20 @@
         {{ $listing->name }} | MotoHub
     </x-slot:title>
 
-    {{-- ★追加: 構造化データ (JSON-LD) --}}
-    {{-- これによりGoogle検索結果でリッチに表示されるようになります --}}
-    <x-json-ld.product :listing="$listing" />
-    <x-json-ld.breadcrumb :listing="$listing" />
+    {{-- ★追加: OGP/SEO用の説明文 --}}
+    <x-slot:metaDescription>
+        {{-- 説明文からHTMLタグを除去し、先頭120文字を抽出して設定 --}}
+        {{ mb_substr(strip_tags($listing->description ?? "{$listing->maker} {$listing->name} の詳細ページです。販売店:{$listing->shop_name} 価格:{$listing->total_price}万円"), 0, 120) }}...
+    </x-slot:metaDescription>
 
-    {{-- 比較機能・チャート・ローン計算用のスクリプト --}}
+    {{-- 
+        ※ OGP画像（og:image）について:
+        スクレイピングした車両画像をSNSで表示させるのは著作権リスクがあるため、
+        layout.blade.php 側で設定した「デフォルト画像（twitter_card.png）」が
+        自動的に適用されるようにしています。
+    --}}
+
+    {{-- 比較機能用のスクリプトを読み込み --}}
     <x-slot:scripts>
         <script src="{{ asset('js/compare/manager.js') }}"></script>
         <script src="{{ asset('js/compare/ui.js') }}"></script>
@@ -107,7 +115,7 @@
                             <div>
                                 <h1 class="text-2xl sm:text-3xl font-black text-gray-900 leading-tight mb-3">{{ $listing->name }}</h1>
                                 
-                                {{-- ★修正: メーカー、コンディション、都道府県を色分けバッジで表示 --}}
+                                {{-- メーカー、コンディション、都道府県を色分けバッジで表示 --}}
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">{{ $listing->maker }}</span>
                                     <span class="text-[10px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded uppercase">{{ $listing->condition }}</span>
@@ -191,7 +199,7 @@
                         </div>
                     </div>
 
-                    {{-- ★相場分析チャート --}}
+                    {{-- 相場分析チャート --}}
                     @if($listing->model_year && is_numeric($listing->total_price))
                     <div id="price-stats-container" 
                          data-model-id="{{ $listing->bike_model_id ?? '' }}" 
@@ -213,22 +221,22 @@
 
                         <div id="price-stats-content" class="hidden">
                             <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-8">
-                                <div class="bg-gray-50 rounded-xl p-2 sm:p-4 text-center border border-gray-100">
+                                <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
                                     <div class="text-[10px] font-bold text-gray-400 mb-1">相場平均</div>
-                                    <div class="text-sm sm:text-xl font-black text-gray-800">
-                                        <span id="stat-avg">---</span><span class="text-[10px] sm:text-xs ml-0.5">万円</span>
+                                    <div class="text-base sm:text-xl font-black text-gray-800">
+                                        <span id="stat-avg">---</span><span class="text-xs ml-0.5">万円</span>
                                     </div>
                                 </div>
-                                <div class="bg-gray-50 rounded-xl p-2 sm:p-4 text-center border border-gray-100">
+                                <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
                                     <div class="text-[10px] font-bold text-gray-400 mb-1">最安値</div>
-                                    <div class="text-sm sm:text-xl font-black text-blue-600">
-                                        <span id="stat-min">---</span><span class="text-[10px] sm:text-xs ml-0.5">万円</span>
+                                    <div class="text-base sm:text-xl font-black text-blue-600">
+                                        <span id="stat-min">---</span><span class="text-xs ml-0.5">万円</span>
                                     </div>
                                 </div>
-                                <div class="bg-gray-50 rounded-xl p-2 sm:p-4 text-center border border-gray-100">
+                                <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
                                     <div class="text-[10px] font-bold text-gray-400 mb-1">最高値</div>
-                                    <div class="text-sm sm:text-xl font-black text-red-500">
-                                        <span id="stat-max">---</span><span class="text-[10px] sm:text-xs ml-0.5">万円</span>
+                                    <div class="text-base sm:text-xl font-black text-red-500">
+                                        <span id="stat-max">---</span><span class="text-xs ml-0.5">万円</span>
                                     </div>
                                 </div>
                             </div>
@@ -245,6 +253,7 @@
                     </div>
                     @endif
 
+                    {{-- ローンシミュレーター --}}
                     @if(is_numeric($listing->total_price))
                     <div id="loan-simulator" data-total-price="{{ $listing->total_price }}" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mt-8">
                         <div class="flex items-center gap-2 mb-6">
@@ -343,9 +352,17 @@
                                         {{ $listing->shop_name }}
                                     @endif
                                 </div>
+
+                                {{-- PC画面のみ住所を表示 --}}
+                                @if(!empty($listing->shop_address))
+                                <p class="hidden sm:block text-xs font-bold text-gray-400 mb-3">
+                                    {{ $listing->shop_address }}
+                                </p>
+                                @endif
+
                                 <div class="text-sm font-bold text-gray-500 space-y-1">
-                                    {{-- ★修正: スマホ画面のみリスト内に住所を表示 --}}
-                                    <p>{{ $listing->shop_address ?? '住所情報なし' }}</p>
+                                    {{-- スマホ画面のみリスト内に住所を表示 --}}
+                                    <p class="sm:hidden">{{ $listing->shop_address ?? '住所情報なし' }}</p>
                                     <p>TEL: {{ $listing->shop_tel ?? '-' }}</p>
                                     <p>営業時間: {{ $listing->shop_hours ?? '-' }}</p>
                                 </div>
@@ -407,22 +424,6 @@
                     <div id="history-widget-container" class="pt-8">
                         <div id="history-widget" class="hidden"></div>
                     </div>
-
-                    {{-- ★追加: 関連条件へのSEOリンク集 --}}
-                    @if(!empty($seoLinks))
-                    <div class="pt-12 mt-4">
-                        <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
-                            関連する検索条件
-                        </h3>
-                        <div class="flex flex-wrap gap-2">
-                            @foreach($seoLinks as $link)
-                                <a href="{{ $link['url'] }}" class="text-xs font-bold text-gray-600 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg transition-colors">
-                                    {{ $link['label'] }}
-                                </a>
-                            @endforeach
-                        </div>
-                    </div>
-                    @endif
 
                 </div>
 
