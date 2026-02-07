@@ -73,7 +73,10 @@ const HistoryManager = {
                 html += `
                     <a href="/bikes/${bike.id}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
                         <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
-                            <img src="${image}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="${bike.name}">
+                            <img src="${image}" 
+                                onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
+                                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                alt="${bike.name}">
                             ${priceBadge}
                         </div>
                         <div class="p-3">

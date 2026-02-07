@@ -77,12 +77,16 @@
                             @if(!empty($listing->images) && count($listing->images) > 0)
                                 {{-- A. 背景用（拡大・ぼかし） --}}
                                 <div class="absolute inset-0 z-0">
-                                    <img src="{{ $listing->images[0] }}" class="w-full h-full object-cover blur-2xl opacity-50 scale-110" aria-hidden="true">
+                                    <img src="{{ $listing->images[0] }}" 
+                                        onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
+                                        class="w-full h-full object-cover blur-2xl opacity-50 scale-110" aria-hidden="true">
                                 </div>
                                 
                                 {{-- B. 表示用（元サイズ維持・中央配置） --}}
                                 <div class="absolute inset-0 z-10 flex items-center justify-center p-1">
-                                    <img src="{{ $listing->images[0] }}" alt="{{ $listing->name }}" class="max-w-full max-h-full object-contain shadow-sm">
+                                    <img src="{{ $listing->images[0] }}" alt="{{ $listing->name }}" 
+                                        onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
+                                        class="max-w-full max-h-full object-contain shadow-sm">
                                 </div>
                             @else
                                 <div class="flex items-center justify-center h-full text-gray-300">
@@ -102,7 +106,9 @@
                         <div class="flex gap-2 p-4 overflow-x-auto scrollbar-hide bg-white border-t border-gray-100">
                             @foreach($listing->images as $img)
                                 <button class="shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-600 transition-all bg-gray-50">
-                                    <img src="{{ $img }}" class="w-full h-full object-cover">
+                                    <img src="{{ $img }}" 
+                                        onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
+                                        class="w-full h-full object-cover">
                                 </button>
                             @endforeach
                         </div>
@@ -337,7 +343,9 @@
                         <div class="flex items-start gap-6">
                             <div class="w-16 h-16 rounded-full shrink-0 overflow-hidden flex items-center justify-center border border-gray-100">
                                 @if(!empty($listing->shop_image))
-                                    <img src="{{ $listing->shop_image }}" alt="{{ $listing->shop_name }}" class="w-full h-full object-cover">
+                                    <img src="{{ $listing->shop_image }}" alt="{{ $listing->shop_name }}" 
+                                        onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
+                                        class="w-full h-full object-cover">
                                 @else
                                     <i data-lucide="map-pin" class="w-8 h-8 text-gray-300"></i>
                                 @endif
@@ -391,7 +399,9 @@
                             <a href="{{ route('bikes.show', $related['id']) }}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
                                 <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
                                     @if(!empty($related['images']) && isset($related['images'][0]))
-                                        <img src="{{ $related['images'][0] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="">
+                                        <img src="{{ $related['images'][0] }}" 
+                                            onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
+                                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="">
                                     @else
                                         <div class="flex items-center justify-center h-full text-gray-300">
                                             <i data-lucide="image-off" class="w-8 h-8"></i>
