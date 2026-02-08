@@ -31,7 +31,9 @@ class TweetBargains extends Command
             return;
         }
 
-        $listings = Listing::whereNull('tweeted_at')
+        // N+1問題を避けるため with で関連データをロード
+        $listings = Listing::with(['bikeModel.manufacturer'])
+            ->whereNull('tweeted_at')
             ->where('is_sold_out', false)
             ->whereNotNull('bike_model_id')
             ->whereNotNull('total_price')
@@ -67,25 +69,35 @@ class TweetBargains extends Command
                 $priceInMan = number_format($listing->total_price / 10000, 1);
                 $diffInMan = number_format($diff / 10000, 1);
                 
-                // ★修正: 車両名を安全に取得するロジックに変更
-                // titleカラム、なければ車種マスタの名前、それもなければ「車種名不明」
+                // 車両名とメーカー名を取得
                 $bikeName = $listing->title ?? $listing->bikeModel?->name ?? '車種名不明';
+                $makerName = $listing->bikeModel?->manufacturer?->name ?? '';
                 
+                // ★追加: ハッシュタグの生成
+                // スペース、カッコ、スラッシュなどを除去してハッシュタグとして有効な形式にする
+                $cleanBikeName = preg_replace('/[\s　\(\)（）\/]+/u', '', $bikeName);
+                $cleanMakerName = preg_replace('/[\s　\(\)（）\/]+/u', '', $makerName);
+
+                $hashtags = "#中古バイク #MotoHub"; // 固定タグ
+                if ($cleanMakerName) {
+                    $hashtags .= " #{$cleanMakerName}";
+                }
+                if ($cleanBikeName && $cleanBikeName !== '車種名不明') {
+                    $hashtags .= " #{$cleanBikeName}";
+                }
+
                 $text = "🚨 激安速報！\n\n";
-                $text .= "🏍 {$bikeName}\n"; // 修正
+                $text .= "🏍 {$bikeName}\n"; 
                 $text .= "💰 価格: {$priceInMan}万円\n";
                 $text .= "📉 相場平均より 約{$diffInMan}万円 お得です！\n\n";
-                $text .= "詳細はこちら👇\n";
-                $text .= route('bikes.show', $listing->id) . "\n\n";
-                $text .= "#バイク乗りと繋がりたい #中古バイク #MotoHub";
+                $text .= route('bikes.show', $listing->id) . "\n\n"; 
+                $text .= $hashtags; // ★ハッシュタグを追加
 
                 // --- 画像準備 ---
                 $mediaIds = [];
                 $uploadImagePath = null;
                 $isGenerated = false;
 
-                // 1. 動的画像の生成を試みる
-                // ★修正: 取得した $bikeName を渡す
                 $generatedPath = $this->generateCardImage($bikeName, $priceInMan . '万円');
                 
                 if ($generatedPath) {
@@ -93,7 +105,6 @@ class TweetBargains extends Command
                     $isGenerated = true;
                     $this->info("Generated custom image for: {$bikeName}");
                 } else {
-                    // 2. 生成できない場合は固定画像を探す
                     $fixedPath = public_path('images/twitter_card.jpg');
                     if (!file_exists($fixedPath)) {
                         $fixedPath = public_path('images/twitter_card.png');
@@ -131,7 +142,6 @@ class TweetBargains extends Command
                 $result = $connection->post('tweets', $payload);
 
                 if ($connection->getLastHttpCode() == 201) {
-                    // ★修正: ログ出力も $bikeName を使用
                     $this->info("Tweeted: {$bikeName} (ID: {$listing->id})");
                     $listing->update(['tweeted_at' => now()]);
                     $tweetCount++;
@@ -192,7 +202,6 @@ class TweetBargains extends Command
                 $bikeName = mb_substr($bikeName, 0, 17) . '...';
             }
 
-            // 画像サイズに応じて位置調整 (512x512の場合と1200x630の場合で調整が必要ですが、一旦デフォルト位置で)
             imagettftext($image, 32, 0, 53, 203, $black, $fontPath, $bikeName);
             imagettftext($image, 32, 0, 50, 200, $black, $fontPath, $bikeName); 
 
