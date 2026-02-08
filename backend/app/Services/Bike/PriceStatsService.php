@@ -43,6 +43,33 @@ final class PriceStatsService
             'step' => $step, // グラフのラベル生成に使用
         ];
     }
+    
+    /**
+     * ★追加: 買取相場・リセールバリューの推計データを取得
+     */
+    public function getResaleStats(int $bikeModelId): array
+    {
+        $prices = $this->statsRepo->getValidTotalPricesByModelId($bikeModelId);
+
+        if ($prices->isEmpty()) {
+            return [];
+        }
+
+        $avg = $prices->avg(); // 円単位
+        
+        // 簡易ロジック: 販売価格の 40%〜65% を買取相場レンジとする
+        // ※実際は車種人気や状態によりますが、目安として表示
+        $resaleMin = floor($avg * 0.4 / 10000) * 10000;
+        $resaleMax = floor($avg * 0.65 / 10000) * 10000;
+
+        return [
+            'market_avg' => round($avg / 10000, 1), // 万円
+            'resale_min' => round($resaleMin / 10000, 1),
+            'resale_max' => round($resaleMax / 10000, 1),
+            'data_count' => $prices->count(),
+        ];
+    }
+
 
     /**
      * 価格差に応じて刻み幅を決定

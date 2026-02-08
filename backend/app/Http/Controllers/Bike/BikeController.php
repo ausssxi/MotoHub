@@ -12,6 +12,7 @@ use App\Models\Listing;
 use App\Services\Bike\BikeService;
 use App\Services\Bike\ListingSearchService;
 use App\Services\Bike\SeoLandingService; 
+use App\Services\Bike\PriceStatsService;
 use App\Http\Resources\Bike\ListingResource;
 
 /**
@@ -22,7 +23,8 @@ final class BikeController extends Controller
     public function __construct(
         private readonly BikeService $bikeService,
         private readonly ListingSearchService $listingSearchService,
-        private readonly SeoLandingService $seoLandingService
+        private readonly SeoLandingService $seoLandingService,
+        private readonly PriceStatsService $priceStatsService
     ) {}
 
     /**
@@ -197,5 +199,28 @@ final class BikeController extends Controller
             'prefecture' => $prefecture,
             'sort' => 'latest',
         ]));
+    }
+
+    /**
+     * ★追加: 車種別・相場＆リセール情報ページ
+     */
+    public function modelDetail(int $id): View
+    {
+        // 車種情報の取得
+        $model = $this->bikeService->getBikeModelDetail($id);
+
+        // 統計データの取得
+        $stats = $this->priceStatsService->getModelStats($id);
+        $resale = $this->priceStatsService->getResaleStats($id);
+
+        // 現在販売中の車両を取得（安い順に8件）
+        // ListingSearchService経由などで取得しても良いですが、ここではRepositoryを直接利用するか、Serviceに追加したメソッドを使います。
+        // 今回はシンプルに Service にメソッドを追加するか、既存の getRelatedListings を流用します。
+        
+        // 自分自身を除外する必要はないので、excludeIdに0などを渡して検索
+        $listingsRaw = $this->bikeService->getRelatedListings($id, 0, 8);
+        $listings = ListingResource::collection($listingsRaw)->resolve();
+
+        return view('bikes.model_detail', compact('model', 'stats', 'resale', 'listings'));
     }
 }

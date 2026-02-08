@@ -46,18 +46,9 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     Route::get('/search', 'search')->name('search');    // /bikes/search
     Route::get('/models', 'models')->name('models');    // /bikes/models
     Route::get('/suggest', 'suggest')->name('suggest'); // /bikes/suggest
-    
-    // ★追加: 都道府県一覧ページ
-    // これがないと Route [bikes.prefectures] not defined エラーになります
     Route::get('/prefectures', 'prefectures')->name('prefectures'); 
-
-    // ★追加: SEO着地ページ
-    // 例: /bikes/area/東京都/ホンダ
-    // 例: /bikes/area/大阪府/scooter
+    Route::get('/models/{id}', 'modelDetail')->name('model_detail')->where('id', '[0-9]+');
     Route::get('/area/{prefecture}/{slug}', 'landing')->name('landing');
-
-
-    // 詳細ページ (ID指定) - 他の固定ルートより後に書く
     Route::get('/{id}', 'show')->name('show')->where('id', '[0-9]+'); 
 });
 

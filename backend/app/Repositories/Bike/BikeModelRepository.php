@@ -21,6 +21,15 @@ final class BikeModelRepository
     }
 
     /**
+     * IDから詳細情報（メーカー・カテゴリ付き）を取得する
+     * 見つからない場合は例外を投げる
+     */
+    public function findDetailOrFail(int $id): BikeModel
+    {
+        return BikeModel::with(['manufacturer', 'categoryData'])->findOrFail($id);
+    }
+
+    /**
      * 特定のメーカーに紐づく車種一覧をID順で取得
      * ✨ 修正: listings_count (出品数) を取得するように変更
      */
