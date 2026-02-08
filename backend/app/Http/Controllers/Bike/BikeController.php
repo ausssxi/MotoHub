@@ -14,6 +14,7 @@ use App\Services\Bike\ListingSearchService;
 use App\Services\Bike\SeoLandingService; 
 use App\Services\Bike\PriceStatsService;
 use App\Http\Resources\Bike\ListingResource;
+use App\Http\Requests\Bike\StoreReviewRequest;
 
 /**
  * バイク検索・表示機能を提供するメインコントローラー
@@ -43,7 +44,7 @@ final class BikeController extends Controller
     }
 
     /**
-     * ★追加: 都道府県一覧ページの表示
+     * 都道府県一覧ページの表示
      */
     public function prefectures(): View
     {
@@ -82,7 +83,7 @@ final class BikeController extends Controller
 
         $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
         
-        // ★修正: ページタイトルをサービスで生成
+        // ページタイトルをサービスで生成
         $pageTitle = $this->listingSearchService->generatePageTitle($keyword, $prefecture, $filters);
 
         // $result の中に 'meta' も含まれているため、getSearchMetadata の再呼び出しは削除しました
@@ -175,7 +176,7 @@ final class BikeController extends Controller
     }
 
     /**
-     * ★追加: SEO着地ページ (地域 × メーカー/カテゴリ)
+     * SEO着地ページ (地域 × メーカー/カテゴリ)
      */
     public function landing(string $prefecture, string $slug): View
     {
@@ -202,12 +203,13 @@ final class BikeController extends Controller
     }
 
     /**
-     * ★追加: 車種別・相場＆リセール情報ページ
+     *車種別・相場＆リセール情報ページ
      */
     public function modelDetail(int $id): View
     {
         // 車種情報の取得
         $model = $this->bikeService->getBikeModelDetail($id);
+        $model->load(['reviews']);
 
         // 統計データの取得
         $stats = $this->priceStatsService->getModelStats($id);
@@ -222,5 +224,23 @@ final class BikeController extends Controller
         $listings = ListingResource::collection($listingsRaw)->resolve();
 
         return view('bikes.model_detail', compact('model', 'stats', 'resale', 'listings'));
+    }
+
+/**
+     * レビュー投稿処理
+     * Request から StoreReviewRequest に変更
+     */
+    public function storeReview(StoreReviewRequest $request, int $id)
+    {
+        // バリデーション済みのデータを取得
+        $validated = $request->validated();
+
+        // モデルの存在確認（Service経由）
+        $model = $this->bikeService->getBikeModelDetail($id);
+
+        // サービス経由で保存
+        $this->bikeService->createReview($model->id, $validated);
+
+        return redirect()->route('bikes.model_detail', $id)->with('success', 'レビューを投稿しました！');
     }
 }

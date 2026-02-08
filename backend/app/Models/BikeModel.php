@@ -86,4 +86,15 @@ final class BikeModel extends Model
     {
         return $this->hasMany(BikeModelIdentifier::class);
     }
+
+    /**
+     * レビューとのリレーション
+     * 承認済み(is_approved=true)のレビューのみを新しい順で取得
+     */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class)
+                    ->where('is_approved', true)
+                    ->orderBy('created_at', 'desc');
+    }
 }

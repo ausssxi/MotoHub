@@ -8,8 +8,10 @@ use App\Repositories\Bike\BikeModelRepository;
 use App\Repositories\Bike\ListingRepository;
 use App\Repositories\Bike\ManufacturerRepository;
 use App\Repositories\Bike\CategoryRepository;
+use App\Repositories\Bike\ReviewRepository;
 use App\Models\BikeModel;
 use App\Models\Listing;
+use App\Models\Review;
 use Illuminate\Support\Collection;
 
 /**
@@ -22,7 +24,8 @@ final class BikeService
         private readonly BikeModelRepository $modelRepo,
         private readonly ManufacturerRepository $manufacturerRepo,
         private readonly ListingRepository $listingRepo,
-        private readonly CategoryRepository $categoryRepo
+        private readonly CategoryRepository $categoryRepo,
+        private readonly ReviewRepository $reviewRepo
     ) {}
 
     /**
@@ -59,6 +62,23 @@ final class BikeService
         }
 
         return $results;
+    }
+
+    /**
+     * レビューを投稿する
+     */
+    public function createReview(int $bikeModelId, array $data): Review
+    {
+        // データの整形（ビジネスロジック）はここで行い、
+        // 純粋な保存処理だけをリポジトリに任せます
+        return $this->reviewRepo->create([
+            'bike_model_id' => $bikeModelId,
+            'nickname'      => $data['nickname'] ?: '名無しライダー',
+            'rating'        => $data['rating'],
+            'title'         => $data['title'],
+            'body'          => $data['body'],
+            'is_approved'   => true, // 即時公開設定
+        ]);
     }
 
     /**
@@ -129,7 +149,7 @@ final class BikeService
     }
 
     /**
-     * ★追加: 関連車両の取得 (Repositoryへ委譲)
+     * 関連車両の取得 (Repositoryへ委譲)
      */
     public function getRelatedListings(int $bikeModelId, int $excludeId, int $limit = 8): Collection
     {
@@ -137,7 +157,7 @@ final class BikeService
     }
 
     /**
-     * ★追加: 詳細ページ用のSEOリンク集を生成
+     * 詳細ページ用のSEOリンク集を生成
      */
     public function getSeoLinks(Listing $listing): array
     {
