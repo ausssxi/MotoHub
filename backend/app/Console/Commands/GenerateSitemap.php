@@ -273,33 +273,6 @@ class GenerateSitemap extends Command
 
         $duration = round(microtime(true) - $startTime, 2);
         $this->info("全ての処理が完了しました！ ({$duration}秒)");
-
-        // GoogleへのPing送信
-        $this->pingGoogle();
-    }
-
-    private function pingGoogle(): void
-    {
-        if (!app()->isProduction()) {
-            $this->info("GoogleへのPing送信をスキップしました (ローカル環境のため)");
-            return;
-        }
-
-        $sitemapUrl = url('sitemap.xml');
-        $googleUrl = "http://www.google.com/ping?sitemap={$sitemapUrl}";
-
-        $this->info("Googleへサイトマップ更新を通知中...: {$sitemapUrl}");
-
-        try {
-            $response = Http::get($googleUrl);
-            if ($response->successful()) {
-                $this->info("✅ GoogleへのPing送信に成功しました。");
-            } else {
-                $this->error("❌ GoogleへのPing送信に失敗しました: " . $response->status());
-            }
-        } catch (\Exception $e) {
-            $this->error("❌ GoogleへのPing送信中にエラーが発生しました: " . $e->getMessage());
-        }
     }
 
     private function openSitemap(string $filename)
