@@ -32,7 +32,8 @@ class TweetBargains extends Command
         }
 
         // N+1問題を避けるため with で関連データをロード
-        $listings = Listing::with(['bikeModel.manufacturer'])
+        // Shop情報（都道府県）も必要なので追加
+        $listings = Listing::with(['bikeModel.manufacturer', 'shop'])
             ->whereNull('tweeted_at')
             ->where('is_sold_out', false)
             ->whereNotNull('bike_model_id')
@@ -69,41 +70,46 @@ class TweetBargains extends Command
                 $priceInMan = number_format($listing->total_price / 10000, 1);
                 $diffInMan = number_format($diff / 10000, 1);
                 
-                // ★修正: 表示用とハッシュタグ用の名前を分ける
-                
-                // 1. ツイート本文・画像用（詳細なタイトルを優先）
+                // 割引率を計算
+                $percentOff = round((($averagePrice - $listing->total_price) / $averagePrice) * 100);
+
+                // 車両名とメーカー名を取得
                 $displayName = $listing->title ?? $listing->bikeModel?->name ?? '車種名不明';
                 
-                // 2. ハッシュタグ用（マスタの純粋な車種名を使用）
+                // スペック情報
+                $year = $listing->model_year ? "{$listing->model_year}年式" : "年式不明";
+                $mileage = $listing->mileage !== null ? number_format($listing->mileage) . "km" : "走行不明";
+                $pref = $listing->shop->prefecture ?? "全国";
+
+                // --- ハッシュタグ生成 ---
                 $modelNameTag = $listing->bikeModel?->name ?? '';
                 $makerName = $listing->bikeModel?->manufacturer?->name ?? '';
                 
-                // ★修正: ハッシュタグ生成ロジック
                 $cleanMakerName = preg_replace('/[\s　\(\)（）\/]+/u', '', $makerName);
                 $cleanModelName = preg_replace('/[\s　\(\)（）\/]+/u', '', $modelNameTag);
 
-                $hashtags = "#中古バイク #MotoHub"; // 固定タグ
-                if ($cleanMakerName) {
-                    $hashtags .= " #{$cleanMakerName}";
-                }
-                // マスタの車種名がある場合のみタグにする（タイトル由来の変なタグを防ぐ）
-                if ($cleanModelName) {
-                    $hashtags .= " #{$cleanModelName}";
-                }
+                $hashtags = "#中古バイク #MotoHub"; 
+                if ($cleanMakerName) $hashtags .= " #{$cleanMakerName}";
+                if ($cleanModelName && $cleanModelName !== '車種名不明') $hashtags .= " #{$cleanModelName}";
 
-                $text = "🚨 激安速報！\n\n";
-                $text .= "🏍 {$displayName}\n"; // 本文は詳細な名前で
+                // メーカー別の人気タグを追加（インプレッション向上対策）
+                $makerTags = $this->getMakerHashtags($cleanMakerName);
+                if ($makerTags) $hashtags .= " " . $makerTags;
+
+                // --- ツイート本文の強化 ---
+                $text = "🔥 激アツ車両発見！ ({$percentOff}% OFF)\n\n";
+                $text .= "🏍 {$displayName}\n"; 
+                $text .= "📍 {$pref} | {$year} | {$mileage}\n\n";
                 $text .= "💰 価格: {$priceInMan}万円\n";
-                $text .= "📉 相場平均より 約{$diffInMan}万円 お得です！\n\n";
+                $text .= "📉 相場より 約{$diffInMan}万円 お得です！\n";
                 $text .= route('bikes.show', $listing->id) . "\n\n"; 
-                $text .= $hashtags; // 純粋な車種名のタグ
+                $text .= $hashtags;
 
                 // --- 画像準備 ---
                 $mediaIds = [];
                 $uploadImagePath = null;
                 $isGenerated = false;
 
-                // 画像生成には表示名（詳細タイトル）を使う
                 $generatedPath = $this->generateCardImage($displayName, $priceInMan . '万円');
                 
                 if ($generatedPath) {
@@ -162,6 +168,34 @@ class TweetBargains extends Command
         }
 
         $this->info("完了: {$tweetCount}件ツイートしました。");
+    }
+
+    /**
+     * メーカー名に応じた人気ハッシュタグを返す
+     */
+    private function getMakerHashtags(string $makerName): string
+    {
+        // 表記ゆれを吸収して判定
+        if (stripos($makerName, 'ヤマハ') !== false || stripos($makerName, 'Yamaha') !== false) {
+            return '#YAMAHAが美しい #バイク乗りと繋がりたい';
+        }
+        if (stripos($makerName, 'カワサキ') !== false || stripos($makerName, 'Kawasaki') !== false) {
+            return '#Kawasaki #漢は黙ってカワサキ';
+        }
+        if (stripos($makerName, 'スズキ') !== false || stripos($makerName, 'Suzuki') !== false) {
+            return '#SUZUKI #鈴菌';
+        }
+        if (stripos($makerName, 'ホンダ') !== false || stripos($makerName, 'Honda') !== false) {
+            return '#HONDA #ホンダ';
+        }
+        if (stripos($makerName, 'ハーレー') !== false || stripos($makerName, 'Harley') !== false) {
+            return '#HarleyDavidson #ハーレー';
+        }
+        if (stripos($makerName, 'ドゥカティ') !== false || stripos($makerName, 'Ducati') !== false) {
+            return '#Ducati #ドゥカティいいぞ';
+        }
+        
+        return '';
     }
 
     /**
