@@ -136,6 +136,7 @@ class GenerateSitemap extends Command
             foreach ($manufacturers as $maker) {
                 $this->writeUrl(
                     $handle,
+                    // ★修正: route('landing') -> route('bikes.landing')
                     route('bikes.landing', ['prefecture' => $pref, 'slug' => $maker->name]),
                     date('Y-m-d'),
                     'weekly',
@@ -147,7 +148,8 @@ class GenerateSitemap extends Command
             foreach ($categories as $cat) {
                 $this->writeUrl(
                     $handle,
-                    route('landing', ['prefecture' => $pref, 'slug' => $cat->name]),
+                    // ★修正: route('landing') -> route('bikes.landing')
+                    route('bikes.landing', ['prefecture' => $pref, 'slug' => $cat->name]),
                     date('Y-m-d'),
                     'weekly',
                     '0.7'
@@ -189,7 +191,7 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
-        // 4. ★追加: 車種別カタログページ (sitemap-models.xml)
+        // 4. 車種別カタログページ (sitemap-models.xml)
         // =========================================================
         $this->info("車種別カタログサイトマップを生成中...");
         $modelFileName = 'sitemap-models.xml';
@@ -206,7 +208,7 @@ class GenerateSitemap extends Command
                         route('bikes.model_detail', $model->id), // 相場情報ページ
                         $model->updated_at->format('Y-m-d'),
                         'weekly',
-                        '0.8' // 検索結果より優先度高め
+                        '0.8'
                     );
                     $modelCount++;
                 }
