@@ -8,6 +8,7 @@ use App\Repositories\Bike\BikeModelRepository;
 use App\Repositories\Bike\ListingRepository;
 use App\Repositories\Bike\ManufacturerRepository;
 use App\Repositories\Bike\CategoryRepository;
+use App\Models\BikeModel;
 use App\Models\Listing;
 use Illuminate\Support\Collection;
 
@@ -25,7 +26,7 @@ final class BikeService
     ) {}
 
     /**
-     * ★追加: 地域・都道府県データを取得
+     * 地域・都道府県データを取得
      */
     public function getRegions(): array
     {
@@ -61,7 +62,15 @@ final class BikeService
     }
 
     /**
-     * ★修正: 全てのメーカーを取得するメソッドに変更
+     * 車種詳細情報の取得
+     */
+    public function getBikeModelDetail(int $id): BikeModel
+    {
+        return $this->modelRepo->findDetailOrFail($id);
+    }
+
+    /**
+     *  全てのメーカーを取得するメソッドに変更
      * （以前の getMajorManufacturers を置き換え）
      */
     public function getAllManufacturers(): Collection
@@ -73,7 +82,7 @@ final class BikeService
 
     /**
      * トップページ用カテゴリ一覧
-     * ★修正: 画像があるカテゴリのみを返すように変更
+     * 画像があるカテゴリのみを返すように変更
      */
     public function getCategoriesForTopPage(): Collection
     {
