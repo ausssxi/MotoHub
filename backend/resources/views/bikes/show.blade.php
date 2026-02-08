@@ -124,6 +124,7 @@
                                 {{-- メーカー、コンディション、都道府県を色分けバッジで表示 --}}
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">{{ $listing->maker }}</span>
+                                    <span class="text-[10px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded uppercase">{{ $listing->category }}</span>
                                     <span class="text-[10px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded uppercase">{{ $listing->condition }}</span>
                                     <span class="text-[10px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded uppercase">{{ $listing->prefecture }}</span>
                                 </div>
