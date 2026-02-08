@@ -136,7 +136,7 @@ class GenerateSitemap extends Command
             foreach ($manufacturers as $maker) {
                 $this->writeUrl(
                     $handle,
-                    route('landing', ['prefecture' => $pref, 'slug' => $maker->name]),
+                    route('bikes.landing', ['prefecture' => $pref, 'slug' => $maker->name]),
                     date('Y-m-d'),
                     'weekly',
                     '0.7'
