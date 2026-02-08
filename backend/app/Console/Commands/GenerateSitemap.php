@@ -11,7 +11,7 @@ use App\Models\Shop;
 use App\Models\Manufacturer;
 use App\Models\Category;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Http; // ★追加: HTTPリクエスト用
+use Illuminate\Support\Facades\Http;
 
 class GenerateSitemap extends Command
 {
@@ -101,7 +101,7 @@ class GenerateSitemap extends Command
             }
         });
 
-        // 車種別の検索結果ページ
+        // 車種別の検索結果ページ (keyword検索)
         BikeModel::select('name')->chunk(500, function ($models) use ($handle, &$count) {
             foreach ($models as $model) {
                 $this->writeUrl(
@@ -132,12 +132,12 @@ class GenerateSitemap extends Command
         $manufacturers = Manufacturer::all();
         $categories = Category::all();
 
-        // 組み合わせ: 都道府県 × (メーカー + カテゴリ)
         foreach ($allPrefectures as $pref) {
             foreach ($manufacturers as $maker) {
                 $this->writeUrl(
                     $handle,
-                    route('landing', ['prefecture' => $pref, 'slug' => $maker->name]),
+                    // ★修正: route('landing') -> route('bikes.landing')
+                    route('bikes.landing', ['prefecture' => $pref, 'slug' => $maker->name]),
                     date('Y-m-d'),
                     'weekly',
                     '0.7'
@@ -148,7 +148,8 @@ class GenerateSitemap extends Command
             foreach ($categories as $cat) {
                 $this->writeUrl(
                     $handle,
-                    route('landing', ['prefecture' => $pref, 'slug' => $cat->name]),
+                    // ★修正: route('landing') -> route('bikes.landing')
+                    route('bikes.landing', ['prefecture' => $pref, 'slug' => $cat->name]),
                     date('Y-m-d'),
                     'weekly',
                     '0.7'
@@ -190,7 +191,35 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
-        // 4. 車両詳細ページ (50,000件ごとにファイルを分割)
+        // 4. 車種別カタログページ (sitemap-models.xml)
+        // =========================================================
+        $this->info("車種別カタログサイトマップを生成中...");
+        $modelFileName = 'sitemap-models.xml';
+        $handle = $this->openSitemap($modelFileName);
+        $sitemapFiles[] = $modelFileName;
+        $modelCount = 0;
+
+        BikeModel::select('id', 'updated_at')
+            ->orderBy('updated_at', 'desc')
+            ->chunk(1000, function ($models) use ($handle, &$modelCount) {
+                foreach ($models as $model) {
+                    $this->writeUrl(
+                        $handle,
+                        route('bikes.model_detail', $model->id),
+                        $model->updated_at->format('Y-m-d'),
+                        'weekly',
+                        '0.8'
+                    );
+                    $modelCount++;
+                }
+            });
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$modelCount} URL (Model Catalogs)");
+
+
+        // =========================================================
+        // 5. 車両詳細ページ (50,000件ごとにファイルを分割)
         // =========================================================
         $this->info("車両詳細サイトマップを生成中...");
         
@@ -237,7 +266,7 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
-        // 5. サイトマップインデックス (目次) の生成
+        // 6. サイトマップインデックス (目次) の生成
         // =========================================================
         $this->info("インデックスファイル (sitemap.xml) を生成中...");
         $this->generateIndexFile($sitemapFiles);
@@ -245,18 +274,12 @@ class GenerateSitemap extends Command
         $duration = round(microtime(true) - $startTime, 2);
         $this->info("全ての処理が完了しました！ ({$duration}秒)");
 
-        // =========================================================
-        // ★追加: GoogleへのPing送信
-        // =========================================================
+        // GoogleへのPing送信
         $this->pingGoogle();
     }
 
-    /**
-     * Googleにサイトマップの更新を通知する
-     */
     private function pingGoogle(): void
     {
-        // 本番環境以外では送信しない
         if (!app()->isProduction()) {
             $this->info("GoogleへのPing送信をスキップしました (ローカル環境のため)");
             return;
@@ -269,7 +292,6 @@ class GenerateSitemap extends Command
 
         try {
             $response = Http::get($googleUrl);
-
             if ($response->successful()) {
                 $this->info("✅ GoogleへのPing送信に成功しました。");
             } else {
