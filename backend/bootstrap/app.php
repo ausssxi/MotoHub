@@ -88,5 +88,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // ★追加: お買い得車両の自動ツイート (1時間に1回実行)
         // ※Twitter APIの投稿制限に注意してください
         $schedule->command('bikes:tweet-bargains')->hourly();
+
+        $schedule->command('bikes:tweet-reviews')->twiceDaily(12, 20);
     })
     ->create();
