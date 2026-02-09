@@ -16,6 +16,7 @@ class Review extends Model
         'body',
         'rating',
         'is_approved',
+        'tweeted_at',
     ];
 
     protected $casts = [
