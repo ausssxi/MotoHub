@@ -41,7 +41,7 @@
     <div class="bg-gray-50 min-h-screen -mt-8 pb-16">
         <div class="max-w-7xl mx-auto px-4">
             
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-8">
                 
                 {{-- メインコンテンツ --}}
                 <div class="lg:col-span-8 space-y-8">
@@ -127,13 +127,24 @@
                         @endif
                     </div>
 
-                    {{-- ★追加: 3. ユーザーレビュー --}}
+                    {{-- 3. ユーザーレビュー --}}
                     <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100" id="reviews">
-                        <div class="flex items-center justify-between mb-8">
+                        {{-- ★修正: スマホでは縦並び(flex-col)、PCでは横並び(sm:flex-row)に変更 --}}
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                            
+                            {{-- タイトル部分 --}}
                             <h2 class="text-xl font-black text-gray-900 flex items-center gap-2">
-                                <span class="bg-green-100 text-green-600 p-2 rounded-lg"><i data-lucide="message-circle" class="w-5 h-5"></i></span>
-                                ユーザーレビュー
-                                <span class="text-sm text-gray-500 font-bold ml-2">({{ $model->reviews->count() }}件)</span>
+                                {{-- アイコンが潰れないように shrink-0 を追加 --}}
+                                <span class="bg-green-100 text-green-600 p-2 rounded-lg shrink-0">
+                                    <i data-lucide="message-circle" class="w-5 h-5"></i>
+                                </span>
+                                <span>
+                                    ユーザーレビュー
+                                    {{-- 件数が改行されないように調整 --}}
+                                    <span class="text-sm text-gray-500 font-bold ml-1 inline-block">
+                                        ({{ $model->reviews->count() }}件)
+                                    </span>
+                                </span>
                             </h2>
                             <a href="#review-form" class="text-xs font-bold bg-black text-white px-4 py-2 rounded-full hover:bg-gray-800 transition-colors inline-flex items-center">
                                 <i data-lucide="pen-tool" class="w-3 h-3 mr-1"></i>投稿する
