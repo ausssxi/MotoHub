@@ -69,11 +69,17 @@
 
                             {{-- アフィリエイト導線 --}}
                             <div class="space-y-3">
+                                {{-- 
+                                    ★修正: A8.netのアフィリエイトリンクを設定
+                                    class="hidden" をつけたimgタグで計測を行い、見た目は崩さないようにしています。
+                                --}}
                                 <a href="https://px.a8.net/svt/ejp?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" target="_blank" rel="nofollow" class="block w-full bg-yellow-500 hover:bg-yellow-400 text-white font-black text-center py-4 rounded-xl shadow-lg shadow-yellow-500/30 transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
-                                <span>あなたの {{ $model->name }} を無料査定する</span>
+                                    <span>バイクワンで無料査定する</span>
                                     <i data-lucide="arrow-right-circle" class="w-5 h-5"></i>
                                 </a>
-                                <img src="https://www.a8.net/svt/ejp?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" width="100%" height="auto" alt="あなたの {{ $model->name }} を無料査定する">
+                                {{-- 計測用ピクセル (非表示) --}}
+                                <img border="0" width="1" height="1" src="https://www18.a8.net/0.gif?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" alt="" class="hidden">
+                                
                                 <p class="text-[10px] text-gray-400 text-center font-bold">
                                     提携: バイク買取専門店バイクワン
                                 </p>
