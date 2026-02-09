@@ -63,7 +63,21 @@ class TweetReviews extends Command
         $text .= "👇 全文を読む\n";
         $text .= route('bikes.model_detail', $review->bike_model_id) . "#reviews\n\n";
         
-        $text .= "#MotoHub #バイクレビュー #{$makerName}";
+        // ★修正: ハッシュタグの生成（車種名を追加）
+        // スペース、カッコ、スラッシュなどを除去してハッシュタグとして有効な形式にする
+        $cleanMakerName = preg_replace('/[\s　\(\)（）\/]+/u', '', $makerName);
+        $cleanBikeName = preg_replace('/[\s　\(\)（）\/]+/u', '', $bikeName);
+
+        $hashtags = "#MotoHub #バイクレビュー";
+        
+        if ($cleanMakerName) {
+            $hashtags .= " #{$cleanMakerName}";
+        }
+        if ($cleanBikeName && $cleanBikeName !== '車種不明') {
+            $hashtags .= " #{$cleanBikeName}";
+        }
+
+        $text .= $hashtags;
 
         // --- 画像生成 ---
         // レビュー専用の画像を生成します（車種名 + 星評価 + タイトル）
@@ -125,6 +139,8 @@ class TweetReviews extends Command
                 $width = imagesx($srcImage);
                 $height = imagesy($srcImage);
                 $image = imagecreatetruecolor($width, $height);
+                $whiteBg = imagecolorallocate($image, 255, 255, 255);
+                imagefilledrectangle($image, 0, 0, $width, $height, $whiteBg);
                 imagecopy($image, $srcImage, 0, 0, 0, 0, $width, $height);
                 imagedestroy($srcImage);
             } else {

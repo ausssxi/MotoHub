@@ -186,7 +186,7 @@ class TweetBargains extends Command
             return '#SUZUKI #鈴菌';
         }
         if (stripos($makerName, 'ホンダ') !== false || stripos($makerName, 'Honda') !== false) {
-            return '#HONDA #ホンダ';
+            return '#HONDA';
         }
         if (stripos($makerName, 'ハーレー') !== false || stripos($makerName, 'Harley') !== false) {
             return '#HarleyDavidson #ハーレー';
