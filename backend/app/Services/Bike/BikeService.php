@@ -134,18 +134,95 @@ final class BikeService
      */
     public function getAllModelsForIndex(): array
     {
-        $manufacturers = $this->manufacturerRepo->getAll();
-        
-        // 各メーカーに車種を紐付けて取得
-        $manufacturers->each(function ($m) {
-            $m->bike_models = $this->modelRepo->getByManufacturerId((int)$m->id);
-            $m->bike_models_count = $m->bike_models->count();
-        });
+        $manufacturersRaw = $this->manufacturerRepo->getAll();
+        $totalModelsCount = 0;
+
+        // メーカーごとにデータを整形
+        $formattedManufacturers = $manufacturersRaw->map(function ($maker) use (&$totalModelsCount) {
+            // 1. 車種一覧を取得
+            $models = $this->modelRepo->getByManufacturerId((int)$maker->id);
+            $count = $models->count();
+            $totalModelsCount += $count;
+
+            if ($count === 0) {
+                return null; // 車種がないメーカーは除外用
+            }
+
+            // 2. 代表画像の決定ロジック (掲載数が多い順 && 画像があるもの優先)
+            $topModel = $models->sortByDesc('listings_count')->first(fn($m) => !empty($m->image_url)) 
+                        ?? $models->sortByDesc('listings_count')->first();
+            $makerImage = $topModel?->image_url;
+
+            // 3. グループ分けロジック
+            $groups = $this->groupModelsByName($models);
+
+            // Viewで使いやすい配列にして返す
+            return [
+                'id' => $maker->id,
+                'name' => $maker->name,
+                'bike_models_count' => $count,
+                'image_url' => $makerImage,
+                'groups' => $groups,
+            ];
+        })->filter(); // nullを除外
 
         return [
-            'manufacturers' => $manufacturers,
-            'totalModelsCount' => $manufacturers->sum('bike_models_count')
+            'manufacturers' => $formattedManufacturers,
+            'totalModelsCount' => $totalModelsCount
         ];
+    }
+
+    /**
+     * 車種リストを名前の頭文字でグループ分けする
+     */
+    private function groupModelsByName(Collection $models): array
+    {
+        // グループの初期化
+        $groups = [];
+        foreach (range('A', 'Z') as $char) $groups[$char] = [];
+        foreach (['あ行', 'か行', 'さ行', 'た行', 'な行', 'は行', 'ま行', 'や行', 'ら行', 'わ行'] as $row) $groups[$row] = [];
+        $groups['0-9'] = [];
+        $groups['その他'] = [];
+
+        foreach ($models as $bike) {
+            // 半角カタカナを全角に変換し、先頭1文字を取得
+            $firstChar = mb_convert_kana(mb_substr($bike->name, 0, 1), 'KaC');
+
+            if (preg_match('/^[0-9]/', $firstChar)) {
+                $groups['0-9'][] = $bike;
+            } elseif (preg_match('/^[A-Za-z]/', $firstChar)) {
+                $key = strtoupper(substr($firstChar, 0, 1));
+                if (isset($groups[$key])) {
+                    $groups[$key][] = $bike;
+                } else {
+                    $groups['その他'][] = $bike;
+                }
+            } elseif (preg_match('/^[ア-オァ-ォヴ]/u', $firstChar)) {
+                $groups['あ行'][] = $bike;
+            } elseif (preg_match('/^[カ-コガ-ゴヵヶ]/u', $firstChar)) {
+                $groups['か行'][] = $bike;
+            } elseif (preg_match('/^[サ-ソザ-ゾ]/u', $firstChar)) {
+                $groups['さ行'][] = $bike;
+            } elseif (preg_match('/^[タ-トダ-ドッ]/u', $firstChar)) {
+                $groups['た行'][] = $bike;
+            } elseif (preg_match('/^[ナ-ノ]/u', $firstChar)) {
+                $groups['な行'][] = $bike;
+            } elseif (preg_match('/^[ハ-ホバ-ボパ-ポ]/u', $firstChar)) {
+                $groups['は行'][] = $bike;
+            } elseif (preg_match('/^[マ-モ]/u', $firstChar)) {
+                $groups['ま行'][] = $bike;
+            } elseif (preg_match('/^[ヤ-ヨャ-ョ]/u', $firstChar)) {
+                $groups['や行'][] = $bike;
+            } elseif (preg_match('/^[ラ-ロ]/u', $firstChar)) {
+                $groups['ら行'][] = $bike;
+            } elseif (preg_match('/^[ワ-ンヮ]/u', $firstChar)) {
+                $groups['わ行'][] = $bike;
+            } else {
+                $groups['その他'][] = $bike;
+            }
+        }
+
+        return $groups;
     }
 
     /**
