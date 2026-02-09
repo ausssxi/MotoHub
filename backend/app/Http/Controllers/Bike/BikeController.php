@@ -40,7 +40,9 @@ final class BikeController extends Controller
         
         $regions = config('bike.regions');
 
-        return view('bikes.index', compact('popularBikes', 'categories', 'manufacturers', 'regions'));
+        $latestReviews = $this->bikeService->getLatestReviews();
+
+        return view('bikes.index', compact('popularBikes', 'categories', 'manufacturers', 'regions', 'latestReviews'));
     }
 
     /**
