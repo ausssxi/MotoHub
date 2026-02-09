@@ -69,20 +69,33 @@
 
                             {{-- アフィリエイト導線 --}}
                             <div class="space-y-3">
-                                {{-- 
-                                    ★修正: A8.netのアフィリエイトリンクを設定
-                                    class="hidden" をつけたimgタグで計測を行い、見た目は崩さないようにしています。
-                                --}}
-                                <a href="https://px.a8.net/svt/ejp?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" target="_blank" rel="nofollow" class="block w-full bg-yellow-500 hover:bg-yellow-400 text-white font-black text-center py-4 rounded-xl shadow-lg shadow-yellow-500/30 transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
-                                    <span>バイクワンで無料査定する</span>
-                                    <i data-lucide="arrow-right-circle" class="w-5 h-5"></i>
-                                </a>
-                                {{-- 計測用ピクセル (非表示) --}}
-                                <img border="0" width="1" height="1" src="https://www18.a8.net/0.gif?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" alt="" class="hidden">
-                                
-                                <p class="text-[10px] text-gray-400 text-center font-bold">
-                                    提携: バイク買取専門店バイクワン
-                                </p>
+                                {{-- 1. バイクワン --}}
+                                <div class="flex flex-col">
+                                    <div class="text-[10px] font-bold text-center text-blue-600 bg-blue-50 py-1 rounded-t-lg border-x border-t border-blue-100">
+                                        カスタム車・改造車もOK！
+                                    </div>
+                                    <a href="https://px.a8.net/svt/ejp?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" target="_blank" rel="nofollow" class="block w-full bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white font-black text-center py-4 rounded-b-xl shadow-md transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
+                                        <span>バイクワンで査定</span>
+                                        <i data-lucide="external-link" class="w-4 h-4"></i>
+                                    </a>
+                                    {{-- 計測タグ --}}
+                                    <img border="0" width="1" height="1" src="https://www18.a8.net/0.gif?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" alt="" class="hidden">
+                                </div>
+
+                                {{-- 2. バイクBOON (新規追加) --}}
+                                <div class="flex flex-col">
+                                    <div class="text-[10px] font-bold text-center text-red-600 bg-red-50 py-1 rounded-t-lg border-x border-t border-red-100">
+                                        旧車・ハーレー・大型車に強い！
+                                    </div>
+                                        
+                                    {{-- ★重要: ここにバイクBOONのA8リンク(href)を入れてください --}}
+                                    <a href="https://px.a8.net/svt/ejp?a8mat=4AX6CG+5QLFOY+1T3W+62ENM" target="_blank" rel="nofollow" class="block w-full bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white font-black text-center py-4 rounded-b-xl shadow-md transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
+                                        <span>バイクBOONで査定</span>
+                                        <i data-lucide="external-link" class="w-4 h-4"></i>
+                                    </a>
+                                    {{-- ★重要: ここにバイクBOONの計測タグ(img src)を入れてください --}}
+                                    <img border="0" width="1" height="1" src="https://www18.a8.net/0.gif?a8mat=4AX6CG+5QLFOY+1T3W+62ENM" alt="" class="hidden">
+                                </div>
                             </div>
                         @else
                             <div class="text-center py-8 bg-gray-50 rounded-2xl border border-gray-100">
