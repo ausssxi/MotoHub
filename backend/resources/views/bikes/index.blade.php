@@ -141,6 +141,63 @@
                 </div>
             </section>
 
+            {{-- 新着ユーザーレビュー --}}
+            @if($latestReviews->isNotEmpty())
+            <section class="mb-20">
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            新着レビュー
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">User Reviews</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @foreach($latestReviews as $review)
+                        <a href="{{ route('bikes.model_detail', $review->bike_model_id) }}#reviews" 
+                           class="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col h-full">
+                            
+                            {{-- ヘッダー: 車種名と評価 --}}
+                            <div class="flex items-start justify-between mb-3">
+                                <div>
+                                    <span class="text-[9px] font-bold text-gray-400 block mb-0.5">
+                                        {{ $review->bikeModel->manufacturer->name }}
+                                    </span>
+                                    <h3 class="text-sm font-black text-gray-800 group-hover:text-blue-600 transition-colors">
+                                        {{ $review->bikeModel->name }}
+                                    </h3>
+                                </div>
+                                <div class="flex text-yellow-400 shrink-0">
+                                    <i data-lucide="star" class="w-4 h-4 fill-current"></i>
+                                    <span class="ml-1 text-sm font-black text-gray-700">{{ $review->rating }}</span>
+                                </div>
+                            </div>
+
+                            {{-- 本文 --}}
+                            <div class="mb-4 flex-grow">
+                                <h4 class="text-xs font-bold text-gray-900 mb-1 line-clamp-1">
+                                    {{ $review->title }}
+                                </h4>
+                                <p class="text-[11px] text-gray-500 leading-relaxed line-clamp-3">
+                                    {{ $review->body }}
+                                </p>
+                            </div>
+
+                            {{-- フッター: 投稿者と日付 --}}
+                            <div class="pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">
+                                <span class="font-bold flex items-center gap-1">
+                                    <i data-lucide="user" class="w-3 h-3"></i>
+                                    {{ $review->nickname }}
+                                </span>
+                                <span>{{ $review->created_at->diffForHumans() }}</span>
+                            </div>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+            @endif
+
             {{-- 都道府県から探す --}}
             <section>
                 <div class="bg-gray-900 rounded-3xl p-8 sm:p-12 text-center relative overflow-hidden">

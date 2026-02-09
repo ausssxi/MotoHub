@@ -314,4 +314,12 @@ final class BikeService
 
         return ['labels' => $labels, 'data' => $data];
     }
+
+    /**
+     * 最新のレビューを取得
+     */
+    public function getLatestReviews(): Collection
+    {
+        return $this->reviewRepo->getLatest(6); // 6件取得
+    }
 }
