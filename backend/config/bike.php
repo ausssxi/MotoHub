@@ -11,6 +11,31 @@ return [
         '九州・沖縄' => ['福岡', '佐賀', '長崎', '熊本', '大分', '宮崎', '鹿児島', '沖縄'],
     ],
 
+    // 免許区分（排気量）の定義
+    'licenses' => [
+        [
+            'label' => '原付 (~50cc)',
+            'icon' => 'bike', // アイコン名(lucide)
+            'min_cc' => 0,
+            'max_cc' => 50,
+            'color' => 'bg-teal-50 text-teal-600',
+        ],
+        [
+            'label' => '小型二輳 (~125cc)',
+            'icon' => 'bike',
+            'min_cc' => 51,
+            'max_cc' => 125,
+            'color' => 'bg-pink-50 text-pink-600',
+        ],
+        [
+            'label' => '大型二輪 (401cc~)',
+            'icon' => 'bike',
+            'min_cc' => 401,
+            'max_cc' => 9999,
+            'color' => 'bg-purple-50 text-purple-600',
+        ],
+    ],
+
     // ランキングの設定
     'ranking' => [
         'top_page_limit' => 16,

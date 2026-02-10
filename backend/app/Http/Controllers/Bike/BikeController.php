@@ -35,14 +35,12 @@ final class BikeController extends Controller
     {
         $popularBikes = $this->bikeService->getPopularBikesForTopPage();
         $categories = $this->bikeService->getCategoriesForTopPage();
-        
         $manufacturers = $this->bikeService->getMajorManufacturers();
-        
         $regions = config('bike.regions');
-
         $latestReviews = $this->bikeService->getLatestReviews();
+        $licenses = $this->bikeService->getLicenses();
 
-        return view('bikes.index', compact('popularBikes', 'categories', 'manufacturers', 'regions', 'latestReviews'));
+        return view('bikes.index', compact('popularBikes', 'categories', 'manufacturers', 'regions', 'latestReviews', 'licenses'));
     }
 
     /**
@@ -70,6 +68,8 @@ final class BikeController extends Controller
             'max_mileage'        => $request->query('max_mileage'),
             'min_year'           => $request->query('min_year'),
             'max_year'           => $request->query('max_year'),
+            'min_displacement'   => $request->query('min_displacement'),
+            'max_displacement'   => $request->query('max_displacement'),
             'manufacturer_id'    => $request->query('manufacturer_id'),
             'bike_model_id'      => $request->query('bike_model_id'),
             'category_id'        => $request->query('category_id'),

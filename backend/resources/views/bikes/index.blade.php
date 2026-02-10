@@ -93,6 +93,40 @@
                 </div>
             </section>
 
+            {{-- 免許・排気量から探す --}}
+            <section class="mb-20">
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            免許・排気量から探す
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Search by License</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    @foreach($licenses as $license)
+                        <a href="{{ route('bikes.search', ['min_displacement' => $license['min_cc'], 'max_displacement' => $license['max_cc']]) }}" 
+                           class="group relative overflow-hidden rounded-2xl p-6 {{ $license['color'] }} transition-all duration-300 hover:shadow-lg border border-transparent hover:border-current flex flex-col items-center justify-center text-center h-32">
+                            
+                            {{-- 背景の装飾アイコン --}}
+                            <div class="absolute -right-4 -bottom-4 opacity-10 transform group-hover:scale-125 transition-transform duration-500">
+                                <i data-lucide="{{ $license['icon'] }}" class="w-24 h-24"></i>
+                            </div>
+
+                            <div class="relative z-10">
+                                <div class="mb-2 opacity-80 group-hover:scale-110 transition-transform duration-300">
+                                    <i data-lucide="{{ $license['icon'] }}" class="w-8 h-8 mx-auto"></i>
+                                </div>
+                                <span class="text-sm font-black tracking-tight block">
+                                    {{ $license['label'] }}
+                                </span>
+                            </div>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+
             {{-- 人気車種セクション --}}
             <section class="mb-20">
                 <div class="flex items-end justify-between mb-8 px-2">
