@@ -77,7 +77,7 @@ class Listing extends Model
     }
 
     /**
-     * ★追加: カテゴリーIDでの絞り込み
+     * カテゴリーIDでの絞り込み
      */
     public function scopeByCategory(Builder $query, ?int $categoryId): Builder
     {
@@ -146,5 +146,27 @@ class Listing extends Model
         if ($min) $query->where('model_year', '>=', $min);
         if ($max) $query->where('model_year', '<=', $max);
         return $query;
+    }
+
+    /**
+     * 排気量範囲 (BikeModelリレーションを使って検索)
+     */
+    public function scopeDisplacementBetween(Builder $query, ?int $min, ?int $max): Builder
+    {
+        // どちらも指定がなければ何もしない
+        if (!$min && !$max) {
+            return $query;
+        }
+
+        // bikeModel リレーションの中で検索条件を適用
+        return $query->whereHas('bikeModel', function (Builder $q) use ($min, $max) {
+            if ($min) {
+                $q->where('displacement', '>=', $min);
+            }
+            if ($max) {
+                // 9999などの上限値設定がある場合はそれ以下
+                $q->where('displacement', '<=', $max);
+            }
+        });
     }
 }

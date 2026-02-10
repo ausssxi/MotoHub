@@ -37,6 +37,14 @@ final class BikeService
     }
 
     /**
+     * 免許区分（排気量）データを取得
+     */
+    public function getLicenses(): array
+    {
+        return config('bike.licenses', []);
+    }
+
+    /**
      * トップページ表示用の主要メーカーを取得
      * (ホンダ、ヤマハ、スズキ、カワサキ、ハーレー の順で取得)
      */
