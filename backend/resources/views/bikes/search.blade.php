@@ -272,6 +272,14 @@
                                     </div>
                                 @endif
 
+                                {{-- お買い得バッジ --}}
+                                @if(!empty($listing['bargain_info']) && $listing['bargain_info']['is_bargain'])
+                                <div class="absolute bottom-0 left-0 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-tr-lg shadow-md z-10 flex items-center gap-1 animate-pulse">
+                                    <i data-lucide="trending-down" class="w-3 h-3"></i>
+                                    {{ $listing['bargain_info']['label'] }}
+                                </div>
+                                @endif
+                                
                                 <!-- 左上：比較ボタン -->
                                 <button class="compare-btn absolute top-3 left-3 z-20 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 border border-gray-100 shadow-sm transition-all hover:scale-110 active:scale-95" data-id="{{ $listing['id'] }}">
                                     <i data-lucide="layers" class="w-5 h-5"></i>

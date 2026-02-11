@@ -19,6 +19,33 @@ class ListingResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        // お買い得判定ロジック
+        // 紐付いている車種の相場情報を取得
+        $marketStats = $this->bikeModel?->marketStats;
+        $bargainInfo = null;
+
+        // 相場情報があり、かつ車両価格が設定されている場合のみ計算
+        if ($marketStats && $this->total_price && $this->total_price > 0) {
+            $avgPrice = $marketStats->avg_price;
+            
+            // 平均価格が0円などの異常値でない場合
+            if ($avgPrice > 0) {
+                $diff = $avgPrice - $this->total_price;
+
+                // 判定基準:
+                // 1. 平均より 50,000円以上 安い
+                // 2. 平均より 5%以上 安い (安いバイクで数千円の差でバッジが出ないように)
+                if ($diff >= 50000 && ($diff / $avgPrice) >= 0.05) {
+                    $diffMan = floor($diff / 10000); // 万円単位に変換
+                    $bargainInfo = [
+                        'diff' => $diffMan, // 差額(万円)
+                        'label' => "相場より{$diffMan}万円お得！",
+                        'is_bargain' => true
+                    ];
+                }
+            }
+        }
+
         return [
             'id'             => $this->id,
             'site_name'      => $this->resolveSourceDisplayName($this->site?->name ?? ''),
@@ -43,6 +70,9 @@ class ListingResource extends JsonResource
             'total_price'    => $this->total_price ? number_format((float)($this->total_price / 10000), 1) : '-',
             'price'          => $this->price ? number_format((float)($this->price / 10000), 1) : '-',
             'base_price'     => $this->price ? number_format((float)($this->price / 10000), 1) : '-', // API互換用
+
+            // お買い得情報（バッジ表示用）
+            'bargain_info'   => $bargainInfo,
             
             // 店舗情報
             'shop_id'        => $this->shop_id,

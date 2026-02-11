@@ -85,7 +85,7 @@ final class ListingRepository
         $maxMileage = $uiParams['max_mileage'] ?? null;
 
         return Listing::query()
-            ->with(['bikeModel.manufacturer', 'bikeModel.categoryData', 'shop', 'site'])
+            ->with(['bikeModel.manufacturer', 'bikeModel.categoryData', 'bikeModel.marketStats', 'shop', 'site'])
             ->active()
             // Model Scope を活用して可読性を向上
             ->withKeyword($keyword, !empty($filters['bike_model_id']))

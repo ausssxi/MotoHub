@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne; 
 
 /**
  * 車種マスタモデル
@@ -96,5 +97,10 @@ final class BikeModel extends Model
         return $this->hasMany(Review::class)
                     ->where('is_approved', true)
                     ->orderBy('created_at', 'desc');
+    }
+
+    public function marketStats(): HasOne
+    {
+        return $this->hasOne(BikeModelMarketStat::class);
     }
 }
