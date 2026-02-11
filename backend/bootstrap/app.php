@@ -81,14 +81,32 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->appendOutputTo($logPath);
 
         // サイトマップ生成 (毎日 03:00)
-        // ※スクレイピング(03:00開始)と被りますが、Laravelの処理とPythonは別プロセスで動くので並行稼働します。
-        // もしスクレイピング完了後に更新したい場合は時間をずらす(例: 06:00)のがおすすめです。
         $schedule->command('sitemap:generate')->dailyAt('03:00');
-        
-        // ★追加: お買い得車両の自動ツイート (1時間に1回実行)
-        // ※Twitter APIの投稿制限に注意してください
-        $schedule->command('bikes:tweet-bargains')->hourly();
 
+        /**
+         * --- 4. Twitter Bot (SNS自動投稿) ---
+         * ユーザーのアクティブな時間帯（ゴールデンタイム）に絞って配信
+         */
+        
+        // 1. お昼休み (12:00, 12:30)
+        $schedule->command('bikes:tweet-bargains')
+                 ->daily()
+                 ->between('12:00', '13:00')
+                 ->everyThirtyMinutes();
+
+        // 2. 帰宅時間 (18:00, 18:30)
+        $schedule->command('bikes:tweet-bargains')
+                 ->daily()
+                 ->between('18:00', '19:00')
+                 ->everyThirtyMinutes();
+
+        // 3. 寝る前 (21:00〜23:00, 30分おき)
+        $schedule->command('bikes:tweet-bargains')
+                 ->daily()
+                 ->between('21:00', '23:00')
+                 ->everyThirtyMinutes();
+
+        // 新着レビューの紹介 (毎日 12:00 と 20:00)
         $schedule->command('bikes:tweet-reviews')->twiceDaily(12, 20);
     })
     ->create();

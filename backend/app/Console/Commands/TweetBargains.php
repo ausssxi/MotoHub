@@ -31,9 +31,8 @@ class TweetBargains extends Command
             return;
         }
 
-        // N+1問題を避けるため with で関連データをロード
-        // Shop情報（都道府県）も必要なので追加
-        $listings = Listing::with(['bikeModel.manufacturer', 'shop'])
+        // 検索条件
+        $listings = Listing::with(['bikeModel.manufacturer'])
             ->whereNull('tweeted_at')
             ->where('is_sold_out', false)
             ->whereNotNull('bike_model_id')
@@ -62,7 +61,7 @@ class TweetBargains extends Command
                 continue;
             }
 
-            $discountRate = 0.8; 
+            $discountRate = 0.8; // 20%以上安いものを対象
             
             if ($listing->total_price < ($averagePrice * $discountRate)) {
                 
@@ -70,38 +69,40 @@ class TweetBargains extends Command
                 $priceInMan = number_format($listing->total_price / 10000, 1);
                 $diffInMan = number_format($diff / 10000, 1);
                 
-                // 割引率を計算
-                $percentOff = round((($averagePrice - $listing->total_price) / $averagePrice) * 100);
+                // 割引率を計算 (画像生成に使用)
+                $percentOff = (int)round((($averagePrice - $listing->total_price) / $averagePrice) * 100);
 
-                // 車両名とメーカー名を取得
+                // 車両名とメーカー名
                 $displayName = $listing->title ?? $listing->bikeModel?->name ?? '車種名不明';
-                
-                // スペック情報
-                $year = $listing->model_year ? "{$listing->model_year}年式" : "年式不明";
-                $mileage = $listing->mileage !== null ? number_format($listing->mileage) . "km" : "走行不明";
-                $pref = $listing->shop->prefecture ?? "全国";
-
-                // --- ハッシュタグ生成 ---
                 $modelNameTag = $listing->bikeModel?->name ?? '';
                 $makerName = $listing->bikeModel?->manufacturer?->name ?? '';
                 
+                // --- 文言の作成 ---
+                $catchCopies = [
+                    "🔥 激アツ車両発見！急げ！",
+                    "📉 相場崩壊！？この価格は二度見するレベル",
+                    "🏍️ 週末のツーリングに間に合うかも？",
+                    "👀 探していた人、チャンスです！",
+                    "💎 掘り出し物センサーが反応しました！"
+                ];
+                $catch = $catchCopies[array_rand($catchCopies)];
+
+                // ハッシュタグ生成
                 $cleanMakerName = preg_replace('/[\s　\(\)（）\/]+/u', '', $makerName);
                 $cleanModelName = preg_replace('/[\s　\(\)（）\/]+/u', '', $modelNameTag);
 
-                $hashtags = "#中古バイク #MotoHub"; 
+                $hashtags = "#バイク乗りと繋がりたい #バイク売ります #中古バイク #MotoHub"; 
                 if ($cleanMakerName) $hashtags .= " #{$cleanMakerName}";
-                if ($cleanModelName && $cleanModelName !== '車種名不明') $hashtags .= " #{$cleanModelName}";
-
-                // メーカー別の人気タグを追加（インプレッション向上対策）
+                if ($cleanModelName) $hashtags .= " #{$cleanModelName}";
+                
+                // メーカータグ追加
                 $makerTags = $this->getMakerHashtags($cleanMakerName);
                 if ($makerTags) $hashtags .= " " . $makerTags;
 
-                // --- ツイート本文の強化 ---
-                $text = "🔥 激アツ車両発見！ ({$percentOff}% OFF)\n\n";
+                $text = "{$catch}\n\n";
                 $text .= "🏍 {$displayName}\n"; 
-                $text .= "📍 {$pref} | {$year} | {$mileage}\n\n";
                 $text .= "💰 価格: {$priceInMan}万円\n";
-                $text .= "📉 相場より 約{$diffInMan}万円 お得です！\n";
+                $text .= "（相場平均より {$percentOff}% OFF✨）\n\n";
                 $text .= route('bikes.show', $listing->id) . "\n\n"; 
                 $text .= $hashtags;
 
@@ -110,20 +111,17 @@ class TweetBargains extends Command
                 $uploadImagePath = null;
                 $isGenerated = false;
 
-                $generatedPath = $this->generateCardImage($displayName, $priceInMan . '万円');
+                // 割引率を渡して、インパクトのある画像を生成する
+                $generatedPath = $this->generateCardImage($displayName, $priceInMan . '万円', $percentOff);
                 
                 if ($generatedPath) {
                     $uploadImagePath = $generatedPath;
                     $isGenerated = true;
-                    $this->info("Generated custom image for: {$displayName}");
+                    $this->info("Generated custom image for: {$displayName} ({$percentOff}% OFF)");
                 } else {
                     $fixedPath = public_path('images/twitter_card.jpg');
-                    if (!file_exists($fixedPath)) {
-                        $fixedPath = public_path('images/twitter_card.png');
-                    }
-                    if (file_exists($fixedPath)) {
-                        $uploadImagePath = $fixedPath;
-                    }
+                    if (!file_exists($fixedPath)) $fixedPath = public_path('images/twitter_card.png');
+                    if (file_exists($fixedPath)) $uploadImagePath = $fixedPath;
                 }
 
                 // --- 画像アップロード ---
@@ -131,25 +129,18 @@ class TweetBargains extends Command
                     try {
                         $connection->setApiVersion('1.1');
                         $media = $connection->upload('media/upload', ['media' => $uploadImagePath]);
-                        
-                        if (isset($media->media_id_string)) {
-                            $mediaIds[] = $media->media_id_string;
-                        }
+                        if (isset($media->media_id_string)) $mediaIds[] = $media->media_id_string;
                     } catch (\Exception $e) {
                         $this->error("Image upload failed: " . $e->getMessage());
                     } finally {
                         $connection->setApiVersion('2');
-                        if ($isGenerated && file_exists($uploadImagePath)) {
-                            unlink($uploadImagePath);
-                        }
+                        if ($isGenerated && file_exists($uploadImagePath)) unlink($uploadImagePath);
                     }
                 }
 
                 // --- ツイート投稿 ---
                 $payload = ['text' => $text];
-                if (!empty($mediaIds)) {
-                    $payload['media'] = ['media_ids' => $mediaIds];
-                }
+                if (!empty($mediaIds)) $payload['media'] = ['media_ids' => $mediaIds];
 
                 $result = $connection->post('tweets', $payload);
 
@@ -170,38 +161,21 @@ class TweetBargains extends Command
         $this->info("完了: {$tweetCount}件ツイートしました。");
     }
 
-    /**
-     * メーカー名に応じた人気ハッシュタグを返す
-     */
     private function getMakerHashtags(string $makerName): string
     {
-        // 表記ゆれを吸収して判定
-        if (stripos($makerName, 'ヤマハ') !== false || stripos($makerName, 'Yamaha') !== false) {
-            return '#YAMAHAが美しい #バイク乗りと繋がりたい';
-        }
-        if (stripos($makerName, 'カワサキ') !== false || stripos($makerName, 'Kawasaki') !== false) {
-            return '#Kawasaki #漢は黙ってカワサキ';
-        }
-        if (stripos($makerName, 'スズキ') !== false || stripos($makerName, 'Suzuki') !== false) {
-            return '#SUZUKI #鈴菌';
-        }
-        if (stripos($makerName, 'ホンダ') !== false || stripos($makerName, 'Honda') !== false) {
-            return '#HONDA';
-        }
-        if (stripos($makerName, 'ハーレー') !== false || stripos($makerName, 'Harley') !== false) {
-            return '#HarleyDavidson #ハーレー';
-        }
-        if (stripos($makerName, 'ドゥカティ') !== false || stripos($makerName, 'Ducati') !== false) {
-            return '#Ducati #ドゥカティいいぞ';
-        }
-        
+        if (stripos($makerName, 'ヤマハ') !== false || stripos($makerName, 'Yamaha') !== false) return '#YAMAHAが美しい';
+        if (stripos($makerName, 'カワサキ') !== false || stripos($makerName, 'Kawasaki') !== false) return '#漢は黙ってカワサキ';
+        if (stripos($makerName, 'スズキ') !== false || stripos($makerName, 'Suzuki') !== false) return '#鈴菌';
+        if (stripos($makerName, 'ホンダ') !== false || stripos($makerName, 'Honda') !== false) return '#HONDA';
+        if (stripos($makerName, 'ハーレー') !== false || stripos($makerName, 'Harley') !== false) return '#HarleyDavidson';
+        if (stripos($makerName, 'ドゥカティ') !== false || stripos($makerName, 'Ducati') !== false) return '#Ducati';
         return '';
     }
 
     /**
-     * 車種名と価格を入れた画像を生成する
+     * 割引率を受け取り、インパクトのある画像を生成する
      */
-    private function generateCardImage(string $bikeName, string $priceText): ?string
+    private function generateCardImage(string $bikeName, string $priceText, int $percentOff): ?string
     {
         $fontPath = public_path('fonts/font.ttf');
 
@@ -218,14 +192,24 @@ class TweetBargains extends Command
         }
 
         try {
+            // 画像リソース作成
             if ($isPng) {
                 $srcImage = imagecreatefrompng($templatePath);
                 $width = imagesx($srcImage);
                 $height = imagesy($srcImage);
                 
                 $image = imagecreatetruecolor($width, $height);
-                $whiteBg = imagecolorallocate($image, 255, 255, 255);
-                imagefilledrectangle($image, 0, 0, $width, $height, $whiteBg);
+                
+                // ★背景色の決定: 割引率が15%以上なら黄色、それ以外は白
+                if ($percentOff >= 15) {
+                    // 注目色（黄色）
+                    $bgColor = imagecolorallocate($image, 255, 235, 59); // yellow-400
+                } else {
+                    $bgColor = imagecolorallocate($image, 255, 255, 255); // white
+                }
+                
+                imagefilledrectangle($image, 0, 0, $width, $height, $bgColor);
+                // テンプレート（ロゴなど）を重ねる
                 imagecopy($image, $srcImage, 0, 0, 0, 0, $width, $height);
                 imagedestroy($srcImage);
             } else {
@@ -234,19 +218,30 @@ class TweetBargains extends Command
 
             if (!$image) return null;
 
-            $white = imagecolorallocate($image, 255, 255, 255);
+            // 色の定義
             $black = imagecolorallocate($image, 0, 0, 0); 
-            $red   = imagecolorallocate($image, 255, 50, 50);
+            $red   = imagecolorallocate($image, 220, 38, 38); // red-600
+            $white = imagecolorallocate($image, 255, 255, 255);
 
             if (mb_strlen($bikeName) > 18) {
                 $bikeName = mb_substr($bikeName, 0, 17) . '...';
             }
 
-            imagettftext($image, 32, 0, 53, 203, $black, $fontPath, $bikeName);
+            // --- 描画処理 ---
+            
+            // 1. 車種名 (黒)
             imagettftext($image, 32, 0, 50, 200, $black, $fontPath, $bikeName); 
 
-            imagettftext($image, 50, 0, 53, 353, $black, $fontPath, $priceText);
-            imagettftext($image, 50, 0, 50, 350, $red,   $fontPath, $priceText);
+            // 2. 価格 (赤)
+            imagettftext($image, 50, 0, 50, 350, $red, $fontPath, $priceText);
+            
+            // 3. 割引率 (デカ文字！)
+            if ($percentOff > 0) {
+                $offText = "{$percentOff}% OFF!!";
+                // 影付きで描画
+                imagettftext($image, 70, 0, 55, 505, $white, $fontPath, $offText); // 影（白抜き用）
+                imagettftext($image, 70, 0, 50, 500, $red,   $fontPath, $offText); // 本体
+            }
 
             $tempPath = storage_path('app/public/temp_tweet_' . uniqid() . '.jpg');
             imagejpeg($image, $tempPath, 90); 
