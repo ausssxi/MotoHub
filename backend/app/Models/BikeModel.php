@@ -103,4 +103,13 @@ final class BikeModel extends Model
     {
         return $this->hasOne(BikeModelMarketStat::class);
     }
+
+    /**
+     * 価格推移ログとのリレーション
+     */
+    public function priceLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(MarketPriceLog::class)->orderBy('recorded_at', 'asc');
+    }
+    
 }

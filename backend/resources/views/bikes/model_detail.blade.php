@@ -3,11 +3,11 @@
     <x-slot:metaDescription>{{ $model->name }}（{{ $model->manufacturer->name }}）の買取相場、リセールバリュー、中古車販売価格の推移を徹底分析。現在販売中の在庫車両も一括検索できます。</x-slot:metaDescription>
 
     <x-slot:scripts>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        
-        {{-- ★修正: データをグローバル変数として定義し、外部JSを読み込む --}}
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        {{-- チャート描画用JS (インライン記述) --}}
         <script>
-            window.bikeModelStats = {!! json_encode($stats ?? []) !!};
+            window.bikeModelStats = @json($stats ?? []);
+            window.bikeModelHistory = @json($history ?? []);
         </script>
         <script src="{{ asset('js/bikes/model_detail.js') }}"></script>
     </x-slot:scripts>
@@ -54,7 +54,7 @@
                         </h2>
 
                         @if(!empty($resale) && isset($resale['resale_min']) && $resale['data_count'] > 0)
-                            <div class="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-6 mb-6 border border-yellow-100">
+                            <div class="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-6 mb-8 border border-yellow-100">
                                 <p class="text-xs font-bold text-gray-500 mb-2 text-center">このバイクの想定買取価格</p>
                                 <div class="text-center mb-4">
                                     <span class="text-4xl sm:text-5xl font-black text-yellow-600 tracking-tighter">
@@ -67,36 +67,43 @@
                                 </p>
                             </div>
 
-                            {{-- アフィリエイト導線 --}}
-                            <div class="space-y-3">
-                                {{-- 1. バイクワン --}}
-                                <div class="flex flex-col">
-                                    <div class="text-[10px] font-bold text-center text-blue-600 bg-blue-50 py-1 rounded-t-lg border-x border-t border-blue-100">
-                                        カスタム車・改造車もOK！
+                            {{-- アフィリエイト導線（2社併記パターン） --}}
+                            <div class="space-y-4">
+                                <p class="text-xs font-black text-gray-800 text-center mb-2">＼ 複数の業者で比較して高く売ろう ／</p>
+                                
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {{-- 1. バイクワン --}}
+                                    <div class="flex flex-col">
+                                        <div class="text-[10px] font-bold text-center text-blue-600 bg-blue-50 py-1 rounded-t-lg border-x border-t border-blue-100">
+                                            カスタム車・改造車もOK！
+                                        </div>
+                                        <a href="https://px.a8.net/svt/ejp?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" target="_blank" rel="nofollow" class="block w-full bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white font-black text-center py-4 rounded-b-xl shadow-md transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
+                                            <span>バイクワンで査定</span>
+                                            <i data-lucide="external-link" class="w-4 h-4"></i>
+                                        </a>
+                                        {{-- 計測タグ --}}
+                                        <img border="0" width="1" height="1" src="https://www18.a8.net/0.gif?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" alt="" class="hidden">
                                     </div>
-                                    <a href="https://px.a8.net/svt/ejp?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" target="_blank" rel="nofollow" class="block w-full bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white font-black text-center py-4 rounded-b-xl shadow-md transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
-                                        <span>バイクワンで査定</span>
-                                        <i data-lucide="external-link" class="w-4 h-4"></i>
-                                    </a>
-                                    {{-- 計測タグ --}}
-                                    <img border="0" width="1" height="1" src="https://www18.a8.net/0.gif?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" alt="" class="hidden">
+
+                                    {{-- 2. バイクBOON --}}
+                                    <div class="flex flex-col">
+                                        <div class="text-[10px] font-bold text-center text-red-600 bg-red-50 py-1 rounded-t-lg border-x border-t border-red-100">
+                                            旧車・ハーレー・大型車に強い！
+                                        </div>
+                                        <a href="https://px.a8.net/svt/ejp?a8mat=4AX6CG+5QLFOY+1T3W+62ENM" target="_blank" rel="nofollow" class="block w-full bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white font-black text-center py-4 rounded-b-xl shadow-md transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
+                                            <span>バイクBOONで査定</span>
+                                            <i data-lucide="external-link" class="w-4 h-4"></i>
+                                        </a>
+                                        {{-- 計測タグ --}}
+                                        <img border="0" width="1" height="1" src="https://www18.a8.net/0.gif?a8mat=4AX6CG+5QLFOY+1T3W+62ENM" alt="" class="hidden">
+                                    </div>
                                 </div>
 
-                                {{-- 2. バイクBOON (新規追加) --}}
-                                <div class="flex flex-col">
-                                    <div class="text-[10px] font-bold text-center text-red-600 bg-red-50 py-1 rounded-t-lg border-x border-t border-red-100">
-                                        旧車・ハーレー・大型車に強い！
-                                    </div>
-                                        
-                                    {{-- ★重要: ここにバイクBOONのA8リンク(href)を入れてください --}}
-                                    <a href="https://px.a8.net/svt/ejp?a8mat=4AX6CG+5QLFOY+1T3W+62ENM" target="_blank" rel="nofollow" class="block w-full bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white font-black text-center py-4 rounded-b-xl shadow-md transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
-                                        <span>バイクBOONで査定</span>
-                                        <i data-lucide="external-link" class="w-4 h-4"></i>
-                                    </a>
-                                    {{-- ★重要: ここにバイクBOONの計測タグ(img src)を入れてください --}}
-                                    <img border="0" width="1" height="1" src="https://www18.a8.net/0.gif?a8mat=4AX6CG+5QLFOY+1T3W+62ENM" alt="" class="hidden">
-                                </div>
+                                <p class="text-[10px] text-gray-400 text-center font-bold mt-2">
+                                    提携: バイクワン / バイクBOON
+                                </p>
                             </div>
+
                         @else
                             <div class="text-center py-8 bg-gray-50 rounded-2xl border border-gray-100">
                                 <i data-lucide="bar-chart-2" class="w-8 h-8 text-gray-300 mx-auto mb-2"></i>
@@ -140,26 +147,44 @@
                         @endif
                     </div>
 
+                    {{-- ★追加: 価格推移・買い時分析 --}}
+                    <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+                            <h2 class="text-xl font-black text-gray-900 flex items-center gap-2">
+                                <span class="bg-orange-100 text-orange-600 p-2 rounded-lg"><i data-lucide="trending-up" class="w-5 h-5"></i></span>
+                                価格推移・買い時予報
+                            </h2>
+                            @if(!empty($history['trend']))
+                                <div class="px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2
+                                    {{ $history['trend']['status'] === 'down' ? 'bg-red-100 text-red-600' : ($history['trend']['status'] === 'up' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600') }}">
+                                    @if($history['trend']['status'] === 'down') <i data-lucide="arrow-down-right" class="w-4 h-4"></i>
+                                    @elseif($history['trend']['status'] === 'up') <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+                                    @else <i data-lucide="minus" class="w-4 h-4"></i>
+                                    @endif
+                                    {{ $history['trend']['message'] }}
+                                </div>
+                            @endif
+                        </div>
+
+                        <div class="relative h-64 w-full">
+                            <canvas id="historyChart"></canvas>
+                        </div>
+                        <p class="text-[10px] text-gray-400 mt-4 text-right">
+                            ※MotoHub独自の過去データに基づく平均価格の推移です
+                        </p>
+                    </div>
+
                     {{-- 3. ユーザーレビュー --}}
                     <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100" id="reviews">
-                        {{-- ★修正: スマホでは縦並び(flex-col)、PCでは横並び(sm:flex-row)に変更 --}}
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-                            
-                            {{-- タイトル部分 --}}
                             <h2 class="text-xl font-black text-gray-900 flex items-center gap-2">
-                                {{-- アイコンが潰れないように shrink-0 を追加 --}}
-                                <span class="bg-green-100 text-green-600 p-2 rounded-lg shrink-0">
-                                    <i data-lucide="message-circle" class="w-5 h-5"></i>
-                                </span>
+                                <span class="bg-green-100 text-green-600 p-2 rounded-lg shrink-0"><i data-lucide="message-circle" class="w-5 h-5"></i></span>
                                 <span>
                                     ユーザーレビュー
-                                    {{-- 件数が改行されないように調整 --}}
-                                    <span class="text-sm text-gray-500 font-bold ml-1 inline-block">
-                                        ({{ $model->reviews->count() }}件)
-                                    </span>
+                                    <span class="text-sm text-gray-500 font-bold ml-1 inline-block">({{ $model->reviews->count() }}件)</span>
                                 </span>
                             </h2>
-                            <a href="#review-form" class="text-xs font-bold bg-black text-white px-4 py-2 rounded-full hover:bg-gray-800 transition-colors inline-flex items-center">
+                            <a href="#review-form" class="text-xs font-bold bg-black text-white px-4 py-3 sm:py-2 rounded-full hover:bg-gray-800 transition-colors inline-flex items-center justify-center w-full sm:w-auto">
                                 <i data-lucide="pen-tool" class="w-3 h-3 mr-1"></i>投稿する
                             </a>
                         </div>
@@ -273,7 +298,7 @@
                                         <div class="text-red-500 font-black text-sm">
                                             {{ $bike['total_price'] }}<span class="text-[10px]">万円</span>
                                         </div>
-                                        <div class="text-[10px] text-gray-400 mt-0.5">
+                                        <div class="text-[10px] text-gray-400 mt-0.5 truncate">
                                             {{ $bike['prefecture'] }}
                                         </div>
                                     </div>

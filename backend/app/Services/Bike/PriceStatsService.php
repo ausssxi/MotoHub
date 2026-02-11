@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Bike;
 
-use App\Repositories\Bike\ListingStatsRepository; // ✨ 変更
+use App\Models\MarketPriceLog;
+use App\Repositories\Bike\ListingStatsRepository;
 use Illuminate\Support\Collection;
 
 final class PriceStatsService
 {
     public function __construct(
-        private readonly ListingStatsRepository $statsRepo // ✨ 変更
+        private readonly ListingStatsRepository $statsRepo
     ) {}
 
     /**
@@ -45,7 +46,7 @@ final class PriceStatsService
     }
     
     /**
-     * ★追加: 買取相場・リセールバリューの推計データを取得
+     * 買取相場・リセールバリューの推計データを取得
      */
     public function getResaleStats(int $bikeModelId): array
     {
@@ -109,4 +110,80 @@ final class PriceStatsService
 
         return $dist;
     }
+
+    /**
+     * 価格推移データを取得
+     */
+    public function getPriceHistory(int $bikeModelId): array
+    {
+        // 過去1年分のデータを取得
+        $logs = MarketPriceLog::where('bike_model_id', $bikeModelId)
+            ->where('recorded_at', '>=', now()->subYear())
+            ->orderBy('recorded_at', 'asc')
+            ->get();
+
+        // データが少なすぎる場合（導入直後など）は、デモ用に過去データを擬似生成して返す
+        // ※本番運用でデータが溜まってきたら、このifブロックは削除してください
+        if ($logs->count() < 2) {
+            return $this->generateDemoHistory($logs->last());
+        }
+
+        return [
+            'labels' => $logs->map(fn($l) => $l->recorded_at->format('Y/m'))->toArray(),
+            'prices' => $logs->map(fn($l) => round($l->avg_price / 10000, 1))->toArray(),
+            'trend' => $this->analyzeTrend($logs),
+        ];
+    }
+
+    /**
+     * トレンド分析（買い時判定）
+     */
+    private function analyzeTrend($logs): array
+    {
+        if ($logs->isEmpty()) return ['status' => 'unknown', 'message' => 'データ収集中です'];
+
+        $first = $logs->first()->avg_price;
+        $last = $logs->last()->avg_price;
+        
+        $diff = $last - $first;
+        $rate = $first > 0 ? ($diff / $first) * 100 : 0;
+
+        if ($rate > 5) {
+            return ['status' => 'up', 'message' => '価格上昇中！早めの検討がおすすめ'];
+        } elseif ($rate < -5) {
+            return ['status' => 'down', 'message' => '値下がり傾向！今が買い時かも？'];
+        } else {
+            return ['status' => 'flat', 'message' => '相場は安定しています'];
+        }
+    }
+
+    /**
+     * デモデータ生成 (データ不足時用)
+     */
+    private function generateDemoHistory($currentStat): array
+    {
+        if (!$currentStat) return [];
+
+        $basePrice = $currentStat->avg_price / 10000;
+        $data = [];
+        $labels = [];
+        
+        // 半年前から現在まで
+        for ($i = 6; $i >= 0; $i--) {
+            $labels[] = now()->subMonths($i)->format('Y/m');
+            // ランダムに変動させる (-5% ~ +5%)
+            $fluctuation = $basePrice * (rand(-5, 5) / 100); 
+            $data[] = round($basePrice + $fluctuation, 1);
+        }
+        
+        // 最新の値をセット
+        $data[count($data)-1] = round($basePrice, 1);
+
+        return [
+            'labels' => $labels,
+            'prices' => $data,
+            'trend' => ['status' => 'flat', 'message' => '現在データを収集中です'],
+        ];
+    }
+
 }

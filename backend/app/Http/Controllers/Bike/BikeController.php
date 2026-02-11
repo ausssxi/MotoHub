@@ -217,6 +217,9 @@ final class BikeController extends Controller
         $stats = $this->priceStatsService->getModelStats($id);
         $resale = $this->priceStatsService->getResaleStats($id);
 
+        // 価格推移データの取得
+        $history = $this->priceStatsService->getPriceHistory($id);
+
         // 現在販売中の車両を取得（安い順に8件）
         // ListingSearchService経由などで取得しても良いですが、ここではRepositoryを直接利用するか、Serviceに追加したメソッドを使います。
         // 今回はシンプルに Service にメソッドを追加するか、既存の getRelatedListings を流用します。
@@ -225,7 +228,7 @@ final class BikeController extends Controller
         $listingsRaw = $this->bikeService->getRelatedListings($id, 0, 8);
         $listings = ListingResource::collection($listingsRaw)->resolve();
 
-        return view('bikes.model_detail', compact('model', 'stats', 'resale', 'listings'));
+        return view('bikes.model_detail', compact('model', 'stats', 'resale', 'history', 'listings'));
     }
 
 /**

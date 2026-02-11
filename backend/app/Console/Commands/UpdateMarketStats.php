@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use App\Models\BikeModel;
 use App\Models\Listing;
 use App\Models\BikeModelMarketStat;
+use App\Models\MarketPriceLog;
 use Illuminate\Support\Facades\DB;
 
 class UpdateMarketStats extends Command
@@ -37,7 +38,8 @@ class UpdateMarketStats extends Command
             ->get();
 
         $this->output->progressStart($stats->count());
-
+        $today = now()->format('Y-m-d');
+        
         foreach ($stats as $stat) {
             // データが少なすぎる場合は信頼性が低いため保存しない（または別途フラグを立てる）
             if ($stat->count_val < 2) {
@@ -47,6 +49,21 @@ class UpdateMarketStats extends Command
 
             BikeModelMarketStat::updateOrCreate(
                 ['bike_model_id' => $stat->bike_model_id],
+                [
+                    'avg_price' => (int)$stat->avg_val,
+                    'min_price' => (int)$stat->min_val,
+                    'max_price' => (int)$stat->max_val,
+                    'listing_count' => (int)$stat->count_val,
+                ]
+            );
+
+            // 履歴ログに保存 (時系列データ用)
+            // 「車種ID」と「今日の日付」をキーにして保存します
+            MarketPriceLog::updateOrCreate(
+                [
+                    'bike_model_id' => $stat->bike_model_id,
+                    'recorded_at' => $today
+                ],
                 [
                     'avg_price' => (int)$stat->avg_val,
                     'min_price' => (int)$stat->min_val,
