@@ -108,5 +108,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // 新着レビューの紹介 (毎日 12:00 と 20:00)
         $schedule->command('bikes:tweet-reviews')->twiceDaily(12, 20);
+        
+        // 市場価格の再計算 (毎日 04:00)
+        $schedule->command('bikes:update-market-stats')->dailyAt('04:00');
     })
     ->create();
