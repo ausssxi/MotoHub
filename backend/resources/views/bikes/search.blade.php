@@ -273,10 +273,10 @@
                                 @endif
 
                                 {{-- お買い得バッジ --}}
-                                @if(!empty($listing['bargain_info']) && $listing['bargain_info']['is_bargain'])
-                                <div class="absolute bottom-0 left-0 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-tr-lg shadow-md z-10 flex items-center gap-1 animate-pulse">
-                                    <i data-lucide="trending-down" class="w-3 h-3"></i>
-                                    {{ $listing['bargain_info']['label'] }}
+                                @if($listing['bargain_score'] > 5) {{-- 5%以上安い場合 --}}
+                                <div class="absolute bottom-0 left-0 bg-red-600 text-white text-[10px] font-black px-2 py-1.5 rounded-tr-xl shadow-lg z-10 flex items-center gap-1 animate-pulse">
+                                    <i data-lucide="trending-down" class="w-3.5 h-3.5"></i>
+                                    相場より約{{ round($listing['bargain_score']) }}%お得！
                                 </div>
                                 @endif
                                 

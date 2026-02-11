@@ -25,6 +25,7 @@ final class ListingRepository
         'listings.shop_id', 
         'listings.manufacturer_id', 
         'listings.category_id',
+        'listings.site_id',
         'listings.title', 
         'listings.model_year', 
         'listings.mileage', 
@@ -52,6 +53,7 @@ final class ListingRepository
 
         // ソート適用（インデックス idx_active_... シリーズを活用）
         $query = match ($sort) {
+            'bargain_desc' => $query->orderBy('listings.bargain_score', 'desc'),
             'price_asc'    => $query->whereNotNull('listings.total_price')->orderBy('listings.total_price', 'asc'),
             'price_desc'   => $query->whereNotNull('listings.total_price')->orderBy('listings.total_price', 'desc'),
             'mileage_asc'  => $query->whereNotNull('listings.mileage')->orderBy('listings.mileage', 'asc'),

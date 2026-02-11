@@ -85,7 +85,7 @@ final class ListingSearchService
     }
 
     /**
-     * ★追加: 検索条件に基づいてページタイトルを生成
+     * 検索条件に基づいてページタイトルを生成
      */
     public function generatePageTitle(?string $keyword, ?string $prefecture, array $filters): string
     {
@@ -109,7 +109,7 @@ final class ListingSearchService
             }
         }
 
-        // ★追加: カテゴリーIDがある場合
+        // カテゴリーIDがある場合
         if (!empty($filters['category_id'])) {
             $category = $this->categoryRepo->find((int)$filters['category_id']);
             if ($category) {
@@ -136,9 +136,10 @@ final class ListingSearchService
     public function getSortOptions(): array
     {
         return [
-            'latest'       => '新着順',
-            'price_asc'    => '価格の安い順',
-            'price_desc'   => '価格の高い順',
+            'bargain_desc' => 'お買い得',
+            'latest'       => '新着',
+            'price_asc'    => '価格の安い',
+            'price_desc'   => '価格の高い',
             'mileage_asc'  => '走行距離が少ない',
             'mileage_desc' => '走行距離が多い',
             'year_desc'    => '年式が新しい',

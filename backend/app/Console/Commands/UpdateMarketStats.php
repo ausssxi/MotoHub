@@ -15,13 +15,12 @@ use Illuminate\Support\Collection;
 class UpdateMarketStats extends Command
 {
     protected $signature = 'bikes:update-market-stats';
-    protected $description = '全車種の市場価格統計（分布データ含む）を再計算して保存します';
+    protected $description = '市場統計の更新とお買い得スコアの再計算を行います';
 
     public function handle(): void
     {
-        $this->info('市場価格の集計を開始します（分布データの作成を含む）...');
+        $this->info('市場価格の集計とお買い得スコアの計算を開始します...');
 
-        // 現在出品されている全車種のIDを取得
         $modelIds = Listing::where('is_sold_out', false)
             ->whereNotNull('bike_model_id')
             ->distinct()
@@ -29,33 +28,37 @@ class UpdateMarketStats extends Command
 
         $this->output->progressStart($modelIds->count());
         $today = now()->format('Y-m-d');
-        
+
         foreach ($modelIds as $modelId) {
-            // この車種の有効な価格リストを取得 (異常値を除外)
-            $prices = Listing::where('bike_model_id', $modelId)
+            // 対象データを取得（価格と走行距離）
+            // 走行距離が極端に短い/長いデータや、価格異常値を除外するフィルタも検討可能
+            $listings = Listing::where('bike_model_id', $modelId)
                 ->where('is_sold_out', false)
                 ->whereNotNull('total_price')
-                ->where('total_price', '>', 10000)      // 1万円以上
-                ->where('total_price', '<', 50000000)   // 5000万円以下
-                ->pluck('total_price');
+                ->where('total_price', '>', 10000)
+                ->where('total_price', '<', 50000000)
+                ->select('id', 'total_price', 'mileage')
+                ->get();
 
-            // データが少なすぎる場合は信頼性が低いため保存しない
-            if ($prices->count() < 2) {
+            if ($listings->count() < 2) {
+                Listing::where('bike_model_id', $modelId)->update(['bargain_score' => 0]);
                 $this->output->progressAdvance();
                 continue;
             }
 
-            // 基本統計の計算
+            // 統計計算
+            $prices = $listings->pluck('total_price');
+            $mileages = $listings->whereNotNull('mileage')->pluck('mileage');
+
             $avgPrice = (int)$prices->avg();
             $minPrice = (int)$prices->min();
             $maxPrice = (int)$prices->max();
             $count = $prices->count();
+            
+            // ★走行距離の平均も計算（データがない場合は0）
+            $avgMileage = $mileages->isNotEmpty() ? (int)$mileages->avg() : 0;
 
-            // ★グラフ表示用の分布（ヒストグラム）データを事前計算
-            $distribution = $this->calculateDistribution($prices);
-
-            // 1. 最新の統計情報を更新
-            // distribution_data カラムにJSONとして保存することで、詳細表示を爆速にします
+            // 統計テーブル更新
             BikeModelMarketStat::updateOrCreate(
                 ['bike_model_id' => $modelId],
                 [
@@ -63,16 +66,40 @@ class UpdateMarketStats extends Command
                     'min_price' => $minPrice,
                     'max_price' => $maxPrice,
                     'listing_count' => $count,
-                    'distribution_data' => $distribution,
+                    'distribution_data' => $this->calculateDistribution($prices),
                 ]
             );
 
-            // 2. 履歴ログに保存 (時系列データ用)
+            // ★改良版: お買い得スコアの計算
+            // SQL一括更新だと複雑な計算が難しいため、PHP側で計算してID指定で更新します
+            // 件数が多いと少し時間がかかりますが、精度優先です
+            foreach ($listings as $item) {
+                // 1. 価格スコア (平均より安いほどプラス)
+                $priceScore = 0;
+                if ($avgPrice > 0) {
+                    $priceScore = ($avgPrice - $item->total_price) / $avgPrice * 100;
+                }
+
+                // 2. 距離スコア (平均より走っていないほどプラス)
+                $mileageScore = 0;
+                if ($avgMileage > 0 && $item->mileage !== null) {
+                    // 距離の影響度は価格の半分くらいにする調整係数 (0.5)
+                    $mileageScore = (($avgMileage - $item->mileage) / $avgMileage * 100) * 0.5;
+                }
+
+                // 合計スコア
+                $totalScore = $priceScore + $mileageScore;
+
+                // DB更新 (個別にupdateすると遅いので、実運用ではバルクアップデートが推奨されますが、
+                // 今回はシンプルに1件ずつ更新します。件数が数万件レベルなら許容範囲です)
+                DB::table('listings')
+                    ->where('id', $item->id)
+                    ->update(['bargain_score' => max(0, round($totalScore, 2))]);
+            }
+
+            // 履歴ログ保存
             MarketPriceLog::updateOrCreate(
-                [
-                    'bike_model_id' => $modelId,
-                    'recorded_at' => $today
-                ],
+                ['bike_model_id' => $modelId, 'recorded_at' => $today],
                 [
                     'avg_price' => $avgPrice,
                     'min_price' => $minPrice,
@@ -85,39 +112,36 @@ class UpdateMarketStats extends Command
         }
 
         $this->output->progressFinish();
-        $this->info('全車種の集計と分布データの作成が完了しました！');
+        $this->info('集計完了！');
     }
 
     /**
      * 価格リストからヒストグラム（分布）データを生成します。
-     * 車種ごとの価格帯の広さに応じて、自動的に刻み幅(step)を調整します。
      */
     private function calculateDistribution(Collection $prices): array
     {
         $minVal = (int) floor($prices->min() / 10000); // 万円単位
         $maxVal = (int) ceil($prices->max() / 10000);
         
+        // 価格差に応じて刻み幅(step)を決める
         $diff = $maxVal - $minVal;
-
-        // 価格差に応じて適切な刻み幅(万円)を決定
+        
         if ($diff <= 50) {
-            $step = 5;   // 差が50万以内なら5万刻み
+            $step = 5;
         } elseif ($diff <= 100) {
-            $step = 10;  // 差が100万以内なら10万刻み
+            $step = 10;
         } elseif ($diff <= 300) {
-            $step = 20;  // 差が300万以内なら20万刻み
+            $step = 20;
         } else {
-            $step = 50;  // それ以上は50万刻み
+            $step = 50;
         }
 
         $dist = [];
-        // 各価格がどのステップに属するかを正規化して計算
         $pricesInMan = $prices->map(fn($p) => floor(($p / 10000) / $step) * $step);
         
         $minRange = (int)$pricesInMan->min();
         $maxRange = (int)$pricesInMan->max();
 
-        // 最小範囲から最大範囲まで、ステップごとに台数を集計
         for ($i = $minRange; $i <= $maxRange; $i += $step) {
             $count = $pricesInMan->filter(fn($p) => $p == $i)->count();
             

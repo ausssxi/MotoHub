@@ -60,7 +60,7 @@ final class BikeController extends Controller
     {
         $keyword = $request->query('keyword');
         $prefecture = $request->query('prefecture');
-        $sort = (string) $request->query('sort', 'latest');
+        $sort = (string) $request->query('sort', 'bargain_desc');
 
         $filters = [
             'min_price'          => $request->query('min_price'),

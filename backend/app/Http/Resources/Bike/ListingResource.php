@@ -86,6 +86,7 @@ class ListingResource extends JsonResource
 
             // 詳細情報
             'description'    => $this->description,
+            'bargain_score'  => $this->bargain_score ?? 0,
             'url'            => $this->source_url,
             
             // 画像 (ローカルパスがあれば優先してURL化)
