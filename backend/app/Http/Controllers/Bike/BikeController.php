@@ -18,6 +18,7 @@ use App\Http\Requests\Bike\StoreReviewRequest;
 
 /**
  * バイク検索・表示機能を提供するメインコントローラー
+ * パフォーマンス最適化済み（N+1対策、キャッシュ活用）
  */
 final class BikeController extends Controller
 {
@@ -84,11 +85,8 @@ final class BikeController extends Controller
         }
 
         $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
-        
-        // ページタイトルをサービスで生成
         $pageTitle = $this->listingSearchService->generatePageTitle($keyword, $prefecture, $filters);
 
-        // $result の中に 'meta' も含まれているため、getSearchMetadata の再呼び出しは削除しました
         return view('bikes.search', array_merge($result, [
             'keyword'    => $keyword,
             'prefecture' => $prefecture,
@@ -98,35 +96,63 @@ final class BikeController extends Controller
     }
 
     /**
-     * 車両詳細ページを表示
+     * 車両詳細ページを表示（爆速版）
      */
-    public function show($id)
+    public function show(int $id): View
     {
-        $listing = Listing::with(['shop', 'bikeModel.manufacturer', 'bikeModel.categoryData'])->findOrFail($id);
+        // 1. Eager Loading の最適化
+        // marketStats を含めることで、BargainScore計算時のN+1問題を防止します
+        $listing = Listing::with([
+            'shop', 
+            'bikeModel.manufacturer', 
+            'bikeModel.categoryData',
+            'bikeModel.marketStats' 
+        ])->findOrFail($id);
 
+        // 2. 関連車両の取得（Repositoryの最適化されたメソッドを利用）
         $relatedListings = collect();
         if ($listing->bike_model_id) {
             $relatedRaw = $this->bikeService->getRelatedListings($listing->bike_model_id, $listing->id, 8);
             $relatedListings = ListingResource::collection($relatedRaw)->resolve();
         }
 
-        // 2. SEO用リンク集の生成
+        // 3. SEO用リンク集の生成
         $seoLinks = $this->bikeService->getSeoLinks($listing);
 
-        $marketAnalysis = $this->bikeService->getMarketAnalysis(
-            $listing->bike_model_id, 
-            (int)$listing->total_price
-        );
+        // 4. 市場統計データの取得（爆速版 Service を使用）
+        // 以前の getMarketAnalysis(ライブ計算) をやめ、バッチ計算済みのキャッシュを利用します
+        $stats = $this->priceStatsService->getModelStats((int)$listing->bike_model_id);
 
+        // 5. リソース変換
         $data = (object) (new ListingResource($listing))->resolve();
 
         return view('bikes.show', [
-            'listing' => $data,
+            'listing'         => $data,
             'relatedListings' => $relatedListings,
-            'seoLinks' => $seoLinks,
-            'stats' => $marketAnalysis['stats'],     
-            'histogram' => $marketAnalysis['histogram'] 
+            'seoLinks'        => $seoLinks,
+            'stats'           => $stats,
+            'histogram'       => $stats['distribution'] ?? []
         ]);
+    }
+
+    /**
+     * 車種別・相場＆リセール情報ページ（爆速版）
+     */
+    public function modelDetail(int $id): View
+    {
+        $model = $this->bikeService->getBikeModelDetail($id);
+        $model->load(['reviews']);
+
+        // 全て事前に計算済みのキャッシュテーブルから取得されます
+        $stats = $this->priceStatsService->getModelStats($id);
+        $resale = $this->priceStatsService->getResaleStats($id);
+        $history = $this->priceStatsService->getPriceHistory($id);
+
+        // 現在販売中の車両を取得
+        $listingsRaw = $this->bikeService->getRelatedListings($id, 0, 8);
+        $listings = ListingResource::collection($listingsRaw)->resolve();
+
+        return view('bikes.model_detail', compact('model', 'stats', 'resale', 'history', 'listings'));
     }
 
     public function getModels(int $manufacturerId): JsonResponse
@@ -182,7 +208,6 @@ final class BikeController extends Controller
      */
     public function landing(string $prefecture, string $slug): View
     {
-        // ページ情報を解決
         $pageInfo = $this->seoLandingService->resolvePageInfo($prefecture, $slug);
 
         if (empty($pageInfo)) {
@@ -192,58 +217,23 @@ final class BikeController extends Controller
         $filters = $pageInfo['filters'];
         $meta = $pageInfo['meta'];
 
-        // 検索実行
         $result = $this->listingSearchService->search(null, $prefecture, 'latest', $filters);
         
-        // 検索結果ページと似ているが、SEOに特化した専用ビューを表示
         return view('bikes.landing', array_merge($result, [
             'pageInfo' => $meta,
-            'keyword' => '', // 検索窓用
+            'keyword' => '', 
             'prefecture' => $prefecture,
             'sort' => 'latest',
         ]));
     }
 
     /**
-     *車種別・相場＆リセール情報ページ
-     */
-    public function modelDetail(int $id): View
-    {
-        // 車種情報の取得
-        $model = $this->bikeService->getBikeModelDetail($id);
-        $model->load(['reviews']);
-
-        // 統計データの取得
-        $stats = $this->priceStatsService->getModelStats($id);
-        $resale = $this->priceStatsService->getResaleStats($id);
-
-        // 価格推移データの取得
-        $history = $this->priceStatsService->getPriceHistory($id);
-
-        // 現在販売中の車両を取得（安い順に8件）
-        // ListingSearchService経由などで取得しても良いですが、ここではRepositoryを直接利用するか、Serviceに追加したメソッドを使います。
-        // 今回はシンプルに Service にメソッドを追加するか、既存の getRelatedListings を流用します。
-        
-        // 自分自身を除外する必要はないので、excludeIdに0などを渡して検索
-        $listingsRaw = $this->bikeService->getRelatedListings($id, 0, 8);
-        $listings = ListingResource::collection($listingsRaw)->resolve();
-
-        return view('bikes.model_detail', compact('model', 'stats', 'resale', 'history', 'listings'));
-    }
-
-/**
      * レビュー投稿処理
-     * Request から StoreReviewRequest に変更
      */
     public function storeReview(StoreReviewRequest $request, int $id)
     {
-        // バリデーション済みのデータを取得
         $validated = $request->validated();
-
-        // モデルの存在確認（Service経由）
         $model = $this->bikeService->getBikeModelDetail($id);
-
-        // サービス経由で保存
         $this->bikeService->createReview($model->id, $validated);
 
         return redirect()->route('bikes.model_detail', $id)->with('success', 'レビューを投稿しました！');

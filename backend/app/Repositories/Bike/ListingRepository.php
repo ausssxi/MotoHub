@@ -11,42 +11,70 @@ use Illuminate\Support\Collection;
 
 /**
  * バイクの出品情報に関する「検索・取得」操作を担当
+ * カラム選択の最適化とインデックス利用を強化した高速版
  */
 final class ListingRepository
 {
     /**
+     * 一覧表示に必要な基本カラムのリスト
+     * description（長文）を除外してデータ転送量を大幅に削減します
+     */
+    private const LIST_COLUMNS = [
+        'listings.id', 
+        'listings.bike_model_id', 
+        'listings.shop_id', 
+        'listings.manufacturer_id', 
+        'listings.category_id',
+        'listings.title', 
+        'listings.model_year', 
+        'listings.mileage', 
+        'listings.displacement',
+        'listings.total_price', 
+        'listings.price', 
+        'listings.condition', 
+        'listings.is_sold_out',
+        'listings.image_urls', 
+        'listings.local_image_paths', 
+        'listings.created_at'
+    ];
+
+    /**
      * メイン検索
      *
-     * @param array $uiParams スライダーUIの上限値など（StatsRepositoryで計算されたもの）
+     * @param array $uiParams スライダーUIの上限値など
      */
     public function searchByKeyword(?string $keyword, ?string $prefecture, string $sort, array $filters, int $perPage, array $uiParams = []): LengthAwarePaginator
     {
         $query = $this->buildFilteredQuery($keyword, $prefecture, $filters, $uiParams);
 
-        // ソート適用
+        // ★軽量化: 必要なカラムだけに絞る
+        $query->select(self::LIST_COLUMNS);
+
+        // ソート適用（インデックス idx_active_... シリーズを活用）
         $query = match ($sort) {
-            'price_asc'    => $query->whereNotNull('total_price')->orderBy('total_price', 'asc'),
-            'price_desc'   => $query->whereNotNull('total_price')->orderBy('total_price', 'desc'),
-            'mileage_asc'  => $query->whereNotNull('mileage')->orderBy('mileage', 'asc'),
-            'mileage_desc' => $query->whereNotNull('mileage')->orderBy('mileage', 'desc'),
-            'year_desc'    => $query->orderBy('model_year', 'desc'),
-            'year_asc'     => $query->orderBy('model_year', 'asc'),
-            default        => $query->orderBy('created_at', 'desc'),
+            'price_asc'    => $query->whereNotNull('listings.total_price')->orderBy('listings.total_price', 'asc'),
+            'price_desc'   => $query->whereNotNull('listings.total_price')->orderBy('listings.total_price', 'desc'),
+            'mileage_asc'  => $query->whereNotNull('listings.mileage')->orderBy('listings.mileage', 'asc'),
+            'mileage_desc' => $query->whereNotNull('listings.mileage')->orderBy('listings.mileage', 'desc'),
+            'year_desc'    => $query->orderBy('listings.model_year', 'desc'),
+            'year_asc'     => $query->orderBy('listings.model_year', 'asc'),
+            default        => $query->orderBy('listings.created_at', 'desc'),
         };
 
         return $query->paginate($perPage)->withQueryString();
     }
 
     /**
-     * 店舗ごとの在庫一覧を取得 (追加メソッド)
+     * 店舗ごとの在庫一覧を取得
      */
     public function getByShopId(int $shopId, int $perPage = 30): LengthAwarePaginator
     {
         return Listing::query()
+            ->select(self::LIST_COLUMNS) // 軽量化
             ->with(['bikeModel.manufacturer', 'shop', 'site'])
             ->active()
             ->where('shop_id', $shopId)
-            ->orderBy('created_at', 'desc') // 新着順
+            ->orderBy('created_at', 'desc')
             ->paginate($perPage);
     }
 
@@ -60,16 +88,22 @@ final class ListingRepository
 
     /**
      * 同じ車種の関連車両を取得（価格の安い順）
+     * インデックス idx_related_lookup を使用して爆速で取得します
      */
     public function getRelatedListings(int $bikeModelId, int $excludeId, int $limit = 10): Collection
     {
-        return Listing::with(['shop']) // 画像などのリレーションはResourceで解決するため最小限に
+        return Listing::query()
+            // 最小限のカラムに絞る
+            ->select([
+                'id', 'bike_model_id', 'shop_id', 'title', 'total_price', 
+                'model_year', 'mileage', 'image_urls', 'local_image_paths'
+            ])
+            ->with(['shop:id,prefecture']) // ショップも都道府県のみ取得
             ->where('bike_model_id', $bikeModelId)
-            ->where('id', '!=', $excludeId) // 自分自身を除外
+            ->where('id', '!=', $excludeId)
             ->where('is_sold_out', false)
             ->whereNotNull('total_price')
-            ->where('total_price', '>', 0)
-            ->orderBy('total_price', 'asc') // 安い順
+            ->orderBy('total_price', 'asc') // ★重要: インデックスを効かせる
             ->limit($limit)
             ->get();
     }
@@ -79,16 +113,20 @@ final class ListingRepository
      */
     private function buildFilteredQuery(?string $keyword, ?string $prefecture, array $filters, array $uiParams): Builder
     {
-        // UI用の最大値（スライダーの右端）を取得
-        // これがないと「35万円以下」を選択した際に上限が固定されず、正しく絞り込めない場合があるため
         $maxPrice = $uiParams['max_price'] ?? null;
         $maxMileage = $uiParams['max_mileage'] ?? null;
 
         return Listing::query()
-            ->with(['bikeModel.manufacturer', 'bikeModel.categoryData', 'bikeModel.marketStats', 'shop', 'site'])
+            ->with([
+                'bikeModel.manufacturer', 
+                'bikeModel.categoryData', 
+                'bikeModel.marketStats', // ★N+1問題対策：お買い得バッジ計算用
+                'shop', 
+                'site'
+            ])
             ->active()
-            // Model Scope を活用して可読性を向上
-            ->withKeyword($keyword, !empty($filters['bike_model_id']))
+            // Model Scope を活用（JOIN最適化済みを想定）
+            ->withKeyword($keyword)
             ->byPrefecture($prefecture ?: ($filters['prefecture'] ?? null))
             ->byModel($filters['manufacturer_id'] ?? null, $filters['bike_model_id'] ?? null)
             ->byCategory($filters['category_id'] ?? null)
@@ -102,14 +140,14 @@ final class ListingRepository
     
     /**
      * 特定のモデルIDに紐づく有効な価格リストを取得する
-     * (価格未定や0円を除外した配列を返す)
-     * * @return array<int> 価格の配列
+     * ※バッチ処理（UpdateMarketStats）などで利用
      */
     public function findValidPricesByModelId(int $bikeModelId): array
     {
         return Listing::where('bike_model_id', $bikeModelId)
+            ->active()
             ->whereNotNull('total_price')
-            ->where('total_price', '>', 0)
+            ->where('total_price', '>', 10000) // 1万円以下は異常値として除外
             ->pluck('total_price')
             ->toArray();
     }

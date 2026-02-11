@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Listing extends Model
 {
@@ -19,154 +21,166 @@ class Listing extends Model
         'is_sold_out' => 'boolean',
     ];
 
+    /**
+     * 画像URLリストを取得するアクセサ
+     * ローカルに保存された画像があればそれを優先し、なければ外部URLを返します。
+     */
+    protected function images(): Attribute
+    {
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) {
+                // 1. ローカル保存パスをチェック
+                if (!empty($attributes['local_image_paths'])) {
+                    $localPaths = json_decode($attributes['local_image_paths'], true);
+                    if (is_array($localPaths) && !empty($localPaths)) {
+                        return array_map(fn($path) => asset('storage/' . ltrim($path, '/')), $localPaths);
+                    }
+                }
+                // 2. 外部URLをチェック
+                if (!empty($attributes['image_urls'])) {
+                    $remoteUrls = json_decode($attributes['image_urls'], true);
+                    return is_array($remoteUrls) ? $remoteUrls : [];
+                }
+                return [];
+            },
+        );
+    }
+
+    /**
+     * お買い得度を判定するスコア（0-100）
+     * 事前に集計された市場統計テーブル(bike_model_market_stats)を使用して高速に計算します。
+     */
+    public function getBargainScoreAttribute(): float
+    {
+        $stats = $this->bikeModel?->marketStats;
+        if (!$stats || $stats->avg_price <= 0 || !$this->total_price) {
+            return 0;
+        }
+        // 平均価格より安ければプラスのスコアを返す
+        $score = (($stats->avg_price - $this->total_price) / $stats->avg_price) * 100;
+        return round(max(0, $score), 1);
+    }
+
     // --- Relations ---
 
     public function bikeModel(): BelongsTo { return $this->belongsTo(BikeModel::class); }
     public function shop(): BelongsTo { return $this->belongsTo(Shop::class); }
     public function site(): BelongsTo { return $this->belongsTo(Site::class); }
 
-    // --- Query Scopes ---
+    // --- Query Scopes (高速化版) ---
 
-    /**
-     * 販売中の車両のみ
-     */
     public function scopeActive(Builder $query): Builder
     {
-        return $query->where('is_sold_out', false);
+        return $query->where('listings.is_sold_out', false);
     }
 
     /**
-     * キーワード検索
+     * キーワード検索 (JOIN方式で高速化)
+     * whereHas を廃止し、テーブル結合を利用してインデックスを効かせます。
      */
-    public function scopeWithKeyword(Builder $query, ?string $keyword, bool $excludeModelSearch = false): Builder
+    public function scopeWithKeyword(Builder $query, ?string $keyword): Builder
     {
         if (!$keyword) return $query;
 
-        return $query->where(function (Builder $q) use ($keyword, $excludeModelSearch) {
-            $q->where('title', 'like', "%{$keyword}%");
+        // すでに結合されているかチェックして多重結合を防ぐ
+        $joins = collect($query->getQuery()->joins)->pluck('table');
+        if (!$joins->contains('bike_models')) {
+            $query->leftJoin('bike_models', 'listings.bike_model_id', '=', 'bike_models.id');
+        }
+        if (!$joins->contains('manufacturers')) {
+            $query->leftJoin('manufacturers', 'bike_models.manufacturer_id', '=', 'manufacturers.id');
+        }
 
-            $q->orWhereHas('bikeModel', function (Builder $bq) use ($keyword) {
-                $bq->where('name', 'like', "%{$keyword}%")
-                  ->orWhereHas('manufacturer', function (Builder $mq) use ($keyword) {
-                      $mq->where('name', 'like', "%{$keyword}%");
-                  });
-            });
+        return $query->where(function (Builder $q) use ($keyword) {
+            $q->where('listings.title', 'like', "%{$keyword}%")
+              ->orWhere('bike_models.name', 'like', "%{$keyword}%")
+              ->orWhere('manufacturers.name', 'like', "%{$keyword}%");
         });
     }
 
     /**
-     * 都道府県検索
+     * 都道府県検索 (JOIN方式)
      */
     public function scopeByPrefecture(Builder $query, ?string $prefecture): Builder
     {
         if (!$prefecture) return $query;
-        return $query->whereHas('shop', fn($sq) => $sq->where('prefecture', 'like', "{$prefecture}%"));
+        
+        if (!collect($query->getQuery()->joins)->pluck('table')->contains('shops')) {
+            $query->join('shops', 'listings.shop_id', '=', 'shops.id');
+        }
+        
+        return $query->where('shops.prefecture', 'like', "{$prefecture}%");
     }
 
     /**
-     * メーカー・車種IDでの絞り込み
+     * メーカー・車種IDでの絞り込み ( denormalized column 使用)
      */
     public function scopeByModel(Builder $query, ?int $manufacturerId, ?int $bikeModelId): Builder
     {
         if ($bikeModelId) {
-            $query->where('bike_model_id', $bikeModelId);
+            $query->where('listings.bike_model_id', $bikeModelId);
         } elseif ($manufacturerId) {
-            //$query->whereHas('bikeModel', fn($q) => $q->where('manufacturer_id', $manufacturerId));
-            $query->where('manufacturer_id', $manufacturerId);
+            $query->where('listings.manufacturer_id', $manufacturerId);
         }
         return $query;
     }
 
     /**
-     * カテゴリーIDでの絞り込み
+     * カテゴリーIDでの絞り込み ( denormalized column 使用)
      */
     public function scopeByCategory(Builder $query, ?int $categoryId): Builder
     {
         if (!$categoryId) return $query;
-        //$return $query->whereHas('bikeModel', fn($q) => $q->where('category_id', $categoryId));
-        return $query->where('category_id', $categoryId);
+        return $query->where('listings.category_id', $categoryId);
     }
 
-    /**
-     * コンディション
-     */
     public function scopeByCondition(Builder $query, $isNew): Builder
     {
         if ($isNew === null || $isNew === '') return $query;
         $value = ($isNew === '1' || $isNew === true) ? '新車' : '中古車';
-        return $query->where('condition', $value);
+        return $query->where('listings.condition', $value);
     }
 
-    /**
-     * 修復歴
-     */
     public function scopeByRepairHistory(Builder $query, $hasRepair): Builder
     {
         if ($hasRepair === null || $hasRepair === '') return $query;
-        return $query->where('has_repair_history', (bool)$hasRepair);
+        return $query->where('listings.has_repair_history', (bool)$hasRepair);
     }
 
-    /**
-     * 価格範囲
-     * ✨ $uiMaxLimit を null許容にし、デフォルト値を設定
-     */
     public function scopePriceBetween(Builder $query, ?int $min, ?int $max, ?int $uiMaxLimit = null): Builder
     {
-        if ($min > 0) $query->where('total_price', '>=', $min * 10000);
-        
-        if ($max) {
-            // uiMaxLimit が指定されている場合: max値が上限未満のときだけフィルタ（上限＝無制限扱い）
-            // uiMaxLimit が null の場合: 常にフィルタ（単純な範囲検索として動作）
-            if ($uiMaxLimit === null || $max < $uiMaxLimit) {
-                $query->where('total_price', '<=', $max * 10000);
-            }
+        if ($min > 0) $query->where('listings.total_price', '>=', $min * 10000);
+        if ($max && ($uiMaxLimit === null || $max < $uiMaxLimit)) {
+            $query->where('listings.total_price', '<=', $max * 10000);
         }
         return $query;
     }
 
-    /**
-     * 走行距離範囲
-     * ✨ 修正: $uiMaxLimit を null許容にし、デフォルト値を設定
-     */
     public function scopeMileageBetween(Builder $query, ?int $min, ?int $max, ?int $uiMaxLimit = null): Builder
     {
-        if ($min > 0) $query->where('mileage', '>=', $min);
-        
-        if ($max) {
-            if ($uiMaxLimit === null || $max < $uiMaxLimit) {
-                $query->where('mileage', '<=', $max);
-            }
+        if ($min > 0) $query->where('listings.mileage', '>=', $min);
+        if ($max && ($uiMaxLimit === null || $max < $uiMaxLimit)) {
+            $query->where('listings.mileage', '<=', $max);
         }
         return $query;
     }
 
-    /**
-     * 年式範囲
-     */
     public function scopeYearBetween(Builder $query, ?int $min, ?int $max): Builder
     {
-        if ($min) $query->where('model_year', '>=', $min);
-        if ($max) $query->where('model_year', '<=', $max);
+        if ($min) $query->where('listings.model_year', '>=', $min);
+        if ($max) $query->where('listings.model_year', '<=', $max);
         return $query;
     }
 
     /**
-     * 排気量範囲 (BikeModelリレーションを使って検索)
+     * 排気量範囲 ( denormalized column 使用)
      */
     public function scopeDisplacementBetween(Builder $query, ?int $min, ?int $max): Builder
     {
-        // どちらも指定がなければ何もしない
-        if (!$min && !$max) {
-            return $query;
-        }
+        if (!$min && !$max) return $query;
 
-        // whereHas をやめて直接検索
-        if ($min) {
-            $query->where('displacement', '>=', $min);
-        }
-        if ($max) {
-            $query->where('displacement', '<=', $max);
-        }
+        if ($min) $query->where('listings.displacement', '>=', $min);
+        if ($max) $query->where('listings.displacement', '<=', $max);
         
         return $query;
     }

@@ -116,5 +116,9 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->hourly()
                  ->withoutOverlapping()
                  ->appendOutputTo($logPath);
+
+        $schedule->command('bikes:update-market-stats')
+                 ->dailyAt('05:00')
+                 ->withoutOverlapping();
     })
     ->create();
