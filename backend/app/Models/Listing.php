@@ -71,7 +71,8 @@ class Listing extends Model
         if ($bikeModelId) {
             $query->where('bike_model_id', $bikeModelId);
         } elseif ($manufacturerId) {
-            $query->whereHas('bikeModel', fn($q) => $q->where('manufacturer_id', $manufacturerId));
+            //$query->whereHas('bikeModel', fn($q) => $q->where('manufacturer_id', $manufacturerId));
+            $query->where('manufacturer_id', $manufacturerId);
         }
         return $query;
     }
@@ -82,7 +83,8 @@ class Listing extends Model
     public function scopeByCategory(Builder $query, ?int $categoryId): Builder
     {
         if (!$categoryId) return $query;
-        return $query->whereHas('bikeModel', fn($q) => $q->where('category_id', $categoryId));
+        //$return $query->whereHas('bikeModel', fn($q) => $q->where('category_id', $categoryId));
+        return $query->where('category_id', $categoryId);
     }
 
     /**
@@ -106,7 +108,7 @@ class Listing extends Model
 
     /**
      * 価格範囲
-     * ✨ 修正: $uiMaxLimit を null許容にし、デフォルト値を設定
+     * ✨ $uiMaxLimit を null許容にし、デフォルト値を設定
      */
     public function scopePriceBetween(Builder $query, ?int $min, ?int $max, ?int $uiMaxLimit = null): Builder
     {
@@ -158,15 +160,14 @@ class Listing extends Model
             return $query;
         }
 
-        // bikeModel リレーションの中で検索条件を適用
-        return $query->whereHas('bikeModel', function (Builder $q) use ($min, $max) {
-            if ($min) {
-                $q->where('displacement', '>=', $min);
-            }
-            if ($max) {
-                // 9999などの上限値設定がある場合はそれ以下
-                $q->where('displacement', '<=', $max);
-            }
-        });
+        // whereHas をやめて直接検索
+        if ($min) {
+            $query->where('displacement', '>=', $min);
+        }
+        if ($max) {
+            $query->where('displacement', '<=', $max);
+        }
+        
+        return $query;
     }
 }

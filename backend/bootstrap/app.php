@@ -111,5 +111,10 @@ return Application::configure(basePath: dirname(__DIR__))
         
         // 市場価格の再計算 (毎日 04:00)
         $schedule->command('bikes:update-market-stats')->dailyAt('04:00');
+
+        $schedule->command('bikes:optimize-search-data')
+                 ->hourly()
+                 ->withoutOverlapping()
+                 ->appendOutputTo($logPath);
     })
     ->create();
