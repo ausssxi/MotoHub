@@ -42,6 +42,12 @@
                 </button>
                 @endif
 
+                <!-- 相場ランキングリンク -->
+                <a href="{{ route('bikes.trends') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all uppercase tracking-widest" title="相場・価格変動ランキング">
+                    <i data-lucide="trending-up" class="w-4 h-4"></i>
+                    相場ランキング
+                </a>
+
                 <!-- お気に入りボタン -->
                 <a href="{{ route('wishlist') }}" class="relative flex flex-col items-center justify-center min-w-[56px] px-1 py-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all group" title="お気に入り一覧">
                     <span class="text-[9px] font-black leading-none mb-1 tracking-tighter uppercase">お気に入り</span>

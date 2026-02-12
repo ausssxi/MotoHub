@@ -7,6 +7,7 @@ use App\Http\Controllers\Bike\BikeController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\Api\BikeApiController;
 use App\Http\Controllers\Shop\ShopController;
+use App\Http\Controllers\Bike\TrendController;
 
 /**
  * MotoHub Route Definitions
@@ -53,6 +54,7 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     Route::get('/{id}', 'show')->name('show')->where('id', '[0-9]+'); 
 });
 
+Route::get('/bikes/trends', [TrendController::class, 'index'])->name('bikes.trends');
 Route::get('/shops/{id}', [ShopController::class, 'show'])->name('shops.show')->where('id', '[0-9]+');
 
 // お気に入り機能
