@@ -107,23 +107,16 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->dailyAt('06:00')
                  ->withoutOverlapping();
 
-        /**
+        /*
          * --- 4. Twitter Bot (自動投稿) ---
-         * 5分おきに高頻度チェックし、ゴールデンタイム内でのツイート漏れを防止
          */
         
-        // お買い得車両 (お昼、夕方、夜の3つの枠)
+        // お買い得車両 (1時間に1回チェック)
+        // 条件に合う掘り出し物があればツイート、なければスキップ
         $schedule->command('bikes:tweet-bargains')
-                 ->daily()->between('12:00', '13:00')->everyFiveMinutes()
-                 ->withoutOverlapping()->appendOutputTo($bargainLog);
-        
-        $schedule->command('bikes:tweet-bargains')
-                 ->daily()->between('18:00', '19:00')->everyFiveMinutes()
-                 ->withoutOverlapping()->appendOutputTo($bargainLog);
-        
-        $schedule->command('bikes:tweet-bargains')
-                 ->daily()->between('21:00', '23:00')->everyFiveMinutes()
-                 ->withoutOverlapping()->appendOutputTo($bargainLog);
+                 ->hourly()
+                 ->withoutOverlapping()
+                 ->appendOutputTo($bargainLog);
 
         // 新着レビューの紹介 (毎日 12:15 と 20:00)
         $schedule->command('bikes:tweet-reviews')
