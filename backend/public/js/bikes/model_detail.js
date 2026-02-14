@@ -1,6 +1,44 @@
+/**
+ * MotoHub Model Detail Page Scripts
+ * 統計データの数値反映とチャート描画を行います。
+ */
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. 価格分布チャート (Stats)
+    // グローバル変数からデータを取得（Blade側で window.bikeModelStats = ... と定義されている前提）
     const stats = window.bikeModelStats || {};
+    const history = window.bikeModelHistory || {};
+
+    // ==========================================
+    // 0. 統計数値・ローディング表示のDOM更新
+    // ==========================================
+    const loading = document.getElementById('price-stats-loading');
+    const content = document.getElementById('price-stats-content');
+
+    // データがある場合のみ数値を反映して表示
+    if (stats && stats.count > 0) {
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+
+        // HTML側のID (stat-avgなど) に数値をセット
+        setVal('stat-avg', stats.avg);
+        setVal('stat-min', stats.min);
+        setVal('stat-max', stats.max);
+
+        // ローディングを消してコンテンツを表示
+        if (loading) loading.style.display = 'none';
+        if (content) {
+            content.classList.remove('hidden');
+            content.classList.add('animate-in', 'fade-in');
+        }
+    } else {
+        // データがない場合
+        if (loading) loading.innerHTML = '<p class="text-xs text-gray-400 font-bold">データが不足しています</p>';
+    }
+
+    // ==========================================
+    // 1. 価格分布チャート (Stats)
+    // ==========================================
     if (stats.distribution && stats.distribution.length > 0) {
         const chartCanvas = document.getElementById('priceChart');
         if (chartCanvas) {
@@ -42,8 +80,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ==========================================
     // 2. 価格推移チャート (History)
-    const history = window.bikeModelHistory || {};
+    // ==========================================
     if (history.prices && history.prices.length > 0) {
         const historyCanvas = document.getElementById('historyChart');
         if (historyCanvas) {

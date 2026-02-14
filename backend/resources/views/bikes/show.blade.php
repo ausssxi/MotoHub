@@ -20,9 +20,18 @@
     <x-slot:scripts>
         <script src="{{ asset('js/compare/manager.js') }}"></script>
         <script src="{{ asset('js/compare/ui.js') }}"></script>
-        <script src="{{ asset('js/bikes/stats.js') }}"></script>
         <script src="{{ asset('js/bikes/loan-simulator.js') }}"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+        {{-- ★修正: 古い stats.js を削除し、データをJS変数に渡して model_detail.js で描画する --}}
+        <script>
+            // コントローラーから渡された高速データをJS変数に入れる
+            // これにより、API通信なしで即座にグラフが表示されます
+            window.bikeModelStats = {!! json_encode($stats ?? [], JSON_HEX_TAG) !!};
+        </script>
+        
+        {{-- 共通化したチャート描画＆数値反映スクリプトを読み込み --}}
+        <script src="{{ asset('js/bikes/model_detail.js') }}"></script>
     </x-slot:scripts>
 
     <x-slot:navigation>
