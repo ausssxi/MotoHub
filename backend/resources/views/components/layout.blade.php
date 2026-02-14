@@ -16,20 +16,24 @@
     <meta property="og:site_name" content="MotoHub" />
     <meta property="og:locale" content="ja_JP" />
 
-    {{-- OGP画像: 各ページで指定があればそれ、なければデフォルト(twitter_card.png) --}}
-    <meta property="og:image" content="{{ $ogImage ?? asset('images/twitter_card.png') }}" />
+    {{-- OGP画像: 各ページで指定があればそれ、なければデフォルト(twitter_template.png) --}}
+    <meta property="og:image" content="{{ $ogImage ?? asset('images/twitter_template.png') }}" />
 
     {{-- Twitter Card設定 --}}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="{{ $title ?? 'MotoHub' }}" />
     <meta name="twitter:description" content="{{ $metaDescription ?? '日本最大級のバイク検索・比較プラットフォーム。' }}" />
-    <meta name="twitter:image" content="{{ $ogImage ?? asset('images/twitter_card.png') }}" />
+    <meta name="twitter:image" content="{{ $ogImage ?? asset('images/twitter_template.png') }}" />
+    
+    {{-- CSRFトークン（Ajax通信に必須） --}}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="//unpkg.com/alpinejs" defer></script>
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="{{ asset('images/apple-touch-icon.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
     
     {{-- ページごとの独自のCSS --}}
     {{ $styles ?? '' }}
@@ -95,10 +99,18 @@
             img.style.opacity = '0.5';
         }
 
-        // ページ読み込み時にアイコンを初期化
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
+        document.addEventListener('DOMContentLoaded', () => {
+            // ★修正: 明示的に json_encode を使用して true/false を出力
+            const isLoggedIn = {{ json_encode(Auth::check()) }};
+            
+            if (typeof WishlistManager !== 'undefined') {
+                WishlistManager.init(isLoggedIn);
+            }
+            
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        });
     </script>
 </body>
 </html>

@@ -27,6 +27,11 @@ RUN apt-get update && apt-get install -y \
     # -----------------------
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# ★追加: Node.js と npm のインストール (Node.js 20系)
+# Laravel Breeze (Vite) のビルドに必要です
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs
+
 # PHP 拡張のインストール (MySQL, GD等)
 # ★修正: GDの設定(configure)を追加して、FreeTypeを有効にする
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \

@@ -45,4 +45,14 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    /**
+     * ★ここから下を追加しました
+     * お気に入り車両とのリレーション
+     */
+    public function favorites(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Listing::class, 'favorites', 'user_id', 'listing_id')
+                    ->withTimestamps();
+    }
 }

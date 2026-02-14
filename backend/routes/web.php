@@ -8,6 +8,8 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\Api\BikeApiController;
 use App\Http\Controllers\Shop\ShopController;
 use App\Http\Controllers\Bike\TrendController;
+use App\Http\Controllers\Api\FavoriteController; // お気に入りAPI
+use App\Http\Controllers\ProfileController; // Breeze用
 
 /**
  * MotoHub Route Definitions
@@ -17,25 +19,21 @@ use App\Http\Controllers\Bike\TrendController;
  */
 
 // 1. 車種一覧ページ
-// 旧: /models -> 新: /bikes/models
 Route::redirect('/models', '/bikes/models', 301);
 
-// 2. 検索ページ (クエリパラメータ ?keyword=... を引き継ぐ)
-// 旧: /search -> 新: /bikes/search
+// 2. 検索ページ
 Route::get('/search', function (Request $request) {
-    // 301リダイレクト (クエリパラメータを維持)
     return redirect()->route('bikes.search', $request->all(), 301);
 });
 
 // 3. サジェスト機能
-// 旧: /suggest -> 新: /bikes/suggest
 Route::get('/suggest', function (Request $request) {
     return redirect()->route('bikes.suggest', $request->all(), 301);
 });
 
 /**
  * ==========================================
- * メインルート設定
+ * メインルート設定 (MotoHub)
  * ==========================================
  */
 
@@ -47,17 +45,27 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     Route::get('/search', 'search')->name('search');    // /bikes/search
     Route::get('/models', 'models')->name('models');    // /bikes/models
     Route::get('/suggest', 'suggest')->name('suggest'); // /bikes/suggest
-    Route::get('/prefectures', 'prefectures')->name('prefectures'); 
-    Route::get('/models/{id}', 'modelDetail')->name('model_detail')->where('id', '[0-9]+');
+    Route::get('/prefectures', 'prefectures')->name('prefectures');
+    
+    // SEO着地ページ
     Route::get('/area/{prefecture}/{slug}', 'landing')->name('landing');
+    
+    // トレンド・ランキング
+    Route::get('/trends', [TrendController::class, 'index'])->name('trends');
+
+    // 車種別カタログページ
+    Route::get('/models/{id}', 'modelDetail')->name('model_detail')->where('id', '[0-9]+');
+    
+    // レビュー投稿
     Route::post('/models/{id}/reviews', 'storeReview')->name('model_detail.review');
+
+    // 詳細ページ (ID指定) - 他の固定ルートより後に書く
     Route::get('/{id}', 'show')->name('show')->where('id', '[0-9]+'); 
 });
 
-Route::get('/bikes/trends', [TrendController::class, 'index'])->name('bikes.trends');
 Route::get('/shops/{id}', [ShopController::class, 'show'])->name('shops.show')->where('id', '[0-9]+');
 
-// お気に入り機能
+// お気に入り・比較機能 (未ログインでも閲覧可能なページ)
 Route::get('/wishlist', [BikeController::class, 'wishlist'])->name('wishlist');
 Route::get('/api/wishlist/fetch', [BikeController::class, 'fetchWishlist'])->name('api.wishlist.fetch');
 Route::get('/compare', [BikeController::class, 'compare'])->name('bikes.compare');
@@ -66,7 +74,7 @@ Route::get('/compare', [BikeController::class, 'compare'])->name('bikes.compare'
 Route::prefix('api')->group(function () {
     Route::get('/bikes/count', [BikeApiController::class, 'count']);
     Route::get('/manufacturers/{manufacturer}/models', [BikeApiController::class, 'models']);
-    Route::get('/stats/price/{bikeModelId}', [App\Http\Controllers\Api\StatsApiController::class, 'getPriceStats']);
+    Route::get('/stats/price/{bikeModelId}', [App\Http\Controllers\Api\StatsController::class, 'getPriceStats']);
 });
 
 // 固定ページ (運営者情報など)
@@ -77,3 +85,29 @@ Route::prefix('pages')->name('pages.')->group(function () {
     Route::get('/privacy-policy', [PageController::class, 'privacyPolicy'])->name('privacy-policy');
     Route::get('/terms', [PageController::class, 'terms'])->name('terms');
 });
+
+/**
+ * ==========================================
+ * 会員機能ルート (Breeze & お気に入り)
+ * ==========================================
+ */
+
+// ログイン後のダッシュボード (マイページ)
+Route::get('/dashboard', function () {
+    return view('dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
+
+// 認証が必要な機能グループ
+Route::middleware('auth')->group(function () {
+    // お気に入りAPI (DB保存)
+    Route::post('/api/favorites/toggle', [FavoriteController::class, 'toggle'])->name('api.favorites.toggle');
+    Route::get('/api/favorites/ids', [FavoriteController::class, 'index'])->name('api.favorites.ids');
+    
+    // プロフィール編集 (Breeze標準)
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+// Breezeの認証ルート読み込み (login, register等)
+require __DIR__.'/auth.php';
