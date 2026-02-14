@@ -13,6 +13,7 @@
         <script src="{{ asset('js/common/custom-dropdown.js') }}"></script>
         <script src="{{ asset('js/compare/manager.js') }}"></script>
         <script src="{{ asset('js/compare/ui.js') }}"></script>
+        <script src="{{ asset('js/search/save_condition.js') }}"></script>
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -164,6 +165,31 @@
                                     ({{ number_format($pagination['total']) }}台)
                                 </span>
                             </button>
+                        </div>
+
+                        {{-- ★追加: 検索条件保存ボタンエリア --}}
+                        <div class="mt-8 pt-6 border-t border-gray-100">
+                            <div class="text-center mb-3">
+                                <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                                    <i data-lucide="bell" class="w-3 h-3 inline mr-0.5"></i>新着通知を受け取る
+                                </span>
+                            </div>
+                            
+                            @auth
+                                <button type="button" id="save-search-btn" class="w-full bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-black py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm group">
+                                    <i data-lucide="bookmark" class="w-4 h-4 group-hover:fill-current"></i>
+                                    この条件を保存する
+                                </button>
+                            @else
+                                <a href="{{ route('login') }}" class="block w-full bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold py-3 rounded-xl transition-all text-center text-xs flex items-center justify-center gap-2">
+                                    <i data-lucide="lock" class="w-3 h-3"></i>
+                                    ログインして条件を保存
+                                </a>
+                            @endauth
+                            
+                            <p class="text-[9px] text-gray-400 mt-2 text-center">
+                                条件に合うバイクが入荷したらメールでお知らせします。
+                            </p>
                         </div>
                     </form>
                 </div>

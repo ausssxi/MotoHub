@@ -10,6 +10,7 @@ use App\Http\Controllers\Shop\ShopController;
 use App\Http\Controllers\Bike\TrendController;
 use App\Http\Controllers\Api\FavoriteController; // お気に入りAPI
 use App\Http\Controllers\ProfileController; // Breeze用
+use App\Http\Controllers\Api\SavedSearchController; // 検索条件保存API
 
 /**
  * MotoHub Route Definitions
@@ -102,7 +103,10 @@ Route::middleware('auth')->group(function () {
     // お気に入りAPI (DB保存)
     Route::post('/api/favorites/toggle', [FavoriteController::class, 'toggle'])->name('api.favorites.toggle');
     Route::get('/api/favorites/ids', [FavoriteController::class, 'index'])->name('api.favorites.ids');
-    
+
+    // 検索条件の保存API
+    Route::post('/api/saved-searches', [SavedSearchController::class, 'store'])->name('api.saved_searches.store');
+
     // プロフィール編集 (Breeze標準)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
