@@ -57,10 +57,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             // 【スマホ対策】幅と余白の設定
             th.className = 'p-2 sm:p-4 w-48 sm:w-60 min-w-[192px] sm:min-w-[240px] max-w-[192px] sm:max-w-[240px] border-l border-gray-100 relative group snap-start bike-col-' + bike.id;
             
-            // ★修正: 画像がある場合はそれを使用、なければプレースホルダーURLを使用
-            const displayImage = (bike.images && bike.images.length > 0) 
-                ? bike.images[0] 
-                : PLACEHOLDER_IMG;
+            // 画像がある場合はそれを使用、なければプレースホルダーURLを使用
+            // 画像がない場合は最初からグレーアウトさせるためのフラグ
+            let displayImage;
+            let initialClass = '';
+
+            if (bike.images && bike.images.length > 0) {
+                displayImage = bike.images[0];
+            } else {
+                displayImage = PLACEHOLDER_IMG;
+                // ★修正: 画像がない場合は最初からグレーアウトと透明度を適用
+                initialClass = 'grayscale opacity-50';
+            }
 
             th.innerHTML = `
                 <button class="remove-this absolute top-1 right-1 sm:top-2 sm:right-2 text-gray-300 hover:text-red-500 transition-colors z-10" data-id="${bike.id}">
@@ -69,12 +77,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 <div class="rounded-lg sm:rounded-xl overflow-hidden mb-2 sm:mb-3 shadow-sm bg-gray-50 relative aspect-[4/3]">
                     <img src="${displayImage}" 
-                         class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${initialClass}"
                          alt="${bike.name}"
                          onerror="this.onerror=null; this.src='${PLACEHOLDER_IMG}'; this.classList.add('grayscale', 'opacity-50');">
-                         
-                    ${(!bike.images || bike.images.length === 0) ? 
-                        '<div class="absolute inset-0 flex items-center justify-center pointer-events-none"><i data-lucide="image-off" class="w-8 h-8 text-white/50"></i></div>' : ''}
                 </div>
 
                 <div class="bike-name-container text-left font-bold text-gray-800 text-xs sm:text-sm leading-tight line-clamp-2 min-h-[2.5em] mb-1"></div>
