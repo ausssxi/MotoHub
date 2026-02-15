@@ -61,13 +61,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             // 画像がない場合は最初からグレーアウトさせるためのフラグ
             let displayImage;
             let initialClass = '';
+            let noImageOverlay = '';
 
             if (bike.images && bike.images.length > 0) {
                 displayImage = bike.images[0];
             } else {
                 displayImage = PLACEHOLDER_IMG;
-                // ★修正: 画像がない場合は最初からグレーアウトと透明度を適用
+                // 画像がない場合は最初からグレーアウトと透明度を適用
                 initialClass = 'grayscale opacity-50';
+                // アイコン追加
+                noImageOverlay = `
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <i data-lucide="image-off" class="w-8 h-8 text-white/50"></i>
+                    </div>
+                `;
             }
 
             th.innerHTML = `
@@ -80,6 +87,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                          class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${initialClass}"
                          alt="${bike.name}"
                          onerror="this.onerror=null; this.src='${PLACEHOLDER_IMG}'; this.classList.add('grayscale', 'opacity-50');">
+                    
+                    ${noImageOverlay}
                 </div>
 
                 <div class="bike-name-container text-left font-bold text-gray-800 text-xs sm:text-sm leading-tight line-clamp-2 min-h-[2.5em] mb-1"></div>

@@ -102,6 +102,10 @@
                                 <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop" 
                                      class="w-full h-full object-cover grayscale opacity-50" 
                                      alt="No Image">
+
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <i data-lucide="image-off" class="w-8 h-8 text-white/50"></i>
+                                </div>
                             @endif
                             
                             {{-- 画像枚数バッジ --}}

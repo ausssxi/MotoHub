@@ -95,12 +95,18 @@ function renderWishlistItems(items, container) {
         // 画像設定
         let displayImage = PLACEHOLDER_IMG;
         let imgClass = 'w-full h-full object-cover group-hover:scale-110 transition-transform duration-700';
+        let noImageOverlay = '';
 
         if (bike.images && bike.images.length > 0) {
             displayImage = bike.images[0];
         } else {
-            // 画像がない場合は最初からグレーアウト
+            // 画像がない場合は最初からグレーアウトし、アイコンを表示
             imgClass += ' grayscale opacity-50';
+            noImageOverlay = `
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <i data-lucide="image-off" class="w-8 h-8 text-white/50"></i>
+                </div>
+            `;
         }
 
         // 売り切れの場合もグレーアウト
@@ -139,6 +145,8 @@ function renderWishlistItems(items, container) {
                      class="${imgClass}" 
                      alt="${bike.name}"
                      onerror="this.onerror=null; this.src='${PLACEHOLDER_IMG}'; this.classList.add('grayscale', 'opacity-50');">
+                
+                ${noImageOverlay}
                 
                 ${badgeHtml}
 
