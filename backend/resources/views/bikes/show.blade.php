@@ -87,14 +87,14 @@
                                 {{-- A. 背景用（拡大・ぼかし） --}}
                                 <div class="absolute inset-0 z-0">
                                     <img src="{{ $listing->images[0] }}" 
-                                        onerror="handleImageError(this)"
+                                        onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
                                         class="w-full h-full object-cover blur-2xl opacity-50 scale-110" aria-hidden="true">
                                 </div>
                                 
                                 {{-- B. 表示用（元サイズ維持・中央配置） --}}
                                 <div class="absolute inset-0 z-10 flex items-center justify-center p-1">
                                     <img src="{{ $listing->images[0] }}" alt="{{ $listing->name }}" 
-                                        onerror="handleImageError(this)"
+                                        onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
                                         class="max-w-full max-h-full object-contain shadow-sm">
                                 </div>
                             @else
@@ -116,7 +116,7 @@
                             @foreach($listing->images as $img)
                                 <button class="shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-600 transition-all bg-gray-50">
                                     <img src="{{ $img }}" 
-                                        onerror="handleImageError(this)"
+                                        onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
                                         class="w-full h-full object-cover">
                                 </button>
                             @endforeach

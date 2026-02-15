@@ -31,16 +31,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="//unpkg.com/alpinejs" defer></script>
-    <script>
-        function handleImageError(img) {
-            // 無限ループ防止
-            img.onerror = null;
-            // 代替画像に差し替え
-            img.src = 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop';
-            // スタイル適用 (グレーアウト等)
-            img.classList.add('grayscale', 'opacity-50');
-        }
-    </script>
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
     <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
