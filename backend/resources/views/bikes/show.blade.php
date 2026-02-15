@@ -98,8 +98,12 @@
                                         class="max-w-full max-h-full object-contain shadow-sm">
                                 </div>
                             @else
-                                <div class="flex items-center justify-center h-full text-gray-300">
-                                    <i data-lucide="image-off" class="w-12 h-12"></i>
+                                {{-- ★修正: 画像データがない(@else)場合も、ダミー画像を表示して統一感を出す --}}
+                                <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop" 
+                                     class="w-full h-full object-cover grayscale opacity-50" 
+                                     alt="No Image">
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <i data-lucide="image-off" class="w-16 h-16 text-white/50"></i>
                                 </div>
                             @endif
                             
