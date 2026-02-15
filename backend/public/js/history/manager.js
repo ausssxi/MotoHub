@@ -51,7 +51,10 @@ const HistoryManager = {
             // 並び替え（履歴順）
             bikes.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
 
-            // HTML生成（詳細ページの「関連車両」のデザインに統一）
+            // ダミー画像URL
+            const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop';
+
+            // HTML生成
             let html = `
                 <div class="flex items-center gap-2 mb-6">
                     <div class="p-2 bg-gray-100 rounded-lg text-gray-600">
@@ -63,7 +66,22 @@ const HistoryManager = {
             `;
 
             bikes.forEach(bike => {
-                const image = (bike.images && bike.images.length > 0) ? bike.images[0] : '/images/placeholder-bike.png';
+                // 画像表示ロジック (お気に入り一覧などと統一)
+                let displayImage = PLACEHOLDER_IMG;
+                let imgClass = 'w-full h-full object-cover group-hover:scale-105 transition-transform duration-500';
+                let noImageOverlay = '';
+
+                if (bike.images && bike.images.length > 0) {
+                    displayImage = bike.images[0];
+                } else {
+                    imgClass += ' grayscale opacity-50';
+                    // ★追加: 画像なしアイコン
+                    noImageOverlay = `
+                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <i data-lucide="image-off" class="w-8 h-8 text-white/50"></i>
+                        </div>
+                    `;
+                }
                 
                 // 価格表示ロジック
                 const priceBadge = bike.total_price 
@@ -73,10 +91,12 @@ const HistoryManager = {
                 html += `
                     <a href="/bikes/${bike.id}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
                         <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
-                            <img src="${image}" 
-                                onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
-                                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                                alt="${bike.name}">
+                            <img src="${displayImage}" 
+                                 onerror="this.onerror=null; this.src='${PLACEHOLDER_IMG}'; this.classList.add('grayscale', 'opacity-50');"
+                                 class="${imgClass}" 
+                                 alt="${bike.name}">
+                            
+                            ${noImageOverlay}
                             ${priceBadge}
                         </div>
                         <div class="p-3">
