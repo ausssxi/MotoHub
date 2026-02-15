@@ -22,23 +22,17 @@ const initWishlistPage = async () => {
         return;
     }
 
-    // ★修正: IDの取得待ち (Managerの初期化完了を待つ)
-    // Managerが存在しても、データロード(init)が終わっていない可能性があるため、
-    // IDが取れるまで少しリトライします。
+    // IDの取得待ち
     let ids = [];
     let loadRetry = 0;
     while (loadRetry < 10) {
         ids = WishlistManager.getIds();
-        if (ids.length > 0) break; // IDが取れたらループを抜ける
-        
-        // まだ0件なら少し待ってみる
+        if (ids.length > 0) break;
         await new Promise(resolve => setTimeout(resolve, 200));
         loadRetry++;
     }
     
-    console.log('Wishlist IDs loaded:', ids); // ★デバッグ用
-
-    // それでもIDがなければ空表示
+    // IDがなければ空表示
     if (ids.length === 0) {
         showEmptyState();
         return;
@@ -50,26 +44,21 @@ const initWishlistPage = async () => {
         const response = await fetch(`/api/wishlist/fetch?ids=${ids.join(',')}`);
         if (!response.ok) throw new Error('API request failed');
         
-        const data = await response.json(); // 実在する車両データのリスト
-        console.log('Fetched data:', data); // ★デバッグ用
+        const data = await response.json();
         
         if (loading) loading.classList.add('hidden');
 
         // データの自動クリーニング処理
         if (data) {
             const validIds = data.map(item => item.id);
-            // ゴミデータ（DBにはあるが車両がないID）を抽出
             const staleIds = ids.filter(id => !validIds.includes(parseInt(id)));
 
             if (staleIds.length > 0) {
                 console.log('Cleaning up stale favorites:', staleIds);
-                // ゴミデータを1つずつ削除APIで消す
                 staleIds.forEach(id => {
                     WishlistManager.toggle(id); 
                 });
             }
-            
-            // Managerの内部リストも正しいものに同期
             WishlistManager.sync(validIds);
         }
 
@@ -96,16 +85,28 @@ const initWishlistPage = async () => {
     }
 };
 
-// ... (renderWishlistItems 以降は変更なし) ...
 /**
  * 車両カードの生成
  */
 function renderWishlistItems(items, container) {
+    const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop';
+
     container.innerHTML = items.map(bike => {
-        // 画像配列の1枚目を取得、なければプレースホルダー
-        const displayImage = (bike.images && bike.images.length > 0) 
-            ? bike.images[0] 
-            : 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop';
+        // 画像設定
+        let displayImage = PLACEHOLDER_IMG;
+        let imgClass = 'w-full h-full object-cover group-hover:scale-110 transition-transform duration-700';
+
+        if (bike.images && bike.images.length > 0) {
+            displayImage = bike.images[0];
+        } else {
+            // 画像がない場合は最初からグレーアウト
+            imgClass += ' grayscale opacity-50';
+        }
+
+        // 売り切れの場合もグレーアウト
+        if (bike.is_sold_out) {
+            imgClass += ' grayscale';
+        }
 
         // お買い得バッジ
         let badgeHtml = '';
@@ -135,9 +136,9 @@ function renderWishlistItems(items, container) {
                 ${soldOutOverlay}
                 
                 <img src="${displayImage}" 
-                     class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${bike.is_sold_out ? 'grayscale' : ''}" 
+                     class="${imgClass}" 
                      alt="${bike.name}"
-                     onerror="this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.style.filter='grayscale(100%)'; this.style.opacity='0.5';">
+                     onerror="this.onerror=null; this.src='${PLACEHOLDER_IMG}'; this.classList.add('grayscale', 'opacity-50');">
                 
                 ${badgeHtml}
 
