@@ -8,15 +8,12 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
-use App\Services\Bike\BikeService;
-use App\Services\Bike\PriceStatsService;
-use App\Models\BikeModel;
+use App\Services\Page\SellService; // 新しく作ったサービス
 
 class SellController extends Controller
 {
     public function __construct(
-        private readonly BikeService $bikeService,
-        private readonly PriceStatsService $priceStatsService
+        private readonly SellService $sellService
     ) {}
 
     /**
@@ -24,8 +21,8 @@ class SellController extends Controller
      */
     public function index(): View
     {
-        // メーカー一覧を ID順 で取得（国内メーカーを先頭にするため）
-        $manufacturers = $this->bikeService->getAllManufacturersById();
+        // サービスからデータを取得
+        $manufacturers = $this->sellService->getManufacturersForForm();
         
         return view('pages.sell', compact('manufacturers'));
     }
@@ -35,24 +32,21 @@ class SellController extends Controller
      */
     public function calculate(Request $request): JsonResponse
     {
-        $request->validate([
-            'bike_model_id' => 'required|integer|exists:bike_models,id',
+        $validated = $request->validate([
+            'bike_model_id' => 'required|integer',
             'year' => 'nullable|integer|min:1980|max:' . (date('Y') + 1),
         ]);
 
-        $modelId = (int)$request->input('bike_model_id');
-        $year = $request->input('year') ? (int)$request->input('year') : null;
+        $modelId = (int)$validated['bike_model_id'];
+        $year = !empty($validated['year']) ? (int)$validated['year'] : null;
 
-        // 車種情報の取得
-        $model = BikeModel::with('manufacturer')->find($modelId);
-        
-        // 査定額の計算
-        $result = $this->priceStatsService->estimatePurchasePrice($modelId, $year);
+        // ビジネスロジックを実行
+        $result = $this->sellService->calculateAssessment($modelId, $year);
 
-        return response()->json(array_merge($result, [
-            'model_name' => $model->name,
-            'maker_name' => $model->manufacturer->name,
-            'year' => $year,
-        ]));
+        if (isset($result['status']) && $result['status'] === 'error') {
+             return response()->json($result, 404);
+        }
+
+        return response()->json($result);
     }
 }

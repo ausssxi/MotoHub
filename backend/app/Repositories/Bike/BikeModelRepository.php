@@ -13,6 +13,14 @@ use Illuminate\Support\Collection;
 final class BikeModelRepository
 {
     /**
+     * IDで車種を検索（メーカー情報付き）
+     */
+    public function findWithManufacturer(int $id): ?BikeModel
+    {
+        return BikeModel::with('manufacturer')->find($id);
+    }
+    
+    /**
      * IDから特定の車種を取得する
      */
     public function find(int $id): ?BikeModel

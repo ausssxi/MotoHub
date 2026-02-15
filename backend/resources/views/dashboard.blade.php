@@ -1,6 +1,19 @@
 <x-layout>
     <x-slot:title>マイページ - MotoHub</x-slot:title>
 
+    {{-- 履歴表示用のスクリプト --}}
+    <x-slot:scripts>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                // ダッシュボード用の履歴表示を実行
+                // HistoryManagerはレイアウト側で既に読み込まれています
+                if (typeof HistoryManager !== 'undefined') {
+                    HistoryManager.render('dashboard-history-widget');
+                }
+            });
+        </script>
+    </x-slot:scripts>
+
     <x-slot:navigation>
         <x-navigation :showSearch="true" />
     </x-slot:navigation>
@@ -44,14 +57,16 @@
                         </div>
                     </div>
 
-                    {{-- 検索履歴（今はまだないですが将来用） --}}
-                    <div class="bg-white overflow-hidden shadow-sm rounded-2xl border border-gray-100 opacity-60">
+                    {{-- 検索履歴 --}}
+                    <div class="bg-white overflow-hidden shadow-sm rounded-2xl border border-gray-100">
                         <div class="p-6">
-                            <h3 class="text-lg font-black text-gray-900 flex items-center gap-2 mb-2">
-                                <i data-lucide="history" class="w-5 h-5 text-gray-400"></i>
-                                最近見たバイク
-                            </h3>
-                            <p class="text-xs text-gray-400 font-bold">※この機能は準備中です</p>
+                            {{-- JSでここに履歴が描画されます --}}
+                            <div id="dashboard-history-widget">
+                                <div class="flex items-center gap-2 mb-4 text-gray-400">
+                                    <i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
+                                    <span class="text-xs font-bold">履歴を読み込み中...</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

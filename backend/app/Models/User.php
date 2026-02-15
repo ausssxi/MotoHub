@@ -47,12 +47,21 @@ class User extends Authenticatable
     }
 
     /**
-     * ★ここから下を追加しました
      * お気に入り車両とのリレーション
      */
     public function favorites(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(Listing::class, 'favorites', 'user_id', 'listing_id')
                     ->withTimestamps();
+    }
+
+    /**
+     * 閲覧履歴 (更新日時順)
+     */
+    public function browsingHistories(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Listing::class, 'browsing_histories', 'user_id', 'listing_id')
+                    ->withTimestamps()
+                    ->orderByPivot('updated_at', 'desc');
     }
 }

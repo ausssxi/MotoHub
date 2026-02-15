@@ -1,12 +1,32 @@
 /**
  * MotoHub Browsing History Logic
- * 閲覧履歴の保存(LocalStorage)と、ウィジェットの描画を担当します。
+ * 閲覧履歴の保存(LocalStorage/DB)と、ウィジェットの描画を担当します。
  */
 const HISTORY_KEY = 'motohub_history';
 const MAX_HISTORY = 20;
 
 const HistoryManager = {
-    getIds() {
+    // 状態管理
+    localIds: [],
+    isLoggedIn: false,
+
+    async init(loggedIn) {
+        this.isLoggedIn = loggedIn;
+        this.localIds = this.getLocalIds();
+
+        if (this.isLoggedIn) {
+            // 1. 未ログイン時の履歴があればサーバーへ同期（統合）
+            if (this.localIds.length > 0) {
+                await this.syncToServer(this.localIds);
+                // 同期後はローカルをクリアして、今後はサーバーから取得するようにする？
+                // あるいはハイブリッドにする？ -> 今回は「常に最新IDリストをAPIから取る」形にする
+                localStorage.removeItem(HISTORY_KEY);
+            }
+        }
+    },
+
+    // ローカルストレージから取得
+    getLocalIds() {
         try {
             const stored = localStorage.getItem(HISTORY_KEY);
             return stored ? JSON.parse(stored) : [];
@@ -16,27 +36,97 @@ const HistoryManager = {
         }
     },
 
-    push(id) {
+    /**
+     * 履歴に追加 (ページアクセス時に呼ぶ)
+     */
+    async push(id) {
         if (!id) return;
-        let ids = this.getIds();
-        ids = ids.filter(i => i !== id);
-        ids.unshift(id);
-        if (ids.length > MAX_HISTORY) ids = ids.slice(0, MAX_HISTORY);
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(ids));
+
+        if (this.isLoggedIn) {
+            // サーバーへ記録
+            try {
+                // CSRFトークンが必要
+                const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+                const token = tokenMeta ? tokenMeta.content : '';
+                
+                await fetch('/api/history/record', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': token
+                    },
+                    body: JSON.stringify({ listing_id: id })
+                });
+            } catch (e) {
+                console.error('Failed to record history', e);
+            }
+        } else {
+            // ローカルへ記録
+            let ids = this.getLocalIds();
+            ids = ids.filter(i => i !== id); // 重複排除
+            ids.unshift(id); // 先頭に追加
+            if (ids.length > MAX_HISTORY) ids = ids.slice(0, MAX_HISTORY);
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(ids));
+        }
     },
 
+    /**
+     * サーバーへ同期
+     */
+    async syncToServer(ids) {
+        try {
+            const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+            if (!tokenMeta) return;
+
+            await fetch('/api/history/sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': tokenMeta.content
+                },
+                body: JSON.stringify({ ids: ids })
+            });
+        } catch (e) {
+            console.error('Sync failed', e);
+        }
+    },
+
+    /**
+     * 履歴IDリストを取得（状況に応じてソースを変える）
+     */
+    async fetchIds() {
+        if (this.isLoggedIn) {
+            try {
+                const response = await fetch('/api/history/ids');
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+            return [];
+        } else {
+            return this.getLocalIds();
+        }
+    },
+
+    /**
+     * 描画処理
+     */
     async render(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
 
-        const ids = this.getIds();
+        // ★修正: 非同期でIDリストを取得
+        const ids = await this.fetchIds();
+
         if (ids.length === 0) {
             container.classList.add('hidden');
             return;
         }
 
         try {
-            // APIからデータ取得
+            // APIからデータ取得 (ListingResourceの形式)
             const response = await fetch(`/api/wishlist/fetch?ids=${ids.join(',')}`);
             if (!response.ok) throw new Error('API Error');
             
@@ -48,8 +138,16 @@ const HistoryManager = {
                 return;
             }
 
-            // 並び替え（履歴順）
-            bikes.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+            // 並び替え（履歴順＝IDリストの順序に合わせる）
+            // ids配列の順番通りに bikes をソートする
+            bikes.sort((a, b) => {
+                const indexA = ids.indexOf(a.id);
+                const indexB = ids.indexOf(b.id);
+                // IDリストにないものは後ろへ
+                if (indexA === -1) return 1;
+                if (indexB === -1) return -1;
+                return indexA - indexB;
+            });
 
             // ダミー画像URL
             const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop';
@@ -66,16 +164,15 @@ const HistoryManager = {
             `;
 
             bikes.forEach(bike => {
-                // 画像表示ロジック (お気に入り一覧などと統一)
+                // 画像表示ロジック
                 let displayImage = PLACEHOLDER_IMG;
-                let imgClass = 'w-full h-full object-cover group-hover:scale-105 transition-transform duration-500';
+                let imgClass = 'w-full h-full object-cover group-hover:scale-110 transition-transform duration-500';
                 let noImageOverlay = '';
 
                 if (bike.images && bike.images.length > 0) {
                     displayImage = bike.images[0];
                 } else {
                     imgClass += ' grayscale opacity-50';
-                    // ★追加: 画像なしアイコン
                     noImageOverlay = `
                         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <i data-lucide="image-off" class="w-8 h-8 text-white/50"></i>
@@ -83,7 +180,6 @@ const HistoryManager = {
                     `;
                 }
                 
-                // 価格表示ロジック
                 const priceBadge = bike.total_price 
                     ? `<div class="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-black">${bike.total_price}万円</div>`
                     : '<div class="absolute bottom-2 right-2 bg-gray-500/80 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-bold">価格未定</div>';
