@@ -50,10 +50,10 @@ class GenerateSitemap extends Command
             ['route' => 'bikes.search',      'priority' => '0.9', 'freq' => 'daily'],
             ['route' => 'bikes.models',      'priority' => '0.9', 'freq' => 'weekly'],
             
-            // ★追加: 買取査定LP (SEO重要度・収益性が高いので優先度高めに)
+            // 買取査定LP (SEO重要度・収益性が高いので優先度高めに)
             ['route' => 'sell.index',        'priority' => '0.9', 'freq' => 'weekly'],
             
-            // ★追加: 相場ランキング (データが毎日変わるので daily)
+            // 相場ランキング (データが毎日変わるので daily)
             ['route' => 'bikes.trends',      'priority' => '0.8', 'freq' => 'daily'],
 
             // ツール系
@@ -143,6 +143,10 @@ class GenerateSitemap extends Command
         $manufacturers = Manufacturer::all();
         $categories = Category::all();
 
+        // 排気量キーワードリスト (SeoLandingServiceの定義と合わせる)
+        $displacements = ['原付', 'スクーター', '小型', '中型', '大型', 'リッター'];
+
+        // 1. メーカー・カテゴリ・排気量の組み合わせ
         foreach ($allPrefectures as $pref) {
             foreach ($manufacturers as $maker) {
                 $this->writeUrl(
@@ -165,7 +169,36 @@ class GenerateSitemap extends Command
                 );
                 $landingCount++;
             }
+
+            // ★追加: 排気量キーワードとの掛け合わせ
+            foreach ($displacements as $disp) {
+                $this->writeUrl(
+                    $handle,
+                    route('bikes.landing', ['prefecture' => $pref, 'slug' => $disp]),
+                    date('Y-m-d'),
+                    'weekly',
+                    '0.7'
+                );
+                $landingCount++;
+            }
         }
+
+        // 2. ★追加: 車種名(モデル)との掛け合わせ
+        // 件数が多いためChunk処理でメモリを節約しながら書き込み
+        BikeModel::select('name', 'updated_at')->chunk(500, function ($models) use ($handle, $allPrefectures, &$landingCount) {
+            foreach ($models as $model) {
+                foreach ($allPrefectures as $pref) {
+                    $this->writeUrl(
+                        $handle,
+                        route('bikes.landing', ['prefecture' => $pref, 'slug' => $model->name]),
+                        $model->updated_at->format('Y-m-d'),
+                        'weekly',
+                        '0.7'
+                    );
+                    $landingCount++;
+                }
+            }
+        });
 
         $this->closeSitemap($handle);
         $this->info(" -> {$landingCount} URL (Landings)");
