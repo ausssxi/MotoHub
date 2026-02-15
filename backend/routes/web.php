@@ -117,6 +117,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // 閲覧履歴API
+    Route::post('/api/history/record', [HistoryController::class, 'record'])->name('api.history.record');
+    Route::get('/api/history/ids', [HistoryController::class, 'index'])->name('api.history.ids');
+    Route::post('/api/history/sync', [HistoryController::class, 'sync'])->name('api.history.sync');
 });
 
 // Breezeの認証ルート読み込み (login, register等)

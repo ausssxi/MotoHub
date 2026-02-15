@@ -100,11 +100,16 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // ★修正: 明示的に json_encode を使用して true/false を出力
-            const isLoggedIn = {{ json_encode(Auth::check()) }};
+            // データ属性からログイン状態を取得して、JSの構文エラーを回避
+            const isLoggedIn = document.body.dataset.loggedIn === 'true';
             
             if (typeof WishlistManager !== 'undefined') {
                 WishlistManager.init(isLoggedIn);
+            }
+            
+            // 履歴マネージャーの初期化
+            if (typeof HistoryManager !== 'undefined') {
+                HistoryManager.init(isLoggedIn);
             }
             
             if (typeof lucide !== 'undefined') {
