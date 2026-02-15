@@ -48,6 +48,12 @@
                     <span class="hidden xl:inline">相場ランキング</span>
                 </a>
 
+                {{-- 買取査定LPへのリンク --}}
+                <a href="{{ route('sell.index') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-xl transition-all uppercase tracking-widest" title="あなたのバイクいくらで売れる？">
+                    <i data-lucide="coins" class="w-4 h-4 text-yellow-500"></i>
+                    買取相場
+                </a>
+
                 {{-- お気に入り --}}
                 <a href="{{ route('wishlist') }}" class="relative flex flex-col items-center justify-center min-w-[40px] px-2 py-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all group" title="お気に入り一覧">
                     <i data-lucide="heart" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>

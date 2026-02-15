@@ -11,6 +11,8 @@ use App\Http\Controllers\Bike\TrendController;
 use App\Http\Controllers\Api\FavoriteController; // お気に入りAPI
 use App\Http\Controllers\ProfileController; // Breeze用
 use App\Http\Controllers\Api\SavedSearchController; // 検索条件保存API
+use App\Http\Controllers\Api\StatsController; // 統計情報API
+use App\Http\Controllers\Page\SellController; // 買取査定LP
 
 /**
  * MotoHub Route Definitions
@@ -86,6 +88,10 @@ Route::prefix('pages')->name('pages.')->group(function () {
     Route::get('/privacy-policy', [PageController::class, 'privacyPolicy'])->name('privacy-policy');
     Route::get('/terms', [PageController::class, 'terms'])->name('terms');
 });
+
+// 買取査定LP 
+Route::get('/sell', [SellController::class, 'index'])->name('sell.index');
+Route::post('/api/sell/calculate', [SellController::class, 'calculate'])->name('sell.calculate');
 
 /**
  * ==========================================
