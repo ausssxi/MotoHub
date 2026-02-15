@@ -111,10 +111,12 @@ return Application::configure(basePath: dirname(__DIR__))
          * --- 4. Twitter Bot (自動投稿) ---
          */
         
-        // お買い得車両 (1時間に1回チェック)
-        // 条件に合う掘り出し物があればツイート、なければスキップ
+        // お買い得車両 (9:00 〜 23:00 の間、1時間に1回チェック)
+        // hourly() は毎時0分に実行されます。
+        // between('9:00', '23:00') で時間帯を制限します。
         $schedule->command('bikes:tweet-bargains')
                  ->hourly()
+                 ->between('9:00', '23:00')
                  ->withoutOverlapping()
                  ->appendOutputTo($bargainLog);
 

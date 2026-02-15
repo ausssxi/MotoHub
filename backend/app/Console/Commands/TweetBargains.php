@@ -43,7 +43,7 @@ class TweetBargains extends Command
             ->get();
 
         $tweetCount = 0;
-        $maxTweets = 3; 
+        $maxTweets = 1; 
 
         foreach ($listings as $listing) {
             if ($tweetCount >= $maxTweets) {
