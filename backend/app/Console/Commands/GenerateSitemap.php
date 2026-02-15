@@ -44,12 +44,23 @@ class GenerateSitemap extends Command
 
         // 固定ページリスト
         $staticPages = [
+            // 主要ページ
             ['route' => 'bikes.index',       'priority' => '1.0', 'freq' => 'daily'],
             ['route' => 'bikes.prefectures', 'priority' => '0.9', 'freq' => 'monthly'],
             ['route' => 'bikes.search',      'priority' => '0.9', 'freq' => 'daily'],
             ['route' => 'bikes.models',      'priority' => '0.9', 'freq' => 'weekly'],
+            
+            // ★追加: 買取査定LP (SEO重要度・収益性が高いので優先度高めに)
+            ['route' => 'sell.index',        'priority' => '0.9', 'freq' => 'weekly'],
+            
+            // ★追加: 相場ランキング (データが毎日変わるので daily)
+            ['route' => 'bikes.trends',      'priority' => '0.8', 'freq' => 'daily'],
+
+            // ツール系
             ['route' => 'bikes.compare',     'priority' => '0.5', 'freq' => 'daily'],
             ['route' => 'wishlist',          'priority' => '0.5', 'freq' => 'monthly'],
+            
+            // 情報ページ
             ['route' => 'pages.about',       'priority' => '0.3', 'freq' => 'monthly'],
             ['route' => 'pages.contact',     'priority' => '0.3', 'freq' => 'monthly'],
             ['route' => 'pages.privacy-policy', 'priority' => '0.1', 'freq' => 'yearly'],
@@ -136,7 +147,6 @@ class GenerateSitemap extends Command
             foreach ($manufacturers as $maker) {
                 $this->writeUrl(
                     $handle,
-                    // ★修正: route('landing') -> route('bikes.landing')
                     route('bikes.landing', ['prefecture' => $pref, 'slug' => $maker->name]),
                     date('Y-m-d'),
                     'weekly',
@@ -148,7 +158,6 @@ class GenerateSitemap extends Command
             foreach ($categories as $cat) {
                 $this->writeUrl(
                     $handle,
-                    // ★修正: route('landing') -> route('bikes.landing')
                     route('bikes.landing', ['prefecture' => $pref, 'slug' => $cat->name]),
                     date('Y-m-d'),
                     'weekly',
@@ -205,7 +214,7 @@ class GenerateSitemap extends Command
                 foreach ($models as $model) {
                     $this->writeUrl(
                         $handle,
-                        route('bikes.model_detail', $model->id),
+                        route('bikes.model_detail', $model->id), // 相場情報ページ
                         $model->updated_at->format('Y-m-d'),
                         'weekly',
                         '0.8'
@@ -273,6 +282,11 @@ class GenerateSitemap extends Command
 
         $duration = round(microtime(true) - $startTime, 2);
         $this->info("全ての処理が完了しました！ ({$duration}秒)");
+    }
+
+    private function pingGoogle(): void
+    {
+        // GoogleのPing送信機能は廃止されたため、メソッド内は空にしておくか、削除してもOKです
     }
 
     private function openSitemap(string $filename)
