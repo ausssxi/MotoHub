@@ -42,6 +42,12 @@
                 </button>
                 @endif
 
+                {{-- ショップマップへのリンク --}}
+                <a href="{{ route('shops.map') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all uppercase tracking-widest" title="地図から探す">
+                    <i data-lucide="map" class="w-4 h-4"></i>
+                    <span class="hidden xl:inline">地図検索</span>
+                </a>
+
                 {{-- 相場ランキング (PCのみ) --}}
                 <a href="{{ route('bikes.trends') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all uppercase tracking-widest" title="相場・価格変動ランキング">
                     <i data-lucide="trending-up" class="w-4 h-4"></i>

@@ -132,76 +132,90 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
-        // 2. SEOランディングページ (sitemap-landings.xml)
+        // 2. SEOランディングページ (分割生成)
         // =========================================================
         $this->info("SEOランディングサイトマップを生成中...");
-        $landingFileName = 'sitemap-landings.xml';
-        $handle = $this->openSitemap($landingFileName);
-        $sitemapFiles[] = $landingFileName;
-        $landingCount = 0;
+        
+        $landingFileIndex = 1;
+        $landingUrlCount = 0;
+        $totalLandingCount = 0;
+        
+        $currentLandingFileName = "sitemap-landings-{$landingFileIndex}.xml";
+        $handle = $this->openSitemap($currentLandingFileName);
+        $sitemapFiles[] = $currentLandingFileName;
+
+        // 書き込みとファイルローテーションを行う共通関数
+        $writeLandingUrl = function($loc, $lastmod, $freq, $priority) use (&$handle, &$landingUrlCount, &$landingFileIndex, &$sitemapFiles, &$totalLandingCount) {
+            // 上限に達したらファイルを分割
+            if ($landingUrlCount >= self::MAX_URLS_PER_FILE) {
+                $this->closeSitemap($handle);
+                $this->info("  -> 分割: sitemap-landings-{$landingFileIndex}.xml 完了");
+
+                $landingFileIndex++;
+                $landingUrlCount = 0;
+                
+                $nextFileName = "sitemap-landings-{$landingFileIndex}.xml";
+                $handle = $this->openSitemap($nextFileName);
+                $sitemapFiles[] = $nextFileName;
+            }
+
+            $this->writeUrl($handle, $loc, $lastmod, $freq, $priority);
+            $landingUrlCount++;
+            $totalLandingCount++;
+        };
 
         $manufacturers = Manufacturer::all();
         $categories = Category::all();
-
-        // 排気量キーワードリスト (SeoLandingServiceの定義と合わせる)
+        // 排気量キーワードリスト
         $displacements = ['原付', 'スクーター', '小型', '中型', '大型', 'リッター'];
 
         // 1. メーカー・カテゴリ・排気量の組み合わせ
         foreach ($allPrefectures as $pref) {
             foreach ($manufacturers as $maker) {
-                $this->writeUrl(
-                    $handle,
+                $writeLandingUrl(
                     route('bikes.landing', ['prefecture' => $pref, 'slug' => $maker->name]),
                     date('Y-m-d'),
                     'weekly',
                     '0.7'
                 );
-                $landingCount++;
             }
 
             foreach ($categories as $cat) {
-                $this->writeUrl(
-                    $handle,
+                $writeLandingUrl(
                     route('bikes.landing', ['prefecture' => $pref, 'slug' => $cat->name]),
                     date('Y-m-d'),
                     'weekly',
                     '0.7'
                 );
-                $landingCount++;
             }
 
-            // ★追加: 排気量キーワードとの掛け合わせ
             foreach ($displacements as $disp) {
-                $this->writeUrl(
-                    $handle,
+                $writeLandingUrl(
                     route('bikes.landing', ['prefecture' => $pref, 'slug' => $disp]),
                     date('Y-m-d'),
                     'weekly',
                     '0.7'
                 );
-                $landingCount++;
             }
         }
 
-        // 2. ★追加: 車種名(モデル)との掛け合わせ
-        // 件数が多いためChunk処理でメモリを節約しながら書き込み
-        BikeModel::select('name', 'updated_at')->chunk(500, function ($models) use ($handle, $allPrefectures, &$landingCount) {
+        // 2. 車種名(モデル)との掛け合わせ
+        // 件数が多いためChunk処理
+        BikeModel::select('name', 'updated_at')->chunk(500, function ($models) use ($allPrefectures, $writeLandingUrl) {
             foreach ($models as $model) {
                 foreach ($allPrefectures as $pref) {
-                    $this->writeUrl(
-                        $handle,
+                    $writeLandingUrl(
                         route('bikes.landing', ['prefecture' => $pref, 'slug' => $model->name]),
                         $model->updated_at->format('Y-m-d'),
                         'weekly',
                         '0.7'
                     );
-                    $landingCount++;
                 }
             }
         });
 
         $this->closeSitemap($handle);
-        $this->info(" -> {$landingCount} URL (Landings)");
+        $this->info(" -> {$totalLandingCount} URL (Landings Total)");
 
 
         // =========================================================

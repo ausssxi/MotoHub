@@ -66,7 +66,14 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     Route::get('/{id}', 'show')->name('show')->where('id', '[0-9]+'); 
 });
 
-Route::get('/shops/{id}', [ShopController::class, 'show'])->name('shops.show')->where('id', '[0-9]+');
+Route::prefix('shops')->name('shops.')->group(function () {
+    // マップページ
+    Route::get('/map', [ShopController::class, 'map'])->name('map');
+    // エリア検索API
+    Route::get('/api/area', [ShopController::class, 'area'])->name('api.area');
+    
+    Route::get('/{id}', [ShopController::class, 'show'])->name('show')->where('id', '[0-9]+');
+});
 
 // お気に入り・比較機能 (未ログインでも閲覧可能なページ)
 Route::get('/wishlist', [BikeController::class, 'wishlist'])->name('wishlist');

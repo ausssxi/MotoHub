@@ -5,38 +5,50 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
-use App\Repositories\Shop\ShopRepository;
-use App\Repositories\Bike\ListingRepository;
-use App\Services\Bike\Search\PaginationFormatter;
-use App\Http\Resources\Bike\ListingResource;
+use Illuminate\Http\Request;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
+use App\Services\Shop\ShopService;
 
-final class ShopController extends Controller
+class ShopController extends Controller
 {
     public function __construct(
-        private readonly ShopRepository $shopRepo,
-        private readonly ListingRepository $listingRepo,
-        private readonly PaginationFormatter $paginator
+        private readonly ShopService $shopService
     ) {}
 
     /**
-     * 店舗詳細・在庫一覧ページ
+     * 店舗詳細ページ
      */
     public function show(int $id): View
     {
-        $shop = $this->shopRepo->find($id);
+        // サービスからデータ（shop, listings）を一括取得
+        $data = $this->shopService->getShopDetailWithListings($id);
 
-        if (!$shop) {
-            abort(404, '指定された店舗は見つかりませんでした。');
-        }
+        return view('shops.show', $data);
+    }
 
-        // 店舗の在庫を取得
-        $paginated = $this->listingRepo->getByShopId($id);
+    /**
+     * ショップマップページ
+     */
+    public function map(): View
+    {
+        return view('shops.map');
+    }
 
-        return view('shops.show', [
-            'shop' => $shop,
-            'items' => ListingResource::collection($paginated->getCollection())->resolve(),
-            'pagination' => $this->paginator->format($paginated),
+    /**
+     * 地図用データ取得API
+     */
+    public function area(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ne_lat' => 'required|numeric',
+            'ne_lng' => 'required|numeric',
+            'sw_lat' => 'required|numeric',
+            'sw_lng' => 'required|numeric',
         ]);
+
+        $shops = $this->shopService->getShopsInArea($validated);
+
+        return response()->json($shops);
     }
 }
