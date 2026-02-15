@@ -3,32 +3,38 @@
  * APIからデータを取得し、横並びの比較テーブルを生成します。
  */
 document.addEventListener('DOMContentLoaded', async () => {
-    // ... (冒頭の定義は同じなので省略) ...
+    // 必要なDOM要素の取得
     const header = document.getElementById('compare-header');
     const body = document.getElementById('compare-body');
     const container = document.getElementById('compare-container');
     const emptyState = document.getElementById('compare-empty');
 
-    if (typeof Compare === 'undefined') {
+    // CompareManagerの読み込み確認
+    if (typeof CompareManager === 'undefined') {
         console.error("Compare manager is not loaded.");
         return;
     }
 
+    // ネストされたオブジェクトから値を取得するヘルパー関数
     const getNestedValue = (obj, path) => {
         return path.split('.').reduce((acc, part) => acc && acc[part], obj);
     };
 
-    const ids = Compare.getIds();
+    // 保存されたIDを取得
+    const ids = CompareManager.getIds();
 
+    // IDがない場合は空の状態を表示
     if (ids.length === 0) {
         if (emptyState) emptyState.classList.remove('hidden');
         if (container) container.classList.add('hidden');
         return;
     }
 
+    // コンテナを表示
     if (container) container.classList.remove('hidden');
 
     try {
+        // サーバーからデータを取得
         const response = await fetch(`/api/wishlist/fetch?ids=${ids.join(',')}`);
         if (!response.ok) throw new Error('Network response was not ok');
         
@@ -37,36 +43,44 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!Array.isArray(bikes) || bikes.length === 0) {
             if (emptyState) emptyState.classList.remove('hidden');
+            if (container) container.classList.add('hidden');
             return;
         }
+
+        // ダミー画像のURL定義
+        const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop';
 
         // 3. ヘッダー（画像と名前）の描画
         bikes.forEach(bike => {
             const th = document.createElement('th');
             
-            // 【スマホ対策】
-            // 幅: スマホは w-48 (192px), PCは w-60 (240px)
-            // 余白: スマホは p-2, PCは p-4
-            // snap-start: スクロール時にここにピタッと止まる
+            // 【スマホ対策】幅と余白の設定
             th.className = 'p-2 sm:p-4 w-48 sm:w-60 min-w-[192px] sm:min-w-[240px] max-w-[192px] sm:max-w-[240px] border-l border-gray-100 relative group snap-start bike-col-' + bike.id;
             
+            // ★修正: 画像がある場合はそれを使用、なければプレースホルダーURLを使用
             const displayImage = (bike.images && bike.images.length > 0) 
                 ? bike.images[0] 
-                : '/images/placeholder-bike.png';
+                : PLACEHOLDER_IMG;
 
             th.innerHTML = `
                 <button class="remove-this absolute top-1 right-1 sm:top-2 sm:right-2 text-gray-300 hover:text-red-500 transition-colors z-10" data-id="${bike.id}">
                     <i data-lucide="x-circle" class="w-5 h-5 sm:w-6 sm:h-6 bg-white/50 rounded-full"></i>
                 </button>
                 
-                <div class="rounded-lg sm:rounded-xl overflow-hidden mb-2 sm:mb-3 shadow-sm bg-gray-50 relative">
-                    <img src="${displayImage}" class="w-full h-auto object-center group-hover:scale-105 transition-transform duration-500">
+                <div class="rounded-lg sm:rounded-xl overflow-hidden mb-2 sm:mb-3 shadow-sm bg-gray-50 relative aspect-[4/3]">
+                    <img src="${displayImage}" 
+                         class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                         alt="${bike.name}"
+                         onerror="this.onerror=null; this.src='${PLACEHOLDER_IMG}'; this.classList.add('grayscale', 'opacity-50');">
+                         
+                    ${(!bike.images || bike.images.length === 0) ? 
+                        '<div class="absolute inset-0 flex items-center justify-center pointer-events-none"><i data-lucide="image-off" class="w-8 h-8 text-white/50"></i></div>' : ''}
                 </div>
 
-                <div class="bike-name-container text-left font-bold text-gray-800 text-xs sm:text-sm leading-tight line-clamp-2 min-h-[2.5em]"></div>
+                <div class="bike-name-container text-left font-bold text-gray-800 text-xs sm:text-sm leading-tight line-clamp-2 min-h-[2.5em] mb-1"></div>
                 
-                <a href="${bike.url}" target="_blank" class="mt-2 inline-flex items-center gap-1 text-[10px] font-black text-blue-600 hover:text-blue-700">
-                    詳細 <i data-lucide="external-link" class="w-3 h-3"></i>
+                <a href="/bikes/${bike.id}" target="_blank" class="inline-flex items-center gap-1 text-[10px] font-black text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded-lg transition-colors">
+                    詳細を見る <i data-lucide="external-link" class="w-3 h-3"></i>
                 </a>
             `;
             
@@ -87,12 +101,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 let val = rawVal ?? '―';
                 
                 if (prop === 'total_price') {
-                    // スマホでは "万円" を改行させない、文字サイズ調整
-                    td.innerHTML = `<span class="text-base sm:text-xl text-red-500">${val}</span><span class="text-[10px] ml-0.5">万円</span>`;
+                    // 価格表示の装飾
+                    td.innerHTML = `<span class="text-base sm:text-xl text-red-500 font-black tracking-tighter">${val}</span><span class="text-[10px] ml-0.5 font-bold text-gray-500">万円</span>`;
                 
                 } else if (prop === 'site_name') {
                     if (val !== '―') {
-                        td.innerHTML = `<span class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[10px] font-black tracking-wider border border-gray-200 whitespace-nowrap">${val}</span>`;
+                        td.innerHTML = `<span class="inline-block bg-gray-100 text-gray-600 px-2 py-1 rounded text-[10px] font-black tracking-wider border border-gray-200 whitespace-nowrap">${val}</span>`;
                     } else {
                         td.textContent = val;
                     }
@@ -110,21 +124,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
 
-        // 5. 削除ボタン (変更なし)
+        // 5. 削除ボタンのイベントリスナー設定
         document.querySelectorAll('.remove-this').forEach(btn => {
             btn.addEventListener('click', () => {
                 const id = btn.dataset.id;
-                Compare.toggle(id);
+                
+                // CompareManagerを使って削除
+                CompareManager.toggle(id);
+                
+                // 画面から列を削除 (アニメーション付きで消すとベターですが今回は即時削除)
                 const targets = document.querySelectorAll(`.bike-col-${id}`);
                 targets.forEach(el => el.remove());
 
-                if (Compare.getIds().length === 0) {
+                // 全てなくなった場合の表示切り替え
+                if (CompareManager.getIds().length === 0) {
                     if (emptyState) emptyState.classList.remove('hidden');
                     if (container) container.classList.add('hidden');
                 }
             });
         });
 
+        // アイコンの再描画
         if (window.lucide) window.lucide.createIcons();
 
     } catch (error) {
