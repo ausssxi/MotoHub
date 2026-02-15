@@ -4,7 +4,7 @@ FROM php:8.3-fpm-bookworm
 # システムのタイムゾーンを日本に設定
 ENV TZ=Asia/Tokyo
 
-# 依存パッケージのインストール (PHP用 + Python用)
+# 依存パッケージのインストール
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -13,7 +13,11 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     zip \
     unzip \
-    # ★追加: 画像処理(GD)用ライブラリ（フォント描画に必須）
+    # ★追加: zip拡張に必要なライブラリ
+    libzip-dev \
+    # intl拡張に必要なライブラリ
+    libicu-dev \
+    # 画像処理(GD)用
     libfreetype6-dev \
     libjpeg62-turbo-dev \
     # --- Python 実行環境 ---
@@ -27,15 +31,14 @@ RUN apt-get update && apt-get install -y \
     # -----------------------
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# ★追加: Node.js と npm のインストール (Node.js 20系)
-# Laravel Breeze (Vite) のビルドに必要です
+# Node.js と npm のインストール (Node.js 20系)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs
 
-# PHP 拡張のインストール (MySQL, GD等)
-# ★修正: GDの設定(configure)を追加して、FreeTypeを有効にする
+# PHP 拡張のインストール (MySQL, GD, intl, zip等)
+# ★修正: zip を追加しました
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) pdo_mysql mbstring exif pcntl bcmath gd
+    && docker-php-ext-install -j$(nproc) pdo_mysql mbstring exif pcntl bcmath gd intl zip
 
 # Composer のインストール
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
