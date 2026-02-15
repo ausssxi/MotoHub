@@ -53,7 +53,6 @@
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-24">
                         <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">エリアを変更する</h3>
                         <div class="grid grid-cols-2 gap-2">
-                            {{-- 近隣の県へのリンクなどを入れるとより良いですが、一旦主要エリアを表示 --}}
                             @foreach(['東京', '神奈川', '埼玉', '千葉', '大阪', '愛知'] as $pref)
                                 <a href="{{ route('bikes.landing', ['prefecture' => $pref, 'slug' => request()->slug]) }}" 
                                    class="text-xs font-bold text-center py-2 rounded-lg bg-gray-50 hover:bg-blue-50 text-gray-600 hover:text-blue-600 transition-colors {{ $prefecture == $pref ? 'bg-blue-600 text-white hover:bg-blue-700 hover:text-white' : '' }}">
@@ -75,10 +74,9 @@
                         <span class="text-sm font-bold text-gray-500">台が見つかりました</span>
                     </div>
 
-                    {{-- 車両グリッド (search.blade.phpと同じコンポーネント) --}}
+                    {{-- 車両グリッド --}}
                     <div id="results-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         @forelse ($items as $listing)
-                            {{-- search.blade.php と同じカードデザイン --}}
                             <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group border border-gray-100 relative cursor-pointer">
                                 <a href="{{ route('bikes.show', $listing['id']) }}" class="absolute inset-0 z-20"></a>
                                 
@@ -96,9 +94,12 @@
 
                                 <div class="p-4 flex-grow flex flex-col">
                                     <div class="flex items-center gap-2 mb-2 flex-wrap">
-                                        <span class="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{{ $listing['maker'] }}</span>
-                                        <span class="text-[9px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded">{{ $listing['prefecture'] }}</span>
+                                        <span class="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">{{ $listing['maker'] }}</span>
+                                        <span class="text-[9px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded uppercase">{{ $listing['category'] }}</span>
+                                        <span class="text-[9px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded uppercase">{{ $listing['condition'] }}</span>
+                                        <span class="text-[9px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded uppercase">{{ $listing['prefecture'] }}</span>
                                     </div>
+
                                     <h3 class="text-sm font-black text-gray-800 mb-2 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">{{ $listing['name'] }}</h3>
                                     
                                     <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-end">
@@ -123,11 +124,27 @@
                     {{-- ページネーション --}}
                     @if($pagination['last_page'] > 1)
                     <div class="mt-16 flex justify-center">
-                        {{-- 簡易ページネーションリンク --}}
-                        <div class="flex gap-2">
+                        <div class="flex items-center gap-2">
+                            {{-- 前へ --}}
                             @if($pagination['prev_url'])
                                 <a href="{{ $pagination['prev_url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:border-black transition-all"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
                             @endif
+
+                            {{-- ★修正: 数字のページネーションリンクを追加 --}}
+                            @if(isset($pagination['pages']))
+                                @foreach($pagination['pages'] as $page)
+                                    @if($page['is_dot'])
+                                        <span class="px-1 text-gray-300">...</span>
+                                    @else
+                                        <a href="{{ $page['url'] }}" 
+                                           class="w-10 h-10 flex items-center justify-center rounded-lg font-black text-sm transition-all {{ $page['is_active'] ? 'bg-black text-white shadow-lg' : 'bg-white border border-gray-200 text-gray-400 hover:border-black' }}">
+                                            {{ $page['label'] }}
+                                        </a>
+                                    @endif
+                                @endforeach
+                            @endif
+
+                            {{-- 次へ --}}
                             @if($pagination['next_url'])
                                 <a href="{{ $pagination['next_url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:border-black transition-all"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
                             @endif
