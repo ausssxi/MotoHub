@@ -109,6 +109,15 @@ final class BikeService
     }
 
     /**
+     * 全てのメーカーを取得 (ID順)
+     * 買取査定などで「国内4メーカー」を上に表示したい場合に使用
+     */
+    public function getAllManufacturersById(): Collection
+    {
+        return $this->manufacturerRepo->getAllSortedById();
+    }
+
+    /**
      * トップページ用カテゴリ一覧
      * 画像があるカテゴリのみを返すように変更
      */

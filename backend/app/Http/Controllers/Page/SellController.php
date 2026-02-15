@@ -24,8 +24,8 @@ class SellController extends Controller
      */
     public function index(): View
     {
-        // メーカー一覧を取得（プルダウン用）
-        $manufacturers = $this->bikeService->getAllManufacturers();
+        // メーカー一覧を ID順 で取得（国内メーカーを先頭にするため）
+        $manufacturers = $this->bikeService->getAllManufacturersById();
         
         return view('pages.sell', compact('manufacturers'));
     }

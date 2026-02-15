@@ -27,6 +27,15 @@ final class ManufacturerRepository
     {
         return Manufacturer::orderBy('name', 'asc')->get();
     }
+
+    /**
+     * 全メーカーをID順で取得
+     * (ホンダ=1, ヤマハ=2... のようなマスタ順になります)
+     */
+    public function getAllSortedById(): Collection
+    {
+        return Manufacturer::orderBy('id', 'asc')->get();
+    }
     
     /**
      * 指定された名前リストに一致するメーカーを取得
