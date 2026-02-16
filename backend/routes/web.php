@@ -13,6 +13,7 @@ use App\Http\Controllers\ProfileController; // Breeze用
 use App\Http\Controllers\Api\SavedSearchController; // 検索条件保存API
 use App\Http\Controllers\Api\StatsController; // 統計情報API
 use App\Http\Controllers\Page\SellController; // 買取査定LP
+use App\Http\Controllers\MyBike\MyBikeController; // 愛車ログ機能
 
 /**
  * MotoHub Route Definitions
@@ -129,6 +130,17 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/history/record', [HistoryController::class, 'record'])->name('api.history.record');
     Route::get('/api/history/ids', [HistoryController::class, 'index'])->name('api.history.ids');
     Route::post('/api/history/sync', [HistoryController::class, 'sync'])->name('api.history.sync');
+
+        // 愛車ログ機能
+    Route::prefix('mybikes')->name('mybikes.')->controller(MyBikeController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{myBike}', 'show')->name('show')->where('myBike', '[0-9]+');
+        
+        // ログ保存
+        Route::post('/{myBike}/fuel', 'storeFuel')->name('fuel.store');
+        Route::post('/{myBike}/maintenance', 'storeMaintenance')->name('maintenance.store');
+    });
 });
 
 // Breezeの認証ルート読み込み (login, register等)

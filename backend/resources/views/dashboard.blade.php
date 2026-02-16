@@ -34,6 +34,31 @@
                 
                 {{-- 左カラム: メインメニュー --}}
                 <div class="lg:col-span-2 space-y-6">
+                    <div class="bg-gradient-to-br from-blue-600 to-blue-700 overflow-hidden shadow-lg shadow-blue-500/30 rounded-2xl border border-blue-500 hover:shadow-xl transition-all group relative">
+                        <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <i data-lucide="wrench" class="w-32 h-32 text-white"></i>
+                        </div>
+                        <div class="p-6 relative z-10">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-black text-white flex items-center gap-2">
+                                    <i data-lucide="bike" class="w-6 h-6"></i>
+                                    愛車ガレージ
+                                </h3>
+                                <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                                    New Function
+                                </span>
+                            </div>
+                            
+                            <p class="text-sm text-blue-100 mb-6 font-bold leading-relaxed">
+                                あなたのバイクの燃費記録や整備履歴を管理できます。<br>
+                                オイル交換の時期や、カスタムの記録を残しましょう。
+                            </p>
+
+                            <a href="{{ route('mybikes.index') }}" class="inline-flex items-center gap-2 bg-white text-blue-700 px-5 py-3 rounded-xl text-sm font-black hover:bg-blue-50 transition-colors shadow-sm">
+                                ガレージへ移動する <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+                    </div>
                     
                     {{-- お気に入りへのショートカット --}}
                     <div class="bg-white overflow-hidden shadow-sm rounded-2xl border border-gray-100 hover:shadow-md transition-shadow">
