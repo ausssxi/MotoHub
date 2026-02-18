@@ -5,29 +5,33 @@ declare(strict_types=1);
 namespace App\Http\Requests\MyBike;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class StoreMyBikeRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        // ログインしているユーザーのみ許可
+        return Auth::check();
     }
 
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:50'],
-            'bike_model_id' => ['nullable', 'exists:bike_models,id'],
-            'odometer' => ['nullable', 'integer', 'min:0'],
+            // 車種はマスタから選択するため必須
+            'bike_model_id' => ['required', 'exists:bike_models,id'],
+            // 小数点(0.1km)も許容するため integer ではなく numeric
+            'initial_odometer' => ['nullable', 'numeric', 'min:0'],
+            'name' => ['nullable', 'string', 'max:50'],
         ];
     }
 
     public function attributes(): array
     {
         return [
-            'name' => '愛車の名前',
             'bike_model_id' => '車種',
-            'odometer' => '走行距離',
+            'initial_odometer' => '現在の走行距離',
+            'name' => '愛称',
         ];
     }
 }

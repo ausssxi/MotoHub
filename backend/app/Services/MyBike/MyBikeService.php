@@ -4,101 +4,125 @@ declare(strict_types=1);
 
 namespace App\Services\MyBike;
 
-use App\Repositories\MyBike\MyBikeRepository;
+use App\Models\User;
 use App\Models\MyBike;
-use Exception;
+use App\Repositories\MyBike\MyBikeRepository;
+use App\Repositories\MyBike\FuelLogRepository;
+use App\Repositories\MyBike\MaintenanceLogRepository;
+use App\Repositories\Bike\BikeModelRepository;
 
-/**
- * 愛車管理のビジネスロジック
- */
 final class MyBikeService
 {
     public function __construct(
-        private readonly MyBikeRepository $repository
+        private readonly MyBikeRepository $myBikeRepo,
+        private readonly FuelLogRepository $fuelLogRepo,
+        private readonly MaintenanceLogRepository $maintenanceLogRepo,
+        private readonly BikeModelRepository $bikeModelRepo
     ) {}
 
     /**
-     * ユーザーの愛車一覧を取得
+     * ガレージ一覧データを取得
      */
-    public function getUserBikes(int $userId)
+    public function getGarageData(User $user)
     {
-        return $this->repository->getByUser($userId);
+        return $this->myBikeRepo->getByUser($user);
+    }
+
+    /**
+     * 愛車詳細データを取得
+     */
+    public function getBikeDetail(User $user, int $id): MyBike
+    {
+        return $this->myBikeRepo->findByUserAndIdOrFail($user, $id);
     }
 
     /**
      * 愛車を登録
      */
-    public function registerBike(int $userId, array $data): void
+    public function registerBike(User $user, array $data): MyBike
     {
-        $this->repository->create($userId, $data);
-    }
-
-    /**
-     * 愛車の詳細情報を取得（グラフデータ含む）
-     */
-    public function getBikeDetail(int $myBikeId, int $userId): array
-    {
-        $myBike = $this->repository->findOrFail($myBikeId);
-
-        // 権限チェック
-        if ($myBike->user_id !== $userId) {
-            abort(403);
-        }
-
-        $myBike->load(['fuelLogs', 'maintenanceLogs']);
-
-        // 燃費チャート用のデータ作成
-        $chartData = [
-            'labels' => $myBike->fuelLogs->pluck('filled_at')->map(fn($d) => $d->format('m/d'))->reverse()->values(),
-            'data' => $myBike->fuelLogs->pluck('efficiency')->reverse()->values(),
-        ];
-
-        return compact('myBike', 'chartData');
-    }
-
-    /**
-     * 給油を記録して燃費を計算
-     */
-    public function recordFuel(int $myBikeId, int $userId, array $data): void
-    {
-        $myBike = $this->repository->findOrFail($myBikeId);
+        $data['current_odometer'] = $data['initial_odometer'] ?? 0;
+        $data['initial_odometer'] = $data['initial_odometer'] ?? 0;
         
-        if ($myBike->user_id !== $userId) {
-            abort(403);
-        }
+        return $this->myBikeRepo->create($user, $data);
+    }
+
+    /**
+     * 愛車を削除
+     */
+    public function deleteBike(MyBike $myBike): void
+    {
+        $this->myBikeRepo->delete($myBike);
+    }
+
+    /**
+     * 給油を記録する（燃費計算ロジック込み）
+     */
+    public function recordFuel(MyBike $myBike, array $data): void
+    {
+        // 今回のオドメーターを数値化
+        $currentOdometer = (float)$data['odometer'];
 
         // 燃費計算ロジック
-        // (今回距離 - 前回距離) / 給油量
-        $prevLog = $this->repository->getPreviousFuelLog($myBikeId, $data['filled_at']);
-        $efficiency = null;
+        if (!empty($data['is_full_tank']) && $data['is_full_tank']) {
+            // 1. 直近の「満タン給油」を探す
+            $prevFullLog = $this->fuelLogRepo->findLatestFullLogBefore($myBike, $currentOdometer);
 
-        if ($prevLog && $data['odometer'] > $prevLog->odometer) {
-            $distance = $data['odometer'] - $prevLog->odometer;
-            $efficiency = $distance / $data['quantity'];
+            if ($prevFullLog) {
+                // DBの値を数値化 (ここがエラーの原因でした)
+                $prevOdometer = (float)$prevFullLog->odometer;
+
+                // 2. その間の「ちょい足し給油」の量を合計
+                $additions = $this->fuelLogRepo->sumQuantityBetween(
+                    $myBike, 
+                    $prevOdometer, 
+                    $currentOdometer
+                );
+
+                // 3. 総消費量
+                $currentQuantity = (float)$data['quantity'];
+                $totalQuantity = $currentQuantity + $additions;
+                
+                // 4. 走行距離の差分
+                $distance = $currentOdometer - $prevOdometer;
+
+                // 5. 燃費計算
+                if ($distance > 0 && $totalQuantity > 0) {
+                    $data['efficiency'] = round($distance / $totalQuantity, 2);
+                }
+            }
         }
 
-        // ログ保存
-        $this->repository->createFuelLog($myBike, array_merge($data, ['efficiency' => $efficiency]));
+        // 保存（計算された efficiency もここで $data に入っているため保存されます）
+        $this->fuelLogRepo->create($myBike, $data);
 
-        // 総走行距離の更新
-        $this->repository->updateOdometerIfGreater($myBike, (int)$data['odometer']);
+        // オドメーター更新
+        $this->myBikeRepo->updateOdometerIfGreater($myBike, $currentOdometer);
     }
 
     /**
-     * 整備を記録
+     * 整備を記録する
      */
-    public function recordMaintenance(int $myBikeId, int $userId, array $data): void
+    public function recordMaintenance(MyBike $myBike, array $data): void
     {
-        $myBike = $this->repository->findOrFail($myBikeId);
+        $this->maintenanceLogRepo->create($myBike, $data);
 
-        if ($myBike->user_id !== $userId) {
-            abort(403);
+        if (!empty($data['odometer'])) {
+            $this->myBikeRepo->updateOdometerIfGreater($myBike, (float)$data['odometer']);
         }
+    }
 
-        $this->repository->createMaintenanceLog($myBike, $data);
-
-        if (isset($data['odometer'])) {
-            $this->repository->updateOdometerIfGreater($myBike, (int)$data['odometer']);
-        }
+    /**
+     * 車種を検索する
+     */
+    public function searchModels(string $keyword): array
+    {
+        $models = $this->bikeModelRepo->searchByName($keyword, 20);
+        
+        return $models->map(fn($m) => [
+            'id' => $m->id,
+            'text' => "{$m->manufacturer->name} {$m->name}",
+            'image' => $m->image_url
+        ])->toArray();
     }
 }

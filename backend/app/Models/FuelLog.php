@@ -9,9 +9,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FuelLog extends Model
 {
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'my_bike_id',
+        'filled_at',
+        'odometer',
+        'quantity',
+        'cost',
+        'is_full_tank',
+        'efficiency',
+        'memo',
+    ];
+
     protected $casts = [
         'filled_at' => 'date',
+        'is_full_tank' => 'boolean',
+        'odometer' => 'decimal:1',
         'quantity' => 'decimal:2',
         'efficiency' => 'decimal:2',
     ];

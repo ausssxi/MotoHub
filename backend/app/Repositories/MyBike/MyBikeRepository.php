@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace App\Repositories\MyBike;
 
 use App\Models\MyBike;
-use App\Models\FuelLog;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Auth;
 
 /**
  * 愛車データのデータベース操作を担当
@@ -16,65 +15,53 @@ final class MyBikeRepository
 {
     /**
      * ログインユーザーの愛車一覧を取得
+     * (車種情報と最新の給油履歴5件も一緒に取得)
      */
-    public function getByUser(int $userId): Collection
+    public function getByUser(User $user, int $logLimit = 5): Collection
     {
-        return MyBike::where('user_id', $userId)
-            ->with('bikeModel')
+        return $user->myBikes()
+            ->with(['bikeModel.manufacturer', 'fuelLogs' => function($q) use ($logLimit) {
+                $q->limit($logLimit);
+            }])
             ->orderBy('created_at', 'desc')
             ->get();
     }
 
     /**
+     * IDで愛車を取得（所有者チェック込み）
+     * 詳細ページ用
+     */
+    public function findByUserAndIdOrFail(User $user, int $id): MyBike
+    {
+        return $user->myBikes()
+            ->with(['bikeModel.manufacturer', 'fuelLogs', 'maintenanceLogs'])
+            ->findOrFail($id);
+    }
+
+    /**
      * 愛車を新規登録
      */
-    public function create(int $userId, array $data): MyBike
+    public function create(User $user, array $data): MyBike
     {
-        return MyBike::create(array_merge($data, ['user_id' => $userId]));
+        return $user->myBikes()->create($data);
     }
 
     /**
-     * 愛車詳細を取得（権限チェック用）
+     * 愛車を削除
      */
-    public function findOrFail(int $myBikeId): MyBike
+    public function delete(MyBike $myBike): ?bool
     {
-        return MyBike::findOrFail($myBikeId);
-    }
-
-    /**
-     * 指定日より前の直近の給油ログを取得（燃費計算用）
-     */
-    public function getPreviousFuelLog(int $myBikeId, string $date): ?FuelLog
-    {
-        return FuelLog::where('my_bike_id', $myBikeId)
-            ->where('filled_at', '<', $date)
-            ->orderBy('filled_at', 'desc')
-            ->first();
-    }
-
-    /**
-     * 給油ログを作成
-     */
-    public function createFuelLog(MyBike $myBike, array $data): FuelLog
-    {
-        return $myBike->fuelLogs()->create($data);
-    }
-
-    /**
-     * 整備ログを作成
-     */
-    public function createMaintenanceLog(MyBike $myBike, array $data): void
-    {
-        $myBike->maintenanceLogs()->create($data);
+        return $myBike->delete();
     }
 
     /**
      * 走行距離を更新（入力値が大きい場合のみ）
+     * ※カラム名は current_odometer に合わせています
      */
-    public function updateOdometerIfGreater(MyBike $myBike, int $newOdometer): void
+    public function updateOdometerIfGreater(MyBike $myBike, float $newOdometer): void
     {
-        if ($newOdometer > $myBike->odometer) {
-            $myBike->update(['odometer' => $newOdometer]);
+        if ($newOdometer > $myBike->current_odometer) {
+            $myBike->update(['current_odometer' => $newOdometer]);
         }
     }
 }

@@ -131,15 +131,27 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/history/ids', [HistoryController::class, 'index'])->name('api.history.ids');
     Route::post('/api/history/sync', [HistoryController::class, 'sync'])->name('api.history.sync');
 
-        // 愛車ログ機能
-    Route::prefix('mybikes')->name('mybikes.')->controller(MyBikeController::class)->group(function () {
+    // 愛車ログ機能
+    // JSやコントローラーの記述に合わせて prefix を 'garage'、name を 'my_bike.' に統一します
+    Route::prefix('garage')->name('mybikes.')->controller(MyBikeController::class)->group(function () {
+        // 一覧ページ (URL: /garage)
         Route::get('/', 'index')->name('index');
+        
+        // 愛車登録処理 (URL: /garage [POST])
         Route::post('/', 'store')->name('store');
+        
+        // 詳細ページ (URL: /garage/1)
         Route::get('/{myBike}', 'show')->name('show')->where('myBike', '[0-9]+');
         
+        // 削除用のルート
+        Route::delete('/{myBike}', 'destroy')->name('destroy');
+
         // ログ保存
         Route::post('/{myBike}/fuel', 'storeFuel')->name('fuel.store');
         Route::post('/{myBike}/maintenance', 'storeMaintenance')->name('maintenance.store');
+
+        // 車種検索API (URL: /garage/api/search-models)
+        Route::get('/api/search-models', 'searchModels')->name('api.search_models');
     });
 });
 
