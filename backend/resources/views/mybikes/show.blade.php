@@ -42,13 +42,14 @@
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">給油日</label>
+                                    {{-- h-12クラスを追加して高さを統一 --}}
                                     <input type="date" name="filled_at" value="{{ old('filled_at', date('Y-m-d')) }}" required 
-                                        class="block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">総走行距離 (km)</label>
                                     <input type="number" step="0.1" name="odometer" value="{{ old('odometer') }}" placeholder="例: {{ $myBike->current_odometer }}" required 
-                                        class="block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                             </div>
                             
@@ -56,19 +57,19 @@
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">給油量 (L)</label>
                                     <input type="number" step="0.01" name="quantity" value="{{ old('quantity') }}" placeholder="例: 5.5" required 
-                                        class="block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">金額 (円) <span class="font-normal text-gray-300">任意</span></label>
                                     <input type="number" name="cost" value="{{ old('cost') }}" placeholder="例: 1000" 
-                                        class="block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                             </div>
 
                             <div>
                                 <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">メモ <span class="font-normal text-gray-300">任意</span></label>
                                 <input type="text" name="memo" value="{{ old('memo') }}" placeholder="例: 環七のGSで給油" 
-                                    class="block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
+                                    class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
                             </div>
 
                             @if ($errors->any() && !$errors->has('maintained_at'))
@@ -81,18 +82,20 @@
                                 </div>
                             @endif
 
-                            <div class="pt-2 flex items-center justify-between">
+                            {{-- スマホでは縦並び(flex-col)、PCでは横並び(sm:flex-row)に変更してレイアウト崩れを防止 --}}
+                            <div class="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div>
                                     <label class="flex items-center gap-2 cursor-pointer select-none">
                                         <input type="hidden" name="is_full_tank" value="0">
                                         <input type="checkbox" name="is_full_tank" value="1" {{ old('is_full_tank', '1') == '1' ? 'checked' : '' }} class="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300">
                                         <span class="text-xs font-bold text-gray-600">満タン給油</span>
                                     </label>
-                                    <p class="text-[9px] text-gray-400 mt-1 ml-7">
+                                    {{-- ml-7をml-0にしてインデントを削除（縦並びなので左寄せでOK） --}}
+                                    <p class="text-[9px] text-gray-400 mt-1 ml-0.5">
                                         ※チェックを入れると燃費が計算されます
                                     </p>
                                 </div>
-                                <button type="submit" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-black px-8 py-3 rounded-xl shadow-lg transition-all transform active:scale-95">
+                                <button type="submit" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-black px-8 py-3 rounded-xl shadow-lg transition-all transform active:scale-95 text-center">
                                     記録する
                                 </button>
                             </div>
@@ -102,9 +105,8 @@
                     {{-- 履歴リスト --}}
                     <div class="space-y-3">
                         @foreach($myBike->fuelLogs as $log)
-                        {{-- ★修正: flexを外してブロック要素にし、内部でレイアウトを分ける --}}
                         <div class="bg-white rounded-xl p-4 border border-gray-100">
-                            {{-- 上段: メイン情報（常に横並び） --}}
+                            {{-- 上段: メイン情報 --}}
                             <div class="flex items-center justify-between">
                                 <div>
                                     <div class="text-[10px] font-bold text-gray-400 mb-0.5">{{ $log->filled_at->format('Y/m/d') }}</div>
@@ -114,13 +116,13 @@
                                     <div class="text-lg font-black text-blue-600">
                                         {{ $log->efficiency ? $log->efficiency . ' km/L' : '-' }}
                                     </div>
-                                    <div class="text-[10px] font-bold text-gray-400">
+                                    <div class="text--[10px] font-bold text-gray-400">
                                         {{ $log->quantity }}L / {{ number_format($log->cost) }}円
                                     </div>
                                 </div>
                             </div>
                             
-                            {{-- 下段: メモ（存在する場合のみ表示） --}}
+                            {{-- 下段: メモ --}}
                             @if($log->memo)
                                 <div class="mt-2 pt-2 border-t border-gray-50 text-xs text-gray-500 bg-gray-50 p-2 rounded-lg break-words">
                                     {{ $log->memo }}
@@ -143,12 +145,12 @@
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">整備日</label>
                                     <input type="date" name="maintained_at" value="{{ old('maintained_at', date('Y-m-d')) }}" required 
-                                        class="block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">内容</label>
                                     <input type="text" name="title" value="{{ old('title') }}" placeholder="例: オイル交換" required 
-                                        class="block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                             </div>
                             
@@ -156,12 +158,12 @@
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">費用 (円) <span class="font-normal text-gray-300">任意</span></label>
                                     <input type="number" name="cost" value="{{ old('cost') }}" placeholder="例: 3000" 
-                                        class="block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">時走行距離 (km) <span class="font-normal text-gray-300">任意</span></label>
                                     <input type="number" name="odometer" value="{{ old('odometer') }}" placeholder="例: {{ $myBike->current_odometer }}" 
-                                        class="block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                             </div>
 

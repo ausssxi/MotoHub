@@ -68,15 +68,12 @@
                                     </div>
                                     <div class="text-right">
                                         <p class="text-[10px] font-bold text-gray-400">最新燃費</p>
-                                        @php
-                                            $lastEfficiency = $bike->fuelLogs->first()->efficiency ?? null;
-                                        @endphp
-                                        @if($lastEfficiency)
-                                            <p class="text-lg font-black text-blue-600">{{ $lastEfficiency }} <span class="text-xs">km/L</span></p>
-                                        @else
-                                            <p class="text-sm font-bold text-gray-300">-</p>
-                                        @endif
-                                    </div>
+                                            @if($bike->latest_efficiency)
+                                                <p class="text-lg font-black text-blue-600">{{ number_format($bike->latest_efficiency, 1) }} <span class="text-xs">km/L</span></p>
+                                            @else
+                                                <p class="text-sm font-bold text-gray-300">-</p>
+                                            @endif
+                                        </div>
                                 </div>
                                 
                                 <div class="flex items-center justify-center gap-2 bg-gray-50 text-gray-500 py-3 rounded-xl text-xs font-bold group-hover:bg-black group-hover:text-white transition-colors">
