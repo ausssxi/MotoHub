@@ -42,9 +42,9 @@
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">給油日</label>
-                                    {{-- appearance-noneを追加してiOSでの表示崩れを防止 --}}
+                                    {{-- h-12を削除し、py-3に変更してテキストを垂直中央に配置 --}}
                                     <input type="date" name="filled_at" value="{{ old('filled_at', date('Y-m-d')) }}" required 
-                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="appearance-none block w-full py-3 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">総走行距離 (km)</label>
