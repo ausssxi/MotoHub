@@ -136,7 +136,6 @@
                         <span class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block leading-none mb-1">掲載台数</span>
                         <div class="flex items-baseline gap-0.5">
                             <span class="text-lg font-black text-black leading-none">{{ number_format($totalListingsCount) }}</span>
-                            <span class="text-lg font-black text-black leading-none">{{ number_format($totalListingsCount) }}</span>
                             <span class="text-[10px] font-bold text-gray-500">台</span>
                         </div>
                     </div>

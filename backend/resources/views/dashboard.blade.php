@@ -73,6 +73,7 @@
                             
                             <p class="text-sm text-gray-600 mb-6">
                                 気になるバイクを保存して、価格や状態を比較しましょう。
+                                {{-- 修正: favoritesテーブルを使用するため favorites() を参照 --}}
                                 <br>現在 <span class="font-black text-lg text-black mx-1">{{ Auth::user()->favorites()->count() }}</span> 台登録しています。
                             </p>
 
