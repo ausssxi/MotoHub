@@ -63,8 +63,14 @@
                 {{-- お気に入り --}}
                 <a href="{{ route('wishlist') }}" class="relative flex flex-col items-center justify-center min-w-[40px] px-2 py-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all group" title="お気に入り一覧">
                     <i data-lucide="heart" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
-                    {{-- バッジ --}}
-                    <span id="wishlist-count" class="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" style="display: none;"></span>
+                    
+                    {{-- ★修正: バッジのデザイン変更 --}}
+                    {{-- サーバーから $wishlistCount が渡されている場合はそれを表示、なければJSの処理を待つ(hidden) --}}
+                    {{-- id="wishlist-count" はJS用フックとして残しています --}}
+                    <span id="wishlist-count" 
+                          class="absolute -top-1 -right-2 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full border-2 border-white flex items-center justify-center shadow-sm transition-transform {{ isset($wishlistCount) && $wishlistCount > 0 ? '' : 'hidden' }}">
+                        {{ $wishlistCount ?? '' }}
+                    </span>
                 </a>
 
                 {{-- ログイン・会員登録ボタン --}}
@@ -123,12 +129,13 @@
                     @endauth
                 </div>
 
-                {{-- ★復活: 掲載台数表示（PCのみ、変数がある場合のみ表示） --}}
+                {{-- 掲載台数表示（PCのみ、変数がある場合のみ表示） --}}
                 @if(isset($totalListingsCount))
                 <div class="hidden xl:flex items-center gap-2 border-l border-gray-100 pl-5 ml-2">
                     <div class="text-right">
                         <span class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block leading-none mb-1">掲載台数</span>
                         <div class="flex items-baseline gap-0.5">
+                            <span class="text-lg font-black text-black leading-none">{{ number_format($totalListingsCount) }}</span>
                             <span class="text-lg font-black text-black leading-none">{{ number_format($totalListingsCount) }}</span>
                             <span class="text-[10px] font-bold text-gray-500">台</span>
                         </div>
