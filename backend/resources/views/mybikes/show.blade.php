@@ -42,14 +42,14 @@
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">給油日</label>
-                                    {{-- h-12クラスを追加して高さを統一 --}}
+                                    {{-- appearance-noneを追加してiOSでの表示崩れを防止 --}}
                                     <input type="date" name="filled_at" value="{{ old('filled_at', date('Y-m-d')) }}" required 
-                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">総走行距離 (km)</label>
                                     <input type="number" step="0.1" name="odometer" value="{{ old('odometer') }}" placeholder="例: {{ $myBike->current_odometer }}" required 
-                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                             </div>
                             
@@ -57,19 +57,19 @@
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">給油量 (L)</label>
                                     <input type="number" step="0.01" name="quantity" value="{{ old('quantity') }}" placeholder="例: 5.5" required 
-                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">金額 (円) <span class="font-normal text-gray-300">任意</span></label>
                                     <input type="number" name="cost" value="{{ old('cost') }}" placeholder="例: 1000" 
-                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                             </div>
 
                             <div>
                                 <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">メモ <span class="font-normal text-gray-300">任意</span></label>
                                 <input type="text" name="memo" value="{{ old('memo') }}" placeholder="例: 環七のGSで給油" 
-                                    class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
+                                    class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition-all">
                             </div>
 
                             @if ($errors->any() && !$errors->has('maintained_at'))
@@ -145,12 +145,12 @@
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">整備日</label>
                                     <input type="date" name="maintained_at" value="{{ old('maintained_at', date('Y-m-d')) }}" required 
-                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">内容</label>
                                     <input type="text" name="title" value="{{ old('title') }}" placeholder="例: オイル交換" required 
-                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                             </div>
                             
@@ -158,19 +158,19 @@
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">費用 (円) <span class="font-normal text-gray-300">任意</span></label>
                                     <input type="number" name="cost" value="{{ old('cost') }}" placeholder="例: 3000" 
-                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">時走行距離 (km) <span class="font-normal text-gray-300">任意</span></label>
                                     <input type="number" name="odometer" value="{{ old('odometer') }}" placeholder="例: {{ $myBike->current_odometer }}" 
-                                        class="block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
+                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">
                                 </div>
                             </div>
 
                             <div>
                                 <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">詳細メモ <span class="font-normal text-gray-400">任意</span></label>
                                 <textarea name="note" placeholder="使用オイル: ホンダG2 10W-40" rows="2" 
-                                    class="block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">{{ old('note') }}</textarea>
+                                    class="appearance-none block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition-all">{{ old('note') }}</textarea>
                             </div>
 
                             @if ($errors->any() && $errors->has('maintained_at'))
