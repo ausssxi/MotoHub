@@ -1,7 +1,6 @@
 /**
  * MotoHub Wishlist Page Logic
  */
-
 const initWishlistPage = async () => {
     const grid = document.getElementById('wishlist-grid');
     const empty = document.getElementById('wishlist-empty');
@@ -92,7 +91,6 @@ function renderWishlistItems(items, container) {
     const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop';
 
     container.innerHTML = items.map(bike => {
-        // 画像設定
         let displayImage = PLACEHOLDER_IMG;
         let imgClass = 'w-full h-full object-cover group-hover:scale-110 transition-transform duration-700';
         let noImageOverlay = '';
@@ -100,7 +98,6 @@ function renderWishlistItems(items, container) {
         if (bike.images && bike.images.length > 0) {
             displayImage = bike.images[0];
         } else {
-            // 画像がない場合は最初からグレーアウトし、アイコンを表示
             imgClass += ' grayscale opacity-50';
             noImageOverlay = `
                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -109,12 +106,10 @@ function renderWishlistItems(items, container) {
             `;
         }
 
-        // 売り切れの場合もグレーアウト
         if (bike.is_sold_out) {
             imgClass += ' grayscale';
         }
 
-        // お買い得バッジ
         let badgeHtml = '';
         if (bike.bargain_score > 5 && !bike.is_sold_out) {
             badgeHtml = `
@@ -124,7 +119,6 @@ function renderWishlistItems(items, container) {
                 </div>`;
         }
 
-        // 売り切れ表示
         let soldOutOverlay = '';
         if (bike.is_sold_out) {
             soldOutOverlay = `
@@ -147,7 +141,6 @@ function renderWishlistItems(items, container) {
                      onerror="this.onerror=null; this.src='${PLACEHOLDER_IMG}'; this.classList.add('grayscale', 'opacity-50');">
                 
                 ${noImageOverlay}
-                
                 ${badgeHtml}
 
                 <button class="wishlist-btn active absolute top-3 right-3 z-30 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-red-500 shadow-sm hover:scale-110 active:scale-90 transition-all border border-white/50" 
@@ -198,34 +191,34 @@ function renderWishlistItems(items, container) {
     `}).join('');
 }
 
-// 削除イベントの監視（変更なし）
+// お気に入り一覧ページから削除したときのアニメーション
 document.addEventListener('click', (e) => {
     const btn = e.target.closest('.wishlist-btn');
-    if (btn && document.getElementById('wishlist-grid')) {
-        e.preventDefault(); 
-        
+    if (!btn) return;
+
+    const grid = document.getElementById('wishlist-grid');
+    if (grid) {
         const card = btn.closest('.bike-card');
-        const id = btn.dataset.id;
-        
-        if (card && id) {
+        if (card) {
             card.style.transition = 'all 0.3s ease';
             card.classList.add('scale-95', 'opacity-0');
             
             setTimeout(() => {
                 card.remove();
-                if (window.WishlistManager) {
-                    window.WishlistManager.toggle(id);
-                }
                 const remaining = document.querySelectorAll('.bike-card').length;
                 const totalLabel = document.getElementById('wishlist-total-label');
                 if (totalLabel) totalLabel.textContent = remaining;
                 if (remaining === 0) {
-                    document.getElementById('wishlist-grid').classList.add('hidden');
-                    document.getElementById('wishlist-empty').classList.remove('hidden');
+                    grid.classList.add('hidden');
+                    const emptyState = document.getElementById('wishlist-empty');
+                    if(emptyState) emptyState.classList.remove('hidden');
                 }
             }, 300);
         }
     }
 });
 
-document.addEventListener('DOMContentLoaded', initWishlistPage);
+// ページ読み込み時の処理
+document.addEventListener('DOMContentLoaded', () => {
+    initWishlistPage();
+});

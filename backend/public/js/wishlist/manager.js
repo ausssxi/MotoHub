@@ -13,13 +13,20 @@ const WishlistManager = {
         if (this.isLoggedIn) {
             // サーバーからお気に入りID一覧を取得
             try {
-                const response = await fetch('/api/favorites/ids');
+                const response = await fetch('/api/favorites/ids', {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
                 if (response.ok) {
                     const ids = await response.json();
                     this.items = new Set(ids.map(id => parseInt(id)));
                     
                     // LocalStorageからの移行（必要なら）
                     this.syncLocalStorageToServer();
+                } else if (response.status === 419 || response.status === 401) {
+                    console.error('認証エラーまたはセッション切れです');
                 }
             } catch (e) {
                 console.error('Failed to fetch favorites', e);
@@ -31,7 +38,7 @@ const WishlistManager = {
                 this.items = new Set(JSON.parse(stored).map(id => parseInt(id)));
             }
         }
-
+        
         this.updateUI();
     },
 
@@ -42,39 +49,42 @@ const WishlistManager = {
         const listingId = parseInt(id);
 
         if (this.isLoggedIn) {
+            // UIを先行更新 (Optimistic UI)
+            const wasFavorited = this.items.has(listingId);
+            if (wasFavorited) {
+                this.items.delete(listingId);
+            } else {
+                this.items.add(listingId);
+            }
+            this.updateUI(); // 即時反映
+
             // サーバーと通信
             try {
-                // UIを先行更新 (Optimistic UI)
-                if (this.items.has(listingId)) {
-                    this.items.delete(listingId);
-                } else {
-                    this.items.add(listingId);
-                }
-                this.updateUI(); // 即時反映
-
-                // APIリクエスト
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                
                 const response = await fetch('/api/favorites/toggle', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
                     },
                     body: JSON.stringify({ listing_id: listingId })
                 });
 
                 if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
             } catch (e) {
                 console.error('Toggle failed', e);
                 // エラー時は元に戻す（ロールバック）
-                if (this.items.has(listingId)) {
-                    this.items.delete(listingId);
-                } else {
+                if (wasFavorited) {
                     this.items.add(listingId);
+                } else {
+                    this.items.delete(listingId);
                 }
                 this.updateUI();
-                alert('お気に入りの更新に失敗しました。');
+                alert('お気に入りの更新に失敗しました。画面をリロードしてください。');
             }
         } else {
             // LocalStorage操作 (未ログイン時)
@@ -142,10 +152,10 @@ const WishlistManager = {
      */
     getIds() {
         return [...this.items];
-    }, // ★カンマを追加
+    },
 
     /**
-     * ★追加: 有効なIDリストで強制的に同期する
+     * 有効なIDリストで強制的に同期する
      */
     sync(validIds) {
         // 新しいIDリストで上書き
@@ -163,3 +173,23 @@ const WishlistManager = {
 
 // グローバル公開
 window.WishlistManager = WishlistManager;
+
+// ==========================================
+// ★絶対に必要な処理: どのページでもお気に入りボタンのクリックを監視する
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.wishlist-btn');
+        if (!btn) return; 
+
+        e.preventDefault(); 
+        e.stopPropagation(); 
+        
+        const id = btn.dataset.id;
+        if (!id) return;
+
+        if (window.WishlistManager) {
+            window.WishlistManager.toggle(id);
+        }
+    });
+});

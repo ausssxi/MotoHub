@@ -56,5 +56,4 @@
             </div>
         </div>
     </div>
-    <script src="{{ asset('js/wishlist/page.js') }}"></script>
 </x-layout>

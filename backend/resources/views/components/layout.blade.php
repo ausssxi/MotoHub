@@ -7,7 +7,7 @@
     
     {{-- SEO用メタデータ --}}
     <meta name="description" content="{{ $metaDescription ?? '日本最大級のバイク検索・比較プラットフォーム。GooBike、BDS、Webikeから一括検索！' }}">
-
+    <meta name="auth-check" content="{{ Auth::check() ? 'true' : 'false' }}">
     {{-- OGP設定 (SNSシェア用) --}}
     <meta property="og:title" content="{{ $title ?? 'MotoHub' }}" />
     <meta property="og:description" content="{{ $metaDescription ?? '日本最大級のバイク検索・比較プラットフォーム。GooBike、BDS、Webikeから一括検索！' }}" />
@@ -69,7 +69,7 @@
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="bg-white text-gray-900 font-sans min-h-screen flex flex-col">
+<body class="bg-white text-gray-900 font-sans min-h-screen flex flex-col" data-logged-in="{{ Auth::check() ? 'true' : 'false' }}">
 
     {{-- ナビゲーション（ヘッダー） --}}
     {{ $navigation }}
@@ -87,6 +87,7 @@
         Lucideの後に読み込むことで、JS内でのアイコン描画を確実にします
     --}}
     <script src="{{ asset('js/wishlist/manager.js') }}"></script>
+    <script src="{{ asset('js/wishlist/page.js') }}"></script>
     <script src="{{ asset('js/history/manager.js') }}?v={{ time() }}"></script>
     <script src="{{ asset('js/search/interaction.js') }}"></script>
     {{ $scripts ?? '' }}

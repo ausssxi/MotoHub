@@ -8,10 +8,8 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\Api\BikeApiController;
 use App\Http\Controllers\Shop\ShopController;
 use App\Http\Controllers\Bike\TrendController;
-use App\Http\Controllers\Api\FavoriteController; // お気に入りAPI
 use App\Http\Controllers\ProfileController; // Breeze用
-use App\Http\Controllers\Api\SavedSearchController; // 検索条件保存API
-use App\Http\Controllers\Api\StatsController; // 統計情報API
+use App\Http\Controllers\Api\StatsApiController; // 統計情報API
 use App\Http\Controllers\Page\SellController; // 買取査定LP
 use App\Http\Controllers\MyBike\MyBikeController; // 愛車ログ機能
 
@@ -70,7 +68,7 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
 Route::prefix('shops')->name('shops.')->group(function () {
     // マップページ
     Route::get('/map', [ShopController::class, 'map'])->name('map');
-    // エリア検索API
+    // エリア検索API (※公開APIなので一旦ここに残します)
     Route::get('/api/area', [ShopController::class, 'area'])->name('api.area');
     
     Route::get('/{id}', [ShopController::class, 'show'])->name('show')->where('id', '[0-9]+');
@@ -81,11 +79,11 @@ Route::get('/wishlist', [BikeController::class, 'wishlist'])->name('wishlist');
 Route::get('/api/wishlist/fetch', [BikeController::class, 'fetchWishlist'])->name('api.wishlist.fetch');
 Route::get('/compare', [BikeController::class, 'compare'])->name('bikes.compare');
 
-// API関連
+// API関連 (※公開APIなのでここに残します)
 Route::prefix('api')->group(function () {
     Route::get('/bikes/count', [BikeApiController::class, 'count']);
     Route::get('/manufacturers/{manufacturer}/models', [BikeApiController::class, 'models']);
-    Route::get('/stats/price/{bikeModelId}', [App\Http\Controllers\Api\StatsController::class, 'getPriceStats']);
+    Route::get('/stats/price/{bikeModelId}', [App\Http\Controllers\Api\StatsApiController::class, 'getPriceStats']);
 });
 
 // 固定ページ (運営者情報など)
@@ -103,7 +101,7 @@ Route::post('/api/sell/calculate', [SellController::class, 'calculate'])->name('
 
 /**
  * ==========================================
- * 会員機能ルート (Breeze & お気に入り)
+ * 会員機能ルート (Breeze & マイページ等)
  * ==========================================
  */
 
@@ -112,45 +110,36 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-// 認証が必要な機能グループ
+// 認証が必要な「画面・Web機能」グループ (※ここは auth に戻します)
 Route::middleware('auth')->group(function () {
-    // お気に入りAPI (DB保存)
-    Route::post('/api/favorites/toggle', [FavoriteController::class, 'toggle'])->name('api.favorites.toggle');
-    Route::get('/api/favorites/ids', [FavoriteController::class, 'index'])->name('api.favorites.ids');
+
+    // ▼▼ ここに追記 ▼▼
+    // お気に入りAPI
+    Route::post('/api/favorites/toggle', [\App\Http\Controllers\Api\FavoriteController::class, 'toggle'])->name('api.favorites.toggle');
+    Route::get('/api/favorites/ids', [\App\Http\Controllers\Api\FavoriteController::class, 'index'])->name('api.favorites.ids');
 
     // 検索条件の保存API
-    Route::post('/api/saved-searches', [SavedSearchController::class, 'store'])->name('api.saved_searches.store');
+    Route::post('/api/saved-searches', [\App\Http\Controllers\Api\SavedSearchController::class, 'store'])->name('api.saved_searches.store');
+
+    // 閲覧履歴API
+    Route::post('/api/history/record', [\App\Http\Controllers\Api\HistoryController::class, 'record'])->name('api.history.record');
+    Route::get('/api/history/ids', [\App\Http\Controllers\Api\HistoryController::class, 'index'])->name('api.history.ids');
+    Route::post('/api/history/sync', [\App\Http\Controllers\Api\HistoryController::class, 'sync'])->name('api.history.sync');
+    // ▲▲ ここまで追記 ▲▲
 
     // プロフィール編集 (Breeze標準)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // 閲覧履歴API
-    Route::post('/api/history/record', [HistoryController::class, 'record'])->name('api.history.record');
-    Route::get('/api/history/ids', [HistoryController::class, 'index'])->name('api.history.ids');
-    Route::post('/api/history/sync', [HistoryController::class, 'sync'])->name('api.history.sync');
-
     // 愛車ログ機能
-    // JSやコントローラーの記述に合わせて prefix を 'garage'、name を 'my_bike.' に統一します
     Route::prefix('garage')->name('mybikes.')->controller(MyBikeController::class)->group(function () {
-        // 一覧ページ (URL: /garage)
         Route::get('/', 'index')->name('index');
-        
-        // 愛車登録処理 (URL: /garage [POST])
         Route::post('/', 'store')->name('store');
-        
-        // 詳細ページ (URL: /garage/1)
         Route::get('/{myBike}', 'show')->name('show')->where('myBike', '[0-9]+');
-        
-        // 削除用のルート
         Route::delete('/{myBike}', 'destroy')->name('destroy');
-
-        // ログ保存
         Route::post('/{myBike}/fuel', 'storeFuel')->name('fuel.store');
         Route::post('/{myBike}/maintenance', 'storeMaintenance')->name('maintenance.store');
-
-        // 車種検索API (URL: /garage/api/search-models)
         Route::get('/api/search-models', 'searchModels')->name('api.search_models');
     });
 });
