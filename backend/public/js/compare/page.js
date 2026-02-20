@@ -77,12 +77,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 `;
             }
 
+            // 【修正】高さを固定値 (スマホ: h-36=144px, PC: sm:h-[180px]=180px) にしてテーブル内での画像潰れバグを完全に防ぎます。
             th.innerHTML = `
                 <button class="remove-this absolute top-1 right-1 sm:top-2 sm:right-2 text-gray-300 hover:text-red-500 transition-colors z-10" data-id="${bike.id}">
                     <i data-lucide="x-circle" class="w-5 h-5 sm:w-6 sm:h-6 bg-white/50 rounded-full"></i>
                 </button>
                 
-                <div class="rounded-lg sm:rounded-xl overflow-hidden mb-2 sm:mb-3 shadow-sm bg-gray-50 relative aspect-[4/3]">
+                <div class="rounded-lg sm:rounded-xl overflow-hidden mb-2 sm:mb-3 shadow-sm bg-gray-50 relative w-full h-36 sm:h-[180px] flex items-center justify-center">
                     <img src="${displayImage}" 
                          class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 ${initialClass}"
                          alt="${bike.name}"
