@@ -3,34 +3,19 @@
         {{ $listing->name }} | MotoHub
     </x-slot:title>
 
-    {{-- ★追加: OGP/SEO用の説明文 --}}
     <x-slot:metaDescription>
-        {{-- 説明文からHTMLタグを除去し、先頭120文字を抽出して設定 --}}
         {{ mb_substr(strip_tags($listing->description ?? "{$listing->maker} {$listing->name} の詳細ページです。販売店:{$listing->shop_name} 価格:{$listing->total_price}万円"), 0, 120) }}...
     </x-slot:metaDescription>
 
-    {{-- 
-        ※ OGP画像（og:image）について:
-        スクレイピングした車両画像をSNSで表示させるのは著作権リスクがあるため、
-        layout.blade.php 側で設定した「デフォルト画像（twitter_card.png）」が
-        自動的に適用されるようにしています。
-    --}}
-
-    {{-- 比較機能用のスクリプトを読み込み --}}
     <x-slot:scripts>
         <script src="{{ asset('js/compare/manager.js') }}"></script>
         <script src="{{ asset('js/compare/ui.js') }}"></script>
         <script src="{{ asset('js/bikes/loan-simulator.js') }}"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-        {{-- ★修正: 古い stats.js を削除し、データをJS変数に渡して model_detail.js で描画する --}}
         <script>
-            // コントローラーから渡された高速データをJS変数に入れる
-            // これにより、API通信なしで即座にグラフが表示されます
             window.bikeModelStats = {!! json_encode($stats ?? [], JSON_HEX_TAG) !!};
         </script>
-        
-        {{-- 共通化したチャート描画＆数値反映スクリプトを読み込み --}}
         <script src="{{ asset('js/bikes/model_detail.js') }}"></script>
     </x-slot:scripts>
 
@@ -45,7 +30,6 @@
                 <ol class="flex items-center space-x-2 whitespace-nowrap overflow-x-auto scrollbar-hide">
                     <li><a href="/" class="hover:text-gray-600 transition-colors">HOME</a></li>
                     
-                    {{-- メーカー --}}
                     @if($listing->manufacturer_id)
                         <li><span class="text-gray-300">＞</span></li>
                         <li>
@@ -55,7 +39,6 @@
                         </li>
                     @endif
 
-                    {{-- 車種 --}}
                     @if($listing->bike_model_id && $listing->bike_model_name)
                         <li><span class="text-gray-300">＞</span></li>
                         <li>
@@ -76,46 +59,37 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             
             <div class="lg:grid lg:grid-cols-12 lg:gap-8">
-                {{-- メインカラム（左側：画像・詳細） --}}
+                {{-- メインカラム --}}
                 <div class="lg:col-span-8 space-y-8">
                     
                     {{-- 1. 画像ギャラリー --}}
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                        {{-- メイン画像エリア --}}
                         <div class="aspect-[4/3] bg-gray-100 relative group overflow-hidden">
                             @if(!empty($listing->images) && count($listing->images) > 0)
-                                {{-- A. 背景用（拡大・ぼかし） --}}
                                 <div class="absolute inset-0 z-0">
                                     <img src="{{ $listing->images[0] }}" 
                                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
                                         class="w-full h-full object-cover blur-2xl opacity-50 scale-110" aria-hidden="true">
                                 </div>
-                                
-                                {{-- B. 表示用（元サイズ維持・中央配置） --}}
                                 <div class="absolute inset-0 z-10 flex items-center justify-center p-1">
                                     <img src="{{ $listing->images[0] }}" alt="{{ $listing->name }}" 
                                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
                                         class="max-w-full max-h-full object-contain shadow-sm">
                                 </div>
                             @else
-                                {{-- ★修正: 画像データがない(@else)場合も、ダミー画像を表示して統一感を出す --}}
                                 <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop" 
-                                     class="w-full h-full object-cover grayscale opacity-50" 
-                                     alt="No Image">
-
+                                     class="w-full h-full object-cover grayscale opacity-50" alt="No Image">
                                 <div class="absolute inset-0 flex items-center justify-center">
                                     <i data-lucide="image-off" class="w-8 h-8 text-white/50"></i>
                                 </div>
                             @endif
                             
-                            {{-- 画像枚数バッジ --}}
                             <div class="absolute bottom-4 right-4 z-20 bg-black/70 text-white px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm">
                                 <i data-lucide="camera" class="w-3 h-3 inline mr-1"></i>
                                 {{ count($listing->images ?? []) }}枚
                             </div>
                         </div>
 
-                        {{-- サムネイルリスト（横スクロール） --}}
                         @if(!empty($listing->images) && count($listing->images) > 1)
                         <div class="flex gap-2 p-4 overflow-x-auto scrollbar-hide bg-white border-t border-gray-100">
                             @foreach($listing->images as $img)
@@ -134,8 +108,6 @@
                         <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
                             <div>
                                 <h1 class="text-2xl sm:text-3xl font-black text-gray-900 leading-tight mb-3">{{ $listing->name }}</h1>
-                                
-                                {{-- メーカー、コンディション、都道府県を色分けバッジで表示 --}}
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">{{ $listing->maker }}</span>
                                     <span class="text-[10px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded uppercase">{{ $listing->category }}</span>
@@ -144,7 +116,6 @@
                                 </div>
                             </div>
                             
-                            {{-- お気に入り・比較ボタン --}}
                             <div class="flex items-center gap-2">
                                 <button class="compare-btn w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors" data-id="{{ $listing->id }}">
                                     <i data-lucide="layers" class="w-5 h-5"></i>
@@ -155,11 +126,9 @@
                             </div>
                         </div>
 
-                        {{-- ★追加: AI相場判定バッジ (ここから) --}}
                         @if(isset($stats['rank']) && $stats['rank'] !== 'unknown')
                         <div class="mb-6">
                             <div class="flex items-center gap-3 bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                                {{-- ランクアイコン --}}
                                 <div class="flex-shrink-0">
                                     @if($stats['rank'] === 'S')
                                         <div class="w-12 h-12 rounded-full bg-red-600 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-red-200">S</div>
@@ -171,7 +140,6 @@
                                         <div class="w-12 h-12 rounded-full bg-gray-400 text-white flex items-center justify-center font-black text-xl">C</div>
                                     @endif
                                 </div>
-                                {{-- 判定テキスト --}}
                                 <div>
                                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">AI Market Price</p>
                                     <div class="text-sm font-bold text-gray-800">
@@ -190,7 +158,6 @@
                         </div>
                         @endif
 
-                        {{-- スペックグリッド --}}
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
                             <div class="bg-gray-50 rounded-2xl p-4 text-center">
                                 <div class="text-xs font-bold text-gray-400 mb-1">年式</div>
@@ -210,7 +177,6 @@
                             </div>
                         </div>
 
-                        {{-- 説明文エリア --}}
                         <div class="prose prose-sm max-w-none text-gray-600">
                             <h3 class="text-lg font-black text-gray-900 mb-3">車両の状態・コメント</h3>
                             
@@ -224,29 +190,17 @@
                                         ご覧いただきありがとうございます。<br>
                                         <span class="font-bold text-gray-800">{{ $listing->maker }} {{ $listing->name }}</span> の掲載車両です。
                                     </p>
-
                                     <div class="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-100">
                                         <ul class="space-y-1">
-                                            <li class="flex gap-2">
-                                                <span class="text-gray-400 text-xs w-16 pt-0.5">年式</span>
-                                                <span class="font-bold text-gray-800">{{ $listing->model_year }}</span>
-                                            </li>
-                                            <li class="flex gap-2">
-                                                <span class="text-gray-400 text-xs w-16 pt-0.5">走行距離</span>
-                                                <span class="font-bold text-gray-800">{{ $listing->mileage }}</span>
-                                            </li>
-                                            <li class="flex gap-2">
-                                                <span class="text-gray-400 text-xs w-16 pt-0.5">支払総額</span>
-                                                <span class="font-black text-red-500">{{ $listing->total_price }} 万円</span>
-                                            </li>
+                                            <li class="flex gap-2"><span class="text-gray-400 text-xs w-16 pt-0.5">年式</span><span class="font-bold text-gray-800">{{ $listing->model_year }}</span></li>
+                                            <li class="flex gap-2"><span class="text-gray-400 text-xs w-16 pt-0.5">走行距離</span><span class="font-bold text-gray-800">{{ $listing->mileage }}</span></li>
+                                            <li class="flex gap-2"><span class="text-gray-400 text-xs w-16 pt-0.5">支払総額</span><span class="font-black text-red-500">{{ $listing->total_price }} 万円</span></li>
                                         </ul>
                                     </div>
-
                                     <p class="mb-4">
                                         本車両は「<span class="font-bold">{{ $listing->shop_name }}</span>」にて販売中です。<br>
                                         車両の状態や見積もりの詳細については、ページ内の「在庫確認・見積もり」ボタンから販売店へ直接お問い合わせください。
                                     </p>
-                                    
                                     <p class="text-xs text-gray-400 pt-4 border-t border-dashed border-gray-200">
                                         ※このコメントは車両データから自動生成されています。詳細は販売店にご確認ください。
                                     </p>
@@ -269,7 +223,6 @@
                             <h3 class="text-lg font-black text-gray-900">市場価格分析</h3>
                         </div>
 
-                        <!-- 統計サマリー -->
                         <div id="price-stats-loading" class="text-center py-10">
                             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                             <p class="text-xs text-gray-400 font-bold mt-3">市場データを分析中...</p>
@@ -279,33 +232,23 @@
                             <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-8">
                                 <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
                                     <div class="text-[10px] font-bold text-gray-400 mb-1">相場平均</div>
-                                    <div class="text-base sm:text-xl font-black text-gray-800">
-                                        <span id="stat-avg">---</span><span class="text-xs ml-0.5">万円</span>
-                                    </div>
+                                    <div class="text-base sm:text-xl font-black text-gray-800"><span id="stat-avg">---</span><span class="text-xs ml-0.5">万円</span></div>
                                 </div>
                                 <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
                                     <div class="text-[10px] font-bold text-gray-400 mb-1">最安値</div>
-                                    <div class="text-base sm:text-xl font-black text-blue-600">
-                                        <span id="stat-min">---</span><span class="text-xs ml-0.5">万円</span>
-                                    </div>
+                                    <div class="text-base sm:text-xl font-black text-blue-600"><span id="stat-min">---</span><span class="text-xs ml-0.5">万円</span></div>
                                 </div>
                                 <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
                                     <div class="text-[10px] font-bold text-gray-400 mb-1">最高値</div>
-                                    <div class="text-base sm:text-xl font-black text-red-500">
-                                        <span id="stat-max">---</span><span class="text-xs ml-0.5">万円</span>
-                                    </div>
+                                    <div class="text-base sm:text-xl font-black text-red-500"><span id="stat-max">---</span><span class="text-xs ml-0.5">万円</span></div>
                                 </div>
                             </div>
                             
-                            <!-- チャートキャンバス -->
                             <div class="relative h-64 w-full">
                                 <canvas id="priceChart"></canvas>
                             </div>
 
-                            <p class="text-[10px] text-gray-400 mt-4 text-right">
-                                ※MotoHubに掲載中の「{{ $listing->name }}」全車両のデータから算出
-                            </p>
-                            {{-- カタログページ（買取相場・詳細情報）へのリンク --}}
+                            <p class="text-[10px] text-gray-400 mt-4 text-right">※MotoHubに掲載中の「{{ $listing->name }}」全車両のデータから算出</p>
                             @if($listing->bike_model_id)
                             <div class="mt-8 pt-6 border-t border-gray-100 text-center">
                                 <a href="{{ route('bikes.model_detail', $listing->bike_model_id) }}" class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-700 font-bold rounded-xl transition-all shadow-sm border border-blue-100 group">
@@ -330,9 +273,7 @@
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {{-- 入力エリア --}}
                             <div class="space-y-6">
-                                {{-- 頭金 --}}
                                 <div>
                                     <div class="flex justify-between mb-2">
                                         <label class="text-xs font-bold text-gray-500">頭金</label>
@@ -341,8 +282,6 @@
                                     <input type="range" id="loan-down-payment" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600" 
                                         min="0" max="{{ floor($listing->total_price) }}" step="1" value="0">
                                 </div>
-
-                                {{-- 支払回数 --}}
                                 <div>
                                     <label class="text-xs font-bold text-gray-500 block mb-2">支払回数</label>
                                     <div class="relative">
@@ -359,38 +298,27 @@
                                         <i data-lucide="chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
                                     </div>
                                 </div>
-
-                                {{-- 金利 --}}
                                 <div>
                                     <label class="text-xs font-bold text-gray-500 block mb-2">実質年率 (%)</label>
                                     <input type="number" id="loan-rate" value="5.9" step="0.1" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl focus:ring-green-500 focus:border-green-500 block p-3">
                                 </div>
                                 <input type="hidden" id="loan-bonus" value="0">
                             </div>
-
-                            {{-- 結果表示エリア --}}
                             <div class="bg-green-50 rounded-2xl p-6 flex flex-col justify-center items-center text-center border border-green-100">
                                 <p class="text-xs font-bold text-green-600 mb-1">月々のお支払い目安</p>
                                 <div class="text-4xl font-black text-green-700 tracking-tight mb-2">
                                     <span id="disp-monthly-payment">0</span><span class="text-sm ml-1">円</span>
                                 </div>
-                                
                                 <div class="w-full border-t border-green-200/50 my-4"></div>
-                                
                                 <div class="w-full flex justify-between text-xs font-bold text-gray-600 mb-1">
-                                    <span>ローン元金</span>
-                                    <span><span id="disp-loan-amount">0</span>万円</span>
+                                    <span>ローン元金</span><span><span id="disp-loan-amount">0</span>万円</span>
                                 </div>
                                 <div class="w-full flex justify-between text-xs font-bold text-gray-600">
-                                    <span>支払総額(目安)</span>
-                                    <span>約<span id="disp-total-payment">0</span>万円</span>
+                                    <span>支払総額(目安)</span><span>約<span id="disp-total-payment">0</span>万円</span>
                                 </div>
                             </div>
                         </div>
-                        
-                        <p class="text-[10px] text-gray-400 mt-4 text-right">
-                            ※シミュレーション結果は概算です。実際の契約内容や金利により異なります。
-                        </p>
+                        <p class="text-[10px] text-gray-400 mt-4 text-right">※シミュレーション結果は概算です。実際の契約内容や金利により異なります。</p>
                     </div>
                     @endif
 
@@ -420,16 +348,12 @@
                                         {{ $listing->shop_name }}
                                     @endif
                                 </div>
-
-                                {{-- PC画面のみ住所を表示 --}}
                                 @if(!empty($listing->shop_address))
                                 <p class="hidden sm:block text-xs font-bold text-gray-400 mb-3">
                                     {{ $listing->shop_address }}
                                 </p>
                                 @endif
-
                                 <div class="text-sm font-bold text-gray-500 space-y-1">
-                                    {{-- スマホ画面のみリスト内に住所を表示 --}}
                                     <p class="sm:hidden">{{ $listing->shop_address ?? '住所情報なし' }}</p>
                                     <p>TEL: {{ $listing->shop_tel ?? '-' }}</p>
                                     <p>営業時間: {{ $listing->shop_hours ?? '-' }}</p>
@@ -438,7 +362,9 @@
                         </div>
                     </div>
 
-                    {{-- 4. 類似車両（同じ車種の他の車両） --}}
+                    {{-- ★ここからPV向上施策のセクション --}}
+
+                    {{-- 4. この車種の他の車両（本命比較） --}}
                     @if(!empty($relatedListings) && count($relatedListings) > 0)
                     <div class="pt-8 border-t border-gray-200">
                         <div class="flex items-center justify-between mb-6">
@@ -448,7 +374,6 @@
                                 </div>
                                 <h3 class="text-lg font-black text-gray-900">この車種の他の車両</h3>
                             </div>
-                            
                             <a href="{{ route('bikes.search', ['bike_model_id' => $listing->bike_model_id]) }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
                                 すべて見る <i data-lucide="chevron-right" class="w-4 h-4 inline-block align-text-bottom"></i>
                             </a>
@@ -456,7 +381,7 @@
                         
                         <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
                             @foreach($relatedListings as $related)
-                            <a href="{{ route('bikes.show', $related['id']) }}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
+                            <a href="{{ route('bikes.show', $related['id']) }}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block relative">
                                 <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
                                     @if(!empty($related['images']) && isset($related['images'][0]))
                                         <img src="{{ $related['images'][0] }}" 
@@ -467,7 +392,6 @@
                                             <i data-lucide="image-off" class="w-8 h-8"></i>
                                         </div>
                                     @endif
-                                    
                                     <div class="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-black">
                                         {{ $related['total_price'] }}万円
                                     </div>
@@ -490,12 +414,71 @@
                     </div>
                     @endif
 
-                    {{-- 5. 最近見た車両 --}}
-                    <div id="history-widget-container" class="pt-8">
-                        <div id="history-widget" class="hidden"></div>
+                    {{-- 5. 類似車両（関連バイク・視野の拡大） --}}
+                    @if(!empty($similarListings) && count($similarListings) > 0)
+                    <div class="pt-8 border-t border-gray-200">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-2">
+                                <div class="p-2 bg-purple-50 rounded-lg text-purple-600">
+                                    <i data-lucide="sparkles" class="w-5 h-5"></i>
+                                </div>
+                                <h3 class="text-lg font-black text-gray-900">似ている条件の車両</h3>
+                            </div>
+                            <a href="{{ route('bikes.search', ['manufacturer_id' => $listing->manufacturer_id]) }}" class="text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors">
+                                同じメーカーを探す <i data-lucide="chevron-right" class="w-4 h-4 inline-block align-text-bottom"></i>
+                            </a>
+                        </div>
+                        
+                        <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+                            @foreach($similarListings as $similar)
+                            <a href="{{ route('bikes.show', $similar['id']) }}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block relative">
+                                <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
+                                    @if(!empty($similar['images']) && isset($similar['images'][0]))
+                                        <img src="{{ $similar['images'][0] }}" 
+                                            onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
+                                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="">
+                                    @else
+                                        <div class="flex items-center justify-center h-full text-gray-300">
+                                            <i data-lucide="image-off" class="w-8 h-8"></i>
+                                        </div>
+                                    @endif
+                                    <div class="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-black">
+                                        {{ $similar['total_price'] }}万円
+                                    </div>
+                                </div>
+                                <div class="p-3">
+                                    <div class="text-[10px] font-bold text-gray-400 mb-0.5 flex items-center gap-1">
+                                        <span class="bg-purple-50 text-purple-600 px-1.5 rounded">{{ $similar['maker'] }}</span>
+                                    </div>
+                                    <h4 class="text-xs font-black text-gray-800 leading-tight line-clamp-2 mb-2 h-[2.5em] group-hover:text-purple-600 transition-colors">
+                                        {{ $similar['name'] }}
+                                    </h4>
+                                    <div class="flex items-end justify-between border-t border-gray-100 pt-2">
+                                        <div class="text-[10px] text-gray-400 truncate w-full">{{ $similar['prefecture'] }}</div>
+                                    </div>
+                                </div>
+                            </a>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- 6. 最近見た車両（JSで取得） --}}
+                    <div id="history-section" class="pt-8 border-t border-gray-200 hidden">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-2">
+                                <div class="p-2 bg-gray-50 rounded-lg text-gray-600">
+                                    <i data-lucide="clock" class="w-5 h-5"></i>
+                                </div>
+                                <h3 class="text-lg font-black text-gray-900">最近見た車両</h3>
+                            </div>
+                        </div>
+                        <div id="history-widget" class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+                            {{-- JSでカードが挿入されます --}}
+                        </div>
                     </div>
 
-                    {{-- ★追加: 関連条件へのSEOリンク集 --}}
+                    {{-- ★関連条件へのSEOリンク集 --}}
                     @if(!empty($seoLinks))
                     <div class="pt-12 mt-4">
                         <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
@@ -577,13 +560,42 @@
         </div>
     </div>
 
-    <script>
+    <style>
+        /* スクロールバーを隠す（スマホで綺麗に見せるため） */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+
+<script>
         document.addEventListener('DOMContentLoaded', () => {
             if (window.HistoryManager) {
+                // 1. ログイン状態の確認
+                const authMeta = document.querySelector('meta[name="auth-check"]');
+                const bodyLoggedIn = document.body.dataset.loggedIn === 'true';
+                const isLoggedIn = (authMeta && authMeta.content === 'true') || bodyLoggedIn;
+                
                 const listingId = parseInt('{{ $listing->id }}');
+                
                 if (!isNaN(listingId)) {
-                    HistoryManager.push(listingId);
-                    HistoryManager.render('history-widget');
+                    // 2. マネージャーの初期化完了を待つ
+                    HistoryManager.init(isLoggedIn).then(() => {
+                        // 3. 履歴に「現在の車両」を追加し、それが終わるのを待つ
+                        HistoryManager.push(listingId).then(() => {
+                            // 4. 追加が終わってから、描画処理を実行する（現在の車両は除外）
+                            HistoryManager.render('history-widget', listingId).then(() => {
+                                const widget = document.getElementById('history-widget');
+                                // 5. 過去の履歴が1件以上あれば、セクション全体を表示する
+                                if (widget && widget.children.length > 0) {
+                                    document.getElementById('history-section').classList.remove('hidden');
+                                }
+                            });
+                        });
+                    });
                 }
             }
         });

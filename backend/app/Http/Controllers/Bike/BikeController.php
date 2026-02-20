@@ -101,7 +101,6 @@ final class BikeController extends Controller
     public function show(int $id): View
     {
         // 1. Eager Loading の最適化
-        // marketStats を含めることで、BargainScore計算時のN+1問題を防止します
         $listing = Listing::with([
             'shop', 
             'bikeModel.manufacturer', 
@@ -109,18 +108,30 @@ final class BikeController extends Controller
             'bikeModel.marketStats' 
         ])->findOrFail($id);
 
-        // 2. 関連車両の取得（Repositoryの最適化されたメソッドを利用）
+        // 2. 関連車両の取得（同じ車種）
         $relatedListings = collect();
         if ($listing->bike_model_id) {
             $relatedRaw = $this->bikeService->getRelatedListings($listing->bike_model_id, $listing->id, 8);
             $relatedListings = ListingResource::collection($relatedRaw)->resolve();
         }
 
+        // ★追加：類似車両の取得（同じメーカーの別車種など、視野を広げる提案）
+        $similarListings = collect();
+        if ($listing->manufacturer_id) {
+            $similarRaw = Listing::with(['shop', 'bikeModel.manufacturer'])
+                ->where('manufacturer_id', $listing->manufacturer_id)
+                ->where('bike_model_id', '!=', $listing->bike_model_id) // 違う車種
+                ->where('is_sold_out', false)
+                ->inRandomOrder()
+                ->take(8) // 8件取得
+                ->get();
+            $similarListings = ListingResource::collection($similarRaw)->resolve();
+        }
+
         // 3. SEO用リンク集の生成
         $seoLinks = $this->bikeService->getSeoLinks($listing);
 
-        // 4. 市場統計データの取得（爆速版 Service を使用）
-        // 以前の getMarketAnalysis(ライブ計算) をやめ、バッチ計算済みのキャッシュを利用します
+        // 4. 市場統計データの取得
         $stats = $this->priceStatsService->getModelStats((int)$listing->bike_model_id);
 
         // 5. リソース変換
@@ -129,6 +140,7 @@ final class BikeController extends Controller
         return view('bikes.show', [
             'listing'         => $data,
             'relatedListings' => $relatedListings,
+            'similarListings' => $similarListings, // ★追加してビューに渡す
             'seoLinks'        => $seoLinks,
             'stats'           => $stats,
             'histogram'       => $stats['distribution'] ?? []
@@ -143,12 +155,10 @@ final class BikeController extends Controller
         $model = $this->bikeService->getBikeModelDetail($id);
         $model->load(['reviews']);
 
-        // 全て事前に計算済みのキャッシュテーブルから取得されます
         $stats = $this->priceStatsService->getModelStats($id);
         $resale = $this->priceStatsService->getResaleStats($id);
         $history = $this->priceStatsService->getPriceHistory($id);
 
-        // 現在販売中の車両を取得
         $listingsRaw = $this->bikeService->getRelatedListings($id, 0, 8);
         $listings = ListingResource::collection($listingsRaw)->resolve();
 
