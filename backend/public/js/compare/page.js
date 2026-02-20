@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 <div class="rounded-lg sm:rounded-xl overflow-hidden mb-2 sm:mb-3 shadow-sm bg-gray-50 relative aspect-[4/3]">
                     <img src="${displayImage}" 
-                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${initialClass}"
+                         class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 ${initialClass}"
                          alt="${bike.name}"
                          onerror="this.onerror=null; this.src='${PLACEHOLDER_IMG}'; this.classList.add('grayscale', 'opacity-50');">
                     
