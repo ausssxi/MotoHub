@@ -10,7 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use App\Services\Bike\SavedSearchService;
 use Exception;
-use Illuminate\Support\Facades\Log; // 追加
+use Illuminate\Support\Facades\Log;
 
 class SavedSearchController extends Controller
 {

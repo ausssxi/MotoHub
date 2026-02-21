@@ -110,6 +110,40 @@ final class ListingRepository
             ->get();
     }
 
+    
+    /**
+     * 車両詳細情報をリレーション込みで取得する
+     */
+    public function getListingDetail(int $id): Listing
+    {
+        return Listing::with([
+            'shop', 
+            'bikeModel.manufacturer', 
+            'bikeModel.categoryData',
+            'bikeModel.marketStats',
+            'tags'
+        ])->findOrFail($id);
+    }
+
+    /**
+     * 類似車両（同じメーカーの別車種など）を取得する
+     */
+    public function getSimilarListings(?int $manufacturerId, ?int $excludeModelId, int $limit = 8): Collection
+    {
+        if (!$manufacturerId) {
+            return collect();
+        }
+
+        return Listing::with(['shop', 'bikeModel.manufacturer'])
+            ->where('manufacturer_id', $manufacturerId)
+            ->where('bike_model_id', '!=', $excludeModelId)
+            ->where('is_sold_out', false)
+            ->inRandomOrder()
+            ->take($limit)
+            ->get();
+    }
+
+
     /**
      * 共通のフィルタリングクエリを構築
      */

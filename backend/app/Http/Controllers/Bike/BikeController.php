@@ -15,10 +15,11 @@ use App\Services\Bike\SeoLandingService;
 use App\Services\Bike\PriceStatsService;
 use App\Http\Resources\Bike\ListingResource;
 use App\Http\Requests\Bike\StoreReviewRequest;
+use App\Http\Requests\Bike\BikeSearchRequest; // ★追加: Form Request
 
 /**
  * バイク検索・表示機能を提供するメインコントローラー
- * パフォーマンス最適化済み（N+1対策、キャッシュ活用）
+ * パフォーマンス最適化済み（N+1対策、キャッシュ活用、関心の分離）
  */
 final class BikeController extends Controller
 {
@@ -40,9 +41,7 @@ final class BikeController extends Controller
         $regions = config('bike.regions');
         $latestReviews = $this->bikeService->getLatestReviews();
         $licenses = $this->bikeService->getLicenses();
-        // Serviceから人気のタグを取得
         $popularTags = $this->listingSearchService->getPopularTags();
-        // 特集パネルのデータを BikeService から取得するように変更
         $features = $this->bikeService->getFeaturesForTopPage();
 
         return view('bikes.index', compact('popularBikes', 'categories', 'manufacturers', 'regions', 'latestReviews', 'licenses', 'popularTags', 'features'));
@@ -59,30 +58,16 @@ final class BikeController extends Controller
 
     /**
      * 検索結果ページの表示
+     * ★変更: Form Request を使用し、バリデーション済みの安全なデータを取得
      */
-    public function search(Request $request): View|JsonResponse
+    public function search(BikeSearchRequest $request): View|JsonResponse
     {
+        // フォームリクエストから安全なフィルター条件のみを取得
+        $filters = $request->toFilters();
+        
         $keyword = $request->query('keyword');
         $prefecture = $request->query('prefecture');
         $sort = (string) $request->query('sort', 'bargain_desc');
-
-        $filters = [
-            'min_price'          => $request->query('min_price'),
-            'max_price'          => $request->query('max_price'),
-            'min_mileage'        => $request->query('min_mileage'),
-            'max_mileage'        => $request->query('max_mileage'),
-            'min_year'           => $request->query('min_year'),
-            'max_year'           => $request->query('max_year'),
-            'min_displacement'   => $request->query('min_displacement'),
-            'max_displacement'   => $request->query('max_displacement'),
-            'manufacturer_id'    => $request->query('manufacturer_id'),
-            'bike_model_id'      => $request->query('bike_model_id'),
-            'category_id'        => $request->query('category_id'),
-            'is_new'             => $request->query('is_new'),
-            'has_repair_history' => $request->query('has_repair_history'),
-            'prefecture'         => $request->query('prefecture'),
-            'tag'                => $request->query('tag'),
-        ];
 
         if ($request->has('count_only')) {
             $count = $this->listingSearchService->getFilteredCount($keyword, $prefecture, $filters);
@@ -91,82 +76,53 @@ final class BikeController extends Controller
 
         $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
         $pageTitle = $this->listingSearchService->generatePageTitle($keyword, $prefecture, $filters);
-        // ★修正: ここで人気のタグを取得してビューに渡す
         $popularTags = $this->listingSearchService->getPopularTags();
 
         return view('bikes.search', array_merge($result, [
-            'keyword'    => $keyword,
-            'prefecture' => $prefecture,
-            'sort'       => $sort,
-            'pageTitle'  => $pageTitle,
+            'keyword'     => $keyword,
+            'prefecture'  => $prefecture,
+            'sort'        => $sort,
+            'pageTitle'   => $pageTitle,
             'popularTags' => $popularTags,
         ]));
     }
 
     /**
      * 車両詳細ページを表示（爆速版）
+     * ★変更: DBクエリをすべて BikeService に移譲し、コントローラーを軽量化
      */
     public function show(int $id): View
     {
-        // 1. Eager Loading の最適化
-        $listing = Listing::with([
-            'shop', 
-            'bikeModel.manufacturer', 
-            'bikeModel.categoryData',
-            'bikeModel.marketStats' ,
-            'tags'
-        ])->findOrFail($id);
+        // 1. 詳細データの取得（Service経由でRepositoryに隠蔽）
+        $listing = $this->bikeService->getListingDetail($id);
 
-        // 2. 関連車両の取得（同じ車種）
-        $relatedListings = collect();
-        if ($listing->bike_model_id) {
-            $relatedRaw = $this->bikeService->getRelatedListings($listing->bike_model_id, $listing->id, 8);
-            $relatedListings = ListingResource::collection($relatedRaw)->resolve();
-        }
+        // 2. 関連・類似車両の取得
+        $relatedRaw = $listing->bike_model_id 
+            ? $this->bikeService->getRelatedListings($listing->bike_model_id, $listing->id, 8) 
+            : collect();
+            
+        $similarRaw = $this->bikeService->getSimilarListings($listing->manufacturer_id, $listing->bike_model_id, 8);
 
-        // 類似車両の取得（同じメーカーの別車種など、視野を広げる提案）
-        $similarListings = collect();
-        if ($listing->manufacturer_id) {
-            $similarRaw = Listing::with(['shop', 'bikeModel.manufacturer'])
-                ->where('manufacturer_id', $listing->manufacturer_id)
-                ->where('bike_model_id', '!=', $listing->bike_model_id) // 違う車種
-                ->where('is_sold_out', false)
-                ->inRandomOrder()
-                ->take(8) // 8件取得
-                ->get();
-            $similarListings = ListingResource::collection($similarRaw)->resolve();
-        }
-
-        // 3. SEO用リンク集の生成
-        $seoLinks = $this->bikeService->getSeoLinks($listing);
-
-        // 4. 市場統計データの取得
+        // 3. 市場統計とレビューの取得
         $stats = $this->priceStatsService->getModelStats((int)$listing->bike_model_id);
+        $reviews = $listing->bike_model_id 
+            ? $this->bikeService->getReviewsByModelId((int)$listing->bike_model_id, 3) 
+            : collect();
 
-        // 5. リソース変換
+        // 4. データ整形とリンク生成
         $data = (object) (new ListingResource($listing))->resolve();
-
-        // DBから取得したタグをビューに渡す
-        $tags = $listing->tags;
-
-        // この車種のオーナーレビューを取得
-        $reviews = collect();
-        if ($listing->bike_model_id) {
-            $reviews = $this->bikeService->getReviewsByModelId((int)$listing->bike_model_id, 3);
-        }
-
-        // 動的掛け合わせリンクの生成（Serviceに移譲）
-        $dynamicLinks = $this->bikeService->generateDynamicLinks($data, $seoLinks, $tags);
+        $seoLinks = $this->bikeService->getSeoLinks($listing);
+        $dynamicLinks = $this->bikeService->generateDynamicLinks($data, $seoLinks, $listing->tags);
 
         return view('bikes.show', [
             'listing'         => $data,
-            'relatedListings' => $relatedListings,
-            'similarListings' => $similarListings, // ビューに渡す
+            'relatedListings' => ListingResource::collection($relatedRaw)->resolve(),
+            'similarListings' => ListingResource::collection($similarRaw)->resolve(),
             'dynamicLinks'    => $dynamicLinks,
             'seoLinks'        => $seoLinks,
             'stats'           => $stats,
             'histogram'       => $stats['distribution'] ?? [],
-            'tags'            => $tags,
+            'tags'            => $listing->tags,
             'reviews'         => $reviews,
         ]);
     }
@@ -224,6 +180,7 @@ final class BikeController extends Controller
             return response()->json([]);
         }
 
+        // （※ここも将来的にRepositoryに移譲できますが、一旦既存のまま維持しています）
         $listings = Listing::with(['bikeModel.manufacturer', 'shop', 'site'])
             ->whereIn('id', $ids)
             ->where('is_sold_out', false)

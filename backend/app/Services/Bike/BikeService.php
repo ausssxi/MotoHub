@@ -98,13 +98,10 @@ final class BikeService
     }
 
     /**
-     *  全てのメーカーを取得するメソッドに変更
-     * （以前の getMajorManufacturers を置き換え）
+     * 全てのメーカーを取得するメソッドに変更
      */
     public function getAllManufacturers(): Collection
     {
-        // ManufacturerRepository に getAllSortedByName がある前提です
-        // もしエラーになる場合は getAll() に変えてください
         return $this->manufacturerRepo->getAllSortedByName();
     }
 
@@ -119,7 +116,6 @@ final class BikeService
 
     /**
      * トップページ用カテゴリ一覧
-     * 画像があるカテゴリのみを返すように変更
      */
     public function getCategoriesForTopPage(): Collection
     {
@@ -251,24 +247,32 @@ final class BikeService
     }
 
     /**
+     * ★追加: 類似車両の取得 (Repositoryへ委譲)
+     */
+    public function getSimilarListings(?int $manufacturerId, ?int $excludeModelId, int $limit = 8): Collection
+    {
+        return $this->listingRepo->getSimilarListings($manufacturerId, $excludeModelId, $limit);
+    }
+
+    /**
+     * ★追加: 車両詳細情報をリレーション込みで取得 (Repositoryへ委譲)
+     */
+    public function getListingDetail(int $id): Listing
+    {
+        return $this->listingRepo->getListingDetail($id);
+    }
+
+    /**
      * 詳細ページ用のSEOリンク集を生成
      */
     public function getSeoLinks(Listing $listing): array
     {
         $links = [];
         
-        // ★修正: リレーション経由でデータを正しく取得
-        // Listingモデルには直接 prefecture や maker カラムはないため、関連モデルから取得します
         $pref = $listing->shop->prefecture ?? null;
         $maker = $listing->bikeModel->manufacturer->name ?? null;
-        
-        // カテゴリ名はリレーション名 'categoryData' を使用
         $catName = $listing->bikeModel->categoryData->name ?? null;
-        
-        // カテゴリIDの取得
         $catId = $listing->bikeModel?->category_id;
-        
-        // メーカーID
         $makerId = $listing->manufacturer_id ?? $listing->bikeModel?->manufacturer_id;
 
         // 1. エリア × メーカー
@@ -418,6 +422,14 @@ final class BikeService
     }
 
     /**
+     * ★修正: 特定の車種の最新レビューを取得する（詳細ページ用）(Repositoryへ委譲)
+     */
+    public function getReviewsByModelId(int $modelId, int $limit = 3): Collection
+    {
+        return $this->reviewRepo->getLatestByModelId($modelId, $limit);
+    }
+
+    /**
      * トップページ用のおすすめ特集データを取得
      */
     public function getFeaturesForTopPage(): array
@@ -448,18 +460,6 @@ final class BikeService
                 'url' => route('bikes.search', ['min_displacement' => 401, 'tag' => 'ETC']),
             ],
         ];
-    }
-
-    /**
-     * 特定の車種の最新レビューを取得する（詳細ページ用）
-     */
-    public function getReviewsByModelId(int $modelId, int $limit = 3)
-    {
-        return \App\Models\Review::where('bike_model_id', $modelId)
-            ->with('bikeModel.manufacturer') // N+1対策
-            ->orderBy('created_at', 'desc')
-            ->take($limit)
-            ->get();
     }
 
     /**

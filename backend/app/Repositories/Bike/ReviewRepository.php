@@ -31,4 +31,17 @@ final class ReviewRepository
             ->limit($limit)
             ->get();
     }
+
+    /**
+     * 特定の車種の最新レビューを取得する
+     */
+    public function getLatestByModelId(int $modelId, int $limit = 3): Collection
+    {
+        return Review::with(['bikeModel.manufacturer']) // N+1対策
+            ->where('bike_model_id', $modelId)
+            ->where('is_approved', true) // 既存のロジックに合わせて承認済みのみに絞る
+            ->orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get();
+    }
 }
