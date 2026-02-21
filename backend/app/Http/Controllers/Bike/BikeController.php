@@ -42,10 +42,12 @@ final class BikeController extends Controller
         $licenses = $this->bikeService->getLicenses();
         // Serviceから人気のタグを取得
         $popularTags = $this->listingSearchService->getPopularTags();
+        // 特集パネルのデータを BikeService から取得するように変更
+        $features = $this->bikeService->getFeaturesForTopPage();
 
-        return view('bikes.index', compact('popularBikes', 'categories', 'manufacturers', 'regions', 'latestReviews', 'licenses', 'popularTags'));
+        return view('bikes.index', compact('popularBikes', 'categories', 'manufacturers', 'regions', 'latestReviews', 'licenses', 'popularTags', 'features'));
     }
-
+    
     /**
      * 都道府県一覧ページの表示
      */

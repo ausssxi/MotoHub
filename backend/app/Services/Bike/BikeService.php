@@ -416,4 +416,37 @@ final class BikeService
     {
         return $this->reviewRepo->getLatest(6); // 6件取得
     }
+
+    /**
+     * トップページ用のおすすめ特集データを取得
+     */
+    public function getFeaturesForTopPage(): array
+    {
+        return [
+            [
+                'title' => '✨ 乗り出し30万円以下！お買い得な250cc特集',
+                'icon' => 'sparkles',
+                'color' => 'bg-gradient-to-br from-yellow-400 to-orange-500',
+                'url' => route('bikes.search', ['max_price' => 30, 'min_displacement' => 126, 'max_displacement' => 250]),
+            ],
+            [
+                'title' => '🔥 通勤・通学最強！原付二種（125cc）スクーター',
+                'icon' => 'zap',
+                'color' => 'bg-gradient-to-br from-blue-400 to-cyan-500',
+                'url' => route('bikes.search', ['max_displacement' => 125, 'keyword' => 'スクーター']),
+            ],
+            [
+                'title' => '👑 すぐ乗れる！状態良好なワンオーナー車',
+                'icon' => 'crown',
+                'color' => 'bg-gradient-to-br from-purple-400 to-pink-500',
+                'url' => route('bikes.search', ['tag' => 'ワンオーナー']),
+            ],
+            [
+                'title' => '🛣️ ツーリングに最適！ETC搭載の大型バイク',
+                'icon' => 'map',
+                'color' => 'bg-gradient-to-br from-green-400 to-emerald-500',
+                'url' => route('bikes.search', ['min_displacement' => 401, 'tag' => 'ETC']),
+            ],
+        ];
+    }
 }

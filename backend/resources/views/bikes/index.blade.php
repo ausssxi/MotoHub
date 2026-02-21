@@ -79,6 +79,37 @@
     {{-- 以下変更なし --}}
     <div class="bg-gray-50 py-16 sm:py-24">
         <div class="max-w-7xl mx-auto px-4">
+        {{-- おすすめ特集セクション --}}
+            <section class="mb-20">
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            おすすめ特集
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Special Features</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    @foreach($features as $feature)
+                        <a href="{{ $feature['url'] }}" 
+                           class="group relative overflow-hidden rounded-2xl p-6 {{ $feature['color'] }} shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between h-32 sm:h-40 border border-white/20">
+                            
+                            {{-- 背景の装飾アイコン --}}
+                            <div class="absolute -right-6 -bottom-6 opacity-20 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500">
+                                <i data-lucide="{{ $feature['icon'] }}" class="w-32 h-32 text-white"></i>
+                            </div>
+
+                            <div class="relative z-10 text-white flex-1 flex flex-col justify-between">
+                                <i data-lucide="{{ $feature['icon'] }}" class="w-6 h-6 mb-2 opacity-80"></i>
+                                <h3 class="text-sm sm:text-base font-black leading-snug drop-shadow-sm group-hover:-translate-y-1 transition-transform duration-300">
+                                    {{ $feature['title'] }}
+                                </h3>
+                            </div>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
             {{-- タイプから探す --}}
             <section class="mb-20">
                 <div class="flex items-end justify-between mb-8 px-2">
