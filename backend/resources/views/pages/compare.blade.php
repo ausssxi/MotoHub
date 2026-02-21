@@ -24,28 +24,25 @@
 
             <div id="compare-container" class="hidden">
                 {{-- 
-                    【修正ポイント】
-                    scroll-pl-32 (スマホ用: 128px) 
-                    sm:scroll-pl-60 (PC用: 240px)
-                    を追加しました。
-                    これにより、スナップ時に左側の固定列の分だけ「余白」を考慮して止まるようになります。
+                    【デザイン調整】
+                    [&_img]:から始まるクラスを追加しました。
+                    これにより、JSで生成される全ての画像に「角丸・4:3比率・画像切り抜き」が適用されます。
                 --}}
-                <div class="bg-white rounded-2xl sm:rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden overflow-x-auto pb-1 snap-x snap-mandatory scroll-pl-32 sm:scroll-pl-60">
+                <div class="bg-white rounded-2xl sm:rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden overflow-x-auto pb-1 snap-x snap-mandatory scroll-pl-32 sm:scroll-pl-60 [&_img]:rounded-xl sm:[&_img]:rounded-2xl [&_img]:aspect-[4/3] [&_img]:object-cover [&_img]:w-full [&_img]:mb-3 [&_img]:border [&_img]:border-gray-50">
                     
                     <table class="w-auto border-collapse"> 
                         <thead>
                             <tr id="compare-header" class="bg-gray-50/50">
-                                {{-- ヘッダー（変更なし） --}}
                                 <th class="p-2 sm:p-4 w-32 sm:w-60 min-w-[128px] sm:min-w-[240px] text-left sticky left-0 bg-gray-50 z-20 border-r border-gray-100 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)]">
                                     <div class="flex flex-col gap-0.5 sm:gap-1">
                                         <span class="hidden sm:block text-[10px] font-black text-gray-300 uppercase tracking-widest italic">Comparison</span>
                                         <span class="text-xs sm:text-base font-black text-gray-800">スペック比較</span>
                                     </div>
                                 </th>
+                                {{-- ここにJSで車両カラム（th/imgを含む）が挿入されます --}}
                             </tr>
                         </thead>
                         <tbody id="compare-body" class="text-xs sm:text-sm">
-                            {{-- ボディ（変更なし） --}}
                             <tr class="border-t border-gray-100" data-prop="total_price">
                                 <td class="p-2 sm:p-4 bg-gray-50 font-bold text-gray-400 italic sticky left-0 z-10 border-r border-gray-100 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)]">支払総額</td>
                             </tr>
