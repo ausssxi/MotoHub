@@ -413,4 +413,18 @@
             </div>
         </div>
     </div>
+    {{-- 検索結果のIDリストを SessionStorage に記憶させる --}}
+    @php
+        // 現在のページの車両IDリストを抽出
+        $listingIds = collect($items)->pluck('id');
+    @endphp
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchState = {
+                ids: @json($listingIds),
+                listUrl: "{{ request()->fullUrl() }}" // 現在の検索条件URL
+            };
+            sessionStorage.setItem('motohub_search_state', JSON.stringify(searchState));
+        });
+    </script>
 </x-layout>

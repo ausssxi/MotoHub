@@ -55,6 +55,29 @@
         </div>
     </div>
 
+    {{-- シームレス・ナビゲーション（JSで検索経由の場合のみ表示） --}}
+    <div id="search-nav-bar" class="hidden bg-gray-900 border-b border-gray-800 shadow-md sticky top-0 z-[60]">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center text-xs font-bold">
+            <a id="nav-back-list" href="#" class="flex items-center gap-1.5 text-gray-300 hover:text-white transition-colors">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> 
+                <span class="hidden sm:inline">検索結果に戻る</span>
+                <span class="sm:hidden">一覧へ</span>
+            </a>
+            <div class="flex items-center gap-6 sm:gap-8">
+                <a id="nav-prev-bike" href="#" class="flex items-center gap-1.5 text-gray-600 pointer-events-none transition-colors">
+                    <i data-lucide="chevron-left" class="w-4 h-4"></i> 
+                    <span class="hidden sm:inline">前の車両</span>
+                    <span class="sm:hidden">前へ</span>
+                </a>
+                <a id="nav-next-bike" href="#" class="flex items-center gap-1.5 text-gray-600 pointer-events-none transition-colors">
+                    <span class="hidden sm:inline">次の車両</span>
+                    <span class="sm:hidden">次へ</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    
     <div class="bg-gray-50 min-h-screen py-6 sm:py-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             
@@ -473,6 +496,45 @@
                             });
                         });
                     });
+                }
+            }
+
+            // シームレス・ナビゲーションの制御処理
+            const stateStr = sessionStorage.getItem('motohub_search_state');
+            if (stateStr) {
+                try {
+                    const state = JSON.parse(stateStr);
+                    const currentId = {{ $listing->id }};
+                    // 現在のIDが、記憶している検索結果リストの何番目にあるか探す
+                    const currentIndex = state.ids.indexOf(currentId);
+                    
+                    if (currentIndex !== -1) {
+                        // 検索結果から来たことが確認できたので、ナビゲーションバーを表示
+                        document.getElementById('search-nav-bar').classList.remove('hidden');
+                        
+                        // 「一覧に戻る」ボタンのURLを復元
+                        if(state.listUrl) {
+                            document.getElementById('nav-back-list').href = state.listUrl;
+                        }
+                        
+                        // 「前の車両」ボタンの有効化
+                        const prevBtn = document.getElementById('nav-prev-bike');
+                        if (currentIndex > 0) {
+                            prevBtn.href = '/bikes/' + state.ids[currentIndex - 1];
+                            prevBtn.classList.remove('text-gray-600', 'pointer-events-none');
+                            prevBtn.classList.add('text-white', 'hover:text-blue-400');
+                        }
+                        
+                        // 「次の車両」ボタンの有効化
+                        const nextBtn = document.getElementById('nav-next-bike');
+                        if (currentIndex < state.ids.length - 1) {
+                            nextBtn.href = '/bikes/' + state.ids[currentIndex + 1];
+                            nextBtn.classList.remove('text-gray-600', 'pointer-events-none');
+                            nextBtn.classList.add('text-white', 'hover:text-blue-400');
+                        }
+                    }
+                } catch(e) {
+                    console.error('Search state parsing error', e);
                 }
             }
         });
