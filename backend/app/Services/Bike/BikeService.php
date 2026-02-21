@@ -449,4 +449,82 @@ final class BikeService
             ],
         ];
     }
+
+    /**
+     * 詳細ページ下部用の「掛け合わせSEOリンク」を動的に生成する
+     */
+    public function generateDynamicLinks($listing, array $baseSeoLinks, $tags): array
+    {
+        $dynamicLinks = [];
+        
+        // 1. 既存のSEOリンクを追加
+        foreach ($baseSeoLinks as $link) {
+            $dynamicLinks[] = [
+                'icon'  => 'chevron-right',
+                'label' => $link['label'] ?? '関連車両',
+                'url'   => $link['url'] ?? '#'
+            ];
+        }
+
+        $maker = $listing->maker ?? '';
+        $pref = $listing->prefecture ?? '';
+        $cat = $listing->category ?? '';
+        
+        // 2. 基本的な掛け合わせ（都道府県 × メーカー/カテゴリ）
+        if ($maker && $pref) {
+            $dynamicLinks[] = [
+                'icon'  => 'map-pin',
+                'label' => "{$pref} × {$maker} のバイク",
+                'url'   => route('bikes.search', ['prefecture' => $pref, 'keyword' => $maker])
+            ];
+        }
+        if ($cat && $pref) {
+            $dynamicLinks[] = [
+                'icon'  => 'map-pin',
+                'label' => "{$pref} × {$cat}",
+                'url'   => route('bikes.search', ['prefecture' => $pref, 'keyword' => $cat])
+            ];
+        }
+        
+        // 3. タグとの掛け合わせ（超強力なロングテールSEO）
+        if ($tags && is_iterable($tags)) {
+            $count = 0;
+            foreach ($tags as $tag) {
+                if ($count >= 6) break; // 多すぎるとUIが崩れるので最大6つまで
+                
+                $tagName = $tag->name ?? '';
+                $tagSlug = $tag->slug ?? '';
+                
+                if (!$tagName) continue;
+
+                // 単体タグリンク
+                $dynamicLinks[] = [
+                    'icon'  => 'hash',
+                    'label' => "{$tagName} のバイク",
+                    'url'   => route('bikes.search', ['tag' => $tagSlug])
+                ];
+
+                // タグ × カテゴリ
+                if ($cat) {
+                    $dynamicLinks[] = [
+                        'icon'  => 'hash',
+                        'label' => "{$tagName} × {$cat}",
+                        'url'   => route('bikes.search', ['tag' => $tagSlug, 'keyword' => $cat])
+                    ];
+                }
+                // タグ × メーカー
+                if ($maker) {
+                    $dynamicLinks[] = [
+                        'icon'  => 'hash',
+                        'label' => "{$tagName} × {$maker}",
+                        'url'   => route('bikes.search', ['tag' => $tagSlug, 'keyword' => $maker])
+                    ];
+                }
+                $count++;
+            }
+        }
+        
+        // コレクションを使って重複するURLを排除し、配列に戻して返す
+        return collect($dynamicLinks)->unique('url')->values()->toArray();
+    }
 }

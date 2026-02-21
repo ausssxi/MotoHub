@@ -47,7 +47,7 @@ final class BikeController extends Controller
 
         return view('bikes.index', compact('popularBikes', 'categories', 'manufacturers', 'regions', 'latestReviews', 'licenses', 'popularTags', 'features'));
     }
-    
+
     /**
      * 都道府県一覧ページの表示
      */
@@ -124,7 +124,7 @@ final class BikeController extends Controller
             $relatedListings = ListingResource::collection($relatedRaw)->resolve();
         }
 
-        // ★追加：類似車両の取得（同じメーカーの別車種など、視野を広げる提案）
+        // 類似車両の取得（同じメーカーの別車種など、視野を広げる提案）
         $similarListings = collect();
         if ($listing->manufacturer_id) {
             $similarRaw = Listing::with(['shop', 'bikeModel.manufacturer'])
@@ -149,10 +149,14 @@ final class BikeController extends Controller
         // DBから取得したタグをビューに渡す
         $tags = $listing->tags;
 
+        // 動的掛け合わせリンクの生成（Serviceに移譲）
+        $dynamicLinks = $this->bikeService->generateDynamicLinks($data, $seoLinks, $tags);
+
         return view('bikes.show', [
             'listing'         => $data,
             'relatedListings' => $relatedListings,
             'similarListings' => $similarListings, // ビューに渡す
+            'dynamicLinks'    => $dynamicLinks,
             'seoLinks'        => $seoLinks,
             'stats'           => $stats,
             'histogram'       => $stats['distribution'] ?? [],

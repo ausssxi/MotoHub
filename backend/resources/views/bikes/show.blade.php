@@ -371,141 +371,7 @@
                             </div>
                         </div>
                     </div>
-
-                    {{-- ★ここからPV向上施策のセクション --}}
-
-                    {{-- 4. この車種の他の車両（本命比較） --}}
-                    @if(!empty($relatedListings) && count($relatedListings) > 0)
-                    <div class="pt-8 border-t border-gray-200">
-                        <div class="flex items-center justify-between mb-6">
-                            <div class="flex items-center gap-2">
-                                <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
-                                    <i data-lucide="layers" class="w-5 h-5"></i>
-                                </div>
-                                <h3 class="text-lg font-black text-gray-900">この車種の他の車両</h3>
-                            </div>
-                            <a href="{{ route('bikes.search', ['bike_model_id' => $listing->bike_model_id]) }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
-                                すべて見る <i data-lucide="chevron-right" class="w-4 h-4 inline-block align-text-bottom"></i>
-                            </a>
-                        </div>
-                        
-                        <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
-                            @foreach($relatedListings as $related)
-                            <a href="{{ route('bikes.show', $related['id']) }}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block relative">
-                                <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
-                                    @if(!empty($related['images']) && isset($related['images'][0]))
-                                        <img src="{{ $related['images'][0] }}" 
-                                            onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
-                                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="">
-                                    @else
-                                        <div class="flex items-center justify-center h-full text-gray-300">
-                                            <i data-lucide="image-off" class="w-8 h-8"></i>
-                                        </div>
-                                    @endif
-                                    <div class="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-black">
-                                        {{ $related['total_price'] }}万円
-                                    </div>
-                                </div>
-                                <div class="p-3">
-                                    <div class="text-[10px] font-bold text-gray-400 mb-0.5 flex items-center gap-1">
-                                        <span class="bg-gray-100 px-1.5 rounded">{{ $related['model_year'] }}</span>
-                                        <span>{{ $related['mileage'] }}</span>
-                                    </div>
-                                    <h4 class="text-xs font-black text-gray-800 leading-tight line-clamp-2 mb-2 h-[2.5em] group-hover:text-blue-600 transition-colors">
-                                        {{ $related['name'] }}
-                                    </h4>
-                                    <div class="flex items-end justify-between border-t border-gray-100 pt-2">
-                                        <div class="text-[10px] text-gray-400 truncate w-full">{{ $related['prefecture'] }}</div>
-                                    </div>
-                                </div>
-                            </a>
-                            @endforeach
-                        </div>
-                    </div>
-                    @endif
-
-                    {{-- 5. 類似車両（関連バイク・視野の拡大） --}}
-                    @if(!empty($similarListings) && count($similarListings) > 0)
-                    <div class="pt-8 border-t border-gray-200">
-                        <div class="flex items-center justify-between mb-6">
-                            <div class="flex items-center gap-2">
-                                <div class="p-2 bg-purple-50 rounded-lg text-purple-600">
-                                    <i data-lucide="sparkles" class="w-5 h-5"></i>
-                                </div>
-                                <h3 class="text-lg font-black text-gray-900">似ている条件の車両</h3>
-                            </div>
-                            <a href="{{ route('bikes.search', ['manufacturer_id' => $listing->manufacturer_id]) }}" class="text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors">
-                                同じメーカーを探す <i data-lucide="chevron-right" class="w-4 h-4 inline-block align-text-bottom"></i>
-                            </a>
-                        </div>
-                        
-                        <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
-                            @foreach($similarListings as $similar)
-                            <a href="{{ route('bikes.show', $similar['id']) }}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block relative">
-                                <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
-                                    @if(!empty($similar['images']) && isset($similar['images'][0]))
-                                        <img src="{{ $similar['images'][0] }}" 
-                                            onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
-                                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="">
-                                    @else
-                                        <div class="flex items-center justify-center h-full text-gray-300">
-                                            <i data-lucide="image-off" class="w-8 h-8"></i>
-                                        </div>
-                                    @endif
-                                    <div class="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-black">
-                                        {{ $similar['total_price'] }}万円
-                                    </div>
-                                </div>
-                                <div class="p-3">
-                                    <div class="text-[10px] font-bold text-gray-400 mb-0.5 flex items-center gap-1">
-                                        <span class="bg-purple-50 text-purple-600 px-1.5 rounded">{{ $similar['maker'] }}</span>
-                                    </div>
-                                    <h4 class="text-xs font-black text-gray-800 leading-tight line-clamp-2 mb-2 h-[2.5em] group-hover:text-purple-600 transition-colors">
-                                        {{ $similar['name'] }}
-                                    </h4>
-                                    <div class="flex items-end justify-between border-t border-gray-100 pt-2">
-                                        <div class="text-[10px] text-gray-400 truncate w-full">{{ $similar['prefecture'] }}</div>
-                                    </div>
-                                </div>
-                            </a>
-                            @endforeach
-                        </div>
-                    </div>
-                    @endif
-
-                    {{-- 6. 最近見た車両（JSで取得） --}}
-                    <div id="history-section" class="pt-8 border-t border-gray-200 hidden">
-                        <div class="flex items-center justify-between mb-6">
-                            <div class="flex items-center gap-2">
-                                <div class="p-2 bg-gray-50 rounded-lg text-gray-600">
-                                    <i data-lucide="clock" class="w-5 h-5"></i>
-                                </div>
-                                <h3 class="text-lg font-black text-gray-900">最近見た車両</h3>
-                            </div>
-                        </div>
-                        <div id="history-widget" class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
-                            {{-- JSでカードが挿入されます --}}
-                        </div>
-                    </div>
-
-                    {{-- ★関連条件へのSEOリンク集 --}}
-                    @if(!empty($seoLinks))
-                    <div class="pt-12 mt-4">
-                        <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
-                            関連する検索条件
-                        </h3>
-                        <div class="flex flex-wrap gap-2">
-                            @foreach($seoLinks as $link)
-                                <a href="{{ $link['url'] }}" class="text-xs font-bold text-gray-600 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg transition-colors">
-                                    {{ $link['label'] }}
-                                </a>
-                            @endforeach
-                        </div>
-                    </div>
-                    @endif
-
                 </div>
-
                 {{-- サイドバー（右側：価格・CV・追従） --}}
                 <div class="lg:col-span-4 mt-8 lg:mt-0">
                     <div class="sticky top-6 space-y-4">
@@ -554,6 +420,7 @@
                     </div>
                 </div>
             </div>
+            @include('bikes.partials.recommendations')
         </div>
     </div>
 
