@@ -137,7 +137,8 @@ final class ListingRepository
             ->priceBetween($filters['min_price'] ?? null, $filters['max_price'] ?? null, $maxPrice)
             ->mileageBetween($filters['min_mileage'] ?? null, $filters['max_mileage'] ?? null, $maxMileage)
             ->yearBetween($filters['min_year'] ?? null, $filters['max_year'] ?? null)
-            ->displacementBetween($filters['min_displacement'] ?? null, $filters['max_displacement'] ?? null);
+            ->displacementBetween($filters['min_displacement'] ?? null, $filters['max_displacement'] ?? null)
+            ->withTag($filters['tag'] ?? null);
     }
     
     /**

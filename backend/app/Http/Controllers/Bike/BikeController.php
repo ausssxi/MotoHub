@@ -77,6 +77,7 @@ final class BikeController extends Controller
             'is_new'             => $request->query('is_new'),
             'has_repair_history' => $request->query('has_repair_history'),
             'prefecture'         => $request->query('prefecture'),
+            'tag'                => $request->query('tag'),
         ];
 
         if ($request->has('count_only')) {
@@ -86,7 +87,7 @@ final class BikeController extends Controller
 
         $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
         $pageTitle = $this->listingSearchService->generatePageTitle($keyword, $prefecture, $filters);
-
+        
         return view('bikes.search', array_merge($result, [
             'keyword'    => $keyword,
             'prefecture' => $prefecture,
@@ -105,7 +106,8 @@ final class BikeController extends Controller
             'shop', 
             'bikeModel.manufacturer', 
             'bikeModel.categoryData',
-            'bikeModel.marketStats' 
+            'bikeModel.marketStats' ,
+            'tags'
         ])->findOrFail($id);
 
         // 2. 関連車両の取得（同じ車種）
@@ -137,13 +139,17 @@ final class BikeController extends Controller
         // 5. リソース変換
         $data = (object) (new ListingResource($listing))->resolve();
 
+        // DBから取得したタグをビューに渡す
+        $tags = $listing->tags;
+
         return view('bikes.show', [
             'listing'         => $data,
             'relatedListings' => $relatedListings,
-            'similarListings' => $similarListings, // ★追加してビューに渡す
+            'similarListings' => $similarListings, // ビューに渡す
             'seoLinks'        => $seoLinks,
             'stats'           => $stats,
-            'histogram'       => $stats['distribution'] ?? []
+            'histogram'       => $stats['distribution'] ?? [],
+            'tags'            => $tags
         ]);
     }
 

@@ -89,40 +89,41 @@ final class ListingSearchService
      */
     public function generatePageTitle(?string $keyword, ?string $prefecture, array $filters): string
     {
-        if ($keyword) {
-            return "「{$keyword}」の検索結果";
-        }
+        $title = '車両一覧';
 
-        if (!empty($filters['bike_model_id'])) {
+        if ($keyword) {
+            $title = "「{$keyword}」の検索結果";
+        } elseif (!empty($filters['bike_model_id'])) {
             $model = $this->modelRepo->find((int)$filters['bike_model_id']);
             if ($model) {
-                return "{$model->name} の車両一覧";
+                $title = "{$model->name} の車両一覧";
             }
-        }
-
-        if (!empty($filters['manufacturer_id'])) {
+        } elseif (!empty($filters['manufacturer_id'])) {
             // メーカー名を取得（Repositoryにfindがない場合はgetAllから検索）
             $makers = $this->manufacturerRepo->getAllSortedByName();
             $maker = $makers->firstWhere('id', $filters['manufacturer_id']);
             if ($maker) {
-                return "{$maker->name} の車両一覧";
+                $title = "{$maker->name} の車両一覧";
             }
-        }
-
-        // カテゴリーIDがある場合
-        if (!empty($filters['category_id'])) {
+        } elseif (!empty($filters['category_id'])) {
             $category = $this->categoryRepo->find((int)$filters['category_id']);
             if ($category) {
-                return "{$category->name} の車両一覧";
+                $title = "{$category->name} の車両一覧";
             }
-        }
-
-        if ($prefecture || !empty($filters['prefecture'])) {
+        } elseif ($prefecture || !empty($filters['prefecture'])) {
             $pref = $prefecture ?: ($filters['prefecture'] ?? '');
-            return "{$pref} の車両一覧";
+            $title = "{$pref} の車両一覧";
         }
 
-        return '車両一覧';
+        // タグが指定されている場合はタイトルに #タグ名 を付与する
+        if (!empty($filters['tag'])) {
+            if ($title === '車両一覧') {
+                return "#{$filters['tag']} の車両一覧";
+            }
+            return "#{$filters['tag']} " . $title;
+        }
+
+        return $title;
     }
 
     /**

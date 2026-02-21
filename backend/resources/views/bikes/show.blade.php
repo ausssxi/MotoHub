@@ -114,6 +114,16 @@
                                     <span class="text-[10px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded uppercase">{{ $listing->condition }}</span>
                                     <span class="text-[10px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded uppercase">{{ $listing->prefecture }}</span>
                                 </div>
+                                {{-- DBから取得したハッシュタグエリア --}}
+                                @if($tags && $tags->count() > 0)
+                                <div class="flex flex-wrap gap-2 mt-4">
+                                    @foreach($tags as $tag)
+                                        <a href="{{ route('bikes.search', ['tag' => $tag->slug]) }}" class="inline-flex items-center px-3 py-1 bg-gray-50 hover:bg-blue-50 text-gray-600 hover:text-blue-700 text-xs font-bold rounded-full transition-colors border border-gray-100 hover:border-blue-200 shadow-sm">
+                                            <span class="text-blue-400 mr-0.5">#</span>{{ $tag->name }}
+                                        </a>
+                                    @endforeach
+                                </div>
+                                @endif
                             </div>
                             
                             <div class="flex items-center gap-2">

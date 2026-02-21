@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany; 
+use App\Models\Tag;
 
 class Listing extends Model
 {
@@ -66,6 +68,14 @@ class Listing extends Model
     public function bikeModel(): BelongsTo { return $this->belongsTo(BikeModel::class); }
     public function shop(): BelongsTo { return $this->belongsTo(Shop::class); }
     public function site(): BelongsTo { return $this->belongsTo(Site::class); }
+    
+    /**
+     * この車両に紐づくタグを取得
+     */
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class);
+    }
 
     // --- Query Scopes (高速化版) ---
 
@@ -183,5 +193,19 @@ class Listing extends Model
         if ($max) $query->where('listings.displacement', '<=', $max);
         
         return $query;
+    }
+
+    /**
+     * タグのスラッグ（または名前）での絞り込み
+     * 中間テーブルを利用して、そのタグを持つ車両だけを高速に取得します。
+     */
+    public function scopeWithTag(Builder $query, ?string $tagSlug): Builder
+    {
+        if (!$tagSlug) return $query;
+
+        // whereHas を使うことで、指定したslugを持つタグが紐づいている車両だけを抽出
+        return $query->whereHas('tags', function (Builder $q) use ($tagSlug) {
+            $q->where('tags.slug', $tagSlug);
+        });
     }
 }
