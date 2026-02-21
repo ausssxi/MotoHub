@@ -10,6 +10,7 @@ use App\Models\BikeModel;
 use App\Models\Shop;
 use App\Models\Manufacturer;
 use App\Models\Category;
+use App\Models\Tag;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 
@@ -119,6 +120,36 @@ class GenerateSitemap extends Command
                     $handle,
                     route('bikes.search', ['keyword' => $model->name]),
                     date('Y-m-d'),
+                    'daily',
+                    '0.8'
+                );
+                $count++;
+            }
+        });
+
+                // ★追加: タグ別の検索結果ページ
+        Tag::select('slug', 'updated_at')->chunk(100, function ($tags) use ($handle, &$count) {
+            foreach ($tags as $tag) {
+                // タグ一覧は検索需要が高いので、優先度0.8のdailyでクローラーを呼び込みます
+                $this->writeUrl(
+                    $handle,
+                    route('bikes.search', ['tag' => $tag->slug]),
+                    $tag->updated_at ? $tag->updated_at->format('Y-m-d') : date('Y-m-d'),
+                    'daily',
+                    '0.8'
+                );
+                $count++;
+            }
+        });
+
+        // タグ別の検索結果ページ
+        Tag::select('slug', 'updated_at')->chunk(100, function ($tags) use ($handle, &$count) {
+            foreach ($tags as $tag) {
+                // タグ一覧は検索需要が高いので、優先度0.8のdailyでクローラーを呼び込みます
+                $this->writeUrl(
+                    $handle,
+                    route('bikes.search', ['tag' => $tag->slug]),
+                    $tag->updated_at ? $tag->updated_at->format('Y-m-d') : date('Y-m-d'),
                     'daily',
                     '0.8'
                 );
