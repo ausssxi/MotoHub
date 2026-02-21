@@ -451,6 +451,18 @@ final class BikeService
     }
 
     /**
+     * 特定の車種の最新レビューを取得する（詳細ページ用）
+     */
+    public function getReviewsByModelId(int $modelId, int $limit = 3)
+    {
+        return \App\Models\Review::where('bike_model_id', $modelId)
+            ->with('bikeModel.manufacturer') // N+1対策
+            ->orderBy('created_at', 'desc')
+            ->take($limit)
+            ->get();
+    }
+
+    /**
      * 詳細ページ下部用の「掛け合わせSEOリンク」を動的に生成する
      */
     public function generateDynamicLinks($listing, array $baseSeoLinks, $tags): array

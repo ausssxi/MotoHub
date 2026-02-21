@@ -149,6 +149,12 @@ final class BikeController extends Controller
         // DBから取得したタグをビューに渡す
         $tags = $listing->tags;
 
+        // この車種のオーナーレビューを取得
+        $reviews = collect();
+        if ($listing->bike_model_id) {
+            $reviews = $this->bikeService->getReviewsByModelId((int)$listing->bike_model_id, 3);
+        }
+
         // 動的掛け合わせリンクの生成（Serviceに移譲）
         $dynamicLinks = $this->bikeService->generateDynamicLinks($data, $seoLinks, $tags);
 
@@ -160,7 +166,8 @@ final class BikeController extends Controller
             'seoLinks'        => $seoLinks,
             'stats'           => $stats,
             'histogram'       => $stats['distribution'] ?? [],
-            'tags'            => $tags
+            'tags'            => $tags,
+            'reviews'         => $reviews,
         ]);
     }
 
@@ -255,14 +262,32 @@ final class BikeController extends Controller
     }
 
     /**
-     * レビュー投稿処理
+     * レビュー投稿処理（Ajax対応版のみに統合）
      */
     public function storeReview(StoreReviewRequest $request, int $id)
     {
         $validated = $request->validated();
         $model = $this->bikeService->getBikeModelDetail($id);
+        
+        // サービスでDBに保存（戻り値がない場合も想定して、表示用データは$validatedから作る）
         $this->bikeService->createReview($model->id, $validated);
 
+        // ★画面遷移なしのAjaxリクエストだった場合は、JSONで結果とUI更新用のデータを返す
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'レビューを投稿しました！',
+                'review'  => [
+                    'title'      => $validated['title'] ?? '無題',
+                    'body'       => $validated['body'] ?? '',
+                    'rating'     => $validated['rating'] ?? 5,
+                    'nickname'   => $validated['nickname'] ?? '匿名ユーザー',
+                    'created_at' => now()->format('Y年m月')
+                ]
+            ]);
+        }
+
+        // 通常のフォーム送信（別ページからの投稿）の場合は元の仕様通りリダイレクト
         return redirect()->route('bikes.model_detail', $id)->with('success', 'レビューを投稿しました！');
     }
 }
