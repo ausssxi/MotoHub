@@ -40,8 +40,10 @@ final class BikeController extends Controller
         $regions = config('bike.regions');
         $latestReviews = $this->bikeService->getLatestReviews();
         $licenses = $this->bikeService->getLicenses();
+        // Serviceから人気のタグを取得
+        $popularTags = $this->listingSearchService->getPopularTags();
 
-        return view('bikes.index', compact('popularBikes', 'categories', 'manufacturers', 'regions', 'latestReviews', 'licenses'));
+        return view('bikes.index', compact('popularBikes', 'categories', 'manufacturers', 'regions', 'latestReviews', 'licenses', 'popularTags'));
     }
 
     /**
@@ -87,12 +89,15 @@ final class BikeController extends Controller
 
         $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
         $pageTitle = $this->listingSearchService->generatePageTitle($keyword, $prefecture, $filters);
-        
+        // ★修正: ここで人気のタグを取得してビューに渡す
+        $popularTags = $this->listingSearchService->getPopularTags();
+
         return view('bikes.search', array_merge($result, [
             'keyword'    => $keyword,
             'prefecture' => $prefecture,
             'sort'       => $sort,
             'pageTitle'  => $pageTitle,
+            'popularTags' => $popularTags,
         ]));
     }
 

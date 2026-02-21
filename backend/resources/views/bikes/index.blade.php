@@ -47,13 +47,31 @@
                 </div>
             </form>
             
-            {{-- クイックリンク --}}
-            <div class="mt-6 flex flex-wrap justify-center gap-3">
-                @foreach($manufacturers as $maker)
-                    <a href="{{ route('bikes.search', ['manufacturer_id' => $maker->id]) }}" class="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold border border-white/10 backdrop-blur-sm transition-all">
-                        {{ $maker->name }}
-                    </a>
-                @endforeach
+            {{-- クイックリンク＆人気の条件（タグ）の露出強化 --}}
+            <div class="mt-8 flex flex-col items-center gap-5">
+                
+                {{-- コントローラーから渡された $popularTags を使用 --}}
+                <div class="flex flex-wrap justify-center items-center gap-2">
+                    <span class="text-[10px] font-black text-blue-300 uppercase tracking-widest mr-1">
+                        <i data-lucide="zap" class="w-3 h-3 inline-block -mt-0.5 text-yellow-400"></i> トレンド:
+                    </span>
+                    @foreach($popularTags as $tag)
+                        <a href="{{ route('bikes.search', ['tag' => $tag]) }}" 
+                           class="px-3 py-1.5 rounded-full bg-blue-500/20 hover:bg-blue-500/40 text-blue-50 text-[10px] font-bold border border-blue-400/30 backdrop-blur-sm transition-all shadow-lg shadow-blue-500/10">
+                            #{{ $tag }}
+                        </a>
+                    @endforeach
+                </div>
+
+                {{-- メーカーリンク --}}
+                <div class="flex flex-wrap justify-center gap-2">
+                    @foreach($manufacturers as $maker)
+                        <a href="{{ route('bikes.search', ['manufacturer_id' => $maker->id]) }}" class="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] font-bold border border-white/10 backdrop-blur-sm transition-all">
+                            {{ $maker->name }}
+                        </a>
+                    @endforeach
+                </div>
+
             </div>
         </div>
     </div>

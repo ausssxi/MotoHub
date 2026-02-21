@@ -159,4 +159,15 @@ final class ListingSearchService
         $uiParams = $this->metaGenerator->calculateUiLimits($meta);
         return (int) $this->listingRepo->searchByKeyword($k, $p, 'latest', $f, 1, $uiParams)->total(); 
     }
+
+    /**
+     * 人気のこだわり条件（トレンドタグ）のリストを取得
+     */
+    public function getPopularTags(): array
+    {
+        return [
+            'ETC', 'ドラレコ', 'ワンオーナー', 'ABS', 
+            '低走行', 'グリップヒーター', '社外マフラー', 'USB電源'
+        ];
+    }
 }

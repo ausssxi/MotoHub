@@ -41,6 +41,29 @@
                         <input type="hidden" name="keyword" value="{{ $keyword }}">
                         <input type="hidden" id="sort-hidden-input" name="sort" value="{{ $sort }}">
 
+                        <!-- 人気のこだわり条件（タグ） -->
+                        @php
+                            $currentTag = request('tag');
+                        @endphp
+                        <div class="filter-group">
+                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-3 block">人気のこだわり条件</label>
+                            <div class="flex flex-wrap gap-2">
+                                {{-- コントローラーから渡された $popularTags を使用 --}}
+                                @foreach($popularTags as $tag)
+                                    @php
+                                        // すでにそのタグが選ばれている場合はクリックで解除（null）、それ以外はタグをセット
+                                        $nextTag = ($currentTag === $tag) ? null : $tag;
+                                        // 現在の他の検索条件（価格やメーカーなど）は維持しつつ、ページ番号をリセットしてタグを切り替える
+                                        $url = route('bikes.search', array_merge(request()->except(['page', 'tag']), ['tag' => $nextTag]));
+                                    @endphp
+                                    <a href="{{ $url }}" 
+                                       class="px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border {{ ($currentTag === $tag) ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm' : 'bg-white text-gray-600 border-gray-100 hover:border-blue-300 hover:bg-blue-50' }}">
+                                        #{{ $tag }}
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+
                         <!-- 都道府県 -->
                         <div class="filter-group">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2 block">地域</label>
