@@ -3,6 +3,28 @@
 
     <x-slot:scripts>
         <script src="{{ asset('js/search/suggest.js') }}"></script>
+        {{-- ★追加: 閲覧履歴のスクリプトを読み込み、描画を実行 --}}
+        <script src="{{ asset('js/history/manager.js') }}"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.HistoryManager) {
+                    const bodyLoggedIn = document.body.dataset.loggedIn === 'true';
+                    const metaLoggedIn = document.querySelector('meta[name="auth-check"]')?.content === 'true';
+                    const isLoggedIn = bodyLoggedIn || metaLoggedIn;
+                    
+                    HistoryManager.init(isLoggedIn).then(() => {
+                        // 指定したIDのコンテナに履歴カードを描画
+                        HistoryManager.render('top-history-widget').then(() => {
+                            const widget = document.getElementById('top-history-widget');
+                            // 履歴が1件以上あればセクション全体を表示する
+                            if (widget && widget.children.length > 0) {
+                                document.getElementById('top-history-section').classList.remove('hidden');
+                            }
+                        });
+                    });
+                }
+            });
+        </script>
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -110,6 +132,24 @@
                     @endforeach
                 </div>
             </section>
+
+            {{-- ★追加: 最近見た車両セクション（履歴がある場合のみJSで表示） --}}
+            <section id="top-history-section" class="mb-20 hidden">
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1 flex items-center gap-2">
+                            <i data-lucide="clock" class="w-6 h-6 text-gray-400"></i>
+                            最近見た車両
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Recently Viewed</p>
+                    </div>
+                </div>
+
+                <div id="top-history-widget" class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+                    {{-- JSでカードが挿入されます --}}
+                </div>
+            </section>
+            
             {{-- タイプから探す --}}
             <section class="mb-20">
                 <div class="flex items-end justify-between mb-8 px-2">
