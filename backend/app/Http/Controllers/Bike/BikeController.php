@@ -15,7 +15,7 @@ use App\Services\Bike\SeoLandingService;
 use App\Services\Bike\PriceStatsService;
 use App\Http\Resources\Bike\ListingResource;
 use App\Http\Requests\Bike\StoreReviewRequest;
-use App\Http\Requests\Bike\BikeSearchRequest; // ★追加: Form Request
+use App\Http\Requests\Bike\BikeSearchRequest;
 
 /**
  * バイク検索・表示機能を提供するメインコントローラー
@@ -58,7 +58,6 @@ final class BikeController extends Controller
 
     /**
      * 検索結果ページの表示
-     * ★変更: Form Request を使用し、バリデーション済みの安全なデータを取得
      */
     public function search(BikeSearchRequest $request): View|JsonResponse
     {
@@ -75,6 +74,20 @@ final class BikeController extends Controller
         }
 
         $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
+        
+        // ★無限スクロール：「さらに読み込む」ボタンからのAjaxリクエスト処理
+        if ($request->query('load_more')) {
+            $html = '';
+            foreach ($result['items'] as $listing) {
+                // 切り出した部品(パーシャル)にデータを渡してHTMLを生成
+                $html .= view('bikes.partials.bike_card', ['listing' => $listing])->render();
+            }
+            return response()->json([
+                'html' => $html,
+                'next_url' => $result['pagination']['next_url']
+            ]);
+        }
+
         $pageTitle = $this->listingSearchService->generatePageTitle($keyword, $prefecture, $filters);
         $popularTags = $this->listingSearchService->getPopularTags();
 
@@ -103,8 +116,6 @@ final class BikeController extends Controller
         $similarRaw = $this->bikeService->getSimilarListings($listing->manufacturer_id, $listing->bike_model_id, 8);
 
         // 3. 市場統計とレビューの取得
-        // ★修正: 第2引数に現在の車両価格 (total_price は DB上円単位、または万円単位。※今回はBladeの表示に合わせて float で渡す)
-        // ※データベースに保存されている価格が文字列で「-」などの場合は 0 として扱う
         $currentPrice = is_numeric($listing->total_price) ? (float)$listing->total_price : 0;
         
         $stats = $this->priceStatsService->getModelStats((int)$listing->bike_model_id, $currentPrice);
@@ -184,7 +195,6 @@ final class BikeController extends Controller
             return response()->json([]);
         }
 
-        // （※ここも将来的にRepositoryに移譲できますが、一旦既存のまま維持しています）
         $listings = Listing::with(['bikeModel.manufacturer', 'shop', 'site'])
             ->whereIn('id', $ids)
             ->where('is_sold_out', false)
@@ -230,10 +240,8 @@ final class BikeController extends Controller
         $validated = $request->validated();
         $model = $this->bikeService->getBikeModelDetail($id);
         
-        // サービスでDBに保存（戻り値がない場合も想定して、表示用データは$validatedから作る）
         $this->bikeService->createReview($model->id, $validated);
 
-        // ★画面遷移なしのAjaxリクエストだった場合は、JSONで結果とUI更新用のデータを返す
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
@@ -248,7 +256,6 @@ final class BikeController extends Controller
             ]);
         }
 
-        // 通常のフォーム送信（別ページからの投稿）の場合は元の仕様通りリダイレクト
         return redirect()->route('bikes.model_detail', $id)->with('success', 'レビューを投稿しました！');
     }
 }
