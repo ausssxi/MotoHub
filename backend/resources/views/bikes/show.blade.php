@@ -13,10 +13,17 @@
         <script src="{{ asset('js/bikes/loan-simulator.js') }}"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+        {{-- JSにBladeの変数を渡す --}}
         <script>
             window.bikeModelStats = {!! json_encode($stats ?? [], JSON_HEX_TAG) !!};
+            window.currentListingId = "{{ $listing->id }}";
         </script>
+        
         <script src="{{ asset('js/bikes/model_detail.js') }}"></script>
+        {{-- ★役割ごとに分割したJSファイルを読み込み --}}
+        <script src="{{ asset('js/bikes/review.js') }}"></script>
+        <script src="{{ asset('js/search/seamless-nav.js') }}"></script>
+        <script src="{{ asset('js/bikes/show.js') }}"></script>
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -136,8 +143,13 @@
                                     <span class="text-[10px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded uppercase">{{ $listing->category }}</span>
                                     <span class="text-[10px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded uppercase">{{ $listing->condition }}</span>
                                     <span class="text-[10px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded uppercase">{{ $listing->prefecture }}</span>
+                                    
+                                    @if(!empty($listing->site_name))
+                                        <span class="text-[10px] font-black text-gray-600 bg-white border border-gray-200 shadow-sm px-2 py-0.5 rounded uppercase flex items-center gap-1">
+                                            <i data-lucide="link" class="w-3 h-3 text-gray-400"></i> {{ $listing->site_name }}
+                                        </span>
+                                    @endif
                                 </div>
-                                {{-- DBから取得したハッシュタグエリア --}}
                                 @if($tags && $tags->count() > 0)
                                 <div class="flex flex-wrap gap-2 mt-4">
                                     @foreach($tags as $tag)
@@ -306,7 +318,6 @@
                                 <h3 class="text-base sm:text-lg font-black text-gray-900 leading-tight">この車種のオーナーレビュー</h3>
                             </div>
                             <div class="self-end sm:self-auto border-t sm:border-t-0 border-gray-100 pt-2 sm:pt-0 w-full sm:w-auto text-right flex flex-wrap gap-3 justify-end items-center">
-                                {{-- ★追加：レビューを書くボタン（モーダルを開く） --}}
                                 <button type="button" onclick="openReviewModal()" class="inline-flex items-center text-xs font-bold bg-yellow-400 hover:bg-yellow-500 text-yellow-900 px-3 py-2 rounded-lg transition-colors shadow-sm active:scale-95">
                                     <i data-lucide="pen-line" class="w-3.5 h-3.5 mr-1"></i> レビューを書く
                                 </button>
@@ -447,16 +458,28 @@
                                     <p class="sm:hidden">{{ $listing->shop_address ?? '住所情報なし' }}</p>
                                     <p>TEL: {{ $listing->shop_tel ?? '-' }}</p>
                                     <p>営業時間: {{ $listing->shop_hours ?? '-' }}</p>
+                                    <p class="pt-2 mt-2 border-t border-gray-100 text-xs">
+                                        <span class="text-gray-400">情報提供元:</span> 
+                                        <span class="text-gray-700">{{ $listing->site_name ?? '外部サイト' }}</span>
+                                    </p>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+                
                 {{-- サイドバー（右側：価格・CV・追従） --}}
                 <div class="lg:col-span-4 mt-8 lg:mt-0">
                     <div class="sticky top-6 space-y-4">
                         <div class="bg-white rounded-3xl shadow-xl shadow-blue-900/5 border border-blue-100 p-6 sm:p-8">
                             <div class="text-center mb-6">
+                                @if(isset($stats['rank']) && in_array($stats['rank'], ['S', 'A']) && isset($stats['diff']) && $stats['diff'] < 0)
+                                    <div class="inline-flex items-center justify-center gap-1.5 bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-black border border-red-100 mb-3 shadow-sm">
+                                        <i data-lucide="trending-down" class="w-4 h-4"></i>
+                                        相場より {{ abs($stats['diff']) }}万円 おトク！
+                                    </div>
+                                @endif
+
                                 <div class="text-sm font-bold text-gray-400 mb-1">支払総額</div>
                                 <div class="text-4xl font-black text-red-500 tracking-tight">
                                     {{ $listing->total_price }}
@@ -471,8 +494,8 @@
 
                             <div class="space-y-3">
                                 <a href="{{ $listing->url }}" target="_blank" class="block w-full bg-red-600 hover:bg-red-500 text-white font-black text-center py-4 rounded-xl shadow-lg shadow-red-500/30 transition-all hover:-translate-y-1">
-                                    在庫確認・見積もり
-                                    <span class="block text-[10px] font-medium opacity-80 mt-0.5">（外部サイトへ移動します）</span>
+                                    {{ $listing->site_name ?? '販売店' }} で在庫確認・見積もり
+                                    <span class="block text-[10px] font-medium opacity-80 mt-0.5">（無料・別タブで開きます）</span>
                                 </a>
                                 
                                 @if(!empty($listing->shop_tel) && $listing->shop_tel !== '-')
@@ -505,14 +528,22 @@
     </div>
 
     {{-- スマホ用固定フッターCV --}}
-    <div class="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 lg:hidden z-50 safe-area-bottom">
-        <div class="flex gap-3">
+    <div class="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 p-3 sm:p-4 lg:hidden z-50 safe-area-bottom">
+        <div class="flex gap-3 items-center">
             <div class="flex-1">
-                <div class="text-[10px] font-bold text-gray-400">支払総額</div>
-                <div class="text-xl font-black text-red-500">{{ $listing->total_price }}<span class="text-xs text-gray-500 ml-0.5">万円</span></div>
+                <div class="flex items-center gap-2 mb-0.5">
+                    <div class="text-[10px] font-bold text-gray-400">支払総額</div>
+                    @if(isset($stats['rank']) && in_array($stats['rank'], ['S', 'A']) && isset($stats['diff']) && $stats['diff'] < 0)
+                        <span class="text-[9px] font-black text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
+                            {{ abs($stats['diff']) }}万円 安い!
+                        </span>
+                    @endif
+                </div>
+                <div class="text-xl font-black text-red-500 leading-none">{{ $listing->total_price }}<span class="text-xs text-gray-500 ml-0.5">万円</span></div>
             </div>
-            <a href="{{ $listing->url }}" target="_blank" class="flex-1 bg-red-600 text-white font-black flex items-center justify-center rounded-lg shadow-lg">
-                見積もり依頼
+            <a href="{{ $listing->url }}" target="_blank" class="w-48 bg-red-600 text-white font-black flex flex-col items-center justify-center rounded-lg shadow-lg py-2 active:scale-95 transition-transform">
+                <span class="text-sm">在庫確認・見積もり</span>
+                <span class="text-[9px] font-medium opacity-90">{{ $listing->site_name ?? '外部サイト' }}へ</span>
             </a>
         </div>
     </div>
@@ -527,7 +558,8 @@
             scrollbar-width: none;
         }
     </style>
-    {{-- ★ここから追加: レビュー投稿モーダル --}}
+    
+    {{-- レビュー投稿モーダル --}}
     @if($listing->bike_model_id)
     <div id="review-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 sm:p-0">
         {{-- 背景の黒いオーバーレイ --}}
@@ -557,7 +589,6 @@
                 </div>
 
                 {{-- 投稿フォーム --}}
-                {{-- action関数を使って、ルート名に依存せず安全にURLを生成します --}}
                 <form id="review-form" action="{{ action([\App\Http\Controllers\Bike\BikeController::class, 'storeReview'], ['id' => $listing->bike_model_id]) }}" class="space-y-5">
                     @csrf
                     
@@ -604,245 +635,5 @@
             </div>
         </div>
     </div>
-
-    {{-- モーダル制御 ＆ Ajax送信用スクリプト --}}
-    <script>
-        let reviewRating = 5;
-
-        // モーダルを開く
-        function openReviewModal() {
-            const modal = document.getElementById('review-modal');
-            const content = document.getElementById('review-modal-content');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            // 少し遅らせてフワッと出す
-            setTimeout(() => {
-                content.classList.remove('scale-95', 'opacity-0');
-                content.classList.add('scale-100', 'opacity-100');
-            }, 10);
-        }
-
-        // モーダルを閉じる
-        function closeReviewModal() {
-            const modal = document.getElementById('review-modal');
-            const content = document.getElementById('review-modal-content');
-            content.classList.remove('scale-100', 'opacity-100');
-            content.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }, 300);
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            // 星の評価UIの制御
-            const stars = document.querySelectorAll('.star-btn');
-            const ratingInput = document.getElementById('rating-value');
-            
-            stars.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    reviewRating = parseInt(btn.dataset.val);
-                    ratingInput.value = reviewRating;
-                    
-                    stars.forEach((s, idx) => {
-                        const icon = s.querySelector('i');
-                        if (idx < reviewRating) {
-                            icon.classList.add('fill-current');
-                            s.classList.add('text-yellow-400');
-                            s.classList.remove('text-gray-300');
-                        } else {
-                            icon.classList.remove('fill-current');
-                            s.classList.remove('text-yellow-400');
-                            s.classList.add('text-gray-300');
-                        }
-                    });
-                });
-            });
-
-            // フォームのAjax送信処理
-            const form = document.getElementById('review-form');
-            if (form) {
-                form.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    
-                    const btn = document.getElementById('review-submit-btn');
-                    const errorDiv = document.getElementById('review-error');
-                    const errorText = document.getElementById('review-error-text');
-                    const successMsg = document.getElementById('review-success-msg');
-                    
-                    const originalBtnText = btn.innerHTML;
-                    btn.disabled = true;
-                    btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> 投稿しています...';
-                    if (window.lucide) window.lucide.createIcons();
-                    errorDiv.classList.add('hidden');
-                    
-                    const formData = new FormData(form);
-                    const data = Object.fromEntries(formData.entries());
-                    
-                    try {
-                        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-                        const token = csrfMeta ? csrfMeta.content : '';
-                        
-                        const response = await fetch(form.action, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json',
-                                'X-CSRF-TOKEN': token
-                            },
-                            body: JSON.stringify(data)
-                        });
-                        
-                        if (!response.ok) {
-                            const errData = await response.json();
-                            // バリデーションエラーのメッセージを組み立て
-                            let msg = errData.message || '通信エラーが発生しました。';
-                            if (errData.errors) {
-                                msg = Object.values(errData.errors).map(e => e.join('\n')).join('<br>');
-                            }
-                            throw new Error(msg);
-                        }
-                        
-                        const result = await response.json();
-                        
-                        // 送信成功！UIを切り替え
-                        form.classList.add('hidden');
-                        successMsg.classList.remove('hidden');
-                        
-                        // 裏でレビュー一覧に即時追加 (Optimistic UI)
-                        appendReviewToList(result.review);
-                        
-                        // 2秒後にモーダルを自動で閉じてリセット
-                        setTimeout(() => {
-                            closeReviewModal();
-                            setTimeout(() => {
-                                form.reset();
-                                form.classList.remove('hidden');
-                                successMsg.classList.add('hidden');
-                                btn.disabled = false;
-                                btn.innerHTML = originalBtnText;
-                                // 星を5に戻す
-                                stars[4].click();
-                            }, 500);
-                        }, 2000);
-                        
-                    } catch (error) {
-                        errorText.innerHTML = error.message;
-                        errorDiv.classList.remove('hidden');
-                        btn.disabled = false;
-                        btn.innerHTML = originalBtnText;
-                        if (window.lucide) window.lucide.createIcons();
-                    }
-                });
-            }
-        });
-
-        // 投稿成功後、画面のリストに新しいレビューを挿入する関数
-        function appendReviewToList(review) {
-            if (!review) return;
-            const container = document.getElementById('review-list-container');
-            const noMsg = document.getElementById('no-review-msg');
-            if (noMsg) noMsg.remove(); // 「まだレビューがありません」を消す
-
-            let starsHtml = '';
-            for(let i=1; i<=5; i++) {
-                starsHtml += `<i data-lucide="star" class="w-3.5 h-3.5 ${i <= review.rating ? 'fill-current' : 'text-gray-300'}"></i>`;
-            }
-
-            const html = `
-                <div class="p-4 bg-yellow-50/80 border-yellow-200 rounded-2xl border transition-all animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
-                    <div class="flex justify-between items-start mb-2">
-                        <div class="flex items-center gap-2">
-                            <div class="flex text-yellow-400">
-                                ${starsHtml}
-                            </div>
-                            <span class="text-xs font-black text-gray-800">${review.title}</span>
-                            <span class="text-[9px] font-black bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded ml-2 shadow-sm">NEW</span>
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-700 leading-relaxed line-clamp-3 mb-3">
-                        ${review.body}
-                    </p>
-                    <div class="flex justify-between items-center text-[10px] text-gray-400 font-bold">
-                        <span class="flex items-center gap-1">
-                            <i data-lucide="user" class="w-3 h-3 text-gray-300"></i> ${review.nickname || '匿名ユーザー'}
-                        </span>
-                        <span>${review.created_at}</span>
-                    </div>
-                </div>
-            `;
-            
-            container.insertAdjacentHTML('afterbegin', html);
-            if (window.lucide) window.lucide.createIcons();
-        }
-    </script>
     @endif
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            if (window.HistoryManager) {
-                // 1. ログイン状態の確認
-                const authMeta = document.querySelector('meta[name="auth-check"]');
-                const bodyLoggedIn = document.body.dataset.loggedIn === 'true';
-                const isLoggedIn = (authMeta && authMeta.content === 'true') || bodyLoggedIn;
-                
-                const listingId = parseInt('{{ $listing->id }}');
-                
-                if (!isNaN(listingId)) {
-                    // 2. マネージャーの初期化完了を待つ
-                    HistoryManager.init(isLoggedIn).then(() => {
-                        // 3. 履歴に「現在の車両」を追加し、それが終わるのを待つ
-                        HistoryManager.push(listingId).then(() => {
-                            // 4. 追加が終わってから、描画処理を実行する（現在の車両は除外）
-                            HistoryManager.render('history-widget', listingId).then(() => {
-                                const widget = document.getElementById('history-widget');
-                                // 5. 過去の履歴が1件以上あれば、セクション全体を表示する
-                                if (widget && widget.children.length > 0) {
-                                    document.getElementById('history-section').classList.remove('hidden');
-                                }
-                            });
-                        });
-                    });
-                }
-            }
-
-            // シームレス・ナビゲーションの制御処理
-            const stateStr = sessionStorage.getItem('motohub_search_state');
-            if (stateStr) {
-                try {
-                    const state = JSON.parse(stateStr);
-                    const currentId = {{ $listing->id }};
-                    // 現在のIDが、記憶している検索結果リストの何番目にあるか探す
-                    const currentIndex = state.ids.indexOf(currentId);
-                    
-                    if (currentIndex !== -1) {
-                        // 検索結果から来たことが確認できたので、ナビゲーションバーを表示
-                        document.getElementById('search-nav-bar').classList.remove('hidden');
-                        
-                        // 「一覧に戻る」ボタンのURLを復元
-                        if(state.listUrl) {
-                            document.getElementById('nav-back-list').href = state.listUrl;
-                        }
-                        
-                        // 「前の車両」ボタンの有効化
-                        const prevBtn = document.getElementById('nav-prev-bike');
-                        if (currentIndex > 0) {
-                            prevBtn.href = '/bikes/' + state.ids[currentIndex - 1];
-                            prevBtn.classList.remove('text-gray-600', 'pointer-events-none');
-                            prevBtn.classList.add('text-white', 'hover:text-blue-400');
-                        }
-                        
-                        // 「次の車両」ボタンの有効化
-                        const nextBtn = document.getElementById('nav-next-bike');
-                        if (currentIndex < state.ids.length - 1) {
-                            nextBtn.href = '/bikes/' + state.ids[currentIndex + 1];
-                            nextBtn.classList.remove('text-gray-600', 'pointer-events-none');
-                            nextBtn.classList.add('text-white', 'hover:text-blue-400');
-                        }
-                    }
-                } catch(e) {
-                    console.error('Search state parsing error', e);
-                }
-            }
-        });
-    </script>
 </x-layout>

@@ -6,7 +6,7 @@ namespace App\Services\Bike;
 
 use App\Models\BikeModelMarketStat;
 use App\Repositories\Bike\ListingStatsRepository;
-use App\Repositories\Bike\MarketStatsRepository; // ★追加
+use App\Repositories\Bike\MarketStatsRepository;
 use Illuminate\Support\Collection;
 
 final class PriceStatsService
@@ -17,31 +17,57 @@ final class PriceStatsService
     private array $runtimeCache = [];
 
     public function __construct(
-        private readonly ListingStatsRepository $listingStatsRepo, // 旧 statsRepo から改名推奨ですが、今回はそのまま
-        private readonly MarketStatsRepository $marketStatsRepo  // ★追加
+        private readonly ListingStatsRepository $listingStatsRepo, 
+        private readonly MarketStatsRepository $marketStatsRepo
     ) {}
 
     /**
-     * 車種ごとの価格統計と分布データを取得
+     * 車種ごとの価格統計と分布データを取得し、現在の車両価格との比較も行う
      */
-    public function getModelStats(int $bikeModelId): array
+    public function getModelStats(int $bikeModelId, ?float $currentPriceYen = null): array
     {
         // 1. 統計データを取得 (リポジトリ経由)
         $cached = $this->getMarketStat($bikeModelId);
 
-        // キャッシュに分布データ(JSON)が入っていれば、即座にそれを返す
+        $stats = [];
+        // キャッシュに分布データが入っていればそれを使う
         if ($cached && $cached->listing_count > 0 && !empty($cached->distribution_data)) {
-            return [
+            $stats = [
                 'count' => (int)$cached->listing_count,
                 'min'   => round($cached->min_price / 10000, 1),
                 'max'   => round($cached->max_price / 10000, 1),
                 'avg'   => round($cached->avg_price / 10000, 1),
                 'distribution' => $cached->distribution_data,
             ];
+        } else {
+            // キャッシュがない場合のみライブ計算を実行
+            $stats = $this->calculateLiveStats($bikeModelId);
         }
 
-        // 2. キャッシュがない場合のみライブ計算を実行
-        return $this->calculateLiveStats($bikeModelId);
+        // 2. 現在の価格との比較（rank, diff）を計算
+        $stats['rank'] = 'unknown';
+        $stats['diff'] = 0;
+
+        // ★修正ポイント: コントローラーから渡ってくる円単位(例:500000)の金額を、万円単位(50.0)に直して比較
+        $currentPriceMan = ($currentPriceYen !== null && $currentPriceYen > 0) ? $currentPriceYen / 10000 : 0;
+
+        if (isset($stats['avg']) && $stats['avg'] > 0 && $currentPriceMan > 0) {
+            $avg = $stats['avg'];
+            $stats['diff'] = round($currentPriceMan - $avg, 1);
+
+            // S: 10%以上安い, A: 平均より安い, B: 平均より10%未満高い, C: それ以上
+            if ($currentPriceMan < $avg * 0.9) {
+                $stats['rank'] = 'S';
+            } elseif ($currentPriceMan < $avg) {
+                $stats['rank'] = 'A';
+            } elseif ($currentPriceMan < $avg * 1.1) {
+                $stats['rank'] = 'B';
+            } else {
+                $stats['rank'] = 'C';
+            }
+        }
+
+        return $stats;
     }
 
     /**
@@ -55,14 +81,12 @@ final class PriceStatsService
             $avg = $cached->avg_price;
             $count = $cached->listing_count;
         } else {
-            // キャッシュがない場合のみListingテーブルから集計
             $prices = $this->listingStatsRepo->getValidTotalPricesByModelId($bikeModelId);
             if ($prices->isEmpty()) return [];
             $avg = $prices->avg();
             $count = $prices->count();
         }
 
-        // 買取相場計算 (40%〜65%)
         $resaleMin = floor($avg * 0.4 / 10000) * 10000;
         $resaleMax = floor($avg * 0.65 / 10000) * 10000;
 
@@ -76,17 +100,9 @@ final class PriceStatsService
 
     /**
      * 買取相場の条件付きシミュレーション
-     * (Listingモデルへのクエリが含まれるため、ListingStatsRepositoryに移動が理想ですが、
-     * ロジックが主体のためServiceに残す判断もアリです。今回はListingStatsRepo経由に修正)
      */
     public function estimatePurchasePrice(int $bikeModelId, ?int $year = null): array
     {
-        // 複雑な条件付き取得は ListingStatsRepository にメソッドを追加するのがベストですが、
-        // ここでは簡易的に既存メソッド等を利用、またはQueryBuilder利用箇所として残します。
-        // ※厳密にリポジトリパターンにするなら、ListingStatsRepository::getPricesByModelAndYear($id, $year) を作るべきです。
-        
-        // --- 簡易実装（今回はService内にQueryロジックを残す例） ---
-        // Listingモデルへの直接依存を避けるため、本来は Repository に移譲すべき箇所です。
         $query = \App\Models\Listing::where('bike_model_id', $bikeModelId)
             ->where('is_sold_out', false)
             ->whereNotNull('total_price')
@@ -97,22 +113,10 @@ final class PriceStatsService
         }
 
         $prices = $query->pluck('total_price');
-        // ... (以下略、ロジック部分は変更なし) ...
-        // データ不足時のフォールバック処理などはそのまま
         
-        // ※このメソッド全体もリファクタリング対象ですが、
-        // 今回の質問の主眼である「ログ取得」部分の修正を優先します。
-        
-        // (省略: estimatePurchasePrice の残りのロジック)
         return $this->calculateEstimateLogic($prices, $year, $bikeModelId); 
     }
-    
-    // ※ estimatePurchasePrice のロジック部分を別メソッドに切り出すなどで整理可能
 
-    /**
-     * 指定された車種の最新統計データを取得 (ランタイムキャッシュ付き)
-     * ★修正: Repository経由に変更
-     */
     private function getMarketStat(int $bikeModelId): ?BikeModelMarketStat
     {
         if (!isset($this->runtimeCache[$bikeModelId])) {
@@ -121,17 +125,11 @@ final class PriceStatsService
         return $this->runtimeCache[$bikeModelId];
     }
 
-    /**
-     * 価格履歴の取得
-     * ★修正: Repository経由に変更
-     */
     public function getPriceHistory(int $bikeModelId): array
     {
-        // リポジトリからログを取得
         $logs = $this->marketStatsRepo->getLogs($bikeModelId);
 
         if ($logs->count() < 2) {
-            // データ不足時は最新の1件を取得してデモ生成
             $current = $this->marketStatsRepo->getLatestLog($bikeModelId);
             return $this->generateDemoHistory($current);
         }
@@ -143,9 +141,6 @@ final class PriceStatsService
         ];
     }
 
-    /**
-     * ライブ計算（フォールバック用）
-     */
     private function calculateLiveStats(int $bikeModelId): array
     {
         $prices = $this->listingStatsRepo->getValidTotalPricesByModelId($bikeModelId);
@@ -167,9 +162,6 @@ final class PriceStatsService
             'distribution' => $this->createDistribution($prices, $step),
         ];
     }
-
-    // --- 計算ロジック系メソッド（変更なし） ---
-    // これらのメソッドは「データの加工・計算」なのでServiceにあって正解です。
 
     private function calculateStep($min, $max): int
     {
@@ -229,10 +221,8 @@ final class PriceStatsService
         ];
     }
     
-    // estimatePurchasePrice用のロジック退避（省略していた部分の補完）
     private function calculateEstimateLogic($prices, $year, $bikeModelId): array
     {
-        // 簡易実装のフォールバック
         $isFallback = false;
         if ($prices->count() < 3 && $year) {
              $prices = $this->listingStatsRepo->getValidTotalPricesByModelId($bikeModelId);

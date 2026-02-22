@@ -89,7 +89,6 @@ final class BikeController extends Controller
 
     /**
      * 車両詳細ページを表示（爆速版）
-     * ★変更: DBクエリをすべて BikeService に移譲し、コントローラーを軽量化
      */
     public function show(int $id): View
     {
@@ -104,7 +103,12 @@ final class BikeController extends Controller
         $similarRaw = $this->bikeService->getSimilarListings($listing->manufacturer_id, $listing->bike_model_id, 8);
 
         // 3. 市場統計とレビューの取得
-        $stats = $this->priceStatsService->getModelStats((int)$listing->bike_model_id);
+        // ★修正: 第2引数に現在の車両価格 (total_price は DB上円単位、または万円単位。※今回はBladeの表示に合わせて float で渡す)
+        // ※データベースに保存されている価格が文字列で「-」などの場合は 0 として扱う
+        $currentPrice = is_numeric($listing->total_price) ? (float)$listing->total_price : 0;
+        
+        $stats = $this->priceStatsService->getModelStats((int)$listing->bike_model_id, $currentPrice);
+        
         $reviews = $listing->bike_model_id 
             ? $this->bikeService->getReviewsByModelId((int)$listing->bike_model_id, 3) 
             : collect();
