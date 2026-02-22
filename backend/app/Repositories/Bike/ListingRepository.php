@@ -36,24 +36,52 @@ final class ListingRepository
     }
 
     /**
-     * メイン検索 (Meilisearch 対応版)
-     * 30万〜40万件のデータから、ミリ秒単位で検索結果を返します
+     * メイン検索 (Meilisearch ネイティブフィルタ対応版)
+     * 範囲指定などもすべてMeilisearch側で処理させ、MySQLへの負担をゼロにします。
      */
     public function searchByKeyword(?string $keyword, ?string $prefecture, string $sort, array $filters, int $perPage, array $uiParams = []): Paginator
     {
-        // 1. Scout Search を開始 (キーワードが空なら全件対象)
-        $search = Listing::search($keyword ?? '');
+        // 1. Scout Search を開始 + Meilisearchエンジンのコールバックを利用
+        $search = Listing::search($keyword ?? '', function ($meiliSearch, string $query, array $options) use ($prefecture, $filters) {
+            
+            $filterStrings = [];
 
-        // 2. フィルタリング (Meilisearch のフィルタエンジンを使用)
-        // ※ Scout 側のフィルタを適用するため、専用の Scope を使わず query 内で指定
-        // 注意: Meilisearch 側で filterableAttributes の設定が必要です
-        $this->applyMeilisearchFilters($search, $prefecture, $filters);
+            // --- 完全一致フィルター ---
+            if ($prefecture) $filterStrings[] = "prefecture = '{$prefecture}'";
+            if (!empty($filters['prefecture'])) $filterStrings[] = "prefecture = '{$filters['prefecture']}'";
+            if (!empty($filters['manufacturer_id'])) $filterStrings[] = "manufacturer_id = " . (int)$filters['manufacturer_id'];
+            if (!empty($filters['bike_model_id'])) $filterStrings[] = "bike_model_id = " . (int)$filters['bike_model_id'];
+            if (!empty($filters['category_id'])) $filterStrings[] = "category_id = " . (int)$filters['category_id'];
+            if (isset($filters['is_new']) && $filters['is_new'] !== '') $filterStrings[] = "is_new = " . (int)$filters['is_new'];
+            if (!empty($filters['tag'])) $filterStrings[] = "tag_slugs = '{$filters['tag']}'";
 
-        // 3. ソート (Meilisearch 側で実行)
+            // --- 範囲指定フィルター (ここが爆速化の鍵！) ---
+            // ※フロントから price_min などのキーで送られてくると想定しています
+            if (!empty($filters['price_min'])) $filterStrings[] = "total_price >= " . ((int)$filters['price_min'] * 10000);
+            if (!empty($filters['price_max'])) $filterStrings[] = "total_price <= " . ((int)$filters['price_max'] * 10000);
+            
+            if (!empty($filters['mileage_min'])) $filterStrings[] = "mileage >= " . (int)$filters['mileage_min'];
+            if (!empty($filters['mileage_max'])) $filterStrings[] = "mileage <= " . (int)$filters['mileage_max'];
+            
+            if (!empty($filters['year_min'])) $filterStrings[] = "model_year >= " . (int)$filters['year_min'];
+            if (!empty($filters['year_max'])) $filterStrings[] = "model_year <= " . (int)$filters['year_max'];
+            
+            if (!empty($filters['displacement_min'])) $filterStrings[] = "displacement >= " . (int)$filters['displacement_min'];
+            if (!empty($filters['displacement_max'])) $filterStrings[] = "displacement <= " . (int)$filters['displacement_max'];
+
+            // 構築したフィルター文字列をMeilisearchのオプションにセット (例: "manufacturer_id = 1 AND total_price >= 100000")
+            if (!empty($filterStrings)) {
+                $options['filter'] = implode(' AND ', $filterStrings);
+            }
+
+            // Meilisearchに最適化されたクエリを発行！
+            return $meiliSearch->search($query, $options);
+        });
+
+        // 2. ソート (Meilisearch 側で実行)
         $this->applyMeilisearchSorting($search, $sort);
 
-        // 4. データ取得 & リレーションの結合 (Deferred Join)
-        // Meilisearch が特定した 30件 のIDに基づき、MySQL から詳細情報を取得します
+        // 3. データ取得 & リレーションの結合 (N+1対策は完璧です)
         return $search->query(function ($query) {
             $query->select(self::LIST_COLUMNS)
                 ->with([
@@ -63,27 +91,7 @@ final class ListingRepository
                     'site:id,name',
                     'tags:id,name'
                 ]);
-        })->paginate($perPage); // Meilisearch は爆速なので simplePaginate でなくても高速です
-    }
-
-    /**
-     * Meilisearch 向けのフィルタ適用
-     */
-    private function applyMeilisearchFilters($search, ?string $prefecture, array $filters): void
-    {
-        if ($prefecture) $search->where('prefecture', $prefecture);
-        if (!empty($filters['prefecture'])) $search->where('prefecture', $filters['prefecture']);
-        if (!empty($filters['manufacturer_id'])) $search->where('manufacturer_id', (int)$filters['manufacturer_id']);
-        if (!empty($filters['bike_model_id'])) $search->where('bike_model_id', (int)$filters['bike_model_id']);
-        if (!empty($filters['category_id'])) $search->where('category_id', (int)$filters['category_id']);
-        if (isset($filters['is_new'])) $search->where('is_new', (int)$filters['is_new']);
-        
-        // タグ検索（Meilisearch 内に配列で格納されている前提）
-        if (!empty($filters['tag'])) $search->where('tag_slugs', $filters['tag']);
-
-        // 範囲指定（Meilisearch 側での対応が必要）
-        // Scout の標準的な where は完全一致のみのため、複雑な範囲指定が必要な場合は
-        // engine の callback を利用するか、あらかじめ特定の範囲にタグ付けしておきます。
+        })->paginate($perPage); 
     }
 
     /**

@@ -197,7 +197,7 @@ final class BikeController extends Controller
             return response()->json([]);
         }
 
-        $listings = Listing::with(['bikeModel.manufacturer', 'shop', 'site'])
+        $listings = Listing::with(['bikeModel.manufacturer', 'shop', 'site', 'tags'])
             ->whereIn('id', $ids)
             ->where('is_sold_out', false)
             ->get();

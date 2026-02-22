@@ -31,7 +31,7 @@ final class ListingSearchService
 
     /**
      * バイク出品情報の検索・絞り込み
-     * ページネーションのカウントを省略し、結果をキャッシュすることで「爆速」を実現します
+     * Meilisearch の超高速検索を活かして、無駄な MySQL の集計をバイパスします
      */
     public function search(?string $keyword, ?string $prefecture = null, string $sort = 'latest', array $filters = [], int $perPage = 30): array
     {
@@ -61,29 +61,22 @@ final class ListingSearchService
         // --- A. 重い集計処理（統計・UI上限値）のキャッシュ ---
         $aggData = Cache::remember($aggCacheKey, 3600, function () use ($keyword, $prefecture, $filters) {
             $meta = $this->metaGenerator->generate($keyword, $prefecture, $filters);
-            $ui = $this->metaGenerator->calculateUiLimits($meta);
             $stats = $this->statsRepo->getPriceStats($keyword, $prefecture, $filters);
             
             return [
                 'meta' => $meta,
-                'uiParams' => $ui,
                 'statsRaw' => $stats,
             ];
         });
 
         $searchMeta = $aggData['meta'];
-        $uiParams   = $aggData['uiParams'];
         $statsRaw   = $aggData['statsRaw'];
 
         // --- B. 検索結果データのキャッシュ & 高速取得 ---
         // 同じ条件のページは 30分間キャッシュ
-        $searchResult = Cache::remember($itemsCacheKey, 1800, function () use ($keyword, $prefecture, $sort, $filters, $perPage, $uiParams) {
-            /** * ★重要★ 
-             * 本来なら ListingRepository::searchByKeyword 内で paginate() ではなく simplePaginate() を呼ぶのが最速です。
-             * ここでは Service 側で取得した件数（$statsRaw->count）を Pagination に無理やり流し込むことで 
-             * SQLの COUNT(*) を省略しつつ、UIの「全◯◯台」表示を維持するプロの技を使います。
-             */
-            $paginated = $this->listingRepo->searchByKeyword($keyword, $prefecture, $sort, $filters, $perPage, $uiParams);
+        $searchResult = Cache::remember($itemsCacheKey, 1800, function () use ($keyword, $prefecture, $sort, $filters, $perPage) {
+            // Meilisearch なら paginate() で正確な件数(total)も一瞬で計算してくれます
+            $paginated = $this->listingRepo->searchByKeyword($keyword, $prefecture, $sort, $filters, $perPage);
             
             return [
                 'items' => ListingResource::collection($paginated->getCollection())->resolve(),
@@ -91,8 +84,11 @@ final class ListingSearchService
             ];
         });
 
-        // 統計データから正確な総件数を取得して上書き（もしページネーションが簡易版でもUIを壊さないため）
-        $searchResult['pagination']['total'] = $statsRaw->count ?? 0;
+        // 以前はここで MySQL(statsRaw) の件数で上書きしていましたが、
+        // 今は Meilisearch が出した完璧な件数を正として、逆に統計データ側を補正します
+        if (isset($searchResult['pagination']['total'])) {
+            $statsRaw->count = $searchResult['pagination']['total'];
+        }
 
         // 6. 付加情報の取得（キャッシュ不要な軽い処理）
         $models = collect();
@@ -180,10 +176,11 @@ final class ListingSearchService
         $cacheKey = 'search_count_' . md5(json_encode([$k, $p, $f]));
         
         return Cache::remember($cacheKey, 10800, function () use ($k, $p, $f) {
-            $meta = $this->metaGenerator->generate($k, $p, $f);
-            $uiParams = $this->metaGenerator->calculateUiLimits($meta);
-            // カウント専用の高速クエリを期待
-            return (int) $this->listingRepo->searchByKeyword($k, $p, 'latest', $f, 1, $uiParams)->total(); 
+            // Meilisearchなら、1件だけ取得して総件数を引っ張るのが最速
+            $paginated = $this->listingRepo->searchByKeyword($k, $p, 'latest', $f, 1);
+            
+            // Paginatorインターフェースには total() が存在しないため、安全にチェックしてから取得
+            return method_exists($paginated, 'total') ? $paginated->total() : count($paginated->items()); 
         });
     }
 
