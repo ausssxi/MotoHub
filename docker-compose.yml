@@ -57,15 +57,16 @@ services:
     volumes:
       - db-data:/var/lib/mysql
 
-  # Meilisearch
+  # Meilisearch (全文検索エンジン)
   meilisearch:
     image: getmeili/meilisearch:latest
     container_name: motohub-meilisearch
     restart: unless-stopped
     ports:
       - "7700:7700"
+    env_file:
+      - ./backend/.env  # ★ここを追加！Laravelの.envを読み込ませる
     environment:
-      - MEILI_MASTER_KEY=${MEILISEARCH_KEY:-masterKey} # .envのキーを使用
       - MEILI_NO_ANALYTICS=true
     volumes:
       - meili-data:/meili_data
