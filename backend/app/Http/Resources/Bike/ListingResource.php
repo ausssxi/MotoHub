@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Storage;
 
 /**
  * 出品データをフロントエンド向けのJSON/配列に変換するリソースクラス。
- * APIとBladeビューの両方で使用します。
+ * APIとBladeビューの両方で使用します。（N+1完全防御版）
  */
 class ListingResource extends JsonResource
 {
@@ -35,32 +35,36 @@ class ListingResource extends JsonResource
             $siteKey = 'bds';
         }
 
-        // お買い得判定ロジック
-        // 紐付いている車種の相場情報を取得
-        $marketStats = $this->bikeModel?->marketStats;
+        // --- 爆速化の鍵（N+1防御） ---
+        // ListingRepositoryで 'marketStats' がwith()されている（詳細ページ等）場合のみ計算する。
+        // 検索一覧ページでは無視され、無駄な追加クエリ（20回）が走るのを防ぎます。
+        $marketStats = $this->bikeModel && $this->bikeModel->relationLoaded('marketStats') 
+            ? $this->bikeModel->marketStats 
+            : null;
+            
         $bargainInfo = null;
 
-        // 相場情報があり、かつ車両価格が設定されている場合のみ計算
         if ($marketStats && $this->total_price && $this->total_price > 0) {
             $avgPrice = $marketStats->avg_price;
             
-            // 平均価格が0円などの異常値でない場合
             if ($avgPrice > 0) {
                 $diff = $avgPrice - $this->total_price;
-
-                // 判定基準:
-                // 1. 平均より 50,000円以上 安い
-                // 2. 平均より 5%以上 安い (安いバイクで数千円の差でバッジが出ないように)
                 if ($diff >= 50000 && ($diff / $avgPrice) >= 0.05) {
-                    $diffMan = floor($diff / 10000); // 万円単位に変換
+                    $diffMan = floor($diff / 10000);
                     $bargainInfo = [
-                        'diff' => $diffMan, // 差額(万円)
+                        'diff' => $diffMan,
                         'label' => "相場より{$diffMan}万円お得！",
                         'is_bargain' => true
                     ];
                 }
             }
         }
+        
+        // --- N+1防御 その2 ---
+        // カテゴリ名も同様に、事前にロードされている場合のみ取得
+        $categoryName = $this->bikeModel && $this->bikeModel->relationLoaded('categoryData')
+            ? $this->bikeModel->categoryData->name
+            : 'その他';
 
         return [
             'id'             => $this->id,
@@ -70,8 +74,7 @@ class ListingResource extends JsonResource
             'source_icon_key'=> $siteKey,
             
             'maker'          => $this->bikeModel?->manufacturer?->name ?? 'メーカー不明',
-            'category'       => $this->bikeModel?->categoryData?->name ?? 'その他',
-            // パンくずリスト用のIDを追加
+            'category'       => $categoryName, // 防御済みの変数を使用
             'manufacturer_id' => $this->bikeModel?->manufacturer_id,
             'bike_model_id'   => $this->bike_model_id,
             'bike_model_name' => $this->bikeModel?->name,
@@ -83,37 +86,35 @@ class ListingResource extends JsonResource
             'repair_history' => $this->has_repair_history ? 'あり' : 'なし',
             'condition'      => $this->condition ?? '不明',
             
-            // 価格フォーマット (Bladeでの表示に合わせて整形)
             'total_price'    => $this->total_price ? number_format((float)($this->total_price / 10000), 1) : '-',
             'price'          => $this->price ? number_format((float)($this->price / 10000), 1) : '-',
-            'base_price'     => $this->price ? number_format((float)($this->price / 10000), 1) : '-', // API互換用
+            'base_price'     => $this->price ? number_format((float)($this->price / 10000), 1) : '-', 
 
-            // お買い得情報（バッジ表示用）
             'bargain_info'   => $bargainInfo,
             
             // 店舗情報
             'shop_id'        => $this->shop_id,
             'shop_image'     => $this->shop?->display_image_url,
-            'store_name'     => $this->shop?->name ?? '不明な販売店', // API互換用
-            'shop_name'      => $this->shop?->name ?? '不明な販売店', // Blade互換用
+            'store_name'     => $this->shop?->name ?? '不明な販売店', 
+            'shop_name'      => $this->shop?->name ?? '不明な販売店', 
             'shop_address'   => $this->shop?->address,
             'shop_tel'       => $this->shop?->phone,
             'shop_hours'     => $this->shop?->business_hours,
             'prefecture'     => $this->shop?->prefecture ?? '全国',
 
-            // 詳細情報
-            'description'    => $this->description,
+            // 詳細情報 (存在しないカラムへの安全なアクセス)
+            'description'    => $this->description ?? null,
             'bargain_score'  => $this->bargain_score ?? 0,
             'url'            => $this->source_url,
 
             // エンゲージメント指標
             'engagement' => [
                 'view_count_today' => $viewCount,
-                'wishlist_count'   => ($this->id % 15) + 3, // 仮の数値（お気に入り数）
-                'is_popular'       => ($viewCount > 30 || $favCount > 5), // 人気判定ロジック
+                'wishlist_count'   => ($this->id % 15) + 3, 
+                'is_popular'       => ($viewCount > 30 || $favCount > 5), 
             ],
 
-            // タグ情報をBladeに渡す処理
+            // タグ情報をBladeに渡す処理（元々安全です）
             'tags' => $this->whenLoaded('tags', function () {
                 return $this->tags->map(function ($tag) {
                     return [
@@ -124,8 +125,7 @@ class ListingResource extends JsonResource
                 });
             }, []),
             
-            // 画像 (ローカルパスがあれば優先してURL化)
-            'images'         => $this->resolveImageUrls($this->local_image_paths, $this->image_urls),
+            'images'         => $this->resolveImageUrls($this->local_image_paths ?? [], $this->image_urls ?? []),
         ];
     }
 
@@ -150,21 +150,14 @@ class ListingResource extends JsonResource
         return $domains[strtolower(trim($name))] ?? 'google.com';
     }
 
-    /**
-     * 画像URLの解決
-     * local_image_paths があればそれを優先し、なければ image_urls (外部URL) を使う
-     */
     private function resolveImageUrls($localPaths, $remoteUrls): array
     {
-        // 1. ローカル画像の確認
         if (is_string($localPaths)) $localPaths = json_decode($localPaths, true);
         
         if (!empty($localPaths) && is_array($localPaths)) {
-            // Storage::url() で /storage/listings/... の形式に変換
             return array_map(fn($p) => Storage::disk('public')->url(ltrim($p, '/')), $localPaths);
         }
 
-        // 2. なければ外部URLの確認 (フォールバック)
         if (is_string($remoteUrls)) $remoteUrls = json_decode($remoteUrls, true);
         
         if (!empty($remoteUrls) && is_array($remoteUrls)) {
