@@ -430,36 +430,160 @@ final class BikeService
     }
 
     /**
-     * トップページ用のおすすめ特集データを取得
+     * トップページ用のおすすめ特集データを動的に取得する
      */
     public function getFeaturesForTopPage(): array
     {
-        return [
+        // 1. 特集のプール（たくさん用意しておく）
+        $featurePool = [
+            // --- 価格・コスパ系 ---
             [
-                'title' => '✨ 乗り出し30万円以下！お買い得な250cc特集',
+                'id' => 'price_250_under30',
+                'title' => '✨ 乗り出し30万円以下！お買い得な250cc',
                 'icon' => 'sparkles',
                 'color' => 'bg-gradient-to-br from-yellow-400 to-orange-500',
                 'url' => route('bikes.search', ['max_price' => 30, 'min_displacement' => 126, 'max_displacement' => 250]),
+                'base_weight' => 10,
             ],
             [
-                'title' => '🔥 通勤・通学最強！原付二種（125cc）スクーター',
+                'id' => 'price_400_under50',
+                'title' => '💰 コスパ最強！50万円以下の400ccネイキッド',
+                'icon' => 'coins',
+                'color' => 'bg-gradient-to-br from-amber-400 to-yellow-600',
+                'url' => route('bikes.search', ['max_price' => 50, 'min_displacement' => 251, 'max_displacement' => 400, 'keyword' => 'ネイキッド']),
+                'base_weight' => 8,
+            ],
+            
+            // --- 通勤・通学・街乗り系（平日に強い） ---
+            [
+                'id' => 'commute_125_scooter',
+                'title' => '🔥 通勤・通学最強！原付二種スクーター',
                 'icon' => 'zap',
                 'color' => 'bg-gradient-to-br from-blue-400 to-cyan-500',
                 'url' => route('bikes.search', ['max_displacement' => 125, 'keyword' => 'スクーター']),
+                'base_weight' => 10,
+                'target_timing' => ['weekday', 'morning', 'evening'], // 平日・朝夕に出やすい
             ],
             [
-                'title' => '👑 すぐ乗れる！状態良好なワンオーナー車',
-                'icon' => 'crown',
-                'color' => 'bg-gradient-to-br from-purple-400 to-pink-500',
-                'url' => route('bikes.search', ['tag' => 'ワンオーナー']),
+                'id' => 'commute_50_cub',
+                'title' => '🛵 お買い物や近所の移動に！50cc原付特集',
+                'icon' => 'shopping-bag',
+                'color' => 'bg-gradient-to-br from-sky-400 to-indigo-500',
+                'url' => route('bikes.search', ['max_displacement' => 50]),
+                'base_weight' => 6,
+                'target_timing' => ['weekday', 'daytime'], // 平日の昼に出やすい
             ],
+
+            // --- ツーリング・レジャー系（週末に強い） ---
             [
+                'id' => 'touring_etc_large',
                 'title' => '🛣️ ツーリングに最適！ETC搭載の大型バイク',
                 'icon' => 'map',
                 'color' => 'bg-gradient-to-br from-green-400 to-emerald-500',
                 'url' => route('bikes.search', ['min_displacement' => 401, 'tag' => 'ETC']),
+                'base_weight' => 10,
+                'target_timing' => ['weekend', 'holiday'], // 週末に激強
+            ],
+            [
+                'id' => 'touring_adventure',
+                'title' => '🏕️ どこまでも走れる！人気のアドベンチャー',
+                'icon' => 'mountain',
+                'color' => 'bg-gradient-to-br from-stone-500 to-stone-700',
+                'url' => route('bikes.search', ['keyword' => 'アドベンチャー']),
+                'base_weight' => 7,
+                'target_timing' => ['weekend'],
+            ],
+
+            // --- 状態・品質系（いつでも強い） ---
+            [
+                'id' => 'condition_one_owner',
+                'title' => '👑 すぐ乗れる！状態良好なワンオーナー車',
+                'icon' => 'crown',
+                'color' => 'bg-gradient-to-br from-purple-400 to-pink-500',
+                'url' => route('bikes.search', ['tag' => 'ワンオーナー']),
+                'base_weight' => 9,
+            ],
+            [
+                'id' => 'condition_low_mileage',
+                'title' => '💎 掘り出し物！走行距離5000km以下の極上車',
+                'icon' => 'gem',
+                'color' => 'bg-gradient-to-br from-rose-400 to-red-500',
+                'url' => route('bikes.search', ['max_mileage' => 5000, 'tag' => '美車']),
+                'base_weight' => 8,
+            ],
+
+            // --- スタイル・カスタム系 ---
+            [
+                'id' => 'style_classic',
+                'title' => '☕ レトロで渋い。ネオクラシック特集',
+                'icon' => 'coffee',
+                'color' => 'bg-gradient-to-br from-orange-800 to-amber-900',
+                'url' => route('bikes.search', ['keyword' => 'クラシック']),
+                'base_weight' => 7,
+            ],
+            [
+                'id' => 'style_supersport',
+                'title' => '🏁 憧れのSS！スーパースポーツ大集合',
+                'icon' => 'flag',
+                'color' => 'bg-gradient-to-br from-red-600 to-rose-800',
+                'url' => route('bikes.search', ['keyword' => 'スーパースポーツ']),
+                'base_weight' => 7,
+                'target_timing' => ['weekend', 'night'], // 週末や夜に出やすい
             ],
         ];
+
+        // 2. 現在の状況（時間、曜日）を取得
+        $now = now();
+        $isWeekend = $now->isWeekend();
+        $hour = $now->hour;
+
+        // 3. 各特集のスコアを計算
+        $scoredFeatures = collect($featurePool)->map(function ($feature) use ($isWeekend, $hour) {
+            $score = $feature['base_weight'];
+
+            // ターゲットタイミングによるブースト処理
+            if (isset($feature['target_timing'])) {
+                $timings = $feature['target_timing'];
+
+                // 週末ブースト (+20点)
+                if ($isWeekend && in_array('weekend', $timings)) {
+                    $score += 20;
+                }
+                // 平日ブースト (+10点)
+                if (!$isWeekend && in_array('weekday', $timings)) {
+                    $score += 10;
+                }
+                // 朝ブースト (6:00 - 9:59)
+                if ($hour >= 6 && $hour < 10 && in_array('morning', $timings)) {
+                    $score += 15;
+                }
+                // 昼ブースト (10:00 - 16:59)
+                if ($hour >= 10 && $hour < 17 && in_array('daytime', $timings)) {
+                    $score += 10;
+                }
+                // 夕方・夜ブースト (17:00 - 23:59)
+                if ($hour >= 17 && in_array('evening', $timings)) {
+                    $score += 15;
+                }
+                // 深夜ブースト (20:00 - 3:59)
+                if (($hour >= 20 || $hour < 4) && in_array('night', $timings)) {
+                    $score += 10;
+                }
+            }
+
+            // 4. ランダム要素を加えて「毎回違う感」を出す (0〜10のランダム値)
+            $score += rand(0, 10);
+
+            $feature['final_score'] = $score;
+            return $feature;
+        });
+
+        // 5. スコアが高い順に並び替え、上位4つを返す
+        return $scoredFeatures
+            ->sortByDesc('final_score')
+            ->take(4)
+            ->values()
+            ->toArray();
     }
 
     /**
