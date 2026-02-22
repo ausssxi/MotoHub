@@ -17,7 +17,6 @@ final class ListingRepository
 {
     /**
      * 一覧表示に必要な基本カラムのリスト
-     * description（長文）を除外してデータ転送量を大幅に削減します
      */
     private const LIST_COLUMNS = [
         'listings.id', 
@@ -36,7 +35,10 @@ final class ListingRepository
         'listings.is_sold_out',
         'listings.image_urls', 
         'listings.local_image_paths', 
-        'listings.created_at'
+        'listings.created_at',
+        'listings.bargain_score', // お買い得ソートやバッジ表示で必要
+        'listings.view_count_today', // 人気バッジ用
+        'listings.favorite_count'    // 人気バッジ用
     ];
 
     /**
@@ -166,15 +168,15 @@ final class ListingRepository
 
         return Listing::query()
             ->with([
-                'bikeModel.manufacturer', 
-                'bikeModel.categoryData', 
-                'bikeModel.marketStats', // ★N+1問題対策：お買い得バッジ計算用
-                'shop', 
-                'site',
-                'tags'
+                'bikeModel:id,manufacturer_id,category_id,name', 
+                'bikeModel.manufacturer:id,name', 
+                'bikeModel.categoryData:id,name', 
+                'shop:id,name,prefecture', 
+                'site:id,name',
+                // カードで表示するためタグを復活（ただしIDと名前だけに絞って超軽量化）
+                'tags:id,name' 
             ])
-            ->active()
-            // Model Scope を活用（JOIN最適化済みを想定）
+            ->active() // (is_sold_out = false などのスコープを想定)
             ->withKeyword($keyword)
             ->byPrefecture($prefecture ?: ($filters['prefecture'] ?? null))
             ->byModel($filters['manufacturer_id'] ?? null, $filters['bike_model_id'] ?? null)
