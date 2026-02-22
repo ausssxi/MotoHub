@@ -19,7 +19,8 @@ class ListingResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $viewCount = $this->view_count_today;
+        $viewCount = (int) ($this->view_count_today ?? 0);
+        $favCount = (int) ($this->favorite_count ?? 0);
 
         // お買い得判定ロジック
         // 紐付いている車種の相場情報を取得
@@ -95,7 +96,7 @@ class ListingResource extends JsonResource
             'engagement' => [
                 'view_count_today' => $viewCount,
                 'wishlist_count'   => ($this->id % 15) + 3, // 仮の数値（お気に入り数）
-                'is_popular'       => $viewCount > 40,
+                'is_popular'       => ($viewCount > 30 || $favCount > 5), // 人気判定ロジック
             ],
 
             // タグ情報をBladeに渡す処理

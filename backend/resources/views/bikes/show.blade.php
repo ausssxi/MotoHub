@@ -94,6 +94,12 @@
                     
                     {{-- 1. 画像ギャラリー --}}
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                        {{-- 人気ラベル（閲覧数またはお気に入り数が多い場合） --}}
+                        @if($listing->engagement['is_popular'] ?? false)
+                        <div class="absolute top-4 left-4 z-20 bg-orange-500 text-white px-3 py-1.5 rounded-xl text-[10px] font-black italic flex items-center gap-1 shadow-lg animate-bounce">
+                            <i data-lucide="flame" class="w-3.5 h-3.5 fill-current"></i> POPULAR
+                        </div>
+                        @endif
                         <div class="aspect-[4/3] bg-gray-100 relative group overflow-hidden">
                             @if(!empty($listing->images) && count($listing->images) > 0)
                                 <div class="absolute inset-0 z-0">
@@ -135,6 +141,18 @@
 
                     {{-- 2. 車両基本情報 --}}
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                    {{-- リアルタイム検討状況の表示（閲覧数 ＋ お気に入り数） --}}
+                        <div class="flex items-center gap-4 mb-6 py-3 px-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                            <div class="flex -space-x-2 shrink-0">
+                                <div class="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white border-2 border-white shadow-sm"><i data-lucide="eye" class="w-3 h-3"></i></div>
+                                <div class="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center text-white border-2 border-white shadow-sm"><i data-lucide="heart" class="w-3 h-3 fill-current"></i></div>
+                            </div>
+                            <div class="text-[10px] sm:text-xs font-bold text-blue-800">
+                                <span class="font-black text-blue-600">本日 {{ $listing->engagement['view_count_today'] ?? 0 }}名</span> が閲覧中 
+                                <span class="mx-2 text-blue-200">|</span>
+                                <span class="font-black text-red-600">{{ $listing->engagement['favorite_count'] ?? 0 }}名</span> がお気に入りに追加
+                            </div>
+                        </div>
                         <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
                             <div>
                                 <h1 class="text-2xl sm:text-3xl font-black text-gray-900 leading-tight mb-3">{{ $listing->name }}</h1>
@@ -520,13 +538,13 @@
                                 </div>
                             </div>
                         </div>
-                        {{-- 検討を促すサイドバーパーツ --}}
+                        {{-- 検討を促すサイドバーパーツ（お気に入り数連動） --}}
                         <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-6 text-white shadow-lg">
                             <h4 class="text-xs font-black uppercase tracking-widest text-orange-400 mb-3 flex items-center gap-2">
                                 <i data-lucide="alert-circle" class="w-4 h-4"></i> 売却済みにご注意ください
                             </h4>
                             <p class="text-[11px] font-bold leading-relaxed text-gray-300">
-                                この車両は現在 <span class="text-white font-black text-sm">{{ $listing->engagement['view_count_today'] }}名</span> が検討しています。中古バイクは1点物のため、タッチの差で売約済みとなるケースが多くなっています。
+                                この車両は現在 <span class="text-white font-black text-sm">{{ $listing->engagement['view_count_today'] ?? 0 }}名</span> が閲覧し、<span class="text-red-400 font-black text-sm">{{ $listing->engagement['favorite_count'] ?? 0 }}名</span> が検討リストに追加しています。中古バイクは1点物のため、タッチの差で売約済みとなるケースが多くなっています。
                             </p>
                         </div>
                     </div>
@@ -536,7 +554,7 @@
         </div>
     </div>
 
-    {{-- スマホ用固定フッターCV --}}
+    {{-- スマホ用固定フッターCV（お気に入り数連動） --}}
     <div class="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 p-3 sm:p-4 lg:hidden z-50 safe-area-bottom">
         <div class="flex gap-3 items-center">
             <div class="flex-1">
@@ -552,7 +570,9 @@
             </div>
             <a href="{{ $listing->url }}" target="_blank" class="w-48 bg-red-600 text-white font-black flex flex-col items-center justify-center rounded-lg shadow-lg py-2 active:scale-95 transition-transform">
                 <span class="text-sm">在庫確認・見積もり</span>
-                <span class="text-[9px] font-medium opacity-90">{{ $listing->site_name ?? '外部サイト' }}へ</span>
+                <span class="text-[9px] font-medium opacity-90 flex items-center gap-1">
+                    <i data-lucide="heart" class="w-2.5 h-2.5 fill-current"></i> 現在 {{ $listing->engagement['favorite_count'] ?? 0 }}名がお気に入り
+                </span>
             </a>
         </div>
     </div>
