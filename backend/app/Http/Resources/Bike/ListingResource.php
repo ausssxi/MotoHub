@@ -88,6 +88,16 @@ class ListingResource extends JsonResource
             'description'    => $this->description,
             'bargain_score'  => $this->bargain_score ?? 0,
             'url'            => $this->source_url,
+            // タグ情報をBladeに渡す処理
+            'tags' => $this->whenLoaded('tags', function () {
+                return $this->tags->map(function ($tag) {
+                    return [
+                        'id'   => $tag->id,
+                        'name' => $tag->name,
+                        'slug' => $tag->slug,
+                    ];
+                });
+            }, []),
             
             // 画像 (ローカルパスがあれば優先してURL化)
             'images'         => $this->resolveImageUrls($this->local_image_paths, $this->image_urls),

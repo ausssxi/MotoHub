@@ -190,7 +190,6 @@
                             </button>
                         </div>
 
-                        {{-- ★追加: 検索条件保存ボタンエリア --}}
                         <div class="mt-8 pt-6 border-t border-gray-100">
                             <div class="text-center mb-3">
                                 <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
@@ -299,7 +298,6 @@
                     @forelse ($items as $listing)
                         <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col group border border-gray-100 relative cursor-pointer bike-card">
                             
-                            {{-- ★詳細ページへのリンク --}}
                             <a href="{{ route('bikes.show', $listing['id']) }}" class="absolute inset-0 z-10"></a>
                             
                             <div class="aspect-[4/3] relative overflow-hidden bg-gray-50">
@@ -307,53 +305,72 @@
                                     <img src="{{ $listing['images'][0] }}" 
                                          class="bike-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                                          alt="{{ $listing['name'] }}"
-                                         {{-- ★修正: ダミー画像URLを変更 (トップページと同じUnsplash画像を使用) --}}
                                          onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');">
                                 @else
-                                    {{-- ★修正: ダミー画像URLを変更 --}}
                                     <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop" 
                                          class="bike-img w-full h-full object-cover grayscale opacity-50 group-hover:scale-105 transition-transform duration-500" 
                                          alt="No Image">
-                                    
-                                    {{-- オプション: No Image アイコンを重ねる場合 --}}
                                     <div class="absolute inset-0 flex items-center justify-center">
                                         <i data-lucide="image-off" class="w-10 h-10 text-white/50"></i>
                                     </div>
                                 @endif
 
-                                {{-- お買い得バッジ --}}
-                                @if($listing['bargain_score'] > 5) {{-- 5%以上安い場合 --}}
-                                <div class="absolute bottom-0 left-0 bg-red-600 text-white text-[10px] font-black px-2 py-1.5 rounded-tr-xl shadow-lg z-10 flex items-center gap-1 animate-pulse">
+                                @if($listing['bargain_score'] > 5)
+                                <div class="absolute bottom-0 left-0 bg-red-600 text-white text-[10px] font-black px-2 py-1.5 rounded-tr-xl shadow-lg z-20 flex items-center gap-1 animate-pulse">
                                     <i data-lucide="trending-down" class="w-3.5 h-3.5"></i>
                                     相場より約{{ round($listing['bargain_score']) }}%お得！
                                 </div>
                                 @endif
                                 
-                                <!-- 左上：比較ボタン -->
                                 <button class="compare-btn absolute top-3 left-3 z-20 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 border border-gray-100 shadow-sm transition-all hover:scale-110 active:scale-95" data-id="{{ $listing['id'] }}">
                                     <i data-lucide="layers" class="w-5 h-5"></i>
                                 </button>
                                 
-                                <!-- 右上：お気に入りボタン -->
                                 <button class="wishlist-btn absolute top-3 right-3 z-20 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 shadow-sm border border-gray-100" data-id="{{ $listing['id'] }}">
                                     <i data-lucide="heart" class="w-5 h-5"></i>
                                 </button>
                                 
-                                <!-- 右下：掲載元バッジ -->
-                                <div class="absolute bottom-3 right-3 z-10 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-sm">
+                                <div class="absolute bottom-3 right-3 z-20 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-sm">
                                     <img src="https://www.google.com/s2/favicons?domain={{ $listing['source_domain'] ?? 'google.com' }}&sz=32" class="w-3 h-3 rounded-sm brightness-110" alt="">
                                     <span class="text-[8px] font-black text-white/90">{{ $listing['source'] }}</span>
                                 </div>
                             </div>
 
                             <div class="p-5 flex-grow flex flex-col">
-                                {{-- ★メーカー(青)、カテゴリー(橙)、コンディション(緑)、都道府県(紫) で色分け --}}
                                 <div class="flex items-center gap-2 mb-2 flex-wrap">
                                     <span class="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">{{ $listing['maker'] }}</span>
                                     <span class="text-[9px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded uppercase">{{ $listing['category'] }}</span>
                                     <span class="text-[9px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded uppercase">{{ $listing['condition'] }}</span>
                                     <span class="text-[9px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded uppercase">{{ $listing['prefecture'] }}</span>
                                 </div>
+
+                                {{-- ★追加: 車両ごとのタグ表示（最大4つまで） --}}
+                                @if(!empty($listing['tags']) && count($listing['tags']) > 0)
+                                <div class="flex flex-wrap gap-1 mb-2.5">
+                                    @php
+                                        // オブジェクトのコレクションか配列かに関わらず配列に変換し、最大4つに絞る
+                                        $tagsArray = is_iterable($listing['tags']) ? (is_object($listing['tags']) ? $listing['tags']->toArray() : $listing['tags']) : [];
+                                        $displayTags = array_slice($tagsArray, 0, 4);
+                                    @endphp
+                                    
+                                    @foreach($displayTags as $tag)
+                                        @php $tagName = is_array($tag) ? ($tag['name'] ?? '') : ($tag->name ?? ''); @endphp
+                                        @if($tagName)
+                                        <span class="inline-flex items-center px-1.5 py-0.5 bg-gray-50 text-gray-500 text-[8px] font-bold rounded border border-gray-100">
+                                            <span class="text-blue-400 mr-0.5">#</span>{{ $tagName }}
+                                        </span>
+                                        @endif
+                                    @endforeach
+                                    
+                                    {{-- 5つ以上ある場合は +◯ のように表示 --}}
+                                    @if(count($tagsArray) > 4)
+                                        <span class="inline-flex items-center px-1.5 py-0.5 text-gray-400 text-[8px] font-bold">
+                                            +{{ count($tagsArray) - 4 }}
+                                        </span>
+                                    @endif
+                                </div>
+                                @endif
+
                                 <h3 class="text-sm font-black text-gray-800 mb-4 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">{{ $listing['name'] }}</h3>
                                 
                                 <div class="grid grid-cols-2 gap-y-2.5 gap-x-2 text-[10px] font-bold text-gray-400 mb-6">
@@ -415,14 +432,13 @@
     </div>
     {{-- 検索結果のIDリストを SessionStorage に記憶させる --}}
     @php
-        // 現在のページの車両IDリストを抽出
         $listingIds = collect($items)->pluck('id');
     @endphp
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const searchState = {
                 ids: @json($listingIds),
-                listUrl: "{{ request()->fullUrl() }}" // 現在の検索条件URL
+                listUrl: "{{ request()->fullUrl() }}"
             };
             sessionStorage.setItem('motohub_search_state', JSON.stringify(searchState));
         });

@@ -158,7 +158,8 @@ final class ListingRepository
                 'bikeModel.categoryData', 
                 'bikeModel.marketStats', // ★N+1問題対策：お買い得バッジ計算用
                 'shop', 
-                'site'
+                'site',
+                'tags'
             ])
             ->active()
             // Model Scope を活用（JOIN最適化済みを想定）
