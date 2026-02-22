@@ -71,6 +71,11 @@ const initWishlistPage = async () => {
         if (totalLabel) totalLabel.textContent = data.length;
         if (window.lucide) window.lucide.createIcons();
 
+        // ★追加: 描画後に比較ボタンの状態（色など）を同期する
+        if (typeof CompareManager !== 'undefined') {
+            CompareManager.updateUI();
+        }
+
     } catch (error) {
         console.error('Failed to load wishlist items:', error);
         if (loading) loading.innerHTML = '<p class="text-red-500 font-bold">データの読み込みに失敗しました。</p>';
@@ -128,6 +133,13 @@ function renderWishlistItems(items, container) {
             `;
         }
 
+        let siteIconHtml = '';
+        if (bike.source_icon_key && bike.source_icon_key !== 'default') {
+            siteIconHtml = `<img src="/images/sites/${bike.source_icon_key}.png" class="w-3 h-3 rounded-sm brightness-110" alt="${bike.source || '外部サイト'}">`;
+        } else {
+            siteIconHtml = `<i data-lucide="external-link" class="w-3 h-3 text-white/80"></i>`;
+        }
+
         return `
         <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col group border border-gray-100 relative bike-card">
             <a href="/bikes/${bike.id}" class="absolute inset-0 z-10"></a>
@@ -143,13 +155,19 @@ function renderWishlistItems(items, container) {
                 ${noImageOverlay}
                 ${badgeHtml}
 
+                <!-- ★追加: 比較追加ボタン（左上） -->
+                <button class="compare-btn absolute top-3 left-3 z-30 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 border border-gray-100 shadow-sm transition-all hover:scale-110 active:scale-95" data-id="${bike.id}">
+                    <i data-lucide="layers" class="w-5 h-5"></i>
+                </button>
+
                 <button class="wishlist-btn active absolute top-3 right-3 z-30 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-red-500 shadow-sm hover:scale-110 active:scale-90 transition-all border border-white/50" 
                         data-id="${bike.id}">
                     <i data-lucide="heart" class="w-5 h-5 fill-current"></i>
                 </button>
 
                 <div class="absolute bottom-3 right-3 z-10 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-sm">
-                    <span class="text-[8px] font-black text-white/90">${bike.source || 'MotoHub'}</span>
+                    ${siteIconHtml}
+                    <span class="text-[8px] font-black text-white/90">${bike.source || bike.site_name || '外部サイト'}</span>
                 </div>
             </div>
 
@@ -220,5 +238,13 @@ document.addEventListener('click', (e) => {
 
 // ページ読み込み時の処理
 document.addEventListener('DOMContentLoaded', () => {
+    const bodyLoggedIn = document.body.dataset.loggedIn === 'true';
+    const metaLoggedIn = document.querySelector('meta[name="auth-check"]')?.content === 'true';
+    const isLoggedIn = bodyLoggedIn || metaLoggedIn;
+
+    if (typeof WishlistManager !== 'undefined' && isLoggedIn && !WishlistManager.isLoggedIn) {
+        WishlistManager.init(true);
+    }
+
     initWishlistPage();
 });

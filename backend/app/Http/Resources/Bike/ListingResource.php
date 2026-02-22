@@ -22,6 +22,19 @@ class ListingResource extends JsonResource
         $viewCount = (int) ($this->view_count_today ?? 0);
         $favCount = (int) ($this->favorite_count ?? 0);
 
+        // サイトのアイコンキーを判定するロジックをバックエンドに集約
+        $siteName = $this->site?->name ?? '外部サイト';
+        $siteKey = 'default';
+        $siteLower = mb_strtolower($siteName);
+        
+        if (str_contains($siteLower, 'goo') || str_contains($siteLower, 'グーバイク')) {
+            $siteKey = 'goobike';
+        } elseif (str_contains($siteLower, 'webike') || str_contains($siteLower, 'ウェビック')) {
+            $siteKey = 'webike';
+        } elseif (str_contains($siteLower, 'bds') || str_contains($siteLower, 'バイクセンサー')) {
+            $siteKey = 'bds';
+        }
+
         // お買い得判定ロジック
         // 紐付いている車種の相場情報を取得
         $marketStats = $this->bikeModel?->marketStats;
@@ -54,6 +67,7 @@ class ListingResource extends JsonResource
             'site_name'      => $this->resolveSourceDisplayName($this->site?->name ?? ''),
             'source'         => $this->resolveSourceDisplayName($this->site?->name ?? ''),
             'source_domain'  => $this->resolveSourceDomain($this->site?->name ?? ''),
+            'source_icon_key'=> $siteKey,
             
             'maker'          => $this->bikeModel?->manufacturer?->name ?? 'メーカー不明',
             'category'       => $this->bikeModel?->categoryData?->name ?? 'その他',

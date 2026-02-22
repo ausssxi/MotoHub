@@ -32,9 +32,14 @@
             <i data-lucide="heart" class="w-5 h-5"></i>
         </button>
         
+        {{-- 掲載元サイトのバッジ（高速化・バックエンド処理化） --}}
         <div class="absolute bottom-3 right-3 z-20 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-sm">
-            <img src="https://www.google.com/s2/favicons?domain={{ $listing['source_domain'] ?? 'google.com' }}&sz=32" class="w-3 h-3 rounded-sm brightness-110" alt="">
-            <span class="text-[8px] font-black text-white/90">{{ $listing['source'] }}</span>
+            @if(isset($listing['source_icon_key']) && $listing['source_icon_key'] !== 'default')
+                <img src="{{ asset('images/sites/' . $listing['source_icon_key'] . '.png') }}" class="w-3 h-3 rounded-sm brightness-110" alt="{{ $listing['source'] ?? '外部サイト' }}">
+            @else
+                <i data-lucide="external-link" class="w-3 h-3 text-white/80"></i>
+            @endif
+            <span class="text-[8px] font-black text-white/90">{{ $listing['source'] ?? $listing['site_name'] ?? '外部サイト' }}</span>
         </div>
     </div>
 

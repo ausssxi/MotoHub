@@ -4,6 +4,13 @@
         お気に入り一覧 - MotoHub
     </x-slot:title>
 
+    {{-- 比較機能とお気に入りページ専用のJSを読み込む --}}
+    <x-slot:scripts>
+        <script src="{{ asset('js/compare/manager.js') }}"></script>
+        <script src="{{ asset('js/compare/ui.js') }}"></script>
+        <script src="{{ asset('js/wishlist/page.js') }}"></script>
+    </x-slot:scripts>
+
     {{-- 2. ナビゲーション --}}
     {{-- 検索窓を表示し、掲載台数(totalListingsCount)を渡します --}}
     <x-slot:navigation>
