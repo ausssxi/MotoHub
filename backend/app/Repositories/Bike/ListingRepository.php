@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace App\Repositories\Bike;
 
 use App\Models\Listing;
-use Illuminate\Contracts\Pagination\Paginator; // ★ 戻り値の型を抽象化するために追加
+use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * バイクの出品情報に関する「検索・取得」操作を担当
@@ -19,34 +20,20 @@ final class ListingRepository
      * 一覧表示に必要な基本カラムのリスト
      */
     private const LIST_COLUMNS = [
-        'listings.id', 
-        'listings.bike_model_id', 
-        'listings.shop_id', 
-        'listings.manufacturer_id', 
-        'listings.category_id',
-        'listings.site_id',
-        'listings.title', 
-        'listings.model_year', 
-        'listings.mileage', 
-        'listings.displacement',
-        'listings.total_price', 
-        'listings.price', 
-        'listings.condition', 
-        'listings.is_sold_out',
-        'listings.image_urls', 
-        'listings.local_image_paths', 
-        'listings.created_at',
-        'listings.bargain_score', // お買い得ソートやバッジ表示で必要
-        'listings.view_count_today', // 人気バッジ用
-        'listings.favorite_count'    // 人気バッジ用
+        'listings.id', 'listings.bike_model_id', 'listings.shop_id', 
+        'listings.manufacturer_id', 'listings.category_id', 'listings.site_id',
+        'listings.title', 'listings.model_year', 'listings.mileage', 
+        'listings.displacement', 'listings.total_price', 'listings.price', 
+        'listings.condition', 'listings.is_sold_out', 'listings.image_urls', 
+        'listings.created_at', 'listings.bargain_score',
+        'listings.view_count_today', 'listings.favorite_count'
     ];
 
     /**
-     * 閲覧数をインクリメント（累計と当日分を同時に +1）
+     * 閲覧数をインクリメント
      */
     public function incrementViewCount(int $id): void
     {
-        // 高速化のためクエリビルダで直接更新
         Listing::where('id', $id)->incrementEach([
             'view_count_total' => 1,
             'view_count_today' => 1,
@@ -55,16 +42,46 @@ final class ListingRepository
 
     /**
      * メイン検索
-     * 戻り値の型を Paginator に変更し、simplePaginate（COUNTクエリなし）に対応させます
+     * whereHasをJOIN方式のサブクエリに置き換え、simplePaginateで高速化
      */
     public function searchByKeyword(?string $keyword, ?string $prefecture, string $sort, array $filters, int $perPage, array $uiParams = []): Paginator
     {
-        $query = $this->buildFilteredQuery($keyword, $prefecture, $filters, $uiParams);
+        $query = Listing::query()
+            ->select(self::LIST_COLUMNS)
+            ->with([
+                'bikeModel:id,manufacturer_id,name', 
+                'bikeModel.manufacturer:id,name', 
+                'shop:id,name,prefecture', 
+                'site:id,name',
+                'tags:id,name'
+            ])
+            ->active();
 
-        // ★軽量化: 必要なカラムだけに絞る
-        $query->select(self::LIST_COLUMNS);
+        // --- 1. タグ検索の高速化 (JOINサブクエリ) ---
+        if (!empty($filters['tag'])) {
+            $query->whereIn('listings.id', function($q) use ($filters) {
+                $q->select('listing_tag.listing_id')
+                  ->from('listing_tag')
+                  ->join('tags', 'tags.id', '=', 'listing_tag.tag_id')
+                  ->where('tags.slug', $filters['tag']);
+            });
+        }
 
-        // ソート適用（インデックスを活用）
+        // --- 2. 基本条件の適用 ---
+        $query->withKeyword($keyword)
+              ->byPrefecture($prefecture ?: ($filters['prefecture'] ?? null))
+              ->byModel($filters['manufacturer_id'] ?? null, $filters['bike_model_id'] ?? null)
+              ->byCategory($filters['category_id'] ?? null)
+              ->byCondition($filters['is_new'] ?? null)
+              ->byRepairHistory($filters['has_repair_history'] ?? null);
+
+        // --- 3. スライダー条件の適用 ---
+        $query->priceBetween($filters['min_price'] ?? null, $filters['max_price'] ?? null, $uiParams['max_price'] ?? null)
+              ->mileageBetween($filters['min_mileage'] ?? null, $filters['max_mileage'] ?? null, $uiParams['max_mileage'] ?? null)
+              ->yearBetween($filters['min_year'] ?? null, $filters['max_year'] ?? null)
+              ->displacementBetween($filters['min_displacement'] ?? null, $filters['max_displacement'] ?? null);
+
+        // --- 4. インデックスを活かすソート ---
         $query = match ($sort) {
             'bargain_desc' => $query->orderBy('listings.bargain_score', 'desc'),
             'price_asc'    => $query->whereNotNull('listings.total_price')->orderBy('listings.total_price', 'asc'),
@@ -76,7 +93,6 @@ final class ListingRepository
             default        => $query->orderBy('listings.created_at', 'desc'),
         };
 
-        // ★高速化: simplePaginate を使用して COUNT(*) クエリを回避
         return $query->simplePaginate($perPage)->withQueryString();
     }
 
@@ -86,46 +102,36 @@ final class ListingRepository
     public function getByShopId(int $shopId, int $perPage = 30): Paginator
     {
         return Listing::query()
-            ->select(self::LIST_COLUMNS) // 軽量化
+            ->select(self::LIST_COLUMNS)
             ->with(['bikeModel:id,manufacturer_id,name', 'shop:id,name,prefecture', 'site:id,name'])
             ->active()
             ->where('shop_id', $shopId)
             ->orderBy('created_at', 'desc')
-            ->simplePaginate($perPage); // 高速化
+            ->simplePaginate($perPage);
     }
 
     /**
-     * 全有効台数
-     */
-    public function countActiveListings(): int
-    {
-        return Listing::active()->count();
-    }
-
-    /**
-     * 同じ車種の関連車両を取得（価格の安い順）
+     * 関連車両を取得（詳細ページ用）
      */
     public function getRelatedListings(int $bikeModelId, int $excludeId, int $limit = 10): Collection
     {
         return Listing::query()
-            // 最小限のカラムに絞る
             ->select([
                 'id', 'bike_model_id', 'shop_id', 'title', 'total_price', 
-                'model_year', 'mileage', 'image_urls', 'local_image_paths', 'bargain_score'
+                'model_year', 'mileage', 'image_urls', 'created_at', 'bargain_score'
             ])
-            ->with(['shop:id,prefecture']) // ショップも都道府県のみ取得
+            ->with(['shop:id,prefecture'])
             ->where('bike_model_id', $bikeModelId)
             ->where('id', '!=', $excludeId)
             ->where('is_sold_out', false)
             ->whereNotNull('total_price')
             ->orderBy('total_price', 'asc')
-            ->limit($limit) // ★修正: .limit から ->limit に変更
+            ->limit($limit)
             ->get();
     }
 
-    
     /**
-     * 車両詳細情報をリレーション込みで取得する
+     * 車両詳細情報を取得
      */
     public function getListingDetail(int $id): Listing
     {
@@ -139,13 +145,11 @@ final class ListingRepository
     }
 
     /**
-     * 類似車両（同じメーカーの別車種など）を取得する
+     * 類似車両を取得
      */
     public function getSimilarListings(?int $manufacturerId, ?int $excludeModelId, int $limit = 8): Collection
     {
-        if (!$manufacturerId) {
-            return collect();
-        }
+        if (!$manufacturerId) return collect();
 
         return Listing::with(['shop:id,name,prefecture', 'bikeModel:id,manufacturer_id,name'])
             ->where('manufacturer_id', $manufacturerId)
@@ -156,41 +160,8 @@ final class ListingRepository
             ->get();
     }
 
-
     /**
-     * 共通のフィルタリングクエリを構築
-     */
-    private function buildFilteredQuery(?string $keyword, ?string $prefecture, array $filters, array $uiParams): Builder
-    {
-        $maxPrice = $uiParams['max_price'] ?? null;
-        $maxMileage = $uiParams['max_mileage'] ?? null;
-
-        return Listing::query()
-            ->with([
-                'bikeModel:id,manufacturer_id,category_id,name', 
-                'bikeModel.manufacturer:id,name', 
-                'bikeModel.categoryData:id,name', 
-                'shop:id,name,prefecture', 
-                'site:id,name',
-                // カードで表示するためタグを復活（ただしIDと名前だけに絞って超軽量化）
-                'tags:id,name' 
-            ])
-            ->active()
-            ->withKeyword($keyword)
-            ->byPrefecture($prefecture ?: ($filters['prefecture'] ?? null))
-            ->byModel($filters['manufacturer_id'] ?? null, $filters['bike_model_id'] ?? null)
-            ->byCategory($filters['category_id'] ?? null)
-            ->byCondition($filters['is_new'] ?? null)
-            ->byRepairHistory($filters['has_repair_history'] ?? null)
-            ->priceBetween($filters['min_price'] ?? null, $filters['max_price'] ?? null, $maxPrice)
-            ->mileageBetween($filters['min_mileage'] ?? null, $filters['max_mileage'] ?? null, $maxMileage)
-            ->yearBetween($filters['min_year'] ?? null, $filters['max_year'] ?? null)
-            ->displacementBetween($filters['min_displacement'] ?? null, $filters['max_displacement'] ?? null)
-            ->withTag($filters['tag'] ?? null);
-    }
-    
-    /**
-     * 特定のモデルIDに紐づく有効な価格リストを取得する
+     * 特定のモデルIDに紐づく有効な価格リストを取得
      */
     public function findValidPricesByModelId(int $bikeModelId): array
     {
