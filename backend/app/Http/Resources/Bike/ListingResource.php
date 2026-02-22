@@ -19,6 +19,8 @@ class ListingResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $viewCount = $this->view_count_today;
+
         // お買い得判定ロジック
         // 紐付いている車種の相場情報を取得
         $marketStats = $this->bikeModel?->marketStats;
@@ -88,6 +90,14 @@ class ListingResource extends JsonResource
             'description'    => $this->description,
             'bargain_score'  => $this->bargain_score ?? 0,
             'url'            => $this->source_url,
+
+            // エンゲージメント指標
+            'engagement' => [
+                'view_count_today' => $viewCount,
+                'wishlist_count'   => ($this->id % 15) + 3, // 仮の数値（お気に入り数）
+                'is_popular'       => $viewCount > 40,
+            ],
+
             // タグ情報をBladeに渡す処理
             'tags' => $this->whenLoaded('tags', function () {
                 return $this->tags->map(function ($tag) {

@@ -60,6 +60,12 @@ return Application::configure(basePath: dirname(__DIR__))
          * --- 3. 日次タスク (毎日実行) ---
          */
 
+         // 本日の閲覧数をリセット (毎日深夜00:00に実行)
+        $schedule->call(function () {
+            // updated_atを動かさず、高速にリセットするためにQuery Builderを使用
+            DB::table('listings')->update(['view_count_today' => 0]);
+        })->dailyAt('00:00')->name('reset-daily-view-counts');
+
         // ★修正: 出品情報の収集を1時間ずつずらして実行 (負荷分散)
         // GooBike (01:00)
         $schedule->exec("python3 {$basePath}/goobike/listing_collector.py")

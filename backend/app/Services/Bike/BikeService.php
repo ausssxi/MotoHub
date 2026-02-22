@@ -13,6 +13,7 @@ use App\Models\BikeModel;
 use App\Models\Listing;
 use App\Models\Review;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Session;
 
 /**
  * 車種マスタ・メーカー情報のビジネスロジック
@@ -27,6 +28,27 @@ final class BikeService
         private readonly CategoryRepository $categoryRepo,
         private readonly ReviewRepository $reviewRepo
     ) {}
+
+    /**
+     * 閲覧数を1増やす（同一セッション内での重複を防ぐ）
+     */
+    public function incrementViewCount(int $id): void
+    {
+        // セッションから「既に見た車両IDのリスト」を取得（なければ空配列）
+        $viewed = Session::get('viewed_listings', []);
+
+        // 今回のIDがリストに含まれていない場合のみ、カウントアップを実行
+        if (!in_array($id, $viewed)) {
+            // 1. データベースの値を更新
+            $this->listingRepo->incrementViewCount($id);
+
+            // 2. 「見たよ」という印をセッションに保存
+            $viewed[] = $id;
+            Session::put('viewed_listings', $viewed);
+        }
+        
+        // すでにリストにある場合は、何もしない（DB更新をスキップ）
+    }
 
     /**
      * 地域・都道府県データを取得

@@ -40,6 +40,18 @@ final class ListingRepository
     ];
 
     /**
+     * 閲覧数をインクリメント（累計と当日分を同時に +1）
+     */
+    public function incrementViewCount(int $id): void
+    {
+        // 高速化のためクエリビルダで直接更新
+        Listing::where('id', $id)->incrementEach([
+            'view_count_total' => 1,
+            'view_count_today' => 1,
+        ]);
+    }
+
+    /**
      * メイン検索
      *
      * @param array $uiParams スライダーUIの上限値など

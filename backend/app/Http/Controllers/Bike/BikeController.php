@@ -101,30 +101,32 @@ final class BikeController extends Controller
     }
 
     /**
-     * 車両詳細ページを表示（爆速版）
+     * 車両詳細ページを表示
      */
     public function show(int $id): View
     {
-        // 1. 詳細データの取得（Service経由でRepositoryに隠蔽）
+        // ★実際の閲覧数をカウントアップ（ページを開くたびに実行）
+        $this->bikeService->incrementViewCount($id);
+
+        // 詳細データの取得
         $listing = $this->bikeService->getListingDetail($id);
 
-        // 2. 関連・類似車両の取得
+        // 関連車両
         $relatedRaw = $listing->bike_model_id 
             ? $this->bikeService->getRelatedListings($listing->bike_model_id, $listing->id, 8) 
             : collect();
             
         $similarRaw = $this->bikeService->getSimilarListings($listing->manufacturer_id, $listing->bike_model_id, 8);
 
-        // 3. 市場統計とレビューの取得
+        // 市場統計
         $currentPrice = is_numeric($listing->total_price) ? (float)$listing->total_price : 0;
-        
         $stats = $this->priceStatsService->getModelStats((int)$listing->bike_model_id, $currentPrice);
         
         $reviews = $listing->bike_model_id 
             ? $this->bikeService->getReviewsByModelId((int)$listing->bike_model_id, 3) 
             : collect();
 
-        // 4. データ整形とリンク生成
+        // データ整形（ListingResource経由）
         $data = (object) (new ListingResource($listing))->resolve();
         $seoLinks = $this->bikeService->getSeoLinks($listing);
         $dynamicLinks = $this->bikeService->generateDynamicLinks($data, $seoLinks, $listing->tags);

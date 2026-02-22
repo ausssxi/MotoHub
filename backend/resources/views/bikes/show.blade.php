@@ -520,6 +520,15 @@
                                 </div>
                             </div>
                         </div>
+                        {{-- 検討を促すサイドバーパーツ --}}
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-6 text-white shadow-lg">
+                            <h4 class="text-xs font-black uppercase tracking-widest text-orange-400 mb-3 flex items-center gap-2">
+                                <i data-lucide="alert-circle" class="w-4 h-4"></i> 売却済みにご注意ください
+                            </h4>
+                            <p class="text-[11px] font-bold leading-relaxed text-gray-300">
+                                この車両は現在 <span class="text-white font-black text-sm">{{ $listing->engagement['view_count_today'] }}名</span> が検討しています。中古バイクは1点物のため、タッチの差で売約済みとなるケースが多くなっています。
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
