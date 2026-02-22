@@ -121,7 +121,7 @@ const HistoryManager = {
 
         let ids = await this.fetchIds();
 
-        // ★現在のページIDが履歴に含まれている場合は、表示から除外する
+        // 現在のページIDが履歴に含まれている場合は、表示から除外する
         if (excludeId !== null) {
             const exclude = parseInt(excludeId);
             ids = ids.filter(id => id !== exclude);
@@ -133,7 +133,7 @@ const HistoryManager = {
         }
 
         try {
-            // APIからデータ取得
+            // APIからデータ取得 (wishlistのfetch用APIを流用)
             const response = await fetch(`/api/wishlist/fetch?ids=${ids.join(',')}`);
             if (!response.ok) throw new Error('API Error');
             
@@ -177,6 +177,17 @@ const HistoryManager = {
                     ? `<div class="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-black">${bike.total_price}万円</div>`
                     : '<div class="absolute bottom-2 right-2 bg-gray-500/80 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-bold">価格未定</div>';
 
+                // ★追加: お買い得バッジのHTML
+                let bargainBadge = '';
+                if (bike.bargain_score && parseFloat(bike.bargain_score) > 5) {
+                    bargainBadge = `
+                        <div class="absolute bottom-0 left-0 bg-red-600 text-white text-[9px] font-black px-1.5 py-1 rounded-tr-xl shadow-lg z-10 flex items-center gap-1">
+                            <i data-lucide="trending-down" class="w-3 h-3"></i>
+                            約${Math.round(parseFloat(bike.bargain_score))}%お得！
+                        </div>
+                    `;
+                }
+
                 html += `
                     <a href="/bikes/${bike.id}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block relative">
                         <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
@@ -186,6 +197,7 @@ const HistoryManager = {
                                  alt="${bike.name}">
                             
                             ${noImageOverlay}
+                            ${bargainBadge}
                             ${priceBadge}
                         </div>
                         <div class="p-3">

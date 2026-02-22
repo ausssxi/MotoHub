@@ -77,24 +77,52 @@ document.addEventListener('DOMContentLoaded', async () => {
                 `;
             }
 
+            // ★追加: お買い得バッジのHTML
+            let bargainBadge = '';
+            if (bike.bargain_score && parseFloat(bike.bargain_score) > 5 && !bike.is_sold_out) {
+                bargainBadge = `
+                    <div class="absolute bottom-0 left-0 bg-red-600 text-white text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-tr-xl shadow-lg z-10 flex items-center gap-1">
+                        <i data-lucide="trending-down" class="w-3 h-3 sm:w-3.5 sm:h-3.5"></i>
+                        約${Math.round(parseFloat(bike.bargain_score))}%お得！
+                    </div>
+                `;
+            }
+
+            // ★追加: サイト名バッジのHTML
+            let siteBadge = `
+                <div class="absolute bottom-2 right-2 z-10 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-sm">
+                    <span class="text-[8px] font-black text-white/90">${bike.source || 'MotoHub'}</span>
+                </div>
+            `;
+
             // 【修正】高さを固定値 (スマホ: h-36=144px, PC: sm:h-[180px]=180px) にしてテーブル内での画像潰れバグを完全に防ぎます。
             th.innerHTML = `
-                <button class="remove-this absolute top-1 right-1 sm:top-2 sm:right-2 text-gray-300 hover:text-red-500 transition-colors z-10" data-id="${bike.id}">
-                    <i data-lucide="x-circle" class="w-5 h-5 sm:w-6 sm:h-6 bg-white/50 rounded-full"></i>
-                </button>
-                
                 <div class="rounded-lg sm:rounded-xl overflow-hidden mb-2 sm:mb-3 shadow-sm bg-gray-50 relative w-full h-36 sm:h-[180px] flex items-center justify-center">
+                    
+                    <!-- ★変更: 削除ボタン（右上）を画像内に移動し、お気に入りボタンとデザインを統一 -->
+                    <button class="remove-this absolute top-2 right-2 z-30 w-8 h-8 sm:w-10 sm:h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 shadow-sm border border-gray-100 transition-all hover:scale-110 active:scale-95" data-id="${bike.id}">
+                        <i data-lucide="x" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                    </button>
+
+                    <!-- ★追加: お気に入りボタン（左上） -->
+                    <button class="wishlist-btn absolute top-2 left-2 z-20 w-8 h-8 sm:w-10 sm:h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 shadow-sm border border-gray-100 transition-all hover:scale-110 active:scale-95" data-id="${bike.id}">
+                        <i data-lucide="heart" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                    </button>
+
+                    <!-- 画像本体（統一感を出すため object-cover に変更） -->
                     <img src="${displayImage}" 
-                         class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 ${initialClass}"
+                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${initialClass}"
                          alt="${bike.name}"
                          onerror="this.onerror=null; this.src='${PLACEHOLDER_IMG}'; this.classList.add('grayscale', 'opacity-50');">
                     
                     ${noImageOverlay}
+                    ${bargainBadge}
+                    ${siteBadge}
                 </div>
 
                 <div class="bike-name-container text-left font-bold text-gray-800 text-xs sm:text-sm leading-tight line-clamp-2 min-h-[2.5em] mb-1"></div>
                 
-                <a href="/bikes/${bike.id}" target="_blank" class="inline-flex items-center gap-1 text-[10px] font-black text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded-lg transition-colors">
+                <a href="/bikes/${bike.id}" target="_blank" class="inline-flex items-center gap-1 text-[10px] font-black text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded-lg transition-colors mt-1">
                     詳細を見る <i data-lucide="external-link" class="w-3 h-3"></i>
                 </a>
             `;
@@ -161,6 +189,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // アイコンの再描画
         if (window.lucide) window.lucide.createIcons();
+        
+        // ★追加: 描画されたお気に入りボタンの初期状態（色）を反映
+        if (typeof WishlistManager !== 'undefined') {
+            WishlistManager.updateUI();
+        }
 
     } catch (error) {
         console.error("Comparison Page Error:", error);
