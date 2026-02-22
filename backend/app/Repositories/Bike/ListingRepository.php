@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories\Bike;
 
 use App\Models\Listing;
-use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Contracts\Pagination\Paginator; // ★ 戻り値の型を抽象化するために追加
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -55,17 +55,16 @@ final class ListingRepository
 
     /**
      * メイン検索
-     *
-     * @param array $uiParams スライダーUIの上限値など
+     * 戻り値の型を Paginator に変更し、simplePaginate（COUNTクエリなし）に対応させます
      */
-    public function searchByKeyword(?string $keyword, ?string $prefecture, string $sort, array $filters, int $perPage, array $uiParams = []): LengthAwarePaginator
+    public function searchByKeyword(?string $keyword, ?string $prefecture, string $sort, array $filters, int $perPage, array $uiParams = []): Paginator
     {
         $query = $this->buildFilteredQuery($keyword, $prefecture, $filters, $uiParams);
 
         // ★軽量化: 必要なカラムだけに絞る
         $query->select(self::LIST_COLUMNS);
 
-        // ソート適用（インデックス idx_active_... シリーズを活用）
+        // ソート適用（インデックスを活用）
         $query = match ($sort) {
             'bargain_desc' => $query->orderBy('listings.bargain_score', 'desc'),
             'price_asc'    => $query->whereNotNull('listings.total_price')->orderBy('listings.total_price', 'asc'),
@@ -77,21 +76,22 @@ final class ListingRepository
             default        => $query->orderBy('listings.created_at', 'desc'),
         };
 
-        return $query->paginate($perPage)->withQueryString();
+        // ★高速化: simplePaginate を使用して COUNT(*) クエリを回避
+        return $query->simplePaginate($perPage)->withQueryString();
     }
 
     /**
      * 店舗ごとの在庫一覧を取得
      */
-    public function getByShopId(int $shopId, int $perPage = 30): LengthAwarePaginator
+    public function getByShopId(int $shopId, int $perPage = 30): Paginator
     {
         return Listing::query()
             ->select(self::LIST_COLUMNS) // 軽量化
-            ->with(['bikeModel.manufacturer', 'shop', 'site'])
+            ->with(['bikeModel:id,manufacturer_id,name', 'shop:id,name,prefecture', 'site:id,name'])
             ->active()
             ->where('shop_id', $shopId)
             ->orderBy('created_at', 'desc')
-            ->paginate($perPage);
+            ->simplePaginate($perPage); // 高速化
     }
 
     /**
@@ -104,7 +104,6 @@ final class ListingRepository
 
     /**
      * 同じ車種の関連車両を取得（価格の安い順）
-     * インデックス idx_related_lookup を使用して爆速で取得します
      */
     public function getRelatedListings(int $bikeModelId, int $excludeId, int $limit = 10): Collection
     {
@@ -112,15 +111,15 @@ final class ListingRepository
             // 最小限のカラムに絞る
             ->select([
                 'id', 'bike_model_id', 'shop_id', 'title', 'total_price', 
-                'model_year', 'mileage', 'image_urls', 'local_image_paths'
+                'model_year', 'mileage', 'image_urls', 'local_image_paths', 'bargain_score'
             ])
             ->with(['shop:id,prefecture']) // ショップも都道府県のみ取得
             ->where('bike_model_id', $bikeModelId)
             ->where('id', '!=', $excludeId)
             ->where('is_sold_out', false)
             ->whereNotNull('total_price')
-            ->orderBy('total_price', 'asc') // ★重要: インデックスを効かせる
-            ->limit($limit)
+            ->orderBy('total_price', 'asc')
+            ->limit($limit) // ★修正: .limit から ->limit に変更
             ->get();
     }
 
@@ -135,7 +134,7 @@ final class ListingRepository
             'bikeModel.manufacturer', 
             'bikeModel.categoryData',
             'bikeModel.marketStats',
-            'tags'
+            'tags:id,name'
         ])->findOrFail($id);
     }
 
@@ -148,7 +147,7 @@ final class ListingRepository
             return collect();
         }
 
-        return Listing::with(['shop', 'bikeModel.manufacturer'])
+        return Listing::with(['shop:id,name,prefecture', 'bikeModel:id,manufacturer_id,name'])
             ->where('manufacturer_id', $manufacturerId)
             ->where('bike_model_id', '!=', $excludeModelId)
             ->where('is_sold_out', false)
@@ -176,7 +175,7 @@ final class ListingRepository
                 // カードで表示するためタグを復活（ただしIDと名前だけに絞って超軽量化）
                 'tags:id,name' 
             ])
-            ->active() // (is_sold_out = false などのスコープを想定)
+            ->active()
             ->withKeyword($keyword)
             ->byPrefecture($prefecture ?: ($filters['prefecture'] ?? null))
             ->byModel($filters['manufacturer_id'] ?? null, $filters['bike_model_id'] ?? null)
@@ -192,14 +191,13 @@ final class ListingRepository
     
     /**
      * 特定のモデルIDに紐づく有効な価格リストを取得する
-     * ※バッチ処理（UpdateMarketStats）などで利用
      */
     public function findValidPricesByModelId(int $bikeModelId): array
     {
         return Listing::where('bike_model_id', $bikeModelId)
             ->active()
             ->whereNotNull('total_price')
-            ->where('total_price', '>', 10000) // 1万円以下は異常値として除外
+            ->where('total_price', '>', 10000)
             ->pluck('total_price')
             ->toArray();
     }

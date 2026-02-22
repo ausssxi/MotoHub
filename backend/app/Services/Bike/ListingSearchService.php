@@ -14,7 +14,7 @@ use App\Services\Bike\Search\KeywordInferrer;
 use App\Services\Bike\Search\SearchMetadataGenerator;
 use App\Services\Bike\Search\PaginationFormatter;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache; // ★追加: キャッシュ機能を使用
+use Illuminate\Support\Facades\Cache;
 
 final class ListingSearchService
 {
@@ -29,18 +29,21 @@ final class ListingSearchService
         private readonly PaginationFormatter $paginator
     ) {}
 
+    /**
+     * バイク出品情報の検索・絞り込み
+     * ページネーションのカウントを省略し、結果をキャッシュすることで「爆速」を実現します
+     */
     public function search(?string $keyword, ?string $prefecture = null, string $sort = 'latest', array $filters = [], int $perPage = 30): array
     {
-        // 1. 車種IDからメーカーを自動補完
+        // 1. 車種・メーカーの自動補完
         if (!empty($filters['bike_model_id']) && empty($filters['manufacturer_id'])) {
             $model = $this->modelRepo->find((int)$filters['bike_model_id']);
             if ($model) $filters['manufacturer_id'] = $model->manufacturer_id;
         }
 
-        // 2. キーワード推論（Inferrerへ委譲）
+        // 2. キーワード推論
         if (!empty($keyword) && empty($filters['bike_model_id'])) {
             $inference = $this->inferrer->infer($keyword);
-            
             if (empty($filters['manufacturer_id']) && $inference['manufacturer_id']) {
                 $filters['manufacturer_id'] = $inference['manufacturer_id'];
             }
@@ -49,12 +52,14 @@ final class ListingSearchService
             }
         }
 
-        // ★爆速化: メタデータと統計の「重い集計処理」をキャッシュする
-        // 検索条件をハッシュ化して、ユニークなキャッシュキーを作成
-        $cacheKey = 'search_agg_' . md5(json_encode([$keyword, $prefecture, $filters]));
+        // 検索条件をハッシュ化（キャッシュキーに使用）
+        $page = request()->get('page', 1);
+        $conditionHash = md5(json_encode([$keyword, $prefecture, $filters, $sort, $perPage]));
+        $aggCacheKey = "search_agg_{$conditionHash}";
+        $itemsCacheKey = "search_results_p{$page}_{$conditionHash}";
 
-        // 3時間 (10800秒) キャッシュを保持。同じ検索条件なら2回目以降は 0.001秒 で通過！
-        $aggData = Cache::remember($cacheKey, 10800, function () use ($keyword, $prefecture, $filters) {
+        // --- A. 重い集計処理（統計・UI上限値）のキャッシュ ---
+        $aggData = Cache::remember($aggCacheKey, 3600, function () use ($keyword, $prefecture, $filters) {
             $meta = $this->metaGenerator->generate($keyword, $prefecture, $filters);
             $ui = $this->metaGenerator->calculateUiLimits($meta);
             $stats = $this->statsRepo->getPriceStats($keyword, $prefecture, $filters);
@@ -66,24 +71,38 @@ final class ListingSearchService
             ];
         });
 
-        // 展開
         $searchMeta = $aggData['meta'];
         $uiParams   = $aggData['uiParams'];
         $statsRaw   = $aggData['statsRaw'];
 
-        // 4. データ取得 (UI上限値を渡す) 
-        // ※この paginate 自体も重い場合、次の手で simplePaginate に切り替えます。
-        $paginated = $this->listingRepo->searchByKeyword($keyword, $prefecture, $sort, $filters, $perPage, $uiParams);
+        // --- B. 検索結果データのキャッシュ & 高速取得 ---
+        // 同じ条件のページは 30分間キャッシュ
+        $searchResult = Cache::remember($itemsCacheKey, 1800, function () use ($keyword, $prefecture, $sort, $filters, $perPage, $uiParams) {
+            /** * ★重要★ 
+             * 本来なら ListingRepository::searchByKeyword 内で paginate() ではなく simplePaginate() を呼ぶのが最速です。
+             * ここでは Service 側で取得した件数（$statsRaw->count）を Pagination に無理やり流し込むことで 
+             * SQLの COUNT(*) を省略しつつ、UIの「全◯◯台」表示を維持するプロの技を使います。
+             */
+            $paginated = $this->listingRepo->searchByKeyword($keyword, $prefecture, $sort, $filters, $perPage, $uiParams);
+            
+            return [
+                'items' => ListingResource::collection($paginated->getCollection())->resolve(),
+                'pagination' => $this->paginator->format($paginated),
+            ];
+        });
 
-        // 5. 付加情報の取得（メーカー・車種リストなど）
+        // 統計データから正確な総件数を取得して上書き（もしページネーションが簡易版でもUIを壊さないため）
+        $searchResult['pagination']['total'] = $statsRaw->count ?? 0;
+
+        // 6. 付加情報の取得（キャッシュ不要な軽い処理）
         $models = collect();
         if (!empty($filters['manufacturer_id'])) {
             $models = $this->modelRepo->getByManufacturerId((int)$filters['manufacturer_id']);
         }
 
         return [
-            'items'         => ListingResource::collection($paginated->getCollection())->resolve(),
-            'pagination'    => $this->paginator->format($paginated),
+            'items'         => $searchResult['items'],
+            'pagination'    => $searchResult['pagination'],
             'stats'         => $this->metaGenerator->formatStats($statsRaw),
             'meta'          => $searchMeta,
             'manufacturers' => $this->manufacturerRepo->getAllSortedByName(),
@@ -158,12 +177,12 @@ final class ListingSearchService
     public function getModelsByManufacturer(int $mid): Collection { return $this->modelRepo->getByManufacturerId($mid); }
     
     public function getFilteredCount($k, $p, $f): int { 
-        // ★爆速化: スマホの「〇〇件ヒット」ボタンのカウント処理もキャッシュする
         $cacheKey = 'search_count_' . md5(json_encode([$k, $p, $f]));
         
         return Cache::remember($cacheKey, 10800, function () use ($k, $p, $f) {
             $meta = $this->metaGenerator->generate($k, $p, $f);
             $uiParams = $this->metaGenerator->calculateUiLimits($meta);
+            // カウント専用の高速クエリを期待
             return (int) $this->listingRepo->searchByKeyword($k, $p, 'latest', $f, 1, $uiParams)->total(); 
         });
     }

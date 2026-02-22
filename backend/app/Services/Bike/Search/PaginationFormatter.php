@@ -4,31 +4,48 @@ declare(strict_types=1);
 
 namespace App\Services\Bike\Search;
 
-use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Contracts\Pagination\Paginator; // ★ インターフェースに変更
 
 /**
  * ページネーションの表示用データを整形するクラス
+ * simplePaginate (Paginator) と paginate (LengthAwarePaginator) 両方に対応
  */
 final class PaginationFormatter
 {
-    public function format(LengthAwarePaginator $paginated): array
+    public function format(Paginator $paginated): array
     {
         $currentPage = $paginated->currentPage();
-        $lastPage = $paginated->lastPage();
+        
+        // simplePaginate の場合は lastPage() が存在しないため、存在チェックを行う
+        $lastPage = method_exists($paginated, 'lastPage') ? $paginated->lastPage() : $currentPage;
+        
+        // 総件数も同様にチェック（Service側で後ほど上書き補完されます）
+        $total = method_exists($paginated, 'total') ? $paginated->total() : 0;
+
         $pages = [];
         
+        // 1ページ目の項目作成
         $pages[] = $this->makePageItem(1, $paginated);
-        if ($currentPage - 1 > 2) $pages[] = ['is_dot' => true, 'label' => '...', 'url' => null, 'is_active' => false];
+        
+        // 中間の「...」とページ番号のロジック
+        if ($currentPage - 1 > 2) {
+            $pages[] = ['is_dot' => true, 'label' => '...', 'url' => null, 'is_active' => false];
+        }
         
         for ($i = max(2, $currentPage - 1); $i <= min($lastPage - 1, $currentPage + 1); $i++) {
             $pages[] = $this->makePageItem($i, $paginated);
         }
         
-        if ($currentPage + 1 < $lastPage - 1) $pages[] = ['is_dot' => true, 'label' => '...', 'url' => null, 'is_active' => false];
-        if ($lastPage > 1) $pages[] = $this->makePageItem($lastPage, $paginated);
+        if ($currentPage + 1 < $lastPage - 1) {
+            $pages[] = ['is_dot' => true, 'label' => '...', 'url' => null, 'is_active' => false];
+        }
+        
+        if ($lastPage > 1) {
+            $pages[] = $this->makePageItem($lastPage, $paginated);
+        }
 
         return [
-            'total'        => $paginated->total(),
+            'total'        => $total,
             'current_page' => $currentPage,
             'last_page'    => $lastPage,
             'prev_url'     => $paginated->previousPageUrl(),
@@ -37,13 +54,17 @@ final class PaginationFormatter
         ];
     }
 
-    private function makePageItem(int $page, LengthAwarePaginator $paginated): array
+    /**
+     * 各ページアイテムの作成
+     * LengthAwarePaginator 以外では url($page) が無効な場合があるため安全に処理
+     */
+    private function makePageItem(int $page, Paginator $paginated): array
     {
         return [
-            'label' => $page,
-            'url' => $paginated->url($page),
+            'label'     => $page,
+            'url'       => method_exists($paginated, 'url') ? $paginated->url($page) : null,
             'is_active' => $page === $paginated->currentPage(),
-            'is_dot' => false,
+            'is_dot'    => false,
         ];
     }
 }
