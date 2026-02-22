@@ -8,12 +8,14 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany; 
 use App\Models\Tag;
+use Laravel\Scout\Searchable; // ★追加
 
 class Listing extends Model
 {
+    use Searchable; // ★追加：検索対象にする
+
     protected $guarded = ['id'];
 
     protected $casts = [
@@ -21,24 +23,63 @@ class Listing extends Model
         'local_image_paths' => 'array',
         'has_repair_history' => 'boolean',
         'is_sold_out' => 'boolean',
+        'is_new' => 'boolean',
     ];
 
     /**
+     * Meilisearchにインデックスするデータの定義
+     * ここに含めたデータを使って超高速な絞り込みを行います。
+     */
+    public function toSearchableArray(): array
+    {
+        // リレーションのN+1を防ぎつつデータを取得
+        $this->loadMissing(['tags', 'bikeModel']);
+
+        return [
+            'id'                => (int) $this->id,
+            'title'             => $this->title,
+            'manufacturer_id'   => (int) $this->manufacturer_id,
+            'bike_model_id'     => (int) $this->bike_model_id,
+            'category_id'       => (int) $this->category_id,
+            'prefecture'        => $this->prefecture,
+            'total_price'       => (int) $this->total_price,
+            'mileage'           => (int) $this->mileage,
+            'model_year'        => (int) $this->model_year,
+            'displacement'      => (int) $this->displacement,
+            'is_new'            => (int) $this->is_new,
+            'has_repair_history'=> (int) $this->has_repair_history,
+            'is_sold_out'       => (int) $this->is_sold_out,
+            'bargain_score'     => (float) $this->bargain_score,
+            'view_count_today'  => (int) $this->view_count_today,
+            'favorite_count'    => (int) $this->favorite_count,
+            'created_at'        => (int) $this->created_at->timestamp,
+            // タグのスラッグを配列で持たせることで高速フィルタリングが可能
+            'tag_slugs'         => $this->tags->pluck('slug')->toArray(),
+        ];
+    }
+
+    /**
+     * 検索対象から除外する条件（売約済みはインデックスしない等）
+     * ※常に最新の状態を保つため、基本は全件インデックスし、検索時に絞り込むのが一般的です
+     */
+    public function shouldBeSearchable(): bool
+    {
+        return true;
+    }
+
+    /**
      * 画像URLリストを取得するアクセサ
-     * ローカルに保存された画像があればそれを優先し、なければ外部URLを返します。
      */
     protected function images(): Attribute
     {
         return Attribute::make(
             get: function (mixed $value, array $attributes) {
-                // 1. ローカル保存パスをチェック
                 if (!empty($attributes['local_image_paths'])) {
                     $localPaths = json_decode($attributes['local_image_paths'], true);
                     if (is_array($localPaths) && !empty($localPaths)) {
                         return array_map(fn($path) => asset('storage/' . ltrim($path, '/')), $localPaths);
                     }
                 }
-                // 2. 外部URLをチェック
                 if (!empty($attributes['image_urls'])) {
                     $remoteUrls = json_decode($attributes['image_urls'], true);
                     return is_array($remoteUrls) ? $remoteUrls : [];
@@ -49,8 +90,7 @@ class Listing extends Model
     }
 
     /**
-     * お買い得度を判定するスコア（0-100）
-     * 事前に集計された市場統計テーブル(bike_model_market_stats)を使用して高速に計算します。
+     * お買い得度スコア
      */
     public function getBargainScoreAttribute(): float
     {
@@ -58,48 +98,28 @@ class Listing extends Model
         if (!$stats || $stats->avg_price <= 0 || !$this->total_price) {
             return 0;
         }
-        // 平均価格より安ければプラスのスコアを返す
         $score = (($stats->avg_price - $this->total_price) / $stats->avg_price) * 100;
         return round(max(0, $score), 1);
     }
 
     // --- Relations ---
-
     public function bikeModel(): BelongsTo { return $this->belongsTo(BikeModel::class); }
     public function shop(): BelongsTo { return $this->belongsTo(Shop::class); }
     public function site(): BelongsTo { return $this->belongsTo(Site::class); }
-    
-    /**
-     * この車両に紐づくタグを取得
-     */
-    public function tags(): BelongsToMany
-    {
-        return $this->belongsToMany(Tag::class);
-    }
+    public function tags(): BelongsToMany { return $this->belongsToMany(Tag::class); }
 
-    // --- Query Scopes (高速化版) ---
-
+    // --- Query Scopes (Meilisearchを使わないページ用) ---
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('listings.is_sold_out', false);
     }
 
-    /**
-     * キーワード検索 (JOIN方式で高速化)
-     * whereHas を廃止し、テーブル結合を利用してインデックスを効かせます。
-     */
     public function scopeWithKeyword(Builder $query, ?string $keyword): Builder
     {
         if (!$keyword) return $query;
-
-        // すでに結合されているかチェックして多重結合を防ぐ
         $joins = collect($query->getQuery()->joins)->pluck('table');
-        if (!$joins->contains('bike_models')) {
-            $query->leftJoin('bike_models', 'listings.bike_model_id', '=', 'bike_models.id');
-        }
-        if (!$joins->contains('manufacturers')) {
-            $query->leftJoin('manufacturers', 'bike_models.manufacturer_id', '=', 'manufacturers.id');
-        }
+        if (!$joins->contains('bike_models')) $query->leftJoin('bike_models', 'listings.bike_model_id', '=', 'bike_models.id');
+        if (!$joins->contains('manufacturers')) $query->leftJoin('manufacturers', 'bike_models.manufacturer_id', '=', 'manufacturers.id');
 
         return $query->where(function (Builder $q) use ($keyword) {
             $q->where('listings.title', 'like', "%{$keyword}%")
@@ -108,23 +128,13 @@ class Listing extends Model
         });
     }
 
-    /**
-     * 都道府県検索 (JOIN方式)
-     */
     public function scopeByPrefecture(Builder $query, ?string $prefecture): Builder
     {
         if (!$prefecture) return $query;
-        
-        if (!collect($query->getQuery()->joins)->pluck('table')->contains('shops')) {
-            $query->join('shops', 'listings.shop_id', '=', 'shops.id');
-        }
-        
+        if (!collect($query->getQuery()->joins)->pluck('table')->contains('shops')) $query->join('shops', 'listings.shop_id', '=', 'shops.id');
         return $query->where('shops.prefecture', 'like', "{$prefecture}%");
     }
 
-    /**
-     * メーカー・車種IDでの絞り込み ( denormalized column 使用)
-     */
     public function scopeByModel(Builder $query, ?int $manufacturerId, ?int $bikeModelId): Builder
     {
         if ($bikeModelId) {
@@ -135,9 +145,6 @@ class Listing extends Model
         return $query;
     }
 
-    /**
-     * カテゴリーIDでの絞り込み ( denormalized column 使用)
-     */
     public function scopeByCategory(Builder $query, ?int $categoryId): Builder
     {
         if (!$categoryId) return $query;
@@ -160,18 +167,14 @@ class Listing extends Model
     public function scopePriceBetween(Builder $query, ?int $min, ?int $max, ?int $uiMaxLimit = null): Builder
     {
         if ($min > 0) $query->where('listings.total_price', '>=', $min * 10000);
-        if ($max && ($uiMaxLimit === null || $max < $uiMaxLimit)) {
-            $query->where('listings.total_price', '<=', $max * 10000);
-        }
+        if ($max && ($uiMaxLimit === null || $max < $uiMaxLimit)) $query->where('listings.total_price', '<=', $max * 10000);
         return $query;
     }
 
     public function scopeMileageBetween(Builder $query, ?int $min, ?int $max, ?int $uiMaxLimit = null): Builder
     {
         if ($min > 0) $query->where('listings.mileage', '>=', $min);
-        if ($max && ($uiMaxLimit === null || $max < $uiMaxLimit)) {
-            $query->where('listings.mileage', '<=', $max);
-        }
+        if ($max && ($uiMaxLimit === null || $max < $uiMaxLimit)) $query->where('listings.mileage', '<=', $max);
         return $query;
     }
 
@@ -182,28 +185,17 @@ class Listing extends Model
         return $query;
     }
 
-    /**
-     * 排気量範囲 ( denormalized column 使用)
-     */
     public function scopeDisplacementBetween(Builder $query, ?int $min, ?int $max): Builder
     {
         if (!$min && !$max) return $query;
-
         if ($min) $query->where('listings.displacement', '>=', $min);
         if ($max) $query->where('listings.displacement', '<=', $max);
-        
         return $query;
     }
 
-    /**
-     * タグのスラッグ（または名前）での絞り込み
-     * 中間テーブルを利用して、そのタグを持つ車両だけを高速に取得します。
-     */
     public function scopeWithTag(Builder $query, ?string $tagSlug): Builder
     {
         if (!$tagSlug) return $query;
-
-        // whereHas を使うことで、指定したslugを持つタグが紐づいている車両だけを抽出
         return $query->whereHas('tags', function (Builder $q) use ($tagSlug) {
             $q->where('tags.slug', $tagSlug);
         });

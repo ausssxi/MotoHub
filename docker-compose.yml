@@ -25,6 +25,7 @@ services:
     depends_on:
       - db
       - redis
+      - meilisearch
 
   # Nginx Web Server
   web:
@@ -56,6 +57,19 @@ services:
     volumes:
       - db-data:/var/lib/mysql
 
+  # Meilisearch
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    container_name: motohub-meilisearch
+    restart: unless-stopped
+    ports:
+      - "7700:7700"
+    environment:
+      - MEILI_MASTER_KEY=${MEILISEARCH_KEY:-masterKey} # .envのキーを使用
+      - MEILI_NO_ANALYTICS=true
+    volumes:
+      - meili-data:/meili_data
+
   # Redis for Queues
   redis:
     image: redis:alpine
@@ -72,3 +86,4 @@ services:
       
 volumes:
   db-data:
+  meili-data:
