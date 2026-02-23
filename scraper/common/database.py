@@ -1,103 +1,298 @@
+import mysql.connector
+import requests
+from bs4 import BeautifulSoup
+import time
+import random
+import re
+import unicodedata
 import os
-import logging
-from datetime import datetime
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, BigInteger, String, Numeric, Integer, Boolean, Text, JSON, DateTime, ForeignKey, UniqueConstraint
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-# 環境変数の読み込み
-current_dir = os.path.dirname(os.path.abspath(__file__))
-env_path = os.path.abspath(os.path.join(current_dir, "../../.env"))
-load_dotenv(dotenv_path=env_path)
+# ==========================================
+# .env ファイルから設定を読み込む関数
+# ==========================================
+def load_env():
+    """Laravelの .env ファイルを解析して環境変数にセットする"""
+    # 実行時のカレントディレクトリ（プロジェクトルート）にある .env を探す
+    env_path = '.env'
+    
+    # もしカレントディレクトリに見つからなければ、スクリプトの場所から相対的に探す（念のため）
+    if not os.path.exists(env_path):
+        env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../.env'))
 
-def get_db_url():
-    user = os.getenv("DB_USERNAME")
-    pw = os.getenv("DB_PASSWORD")
-    host = os.getenv("DB_HOST", "db")
-    port = os.getenv("DB_PORT", "3306")
-    name = os.getenv("DB_DATABASE")
-    return f"mysql+pymysql://{user}:{pw}@{host}:{port}/{name}"
+    if os.path.exists(env_path):
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                # 空行やコメント（#）はスキップ
+                if not line or line.startswith('#'):
+                    continue
+                # = でキーと値に分割
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    # シングルクォートやダブルクォートを取り除く
+                    clean_value = value.strip().strip("'").strip('"')
+                    os.environ[key.strip()] = clean_value
 
-# 接続設定の共通化
-engine = create_engine(get_db_url(), pool_pre_ping=True, pool_size=10, max_overflow=20)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# 実行して環境変数をセット
+load_env()
 
-class Base(DeclarativeBase):
-    pass
+# ==========================================
+# データベース接続設定 (.env から取得)
+# ==========================================
+DB_CONFIG = {
+    'host': os.environ.get('DB_HOST', 'db'),
+    'port': int(os.environ.get('DB_PORT', 3306)),
+    'user': os.environ.get('DB_USERNAME', 'root'),
+    'password': os.environ.get('DB_PASSWORD', ''),
+    'database': os.environ.get('DB_DATABASE', 'motohub'),
+    'charset': 'utf8mb4'
+}
 
-# --- 共通モデル定義 ---
+# ==========================================
+# メーカー名マッピング (MotoHubの日本語 -> GooBikeのディレクトリ名)
+# ==========================================
+MAKER_MAP = {
+    'ホンダ': 'HONDA',
+    'ヤマハ': 'YAMAHA',
+    'スズキ': 'SUZUKI',
+    'カワサキ': 'KAWASAKI',
+    'ハーレーダビッドソン': 'HARLEY_DAVIDSON',
+    'BMW': 'BMW',
+    'ドゥカティ': 'DUCATI',
+    'KTM': 'KTM',
+    'アプリリア': 'APRILIA',
+    'トライアンフ': 'TRIUMPH',
+    'ベスパ': 'VESPA',
+    'キムコ': 'KYMCO',
+    'SYM': 'SYM',
+    'ハスクバーナ': 'HUSQVARNA',
+}
 
-class Site(Base):
-    __tablename__ = "sites"
-    id = Column(BigInteger, primary_key=True)
-    name = Column(String(50), unique=True)
-    base_url = Column(String(255))
+catalog_cache = {}
 
-class Manufacturer(Base):
-    __tablename__ = "manufacturers"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    name = Column(String(100), unique=True, nullable=False)
-    country = Column(String(50))
-    logo_url = Column(String(255))
-    local_logo_path = Column(String(255))
+# ==========================================
+# URL自動探索ロジック
+# ==========================================
+def get_goobike_catalog_links(maker_en):
+    if maker_en in catalog_cache:
+        return catalog_cache[maker_en]
+        
+    url = f"https://www.goobike.com/catalog/{maker_en}/index.html"
+    print(f"  [探索] {maker_en} のカタログ一覧を取得中...")
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    }
+    try:
+        res = requests.get(url, headers=headers, timeout=10)
+        res.raise_for_status()
+        res.encoding = res.apparent_encoding
+        soup = BeautifulSoup(res.text, 'html.parser')
+        
+        links = {}
+        for a in soup.find_all('a', href=True):
+            href = a['href']
+            if f"/catalog/{maker_en}/" in href and href.endswith('/index.html'):
+                if href == f"/catalog/{maker_en}/index.html":
+                    continue
+                text = unicodedata.normalize('NFKC', a.text.strip()).upper()
+                if text:
+                    full_url = "https://www.goobike.com" + href if href.startswith('/') else href
+                    links[text] = full_url
+        
+        catalog_cache[maker_en] = links
+        time.sleep(random.uniform(1.0, 2.0))
+        return links
+    except Exception as e:
+        print(f"  [探索エラー] カタログ一覧の取得に失敗: {e}")
+        return {}
 
-class BikeModel(Base):
-    __tablename__ = "bike_models"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    manufacturer_id = Column(BigInteger, ForeignKey("manufacturers.id"))
-    name = Column(String(255), nullable=False, unique=True)
-    category = Column(String(50))
-    displacement = Column(Integer)
-    image_url = Column(String(255))
-    local_image_path = Column(JSON)
+def find_detail_url(maker_name, model_name):
+    if not maker_name:
+        return None
+        
+    maker_en = MAKER_MAP.get(maker_name)
+    if not maker_en:
+        return None
+        
+    links = get_goobike_catalog_links(maker_en)
+    if not links:
+        return None
+    
+    normalized_name = unicodedata.normalize('NFKC', model_name.strip()).upper()
+    name_no_space = normalized_name.replace(' ', '').replace('　', '').replace('-', '')
+    
+    if normalized_name in links:
+        return links[normalized_name]
+        
+    for text, url in links.items():
+        text_no_space = text.replace(' ', '').replace('　', '').replace('-', '')
+        if name_no_space == text_no_space:
+            return url
+            
+    for text, url in links.items():
+        text_no_space = text.replace(' ', '').replace('　', '').replace('-', '')
+        if name_no_space in text_no_space or text_no_space in name_no_space:
+            return url
+            
+    return None
 
-class Listing(Base):
-    __tablename__ = "listings"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    bike_model_id = Column(BigInteger, ForeignKey("bike_models.id"))
-    shop_id = Column(BigInteger, ForeignKey("shops.id"))
-    site_id = Column(BigInteger, ForeignKey("sites.id"))
-    title = Column(String(255))
-    source_url = Column(Text, nullable=False)
-    price = Column(Numeric(12, 0))
-    total_price = Column(Numeric(12, 0))
-    model_year = Column(Integer)
-    mileage = Column(Integer)
-    image_urls = Column(JSON)
-    local_image_paths = Column(JSON)
-    has_repair_history = Column(Boolean, default=False)
-    condition = Column(String(50))
-    description = Column(Text)
-    is_sold_out = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+# ==========================================
+# データ抽出用ヘルパー関数
+# ==========================================
+def extract_int(soup, element_id):
+    element = soup.find('td', id=element_id)
+    if element:
+        text = element.text.strip()
+        match = re.search(r'\d+', text.replace(',', ''))
+        if match:
+            return int(match.group())
+    return None
 
-class Shop(Base):
-    __tablename__ = "shops"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    name = Column(String(255), nullable=False)
-    prefecture = Column(String(20))
-    address = Column(String(255))
-    phone = Column(String(20))
-    website_url = Column(Text)
-    rating = Column(Numeric(3, 1), default=0.0)
-    business_hours = Column(String(255))
-    regular_holiday = Column(String(255))
-    image_url = Column(String(255))
-    local_image_path = Column(String(255))
+def extract_float(soup, element_id):
+    element = soup.find('td', id=element_id)
+    if element:
+        text = element.text.strip()
+        match = re.search(r'\d+(\.\d+)?', text.replace(',', ''))
+        if match:
+            return float(match.group())
+    return None
 
-class BikeModelIdentifier(Base):
-    __tablename__ = "bike_model_identifiers"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    bike_model_id = Column(BigInteger, ForeignKey("bike_models.id", ondelete="CASCADE"))
-    site_id = Column(BigInteger, ForeignKey("sites.id"))
-    identifier = Column(String(100), nullable=False)
-    __table_args__ = (UniqueConstraint('site_id', 'identifier', name='_site_identifier_uc'),)
+def extract_str(soup, element_id):
+    element = soup.find('td', id=element_id)
+    if element:
+        text = element.text.strip()
+        if text and text not in ['-', '―', '不明']:
+            return text
+    return None
 
-class ShopIdentifier(Base):
-    __tablename__ = "shop_identifiers"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    shop_id = Column(BigInteger, ForeignKey("shops.id", ondelete="CASCADE"))
-    site_id = Column(BigInteger, ForeignKey("sites.id"))
-    identifier = Column(String(100), nullable=False)
-    __table_args__ = (UniqueConstraint('site_id', 'identifier', name='_shop_site_identifier_uc'),)
+# ==========================================
+# スクレイピング実行関数
+# ==========================================
+def fetch_goobike_specs(maker_name, model_name):
+    print(f"🔍 [{maker_name} {model_name}] のスペックを探索中...")
+    
+    detail_url = find_detail_url(maker_name, model_name)
+    
+    if not detail_url:
+        print(f"  └ ⚠️ GooBike内に一致するカタログが見つかりませんでした。")
+        return None
+        
+    print(f"  └ 🔗 カタログ発見: {detail_url}")
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+    }
+
+    try:
+        response = requests.get(detail_url, headers=headers, timeout=10)
+        response.raise_for_status()
+        response.encoding = response.apparent_encoding
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        specs = {
+            'model_code': extract_str(soup, 'katashiki'),
+            'length': extract_int(soup, 'length'),
+            'width': extract_int(soup, 'width'),
+            'height': extract_int(soup, 'height'),
+            'seat_height': extract_int(soup, 'sheet_height'),
+            'weight': extract_int(soup, 'weight'),
+            'engine_type': extract_str(soup, 'engine'),
+            'displacement': extract_int(soup, 'haiki_cc'),
+            'tank_capacity': extract_float(soup, 'tank'),
+            'fuel_supply': extract_str(soup, 'b_fuel_put'),
+            'max_power': extract_str(soup, 'max_power_display'),
+            'max_torque': extract_str(soup, 'max_torque_display'),
+            'tire_size_front': extract_str(soup, 'f_tire_size'),
+            'tire_size_rear': extract_str(soup, 'r_tire_size'),
+            'brake_type_front': extract_str(soup, 'f_brake'),
+            'brake_type_rear': extract_str(soup, 'r_brake')
+        }
+        specs['fuel_consumption'] = None
+
+        return specs
+
+    except Exception as e:
+        print(f"❌ エラー発生 ({model_name}): {e}")
+        return None
+
+# ==========================================
+# メイン処理
+# ==========================================
+def main():
+    print("🚀 GooBike 全車種カタログスペック収集バッチを開始します...")
+    print(f"📡 接続先データベース: {DB_CONFIG['database']} @ {DB_CONFIG['host']}")
+    
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor(dictionary=True)
+        
+        # スペックがまだ空っぽ（seat_height IS NULL）の車種を100件取得
+        cursor.execute("""
+            SELECT bm.id, bm.name AS model_name, m.name AS maker_name 
+            FROM bike_models bm
+            LEFT JOIN manufacturers m ON bm.manufacturer_id = m.id
+            WHERE bm.seat_height IS NULL 
+              AND m.name IS NOT NULL
+            ORDER BY bm.id ASC
+            LIMIT 100
+        """)
+        target_models = cursor.fetchall()
+        
+        if not target_models:
+            print("✅ すべての車種のスペック収集が完了しています！")
+            return
+
+        print(f"🎯 未収集の車種 {len(target_models)}件 の処理を開始します。")
+
+        for row in target_models:
+            model_id = row['id']
+            model_name = row['model_name']
+            maker_name = row['maker_name']
+            
+            specs = fetch_goobike_specs(maker_name, model_name)
+            
+            if specs:
+                update_query = """
+                    UPDATE bike_models 
+                    SET model_code = %(model_code)s,
+                        length = %(length)s,
+                        width = %(width)s,
+                        height = %(height)s,
+                        seat_height = %(seat_height)s,
+                        weight = %(weight)s,
+                        engine_type = %(engine_type)s,
+                        displacement = %(displacement)s,
+                        fuel_consumption = %(fuel_consumption)s,
+                        tank_capacity = %(tank_capacity)s,
+                        fuel_supply = %(fuel_supply)s,
+                        max_power = %(max_power)s,
+                        max_torque = %(max_torque)s,
+                        tire_size_front = %(tire_size_front)s,
+                        tire_size_rear = %(tire_size_rear)s,
+                        brake_type_front = %(brake_type_front)s,
+                        brake_type_rear = %(brake_type_rear)s,
+                        updated_at = NOW()
+                    WHERE id = %(id)s
+                """
+                specs['id'] = model_id
+                cursor.execute(update_query, specs)
+                conn.commit()
+                print(f"  └ ✅ {model_name} のスペックを保存しました！\n")
+            else:
+                print(f"  └ ⏭️ {model_name} はスキップされました。\n")
+            
+            sleep_time = random.uniform(2.0, 4.0) 
+            time.sleep(sleep_time)
+
+    except mysql.connector.Error as err:
+        print(f"❌ データベースエラー: {err}")
+    finally:
+        if 'conn' in locals() and conn.is_connected():
+            cursor.close()
+            conn.close()
+            print("🔌 データベース接続を閉じました。")
+
+if __name__ == "__main__":
+    main()
