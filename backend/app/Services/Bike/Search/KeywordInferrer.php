@@ -27,8 +27,11 @@ final class KeywordInferrer
             return $result;
         }
 
-        // 1. キーワードをスペース（全角・半角）で分割して配列にする
-        $words = preg_split('/[\s　]+/', trim($keyword), -1, PREG_SPLIT_NO_EMPTY);
+        // ▼▼▼ 修正の核心部分 ▼▼▼
+        // 正規表現の末尾に「u」を追加することで、日本語（UTF-8）を壊さずに正しくスペースで分割します
+        $words = preg_split('/[\s　]+/u', trim($keyword), -1, PREG_SPLIT_NO_EMPTY);
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
         $unmatchedWords = [];
 
         // 判定用の辞書データを準備
@@ -54,7 +57,6 @@ final class KeywordInferrer
             // A. 地域（都道府県）の判定
             if (!$result['prefecture']) {
                 foreach ($prefectures as $pref) {
-                    // 「東京」でも「東京都」でもマッチさせる
                     if ($word === $pref || $word === str_replace(['都','府','県'], '', $pref)) {
                         $result['prefecture'] = $pref;
                         $matched = true;
