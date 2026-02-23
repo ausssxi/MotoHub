@@ -40,12 +40,33 @@ final class ListingSearchService
             if ($model) $filters['manufacturer_id'] = $model->manufacturer_id;
         }
 
-        // ▼▼▼ 修正の核心部分 ▼▼▼
-        // 以前はここで、入力されたキーワードから勝手に車種を推論し、
-        // $keyword を null にして強制的に車種フィルター検索にすり替えていました。
-        // これが「サジェストと件数が合わない」「純粋なキーワード検索にならない」という問題の根本原因でした。
-        // ユーザーの入力意図を尊重し、Meilisearchの強力な全文検索にそのまま渡すように、お節介な推論処理を削除しました。
-        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+        // ▼▼▼ 修正: キーワード推論（高度なセマンティック解析） ▼▼▼
+        if (!empty($keyword)) {
+            // "TW225e 東京 ETC" などの複合キーワードを解析
+            $inference = $this->inferrer->infer($keyword);
+            
+            // メーカーを抽出
+            if (empty($filters['manufacturer_id']) && $inference['manufacturer_id']) {
+                $filters['manufacturer_id'] = $inference['manufacturer_id'];
+            }
+            // 車種を抽出
+            if (empty($filters['bike_model_id']) && $inference['bike_model_id']) {
+                $filters['bike_model_id'] = $inference['bike_model_id'];
+            }
+            // 地域を抽出（最優先で適用）
+            if (empty($prefecture) && empty($filters['prefecture']) && $inference['prefecture']) {
+                $prefecture = $inference['prefecture'];
+                $filters['prefecture'] = $inference['prefecture']; // サイドバーUI用にもセット
+            }
+            // タグを抽出
+            if (empty($filters['tag']) && $inference['tag']) {
+                $filters['tag'] = $inference['tag'];
+            }
+
+            // フィルターに変換できた単語を取り除き、残った言葉だけを純粋なキーワード検索に回す
+            $keyword = $inference['remaining_keyword'];
+        }
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
         // 検索条件をハッシュ化（キャッシュキーに使用）
         $page = request()->get('page', 1);

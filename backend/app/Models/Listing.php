@@ -10,11 +10,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany; 
 use App\Models\Tag;
-use Laravel\Scout\Searchable; // ★追加
+use Laravel\Scout\Searchable;
 
 class Listing extends Model
 {
-    use Searchable; // ★追加：検索対象にする
+    use Searchable;
 
     protected $guarded = ['id'];
 
@@ -27,26 +27,33 @@ class Listing extends Model
     ];
 
     /**
-     * Meilisearchにインデックスするデータの定義
-     * ここに含めたデータを使って超高速な絞り込みを行います。
+     * ★追加の核心部分：インポート時のN+1問題を解決し、確実にリレーションを含める
+     * このメソッドを書くことで、php artisan scout:import を実行した際に、
+     * 最初から必ず shop などのデータを連結して（忘れずに）取得してきてくれます！
      */
+    protected function makeAllSearchableUsing(Builder $query): Builder
+    {
+        return $query->with(['shop', 'bikeModel.manufacturer', 'bikeModel.marketStats', 'tags']);
+    }
+
     public function toSearchableArray(): array
     {
-        // リレーションのN+1を防ぎつつデータを取得
-        // ★修正: bikeModelだけでなく、manufacturerとmarketStats(bargain_score計算用)も事前ロードに追加してさらに高速化
-        $this->loadMissing(['tags', 'bikeModel.marketStats', 'bikeModel.manufacturer']);
+        // 念のための保険（makeAllSearchableUsing があるので基本は不要ですが残しておきます）
+        $this->loadMissing(['tags', 'bikeModel.marketStats', 'bikeModel.manufacturer', 'shop']);
 
         return [
             'id'                => (int) $this->id,
             'title'             => $this->title,
-            // ★追加: 車種名とメーカー名をキーワード検索対象としてMeilisearchに送る
             'manufacturer_name' => $this->bikeModel?->manufacturer?->name ?? '',
             'bike_model_name'   => $this->bikeModel?->name ?? '',
             
             'manufacturer_id'   => (int) $this->manufacturer_id,
             'bike_model_id'     => (int) $this->bike_model_id,
             'category_id'       => (int) $this->category_id,
-            'prefecture'        => $this->prefecture,
+            
+            // shopのデータが確実に取得されるため、ここに正しい都道府県が入ります
+            'prefecture'        => $this->shop?->prefecture ?? '',
+            
             'total_price'       => (int) $this->total_price,
             'mileage'           => (int) $this->mileage,
             'model_year'        => (int) $this->model_year,
@@ -58,23 +65,15 @@ class Listing extends Model
             'view_count_today'  => (int) $this->view_count_today,
             'favorite_count'    => (int) $this->favorite_count,
             'created_at'        => (int) $this->created_at->timestamp,
-            // タグのスラッグを配列で持たせることで高速フィルタリングが可能
             'tag_slugs'         => $this->tags->pluck('slug')->toArray(),
         ];
     }
 
-    /**
-     * 検索対象から除外する条件（売約済みはインデックスしない等）
-     * ※常に最新の状態を保つため、基本は全件インデックスし、検索時に絞り込むのが一般的です
-     */
     public function shouldBeSearchable(): bool
     {
         return true;
     }
 
-    /**
-     * 画像URLリストを取得するアクセサ
-     */
     protected function images(): Attribute
     {
         return Attribute::make(
@@ -94,9 +93,6 @@ class Listing extends Model
         );
     }
 
-    /**
-     * お買い得度スコア
-     */
     public function getBargainScoreAttribute(): float
     {
         $stats = $this->bikeModel?->marketStats;
@@ -113,93 +109,62 @@ class Listing extends Model
     public function site(): BelongsTo { return $this->belongsTo(Site::class); }
     public function tags(): BelongsToMany { return $this->belongsToMany(Tag::class); }
 
-    // --- Query Scopes (Meilisearchを使わないページ用) ---
-    public function scopeActive(Builder $query): Builder
-    {
-        return $query->where('listings.is_sold_out', false);
-    }
-
-    public function scopeWithKeyword(Builder $query, ?string $keyword): Builder
-    {
+    // --- Query Scopes ---
+    public function scopeActive(Builder $query): Builder { return $query->where('listings.is_sold_out', false); }
+    public function scopeWithKeyword(Builder $query, ?string $keyword): Builder {
         if (!$keyword) return $query;
         $joins = collect($query->getQuery()->joins)->pluck('table');
         if (!$joins->contains('bike_models')) $query->leftJoin('bike_models', 'listings.bike_model_id', '=', 'bike_models.id');
         if (!$joins->contains('manufacturers')) $query->leftJoin('manufacturers', 'bike_models.manufacturer_id', '=', 'manufacturers.id');
-
         return $query->where(function (Builder $q) use ($keyword) {
-            $q->where('listings.title', 'like', "%{$keyword}%")
-              ->orWhere('bike_models.name', 'like', "%{$keyword}%")
-              ->orWhere('manufacturers.name', 'like', "%{$keyword}%");
+            $q->where('listings.title', 'like', "%{$keyword}%")->orWhere('bike_models.name', 'like', "%{$keyword}%")->orWhere('manufacturers.name', 'like', "%{$keyword}%");
         });
     }
-
-    public function scopeByPrefecture(Builder $query, ?string $prefecture): Builder
-    {
+    public function scopeByPrefecture(Builder $query, ?string $prefecture): Builder {
         if (!$prefecture) return $query;
         if (!collect($query->getQuery()->joins)->pluck('table')->contains('shops')) $query->join('shops', 'listings.shop_id', '=', 'shops.id');
         return $query->where('shops.prefecture', 'like', "{$prefecture}%");
     }
-
-    public function scopeByModel(Builder $query, ?int $manufacturerId, ?int $bikeModelId): Builder
-    {
-        if ($bikeModelId) {
-            $query->where('listings.bike_model_id', $bikeModelId);
-        } elseif ($manufacturerId) {
-            $query->where('listings.manufacturer_id', $manufacturerId);
-        }
+    public function scopeByModel(Builder $query, ?int $manufacturerId, ?int $bikeModelId): Builder {
+        if ($bikeModelId) $query->where('listings.bike_model_id', $bikeModelId);
+        elseif ($manufacturerId) $query->where('listings.manufacturer_id', $manufacturerId);
         return $query;
     }
-
-    public function scopeByCategory(Builder $query, ?int $categoryId): Builder
-    {
+    public function scopeByCategory(Builder $query, ?int $categoryId): Builder {
         if (!$categoryId) return $query;
         return $query->where('listings.category_id', $categoryId);
     }
-
-    public function scopeByCondition(Builder $query, $isNew): Builder
-    {
+    public function scopeByCondition(Builder $query, $isNew): Builder {
         if ($isNew === null || $isNew === '') return $query;
         $value = ($isNew === '1' || $isNew === true) ? '新車' : '中古車';
         return $query->where('listings.condition', $value);
     }
-
-    public function scopeByRepairHistory(Builder $query, $hasRepair): Builder
-    {
+    public function scopeByRepairHistory(Builder $query, $hasRepair): Builder {
         if ($hasRepair === null || $hasRepair === '') return $query;
         return $query->where('listings.has_repair_history', (bool)$hasRepair);
     }
-
-    public function scopePriceBetween(Builder $query, ?int $min, ?int $max, ?int $uiMaxLimit = null): Builder
-    {
+    public function scopePriceBetween(Builder $query, ?int $min, ?int $max, ?int $uiMaxLimit = null): Builder {
         if ($min > 0) $query->where('listings.total_price', '>=', $min * 10000);
         if ($max && ($uiMaxLimit === null || $max < $uiMaxLimit)) $query->where('listings.total_price', '<=', $max * 10000);
         return $query;
     }
-
-    public function scopeMileageBetween(Builder $query, ?int $min, ?int $max, ?int $uiMaxLimit = null): Builder
-    {
+    public function scopeMileageBetween(Builder $query, ?int $min, ?int $max, ?int $uiMaxLimit = null): Builder {
         if ($min > 0) $query->where('listings.mileage', '>=', $min);
         if ($max && ($uiMaxLimit === null || $max < $uiMaxLimit)) $query->where('listings.mileage', '<=', $max);
         return $query;
     }
-
-    public function scopeYearBetween(Builder $query, ?int $min, ?int $max): Builder
-    {
+    public function scopeYearBetween(Builder $query, ?int $min, ?int $max): Builder {
         if ($min) $query->where('listings.model_year', '>=', $min);
         if ($max) $query->where('listings.model_year', '<=', $max);
         return $query;
     }
-
-    public function scopeDisplacementBetween(Builder $query, ?int $min, ?int $max): Builder
-    {
+    public function scopeDisplacementBetween(Builder $query, ?int $min, ?int $max): Builder {
         if (!$min && !$max) return $query;
         if ($min) $query->where('listings.displacement', '>=', $min);
         if ($max) $query->where('listings.displacement', '<=', $max);
         return $query;
     }
-
-    public function scopeWithTag(Builder $query, ?string $tagSlug): Builder
-    {
+    public function scopeWithTag(Builder $query, ?string $tagSlug): Builder {
         if (!$tagSlug) return $query;
         return $query->whereHas('tags', function (Builder $q) use ($tagSlug) {
             $q->where('tags.slug', $tagSlug);

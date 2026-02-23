@@ -86,19 +86,22 @@ final class ListingRepository
         // 常に有効な車両のみ（売約済みを除外）を検索対象とする
         $filterStrings[] = "is_sold_out = 0";
 
-        // --- 完全一致フィルター ---
-        if ($prefecture) $filterStrings[] = "prefecture = '{$prefecture}'";
-        if (!empty($filters['prefecture'])) $filterStrings[] = "prefecture = '{$filters['prefecture']}'";
-        
-        // ▼▼▼ 修正の核心部分 ▼▼▼
-        // 車種(bike_model_id)が指定されている場合は、メーカーでの絞り込みをスキップします。
-        // こうすることで、データ不備でメーカーIDが空になっている車両も取りこぼさず表示できます！
+        // ▼▼▼ 修正の核心部分（表記揺れ吸収フィルター） ▼▼▼
+        $p = $prefecture ?: ($filters['prefecture'] ?? null);
+        if ($p) {
+            // "都・道・府・県" を取り除いた純粋な地名を取得（例：東京都 -> 東京）
+            $short = str_replace(['都', '道', '府', '県'], '', $p);
+            
+            // Meilisearchに「東京でも東京都でもどっちでもOK！」と指示を出します
+            $filterStrings[] = "(prefecture = '{$short}' OR prefecture = '{$short}都' OR prefecture = '{$short}道' OR prefecture = '{$short}府' OR prefecture = '{$short}県')";
+        }
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
         if (!empty($filters['bike_model_id'])) {
             $filterStrings[] = "bike_model_id = " . (int)$filters['bike_model_id'];
         } elseif (!empty($filters['manufacturer_id'])) {
             $filterStrings[] = "manufacturer_id = " . (int)$filters['manufacturer_id'];
         }
-        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
         if (!empty($filters['category_id'])) $filterStrings[] = "category_id = " . (int)$filters['category_id'];
         
