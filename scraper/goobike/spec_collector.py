@@ -235,78 +235,100 @@ def fetch_goobike_specs(maker_name, model_name):
 # メイン処理
 # ==========================================
 def main():
-    print("🚀 GooBike 全車種カタログスペック収集バッチを開始します...")
+    print("🚀 GooBike 全車種カタログスペック収集バッチを開始します（全自動ループ版）...")
     
-    # ★DB接続情報をログに出力（パスワードは隠す）
     hidden_pass = "***" if DB_CONFIG['password'] else "NONE"
     print(f"📡 接続先情報: {DB_CONFIG['user']}@{DB_CONFIG['host']}:{DB_CONFIG['port']} (DB: {DB_CONFIG['database']}, PASS: {hidden_pass})")
+    
+    conn = None
+    cursor = None
     
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor(dictionary=True)
         
-        # スペックがまだ空っぽ（seat_height IS NULL）の車種を100件取得
-        cursor.execute("""
-            SELECT bm.id, bm.name AS model_name, m.name AS maker_name 
-            FROM bike_models bm
-            LEFT JOIN manufacturers m ON bm.manufacturer_id = m.id
-            WHERE bm.seat_height IS NULL 
-              AND m.name IS NOT NULL
-            ORDER BY bm.id ASC
-            LIMIT 100
-        """)
-        target_models = cursor.fetchall()
-        
-        if not target_models:
-            print("✅ すべての車種のスペック収集が完了しています！")
-            return
+        last_processed_id = 0  # スキップされたものを無視して進むための変数
+        total_processed = 0
 
-        print(f"🎯 未収集の車種 {len(target_models)}件 の処理を開始します。")
+        while True:
+            # 前回処理したIDより大きいものを100件取得
+            cursor.execute("""
+                SELECT bm.id, bm.name AS model_name, m.name AS maker_name 
+                FROM bike_models bm
+                LEFT JOIN manufacturers m ON bm.manufacturer_id = m.id
+                WHERE bm.seat_height IS NULL 
+                  AND m.name IS NOT NULL
+                  AND bm.id > %s
+                ORDER BY bm.id ASC
+                LIMIT 100
+            """, (last_processed_id,))
+            
+            target_models = cursor.fetchall()
+            
+            if not target_models:
+                print(f"✅ すべての車種({total_processed}件)の探索が完了しました！")
+                break
 
-        for row in target_models:
-            model_id = row['id']
-            model_name = row['model_name']
-            maker_name = row['maker_name']
-            
-            specs = fetch_goobike_specs(maker_name, model_name)
-            
-            if specs:
-                update_query = """
-                    UPDATE bike_models 
-                    SET model_code = %(model_code)s,
-                        length = %(length)s,
-                        width = %(width)s,
-                        height = %(height)s,
-                        seat_height = %(seat_height)s,
-                        weight = %(weight)s,
-                        engine_type = %(engine_type)s,
-                        displacement = %(displacement)s,
-                        fuel_consumption = %(fuel_consumption)s,
-                        tank_capacity = %(tank_capacity)s,
-                        fuel_supply = %(fuel_supply)s,
-                        max_power = %(max_power)s,
-                        max_torque = %(max_torque)s,
-                        tire_size_front = %(tire_size_front)s,
-                        tire_size_rear = %(tire_size_rear)s,
-                        brake_type_front = %(brake_type_front)s,
-                        brake_type_rear = %(brake_type_rear)s,
-                        updated_at = NOW()
-                    WHERE id = %(id)s
-                """
-                specs['id'] = model_id
-                cursor.execute(update_query, specs)
-                conn.commit()
-                print(f"  └ ✅ {model_name} のスペックを保存しました！\n")
-            else:
-                print(f"  └ ⏭️ {model_name} はスキップされました。\n")
-            
-            sleep_time = random.uniform(2.0, 4.0) 
-            time.sleep(sleep_time)
+            print(f"🎯 新たに {len(target_models)}件 の処理を開始します。")
+
+            for row in target_models:
+                model_id = row['id']
+                model_name = row['model_name']
+                maker_name = row['maker_name']
+                
+                # 処理したIDを記録（次回のスタート地点にする）
+                last_processed_id = model_id
+                
+                specs = fetch_goobike_specs(maker_name, model_name)
+                
+                if specs:
+                    update_query = """
+                        UPDATE bike_models 
+                        SET model_code = %(model_code)s,
+                            length = %(length)s,
+                            width = %(width)s,
+                            height = %(height)s,
+                            seat_height = %(seat_height)s,
+                            weight = %(weight)s,
+                            engine_type = %(engine_type)s,
+                            displacement = %(displacement)s,
+                            fuel_consumption = %(fuel_consumption)s,
+                            tank_capacity = %(tank_capacity)s,
+                            fuel_supply = %(fuel_supply)s,
+                            max_power = %(max_power)s,
+                            max_torque = %(max_torque)s,
+                            tire_size_front = %(tire_size_front)s,
+                            tire_size_rear = %(tire_size_rear)s,
+                            brake_type_front = %(brake_type_front)s,
+                            brake_type_rear = %(brake_type_rear)s,
+                            updated_at = NOW()
+                        WHERE id = %(id)s
+                    """
+                    specs['id'] = model_id
+                    cursor.execute(update_query, specs)
+                    conn.commit()
+                    print(f"  └ ✅ {model_name} のスペックを保存しました！\n")
+                else:
+                    # 見つからなかった場合は何も更新せず、ログだけ出す
+                    # (last_processed_id が進むので、次回はこの車種に引っかかりません)
+                    print(f"  └ ⏭️ {model_name} はスキップされました。\n")
+                
+                total_processed += 1
+                
+                # BAN防止：適度なスリープ
+                sleep_time = random.uniform(2.0, 4.0) 
+                time.sleep(sleep_time)
+                
+            # 100件処理ごとにコンソールの見栄えのために少し休憩
+            print(f"💤 100件のブロックが完了。5秒間休憩します... (現在計 {total_processed}件 処理済)")
+            time.sleep(5)
 
     except mysql.connector.Error as err:
         print(f"❌ データベースエラー: {err}")
+    except KeyboardInterrupt:
+        print(f"\n🛑 手動で停止されました。")
     finally:
-        if 'conn' in locals() and conn.is_connected():
+        if conn and conn.is_connected():
             cursor.close()
             conn.close()
             print("🔌 データベース接続を閉じました。")
