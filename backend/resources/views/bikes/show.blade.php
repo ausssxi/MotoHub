@@ -282,6 +282,45 @@
                         </div>
                     </div>
 
+                    {{-- カタログスペック情報 --}}
+                    @if(!empty(array_filter($listing->specs)))
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mt-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-gray-800 rounded-lg text-white">
+                                <i data-lucide="book-open" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">カタログスペック</h3>
+                            <span class="hidden sm:inline-block text-[10px] font-bold text-gray-400 ml-2 border border-gray-200 px-2 py-0.5 rounded bg-gray-50">{{ $listing->bike_model_name }}</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
+                            @foreach([
+                                'seat_height' => ['label' => 'シート高', 'unit' => 'mm', 'icon' => 'user'],
+                                'weight' => ['label' => '車両重量', 'unit' => 'kg', 'icon' => 'weight'],
+                                'fuel_consumption' => ['label' => '燃費 (定地)', 'unit' => 'km/L', 'icon' => 'fuel'],
+                                'tank_capacity' => ['label' => 'タンク容量', 'unit' => 'L', 'icon' => 'database'],
+                                'engine_type' => ['label' => 'エンジン種類', 'unit' => '', 'icon' => 'settings'],
+                                'max_power' => ['label' => '最高出力', 'unit' => '', 'icon' => 'zap'],
+                                'max_torque' => ['label' => '最大トルク', 'unit' => '', 'icon' => 'gauge-circle'],
+                                'tire_size_front' => ['label' => 'フロントタイヤ', 'unit' => '', 'icon' => 'circle-dashed'],
+                                'tire_size_rear' => ['label' => 'リアタイヤ', 'unit' => '', 'icon' => 'circle-dashed']
+                            ] as $key => $conf)
+                                @if(!empty($listing->specs[$key]))
+                                <div class="flex justify-between items-center py-3 border-b border-gray-50 last:border-0 sm:nth-last-child(-n+2):border-0">
+                                    <span class="text-xs font-bold text-gray-500 flex items-center gap-1.5 whitespace-nowrap">
+                                        <i data-lucide="{{ $conf['icon'] }}" class="w-3.5 h-3.5 text-gray-300"></i>
+                                        {{ $conf['label'] }}
+                                    </span>
+                                    <span class="text-sm font-black text-gray-800 text-right max-w-[60%] leading-tight">
+                                        {{ $listing->specs[$key] }} <span class="text-[10px] text-gray-500 ml-0.5 font-bold">{{ $conf['unit'] }}</span>
+                                    </span>
+                                </div>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
                     {{-- 相場分析チャート --}}
                     @if($listing->model_year && is_numeric($listing->total_price))
                     <div id="price-stats-container" 

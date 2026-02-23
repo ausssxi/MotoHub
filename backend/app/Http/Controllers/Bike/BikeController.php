@@ -145,7 +145,7 @@ final class BikeController extends Controller
     }
 
     /**
-     * ★改修: リッチ・オートコンプリート用のサジェストAPI
+     * リッチ・オートコンプリート用のサジェストAPI
      */
     public function suggest(Request $request): JsonResponse
     {
@@ -242,4 +242,34 @@ final class BikeController extends Controller
         }
         return redirect()->route('bikes.model_detail', $id)->with('success', 'レビューを投稿しました！');
     }
+
+    public function modelDetail($id, \App\Services\Bike\PriceStatsService $priceStatsService)
+    {
+        // 1. バイクモデルの基本情報とリレーション（メーカー、レビューなど）を取得
+        $model = \App\Models\BikeModel::with(['manufacturer', 'reviews'])->findOrFail($id);
+
+        // 2. 関連する販売中の中古車を取得（最大5件）
+        $listings = \App\Models\Listing::with('shop')->where('bike_model_id', $id)
+            ->active() 
+            ->limit(5)
+            ->get()
+            ->map(function($listing) {
+                // Blade側でエラーにならないように配列の形に成形
+                return [
+                    'id' => $listing->id,
+                    'name' => $listing->title ?? $listing->bikeModel->name,
+                    'total_price' => $listing->total_price ? number_format($listing->total_price / 10000, 1) : '-',
+                    'prefecture' => $listing->shop->prefecture ?? '地域不明', // shopから都道府県を取得
+                    'images' => $listing->images ?? [], // すでにモデルのアクセサで配列化されているのでそのまま渡す
+                ];
+            });
+
+        // 3. 買取相場・チャート用の本番データ（データベースの集計結果）
+        $stats = $priceStatsService->getModelStats((int)$id);
+        $history = $priceStatsService->getPriceHistory((int)$id);
+        $resale = $priceStatsService->getResaleStats((int)$id);
+
+        return view('bikes.model_detail', compact('model', 'stats', 'history', 'resale', 'listings'));
+    }
+
 }

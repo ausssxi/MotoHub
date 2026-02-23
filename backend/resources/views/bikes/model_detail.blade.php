@@ -45,6 +45,58 @@
                 
                 {{-- メインコンテンツ --}}
                 <div class="lg:col-span-8 space-y-8">
+
+                {{-- カタログスペック情報（スクレイピングデータ） --}}
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-gray-800 rounded-lg text-white">
+                                <i data-lucide="book-open" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">カタログスペック</h3>
+                            <span class="hidden sm:inline-block text-[10px] font-bold text-gray-400 ml-2 border border-gray-200 px-2 py-0.5 rounded bg-gray-50">{{ $model->name }}</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
+                            @php
+                            // データベースから取得した値をラベルとセットにする
+                            $specs = [
+                                '型式' => $model->model_code,
+                                '全長 / 全幅 / 全高' => ($model->length && $model->width && $model->height) ? "{$model->length}mm / {$model->width}mm / {$model->height}mm" : null,
+                                'シート高' => $model->seat_height ? "{$model->seat_height}mm" : null,
+                                '車両重量' => $model->weight ? "{$model->weight}kg" : null,
+                                'エンジン種類' => $model->engine_type,
+                                '総排気量' => $model->displacement ? "{$model->displacement}cc" : null,
+                                '燃費' => $model->fuel_consumption ? "{$model->fuel_consumption}km/L" : null,
+                                'タンク容量' => $model->tank_capacity ? "{$model->tank_capacity}L" : null,
+                                '燃料供給方式' => $model->fuel_supply,
+                                '最高出力' => $model->max_power,
+                                '最大トルク' => $model->max_torque,
+                                'フロントタイヤ' => $model->tire_size_front,
+                                'リアタイヤ' => $model->tire_size_rear,
+                                '前ブレーキ' => $model->brake_type_front,
+                                '後ブレーキ' => $model->brake_type_rear,
+                            ];
+                            @endphp
+
+                            {{-- データが空（null）の項目は自動的に非表示にするスマート設計 --}}
+                            @foreach(array_filter($specs) as $label => $value)
+                                <div class="flex justify-between items-center py-3 border-b border-gray-50 last:border-0 sm:nth-last-child(-n+2):border-0">
+                                    <span class="text-xs font-bold text-gray-500 whitespace-nowrap">
+                                        {{ $label }}
+                                    </span>
+                                    <span class="text-sm font-black text-gray-800 text-right max-w-[60%] leading-tight">
+                                        {{ $value }}
+                                    </span>
+                                </div>
+                            @endforeach
+                            
+                            @if(empty(array_filter($specs)))
+                                <div class="col-span-1 sm:col-span-2 text-center py-4 text-xs font-bold text-gray-400">
+                                    スペック情報がまだ収集されていません。
+                                </div>
+                            @endif
+                        </div>
+                    </div>
                     
                     {{-- 1. 買取相場・リセール情報（収益化ポイント） --}}
                     <div class="bg-white rounded-3xl shadow-lg p-6 sm:p-8 border border-gray-100">

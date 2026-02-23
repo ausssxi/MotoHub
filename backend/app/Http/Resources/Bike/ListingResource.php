@@ -79,6 +79,19 @@ class ListingResource extends JsonResource
             'bike_model_id'   => $this->bike_model_id,
             'bike_model_name' => $this->bikeModel?->name,
 
+            // カタログスペック情報
+            'specs' => [
+                'seat_height'      => $this->bikeModel?->seat_height,
+                'fuel_consumption' => $this->bikeModel?->fuel_consumption,
+                'tank_capacity'    => $this->bikeModel?->tank_capacity,
+                'engine_type'      => $this->bikeModel?->engine_type,
+                'max_power'        => $this->bikeModel?->max_power,
+                'max_torque'       => $this->bikeModel?->max_torque,
+                'weight'           => $this->bikeModel?->weight,
+                'tire_size_front'  => $this->bikeModel?->tire_size_front,
+                'tire_size_rear'   => $this->bikeModel?->tire_size_rear,
+            ],
+
             'name'           => $this->title ?? $this->bikeModel?->name ?? '車種名不明',
             'model_year'     => $this->model_year ? "{$this->model_year}年" : '不明',
             'mileage'        => $this->mileage !== null ? number_format($this->mileage) . 'km' : '走行不明',
