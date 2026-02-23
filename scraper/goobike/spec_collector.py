@@ -5,15 +5,60 @@ import time
 import random
 import re
 import unicodedata
+import os
+import sys
 
 # ==========================================
-# データベース接続設定
+# .env ファイルから設定を読み込む関数 (完全互換版)
+# ==========================================
+def load_laravel_env():
+    """他のバッチスクリプトと同様に確実に .env を読み込む"""
+    env_paths = [
+        '/var/www/.env',  # Dockerコンテナ内の絶対パス（最優先）
+        os.path.abspath(os.path.join(os.path.dirname(__file__), '../../.env')),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../backend/.env')),
+        '.env'
+    ]
+    
+    target_env = None
+    for p in env_paths:
+        if os.path.exists(p):
+            target_env = p
+            break
+
+    if target_env:
+        print(f"✅ .env ファイルを読み込みます: {target_env}")
+        try:
+            # 他のスクリプトで使われているかもしれない dotenv を優先
+            from dotenv import load_dotenv
+            load_dotenv(target_env)
+        except ImportError:
+            # ライブラリが無い環境でも強制的にパースするフォールバック
+            with open(target_env, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#') or '=' not in line:
+                        continue
+                    key, value = line.split('=', 1)
+                    # 万が一 export などの文字が入っていても除去
+                    if key.startswith('export '):
+                        key = key.replace('export ', '')
+                    os.environ[key.strip()] = value.strip().strip("'").strip('"')
+    else:
+        print("⚠️ .env ファイルが見つかりませんでした。")
+
+# 実行して環境変数をセット
+load_laravel_env()
+
+# ==========================================
+# データベース接続設定 (.env から取得)
 # ==========================================
 DB_CONFIG = {
-    'host': 'db',
-    'user': 'root',
-    'password': 'password',
-    'database': 'motohub',
+    'host': os.environ.get('DB_HOST', 'db'),
+    'port': int(os.environ.get('DB_PORT', 3306)),
+    'user': os.environ.get('DB_USERNAME', 'root'),
+    'password': os.environ.get('DB_PASSWORD', ''),
+    'database': os.environ.get('DB_DATABASE', 'motohub'),
     'charset': 'utf8mb4'
 }
 
@@ -37,14 +82,12 @@ MAKER_MAP = {
     'ハスクバーナ': 'HUSQVARNA',
 }
 
-# メーカー毎のカタログURLを一時保存するキャッシュ
 catalog_cache = {}
 
 # ==========================================
 # URL自動探索ロジック
 # ==========================================
 def get_goobike_catalog_links(maker_en):
-    """指定したメーカーのGooBikeカタログ一覧から全車種のURLを抽出してキャッシュする"""
     if maker_en in catalog_cache:
         return catalog_cache[maker_en]
         
@@ -62,11 +105,9 @@ def get_goobike_catalog_links(maker_en):
         links = {}
         for a in soup.find_all('a', href=True):
             href = a['href']
-            # "/catalog/YAMAHA/TW225E/index.html" のようなURLを探す
             if f"/catalog/{maker_en}/" in href and href.endswith('/index.html'):
                 if href == f"/catalog/{maker_en}/index.html":
                     continue
-                # 車種名を全角・半角統一して大文字に（比較しやすくする）
                 text = unicodedata.normalize('NFKC', a.text.strip()).upper()
                 if text:
                     full_url = "https://www.goobike.com" + href if href.startswith('/') else href
@@ -80,7 +121,6 @@ def get_goobike_catalog_links(maker_en):
         return {}
 
 def find_detail_url(maker_name, model_name):
-    """DBのメーカー名と車種名から、最も合致するGooBikeの詳細URLを探し出す"""
     if not maker_name:
         return None
         
@@ -92,21 +132,17 @@ def find_detail_url(maker_name, model_name):
     if not links:
         return None
     
-    # 検索する文字も全角半角を統一してスペースを消す
     normalized_name = unicodedata.normalize('NFKC', model_name.strip()).upper()
     name_no_space = normalized_name.replace(' ', '').replace('　', '').replace('-', '')
     
-    # 1. 完全一致
     if normalized_name in links:
         return links[normalized_name]
         
-    # 2. 空白・ハイフン除去での一致
     for text, url in links.items():
         text_no_space = text.replace(' ', '').replace('　', '').replace('-', '')
         if name_no_space == text_no_space:
             return url
             
-    # 3. 包含一致 (例: DB「CB400SF」 / GooBike「CB400 SUPER FOUR (CB400SF)」)
     for text, url in links.items():
         text_no_space = text.replace(' ', '').replace('　', '').replace('-', '')
         if name_no_space in text_no_space or text_no_space in name_no_space:
@@ -201,12 +237,15 @@ def fetch_goobike_specs(maker_name, model_name):
 def main():
     print("🚀 GooBike 全車種カタログスペック収集バッチを開始します...")
     
+    # ★DB接続情報をログに出力（パスワードは隠す）
+    hidden_pass = "***" if DB_CONFIG['password'] else "NONE"
+    print(f"📡 接続先情報: {DB_CONFIG['user']}@{DB_CONFIG['host']}:{DB_CONFIG['port']} (DB: {DB_CONFIG['database']}, PASS: {hidden_pass})")
+    
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor(dictionary=True)
         
         # スペックがまだ空っぽ（seat_height IS NULL）の車種を100件取得
-        # メーカー名(manufacturer.name)もJOINして取得します
         cursor.execute("""
             SELECT bm.id, bm.name AS model_name, m.name AS maker_name 
             FROM bike_models bm
@@ -229,11 +268,9 @@ def main():
             model_name = row['model_name']
             maker_name = row['maker_name']
             
-            # スクレイピング実行
             specs = fetch_goobike_specs(maker_name, model_name)
             
             if specs:
-                # DB更新
                 update_query = """
                     UPDATE bike_models 
                     SET model_code = %(model_code)s,
@@ -261,16 +298,13 @@ def main():
                 conn.commit()
                 print(f"  └ ✅ {model_name} のスペックを保存しました！\n")
             else:
-                # 見つからなかった場合は無限ループを防ぐため、何かダミー値(例:0)を入れるか、
-                # 今回はログだけ出して一旦スキップします（将来手動メンテ用）
                 print(f"  └ ⏭️ {model_name} はスキップされました。\n")
             
-            # GooBikeにブロックされないための安全な待機時間 (2〜4秒)
             sleep_time = random.uniform(2.0, 4.0) 
             time.sleep(sleep_time)
 
     except mysql.connector.Error as err:
-        print(f"データベースエラー: {err}")
+        print(f"❌ データベースエラー: {err}")
     finally:
         if 'conn' in locals() and conn.is_connected():
             cursor.close()
