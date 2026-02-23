@@ -7,15 +7,13 @@
         <link rel="stylesheet" href="{{ asset('css/bike-search.css') }}">
     </x-slot:styles>
 
-    {{-- 比較機能用のスクリプト --}}
     <x-slot:scripts>
         <script src="{{ asset('js/search/sidebar.js') }}"></script>
         <script src="{{ asset('js/common/custom-dropdown.js') }}"></script>
         <script src="{{ asset('js/compare/manager.js') }}"></script>
         <script src="{{ asset('js/compare/ui.js') }}"></script>
         <script src="{{ asset('js/search/save_condition.js') }}"></script>
-        {{-- ★追加: 無限スクロール用のJSを読み込み --}}
-        <script src="{{ asset('js/search/infinite-scroll.js') }}?v={{ time() }}"></script>
+        <script src="{{ asset('js/search/infinite-scroll.js') }}"></script>
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -44,18 +42,13 @@
                         <input type="hidden" id="sort-hidden-input" name="sort" value="{{ $sort }}">
 
                         <!-- 人気のこだわり条件（タグ） -->
-                        @php
-                            $currentTag = request('tag');
-                        @endphp
+                        @php $currentTag = request('tag'); @endphp
                         <div class="filter-group">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-3 block">人気のこだわり条件</label>
                             <div class="flex flex-wrap gap-2">
-                                {{-- コントローラーから渡された $popularTags を使用 --}}
                                 @foreach($popularTags as $tag)
                                     @php
-                                        // すでにそのタグが選ばれている場合はクリックで解除（null）、それ以外はタグをセット
                                         $nextTag = ($currentTag === $tag) ? null : $tag;
-                                        // 現在の他の検索条件（価格やメーカーなど）は維持しつつ、ページ番号をリセットしてタグを切り替える
                                         $url = route('bikes.search', array_merge(request()->except(['page', 'tag']), ['tag' => $nextTag]));
                                     @endphp
                                     <a href="{{ $url }}" 
@@ -66,30 +59,46 @@
                             </div>
                         </div>
 
-                        <!-- 都道府県 -->
+                        <!-- ★改修: 都道府県 (ファセット件数表示) -->
                         <div class="filter-group">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2 block">地域</label>
                             <div class="relative">
                                 <select name="prefecture" class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none appearance-none pr-10">
                                     <option value="">すべての地域</option>
                                     @foreach($prefectures as $pref)
-                                        <option value="{{ $pref }}" {{ ($filters['prefecture'] ?? '') == $pref ? 'selected' : '' }}>{{ $pref }}</option>
+                                        @php
+                                            // 現在の絞り込み状態での該当県のヒット件数を取得
+                                            $count = $facets['prefecture'][$pref] ?? 0;
+                                            $countText = $count > 0 ? " ({$count}台)" : "";
+                                        @endphp
+                                        <option value="{{ $pref }}" {{ ($filters['prefecture'] ?? '') == $pref ? 'selected' : '' }}>
+                                            {{ $pref }}{{ $countText }}
+                                        </option>
                                     @endforeach
                                 </select>
                                 <i data-lucide="map-pin" class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none"></i>
                             </div>
                         </div>
 
-                        <!-- コンディション & 修復歴 -->
+                        <!-- ★改修: コンディション & 修復歴 (ファセット件数表示) -->
                         <div class="space-y-6">
                             <div class="filter-group">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2 block">コンディション</label>
                                 <div class="flex bg-gray-100 p-1 rounded-xl">
                                     @foreach(['' => 'すべて', '0' => '中古', '1' => '新車'] as $val => $label)
+                                    @php
+                                        $countHtml = '';
+                                        if ($val !== '') {
+                                            $c = $facets['is_new'][$val] ?? 0;
+                                            if($c > 0) $countHtml = "<span class='text-[8px] opacity-70 ml-0.5'>({$c})</span>";
+                                        }
+                                    @endphp
                                     <label class="flex-1 text-center cursor-pointer">
                                         <input type="radio" name="is_new" value="{{ $val }}" class="hidden peer" 
                                             @checked((string)($filters['is_new'] ?? '') === (string)$val)>
-                                        <span class="block py-2 text-[10px] font-black rounded-lg transition-all peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">{{ $label }}</span>
+                                        <span class="block py-2 text-[10px] font-black rounded-lg transition-all peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">
+                                            {{ $label }}{!! $countHtml !!}
+                                        </span>
                                     </label>
                                     @endforeach
                                 </div>
@@ -99,10 +108,19 @@
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2 block">修復歴</label>
                                 <div class="flex bg-gray-100 p-1 rounded-xl">
                                     @foreach(['' => 'すべて', '0' => 'なし', '1' => 'あり'] as $val => $label)
+                                    @php
+                                        $countHtml = '';
+                                        if ($val !== '') {
+                                            $c = $facets['has_repair_history'][$val] ?? 0;
+                                            if($c > 0) $countHtml = "<span class='text-[8px] opacity-70 ml-0.5'>({$c})</span>";
+                                        }
+                                    @endphp
                                     <label class="flex-1 text-center cursor-pointer">
                                         <input type="radio" name="has_repair_history" value="{{ $val }}" class="hidden peer" 
                                             @checked((string)($filters['has_repair_history'] ?? '') === (string)$val)>
-                                        <span class="block py-2 text-[10px] font-black rounded-lg transition-all peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">{{ $label }}</span>
+                                        <span class="block py-2 text-[10px] font-black rounded-lg transition-all peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">
+                                            {{ $label }}{!! $countHtml !!}
+                                        </span>
                                     </label>
                                     @endforeach
                                 </div>
@@ -298,7 +316,6 @@
                 {{-- 結果グリッド --}}
                 <div id="results-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                     @forelse ($items as $listing)
-                        {{-- ★修正: 切り出した部品を読み込む --}}
                         @include('bikes.partials.bike_card', ['listing' => $listing])
                     @empty
                         <div class="col-span-full py-40 text-center">
@@ -308,7 +325,7 @@
                     @endforelse
                 </div>
 
-                {{-- ★追加: さらに読み込むボタン --}}
+                {{-- さらに読み込むボタン --}}
                 @if($pagination['next_url'])
                 <div id="load-more-container" class="mt-12 text-center pb-8">
                     <button id="load-more-btn" data-next-url="{{ $pagination['next_url'] }}" class="group bg-white border-2 border-gray-200 text-gray-700 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 font-black py-4 px-12 rounded-full shadow-sm hover:shadow-md transition-all inline-flex items-center justify-center gap-2 active:scale-95 w-full sm:w-auto">
@@ -319,7 +336,7 @@
                 </div>
                 @endif
 
-                {{-- 従来のページネーション（SEO対策としてHTML上には残すが、JS有効時は隠す） --}}
+                {{-- 従来のページネーション --}}
                 @if($pagination['last_page'] > 1)
                 <div id="classic-pagination" class="mt-20 flex-col items-center gap-6 w-full hidden">
                     <nav class="flex justify-center items-center gap-1 sm:gap-2">
@@ -336,7 +353,6 @@
                         @endif
                     </nav>
                 </div>
-                {{-- JSが無効な環境（クローラー等）でのみ従来のページネーションを表示する --}}
                 <noscript>
                     <style>#classic-pagination { display: flex; } #load-more-container { display: none; }</style>
                 </noscript>
@@ -344,7 +360,7 @@
             </div>
         </div>
     </div>
-    {{-- 検索結果のIDリストを SessionStorage に記憶させる --}}
+    
     @php
         $listingIds = collect($items)->pluck('id');
     @endphp

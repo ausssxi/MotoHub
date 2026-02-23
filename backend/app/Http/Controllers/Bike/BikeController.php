@@ -75,11 +75,10 @@ final class BikeController extends Controller
 
         $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
         
-        // ★無限スクロール：「さらに読み込む」ボタンからのAjaxリクエスト処理
+        // 無限スクロール処理
         if ($request->query('load_more')) {
             $html = '';
             foreach ($result['items'] as $listing) {
-                // 切り出した部品(パーシャル)にデータを渡してHTMLを生成
                 $html .= view('bikes.partials.bike_card', ['listing' => $listing])->render();
             }
             return response()->json([
@@ -105,20 +104,16 @@ final class BikeController extends Controller
      */
     public function show(int $id): View
     {
-        // ★実際の閲覧数をカウントアップ（ページを開くたびに実行）
         $this->bikeService->incrementViewCount($id);
 
-        // 詳細データの取得
         $listing = $this->bikeService->getListingDetail($id);
 
-        // 関連車両
         $relatedRaw = $listing->bike_model_id 
             ? $this->bikeService->getRelatedListings($listing->bike_model_id, $listing->id, 8) 
             : collect();
             
         $similarRaw = $this->bikeService->getSimilarListings($listing->manufacturer_id, $listing->bike_model_id, 8);
 
-        // 市場統計
         $currentPrice = is_numeric($listing->total_price) ? (float)$listing->total_price : 0;
         $stats = $this->priceStatsService->getModelStats((int)$listing->bike_model_id, $currentPrice);
         
@@ -126,7 +121,6 @@ final class BikeController extends Controller
             ? $this->bikeService->getReviewsByModelId((int)$listing->bike_model_id, 3) 
             : collect();
 
-        // データ整形（ListingResource経由）
         $data = (object) (new ListingResource($listing))->resolve();
         $seoLinks = $this->bikeService->getSeoLinks($listing);
         $dynamicLinks = $this->bikeService->generateDynamicLinks($data, $seoLinks, $listing->tags);
@@ -144,30 +138,15 @@ final class BikeController extends Controller
         ]);
     }
 
-    /**
-     * 車種別・相場＆リセール情報ページ（爆速版）
-     */
-    public function modelDetail(int $id): View
-    {
-        $model = $this->bikeService->getBikeModelDetail($id);
-        $model->load(['reviews']);
-
-        $stats = $this->priceStatsService->getModelStats($id);
-        $resale = $this->priceStatsService->getResaleStats($id);
-        $history = $this->priceStatsService->getPriceHistory($id);
-
-        $listingsRaw = $this->bikeService->getRelatedListings($id, 0, 8);
-        $listings = ListingResource::collection($listingsRaw)->resolve();
-
-        return view('bikes.model_detail', compact('model', 'stats', 'resale', 'history', 'listings'));
-    }
-
     public function getModels(int $manufacturerId): JsonResponse
     {
         $models = $this->listingSearchService->getModelsByManufacturer($manufacturerId);
         return response()->json($models);
     }
 
+    /**
+     * ★改修: リッチ・オートコンプリート用のサジェストAPI
+     */
     public function suggest(Request $request): JsonResponse
     {
         $keyword = (string) $request->query('keyword', '');
@@ -175,8 +154,30 @@ final class BikeController extends Controller
             return response()->json([]);
         }
 
-        $suggestions = $this->bikeService->getSearchSuggestions($keyword);
-        return response()->json($suggestions);
+        // 1. 車種のサジェスト（従来のテキストベース）
+        $models = $this->bikeService->getSearchSuggestions($keyword);
+        
+        // 2. 実際の車両のサジェスト（画像付きの直感的なUI用）
+        // Meilisearchの爆速処理を利用して、キーワードに合致する「おすすめの3台」を引っ張る
+        $listingsRaw = tap($this->listingSearchService->search($keyword, null, 'latest', [], 3), function($res) {
+            return $res;
+        })['items'];
+
+        // フロントエンドに扱いやすい形に整形して返す
+        return response()->json([
+            'models' => $models,
+            'listings' => collect($listingsRaw)->map(function ($bike) {
+                return [
+                    'id' => $bike['id'],
+                    'name' => $bike['name'],
+                    'image' => $bike['images'][0] ?? null,
+                    'total_price' => $bike['total_price'],
+                    'model_year' => $bike['model_year'],
+                    'mileage' => $bike['mileage'],
+                    'shop_name' => $bike['shop_name'],
+                ];
+            })
+        ]);
     }
 
     public function models(): View
@@ -196,12 +197,10 @@ final class BikeController extends Controller
         if (empty($ids) || $ids[0] === '') {
             return response()->json([]);
         }
-
-        $listings = Listing::with(['bikeModel.manufacturer', 'shop', 'site', 'tags'])
+        $listings = Listing::with(['bikeModel.manufacturer', 'shop', 'site'])
             ->whereIn('id', $ids)
             ->where('is_sold_out', false)
             ->get();
-
         return response()->json(ListingResource::collection($listings)->resolve());
     }
 
@@ -210,40 +209,24 @@ final class BikeController extends Controller
         return view('pages.compare');
     }
 
-    /**
-     * SEO着地ページ (地域 × メーカー/カテゴリ)
-     */
     public function landing(string $prefecture, string $slug): View
     {
         $pageInfo = $this->seoLandingService->resolvePageInfo($prefecture, $slug);
-
-        if (empty($pageInfo)) {
-            abort(404);
-        }
-
-        $filters = $pageInfo['filters'];
-        $meta = $pageInfo['meta'];
-
-        $result = $this->listingSearchService->search(null, $prefecture, 'latest', $filters);
-        
+        if (empty($pageInfo)) abort(404);
+        $result = $this->listingSearchService->search(null, $prefecture, 'latest', $pageInfo['filters']);
         return view('bikes.landing', array_merge($result, [
-            'pageInfo' => $meta,
+            'pageInfo' => $pageInfo['meta'],
             'keyword' => '', 
             'prefecture' => $prefecture,
             'sort' => 'latest',
         ]));
     }
 
-    /**
-     * レビュー投稿処理（Ajax対応版のみに統合）
-     */
     public function storeReview(StoreReviewRequest $request, int $id)
     {
         $validated = $request->validated();
         $model = $this->bikeService->getBikeModelDetail($id);
-        
         $this->bikeService->createReview($model->id, $validated);
-
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
@@ -257,7 +240,6 @@ final class BikeController extends Controller
                 ]
             ]);
         }
-
         return redirect()->route('bikes.model_detail', $id)->with('success', 'レビューを投稿しました！');
     }
 }

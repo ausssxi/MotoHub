@@ -37,41 +37,16 @@ final class ListingRepository
 
     /**
      * メイン検索 (Meilisearch ネイティブフィルタ対応版)
-     * 範囲指定などもすべてMeilisearch側で処理させ、MySQLへの負担をゼロにします。
      */
-    public function searchByKeyword(?string $keyword, ?string $prefecture, string $sort, array $filters, int $perPage, array $uiParams = []): Paginator
+    public function searchByKeyword(?string $keyword, ?string $prefecture, string $sort, array $filters, int $perPage): Paginator
     {
         // 1. Scout Search を開始 + Meilisearchエンジンのコールバックを利用
         $search = Listing::search($keyword ?? '', function ($meiliSearch, string $query, array $options) use ($prefecture, $filters) {
             
-            $filterStrings = [];
-
-            // --- 完全一致フィルター ---
-            if ($prefecture) $filterStrings[] = "prefecture = '{$prefecture}'";
-            if (!empty($filters['prefecture'])) $filterStrings[] = "prefecture = '{$filters['prefecture']}'";
-            if (!empty($filters['manufacturer_id'])) $filterStrings[] = "manufacturer_id = " . (int)$filters['manufacturer_id'];
-            if (!empty($filters['bike_model_id'])) $filterStrings[] = "bike_model_id = " . (int)$filters['bike_model_id'];
-            if (!empty($filters['category_id'])) $filterStrings[] = "category_id = " . (int)$filters['category_id'];
-            if (isset($filters['is_new']) && $filters['is_new'] !== '') $filterStrings[] = "is_new = " . (int)$filters['is_new'];
-            if (!empty($filters['tag'])) $filterStrings[] = "tag_slugs = '{$filters['tag']}'";
-
-            // --- 範囲指定フィルター (ここが爆速化の鍵！) ---
-            // ※フロントから price_min などのキーで送られてくると想定しています
-            if (!empty($filters['price_min'])) $filterStrings[] = "total_price >= " . ((int)$filters['price_min'] * 10000);
-            if (!empty($filters['price_max'])) $filterStrings[] = "total_price <= " . ((int)$filters['price_max'] * 10000);
-            
-            if (!empty($filters['mileage_min'])) $filterStrings[] = "mileage >= " . (int)$filters['mileage_min'];
-            if (!empty($filters['mileage_max'])) $filterStrings[] = "mileage <= " . (int)$filters['mileage_max'];
-            
-            if (!empty($filters['year_min'])) $filterStrings[] = "model_year >= " . (int)$filters['year_min'];
-            if (!empty($filters['year_max'])) $filterStrings[] = "model_year <= " . (int)$filters['year_max'];
-            
-            if (!empty($filters['displacement_min'])) $filterStrings[] = "displacement >= " . (int)$filters['displacement_min'];
-            if (!empty($filters['displacement_max'])) $filterStrings[] = "displacement <= " . (int)$filters['displacement_max'];
-
-            // 構築したフィルター文字列をMeilisearchのオプションにセット (例: "manufacturer_id = 1 AND total_price >= 100000")
-            if (!empty($filterStrings)) {
-                $options['filter'] = implode(' AND ', $filterStrings);
+            // ★共通化したフィルタ構築ロジックを使用
+            $filterString = $this->buildMeilisearchFilters($prefecture, $filters);
+            if ($filterString !== '') {
+                $options['filter'] = $filterString;
             }
 
             // Meilisearchに最適化されたクエリを発行！
@@ -81,7 +56,7 @@ final class ListingRepository
         // 2. ソート (Meilisearch 側で実行)
         $this->applyMeilisearchSorting($search, $sort);
 
-        // 3. データ取得 & リレーションの結合 (N+1対策は完璧です)
+        // 3. データ取得 & リレーションの結合 (N+1対策済み)
         return $search->query(function ($query) {
             $query->select(self::LIST_COLUMNS)
                 ->with([
@@ -92,6 +67,74 @@ final class ListingRepository
                     'tags:id,name'
                 ]);
         })->paginate($perPage); 
+    }
+
+    /**
+     * ★新規追加: ファセット（項目ごとの件数）を取得するメソッド
+     * ページネーション用のデータ取得とは別に、サイドバー表示用の件数だけを超高速で取得します。
+     */
+    public function getFacets(?string $keyword, ?string $prefecture, array $filters, array $facetAttributes = ['prefecture']): array
+    {
+        $raw = Listing::search($keyword ?? '', function ($meiliSearch, string $query, array $options) use ($prefecture, $filters, $facetAttributes) {
+            
+            $filterString = $this->buildMeilisearchFilters($prefecture, $filters);
+            if ($filterString !== '') {
+                $options['filter'] = $filterString;
+            }
+            
+            // ファセット（件数集計）の対象項目を指定
+            $options['facets'] = $facetAttributes;
+            // 実際のドキュメントデータは不要なのでlimit=0で究極まで高速化
+            $options['limit'] = 0; 
+            
+            return $meiliSearch->search($query, $options);
+        })->raw();
+
+        return $raw['facetDistribution'] ?? [];
+    }
+
+    /**
+     * 共通: Meilisearch 用のフィルター文字列を構築する
+     */
+    private function buildMeilisearchFilters(?string $prefecture, array $filters): string
+    {
+        $filterStrings = [];
+
+        // --- 完全一致フィルター ---
+        if ($prefecture) $filterStrings[] = "prefecture = '{$prefecture}'";
+        if (!empty($filters['prefecture'])) $filterStrings[] = "prefecture = '{$filters['prefecture']}'";
+        if (!empty($filters['manufacturer_id'])) $filterStrings[] = "manufacturer_id = " . (int)$filters['manufacturer_id'];
+        if (!empty($filters['bike_model_id'])) $filterStrings[] = "bike_model_id = " . (int)$filters['bike_model_id'];
+        if (!empty($filters['category_id'])) $filterStrings[] = "category_id = " . (int)$filters['category_id'];
+        
+        // 0(中古) も許容するため isset を使用
+        if (isset($filters['is_new']) && $filters['is_new'] !== '') $filterStrings[] = "is_new = " . (int)$filters['is_new'];
+        if (isset($filters['has_repair_history']) && $filters['has_repair_history'] !== '') $filterStrings[] = "has_repair_history = " . (int)$filters['has_repair_history'];
+        
+        if (!empty($filters['tag'])) $filterStrings[] = "tag_slugs = '{$filters['tag']}'";
+
+        // --- 範囲指定フィルター ---
+        $minPrice = $filters['price_min'] ?? $filters['min_price'] ?? null;
+        if ($minPrice !== null && $minPrice > 0) $filterStrings[] = "total_price >= " . ((int)$minPrice * 10000);
+        $maxPrice = $filters['price_max'] ?? $filters['max_price'] ?? null;
+        if ($maxPrice !== null) $filterStrings[] = "total_price <= " . ((int)$maxPrice * 10000);
+        
+        $minMileage = $filters['mileage_min'] ?? $filters['min_mileage'] ?? null;
+        if ($minMileage !== null && $minMileage > 0) $filterStrings[] = "mileage >= " . (int)$minMileage;
+        $maxMileage = $filters['mileage_max'] ?? $filters['max_mileage'] ?? null;
+        if ($maxMileage !== null) $filterStrings[] = "mileage <= " . (int)$maxMileage;
+        
+        $minYear = $filters['year_min'] ?? $filters['min_year'] ?? null;
+        if ($minYear !== null && $minYear > 0) $filterStrings[] = "model_year >= " . (int)$minYear;
+        $maxYear = $filters['year_max'] ?? $filters['max_year'] ?? null;
+        if ($maxYear !== null) $filterStrings[] = "model_year <= " . (int)$maxYear;
+        
+        $minDisp = $filters['displacement_min'] ?? $filters['min_displacement'] ?? null;
+        if ($minDisp !== null && $minDisp > 0) $filterStrings[] = "displacement >= " . (int)$minDisp;
+        $maxDisp = $filters['displacement_max'] ?? $filters['max_displacement'] ?? null;
+        if ($maxDisp !== null) $filterStrings[] = "displacement <= " . (int)$maxDisp;
+
+        return implode(' AND ', $filterStrings);
     }
 
     /**

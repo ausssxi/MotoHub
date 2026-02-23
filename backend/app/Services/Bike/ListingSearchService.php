@@ -58,24 +58,31 @@ final class ListingSearchService
         $aggCacheKey = "search_agg_{$conditionHash}";
         $itemsCacheKey = "search_results_p{$page}_{$conditionHash}";
 
-        // --- A. 重い集計処理（統計・UI上限値）のキャッシュ ---
+        // --- A. 重い集計処理（統計・ファセット）のキャッシュ ---
         $aggData = Cache::remember($aggCacheKey, 3600, function () use ($keyword, $prefecture, $filters) {
             $meta = $this->metaGenerator->generate($keyword, $prefecture, $filters);
             $stats = $this->statsRepo->getPriceStats($keyword, $prefecture, $filters);
             
+            // ★追加: サイドバー表示用のファセット（件数）情報を取得
+            $facets = $this->listingRepo->getFacets($keyword, $prefecture, $filters, [
+                'prefecture', 
+                'is_new', 
+                'has_repair_history'
+            ]);
+
             return [
                 'meta' => $meta,
                 'statsRaw' => $stats,
+                'facets' => $facets,
             ];
         });
 
         $searchMeta = $aggData['meta'];
         $statsRaw   = $aggData['statsRaw'];
+        $facets     = $aggData['facets'];
 
         // --- B. 検索結果データのキャッシュ & 高速取得 ---
-        // 同じ条件のページは 30分間キャッシュ
         $searchResult = Cache::remember($itemsCacheKey, 1800, function () use ($keyword, $prefecture, $sort, $filters, $perPage) {
-            // Meilisearch なら paginate() で正確な件数(total)も一瞬で計算してくれます
             $paginated = $this->listingRepo->searchByKeyword($keyword, $prefecture, $sort, $filters, $perPage);
             
             return [
@@ -84,8 +91,7 @@ final class ListingSearchService
             ];
         });
 
-        // 以前はここで MySQL(statsRaw) の件数で上書きしていましたが、
-        // 今は Meilisearch が出した完璧な件数を正として、逆に統計データ側を補正します
+        // Meilisearch が出した完璧な件数を正として、統計データ側を補正
         if (isset($searchResult['pagination']['total'])) {
             $statsRaw->count = $searchResult['pagination']['total'];
         }
@@ -101,6 +107,7 @@ final class ListingSearchService
             'pagination'    => $searchResult['pagination'],
             'stats'         => $this->metaGenerator->formatStats($statsRaw),
             'meta'          => $searchMeta,
+            'facets'        => $facets, // ★追加: ビューにファセット変数を渡す
             'manufacturers' => $this->manufacturerRepo->getAllSortedByName(),
             'models'        => $models,
             'regions'       => config('bike.regions', []),
@@ -176,10 +183,7 @@ final class ListingSearchService
         $cacheKey = 'search_count_' . md5(json_encode([$k, $p, $f]));
         
         return Cache::remember($cacheKey, 10800, function () use ($k, $p, $f) {
-            // Meilisearchなら、1件だけ取得して総件数を引っ張るのが最速
             $paginated = $this->listingRepo->searchByKeyword($k, $p, 'latest', $f, 1);
-            
-            // Paginatorインターフェースには total() が存在しないため、安全にチェックしてから取得
             return method_exists($paginated, 'total') ? $paginated->total() : count($paginated->items()); 
         });
     }
