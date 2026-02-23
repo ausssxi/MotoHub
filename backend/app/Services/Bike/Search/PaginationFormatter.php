@@ -14,6 +14,13 @@ final class PaginationFormatter
 {
     public function format(Paginator $paginated): array
     {
+        // ★修正ポイント：現在の検索条件（keyword=TW など）を次ページのURLに完全に引き継ぐ
+        if (method_exists($paginated, 'withQueryString')) {
+            $paginated->withQueryString();
+        } elseif (method_exists($paginated, 'appends')) {
+            $paginated->appends(request()->query());
+        }
+
         $currentPage = $paginated->currentPage();
         
         // simplePaginate の場合は lastPage() が存在しないため、存在チェックを行う
