@@ -69,8 +69,9 @@ final class ListingSearchService
         // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
         // 検索条件をハッシュ化（キャッシュキーに使用）
+        // ★修正: json_encodeが失敗してfalseを返すのを防ぐため、堅牢なserializeに変更
         $page = request()->get('page', 1);
-        $conditionHash = md5(json_encode([$keyword, $prefecture, $filters, $sort, $perPage]));
+        $conditionHash = md5(serialize([$keyword, $prefecture, $filters, $sort, $perPage]));
         $aggCacheKey = "search_agg_{$conditionHash}";
         $itemsCacheKey = "search_results_p{$page}_{$conditionHash}";
 
