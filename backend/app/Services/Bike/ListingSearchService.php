@@ -31,7 +31,6 @@ final class ListingSearchService
 
     /**
      * バイク出品情報の検索・絞り込み
-     * Meilisearch の超高速検索を活かして、無駄な MySQL の集計をバイパスします
      */
     public function search(?string $keyword, ?string $prefecture = null, string $sort = 'latest', array $filters = [], int $perPage = 30): array
     {
@@ -41,16 +40,12 @@ final class ListingSearchService
             if ($model) $filters['manufacturer_id'] = $model->manufacturer_id;
         }
 
-        // 2. キーワード推論
-        if (!empty($keyword) && empty($filters['bike_model_id'])) {
-            $inference = $this->inferrer->infer($keyword);
-            if (empty($filters['manufacturer_id']) && $inference['manufacturer_id']) {
-                $filters['manufacturer_id'] = $inference['manufacturer_id'];
-            }
-            if ($inference['bike_model_id']) {
-                $filters['bike_model_id'] = $inference['bike_model_id'];
-            }
-        }
+        // ▼▼▼ 修正の核心部分 ▼▼▼
+        // 以前はここで、入力されたキーワードから勝手に車種を推論し、
+        // $keyword を null にして強制的に車種フィルター検索にすり替えていました。
+        // これが「サジェストと件数が合わない」「純粋なキーワード検索にならない」という問題の根本原因でした。
+        // ユーザーの入力意図を尊重し、Meilisearchの強力な全文検索にそのまま渡すように、お節介な推論処理を削除しました。
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
         // 検索条件をハッシュ化（キャッシュキーに使用）
         $page = request()->get('page', 1);
@@ -63,7 +58,6 @@ final class ListingSearchService
             $meta = $this->metaGenerator->generate($keyword, $prefecture, $filters);
             $stats = $this->statsRepo->getPriceStats($keyword, $prefecture, $filters);
             
-            // ★追加: サイドバー表示用のファセット（件数）情報を取得
             $facets = $this->listingRepo->getFacets($keyword, $prefecture, $filters, [
                 'prefecture', 
                 'is_new', 
@@ -91,108 +85,166 @@ final class ListingSearchService
             ];
         });
 
-        // Meilisearch が出した完璧な件数を正として、統計データ側を補正
         if (isset($searchResult['pagination']['total'])) {
             $statsRaw->count = $searchResult['pagination']['total'];
         }
 
-        // 6. 付加情報の取得（キャッシュ不要な軽い処理）
+        // 0件ヒット時のケア（離脱防止サジェスト）
+        $relaxSuggestions = [];
+        if ($searchResult['pagination']['total'] === 0) {
+            $relaxSuggestions = $this->generateRelaxedSuggestions($keyword, $prefecture, $filters);
+        }
+
         $models = collect();
         if (!empty($filters['manufacturer_id'])) {
             $models = $this->modelRepo->getByManufacturerId((int)$filters['manufacturer_id']);
         }
 
         return [
-            'items'         => $searchResult['items'],
-            'pagination'    => $searchResult['pagination'],
-            'stats'         => $this->metaGenerator->formatStats($statsRaw),
-            'meta'          => $searchMeta,
-            'facets'        => $facets, // ★追加: ビューにファセット変数を渡す
-            'manufacturers' => $this->manufacturerRepo->getAllSortedByName(),
-            'models'        => $models,
-            'regions'       => config('bike.regions', []),
-            'prefectures'   => collect(config('bike.regions', []))->flatten()->toArray(),
-            'filters'       => $filters,
-            'sortOptions'   => $this->getSortOptions(),
+            'items'            => $searchResult['items'],
+            'pagination'       => $searchResult['pagination'],
+            'stats'            => $this->metaGenerator->formatStats($statsRaw),
+            'meta'             => $searchMeta,
+            'facets'           => $facets,
+            'relaxSuggestions' => $relaxSuggestions,
+            'manufacturers'    => $this->manufacturerRepo->getAllSortedByName(),
+            'models'           => $models,
+            'regions'          => config('bike.regions', []),
+            'prefectures'      => collect(config('bike.regions', []))->flatten()->toArray(),
+            'filters'          => $filters,
+            'sortOptions'      => $this->getSortOptions(),
         ];
     }
 
     /**
-     * 検索条件に基づいてページタイトルを生成
+     * 0件ヒット時に、条件を緩和した提案を生成する
      */
+    private function generateRelaxedSuggestions(?string $keyword, ?string $prefecture, array $filters): array
+    {
+        $suggestions = [];
+        
+        $buildUrl = function ($keysToRemove) {
+            $params = request()->except(array_merge((array)$keysToRemove, ['page']));
+            return route('bikes.search', $params);
+        };
+
+        if (!empty($prefecture) || !empty($filters['prefecture'])) {
+            $relaxed = $filters;
+            unset($relaxed['prefecture']);
+            $count = $this->getFilteredCount($keyword, null, $relaxed);
+            if ($count > 0) {
+                $suggestions[] = [
+                    'icon' => 'map',
+                    'label' => '地域を全国に広げる',
+                    'count' => $count,
+                    'url' => $buildUrl(['prefecture'])
+                ];
+            }
+        }
+
+        if (!empty($filters['max_price']) || !empty($filters['min_price'])) {
+            $relaxed = $filters;
+            unset($relaxed['max_price'], $relaxed['min_price'], $relaxed['price_max'], $relaxed['price_min']);
+            $count = $this->getFilteredCount($keyword, $prefecture, $relaxed);
+            if ($count > 0) {
+                $suggestions[] = [
+                    'icon' => 'coins',
+                    'label' => '価格の条件を外す',
+                    'count' => $count,
+                    'url' => $buildUrl(['max_price', 'min_price', 'price_max', 'price_min'])
+                ];
+            }
+        }
+
+        if (!empty($filters['max_mileage'])) {
+            $relaxed = $filters;
+            unset($relaxed['max_mileage'], $relaxed['min_mileage']);
+            $count = $this->getFilteredCount($keyword, $prefecture, $relaxed);
+            if ($count > 0) {
+                $suggestions[] = [
+                    'icon' => 'gauge',
+                    'label' => '走行距離の条件を外す',
+                    'count' => $count,
+                    'url' => $buildUrl(['max_mileage', 'min_mileage'])
+                ];
+            }
+        }
+
+        if (isset($filters['has_repair_history']) || isset($filters['is_new'])) {
+            $relaxed = $filters;
+            unset($relaxed['has_repair_history'], $relaxed['is_new']);
+            $count = $this->getFilteredCount($keyword, $prefecture, $relaxed);
+            if ($count > 0) {
+                $suggestions[] = [
+                    'icon' => 'wrench',
+                    'label' => '車両状態（修復歴など）の条件を外す',
+                    'count' => $count,
+                    'url' => $buildUrl(['has_repair_history', 'is_new'])
+                ];
+            }
+        }
+
+        if ($keyword && (!empty($prefecture) || !empty($filters))) {
+            $count = $this->getFilteredCount($keyword, null, []);
+            if ($count > 0) {
+                $suggestions[] = [
+                    'icon' => 'search',
+                    'label' => "「{$keyword}」の全国の車両を見る",
+                    'count' => $count,
+                    'url' => route('bikes.search', ['keyword' => $keyword])
+                ];
+            }
+        }
+
+        if (empty($suggestions)) {
+            $suggestions[] = [
+                'icon' => 'bike',
+                'label' => '条件をすべてリセットして探す',
+                'count' => $this->getActiveCount(),
+                'url' => route('bikes.search')
+            ];
+        }
+
+        return $suggestions;
+    }
+
     public function generatePageTitle(?string $keyword, ?string $prefecture, array $filters): string
     {
         $title = '車両一覧';
-
-        if ($keyword) {
-            $title = "「{$keyword}」の検索結果";
-        } elseif (!empty($filters['bike_model_id'])) {
+        if ($keyword) $title = "「{$keyword}」の検索結果";
+        elseif (!empty($filters['bike_model_id'])) {
             $model = $this->modelRepo->find((int)$filters['bike_model_id']);
-            if ($model) {
-                $title = "{$model->name} の車両一覧";
-            }
+            if ($model) $title = "{$model->name} の車両一覧";
         } elseif (!empty($filters['manufacturer_id'])) {
             $makers = $this->manufacturerRepo->getAllSortedByName();
             $maker = $makers->firstWhere('id', $filters['manufacturer_id']);
-            if ($maker) {
-                $title = "{$maker->name} の車両一覧";
-            }
+            if ($maker) $title = "{$maker->name} の車両一覧";
         } elseif (!empty($filters['category_id'])) {
             $category = $this->categoryRepo->find((int)$filters['category_id']);
-            if ($category) {
-                $title = "{$category->name} の車両一覧";
-            }
+            if ($category) $title = "{$category->name} の車両一覧";
         } elseif ($prefecture || !empty($filters['prefecture'])) {
             $pref = $prefecture ?: ($filters['prefecture'] ?? '');
             $title = "{$pref} の車両一覧";
         }
-
         if (!empty($filters['tag'])) {
-            if ($title === '車両一覧') {
-                return "#{$filters['tag']} の車両一覧";
-            }
+            if ($title === '車両一覧') return "#{$filters['tag']} の車両一覧";
             return "#{$filters['tag']} " . $title;
         }
-
         return $title;
     }
 
-    public function getSearchMetadata(?string $keyword = null, ?string $prefecture = null, array $filters = []): array
-    {
-        return $this->metaGenerator->generate($keyword, $prefecture, $filters);
-    }
-
-    public function getSortOptions(): array
-    {
-        return [
-            'bargain_desc' => 'お買い得',
-            'latest'       => '新着',
-            'price_asc'    => '価格の安い',
-            'price_desc'   => '価格の高い',
-            'mileage_asc'  => '走行距離が少ない',
-            'mileage_desc' => '走行距離が多い',
-            'year_desc'    => '年式が新しい',
-            'year_asc'     => '年式が古い',
-        ];
-    }
-
+    public function getSearchMetadata(?string $keyword = null, ?string $prefecture = null, array $filters = []): array { return $this->metaGenerator->generate($keyword, $prefecture, $filters); }
+    public function getSortOptions(): array { return ['bargain_desc' => 'お買い得', 'latest' => '新着', 'price_asc' => '価格の安い', 'price_desc' => '価格の高い', 'mileage_asc' => '走行距離が少ない', 'mileage_desc' => '走行距離が多い', 'year_desc' => '年式が新しい', 'year_asc' => '年式が古い']; }
     public function getActiveCount(): int { return $this->statsRepo->countActiveListings(); }
     public function getModelsByManufacturer(int $mid): Collection { return $this->modelRepo->getByManufacturerId($mid); }
     
     public function getFilteredCount($k, $p, $f): int { 
         $cacheKey = 'search_count_' . md5(json_encode([$k, $p, $f]));
-        
         return Cache::remember($cacheKey, 10800, function () use ($k, $p, $f) {
             $paginated = $this->listingRepo->searchByKeyword($k, $p, 'latest', $f, 1);
             return method_exists($paginated, 'total') ? $paginated->total() : count($paginated->items()); 
         });
     }
 
-    public function getPopularTags(): array
-    {
-        return [
-            'ETC', 'ドラレコ', 'ワンオーナー', 'ABS', 
-            '低走行', 'グリップヒーター', '社外マフラー', 'USB電源'
-        ];
-    }
+    public function getPopularTags(): array { return ['ETC', 'ドラレコ', 'ワンオーナー', 'ABS', '低走行', 'グリップヒーター', '社外マフラー', 'USB電源']; }
 }

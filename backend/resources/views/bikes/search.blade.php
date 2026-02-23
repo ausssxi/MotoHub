@@ -59,7 +59,7 @@
                             </div>
                         </div>
 
-                        <!-- ★改修: 都道府県 (ファセット件数表示) -->
+                        <!-- 都道府県 -->
                         <div class="filter-group">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2 block">地域</label>
                             <div class="relative">
@@ -67,7 +67,6 @@
                                     <option value="">すべての地域</option>
                                     @foreach($prefectures as $pref)
                                         @php
-                                            // 現在の絞り込み状態での該当県のヒット件数を取得
                                             $count = $facets['prefecture'][$pref] ?? 0;
                                             $countText = $count > 0 ? " ({$count}台)" : "";
                                         @endphp
@@ -80,7 +79,7 @@
                             </div>
                         </div>
 
-                        <!-- ★改修: コンディション & 修復歴 (ファセット件数表示) -->
+                        <!-- コンディション & 修復歴 -->
                         <div class="space-y-6">
                             <div class="filter-group">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2 block">コンディション</label>
@@ -318,9 +317,37 @@
                     @forelse ($items as $listing)
                         @include('bikes.partials.bike_card', ['listing' => $listing])
                     @empty
-                        <div class="col-span-full py-40 text-center">
-                            <i data-lucide="search-x" class="w-16 h-16 text-gray-200 mx-auto mb-6"></i>
-                            <p class="text-gray-400 font-black uppercase tracking-widest text-xs">No matching bikes found</p>
+                        {{-- ★修正: 0件ヒット時のリッチなケア（サジェスト表示） --}}
+                        <div class="col-span-full bg-white rounded-3xl border border-gray-100 shadow-sm p-8 sm:p-16 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <i data-lucide="search-x" class="w-10 h-10 text-gray-300"></i>
+                            </div>
+                            <h3 class="text-xl font-black text-gray-900 mb-2">ご指定の条件に一致する車両がありません</h3>
+                            <p class="text-sm font-bold text-gray-400 mb-8">条件が少し厳しすぎるかもしれません。以下の条件で再検索してみてください。</p>
+                            
+                            @if(!empty($relaxSuggestions))
+                            <div class="max-w-xl mx-auto text-left">
+                                <h4 class="text-xs font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <i data-lucide="lightbulb" class="w-4 h-4 text-yellow-500"></i>
+                                    おすすめの検索条件
+                                </h4>
+                                <div class="space-y-3">
+                                    @foreach($relaxSuggestions as $suggestion)
+                                    <a href="{{ $suggestion['url'] }}" class="flex items-center justify-between p-4 rounded-xl bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 transition-all group">
+                                        <div class="flex items-center gap-3">
+                                            <div class="p-2 bg-white rounded-lg shadow-sm text-gray-400 group-hover:text-blue-500 transition-colors">
+                                                <i data-lucide="{{ $suggestion['icon'] }}" class="w-4 h-4"></i>
+                                            </div>
+                                            <span class="text-sm font-bold text-gray-700 group-hover:text-blue-700 transition-colors">{{ $suggestion['label'] }}</span>
+                                        </div>
+                                        <span class="text-xs font-black bg-white px-3 py-1.5 rounded-lg shadow-sm text-blue-600 border border-gray-100">
+                                            {{ number_format($suggestion['count']) }}台
+                                        </span>
+                                    </a>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @endif
                         </div>
                     @endforelse
                 </div>

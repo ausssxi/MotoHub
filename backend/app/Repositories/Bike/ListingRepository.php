@@ -14,9 +14,6 @@ use Illuminate\Support\Collection;
  */
 final class ListingRepository
 {
-    /**
-     * 一覧表示に必要な基本カラム
-     */
     private const LIST_COLUMNS = [
         'listings.id', 'listings.bike_model_id', 'listings.shop_id', 
         'listings.manufacturer_id', 'listings.category_id', 'listings.site_id',
@@ -35,28 +32,20 @@ final class ListingRepository
         ]);
     }
 
-    /**
-     * メイン検索 (Meilisearch ネイティブフィルタ対応版)
-     */
     public function searchByKeyword(?string $keyword, ?string $prefecture, string $sort, array $filters, int $perPage): Paginator
     {
-        // 1. Scout Search を開始 + Meilisearchエンジンのコールバックを利用
         $search = Listing::search($keyword ?? '', function ($meiliSearch, string $query, array $options) use ($prefecture, $filters) {
             
-            // ★共通化したフィルタ構築ロジックを使用
             $filterString = $this->buildMeilisearchFilters($prefecture, $filters);
             if ($filterString !== '') {
                 $options['filter'] = $filterString;
             }
 
-            // Meilisearchに最適化されたクエリを発行！
             return $meiliSearch->search($query, $options);
         });
 
-        // 2. ソート (Meilisearch 側で実行)
         $this->applyMeilisearchSorting($search, $sort);
 
-        // 3. データ取得 & リレーションの結合 (N+1対策済み)
         return $search->query(function ($query) {
             $query->select(self::LIST_COLUMNS)
                 ->with([
@@ -69,10 +58,6 @@ final class ListingRepository
         })->paginate($perPage); 
     }
 
-    /**
-     * ★新規追加: ファセット（項目ごとの件数）を取得するメソッド
-     * ページネーション用のデータ取得とは別に、サイドバー表示用の件数だけを超高速で取得します。
-     */
     public function getFacets(?string $keyword, ?string $prefecture, array $filters, array $facetAttributes = ['prefecture']): array
     {
         $raw = Listing::search($keyword ?? '', function ($meiliSearch, string $query, array $options) use ($prefecture, $filters, $facetAttributes) {
@@ -82,9 +67,7 @@ final class ListingRepository
                 $options['filter'] = $filterString;
             }
             
-            // ファセット（件数集計）の対象項目を指定
             $options['facets'] = $facetAttributes;
-            // 実際のドキュメントデータは不要なのでlimit=0で究極まで高速化
             $options['limit'] = 0; 
             
             return $meiliSearch->search($query, $options);
@@ -94,20 +77,31 @@ final class ListingRepository
     }
 
     /**
-     * 共通: Meilisearch 用のフィルター文字列を構築する
+     * Meilisearch 用のフィルター文字列を構築する
      */
     private function buildMeilisearchFilters(?string $prefecture, array $filters): string
     {
         $filterStrings = [];
 
+        // 常に有効な車両のみ（売約済みを除外）を検索対象とする
+        $filterStrings[] = "is_sold_out = 0";
+
         // --- 完全一致フィルター ---
         if ($prefecture) $filterStrings[] = "prefecture = '{$prefecture}'";
         if (!empty($filters['prefecture'])) $filterStrings[] = "prefecture = '{$filters['prefecture']}'";
-        if (!empty($filters['manufacturer_id'])) $filterStrings[] = "manufacturer_id = " . (int)$filters['manufacturer_id'];
-        if (!empty($filters['bike_model_id'])) $filterStrings[] = "bike_model_id = " . (int)$filters['bike_model_id'];
+        
+        // ▼▼▼ 修正の核心部分 ▼▼▼
+        // 車種(bike_model_id)が指定されている場合は、メーカーでの絞り込みをスキップします。
+        // こうすることで、データ不備でメーカーIDが空になっている車両も取りこぼさず表示できます！
+        if (!empty($filters['bike_model_id'])) {
+            $filterStrings[] = "bike_model_id = " . (int)$filters['bike_model_id'];
+        } elseif (!empty($filters['manufacturer_id'])) {
+            $filterStrings[] = "manufacturer_id = " . (int)$filters['manufacturer_id'];
+        }
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
         if (!empty($filters['category_id'])) $filterStrings[] = "category_id = " . (int)$filters['category_id'];
         
-        // 0(中古) も許容するため isset を使用
         if (isset($filters['is_new']) && $filters['is_new'] !== '') $filterStrings[] = "is_new = " . (int)$filters['is_new'];
         if (isset($filters['has_repair_history']) && $filters['has_repair_history'] !== '') $filterStrings[] = "has_repair_history = " . (int)$filters['has_repair_history'];
         
@@ -137,9 +131,6 @@ final class ListingRepository
         return implode(' AND ', $filterStrings);
     }
 
-    /**
-     * Meilisearch 向けのソート適用
-     */
     private function applyMeilisearchSorting($search, string $sort): void
     {
         $direction = match ($sort) {
@@ -158,9 +149,6 @@ final class ListingRepository
         $search->orderBy($field, $direction);
     }
 
-    /**
-     * 以下、詳細取得系（MySQL直打ちでOK）
-     */
     public function getByShopId(int $shopId, int $perPage = 30): Paginator
     {
         return Listing::query()

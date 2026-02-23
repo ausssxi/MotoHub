@@ -33,11 +33,16 @@ class Listing extends Model
     public function toSearchableArray(): array
     {
         // リレーションのN+1を防ぎつつデータを取得
-        $this->loadMissing(['tags', 'bikeModel']);
+        // ★修正: bikeModelだけでなく、manufacturerとmarketStats(bargain_score計算用)も事前ロードに追加してさらに高速化
+        $this->loadMissing(['tags', 'bikeModel.marketStats', 'bikeModel.manufacturer']);
 
         return [
             'id'                => (int) $this->id,
             'title'             => $this->title,
+            // ★追加: 車種名とメーカー名をキーワード検索対象としてMeilisearchに送る
+            'manufacturer_name' => $this->bikeModel?->manufacturer?->name ?? '',
+            'bike_model_name'   => $this->bikeModel?->name ?? '',
+            
             'manufacturer_id'   => (int) $this->manufacturer_id,
             'bike_model_id'     => (int) $this->bike_model_id,
             'category_id'       => (int) $this->category_id,

@@ -35,15 +35,16 @@ class SyncMeilisearchSettings extends Command
         ]);
 
         // 2. 並び替え(Sort)のルールを再定義
-        // ★カスタムランキングに使用するため、favorite_count と view_count_today を追加
         $index->updateSortableAttributes([
             'created_at', 'total_price', 'mileage', 'model_year', 'bargain_score',
             'favorite_count', 'view_count_today'
         ]);
 
-        // 3. 検索対象カラムの優先順位（タイトルを最優先にする）
+        // 3. 検索対象カラムの優先順位（タイトルと車種名を最優先にする）
         $index->updateSearchableAttributes([
             'title',
+            'bike_model_name',   // ★追加: 車種名でもヒットさせる
+            'manufacturer_name', // ★追加: メーカー名でもヒットさせる
             'prefecture',
             'tag_slugs'
         ]);

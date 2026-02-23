@@ -78,9 +78,15 @@ const initMotoHubSuggest = () => {
                     list.querySelectorAll('.suggest-clickable').forEach(btn => {
                         btn.onclick = (event) => {
                             event.preventDefault();
-                            input.value = btn.dataset.name;
-                            results.classList.add('hidden');
-                            form.submit();
+                            
+                            // ★変更: URLが指定されている場合（車種サジェスト）はそちらへ直接遷移する
+                            if (btn.dataset.url) {
+                                window.location.href = btn.dataset.url;
+                            } else {
+                                input.value = btn.dataset.name;
+                                results.classList.add('hidden');
+                                form.submit();
+                            }
                         };
                     });
                 } catch (error) {
@@ -153,8 +159,9 @@ const initMotoHubSuggest = () => {
             formId: 'search-form',
             containerId: 'search-container',
             modelsHeaderTemplate: () => `<div class="px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 border-b border-gray-100 flex items-center gap-1.5"><i data-lucide="folder-search" class="w-3.5 h-3.5"></i> 関連する車種</div>`,
+            // ★変更: data-url属性に bike_model_id を含めたリンクを設定
             modelTemplate: (item) => `
-                <button type="button" class="w-full px-5 py-3 hover:bg-gray-50 flex items-center justify-between group transition-colors suggest-clickable" data-name="${item.name}">
+                <button type="button" class="w-full px-5 py-3 hover:bg-gray-50 flex items-center justify-between group transition-colors suggest-clickable" data-url="/bikes/search?bike_model_id=${item.id}">
                     <div class="flex items-center gap-3">
                         <div class="p-1.5 bg-gray-100 rounded-lg group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
                             <i data-lucide="search" class="w-3.5 h-3.5"></i>
@@ -178,8 +185,9 @@ const initMotoHubSuggest = () => {
             formId: 'nav-search-form',
             containerId: 'nav-search-container',
             modelsHeaderTemplate: () => `<div class="px-3 py-1.5 text-[9px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 border-b border-gray-100 flex items-center gap-1"><i data-lucide="folder-search" class="w-3 h-3"></i> 関連する車種</div>`,
+            // ★変更: data-url属性を設定
             modelTemplate: (item) => `
-                <button type="button" class="w-full px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between group transition-colors suggest-clickable" data-name="${item.name}">
+                <button type="button" class="w-full px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between group transition-colors suggest-clickable" data-url="/bikes/search?bike_model_id=${item.id}">
                     <div class="flex items-center gap-2.5">
                         <div class="p-1 bg-gray-100 rounded group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
                             <i data-lucide="search" class="w-3 h-3"></i>
@@ -201,10 +209,11 @@ const initMotoHubSuggest = () => {
             resultsId: 'mobile-nav-suggest-results',
             listId: 'mobile-nav-suggest-list',
             formId: 'mobile-nav-search-form',
-            containerId: 'mobile-nav-search-bar', // トグルで表示されるコンテナ全体
+            containerId: 'mobile-nav-search-bar',
             modelsHeaderTemplate: () => `<div class="px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 border-b border-gray-100 flex items-center gap-1.5"><i data-lucide="folder-search" class="w-3.5 h-3.5"></i> 関連する車種</div>`,
+            // ★変更: data-url属性を設定
             modelTemplate: (item) => `
-                <button type="button" class="w-full px-4 py-3 hover:bg-gray-50 flex items-center justify-between group transition-colors suggest-clickable" data-name="${item.name}">
+                <button type="button" class="w-full px-4 py-3 hover:bg-gray-50 flex items-center justify-between group transition-colors suggest-clickable" data-url="/bikes/search?bike_model_id=${item.id}">
                     <div class="flex items-center gap-3">
                         <div class="p-1.5 bg-gray-100 rounded-lg group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
                             <i data-lucide="search" class="w-4 h-4"></i>
