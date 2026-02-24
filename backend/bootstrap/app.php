@@ -6,6 +6,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\DB; // ★DBファサードの読み込みを追加
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -31,6 +32,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $bargainLog = storage_path('logs/bargain_tweets.log');
         $statsLog = storage_path('logs/stats.log');
         $tagsLog = storage_path('logs/tags.log');
+        $specsLog = storage_path('logs/specs.log'); // ★追加: スペック収集用ログ
+        $meiliLog = storage_path('logs/meilisearch.log'); // ★追加: 検索エンジン用ログ
 
         /**
          * --- 1. 月次タスク (毎月1日) ---
@@ -42,7 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->exec("python3 {$basePath}/bds/model_collector.py")->monthlyOn(1, '00:20')->withoutOverlapping()->appendOutputTo($crawlingLog);
         $schedule->exec("python3 {$basePath}/webike/model_collector.py")->monthlyOn(1, '00:40')->withoutOverlapping()->appendOutputTo($crawlingLog);
 
-        // ② カテゴリー・スペック補完 (01:00〜)
+        // ② カテゴリー補完 (01:00〜)
         $schedule->exec("python3 {$basePath}/goobike/category_collector.py")->monthlyOn(1, '01:00')->withoutOverlapping()->appendOutputTo($crawlingLog);
         $schedule->exec("python3 {$basePath}/bds/category_collector.py")->monthlyOn(1, '01:20')->withoutOverlapping()->appendOutputTo($crawlingLog);
         $schedule->exec("python3 {$basePath}/webike/category_collector.py")->monthlyOn(1, '01:40')->withoutOverlapping()->appendOutputTo($crawlingLog);
@@ -66,7 +69,7 @@ return Application::configure(basePath: dirname(__DIR__))
             DB::table('listings')->update(['view_count_today' => 0]);
         })->dailyAt('00:00')->name('reset-daily-view-counts');
 
-        // ★修正: 出品情報の収集を1時間ずつずらして実行 (負荷分散)
+        // 出品情報の収集を1時間ずつずらして実行 (負荷分散)
         // GooBike (01:00)
         $schedule->exec("python3 {$basePath}/goobike/listing_collector.py")
                  ->dailyAt('01:00')
@@ -91,12 +94,31 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->withoutOverlapping()
                  ->appendOutputTo($crawlingLog);
 
-        // ★追加: タグ抽出処理 (05:00)
+        // ★追加: カタログスペックの自動収集・穴埋め (04:30〜)
+        // 未取得の車種がない場合は数秒で終了します
+        $schedule->exec("python3 {$basePath}/bikebros/spec_collector.py")
+                 ->dailyAt('04:30')
+                 ->withoutOverlapping()
+                 ->appendOutputTo($specsLog);
+                 
+        $schedule->exec("python3 {$basePath}/goobike/spec_collector.py")
+                 ->dailyAt('04:45')
+                 ->withoutOverlapping()
+                 ->appendOutputTo($specsLog);
+
+        // タグ抽出処理 (05:00)
         // 収集したばかりの最新データから「ETC」「ワンオーナー」などのタグを生成
         $schedule->command('tags:extract')
                  ->dailyAt('05:00')
                  ->withoutOverlapping()
                  ->appendOutputTo($tagsLog);
+
+        // ★追加: Meilisearch(検索エンジン)の同期 (05:30)
+        // Pythonスクレイパーとタグ抽出で更新されたMySQLの最新状態を検索エンジンに流し込みます。
+        $schedule->command('scout:import', ['App\Models\Listing'])
+                 ->dailyAt('05:30')
+                 ->withoutOverlapping()
+                 ->appendOutputTo($meiliLog);
 
         // 市場価格の再計算・グラフキャッシュ更新 (06:00)
         // タグ抽出まで完了したデータをもとに統計を生成
