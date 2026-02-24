@@ -31,6 +31,14 @@ final class BikeService
 
     public function incrementViewCount(int $id): void
     {
+        // クローラー（Bot）からのアクセスはカウントしない
+        $userAgent = request()->userAgent() ?? '';
+        $isBot = preg_match('/bot|crawler|spider|slurp|facebook|twitter|line|insomnia|curl|wget/i', strtolower($userAgent));
+        
+        if ($isBot) {
+            return;
+        }
+
         $viewed = Session::get('viewed_listings', []);
 
         if (!in_array($id, $viewed)) {
