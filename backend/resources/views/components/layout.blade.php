@@ -27,6 +27,11 @@
     {{-- CSRFトークン（Ajax通信に必須） --}}
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
+    {{-- ★追加: Google Fontsの爆速・非同期読み込み --}}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+
     {{-- ★大手術1: Tailwind CDNを本番環境から排除し、ビルドされた超軽量CSSに切り替え --}}
     @if(app()->isLocal())
         <script src="https://cdn.tailwindcss.com"></script>
