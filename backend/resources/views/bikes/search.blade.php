@@ -315,7 +315,8 @@
                 {{-- 結果グリッド --}}
                 <div id="results-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                     @forelse ($items as $listing)
-                        @include('bikes.partials.bike_card', ['listing' => $listing])
+                        {{-- ★ここを修正！ $loop->index < 4 を渡す --}}
+                        @include('bikes.partials.bike_card', ['listing' => $listing, 'isFirstView' => $loop->index < 4])
                     @empty
                         {{-- ★修正: 0件ヒット時のリッチなケア（サジェスト表示） --}}
                         <div class="col-span-full bg-white rounded-3xl border border-gray-100 shadow-sm p-8 sm:p-16 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
