@@ -15,9 +15,9 @@
     </x-slot:styles>
 
     <x-slot:scripts>
-        <script src="{{ asset('js/search/sidebar.js') }}"></script>
-        <script src="{{ asset('js/compare/manager.js') }}"></script>
-        <script src="{{ asset('js/compare/ui.js') }}"></script>
+        <script src="{{ asset('js/search/sidebar.js') }}" defer></script>
+        <script src="{{ asset('js/compare/manager.js') }}" defer></script>
+        <script src="{{ asset('js/compare/ui.js') }}" defer></script>
     </x-slot:scripts>
 
     <x-slot:navigation>

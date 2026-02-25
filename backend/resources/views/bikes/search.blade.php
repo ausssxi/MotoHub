@@ -8,12 +8,12 @@
     </x-slot:styles>
 
     <x-slot:scripts>
-        <script src="{{ asset('js/search/sidebar.js') }}"></script>
-        <script src="{{ asset('js/common/custom-dropdown.js') }}"></script>
-        <script src="{{ asset('js/compare/manager.js') }}"></script>
-        <script src="{{ asset('js/compare/ui.js') }}"></script>
-        <script src="{{ asset('js/search/save_condition.js') }}"></script>
-        <script src="{{ asset('js/search/infinite-scroll.js') }}"></script>
+        <script src="{{ asset('js/search/sidebar.js') }}" defer></script>
+        <script src="{{ asset('js/common/custom-dropdown.js') }}" defer></script>
+        <script src="{{ asset('js/compare/manager.js') }}" defer></script>
+        <script src="{{ asset('js/compare/ui.js') }}" defer></script>
+        <script src="{{ asset('js/search/save_condition.js') }}" defer></script>
+        <script src="{{ asset('js/search/infinite-scroll.js') }}" defer></script>
     </x-slot:scripts>
 
     <x-slot:navigation>
