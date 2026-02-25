@@ -56,9 +56,9 @@
                     </div>
                     {{-- ★修正: id="search-input" に変更 --}}
                     <input type="text" name="keyword" id="search-input"
-                        class="w-full h-14 pl-12 pr-4 rounded-full border-none focus:ring-4 focus:ring-blue-500/30 text-base font-bold shadow-2xl placeholder:text-gray-400 transition-all"
+                        class="w-full h-14 pl-12 pr-4 rounded-full border-none focus:ring-4 focus:ring-blue-500/30 text-base font-bold shadow-2xl placeholder:text-gray-400 transition"
                         placeholder="車種名、メーカー名、キーワードを入力..." autocomplete="off">
-                    <button type="submit" class="absolute right-2 top-2 h-10 px-6 bg-black text-white rounded-full text-xs font-black hover:bg-gray-800 transition-all flex items-center gap-2">
+                    <button type="submit" class="absolute right-2 top-2 h-10 px-6 bg-black text-white rounded-full text-xs font-black hover:bg-gray-800 transition flex items-center gap-2">
                         検索
                     </button>
                 </div>
@@ -79,7 +79,7 @@
                     </span>
                     @foreach($popularTags as $tag)
                         <a href="{{ route('bikes.search', ['tag' => $tag]) }}" 
-                           class="px-3 py-1.5 rounded-full bg-blue-500/20 hover:bg-blue-500/40 text-blue-50 text-[10px] font-bold border border-blue-400/30 backdrop-blur-sm transition-all shadow-lg shadow-blue-500/10">
+                           class="px-3 py-1.5 rounded-full bg-blue-500/20 hover:bg-blue-500/40 text-blue-50 text-[10px] font-bold border border-blue-400/30 backdrop-blur-sm transition shadow-lg shadow-blue-500/10">
                             #{{ $tag }}
                         </a>
                     @endforeach
@@ -88,7 +88,7 @@
                 {{-- メーカーリンク --}}
                 <div class="flex flex-wrap justify-center gap-2">
                     @foreach($manufacturers as $maker)
-                        <a href="{{ route('bikes.search', ['manufacturer_id' => $maker->id]) }}" class="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] font-bold border border-white/10 backdrop-blur-sm transition-all">
+                        <a href="{{ route('bikes.search', ['manufacturer_id' => $maker->id]) }}" class="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] font-bold border border-white/10 backdrop-blur-sm transition">
                             {{ $maker->name }}
                         </a>
                     @endforeach
@@ -115,7 +115,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     @foreach($features as $feature)
                         <a href="{{ $feature['url'] }}" 
-                           class="group relative overflow-hidden rounded-2xl p-6 {{ $feature['color'] }} shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between h-32 sm:h-40 border border-white/20">
+                           class="group relative overflow-hidden rounded-2xl p-6 {{ $feature['color'] }} shadow-sm hover:shadow-xl transition duration-300 flex flex-col justify-between h-32 sm:h-40 border border-white/20">
                             
                             {{-- 背景の装飾アイコン --}}
                             <div class="absolute -right-6 -bottom-6 opacity-20 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500">
@@ -165,7 +165,7 @@
                     @foreach($categories as $category)
                         @if($category->display_icon_url)
                         <a href="{{ route('bikes.search', ['category_id' => $category->id]) }}" 
-                           class="group bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col items-center text-center h-full">
+                           class="group bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition duration-300 flex flex-col items-center text-center h-full">
                             
                             <div class="w-16 h-12 sm:w-20 sm:h-14 mb-3 relative flex items-center justify-center">
                                 <img src="{{ $category->display_icon_url }}" 
@@ -196,7 +196,7 @@
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     @foreach($licenses as $license)
                         <a href="{{ route('bikes.search', ['min_displacement' => $license['min_cc'], 'max_displacement' => $license['max_cc']]) }}" 
-                           class="group relative overflow-hidden rounded-2xl p-6 {{ $license['color'] }} transition-all duration-300 hover:shadow-lg border border-transparent hover:border-current flex flex-col items-center justify-center text-center h-32">
+                           class="group relative overflow-hidden rounded-2xl p-6 {{ $license['color'] }} transition duration-300 hover:shadow-lg border border-transparent hover:border-current flex flex-col items-center justify-center text-center h-32">
                             
                             {{-- 背景の装飾アイコン --}}
                             <div class="absolute -right-4 -bottom-4 opacity-10 transform group-hover:scale-125 transition-transform duration-500">
@@ -233,7 +233,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     @foreach($popularBikes as $bike)
                         <a href="{{ route('bikes.search', ['bike_model_id' => $bike->id]) }}" 
-                           class="group flex items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-300">
+                           class="group flex items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md transition duration-300">
                             
                             <div class="w-14 h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 border border-gray-50 relative">
                                 @if($bike->image_url)
@@ -258,7 +258,7 @@
                                 </div>
                             </div>
                             
-                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-blue-400 group-hover:translate-x-1 transition-all"></i>
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-blue-400 group-hover:translate-x-1 transition"></i>
                         </a>
                     @endforeach
                 </div>
@@ -279,7 +279,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     @foreach($latestReviews as $review)
                         <a href="{{ route('bikes.model_detail', $review->bike_model_id) }}#reviews" 
-                           class="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col h-full">
+                           class="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition duration-300 flex flex-col h-full">
                             
                             {{-- ヘッダー: 車種名と評価 --}}
                             <div class="flex items-start justify-between mb-3">
@@ -335,7 +335,7 @@
                         <div class="flex flex-wrap justify-center gap-3">
                             @foreach(['東京', '神奈川', '埼玉', '千葉', '大阪', '愛知', '福岡', '北海道'] as $pref)
                                 <a href="{{ route('bikes.search', ['prefecture' => $pref]) }}" 
-                                   class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">
+                                   class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition border border-white/20">
                                     {{ $pref }}
                                 </a>
                             @endforeach

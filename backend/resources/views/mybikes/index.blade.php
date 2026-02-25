@@ -43,7 +43,7 @@
             @else
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     @foreach($myBikes as $bike)
-                        <a href="{{ route('mybikes.show', $bike->id) }}" class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all group block relative">
+                        <a href="{{ route('mybikes.show', $bike->id) }}" class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition group block relative">
                             
                             <div class="relative h-48 bg-gray-900 overflow-hidden">
                                 @if($bike->display_image)

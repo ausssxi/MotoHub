@@ -53,7 +53,7 @@
                                         $url = route('bikes.search', array_merge(request()->except(['page', 'tag']), ['tag' => $nextTag]));
                                     @endphp
                                     <a href="{{ $url }}" 
-                                       class="px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border {{ ($currentTag === $tag) ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm' : 'bg-white text-gray-600 border-gray-100 hover:border-blue-300 hover:bg-blue-50' }}">
+                                       class="px-3 py-1.5 rounded-lg text-[10px] font-bold transition border {{ ($currentTag === $tag) ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm' : 'bg-white text-gray-600 border-gray-100 hover:border-blue-300 hover:bg-blue-50' }}">
                                         #{{ $tag }}
                                     </a>
                                 @endforeach
@@ -96,7 +96,7 @@
                                     <label class="flex-1 text-center cursor-pointer">
                                         <input type="radio" name="is_new" value="{{ $val }}" class="hidden peer" 
                                             @checked((string)($filters['is_new'] ?? '') === (string)$val)>
-                                        <span class="block py-2 text-[10px] font-black rounded-lg transition-all peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">
+                                        <span class="block py-2 text-[10px] font-black rounded-lg transition peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">
                                             {{ $label }}{!! $countHtml !!}
                                         </span>
                                     </label>
@@ -118,7 +118,7 @@
                                     <label class="flex-1 text-center cursor-pointer">
                                         <input type="radio" name="has_repair_history" value="{{ $val }}" class="hidden peer" 
                                             @checked((string)($filters['has_repair_history'] ?? '') === (string)$val)>
-                                        <span class="block py-2 text-[10px] font-black rounded-lg transition-all peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">
+                                        <span class="block py-2 text-[10px] font-black rounded-lg transition peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">
                                             {{ $label }}{!! $countHtml !!}
                                         </span>
                                     </label>
@@ -202,7 +202,7 @@
 
                         <!-- モバイル用検索ボタン -->
                         <div class="pt-4 lg:hidden">
-                            <button type="submit" class="w-full bg-[#5392f9] text-white font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest shadow-xl shadow-blue-100 active:scale-95 transition-all flex items-center justify-center gap-2">
+                            <button type="submit" class="w-full bg-[#5392f9] text-white font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest shadow-xl shadow-blue-100 active:scale-95 transition flex items-center justify-center gap-2">
                                 <span>条件を適用する</span>
                                 <span class="bg-white/20 px-2 py-0.5 rounded text-[10px] min-w-[3rem]" id="mobile-hit-count">
                                     ({{ number_format($pagination['total']) }}台)
@@ -218,12 +218,12 @@
                             </div>
                             
                             @auth
-                                <button type="button" id="save-search-btn" class="w-full bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-black py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm group">
+                                <button type="button" id="save-search-btn" class="w-full bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-black py-3 rounded-xl transition flex items-center justify-center gap-2 shadow-sm group">
                                     <i data-lucide="bookmark" class="w-4 h-4 group-hover:fill-current"></i>
                                     この条件を保存する
                                 </button>
                             @else
-                                <a href="{{ route('login') }}" class="block w-full bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold py-3 rounded-xl transition-all text-center text-xs flex items-center justify-center gap-2">
+                                <a href="{{ route('login') }}" class="block w-full bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold py-3 rounded-xl transition text-center text-xs flex items-center justify-center gap-2">
                                     <i data-lucide="lock" class="w-3 h-3"></i>
                                     ログインして条件を保存
                                 </a>
@@ -248,13 +248,13 @@
                     </div>
                     
                     <div class="flex items-center gap-3">
-                        <button id="open-filter" class="lg:hidden flex-shrink-0 flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 text-xs font-black shadow-sm active:bg-gray-50 transition-all">
+                        <button id="open-filter" class="lg:hidden flex-shrink-0 flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 text-xs font-black shadow-sm active:bg-gray-50 transition">
                             <i data-lucide="sliders-horizontal" class="w-4 h-4 text-blue-500"></i>
                             <span>絞り込み</span>
                         </button>
 
                         <div class="relative flex-1 sm:w-64">
-                            <button type="button" id="custom-sort-btn" class="w-full flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm hover:border-blue-500 transition-all">
+                            <button type="button" id="custom-sort-btn" class="w-full flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm hover:border-blue-500 transition">
                                 <span id="custom-sort-label" class="text-xs font-black text-gray-800">
                                     {{ $sortOptions[$sort] ?? '新着順' }}
                                 </span>
@@ -335,7 +335,7 @@
                                 </h4>
                                 <div class="space-y-3">
                                     @foreach($relaxSuggestions as $suggestion)
-                                    <a href="{{ $suggestion['url'] }}" class="flex items-center justify-between p-4 rounded-xl bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 transition-all group">
+                                    <a href="{{ $suggestion['url'] }}" class="flex items-center justify-between p-4 rounded-xl bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 transition group">
                                         <div class="flex items-center gap-3">
                                             <div class="p-2 bg-white rounded-lg shadow-sm text-gray-400 group-hover:text-blue-500 transition-colors">
                                                 <i data-lucide="{{ $suggestion['icon'] }}" class="w-4 h-4"></i>
@@ -357,7 +357,7 @@
                 {{-- さらに読み込むボタン --}}
                 @if($pagination['next_url'])
                 <div id="load-more-container" class="mt-12 text-center pb-8">
-                    <button id="load-more-btn" data-next-url="{{ $pagination['next_url'] }}" class="group bg-white border-2 border-gray-200 text-gray-700 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 font-black py-4 px-12 rounded-full shadow-sm hover:shadow-md transition-all inline-flex items-center justify-center gap-2 active:scale-95 w-full sm:w-auto">
+                    <button id="load-more-btn" data-next-url="{{ $pagination['next_url'] }}" class="group bg-white border-2 border-gray-200 text-gray-700 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 font-black py-4 px-12 rounded-full shadow-sm hover:shadow-md transition inline-flex items-center justify-center gap-2 active:scale-95 w-full sm:w-auto">
                         <span id="load-more-text">さらに車両を見る</span>
                         <i data-lucide="chevron-down" id="load-more-icon" class="w-5 h-5 group-hover:translate-y-1 transition-transform"></i>
                         <i data-lucide="loader-2" id="load-more-spinner" class="w-5 h-5 animate-spin hidden text-blue-600"></i>
@@ -370,15 +370,15 @@
                 <div id="classic-pagination" class="mt-20 flex-col items-center gap-6 w-full hidden">
                     <nav class="flex justify-center items-center gap-1 sm:gap-2">
                         @if($pagination['prev_url'])
-                        <a href="{{ $pagination['prev_url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-400 hover:border-black transition-all"><i data-lucide="chevron-left" class="w-5 h-5"></i></a>
+                        <a href="{{ $pagination['prev_url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-400 hover:border-black transition"><i data-lucide="chevron-left" class="w-5 h-5"></i></a>
                         @endif
                         @foreach($pagination['pages'] as $page)
                             @if($page['is_dot']) <span class="px-1 text-gray-300">...</span>
-                            @else <a href="{{ $page['url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg font-black text-sm transition-all {{ $page['is_active'] ? 'bg-black text-white shadow-lg' : 'bg-white border border-gray-200 text-gray-400 hover:border-black' }}">{{ $page['label'] }}</a>
+                            @else <a href="{{ $page['url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg font-black text-sm transition {{ $page['is_active'] ? 'bg-black text-white shadow-lg' : 'bg-white border border-gray-200 text-gray-400 hover:border-black' }}">{{ $page['label'] }}</a>
                             @endif
                         @endforeach
                         @if($pagination['next_url'])
-                        <a href="{{ $pagination['next_url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-400 hover:border-black transition-all"><i data-lucide="chevron-right" class="w-5 h-5"></i></a>
+                        <a href="{{ $pagination['next_url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-400 hover:border-black transition"><i data-lucide="chevron-right" class="w-5 h-5"></i></a>
                         @endif
                     </nav>
                 </div>

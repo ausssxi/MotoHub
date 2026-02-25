@@ -1,4 +1,4 @@
-<div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col group border border-gray-100 relative cursor-pointer bike-card">
+<div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition duration-500 flex flex-col group border border-gray-100 relative cursor-pointer bike-card">
     
     <a href="{{ route('bikes.show', $listing['id']) }}" class="absolute inset-0 z-10"></a>
     
@@ -33,7 +33,7 @@
         </div>
         @endif
         
-        <button class="compare-btn absolute top-3 left-3 z-20 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 border border-gray-100 shadow-sm transition-all hover:scale-110 active:scale-95" data-id="{{ $listing['id'] }}">
+        <button class="compare-btn absolute top-3 left-3 z-20 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 border border-gray-100 shadow-sm transition hover:scale-110 active:scale-95" data-id="{{ $listing['id'] }}">
             <i data-lucide="layers" class="w-5 h-5"></i>
         </button>
         
@@ -94,7 +94,7 @@
             <div class="flex items-center gap-1.5"><i data-lucide="wrench" class="w-3.5 h-3.5 text-gray-300"></i><span class="truncate">修復歴: {{ $listing['repair_history'] }}</span></div>
         </div>
 
-        <div class="mt-auto bg-gray-50 p-4 rounded-xl border border-gray-100 group-hover:bg-blue-50 transition-all duration-300">
+        <div class="mt-auto bg-gray-50 p-4 rounded-xl border border-gray-100 group-hover:bg-blue-50 transition duration-300">
             <div class="flex justify-between items-end mb-3">
                 <div>
                     <span class="text-[8px] font-black text-gray-400 block uppercase tracking-tighter">支払総額</span>

@@ -75,7 +75,7 @@
                     <p class="text-xs sm:text-sm text-gray-500 leading-relaxed mb-6">
                         当サイトの運営に関するお問い合わせ、または権利関係のご相談については「お問い合わせ」ページよりご連絡ください。
                     </p>
-                    <a href="contact" class="inline-flex items-center justify-center bg-black text-white px-6 py-3 rounded-xl text-xs font-black hover:bg-gray-800 transition-all uppercase tracking-widest">
+                    <a href="contact" class="inline-flex items-center justify-center bg-black text-white px-6 py-3 rounded-xl text-xs font-black hover:bg-gray-800 transition uppercase tracking-widest">
                         お問い合わせはこちら <i data-lucide="arrow-right" class="w-4 h-4 ml-2"></i>
                     </a>
                 </section>

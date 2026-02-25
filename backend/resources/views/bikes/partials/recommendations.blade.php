@@ -18,7 +18,7 @@
         
         <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
             @foreach($relatedListings as $rel)
-                <a href="{{ route('bikes.show', $rel['id']) }}" class="snap-start shrink-0 w-40 sm:w-48 group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all border border-gray-100 flex flex-col relative block">
+                <a href="{{ route('bikes.show', $rel['id']) }}" class="snap-start shrink-0 w-40 sm:w-48 group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition border border-gray-100 flex flex-col relative block">
                     <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
                         <img src="{{ $rel['images'][0] ?? 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop' }}" 
                              onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
@@ -68,7 +68,7 @@
         
         <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
             @foreach($similarListings as $sim)
-                <a href="{{ route('bikes.show', $sim['id']) }}" class="snap-start shrink-0 w-40 sm:w-48 group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all border border-gray-100 flex flex-col relative block">
+                <a href="{{ route('bikes.show', $sim['id']) }}" class="snap-start shrink-0 w-40 sm:w-48 group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition border border-gray-100 flex flex-col relative block">
                     <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
                         <img src="{{ $sim['images'][0] ?? 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop' }}" 
                              onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
@@ -134,7 +134,7 @@
         
         <div class="flex flex-wrap gap-2 sm:gap-3">
             @foreach($dynamicLinks as $link)
-                <a href="{{ $link['url'] }}" class="inline-flex items-center bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 hover:shadow-md px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all group">
+                <a href="{{ $link['url'] }}" class="inline-flex items-center bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 hover:shadow-md px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition group">
                     <i data-lucide="{{ $link['icon'] ?? 'search' }}" class="w-3.5 h-3.5 inline-block mr-1.5 text-gray-400 group-hover:text-blue-500 transition-colors"></i>
                     {{ $link['label'] }}
                 </a>

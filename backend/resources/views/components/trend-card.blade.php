@@ -1,4 +1,4 @@
-<a href="{{ route('bikes.search', ['bike_model_id' => $item['model_id']]) }}" class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all group flex items-center gap-4 relative overflow-hidden">
+<a href="{{ route('bikes.search', ['bike_model_id' => $item['model_id']]) }}" class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition group flex items-center gap-4 relative overflow-hidden">
     
     {{-- ランキングバッジ --}}
     <div class="absolute top-0 left-0 w-8 h-8 flex items-center justify-center font-black text-xs rounded-br-xl z-10 {{ $rankColor() }}">

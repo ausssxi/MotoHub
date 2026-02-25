@@ -70,7 +70,7 @@
                             </div>
                         </div>
 
-                        <button type="submit" id="btn-calculate" disabled class="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-300 text-white font-black text-lg py-4 rounded-xl shadow-lg shadow-blue-500/30 disabled:shadow-none transition-all transform active:scale-95 flex items-center justify-center gap-2">
+                        <button type="submit" id="btn-calculate" disabled class="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-300 text-white font-black text-lg py-4 rounded-xl shadow-lg shadow-blue-500/30 disabled:shadow-none transition transform active:scale-95 flex items-center justify-center gap-2">
                             <span>相場をチェックする</span>
                             <i data-lucide="calculator" class="w-5 h-5"></i>
                         </button>
@@ -114,7 +114,7 @@
                                 <div class="text-[10px] font-bold text-center text-blue-600 bg-blue-50 py-1 rounded-t-lg border-x border-t border-blue-100">
                                     カスタム車・改造車もOK！
                                 </div>
-                                <a href="https://px.a8.net/svt/ejp?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" target="_blank" rel="nofollow" class="relative block w-full bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white font-black text-center py-4 rounded-b-xl shadow-md transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
+                                <a href="https://px.a8.net/svt/ejp?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" target="_blank" rel="nofollow" class="relative block w-full bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white font-black text-center py-4 rounded-b-xl shadow-md transition transform hover:-translate-y-1 flex items-center justify-center gap-2">
                                     <span>バイクワンで査定</span>
                                     <i data-lucide="external-link" class="w-4 h-4"></i>
                                 </a>
@@ -127,7 +127,7 @@
                                 <div class="text-[10px] font-bold text-center text-red-600 bg-red-50 py-1 rounded-t-lg border-x border-t border-red-100">
                                     旧車・ハーレー・大型車に強い！
                                 </div>
-                                <a href="https://px.a8.net/svt/ejp?a8mat=4AX6CG+5QLFOY+1T3W+62ENM" target="_blank" rel="nofollow" class="relative block w-full bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white font-black text-center py-4 rounded-b-xl shadow-md transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
+                                <a href="https://px.a8.net/svt/ejp?a8mat=4AX6CG+5QLFOY+1T3W+62ENM" target="_blank" rel="nofollow" class="relative block w-full bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white font-black text-center py-4 rounded-b-xl shadow-md transition transform hover:-translate-y-1 flex items-center justify-center gap-2">
                                     <span>バイクBOONで査定</span>
                                     <i data-lucide="external-link" class="w-4 h-4"></i>
                                 </a>

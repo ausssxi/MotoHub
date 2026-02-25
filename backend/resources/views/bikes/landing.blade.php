@@ -71,7 +71,7 @@
                         <div class="grid grid-cols-2 gap-2">
                             @foreach(['東京', '神奈川', '埼玉', '千葉', '大阪', '愛知', '福岡', '北海道'] as $pref)
                                 <a href="{{ route('bikes.landing', ['prefecture' => $pref, 'slug' => request()->slug]) }}" 
-                                   class="text-xs font-bold text-center py-2.5 rounded-lg border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-600 hover:text-blue-600 transition-all {{ $prefecture == $pref ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:text-white pointer-events-none shadow-md' : '' }}">
+                                   class="text-xs font-bold text-center py-2.5 rounded-lg border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-600 hover:text-blue-600 transition {{ $prefecture == $pref ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:text-white pointer-events-none shadow-md' : '' }}">
                                     {{ $pref }}
                                 </a>
                             @endforeach
@@ -120,21 +120,21 @@
                     <div class="mt-16 flex justify-center">
                         <div class="flex items-center gap-2">
                             @if($pagination['prev_url'])
-                                <a href="{{ $pagination['prev_url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:border-black transition-all"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
+                                <a href="{{ $pagination['prev_url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:border-black transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
                             @endif
                             @if(isset($pagination['pages']))
                                 @foreach($pagination['pages'] as $page)
                                     @if($page['is_dot'])
                                         <span class="px-1 text-gray-300">...</span>
                                     @else
-                                        <a href="{{ $page['url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg font-black text-sm transition-all {{ $page['is_active'] ? 'bg-black text-white shadow-lg' : 'bg-white border border-gray-200 text-gray-400 hover:border-black' }}">
+                                        <a href="{{ $page['url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg font-black text-sm transition {{ $page['is_active'] ? 'bg-black text-white shadow-lg' : 'bg-white border border-gray-200 text-gray-400 hover:border-black' }}">
                                             {{ $page['label'] }}
                                         </a>
                                     @endif
                                 @endforeach
                             @endif
                             @if($pagination['next_url'])
-                                <a href="{{ $pagination['next_url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:border-black transition-all"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
+                                <a href="{{ $pagination['next_url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:border-black transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
                             @endif
                         </div>
                     </div>

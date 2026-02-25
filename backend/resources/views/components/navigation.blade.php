@@ -23,7 +23,7 @@
                             <i data-lucide="search" class="w-4 h-4"></i>
                         </div>
                         <input type="text" name="keyword" id="nav-search-input" value="{{ $keyword }}" placeholder="車種を検索..." 
-                            class="w-full bg-gray-100 border-none rounded-full pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-black transition-all">
+                            class="w-full bg-gray-100 border-none rounded-full pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-black transition">
                     </div>
                 </form>
                 <div id="nav-suggest-results" class="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden hidden z-[110] text-left">
@@ -37,31 +37,31 @@
                 
                 <!-- スマホ用検索ボタン -->
                 @if($showSearch)
-                <button id="mobile-nav-search-toggle" class="md:hidden p-2 text-gray-400 hover:text-black rounded-full transition-all">
+                <button id="mobile-nav-search-toggle" class="md:hidden p-2 text-gray-400 hover:text-black rounded-full transition">
                     <i data-lucide="search" class="w-6 h-6"></i>
                 </button>
                 @endif
 
                 {{-- ショップマップへのリンク --}}
-                <a href="{{ route('shops.map') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all uppercase tracking-widest" title="地図から探す">
+                <a href="{{ route('shops.map') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="地図から探す">
                     <i data-lucide="map" class="w-4 h-4"></i>
                     <span class="hidden xl:inline">地図検索</span>
                 </a>
 
                 {{-- 相場ランキング (PCのみ) --}}
-                <a href="{{ route('bikes.trends') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all uppercase tracking-widest" title="相場・価格変動ランキング">
+                <a href="{{ route('bikes.trends') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="相場・価格変動ランキング">
                     <i data-lucide="trending-up" class="w-4 h-4"></i>
                     <span class="hidden xl:inline">相場ランキング</span>
                 </a>
 
                 {{-- 買取査定LPへのリンク --}}
-                <a href="{{ route('sell.index') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-xl transition-all uppercase tracking-widest" title="あなたのバイクいくらで売れる？">
+                <a href="{{ route('sell.index') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-xl transition uppercase tracking-widest" title="あなたのバイクいくらで売れる？">
                     <i data-lucide="coins" class="w-4 h-4 text-yellow-500"></i>
                     買取相場
                 </a>
 
                 {{-- お気に入り --}}
-                <a href="{{ route('wishlist') }}" class="relative flex flex-col items-center justify-center min-w-[40px] px-2 py-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all group" title="お気に入り一覧">
+                <a href="{{ route('wishlist') }}" class="relative flex flex-col items-center justify-center min-w-[40px] px-2 py-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition group" title="お気に入り一覧">
                     <i data-lucide="heart" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
                     
                     {{-- ★修正: バッジのデザイン変更 --}}
@@ -121,7 +121,7 @@
                             <a href="{{ route('login') }}" class="text-xs font-bold text-gray-600 hover:text-black px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors">
                                 ログイン
                             </a>
-                            <a href="{{ route('register') }}" class="hidden sm:flex text-xs font-bold text-white bg-black hover:bg-gray-800 px-4 py-2 rounded-full transition-all shadow-sm items-center gap-1">
+                            <a href="{{ route('register') }}" class="hidden sm:flex text-xs font-bold text-white bg-black hover:bg-gray-800 px-4 py-2 rounded-full transition shadow-sm items-center gap-1">
                                 <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
                                 会員登録
                             </a>
@@ -154,7 +154,7 @@
                         <i data-lucide="search" class="w-4 h-4"></i>
                     </div>
                     <input type="search" name="keyword" id="mobile-nav-search-input" value="{{ $keyword }}" placeholder="車種名を入力..." 
-                        class="w-full bg-gray-100 border-none rounded-xl pl-10 pr-4 py-3 text-base focus:ring-2 focus:ring-black transition-all">
+                        class="w-full bg-gray-100 border-none rounded-xl pl-10 pr-4 py-3 text-base focus:ring-2 focus:ring-black transition">
                 </div>
             </form>
             <div id="mobile-nav-suggest-results" class="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden hidden z-[120] text-left">

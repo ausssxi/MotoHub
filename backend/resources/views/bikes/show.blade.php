@@ -139,7 +139,7 @@
                         @if(!empty($listing->images) && count($listing->images) > 1)
                         <div class="flex gap-2 p-4 overflow-x-auto scrollbar-hide bg-white border-t border-gray-100">
                             @foreach($listing->images as $img)
-                                <button class="shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-600 transition-all bg-gray-50">
+                                <button class="shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-600 transition bg-gray-50">
                                     <img src="{{ $img }}" 
                                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
                                         class="w-full h-full object-cover">
@@ -363,7 +363,7 @@
                             <p class="text-[10px] text-gray-400 mt-4 text-right">※MotoHubに掲載中の「{{ $listing->name }}」全車両のデータから算出</p>
                             @if($listing->bike_model_id)
                             <div class="mt-8 pt-6 border-t border-gray-100 text-center">
-                                <a href="{{ route('bikes.model_detail', $listing->bike_model_id) }}" class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-700 font-bold rounded-xl transition-all shadow-sm border border-blue-100 group">
+                                <a href="{{ route('bikes.model_detail', $listing->bike_model_id) }}" class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-700 font-bold rounded-xl transition shadow-sm border border-blue-100 group">
                                     <i data-lucide="coins" class="w-4 h-4 text-yellow-500"></i>
                                     <span>この車種の買取相場・リセール情報を見る</span>
                                     <i data-lucide="chevron-right" class="w-4 h-4 text-blue-400 group-hover:translate-x-1 transition-transform"></i>
@@ -560,13 +560,13 @@
                             </div>
 
                             <div class="space-y-3">
-                                <a href="{{ $listing->url }}" target="_blank" class="block w-full bg-red-600 hover:bg-red-500 text-white font-black text-center py-4 rounded-xl shadow-lg shadow-red-500/30 transition-all hover:-translate-y-1">
+                                <a href="{{ $listing->url }}" target="_blank" class="block w-full bg-red-600 hover:bg-red-500 text-white font-black text-center py-4 rounded-xl shadow-lg shadow-red-500/30 transition hover:-translate-y-1">
                                     {{ $listing->site_name ?? '販売店' }} で在庫確認・見積もり
                                     <span class="block text-[10px] font-medium opacity-80 mt-0.5">（無料・別タブで開きます）</span>
                                 </a>
                                 
                                 @if(!empty($listing->shop_tel) && $listing->shop_tel !== '-')
-                                    <a href="tel:{{ str_replace('-', '', $listing->shop_tel) }}" class="block w-full bg-white border-2 border-gray-100 hover:border-blue-600 text-gray-700 hover:text-blue-600 font-bold text-center py-3 rounded-xl transition-all group">
+                                    <a href="tel:{{ str_replace('-', '', $listing->shop_tel) }}" class="block w-full bg-white border-2 border-gray-100 hover:border-blue-600 text-gray-700 hover:text-blue-600 font-bold text-center py-3 rounded-xl transition group">
                                         <span class="flex items-center justify-center gap-2">
                                             <i data-lucide="phone" class="w-5 h-5 group-hover:text-blue-600 transition-colors"></i>
                                             電話で問い合わせる
@@ -644,7 +644,7 @@
         <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onclick="closeReviewModal()"></div>
         
         {{-- モーダル本体 --}}
-        <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-95 opacity-0 duration-300" id="review-modal-content">
+        <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden transform transition scale-95 opacity-0 duration-300" id="review-modal-content">
             
             <div class="p-6 sm:p-8">
                 <div class="flex justify-between items-center mb-6">
@@ -673,7 +673,7 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div class="col-span-2 sm:col-span-1">
                             <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">ニックネーム</label>
-                            <input type="text" name="nickname" required maxlength="50" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-yellow-400 focus:bg-white outline-none transition-all placeholder:text-gray-300" placeholder="例：モト太郎">
+                            <input type="text" name="nickname" required maxlength="50" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-yellow-400 focus:bg-white outline-none transition placeholder:text-gray-300" placeholder="例：モト太郎">
                         </div>
                         <div class="col-span-2 sm:col-span-1">
                             <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">総合評価</label>
@@ -690,12 +690,12 @@
 
                     <div>
                         <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">タイトル</label>
-                        <input type="text" name="title" required maxlength="100" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-yellow-400 focus:bg-white outline-none transition-all placeholder:text-gray-300" placeholder="一言でいうとどんなバイク？">
+                        <input type="text" name="title" required maxlength="100" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-yellow-400 focus:bg-white outline-none transition placeholder:text-gray-300" placeholder="一言でいうとどんなバイク？">
                     </div>
 
                     <div>
                         <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">レビュー本文</label>
-                        <textarea name="body" required rows="4" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-yellow-400 focus:bg-white outline-none transition-all resize-none placeholder:text-gray-300 leading-relaxed" placeholder="足つき、燃費、取り回しなど、実際に乗ってみた感想や良い点・悪い点を教えてください！"></textarea>
+                        <textarea name="body" required rows="4" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-yellow-400 focus:bg-white outline-none transition resize-none placeholder:text-gray-300 leading-relaxed" placeholder="足つき、燃費、取り回しなど、実際に乗ってみた感想や良い点・悪い点を教えてください！"></textarea>
                     </div>
 
                     <div id="review-error" class="hidden text-xs text-red-600 font-bold bg-red-50 border border-red-100 p-3 rounded-xl flex items-start gap-2">
@@ -704,7 +704,7 @@
                     </div>
 
                     <div class="pt-4 mt-4 border-t border-gray-100">
-                        <button type="submit" id="review-submit-btn" class="w-full bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-black py-3.5 rounded-xl transition-all shadow-lg shadow-yellow-400/20 active:scale-[0.98] flex items-center justify-center gap-2 text-sm">
+                        <button type="submit" id="review-submit-btn" class="w-full bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-black py-3.5 rounded-xl transition shadow-lg shadow-yellow-400/20 active:scale-[0.98] flex items-center justify-center gap-2 text-sm">
                             <i data-lucide="send" class="w-4 h-4"></i>
                             この内容で投稿する
                         </button>

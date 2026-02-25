@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. フローティングバーのHTML生成（変更なし）
     // スマホ対応のレスポンシブデザイン適用済み
     const barHtml = `
-        <div id="compare-bar" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 translate-y-24 opacity-0 pointer-events-none w-[92%] sm:w-auto">
+        <div id="compare-bar" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] transition duration-500 translate-y-24 opacity-0 pointer-events-none w-[92%] sm:w-auto">
             <div class="bg-gray-900/90 backdrop-blur-xl text-white px-4 py-3 md:px-6 md:py-4 rounded-full shadow-2xl border border-white/10 flex items-center justify-between sm:justify-start gap-3 md:gap-6 min-w-0 sm:min-w-[320px]">
                 <div class="flex flex-col shrink-0">
                     <span class="hidden sm:block text-[10px] font-black text-blue-400 uppercase tracking-widest">Compare Mode</span>
@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="h-8 w-px bg-white/10 shrink-0"></div>
                 <div class="flex items-center gap-2 md:gap-3 shrink-0">
                     <button id="compare-clear-btn" class="text-[10px] sm:text-xs font-bold text-gray-400 hover:text-white transition-colors whitespace-nowrap">クリア</button>
-                    <a href="/compare" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 md:px-6 md:py-2.5 rounded-full text-xs sm:text-sm font-black transition-all flex items-center gap-1.5 md:gap-2 group shadow-lg shadow-blue-600/20 whitespace-nowrap">
+                    <a href="/compare" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 md:px-6 md:py-2.5 rounded-full text-xs sm:text-sm font-black transition flex items-center gap-1.5 md:gap-2 group shadow-lg shadow-blue-600/20 whitespace-nowrap">
                         比較する
                         <i data-lucide="arrow-right" class="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform"></i>
                     </a>

@@ -57,7 +57,7 @@
                             {{-- ★追加: 地図で見るボタン --}}
                             @if($shop->latitude && $shop->longitude)
                             <a href="{{ route('shops.map', ['lat' => $shop->latitude, 'lng' => $shop->longitude, 'shop_id' => $shop->id]) }}" 
-                               class="block w-full bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-black text-center py-3 rounded-xl transition-all flex items-center justify-center gap-2 group">
+                               class="block w-full bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-black text-center py-3 rounded-xl transition flex items-center justify-center gap-2 group">
                                 <i data-lucide="map" class="w-4 h-4 group-hover:scale-110 transition-transform"></i>
                                 地図で場所を確認する
                             </a>
@@ -116,15 +116,15 @@
                     <div class="mt-12 flex justify-center">
                         <div class="flex gap-2">
                             @if($pagination['prev_url'])
-                                <a href="{{ $pagination['prev_url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:border-black transition-all"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
+                                <a href="{{ $pagination['prev_url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:border-black transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
                             @endif
                             @foreach($pagination['pages'] as $page)
                                 @if($page['is_dot']) <span class="px-1 text-gray-300">...</span>
-                                @else <a href="{{ $page['url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg font-black text-sm transition-all {{ $page['is_active'] ? 'bg-black text-white shadow-lg' : 'bg-white border border-gray-200 text-gray-400 hover:border-black' }}">{{ $page['label'] }}</a>
+                                @else <a href="{{ $page['url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg font-black text-sm transition {{ $page['is_active'] ? 'bg-black text-white shadow-lg' : 'bg-white border border-gray-200 text-gray-400 hover:border-black' }}">{{ $page['label'] }}</a>
                                 @endif
                             @endforeach
                             @if($pagination['next_url'])
-                                <a href="{{ $pagination['next_url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:border-black transition-all"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
+                                <a href="{{ $pagination['next_url'] }}" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:border-black transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
                             @endif
                         </div>
                     </div>

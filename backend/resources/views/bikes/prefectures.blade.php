@@ -31,7 +31,7 @@
                             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                 @foreach($prefs as $pref)
                                     <a href="{{ route('bikes.search', ['prefecture' => $pref]) }}" 
-                                       class="group flex items-center justify-between px-4 py-3 rounded-xl bg-white border border-gray-200 shadow-sm hover:border-blue-500 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                                       class="group flex items-center justify-between px-4 py-3 rounded-xl bg-white border border-gray-200 shadow-sm hover:border-blue-500 hover:shadow-md hover:-translate-y-0.5 transition duration-200">
                                         <span class="text-sm font-black text-gray-700 group-hover:text-blue-600 transition-colors">
                                             {{ $pref }}
                                         </span>

@@ -37,7 +37,7 @@
         </div>
 
         <div class="flex flex-col items-center gap-4 pt-4">
-            <x-primary-button class="w-full sm:w-auto min-w-[200px] justify-center bg-black hover:bg-gray-800 font-black rounded-xl px-6 py-3.5 shadow-lg active:scale-95 transition-all">
+            <x-primary-button class="w-full sm:w-auto min-w-[200px] justify-center bg-black hover:bg-gray-800 font-black rounded-xl px-6 py-3.5 shadow-lg active:scale-95 transition">
                 {{ __('変更を保存') }}
             </x-primary-button>
 

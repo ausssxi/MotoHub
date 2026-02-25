@@ -100,12 +100,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="rounded-lg sm:rounded-xl overflow-hidden mb-2 sm:mb-3 shadow-sm bg-gray-50 relative w-full h-36 sm:h-[180px] flex items-center justify-center">
                     
                     <!-- ★変更: 削除ボタン（右上）を画像内に移動し、お気に入りボタンとデザインを統一 -->
-                    <button class="remove-this absolute top-2 right-2 z-30 w-8 h-8 sm:w-10 sm:h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 shadow-sm border border-gray-100 transition-all hover:scale-110 active:scale-95" data-id="${bike.id}">
+                    <button class="remove-this absolute top-2 right-2 z-30 w-8 h-8 sm:w-10 sm:h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 shadow-sm border border-gray-100 transition hover:scale-110 active:scale-95" data-id="${bike.id}">
                         <i data-lucide="x" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                     </button>
 
                     <!-- ★追加: お気に入りボタン（左上） -->
-                    <button class="wishlist-btn absolute top-2 left-2 z-20 w-8 h-8 sm:w-10 sm:h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 shadow-sm border border-gray-100 transition-all hover:scale-110 active:scale-95" data-id="${bike.id}">
+                    <button class="wishlist-btn absolute top-2 left-2 z-20 w-8 h-8 sm:w-10 sm:h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 shadow-sm border border-gray-100 transition hover:scale-110 active:scale-95" data-id="${bike.id}">
                         <i data-lucide="heart" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                     </button>
 

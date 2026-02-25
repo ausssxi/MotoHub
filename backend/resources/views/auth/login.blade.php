@@ -63,7 +63,7 @@
                     </div>
 
                     <div class="flex flex-col items-center justify-end mt-8 gap-4">
-                        <button class="w-full bg-black hover:bg-gray-800 text-white font-black py-3.5 rounded-xl shadow-lg transform active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <button class="w-full bg-black hover:bg-gray-800 text-white font-black py-3.5 rounded-xl shadow-lg transform active:scale-95 transition flex items-center justify-center gap-2">
                             <i data-lucide="log-in" class="w-4 h-4"></i>
                             ログイン
                         </button>
@@ -76,7 +76,7 @@
                         
                         <div class="w-full border-t border-gray-100 mt-2 pt-6 text-center">
                             <p class="text-xs text-gray-400 font-bold mb-3">アカウントをお持ちでないですか？</p>
-                            <a href="{{ route('register') }}" class="block w-full border-2 border-gray-100 hover:border-black hover:text-black text-gray-600 font-bold py-2.5 rounded-xl transition-all text-center text-sm">
+                            <a href="{{ route('register') }}" class="block w-full border-2 border-gray-100 hover:border-black hover:text-black text-gray-600 font-bold py-2.5 rounded-xl transition text-center text-sm">
                                 新規会員登録 (無料)
                             </a>
                         </div>

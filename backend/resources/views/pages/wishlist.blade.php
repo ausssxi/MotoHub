@@ -56,7 +56,7 @@
                 <p class="text-sm text-gray-400 mb-10 max-w-sm mx-auto leading-relaxed">
                     気になるバイクを見つけたら、カードのハートマークをタップして保存しましょう。
                 </p>
-                <a href="{{ route('bikes.index') }}" class="inline-flex items-center gap-2 bg-black text-white px-10 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-gray-800 transition-all active:scale-95 shadow-xl shadow-black/10">
+                <a href="{{ route('bikes.index') }}" class="inline-flex items-center gap-2 bg-black text-white px-10 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-gray-800 transition active:scale-95 shadow-xl shadow-black/10">
                     <i data-lucide="search" class="w-4 h-4"></i>
                     バイクを探しに行く
                 </a>

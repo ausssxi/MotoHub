@@ -28,11 +28,11 @@
             {{-- タブ --}}
             <div class="flex justify-center mb-10">
                 <div class="bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 inline-flex">
-                    <button id="tab-drop" class="tab-btn active w-36 sm:w-48 py-3 rounded-xl text-sm font-black transition-all bg-blue-600 text-white shadow-md flex items-center justify-center gap-2">
+                    <button id="tab-drop" class="tab-btn active w-36 sm:w-48 py-3 rounded-xl text-sm font-black transition bg-blue-600 text-white shadow-md flex items-center justify-center gap-2">
                         <i data-lucide="trending-down" class="w-4 h-4"></i>
                         値下がり <span class="hidden sm:inline">(買い時)</span>
                     </button>
-                    <button id="tab-rise" class="tab-btn w-36 sm:w-48 py-3 rounded-xl text-sm font-black text-gray-400 hover:text-gray-800 transition-all flex items-center justify-center gap-2">
+                    <button id="tab-rise" class="tab-btn w-36 sm:w-48 py-3 rounded-xl text-sm font-black text-gray-400 hover:text-gray-800 transition flex items-center justify-center gap-2">
                         <i data-lucide="trending-up" class="w-4 h-4"></i>
                         価格高騰 <span class="hidden sm:inline">(プレミア)</span>
                     </button>

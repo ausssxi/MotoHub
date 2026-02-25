@@ -73,7 +73,7 @@
                     <div class="space-y-2">
                         <label for="name" class="text-xs font-black text-black uppercase tracking-widest">お名前</label>
                         <input type="text" id="name" name="name" value="{{ old('name') }}" required
-                            class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all @error('name') border-red-300 @enderror"
+                            class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition @error('name') border-red-300 @enderror"
                             placeholder="例：山田 太郎">
                         @error('name') <p class="text-[10px] text-red-500 font-bold uppercase">{{ $message }}</p> @enderror
                     </div>
@@ -81,7 +81,7 @@
                     <div class="space-y-2">
                         <label for="email" class="text-xs font-black text-black uppercase tracking-widest">メールアドレス</label>
                         <input type="email" id="email" name="email" value="{{ old('email') }}" required
-                            class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all @error('email') border-red-300 @enderror"
+                            class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition @error('email') border-red-300 @enderror"
                             placeholder="example@motohub.jp">
                         @error('email') <p class="text-[10px] text-red-500 font-bold uppercase">{{ $message }}</p> @enderror
                     </div>
@@ -91,7 +91,7 @@
                 <div class="space-y-2">
                     <label for="category" class="text-xs font-black text-black uppercase tracking-widest">お問い合わせ項目</label>
                     <select id="category" name="category" required
-                        class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all cursor-pointer @error('category') border-red-300 @enderror">
+                        class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition cursor-pointer @error('category') border-red-300 @enderror">
                         <option value="">選択してください</option>
                         <option value="feedback" {{ old('category') === 'feedback' ? 'selected' : '' }}>サービスへのご要望・改善案</option>
                         <option value="report" {{ old('category') === 'report' ? 'selected' : '' }}>不具合・誤情報の報告</option>
@@ -105,7 +105,7 @@
                 <div class="space-y-2">
                     <label for="message" class="text-xs font-black text-black uppercase tracking-widest">お問い合わせ内容</label>
                     <textarea id="message" name="message" rows="6" required
-                        class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all resize-none @error('message') border-red-300 @enderror"
+                        class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition resize-none @error('message') border-red-300 @enderror"
                         placeholder="詳細をご記入ください">{{ old('message') }}</textarea>
                     @error('message') <p class="text-[10px] text-red-500 font-bold uppercase">{{ $message }}</p> @enderror
                 </div>
@@ -113,7 +113,7 @@
                 <!-- 送信ボタン -->
                 <div class="pt-4">
                     <button type="submit" 
-                        class="w-full sm:w-auto bg-black text-white px-10 py-4 rounded-xl text-sm font-black hover:bg-gray-800 transition-all active:scale-95 shadow-lg shadow-black/10">
+                        class="w-full sm:w-auto bg-black text-white px-10 py-4 rounded-xl text-sm font-black hover:bg-gray-800 transition active:scale-95 shadow-lg shadow-black/10">
                         メッセージを送信する
                     </button>
                 </div>

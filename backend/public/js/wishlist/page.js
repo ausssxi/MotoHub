@@ -141,7 +141,7 @@ function renderWishlistItems(items, container) {
         }
 
         return `
-        <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col group border border-gray-100 relative bike-card">
+        <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition duration-500 flex flex-col group border border-gray-100 relative bike-card">
             <a href="/bikes/${bike.id}" class="absolute inset-0 z-10"></a>
             
             <div class="aspect-[4/3] relative overflow-hidden bg-gray-50">
@@ -156,11 +156,11 @@ function renderWishlistItems(items, container) {
                 ${badgeHtml}
 
                 <!-- ★追加: 比較追加ボタン（左上） -->
-                <button class="compare-btn absolute top-3 left-3 z-30 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 border border-gray-100 shadow-sm transition-all hover:scale-110 active:scale-95" data-id="${bike.id}">
+                <button class="compare-btn absolute top-3 left-3 z-30 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 border border-gray-100 shadow-sm transition hover:scale-110 active:scale-95" data-id="${bike.id}">
                     <i data-lucide="layers" class="w-5 h-5"></i>
                 </button>
 
-                <button class="wishlist-btn active absolute top-3 right-3 z-30 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-red-500 shadow-sm hover:scale-110 active:scale-90 transition-all border border-white/50" 
+                <button class="wishlist-btn active absolute top-3 right-3 z-30 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-red-500 shadow-sm hover:scale-110 active:scale-90 transition border border-white/50" 
                         data-id="${bike.id}">
                     <i data-lucide="heart" class="w-5 h-5 fill-current"></i>
                 </button>
@@ -185,7 +185,7 @@ function renderWishlistItems(items, container) {
                     <div class="flex items-center gap-1.5"><i data-lucide="gauge" class="w-3.5 h-3.5 text-gray-300"></i><span>${bike.mileage}</span></div>
                 </div>
                 
-                <div class="mt-auto bg-gray-50 p-4 rounded-xl border border-gray-100 group-hover:bg-blue-50/50 transition-all">
+                <div class="mt-auto bg-gray-50 p-4 rounded-xl border border-gray-100 group-hover:bg-blue-50/50 transition">
                     <div class="flex justify-between items-end mb-3">
                         <div>
                             <span class="text-[8px] font-black text-gray-400 block uppercase tracking-tighter mb-0.5">支払総額</span>

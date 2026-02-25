@@ -49,7 +49,7 @@ function appendReviewToList(review) {
     }
 
     const html = `
-        <div class="p-4 bg-yellow-50/80 border-yellow-200 rounded-2xl border transition-all animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
+        <div class="p-4 bg-yellow-50/80 border-yellow-200 rounded-2xl border transition animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
             <div class="flex justify-between items-start mb-2">
                 <div class="flex items-center gap-2">
                     <div class="flex text-yellow-400">

@@ -189,7 +189,7 @@ const HistoryManager = {
                 }
 
                 html += `
-                    <a href="/bikes/${bike.id}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group block relative">
+                    <a href="/bikes/${bike.id}" class="snap-start shrink-0 w-40 sm:w-48 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition group block relative">
                         <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
                             <img src="${displayImage}" 
                                  onerror="this.onerror=null; this.src='${PLACEHOLDER_IMG}'; this.classList.add('grayscale', 'opacity-50');"

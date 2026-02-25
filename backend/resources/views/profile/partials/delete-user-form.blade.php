@@ -14,7 +14,7 @@
         <x-danger-button
             x-data=""
             x-on:click.prevent="$dispatch('open-modal', 'confirm-user-deletion')"
-            class="bg-red-600 hover:bg-red-500 font-black rounded-xl px-6 py-3 w-full sm:w-auto min-w-[200px] justify-center transition-all"
+            class="bg-red-600 hover:bg-red-500 font-black rounded-xl px-6 py-3 w-full sm:w-auto min-w-[200px] justify-center transition"
         >{{ __('アカウントを削除する') }}</x-danger-button>
     </div>
 

@@ -34,7 +34,7 @@
                 
                 {{-- 左カラム: メインメニュー --}}
                 <div class="lg:col-span-2 space-y-6">
-                    <div class="bg-gradient-to-br from-blue-600 to-blue-700 overflow-hidden shadow-lg shadow-blue-500/30 rounded-2xl border border-blue-500 hover:shadow-xl transition-all group relative">
+                    <div class="bg-gradient-to-br from-blue-600 to-blue-700 overflow-hidden shadow-lg shadow-blue-500/30 rounded-2xl border border-blue-500 hover:shadow-xl transition group relative">
                         <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <i data-lucide="wrench" class="w-32 h-32 text-white"></i>
                         </div>

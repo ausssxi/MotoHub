@@ -67,14 +67,14 @@
                     </div>
 
                     <div class="flex flex-col items-center justify-end mt-8 gap-4">
-                        <button class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3.5 rounded-xl shadow-lg shadow-blue-500/30 transform active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <button class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3.5 rounded-xl shadow-lg shadow-blue-500/30 transform active:scale-95 transition flex items-center justify-center gap-2">
                             <i data-lucide="check" class="w-4 h-4"></i>
                             登録する
                         </button>
 
                         <div class="w-full border-t border-gray-100 mt-2 pt-6 text-center">
                             <p class="text-xs text-gray-400 font-bold mb-3">すでにアカウントをお持ちですか？</p>
-                            <a href="{{ route('login') }}" class="block w-full border-2 border-gray-100 hover:border-black hover:text-black text-gray-600 font-bold py-2.5 rounded-xl transition-all text-center text-sm">
+                            <a href="{{ route('login') }}" class="block w-full border-2 border-gray-100 hover:border-black hover:text-black text-gray-600 font-bold py-2.5 rounded-xl transition text-center text-sm">
                                 ログイン画面へ
                             </a>
                         </div>
