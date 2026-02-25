@@ -101,64 +101,9 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                         @forelse ($items as $listing)
-                            {{-- search.blade.php と同じカードデザイン --}}
-                            <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col group border border-gray-100 relative cursor-pointer bike-card">
-                                <a href="{{ route('bikes.show', $listing['id']) }}" class="absolute inset-0 z-20"></a>
-                                
-                                <div class="aspect-[4/3] relative overflow-hidden bg-gray-50">
-                                    @if(!empty($listing['images']) && isset($listing['images'][0]))
-                                        <img src="{{ $listing['images'][0] }}" 
-                                             onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
-                                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                                    @else
-                                        <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop" 
-                                             class="w-full h-full object-cover grayscale opacity-50 group-hover:scale-105 transition-transform duration-500">
-                                        <div class="absolute inset-0 flex items-center justify-center">
-                                            <i data-lucide="image-off" class="w-8 h-8 text-white/50"></i>
-                                        </div>
-                                    @endif
-
-                                    @if($listing['bargain_score'] > 5)
-                                    <div class="absolute bottom-0 left-0 bg-red-600 text-white text-[10px] font-black px-2 py-1.5 rounded-tr-xl shadow-lg z-20 flex items-center gap-1">
-                                        <i data-lucide="trending-down" class="w-3.5 h-3.5"></i>
-                                        相場より約{{ round($listing['bargain_score']) }}%お得！
-                                    </div>
-                                    @endif
-
-                                    {{-- ボタン類 --}}
-                                    <button class="compare-btn absolute top-3 left-3 z-30 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 border border-gray-100 shadow-sm transition-all hover:scale-110 active:scale-95" data-id="{{ $listing['id'] }}">
-                                        <i data-lucide="layers" class="w-5 h-5"></i>
-                                    </button>
-                                    <button class="wishlist-btn absolute top-3 right-3 z-30 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 shadow-sm border border-gray-100" data-id="{{ $listing['id'] }}">
-                                        <i data-lucide="heart" class="w-5 h-5"></i>
-                                    </button>
-                                    {{-- 掲載元サイトのバッジ（ロジックをバックエンドに移行） --}}
-                                    <div class="absolute bottom-3 right-3 z-20 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-sm">
-                                        @if(isset($listing['source_icon_key']) && $listing['source_icon_key'] !== 'default')
-                                            <img src="{{ asset('images/sites/' . $listing['source_icon_key'] . '.png') }}" class="w-3 h-3 rounded-sm brightness-110" alt="{{ $listing['source'] ?? '外部サイト' }}">
-                                        @else
-                                            <i data-lucide="external-link" class="w-3 h-3 text-white/80"></i>
-                                        @endif
-                                        <span class="text-[8px] font-black text-white/90">{{ $listing['source'] ?? $listing['site_name'] ?? '外部サイト' }}</span>
-                                    </div>
-                                </div>
-
-                                <div class="p-4 flex-grow flex flex-col">
-                                    <h3 class="text-sm font-black text-gray-800 mb-2 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">{{ $listing['name'] }}</h3>
-                                    
-                                    <div class="grid grid-cols-2 gap-y-1 text-[10px] font-bold text-gray-400 mb-3">
-                                        <div>{{ $listing['model_year'] }}</div>
-                                        <div>{{ $listing['mileage'] }}</div>
-                                    </div>
-
-                                    <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-end">
-                                        <div>
-                                            <span class="text-[8px] text-gray-400 font-bold block">支払総額</span>
-                                            <span class="text-lg font-black text-red-500">{{ $listing['total_price'] }}<span class="text-xs ml-0.5">万円</span></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            {{-- ★修正: 長い直書きコードを削除し、共通コンポーネントを呼び出す形にリファクタリング --}}
+                            {{-- これにより、カードのデザイン変更が1箇所で済み、最初の4枚高速読み込みも自動適用されます --}}
+                            @include('bikes.partials.bike_card', ['listing' => $listing, 'isFirstView' => $loop->index < 4])
                         @empty
                             <div class="col-span-full py-16 text-center text-gray-400 font-bold text-sm bg-white rounded-2xl border border-dashed border-gray-200">
                                 現在、在庫はありません。

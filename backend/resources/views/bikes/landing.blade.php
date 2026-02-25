@@ -95,8 +95,8 @@
                     {{-- 車両グリッド --}}
                     <div id="results-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         @forelse ($items as $listing)
-                            {{-- ★共通化された bike_card コンポーネントを使用（保守性向上） --}}
-                            @include('bikes.partials.bike_card', ['listing' => $listing])
+                            {{-- ★修正: 最初の4件（0〜3）は 'isFirstView' => true として高速読み込みさせる --}}
+                            @include('bikes.partials.bike_card', ['listing' => $listing, 'isFirstView' => $loop->index < 4])
                         @empty
                             <div class="col-span-full py-20 text-center bg-white rounded-3xl border border-gray-100 shadow-sm">
                                 <i data-lucide="search-x" class="w-16 h-16 text-gray-200 mx-auto mb-4"></i>
