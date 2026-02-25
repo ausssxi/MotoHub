@@ -2,7 +2,9 @@
     <x-slot:title>{{ $shop->name }}の在庫一覧 | MotoHub</x-slot:title>
     
     <x-slot:styles>
-        <link rel="stylesheet" href="{{ asset('css/bike-search.css') }}">
+        {{-- CSSの非同期読み込み（レンダリングブロック完全解除） --}}
+        <link rel="preload" href="{{ asset('css/bike-search.css') }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="{{ asset('css/bike-search.css') }}"></noscript>
     </x-slot:styles>
 
     <x-slot:scripts>
