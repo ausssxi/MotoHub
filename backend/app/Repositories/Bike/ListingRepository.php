@@ -20,6 +20,7 @@ final class ListingRepository
         'listings.title', 'listings.model_year', 'listings.mileage', 
         'listings.displacement', 'listings.total_price', 'listings.price', 
         'listings.condition', 'listings.is_sold_out', 'listings.image_urls', 
+        'listings.local_image_paths',
         'listings.created_at', 'listings.bargain_score',
         'listings.view_count_today', 'listings.favorite_count'
     ];
