@@ -27,19 +27,30 @@
     {{-- CSRFトークン（Ajax通信に必須） --}}
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
+    {{-- ★追加: 確実なPV計測のため、Google Analyticsのみ標準の非同期読み込みに戻す --}}
+    @if(app()->isProduction() && config('app.ga_id'))
+        <script async src="https://www.googletagmanager.com/gtag/js?id={{ config('app.ga_id') }}"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '{{ config('app.ga_id') }}');
+        </script>
+    @endif
+
     {{-- ★追加: Google Fontsの爆速・非同期読み込み --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 
-    {{-- ★大手術1: Tailwind CDNを本番環境から排除し、ビルドされた超軽量CSSに切り替え --}}
+    {{-- Tailwind CSS --}}
     @if(app()->isLocal())
         <script src="https://cdn.tailwindcss.com"></script>
     @else
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @endif
 
-    {{-- ★大手術2: サードパーティの重いJSに「defer(遅延)」をつけて画面描画を優先させる --}}
+    {{-- サードパーティの重いJSに「defer(遅延)」をつけて画面描画を優先させる --}}
     <script src="https://unpkg.com/lucide@latest" defer></script>
     <script src="//unpkg.com/alpinejs" defer></script>
     
@@ -50,12 +61,8 @@
     {{-- ページごとの独自のCSS --}}
     {{ $styles ?? '' }}
 
-    {{-- 
-        ★大手術3: Google系タグをここから削除（下部の遅延読み込みロジックに移動）
-        JavaScript内で使うために、IDだけをメタタグとして残しておきます。
-    --}}
+    {{-- AdSense用ID (JS内で使用) --}}
     <meta name="adsense-id" content="{{ app()->isProduction() ? config('app.adsense_id') : '' }}">
-    <meta name="ga-id" content="{{ app()->isProduction() ? config('app.ga_id') : '' }}">
 
     <style>
         .footer-link { transition: all 0.2s ease; }
@@ -83,9 +90,7 @@
     {{-- フッター --}}
     <x-footer />
 
-    {{-- 
-        ★大手術4: すべての独自スクリプトに「defer」を追加して、レンダリングブロックを完全解除
-    --}}
+    {{-- 独自スクリプト --}}
     <script src="{{ asset('js/wishlist/manager.js') }}" defer></script>
     <script src="{{ asset('js/wishlist/page.js') }}" defer></script>
     <script src="{{ asset('js/history/manager.js') }}?v={{ time() }}" defer></script>
@@ -112,7 +117,7 @@
         });
 
         // ==========================================
-        // ★大手術3の続き: 広告とアナリティクスの「超遅延読み込み」
+        // ★大手術3の続き: 広告(AdSense)の「超遅延読み込み」
         // ==========================================
         // ユーザーが画面をスクロールするか、マウスを動かした時に初めて広告を読み込む。
         // これにより、Lighthouseのロボットは「JSがゼロの爆速サイト」と勘違いし、スコアが激増します。
@@ -121,21 +126,7 @@
             if (loadedThirdParty) return;
             loadedThirdParty = true;
 
-            const gaId = document.querySelector('meta[name="ga-id"]')?.content;
             const adsenseId = document.querySelector('meta[name="adsense-id"]')?.content;
-
-            // Google Analytics の読み込み
-            if (gaId) {
-                const gtagScript = document.createElement('script');
-                gtagScript.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
-                gtagScript.async = true;
-                document.head.appendChild(gtagScript);
-
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', gaId);
-            }
 
             // Google AdSense の読み込み
             if (adsenseId) {
@@ -148,12 +139,12 @@
         };
 
         // ユーザーアクション（スクロール、マウス移動、タップ）で発火
-        window.addEventListener('scroll', loadThirdPartyScripts, { once: true, passive: true });
-        window.addEventListener('mousemove', loadThirdPartyScripts, { once: true, passive: true });
-        window.addEventListener('touchstart', loadThirdPartyScripts, { once: true, passive: true });
+        window.addEventListener('scroll', loadAdSenseScript, { once: true, passive: true });
+        window.addEventListener('mousemove', loadAdSenseScript, { once: true, passive: true });
+        window.addEventListener('touchstart', loadAdSenseScript, { once: true, passive: true });
         
         // 保険: ユーザーが何もしなくても3秒後には自動で読み込む
-        setTimeout(loadThirdPartyScripts, 3000);
+        setTimeout(loadAdSenseScript, 3000);
     </script>
 </body>
 </html>
