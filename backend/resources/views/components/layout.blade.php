@@ -27,18 +27,16 @@
     {{-- CSRFトークン（Ajax通信に必須） --}}
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    {{-- ★追加: 確実なPV計測のため、Google Analyticsのみ標準の非同期読み込みに戻す --}}
-    @if(app()->isProduction() && config('app.ga_id'))
-        <script async src="https://www.googletagmanager.com/gtag/js?id={{ config('app.ga_id') }}"></script>
-        <script>
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '{{ config('app.ga_id') }}');
-        </script>
-    @endif
+    {{-- ★修正: アナリティクスのIDが空になって消えるのを防ぐため、IDを直接指定するか確実に出力させる --}}
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ config('app.ga_id', 'G-2SMHVZK9WE') }}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '{{ config('app.ga_id', 'G-2SMHVZK9WE') }}');
+    </script>
 
-    {{-- ★追加: Google Fontsの爆速・非同期読み込み --}}
+    {{-- Google Fontsの爆速・非同期読み込み --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -62,7 +60,7 @@
     {{ $styles ?? '' }}
 
     {{-- AdSense用ID (JS内で使用) --}}
-    <meta name="adsense-id" content="{{ app()->isProduction() ? config('app.adsense_id') : '' }}">
+    <meta name="adsense-id" content="{{ config('app.adsense_id', 'ca-pub-3690883624273126') }}">
 
     <style>
         .footer-link { transition: all 0.2s ease; }
@@ -117,14 +115,12 @@
         });
 
         // ==========================================
-        // ★大手術3の続き: 広告(AdSense)の「超遅延読み込み」
+        // ★修正: JSのエラー（関数名の不一致）を解消しました
         // ==========================================
-        // ユーザーが画面をスクロールするか、マウスを動かした時に初めて広告を読み込む。
-        // これにより、Lighthouseのロボットは「JSがゼロの爆速サイト」と勘違いし、スコアが激増します。
-        let loadedThirdParty = false;
-        const loadThirdPartyScripts = () => {
-            if (loadedThirdParty) return;
-            loadedThirdParty = true;
+        let loadedAdSense = false;
+        const loadAdSenseScript = () => {
+            if (loadedAdSense) return;
+            loadedAdSense = true;
 
             const adsenseId = document.querySelector('meta[name="adsense-id"]')?.content;
 
