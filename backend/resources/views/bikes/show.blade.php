@@ -92,9 +92,9 @@
                 {{-- メインカラム --}}
                 <div class="lg:col-span-8 space-y-8">
                     
-                    {{-- 1. 画像ギャラリー --}}
+                {{-- 1. 画像ギャラリー --}}
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                        {{-- 人気ラベル（閲覧数またはお気に入り数が多い場合） --}}
+                        {{-- 人気ラベル --}}
                         @if($listing->engagement['is_popular'] ?? false)
                         <div class="absolute top-4 left-4 z-20 bg-orange-500 text-white px-3 py-1.5 rounded-xl text-[10px] font-black italic flex items-center gap-1 shadow-lg animate-bounce">
                             <i data-lucide="flame" class="w-3.5 h-3.5 fill-current"></i> POPULAR
@@ -102,14 +102,14 @@
                         @endif
                         <div class="aspect-[4/3] bg-gray-100 relative group overflow-hidden">
                             @if(!empty($listing->images) && count($listing->images) > 0)
-                                <div class="absolute inset-0 z-0">
-                                <img src="{{ $listing->images[0] }}" 
-                                        onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
-                                        class="w-full h-full object-cover blur-2xl opacity-50 scale-110" aria-hidden="true"
-                                        fetchpriority="high" decoding="async">
-                                </div>
+                                {{-- ★大手術: <img>タグをやめて、divの背景画像（CSS）にすることでLCPの誤判定を完全に防ぐ！ --}}
+                                <div class="absolute inset-0 z-0 bg-cover bg-center blur-2xl opacity-50 scale-110" 
+                                     style="background-image: url('{{ $listing->images[0] }}');" 
+                                     aria-hidden="true"></div>
+                                
                                 <div class="absolute inset-0 z-10 flex items-center justify-center p-1">
-                                <img src="{{ $listing->images[0] }}" alt="{{ $listing->name }}" 
+                                    {{-- ★これが本当の主役（LCP要素） --}}
+                                    <img src="{{ $listing->images[0] }}" alt="{{ $listing->name }}" 
                                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
                                         class="max-w-full max-h-full object-contain shadow-sm"
                                         fetchpriority="high" decoding="async">
