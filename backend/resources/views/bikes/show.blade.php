@@ -63,7 +63,7 @@
     </div>
     
     {{-- シームレス・ナビゲーション（JSで検索経由の場合のみ表示） --}}
-    <div id="search-nav-bar" class="hidden bg-gray-900 border-b border-gray-800 shadow-md sticky top-[64px] z-[50]">
+    <div id="search-nav-bar" class="hidden bg-gray-900 border-b border-gray-800 shadow-md sticky top-[64px] z-[30]">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center text-xs font-bold">
             <a id="nav-back-list" href="#" class="flex items-center gap-1.5 text-gray-300 hover:text-white transition-colors">
                 <i data-lucide="arrow-left" class="w-4 h-4"></i> 
