@@ -1,15 +1,37 @@
 <x-layout>
     <x-slot:title>マイページ - MotoHub</x-slot:title>
 
-    {{-- 履歴表示用のスクリプト --}}
     <x-slot:scripts>
         <script>
-            document.addEventListener('DOMContentLoaded', () => {
-                // ダッシュボード用の履歴表示を実行
-                // HistoryManagerはレイアウト側で既に読み込まれています
-                if (typeof HistoryManager !== 'undefined') {
-                    HistoryManager.render('dashboard-history-widget');
-                }
+            // JSの読み込みと準備(init)が完全に終わるのを待つ
+            window.addEventListener('load', () => {
+                // さらに、初期化処理が終わる余裕を持たせる
+                setTimeout(async () => {
+                    if (typeof HistoryManager === 'undefined') {
+                        document.getElementById('history-empty').classList.remove('hidden');
+                        return;
+                    }
+
+                    try {
+                        const ids = await HistoryManager.fetchIds();
+
+                        if (ids && ids.length > 0) {
+                            document.getElementById('history-section').classList.remove('hidden');
+                            document.getElementById('history-empty').classList.add('hidden');
+                            await HistoryManager.render('history-container');
+                        } else {
+                            document.getElementById('history-section').classList.add('hidden');
+                            document.getElementById('history-empty').classList.remove('hidden');
+                        }
+                    } catch (error) {
+                        console.error('履歴の読み込みに失敗しました:', error);
+                        document.getElementById('history-empty').classList.remove('hidden');
+                    }
+
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                }, 100); 
             });
         </script>
     </x-slot:scripts>
@@ -34,6 +56,8 @@
                 
                 {{-- 左カラム: メインメニュー --}}
                 <div class="lg:col-span-2 space-y-6">
+
+                    {{-- 愛車ガレージ --}}
                     <div class="bg-gradient-to-br from-blue-600 to-blue-700 overflow-hidden shadow-lg shadow-blue-500/30 rounded-2xl border border-blue-500 hover:shadow-xl transition group relative">
                         <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <i data-lucide="wrench" class="w-32 h-32 text-white"></i>
@@ -54,7 +78,7 @@
                                 オイル交換の時期や、カスタムの記録を残しましょう。
                             </p>
 
-                            <a href="{{ route('mybikes.index') }}" class="inline-flex items-center gap-2 bg-white text-blue-700 px-5 py-3 rounded-xl text-sm font-black hover:bg-blue-50 transition-colors shadow-sm">
+                            <a href="{{ route('mybikes.index') ?? '#' }}" class="inline-flex items-center gap-2 bg-white text-blue-700 px-5 py-3 rounded-xl text-sm font-black hover:bg-blue-50 transition-colors shadow-sm">
                                 ガレージへ移動する <i data-lucide="arrow-right" class="w-4 h-4"></i>
                             </a>
                         </div>
@@ -73,8 +97,8 @@
                             
                             <p class="text-sm text-gray-600 mb-6">
                                 気になるバイクを保存して、価格や状態を比較しましょう。
-                                {{-- 修正: favoritesテーブルを使用するため favorites() を参照 --}}
-                                <br>現在 <span class="font-black text-lg text-black mx-1">{{ Auth::user()->favorites()->count() }}</span> 台登録しています。
+                                {{-- ログイン直後でお気に入りが未実装の場合はエラーを防ぐため0を表示 --}}
+                                <br>現在 <span class="font-black text-lg text-black mx-1">{{ method_exists(Auth::user(), 'favorites') ? Auth::user()->favorites()->count() : 0 }}</span> 台登録しています。
                             </p>
 
                             <a href="{{ route('wishlist') }}" class="inline-flex items-center gap-2 bg-gray-900 text-white px-5 py-3 rounded-xl text-sm font-bold hover:bg-gray-700 transition-colors">
@@ -83,18 +107,36 @@
                         </div>
                     </div>
 
-                    {{-- 検索履歴 --}}
-                    <div class="bg-white overflow-hidden shadow-sm rounded-2xl border border-gray-100">
-                        <div class="p-6">
-                            {{-- JSでここに履歴が描画されます --}}
-                            <div id="dashboard-history-widget">
-                                <div class="flex items-center gap-2 mb-4 text-gray-400">
-                                    <i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
-                                    <span class="text-xs font-bold">履歴を読み込み中...</span>
-                                </div>
+                    {{-- 最近見たバイク（閲覧履歴あり） --}}
+                    <div id="history-section" class="hidden bg-white overflow-hidden shadow-sm rounded-2xl border border-gray-100 hover:shadow-md transition-shadow">
+                        <div class="p-4 sm:p-6">
+                            {{-- ★追加: 見出し --}}
+                            <h3 class="text-lg font-black text-gray-900 flex items-center gap-2 mb-4">
+                                <i data-lucide="history" class="w-5 h-5 text-gray-400"></i>
+                                最近見たバイク
+                            </h3>
+                            
+                            {{-- ★修正: 横並び・スクロール用のクラスを追加 --}}
+                            <div id="history-container" class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+                                {{-- HistoryManager.render() がここにカードを描画 --}}
                             </div>
                         </div>
                     </div>
+
+                    {{-- 最近見たバイク（閲覧履歴なし） --}}
+                    <div id="history-empty" class="hidden bg-white overflow-hidden shadow-sm rounded-2xl border border-gray-100 opacity-60">
+                        <div class="p-6">
+                            <h3 class="text-lg font-black text-gray-900 flex items-center gap-2 mb-2">
+                                <i data-lucide="history" class="w-5 h-5 text-gray-400"></i>
+                                最近見たバイク
+                            </h3>
+                            <p class="text-sm text-gray-400">まだ閲覧履歴がありません。バイクを見てみましょう！</p>
+                            <a href="{{ route('bikes.index') }}" class="inline-flex items-center gap-2 mt-4 text-sm font-bold text-blue-600 hover:underline">
+                                バイクを探す <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+                    </div>
+
                 </div>
 
                 {{-- 右カラム: アカウント設定など --}}
