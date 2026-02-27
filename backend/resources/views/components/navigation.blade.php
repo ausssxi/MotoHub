@@ -79,7 +79,11 @@
                         {{-- ログイン中: ユーザー名とドロップダウン --}}
                         <button @click="open = !open" @click.outside="open = false" class="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-200">
                             <div class="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center overflow-hidden">
-                                <i data-lucide="user" class="w-4 h-4"></i>
+                                @if(auth()->user()->avatar)
+                                    <img src="{{ auth()->user()->avatar }}" alt="" class="w-full h-full object-cover">
+                                @else
+                                    <i data-lucide="user" class="w-4 h-4"></i>
+                                @endif
                             </div>
                             <span class="text-xs font-bold text-gray-700 hidden sm:block max-w-[100px] truncate">{{ auth()->user()->name }}</span>
                             <i data-lucide="chevron-down" class="w-3 h-3 text-gray-400"></i>

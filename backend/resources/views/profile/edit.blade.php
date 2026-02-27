@@ -23,12 +23,14 @@
                     </div>
                 </div>
 
-                {{-- パスワード変更 --}}
+                {{-- パスワード変更（Googleのみユーザーには非表示） --}}
+                @unless(auth()->user()->isGoogleUser() && is_null(auth()->user()->password))
                 <div class="p-6 sm:p-8 bg-white shadow-sm sm:rounded-2xl border border-gray-100">
                     <div class="max-w-xl">
                         @include('profile.partials.update-password-form')
-                    </div>
-                </div>
+    </div>
+</div>
+@endunless
 
                 {{-- アカウント削除 --}}
                 <div class="p-6 sm:p-8 bg-white shadow-sm sm:rounded-2xl border border-gray-100">

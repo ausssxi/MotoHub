@@ -13,11 +13,13 @@
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.0",
         "laravel/scout": "^10.24",
+        "laravel/socialite": "^5.24",
         "laravel/tinker": "^2.10.1",
         "meilisearch/meilisearch-php": "^1.16",
         "spatie/laravel-sitemap": "^7.3"
     },
     "require-dev": {
+        "askdkc/breezejp": "^2.4",
         "barryvdh/laravel-ide-helper": "^3.6",
         "fakerphp/faker": "^1.23",
         "laravel/breeze": "^2.3",

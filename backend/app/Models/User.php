@@ -29,6 +29,8 @@ class User extends Authenticatable implements FilamentUser
         'email',
         'password',
         'is_admin',
+        'google_id',
+        'avatar',       
     ];
 
     /**
@@ -53,6 +55,11 @@ class User extends Authenticatable implements FilamentUser
             'password' => 'hashed',
             'is_admin' => 'boolean',
         ];
+    }
+
+    public function isGoogleUser(): bool
+    {
+        return !is_null($this->google_id);
     }
 
     /**

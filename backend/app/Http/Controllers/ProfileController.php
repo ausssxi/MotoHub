@@ -48,6 +48,13 @@ class ProfileController extends Controller
 
         $user = $request->user();
 
+        // Googleのみのユーザーはパスワード確認をスキップ
+        if (!($user->isGoogleUser() && is_null($user->password))) {
+            $request->validateWithBag('userDeletion', [
+                'password' => ['required', 'current_password'],
+            ]);
+        }
+
         Auth::logout();
 
         $user->delete();
