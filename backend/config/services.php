@@ -41,5 +41,13 @@ return [
         'access_token' => env('TWITTER_ACCESS_TOKEN'),
         'access_token_secret' => env('TWITTER_ACCESS_TOKEN_SECRET'),
     ],
+
+    // config/services.php の配列に以下を追加
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
     
 ];

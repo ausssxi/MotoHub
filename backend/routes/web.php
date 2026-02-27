@@ -12,6 +12,7 @@ use App\Http\Controllers\ProfileController; // Breeze用
 use App\Http\Controllers\Api\StatsApiController; // 統計情報API
 use App\Http\Controllers\Page\SellController; // 買取査定LP
 use App\Http\Controllers\MyBike\MyBikeController; // 愛車ログ機能
+use App\Http\Controllers\Auth\GoogleLoginController;
 
 /**
  * MotoHub Route Definitions
@@ -143,6 +144,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/api/search-models', 'searchModels')->name('api.search_models');
     });
 });
+
+// --- Google認証ルート ---
+Route::get('/auth/google/redirect', [GoogleLoginController::class, 'redirect'])
+    ->name('auth.google.redirect');
+Route::get('/auth/google/callback', [GoogleLoginController::class, 'callback'])
+    ->name('auth.google.callback');
 
 // Breezeの認証ルート読み込み (login, register等)
 require __DIR__.'/auth.php';
