@@ -9,6 +9,8 @@ export default {
         './resources/views/**/*.blade.php',
         './public/js/**/*.js',    // ★ 追加：publicディレクトリのJSファイル
         './resources/js/**/*.js', // ★ 追加：resourcesディレクトリのJSファイル（念のため）
+        './app/Services/**/*.php', // ★追加: サービス内のクラスも抽出する
+        './config/**/*.php',
     ],
 
     theme: {
