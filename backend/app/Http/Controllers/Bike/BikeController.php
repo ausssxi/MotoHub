@@ -116,6 +116,16 @@ final class BikeController extends Controller
 
         $currentPrice = is_numeric($listing->total_price) ? (float)$listing->total_price : 0;
         $stats = $this->priceStatsService->getModelStats((int)$listing->bike_model_id, $currentPrice);
+
+        // 値下げ額の計算ロジック（コントローラー側で処理してビューへ渡す）
+        $priceDropDiff = null;
+        if ($listing->relationLoaded('priceHistories') && $listing->priceHistories->isNotEmpty()) {
+            $latestDrop = $listing->priceHistories->first();
+            if ($latestDrop->old_price > $latestDrop->new_price) {
+                // 万円単位に変換（例: 30000 → 3.0）
+                $priceDropDiff = number_format(($latestDrop->old_price - $latestDrop->new_price) / 10000, 1);
+            }
+        }
         
         $reviews = $listing->bike_model_id 
             ? $this->bikeService->getReviewsByModelId((int)$listing->bike_model_id, 3) 
@@ -135,6 +145,7 @@ final class BikeController extends Controller
             'histogram'       => $stats['distribution'] ?? [],
             'tags'            => $listing->tags,
             'reviews'         => $reviews,
+            'priceDropDiff'   => $priceDropDiff,
         ]);
     }
 

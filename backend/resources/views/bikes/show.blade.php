@@ -20,7 +20,6 @@
         </script>
         
         <script src="{{ asset('js/bikes/model_detail.js') }}"></script>
-        {{-- ★役割ごとに分割したJSファイルを読み込み --}}
         <script src="{{ asset('js/bikes/review.js') }}"></script>
         <script src="{{ asset('js/search/seamless-nav.js') }}"></script>
         <script src="{{ asset('js/bikes/show.js') }}"></script>
@@ -62,7 +61,7 @@
         </div>
     </div>
     
-    {{-- シームレス・ナビゲーション（JSで検索経由の場合のみ表示） --}}
+    {{-- シームレス・ナビゲーション --}}
     <div id="search-nav-bar" class="hidden bg-gray-900 border-b border-gray-800 shadow-md sticky top-[64px] z-[30]">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center text-xs font-bold">
             <a id="nav-back-list" href="#" class="flex items-center gap-1.5 text-gray-300 hover:text-white transition-colors">
@@ -102,13 +101,11 @@
                         @endif
                         <div class="aspect-[4/3] bg-gray-100 relative group overflow-hidden">
                             @if(!empty($listing->images) && count($listing->images) > 0)
-                                {{-- ★大手術: <img>タグをやめて、divの背景画像（CSS）にすることでLCPの誤判定を完全に防ぐ！ --}}
                                 <div class="absolute inset-0 z-0 bg-cover bg-center blur-2xl opacity-50 scale-110" 
                                      style="background-image: url('{{ $listing->images[0] }}');" 
                                      aria-hidden="true"></div>
                                 
                                 <div class="absolute inset-0 z-10 flex items-center justify-center p-1">
-                                    {{-- ★これが本当の主役（LCP要素） --}}
                                     <img src="{{ $listing->images[0] }}" alt="{{ $listing->name }}" 
                                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
                                         class="max-w-full max-h-full object-contain shadow-sm"
@@ -122,7 +119,6 @@
                                 </div>
                             @endif
 
-                            {{-- ★修正: 掲載元サイトのバッジ（高速化・バックエンド処理化） --}}
                             <div class="absolute bottom-4 left-4 z-20 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-xl flex items-center gap-2 border border-white/10 shadow-sm">
                                 @if(isset($listing->source_icon_key) && $listing->source_icon_key !== 'default')
                                     <img src="{{ asset('images/sites/' . $listing->source_icon_key . '.png') }}" class="w-4 h-4 rounded-sm brightness-110" alt="">
@@ -154,7 +150,6 @@
 
                     {{-- 2. 車両基本情報 --}}
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
-                    {{-- リアルタイム検討状況の表示（閲覧数 ＋ お気に入り数） --}}
                         <div class="flex items-center gap-4 mb-6 py-3 px-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
                             <div class="flex -space-x-2 shrink-0">
                                 <div class="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white border-2 border-white shadow-sm"><i data-lucide="eye" class="w-3 h-3"></i></div>
@@ -166,6 +161,7 @@
                                 <span class="font-black text-red-600">{{ $listing->engagement['favorite_count'] ?? 0 }}名</span> がお気に入りに追加
                             </div>
                         </div>
+                        
                         <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
                             <div>
                                 <h1 class="text-2xl sm:text-3xl font-black text-gray-900 leading-tight mb-3">{{ $listing->name }}</h1>
@@ -192,13 +188,20 @@
                                 @endif
                             </div>
                             
-                            <div class="flex items-center gap-2">
-                                <button class="compare-btn w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors" data-id="{{ $listing->id }}">
+                            {{-- ★修正: イベントバブリングを阻害しないようJS直接呼び出しに変更 --}}
+                            <div class="flex items-center gap-3">
+                                <button class="compare-btn w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors shadow-sm" data-id="{{ $listing->id }}">
                                     <i data-lucide="layers" class="w-5 h-5"></i>
                                 </button>
-                                <button class="wishlist-btn w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors" data-id="{{ $listing->id }}">
-                                    <i data-lucide="heart" class="w-5 h-5"></i>
-                                </button>
+                                <div class="flex items-center gap-3 bg-gray-50 pl-4 pr-1.5 py-1.5 rounded-full border border-gray-200 shadow-sm cursor-pointer hover:bg-red-50 hover:border-red-200 group transition-colors" onclick="if(window.WishlistManager) window.WishlistManager.toggle('{{ $listing->id }}')">
+                                    <div class="flex flex-col text-right hidden sm:flex pointer-events-none">
+                                        <span class="text-[10px] font-black text-gray-900 group-hover:text-red-700 leading-none">お気に入り</span>
+                                        <span class="text-[8px] font-bold text-gray-500 group-hover:text-red-500 mt-0.5">値下げ通知を受信</span>
+                                    </div>
+                                    <button class="wishlist-btn w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 bg-white transition-colors pointer-events-none" data-id="{{ $listing->id }}">
+                                        <i data-lucide="heart" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -377,7 +380,7 @@
                     </div>
                     @endif
 
-                    {{-- オーナーレビューセクション（0件でも表示して投稿を促す） --}}
+                    {{-- オーナーレビューセクション --}}
                     @if(isset($reviews))
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mt-8">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-6">
@@ -560,6 +563,55 @@
                                     (車両本体価格: {{ $listing->price }}万円)
                                 </div>
                                 @endif
+                                
+                                @if($priceDropDiff)
+                                <div class="mt-3 inline-flex flex-col items-center justify-center gap-1 bg-yellow-50 text-yellow-800 px-4 py-2.5 rounded-xl text-xs font-black border border-yellow-300 shadow-sm animate-pulse w-full">
+                                    <div class="flex items-center gap-1.5">
+                                        <i data-lucide="arrow-down-circle" class="w-4 h-4 text-yellow-600"></i>
+                                        以前より {{ $priceDropDiff }}万円 値下がりしました！
+                                    </div>
+                                </div>
+                                @endif
+                                
+                                @if($priceDropDiff)
+                                <div class="mt-3 inline-flex flex-col items-center justify-center gap-1 bg-yellow-50 text-yellow-800 px-4 py-2.5 rounded-xl text-xs font-black border border-yellow-300 shadow-sm animate-pulse w-full">
+                                    <div class="flex items-center gap-1.5">
+                                        <i data-lucide="arrow-down-circle" class="w-4 h-4 text-yellow-600"></i>
+                                        以前より {{ $priceDropDiff }}万円 値下がりしました！
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
+
+                            {{-- ★修正: イベントバブリングを阻害しないようJS直接呼び出しに変更し、子要素のクリックを無視 --}}
+                            <div class="mb-6">
+                                <div class="bg-gray-50 hover:bg-red-50 rounded-2xl p-4 border border-gray-200 hover:border-red-200 flex items-center justify-between group cursor-pointer transition-colors shadow-sm" onclick="if(window.WishlistManager) window.WishlistManager.toggle('{{ $listing->id }}')">
+                                    <div class="flex flex-col text-left pointer-events-none">
+                                        <span class="text-sm font-black text-gray-900 group-hover:text-red-700 flex items-center gap-1.5 transition-colors">
+                                            <i data-lucide="bell-ring" class="w-4 h-4 text-yellow-500 group-hover:text-red-500"></i> 値下げアラート
+                                        </span>
+                                        <span class="text-[10px] font-bold text-gray-500 group-hover:text-red-500 mt-1 transition-colors">価格が下がったらメールでお知らせ！</span>
+                                    </div>
+                                    <button class="wishlist-btn w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 bg-white transition-colors shadow-sm pointer-events-none" data-id="{{ $listing->id }}">
+                                        <i data-lucide="heart" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                                
+                                {{-- 未ログインユーザーへの登録訴求バナー --}}
+                                @guest
+                                    <div class="mt-3 bg-blue-50/70 border border-blue-100 rounded-xl p-3 flex items-start gap-2">
+                                        <i data-lucide="info" class="w-4 h-4 text-blue-500 shrink-0 mt-0.5"></i>
+                                        <div>
+                                            <p class="text-[10px] text-blue-900 font-bold leading-relaxed mb-2">
+                                                通知を受け取るには、無料のログインが必要です。
+                                            </p>
+                                            <a href="{{ route('login') }}" class="inline-flex items-center justify-center w-full bg-white border border-gray-200 hover:border-blue-300 text-gray-700 text-[10px] font-black py-2 rounded-lg transition-colors shadow-sm">
+                                                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-3 h-3 mr-1.5" alt="G">
+                                                Googleで1秒ログイン
+                                            </a>
+                                        </div>
+                                    </div>
+                                @endguest
                             </div>
 
                             <div class="space-y-3">
@@ -590,7 +642,7 @@
                                 </div>
                             </div>
                         </div>
-                        {{-- 検討を促すサイドバーパーツ（お気に入り数連動） --}}
+                        {{-- 検討を促すサイドバーパーツ --}}
                         <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-6 text-white shadow-lg">
                             <h4 class="text-xs font-black uppercase tracking-widest text-orange-400 mb-3 flex items-center gap-2">
                                 <i data-lucide="alert-circle" class="w-4 h-4"></i> 売却済みにご注意ください
@@ -607,23 +659,31 @@
     </div>
 
     {{-- スマホ用固定フッターCV（お気に入り数連動） --}}
-    <div class="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 p-3 sm:p-4 lg:hidden z-50 safe-area-bottom">
-        <div class="flex gap-3 items-center">
-            <div class="flex-1">
-                <div class="flex items-center gap-2 mb-0.5">
-                    <div class="text-[10px] font-bold text-gray-400">支払総額</div>
+    <div class="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 p-3 sm:p-4 lg:hidden z-50 safe-area-bottom shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+        <div class="flex gap-2 sm:gap-3 items-center">
+            
+            {{-- ★修正: 中のアイコンとテキストをクリック無視にし、ボタン本体が確実にイベントを拾うように --}}
+            <button class="wishlist-btn shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-xl border border-gray-200 flex flex-col items-center justify-center text-gray-400 bg-gray-50 shadow-sm transition-colors" data-id="{{ $listing->id }}">
+                <i data-lucide="heart" class="w-5 h-5 mb-0.5 pointer-events-none"></i>
+                <span class="text-[7px] sm:text-[8px] font-black leading-none tracking-tighter pointer-events-none">アラート</span>
+            </button>
+
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5 sm:gap-2 mb-0.5">
+                    <div class="text-[9px] sm:text-[10px] font-bold text-gray-400 whitespace-nowrap">支払総額</div>
                     @if(isset($stats['rank']) && in_array($stats['rank'], ['S', 'A']) && isset($stats['diff']) && $stats['diff'] < 0)
-                        <span class="text-[9px] font-black text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
+                        <span class="text-[8px] sm:text-[9px] font-black text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-100 truncate">
                             {{ abs($stats['diff']) }}万円 安い!
                         </span>
                     @endif
                 </div>
-                <div class="text-xl font-black text-red-500 leading-none">{{ $listing->total_price }}<span class="text-xs text-gray-500 ml-0.5">万円</span></div>
+                <div class="text-lg sm:text-xl font-black text-red-500 leading-none truncate">{{ $listing->total_price }}<span class="text-[10px] sm:text-xs text-gray-500 ml-0.5">万円</span></div>
             </div>
-            <a href="{{ $listing->url }}" target="_blank" class="w-48 bg-red-600 text-white font-black flex flex-col items-center justify-center rounded-lg shadow-lg py-2 active:scale-95 transition-transform">
-                <span class="text-sm">在庫確認・見積もり</span>
-                <span class="text-[9px] font-medium opacity-90 flex items-center gap-1">
-                    <i data-lucide="heart" class="w-2.5 h-2.5 fill-current"></i> 現在 {{ $listing->engagement['favorite_count'] ?? 0 }}名がお気に入り
+
+            <a href="{{ $listing->url }}" target="_blank" class="w-36 sm:w-48 bg-red-600 text-white font-black flex flex-col items-center justify-center rounded-xl shadow-lg shadow-red-500/30 py-2 sm:py-2.5 active:scale-95 transition-transform shrink-0">
+                <span class="text-xs sm:text-sm">在庫確認・見積</span>
+                <span class="text-[8px] sm:text-[9px] font-medium opacity-90 flex items-center gap-1 mt-0.5">
+                    <i data-lucide="users" class="w-2.5 h-2.5"></i> {{ $listing->engagement['favorite_count'] ?? 0 }}名が検討中
                 </span>
             </a>
         </div>

@@ -109,6 +109,38 @@ class Listing extends Model
     public function site(): BelongsTo { return $this->belongsTo(Site::class); }
     public function tags(): BelongsToMany { return $this->belongsToMany(Tag::class); }
 
+    /**
+     * ★追加: この車両をお気に入りしているユーザー（多対多）
+     */
+    public function favoritedByUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'favorites', 'listing_id', 'user_id')->withTimestamps();
+    }
+
+    /**
+     * ★追加: モデルのイベント（更新時の価格チェックと値下げ履歴の保存）
+     */
+    protected static function booted()
+    {
+        static::updated(function ($listing) {
+            // total_price が変更されたかチェック
+            if ($listing->wasChanged('total_price')) {
+                $oldPrice = $listing->getOriginal('total_price');
+                $newPrice = $listing->total_price;
+
+                // 以前の価格が存在し、新価格が安くなっている場合に履歴を作成
+                if ($oldPrice > 0 && $newPrice > 0 && $newPrice < $oldPrice) {
+                    \App\Models\PriceHistory::create([
+                        'listing_id' => $listing->id,
+                        'old_price'  => $oldPrice,
+                        'new_price'  => $newPrice,
+                        'is_notified'=> false,
+                    ]);
+                }
+            }
+        });
+    }
+
     // --- Query Scopes ---
     public function scopeActive(Builder $query): Builder { return $query->where('listings.is_sold_out', false); }
     public function scopeWithKeyword(Builder $query, ?string $keyword): Builder {

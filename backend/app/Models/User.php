@@ -8,12 +8,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+
 // Filament用のクラスをインポート
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 
-
-// ★修正: implements FilamentUser を追加
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
@@ -64,8 +63,9 @@ class User extends Authenticatable implements FilamentUser
 
     /**
      * お気に入り車両とのリレーション
+     * （★値下げアラート機能でここを使用します！）
      */
-    public function favorites(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function favorites(): BelongsToMany
     {
         return $this->belongsToMany(Listing::class, 'favorites', 'user_id', 'listing_id')
                     ->withTimestamps();
@@ -74,7 +74,7 @@ class User extends Authenticatable implements FilamentUser
     /**
      * 閲覧履歴 (更新日時順)
      */
-    public function browsingHistories(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function browsingHistories(): BelongsToMany
     {
         return $this->belongsToMany(Listing::class, 'browsing_histories', 'user_id', 'listing_id')
                     ->withTimestamps()
@@ -84,7 +84,7 @@ class User extends Authenticatable implements FilamentUser
     /**
      * 検索条件の保存
      */
-    public function savedSearches(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function savedSearches(): HasMany
     {
         return $this->hasMany(SavedSearch::class)->orderBy('created_at', 'desc');
     }

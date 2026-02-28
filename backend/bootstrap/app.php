@@ -34,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $tagsLog = storage_path('logs/tags.log');
         $specsLog = storage_path('logs/specs.log'); // ★追加: スペック収集用ログ
         $meiliLog = storage_path('logs/meilisearch.log'); // ★追加: 検索エンジン用ログ
+        $alertLog = storage_path('logs/price_alerts.log'); // ★追加: 値下げアラート用ログ
 
         /**
          * --- 1. 月次タスク (毎月1日) ---
@@ -94,7 +95,7 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->withoutOverlapping()
                  ->appendOutputTo($crawlingLog);
 
-        // ★追加: カタログスペックの自動収集・穴埋め (04:30〜)
+        // カタログスペックの自動収集・穴埋め (04:30〜)
         // 未取得の車種がない場合は数秒で終了します
         $schedule->exec("python3 {$basePath}/bikebros/spec_collector.py")
                  ->dailyAt('04:30')
@@ -113,7 +114,7 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->withoutOverlapping()
                  ->appendOutputTo($tagsLog);
 
-        // ★追加: Meilisearch(検索エンジン)の同期 (05:30)
+        // Meilisearch(検索エンジン)の同期 (05:30)
         // Pythonスクレイパーとタグ抽出で更新されたMySQLの最新状態を検索エンジンに流し込みます。
         $schedule->command('scout:import', ['App\Models\Listing'])
                  ->dailyAt('05:30')
@@ -137,6 +138,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('sitemap:generate')
                  ->dailyAt('07:00')
                  ->withoutOverlapping();
+
+        // ★追加: 値下げアラートの送信 (08:00)
+        // データ更新が全て完了し、ユーザーがメールを見やすい朝の時間帯に一斉送信
+        $schedule->command('bikes:send-price-alerts')
+                 ->dailyAt('08:00')
+                 ->withoutOverlapping()
+                 ->appendOutputTo($alertLog);
 
         /**
          * --- 4. Twitter Bot (自動投稿) ---
