@@ -1,5 +1,13 @@
 <x-layout>
-    <x-slot:title>{{ $shop->name }}の在庫一覧 | MotoHub</x-slot:title>
+    {{-- ★ 1. タイトルの改修（地域名とキーワードを含める） --}}
+    <x-slot:title>
+        {{ $shop->name }}の在庫一覧 @if(!empty($shop->prefecture))({{ $shop->prefecture }})@endif - 中古・新車バイク | MotoHub
+    </x-slot:title>
+
+    {{-- ★ 2. メタディスクリプションの追加（店舗名＋地域名＋検索キーワードを盛り込む） --}}
+    <x-slot:metaDescription>
+        @if(!empty($shop->prefecture)){{ $shop->prefecture }}にある@endif「{{ $shop->name }}」のバイク在庫一覧ページです。MotoHubでは、同店舗で現在販売中の中古バイク・新車を価格や排気量で比較できます。住所や営業時間などの店舗情報も確認可能です。
+    </x-slot:metaDescription>
     
     <x-slot:styles>
         {{-- CSSの非同期読み込み（レンダリングブロック完全解除） --}}
