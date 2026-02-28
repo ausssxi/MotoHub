@@ -23,11 +23,7 @@
             </div>
 
             {{-- メーカー別アコーディオンリスト --}}
-            <div class="space-y-4">
-                {{-- 
-                    Serviceで整形済みのため、配列としてアクセスします
-                    $manufacturer は Eloquentモデルではなく配列になっています
-                --}}
+            <div class="space-y-4 content-visibility-auto">
                 @foreach($manufacturers as $manufacturer)
                     
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition duration-300 hover:shadow-md" id="maker-section-{{ $manufacturer['id'] }}">
@@ -37,7 +33,8 @@
                             <div class="flex items-center gap-4">
                                 <div class="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center group-hover:border-blue-200 transition-colors">
                                     @if($manufacturer['image_url'])
-                                        <img src="{{ $manufacturer['image_url'] }}" alt="{{ $manufacturer['name'] }}" class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500">
+                                        {{-- ★改善: メーカーアイコンも念のため遅延読み込み --}}
+                                        <img src="{{ $manufacturer['image_url'] }}" alt="{{ $manufacturer['name'] }}" class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" loading="lazy" decoding="async">
                                     @else
                                         <i data-lucide="bike" class="w-5 h-5 text-gray-300"></i>
                                     @endif
@@ -62,11 +59,10 @@
                         <div id="maker-list-{{ $manufacturer['id'] }}" class="hidden border-t border-gray-100 bg-gray-50/30">
                             <div class="p-2 sm:p-4 space-y-2">
                                 
-                                {{-- 整形済みのグループデータをループ --}}
                                 @foreach($manufacturer['groups'] as $label => $list)
                                     @if(count($list) > 0)
                                         @php $subId = $manufacturer['id'] . '-' . $loop->index; @endphp
-                                        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden content-visibility-auto">
                                             <button onclick="toggleSubGroup('{{ $subId }}')" class="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-50 transition-colors text-left group/sub">
                                                 <div class="flex items-center gap-3">
                                                     <span class="text-sm font-bold text-gray-700 min-w-[2rem]">{{ $label }}</span>
@@ -83,7 +79,9 @@
                                                         
                                                         <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 mr-3 border border-gray-100 relative">
                                                             @if($bike->image_url)
+                                                            {{-- ★劇的改善ポイント: loading="lazy" と decoding="async" を追加！ --}}
                                                             <img src="{{ $bike->image_url }}" alt="{{ $bike->name }}" 
+                                                                 loading="lazy" decoding="async"
                                                                  class="w-full h-full object-cover transform group-hover/item:scale-110 transition-transform duration-500"
                                                                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                                             <div class="hidden w-full h-full items-center justify-center text-gray-300">
@@ -126,4 +124,12 @@
             </div>
         </div>
     </div>
+    
+    {{-- ★CSS改善: 画面外のレンダリングをスキップさせる最新のCSS属性 --}}
+    <style>
+        .content-visibility-auto {
+            content-visibility: auto;
+            contain-intrinsic-size: 100px;
+        }
+    </style>
 </x-layout>
