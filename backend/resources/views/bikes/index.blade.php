@@ -3,8 +3,6 @@
 
     <x-slot:scripts>
         <script src="{{ asset('js/search/suggest.js') }}"></script>
-        {{-- ★追加: 閲覧履歴のスクリプトを読み込み、描画を実行 --}}
-        <script src="{{ asset('js/history/manager.js') }}"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.HistoryManager) {

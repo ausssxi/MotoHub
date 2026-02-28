@@ -18,6 +18,10 @@ export default {
             fontFamily: {
                 sans: ['Figtree', ...defaultTheme.fontFamily.sans],
             },
+            colors: {
+                'line-green': '#06C755',
+                'line-green-hover': '#05b34c',
+            },
         },
     },
 

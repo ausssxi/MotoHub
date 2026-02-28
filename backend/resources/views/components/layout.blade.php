@@ -42,11 +42,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 
     {{-- Tailwind CSS --}}
-    @if(app()->isLocal())
-        <script src="https://cdn.tailwindcss.com"></script>
-    @else
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
-    @endif
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     {{-- サードパーティの重いJSに「defer(遅延)」をつけて画面描画を優先させる --}}
     <script src="https://unpkg.com/lucide@latest" defer></script>
