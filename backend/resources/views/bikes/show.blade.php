@@ -193,12 +193,12 @@
                                 <button class="compare-btn w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors shadow-sm" data-id="{{ $listing->id }}">
                                     <i data-lucide="layers" class="w-5 h-5"></i>
                                 </button>
-                                <div class="flex items-center gap-3 bg-gray-50 pl-4 pr-1.5 py-1.5 rounded-full border border-gray-200 shadow-sm cursor-pointer hover:bg-red-50 hover:border-red-200 group transition-colors" onclick="if(window.WishlistManager) window.WishlistManager.toggle('{{ $listing->id }}')">
+                                <div class="flex items-center sm:gap-3 bg-transparent sm:bg-gray-50 sm:pl-4 sm:pr-1.5 sm:py-1.5 rounded-full border-transparent sm:border-gray-200 border cursor-pointer hover:bg-red-50 hover:border-red-200 group transition-colors" onclick="if(window.WishlistManager) window.WishlistManager.toggle('{{ $listing->id }}')">
                                     <div class="flex flex-col text-right hidden sm:flex pointer-events-none">
                                         <span class="text-[10px] font-black text-gray-900 group-hover:text-red-700 leading-none">お気に入り</span>
-                                        <span class="text-[8px] font-bold text-gray-500 group-hover:text-red-500 mt-0.5">値下げ通知を受信</span>
+                                        <span class="text-[8px] font-bold text-gray-500 group-hover:text-red-500 mt-0.5">LINEで値下げ通知</span>
                                     </div>
-                                    <button class="wishlist-btn w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 bg-white transition-colors pointer-events-none" data-id="{{ $listing->id }}">
+                                    <button class="wishlist-btn w-10 h-10 sm:w-9 sm:h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 bg-white shadow-sm transition-colors pointer-events-none" data-id="{{ $listing->id }}">
                                         <i data-lucide="heart" class="w-4 h-4"></i>
                                     </button>
                                 </div>
@@ -583,22 +583,34 @@
                                 @endif
                             </div>
 
-                            {{-- ★修正: イベントバブリングを阻害しないようJS直接呼び出しに変更し、子要素のクリックを無視 --}}
                             <div class="mb-6">
                                 <div class="bg-gray-50 hover:bg-red-50 rounded-2xl p-4 border border-gray-200 hover:border-red-200 flex items-center justify-between group cursor-pointer transition-colors shadow-sm" onclick="if(window.WishlistManager) window.WishlistManager.toggle('{{ $listing->id }}')">
                                     <div class="flex flex-col text-left pointer-events-none">
                                         <span class="text-sm font-black text-gray-900 group-hover:text-red-700 flex items-center gap-1.5 transition-colors">
                                             <i data-lucide="bell-ring" class="w-4 h-4 text-yellow-500 group-hover:text-red-500"></i> 値下げアラート
                                         </span>
-                                        <span class="text-[10px] font-bold text-gray-500 group-hover:text-red-500 mt-1 transition-colors">価格が下がったらメールでお知らせ！</span>
+            
+                                        {{-- 状態によってテキストを切り替え --}}
+                                        @guest
+                                            <span class="text-[10px] font-bold text-gray-500 group-hover:text-red-500 mt-1 transition-colors">価格が下がったらLINEでお知らせ！</span>
+                                        @else
+                                            @if(auth()->user()->hasLineLinked())
+                                                <span class="text-[10px] font-bold text-[#06C755] mt-1 transition-colors flex items-center gap-1">
+                                                    <i data-lucide="message-circle" class="w-3 h-3"></i> LINEで最速通知を受信します
+                                                </span>
+                                            @else
+                                                <span class="text-[10px] font-bold text-gray-500 group-hover:text-red-500 mt-1 transition-colors">価格が下がったらLINEでお知らせ！</span>
+                                            @endif
+                                        @endguest
                                     </div>
                                     <button class="wishlist-btn w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 bg-white transition-colors shadow-sm pointer-events-none" data-id="{{ $listing->id }}">
                                         <i data-lucide="heart" class="w-4 h-4"></i>
                                     </button>
                                 </div>
-                                
-                                {{-- 未ログインユーザーへの登録訴求バナー --}}
+    
+                                {{-- 通知ステータスの詳細バナー --}}
                                 @guest
+                                    {{-- 未ログインユーザーへの登録訴求バナー --}}
                                     <div class="mt-3 bg-blue-50/70 border border-blue-100 rounded-xl p-3 flex items-start gap-2">
                                         <i data-lucide="info" class="w-4 h-4 text-blue-500 shrink-0 mt-0.5"></i>
                                         <div>
@@ -611,6 +623,22 @@
                                             </a>
                                         </div>
                                     </div>
+                                @else
+                                    {{-- ログイン済み：LINE未連携のユーザーへLINE連携を強く訴求 --}}
+                                    @if(!auth()->user()->hasLineLinked())
+                                        <div class="mt-3 bg-gray-50 border border-gray-200 rounded-xl p-3 shadow-sm">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <span class="text-[10px] font-bold text-gray-500">現在の通知設定:</span>
+                                                <span class="text-[10px] font-black text-gray-700 flex items-center gap-1 bg-white px-2 py-1 rounded-md border border-gray-200 shadow-sm">
+                                                    <i data-lucide="mail" class="w-3 h-3"></i> メール通知のみ
+                                                </span>
+                                            </div>
+                                            <a href="{{ route('auth.line.redirect') }}" class="flex items-center justify-center gap-1.5 w-full text-white text-[10px] font-bold py-2.5 rounded-lg transition-opacity hover:opacity-90 shadow-sm" style="background-color: #06C755;">
+                                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 5.88 2 10.54c0 4.07 3.42 7.49 8.05 8.44.31.07.73.21.84.48.1.25.06.63.03.88l-.14.83c-.04.25-.2.97.85.53s5.61-3.31 7.66-5.67C21.03 13.86 22 12.28 22 10.54 22 5.88 17.52 2 12 2z"/></svg>
+                                                LINE連携して見逃しを防ぐ
+                                            </a>
+                                        </div>
+                                    @endif
                                 @endguest
                             </div>
 
