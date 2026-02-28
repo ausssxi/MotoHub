@@ -103,6 +103,10 @@
                         </svg>
                         Googleアカウントでログイン
                     </a>
+                    <a href="{{ route('auth.line.redirect') }}" class="mt-3 w-full inline-flex items-center justify-center gap-3 px-4 py-3 bg-line-green hover:bg-line-green-hover text-white font-bold rounded-xl transition-colors shadow-sm active:scale-95">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 5.88 2 10.54c0 4.07 3.42 7.49 8.05 8.44.31.07.73.21.84.48.1.25.06.63.03.88l-.14.83c-.04.25-.2.97.85.53s5.61-3.31 7.66-5.67C21.03 13.86 22 12.28 22 10.54 22 5.88 17.52 2 12 2z"/></svg>
+                        LINEでログイン
+                    </a>
                 </div>
                 {{-- === ここまで追加 === --}}
             </div> {{-- カード閉じ --}}
