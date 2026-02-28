@@ -30,6 +30,7 @@ class User extends Authenticatable implements FilamentUser
         'is_admin',
         'google_id',
         'avatar',       
+        'line_id',
     ];
 
     /**
@@ -105,5 +106,13 @@ class User extends Authenticatable implements FilamentUser
     {
         // is_admin カラムが true のユーザーのみ許可
         return $this->is_admin;
+    }
+
+    /**
+    * LINE連携済みか判定
+    */
+    public function hasLineLinked(): bool
+    {
+        return !is_null($this->line_id);
     }
 }

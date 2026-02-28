@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use App\Models\PriceHistory;
 use App\Mail\PriceDropMail;
 use Illuminate\Support\Facades\Mail;
+use App\Services\Line\LineNotificationService;
 
 class SendPriceDropAlerts extends Command
 {
@@ -38,8 +39,19 @@ class SendPriceDropAlerts extends Command
             $users = $listing->favoritedByUsers;
 
             foreach ($users as $user) {
-                // ShouldQueueを実装したMailableなので自動的に非同期(Queue)に入ります
-                Mail::to($user->email)->send(new PriceDropMail($user, $listing, $history));
+                if ($user->hasLineLinked()) {
+                    // LINE連携済み → LINEで通知
+                    $lineService = app(LineNotificationService::class);
+                    $lineService->sendPriceDropAlert(
+                        $user,
+                        $listing,
+                        $history->old_price,
+                        $history->new_price
+                    );
+                } else {
+                    // LINE未連携 → メールで通知
+                    Mail::to($user->email)->send(new PriceDropMail($user, $listing, $history));
+                }
                 $sentCount++;
             }
 

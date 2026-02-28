@@ -152,6 +152,38 @@
                                         <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-blue-400"></i>
                                     </a>
                                 </li>
+                                {{-- LINE連携 --}}
+                                <li>
+                                    @if(auth()->user()->hasLineLinked())
+                                        {{-- 連携済み --}}
+                                        <div class="p-3 rounded-xl bg-green-50 border border-green-100">
+                                            <div class="flex items-center justify-between">
+                                                <span class="flex items-center gap-2 text-sm font-bold text-green-700">
+                                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="#06C755"><path d="M12 2C6.48 2 2 5.88 2 10.54c0 4.07 3.42 7.49 8.05 8.44.31.07.73.21.84.48.1.25.06.63.03.88l-.14.83c-.04.25-.2.97.85.53s5.61-3.31 7.66-5.67C21.03 13.86 22 12.28 22 10.54 22 5.88 17.52 2 12 2z"/></svg>
+                                                    LINE連携済み
+                                                </span>
+                                                <form method="POST" action="{{ route('auth.line.unlink') }}">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="text-[10px] font-bold text-gray-400 hover:text-red-500 transition-colors" onclick="return confirm('LINE連携を解除しますか？')">
+                                                        解除
+                                                    </button>
+                                                </form>
+                                            </div>
+                                            <p class="text-[10px] text-green-600 font-bold mt-1">値下げ通知をLINEで受け取れます</p>
+                                        </div>
+                                    @else
+                                        {{-- 未連携 --}}
+                                        <a href="{{ route('auth.line.redirect') }}" class="flex items-center justify-between p-3 rounded-xl bg-[#06C755] hover:bg-[#05b34c] text-white font-bold text-sm transition-colors group shadow-sm">
+                                            <span class="flex items-center gap-2">
+                                                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 5.88 2 10.54c0 4.07 3.42 7.49 8.05 8.44.31.07.73.21.84.48.1.25.06.63.03.88l-.14.83c-.04.25-.2.97.85.53s5.61-3.31 7.66-5.67C21.03 13.86 22 12.28 22 10.54 22 5.88 17.52 2 12 2z"/></svg>
+                                                LINE連携する
+                                            </span>
+                                            <i data-lucide="chevron-right" class="w-4 h-4 opacity-70"></i>
+                                        </a>
+                                        <p class="text-[10px] text-gray-400 font-bold mt-1.5 ml-1">連携すると値下げ通知をLINEで受信できます</p>
+                                    @endif
+                                </li>
                                 <li>
                                     <form method="POST" action="{{ route('logout') }}">
                                         @csrf
