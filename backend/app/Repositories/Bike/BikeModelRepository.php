@@ -75,4 +75,23 @@ final class BikeModelRepository
             ->limit($limit)
             ->get();
     }
+
+    /**
+     * 急上昇トレンド（閲覧数＋お気に入り数に基づく熱量スコア順）車種一覧ページで使用
+     */
+    public function getTrendingModels(int $limit = 10): Collection
+    {
+        return BikeModel::query()
+            ->withCount(['listings' => fn($q) => $q->active()])
+            // その車種に属する有効な車両の「本日の閲覧数」の合計を取得
+            ->withSum(['listings as today_views' => fn($q) => $q->active()], 'view_count_today')
+            // その車種に属する有効な車両の「お気に入り数」の合計を取得
+            ->withSum(['listings as total_favorites' => fn($q) => $q->active()], 'favorite_count')
+            // 【熱量スコアの計算】 (今日の閲覧数 × 1) + (お気に入り数 × 5) でソート
+            ->orderByRaw('(COALESCE(today_views, 0) + (COALESCE(total_favorites, 0) * 5)) DESC')
+            // スコアが同じ場合は、在庫の選択肢が多い（掲載台数が多い）ものを優先
+            ->orderBy('listings_count', 'desc')
+            ->limit($limit)
+            ->get();
+    }
 }

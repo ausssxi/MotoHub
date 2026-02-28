@@ -62,6 +62,68 @@
                 </div>
             </section>
 
+            {{-- ★追加: 今週の人気車種 TOP10 --}}
+            @if(isset($trendingBikes) && count($trendingBikes) > 0)
+            <section class="mb-12 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-100 overflow-hidden relative">
+                <div class="absolute -right-6 -top-6 text-yellow-50 opacity-50 pointer-events-none">
+                    <i data-lucide="crown" class="w-40 h-40"></i>
+                </div>
+                <div class="relative z-10">
+                    <div class="flex items-center gap-2 mb-6">
+                        <div class="p-2 bg-yellow-50 rounded-lg text-yellow-500">
+                            <i data-lucide="flame" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-black text-gray-900 leading-tight">今週の人気車種 TOP10</h3>
+                            <p class="text-[10px] font-bold text-gray-400 mt-0.5">みんなが注目しているバイクをチェック！</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4 sm:gap-5 overflow-x-auto pb-6 pt-2 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+                        {{-- 取得した人気車種から上位10件だけを表示 --}}
+                        @foreach($trendingBikes->take(10) as $index => $bike)
+                            <a href="{{ route('bikes.search', ['bike_model_id' => $bike->id]) }}" class="snap-start shrink-0 w-36 sm:w-44 group relative block">
+                                
+                                {{-- ★修正: 白背景でもくっきり見えるように、メダルの色を濃くして文字色を白で統一 --}}
+                                <div class="absolute -top-3 -left-3 z-20 w-8 h-8 rounded-full flex items-center justify-center font-black text-white shadow-lg border-2 border-white
+                                    {{ $index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 shadow-yellow-500/50' : 
+                                      ($index === 1 ? 'bg-gradient-to-br from-slate-400 to-slate-600 shadow-slate-500/50' : 
+                                      ($index === 2 ? 'bg-gradient-to-br from-orange-500 to-orange-700 shadow-orange-500/50' : 
+                                      'bg-gray-800 shadow-gray-900/50')) }}">
+                                    {{ $index + 1 }}
+                                </div>
+                                
+                                <div class="bg-white rounded-2xl overflow-hidden shadow-sm group-hover:shadow-xl transition-all duration-300 border border-gray-100 flex flex-col h-full group-hover:-translate-y-1">
+                                    <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
+                                        @if($bike->image_url)
+                                            <img src="{{ $bike->image_url }}" alt="{{ $bike->name }}" 
+                                                 class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" decoding="async">
+                                        @else
+                                            <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                                <i data-lucide="bike" class="w-8 h-8"></i>
+                                            </div>
+                                        @endif
+                                    </div>
+                                    <div class="p-3 sm:p-4 flex flex-col flex-1">
+                                        <div class="text-[9px] sm:text-[10px] font-bold text-gray-400 mb-1 uppercase">{{ $bike->manufacturer?->name }}</div>
+                                        <h4 class="text-xs sm:text-sm font-black text-gray-800 leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors h-[2.5em]">
+                                            {{ $bike->name }}
+                                        </h4>
+                                        <div class="mt-auto pt-3 border-t border-gray-50 flex items-center justify-between">
+                                            <span class="inline-flex items-center text-[9px] sm:text-[10px] font-black bg-blue-50 text-blue-600 px-2 py-1 rounded-md">
+                                                {{ number_format($bike->listings_count ?? 0) }}台
+                                            </span>
+                                            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-gray-300 group-hover:text-blue-500 transition-colors"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            </section>
+            @endif
+
             {{-- メーカー別アコーディオンリスト --}}
             <div class="space-y-4 content-visibility-auto mb-16">
                 @foreach($manufacturers as $manufacturer)

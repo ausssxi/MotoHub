@@ -194,6 +194,8 @@ final class BikeController extends Controller
     public function models(): View
     {
         $data = $this->bikeService->getAllModelsForIndex();
+        // ★修正: トップページの定番ではなく、専用の「急上昇トレンド」を取得する
+        $data['trendingBikes'] = $this->bikeService->getTrendingBikes(10);
         return view('bikes.models', $data);
     }
 

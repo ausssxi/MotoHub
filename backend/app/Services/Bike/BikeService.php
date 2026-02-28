@@ -115,6 +115,17 @@ final class BikeService
         return $this->modelRepo->getTopModels(16);
     }
 
+    /**
+     * 車種一覧ページ用：急上昇トレンド（熱量スコア順）
+     */
+    public function getTrendingBikes(int $limit = 10): Collection
+    {
+        // 1時間（3600秒）ごとに結果をキャッシュして爆速化する
+        return Cache::remember('trending_bikes_v1', 3600, function () use ($limit) {
+            return $this->modelRepo->getTrendingModels($limit);
+        });
+    }
+
     public function getSearchSuggestions(string $keyword): array
     {
         $models = $this->modelRepo->searchByName($keyword, 10);
