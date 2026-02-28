@@ -1,7 +1,27 @@
 <x-layout>
+    {{-- ★ 1. タイトルの動的生成（URLから直接取得する確実な方法） --}}
     <x-slot:title>
-        {{ $pageTitle }} - MotoHub
+        @if(request()->filled('prefecture') && request()->filled('category'))
+           【最新】{{ request('prefecture') }}の{{ request('category') }}在庫一覧・中古バイク検索 | MotoHub
+        @elseif(request()->filled('prefecture'))
+           【最新】{{ request('prefecture') }}の中古・新車バイク在庫一覧 | MotoHub
+        @elseif(request()->filled('category'))
+           【最新】{{ request('category') }}の中古・新車バイク在庫一覧 | MotoHub
+        @else
+            {{ $pageTitle }} | MotoHub
+        @endif
     </x-slot:title>
+
+    {{-- ★ 2. メタディスクリプション（検索結果の説明文）の強化 --}}
+    <x-slot:metaDescription>
+        @if(request()->filled('prefecture') && request()->filled('category'))
+            {{ request('prefecture') }}で販売中の{{ request('category') }}の中古バイク・新車情報。GooBikeやBDSなど複数サイトの在庫から、価格や年式、走行距離などで絞り込んで比較・検索ができます。あなたにピッタリの1台を見つけましょう！
+        @elseif(request()->filled('prefecture'))
+            {{ request('prefecture') }}で販売中の中古バイク・新車情報。お住まいの地域にある複数店舗の在庫を一括で比較・検索できます。
+        @else
+            {{ $pageTitle }}の検索結果ページです。日本最大級のバイク一括検索サイトMotoHubで、全国の中古バイク・新車を価格や排気量、メーカーで条件を絞って比較できます。
+        @endif
+    </x-slot:metaDescription>
 
     <x-slot:styles>
         <link rel="preload" href="{{ asset('css/bike-search.css') }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -385,6 +405,31 @@
                 <noscript>
                     <style>#classic-pagination { display: flex; } #load-more-container { display: none; }</style>
                 </noscript>
+                @endif
+                {{-- SEO強化用の内部リンク（エリア×条件のクモの巣） --}}
+                @if(request()->filled('prefecture'))
+                <div class="mt-16 bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-sm animate-in fade-in duration-500">
+                    <h3 class="text-sm sm:text-base font-black text-gray-800 mb-5 flex items-center gap-2">
+                        {{-- ★修正: request('prefecture') に変更 --}}
+                        <i data-lucide="map" class="w-5 h-5 text-blue-500"></i> {{ request('prefecture') }}の他のバイクを探す
+                    </h3>
+                    
+                    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+                        @foreach(['原付スクーター', 'ネイキッド', 'アメリカン', 'スポーツ/レプリカ', 'オフロード'] as $type)
+                            {{-- ★修正: request('prefecture') に変更 --}}
+                            <a href="{{ route('bikes.search', ['prefecture' => request('prefecture'), 'keyword' => $type]) }}" 
+                               class="text-[10px] sm:text-xs font-bold text-gray-600 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 px-3 py-3 rounded-xl transition-colors border border-gray-100 text-center flex items-center justify-center group shadow-sm">
+                                <span class="group-hover:scale-105 transition-transform">{{ $type }}</span>
+                            </a>
+                        @endforeach
+                    </div>
+
+                    <div class="mt-6 pt-5 border-t border-gray-50 text-right">
+                        <a href="{{ route('bikes.prefectures') }}" class="inline-flex items-center text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors py-2 px-3 hover:bg-blue-50 rounded-lg">
+                            全国の地域から探す <i data-lucide="chevron-right" class="w-4 h-4 ml-0.5"></i>
+                        </a>
+                    </div>
+                </div>
                 @endif
             </div>
         </div>

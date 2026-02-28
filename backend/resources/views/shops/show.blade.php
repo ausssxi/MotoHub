@@ -139,6 +139,22 @@
                         </div>
                     </div>
                     @endif
+                    {{-- ★追加: SEO強化用の内部リンク（エリア検索への強力な導線） --}}
+                    @if(!empty($shop->prefecture))
+                    <div class="mt-16 bg-blue-50/50 rounded-3xl p-8 border border-blue-100 text-center shadow-sm">
+                        <h3 class="text-base sm:text-lg font-black text-blue-900 mb-3 flex items-center justify-center gap-2">
+                            <i data-lucide="map-pin" class="w-5 h-5 text-blue-600"></i> {{ $shop->prefecture }}のバイクをもっと探す
+                        </h3>
+                        <p class="text-xs text-gray-600 font-bold mb-6">
+                            「{{ $shop->name }}」がある{{ $shop->prefecture }}内の他店舗の在庫も、一括で比較・検索できます！
+                        </p>
+                        <a href="{{ route('bikes.search', ['prefecture' => $shop->prefecture]) }}" 
+                           class="inline-flex items-center justify-center gap-2 bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white font-black py-3.5 px-8 rounded-xl transition-all shadow-sm group w-full sm:w-auto">
+                            {{ $shop->prefecture }}の中古・新車一覧を見る
+                            <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+                        </a>
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>

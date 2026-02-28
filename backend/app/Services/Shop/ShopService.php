@@ -30,11 +30,21 @@ final class ShopService
         $shop = $this->shopRepo->findOrFail($shopId);
 
         $paginated = $this->listingRepo->getByShopId($shopId, 20);
+        $pagination = $this->paginator->format($paginated);
+
+        // ★追加: PaginationFormatterがtotalを落としてしまう問題の対策
+        // ページネーターが total() メソッドを持っていれば、正確な「全在庫数」を強制上書きする
+        if (method_exists($paginated, 'total')) {
+            $pagination['total'] = $paginated->total();
+        } elseif (!isset($pagination['total']) || $pagination['total'] === 0) {
+            // simplePaginate等の場合は、とりあえず今取得できている件数を入れる
+            $pagination['total'] = $paginated->count();
+        }
 
         return [
             'shop' => $shop,
             'items' => ListingResource::collection($paginated->getCollection())->resolve(),
-            'pagination' => $this->paginator->format($paginated),
+            'pagination' => $pagination,
         ];
     }
 
