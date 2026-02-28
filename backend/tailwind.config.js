@@ -13,6 +13,11 @@ export default {
         './config/**/*.php',
     ],
 
+    safelist: [
+        'z-[9999]', 
+        'z-[9998]',
+    ],
+
     theme: {
         extend: {
             fontFamily: {
