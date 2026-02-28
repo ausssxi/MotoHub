@@ -35,6 +35,15 @@
         <script src="{{ asset('js/compare/ui.js') }}" defer></script>
         <script src="{{ asset('js/search/save_condition.js') }}" defer></script>
         <script src="{{ asset('js/search/infinite-scroll.js') }}" defer></script>
+        @guest
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (typeof RegistrationPromo !== 'undefined') {
+                    RegistrationPromo.showSearchBanner('search-line-banner');
+                }
+            });
+        </script>
+        @endguest
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -233,25 +242,51 @@
                         <div class="mt-8 pt-6 border-t border-gray-100">
                             <div class="text-center mb-3">
                                 <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                                    <i data-lucide="bell" class="w-3 h-3 inline mr-0.5"></i>新着通知を受け取る
+                                    <i data-lucide="bell" class="w-3 h-3 inline mr-0.5"></i>新着・値下げ通知を受け取る
                                 </span>
                             </div>
-                            
+    
                             @auth
+                                {{-- ログイン済み: 条件保存ボタン --}}
                                 <button type="button" id="save-search-btn" class="w-full bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-black py-3 rounded-xl transition flex items-center justify-center gap-2 shadow-sm group">
                                     <i data-lucide="bookmark" class="w-4 h-4 group-hover:fill-current"></i>
                                     この条件を保存する
                                 </button>
+
+                                @if(auth()->user()->hasLineLinked())
+                                    {{-- LINE連携済み --}}
+                                    <div class="mt-3 flex items-center gap-2 bg-green-50 border border-green-100 rounded-xl px-3 py-2">
+                                        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="#06C755"><path d="M12 2C6.48 2 2 5.88 2 10.54c0 4.07 3.42 7.49 8.05 8.44.31.07.73.21.84.48.1.25.06.63.03.88l-.14.83c-.04.25-.2.97.85.53s5.61-3.31 7.66-5.67C21.03 13.86 22 12.28 22 10.54 22 5.88 17.52 2 12 2z"/></svg>
+                                        <span class="text-[10px] font-bold text-green-700">値下げ通知はLINEに届きます</span>
+                                    </div>
+                                @else
+                                    {{-- LINE未連携: 連携を促す --}}
+                                    <a href="{{ route('auth.line.redirect') }}" class="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-white text-xs shadow-sm transition-colors active:scale-95" style="background-color: #06C755;">
+                                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 5.88 2 10.54c0 4.07 3.42 7.49 8.05 8.44.31.07.73.21.84.48.1.25.06.63.03.88l-.14.83c-.04.25-.2.97.85.53s5.61-3.31 7.66-5.67C21.03 13.86 22 12.28 22 10.54 22 5.88 17.52 2 12 2z"/></svg>
+                                        LINE連携で通知をもっと便利に
+                                    </a>
+                                    <p class="text-[9px] text-gray-400 mt-1.5 text-center">
+                                        メール通知に加え、LINEでも即時受信できます
+                                    </p>
+                                @endif
                             @else
-                                <a href="{{ route('login') }}" class="block w-full bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold py-3 rounded-xl transition text-center text-xs flex items-center justify-center gap-2">
-                                    <i data-lucide="lock" class="w-3 h-3"></i>
-                                    ログインして条件を保存
+                                {{-- 未ログイン: LINE登録を最優先で表示 --}}
+                                <a href="/auth/line/redirect" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-white text-sm shadow-sm transition-colors active:scale-95" style="background-color: #06C755;">
+                                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 5.88 2 10.54c0 4.07 3.42 7.49 8.05 8.44.31.07.73.21.84.48.1.25.06.63.03.88l-.14.83c-.04.25-.2.97.85.53s5.61-3.31 7.66-5.67C21.03 13.86 22 12.28 22 10.54 22 5.88 17.52 2 12 2z"/></svg>
+                                    LINEで新着通知を受け取る
                                 </a>
+                                <div class="mt-2 flex items-center gap-2">
+                                    <a href="{{ route('login') }}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold py-2 rounded-lg transition text-[10px]">
+                                        ログイン
+                                    </a>
+                                    <a href="{{ route('register') }}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold py-2 rounded-lg transition text-[10px]">
+                                        メールで登録
+                                    </a>
+                                </div>
+                                <p class="text-[9px] text-gray-400 mt-2 text-center">
+                                    無料登録で、条件に合うバイクの入荷・値下げを即通知
+                                </p>
                             @endauth
-                            
-                            <p class="text-[9px] text-gray-400 mt-2 text-center">
-                                条件に合うバイクが入荷したらメールでお知らせします。
-                            </p>
                         </div>
                     </form>
                 </div>
@@ -259,6 +294,12 @@
 
             <!-- 2. メインコンテンツ -->
             <div class="flex-1">
+
+                {{-- LINE通知バナー（未ログイン時にJSで表示） --}}
+                @guest
+                    <div id="search-line-banner" class="mb-6"></div>
+                @endguest
+
                 <div class="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                     <div>
                         <h2 class="text-2xl font-black text-black tracking-tighter italic">

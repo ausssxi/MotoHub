@@ -138,5 +138,15 @@
         // 保険: ユーザーが何もしなくても3秒後には自動で読み込む
         setTimeout(loadAdSenseScript, 3000);
     </script>
+    {{-- 登録促進プロモーション（未ログイン時のみ） --}}
+    @guest
+        <link rel="stylesheet" href="{{ asset('css/registration-promo.css') }}">
+        <script src="{{ asset('js/promo/registration-promo.js') }}"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                RegistrationPromo.init(false);
+            });
+        </script>
+    @endguest
 </body>
 </html>
