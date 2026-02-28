@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\StatsApiController; // 統計情報API
 use App\Http\Controllers\Page\SellController; // 買取査定LP
 use App\Http\Controllers\MyBike\MyBikeController; // 愛車ログ機能
 use App\Http\Controllers\Auth\GoogleLoginController;
+use App\Http\Controllers\Auth\LineAuthController;
 
 /**
  * MotoHub Route Definitions
@@ -114,7 +115,6 @@ Route::get('/dashboard', function () {
 // 認証が必要な「画面・Web機能」グループ (※ここは auth に戻します)
 Route::middleware('auth')->group(function () {
 
-    // ▼▼ ここに追記 ▼▼
     // お気に入りAPI
     Route::post('/api/favorites/toggle', [\App\Http\Controllers\Api\FavoriteController::class, 'toggle'])->name('api.favorites.toggle');
     Route::get('/api/favorites/ids', [\App\Http\Controllers\Api\FavoriteController::class, 'index'])->name('api.favorites.ids');
@@ -150,6 +150,20 @@ Route::get('/auth/google/redirect', [GoogleLoginController::class, 'redirect'])
     ->name('auth.google.redirect');
 Route::get('/auth/google/callback', [GoogleLoginController::class, 'callback'])
     ->name('auth.google.callback');
+
+// --- LINE認証ルート ---
+Route::get('/auth/line/redirect', [LineAuthController::class, 'redirect'])
+    ->name('auth.line.redirect');
+Route::get('/auth/line/callback', [LineAuthController::class, 'callback'])
+    ->name('auth.line.callback');
+
+// --- LINE連携解除（認証必要） ---
+Route::middleware('auth')->group(function () {
+    // 既存のルート...
+
+    Route::delete('/auth/line/unlink', [LineAuthController::class, 'unlink'])
+        ->name('auth.line.unlink');
+});
 
 // Breezeの認証ルート読み込み (login, register等)
 require __DIR__.'/auth.php';
