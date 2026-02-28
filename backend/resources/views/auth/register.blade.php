@@ -67,30 +67,31 @@
                     </div>
 
                     <div class="flex flex-col items-center justify-end mt-8 gap-4">
-                        <button class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3.5 rounded-xl shadow-lg shadow-blue-500/30 transform active:scale-95 transition flex items-center justify-center gap-2">
+                        <button class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3.5 rounded-xl shadow-lg shadow-blue-500/30 transform active:scale-95 transition-all flex items-center justify-center gap-2">
                             <i data-lucide="check" class="w-4 h-4"></i>
                             登録する
                         </button>
 
                         <div class="w-full border-t border-gray-100 mt-2 pt-6 text-center">
                             <p class="text-xs text-gray-400 font-bold mb-3">すでにアカウントをお持ちですか？</p>
-                            <a href="{{ route('login') }}" class="block w-full border-2 border-gray-100 hover:border-black hover:text-black text-gray-600 font-bold py-2.5 rounded-xl transition text-center text-sm">
+                            <a href="{{ route('login') }}" class="block w-full border-2 border-gray-100 hover:border-black hover:text-black text-gray-600 font-bold py-2.5 rounded-xl transition-all text-center text-sm">
                                 ログイン画面へ
                             </a>
                         </div>
                     </div>
-                    </form>
-                    {{-- === ここから追加 === --}}
-                    <div class="mt-6">
-                        <div class="relative">
-                            <div class="absolute inset-0 flex items-center">
-                                <div class="w-full border-t border-gray-200"></div>
-                            </div>
-                            <div class="relative flex justify-center text-xs">
-                                <span class="px-4 bg-white text-gray-400 font-bold">または</span>
-                            </div>
+                </form>
+
+                {{-- ソーシャルログイン --}}
+                <div class="mt-6">
+                    <div class="relative">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-gray-200"></div>
                         </div>
-                    </div> {{-- カード閉じ --}}
+                        <div class="relative flex justify-center text-xs">
+                            <span class="px-4 bg-white text-gray-400 font-bold">または</span>
+                        </div>
+                    </div>
+
                     <a href="{{ route('auth.google.redirect') }}" 
                        class="mt-4 w-full inline-flex items-center justify-center gap-3 bg-white border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-3 px-4 rounded-xl transition-all active:scale-95 shadow-sm">
                         <svg class="w-5 h-5" viewBox="0 0 24 24">
@@ -99,11 +100,16 @@
                             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                         </svg>
-                        Googleアカウントで登録
+                        Googleで登録
+                    </a>
+
+                    <a href="{{ route('auth.line.redirect') }}" 
+                       class="mt-3 w-full inline-flex items-center justify-center gap-3 px-4 py-3 bg-line-green hover:bg-line-green-hover text-white font-bold rounded-xl transition-colors shadow-sm active:scale-95">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 5.88 2 10.54c0 4.07 3.42 7.49 8.05 8.44.31.07.73.21.84.48.1.25.06.63.03.88l-.14.83c-.04.25-.2.97.85.53s5.61-3.31 7.66-5.67C21.03 13.86 22 12.28 22 10.54 22 5.88 17.52 2 12 2z"/></svg>
+                        LINEで登録
                     </a>
                 </div>
             </div>
-            {{-- === ここまで追加 === --}}  
         </div>
     </div>
 </x-layout>
