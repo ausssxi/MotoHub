@@ -403,7 +403,7 @@
             const container = document.getElementById('result-bikes');
             container.innerHTML = '';
 
-            if (!data.bikes.length) {
+            if (!data.bikes || !data.bikes.length) {
                 container.innerHTML = '<div class="bg-gray-900 rounded-2xl p-6 border border-gray-800 text-center"><p class="text-sm text-gray-500 font-bold">条件に合うバイクが見つかりませんでした</p><a href="/bikes/search" class="inline-block mt-3 text-sm font-bold text-blue-400 hover:underline">MotoHubで検索 →</a></div>';
                 return;
             }
@@ -437,10 +437,13 @@
                 container.appendChild(card);
             });
 
-            // Xシェアボタン
+            // ★修正: XシェアボタンのURL生成（bikes=xx,yy,zz の形式に変更）
             const topBike = data.bikes[0];
             const shareText = `🏍️ バイク相性診断やってみた！\n\n${rt.emoji} ライダータイプ「${rt.name}」\n🏆 おすすめ: ${topBike?.name || '??'}\n\nあなたも診断してみよう👇`;
-            const shareUrl = `${location.origin}/shindan/result?type=${rt.key}&bike=${topBike?.id || ''}`;
+            
+            const bikeIds = data.bikes.map(b => b.id).join(',');
+            const shareUrl = `${location.origin}/shindan/result?type=${rt.key}&bikes=${bikeIds}`;
+            
             document.getElementById('share-x-btn').onclick = () => {
                 window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, '_blank', 'width=550,height=420');
             };

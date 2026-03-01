@@ -74,15 +74,20 @@ class ShindanController extends Controller
     public function result(Request $request)
     {
         $type = $request->query('type', 'explorer');
-        // カンマ区切りのIDリスト（例: ?bikes=12,45,67）を受け取れるように拡張
-        $bikeIds = explode(',', $request->query('bikes', ''));
+        
+        // 古い 'bike' パラメータの互換性処理を削除し、'bikes' のみを受け取る
+        $bikesParam = $request->query('bikes', '');
+        
+        // カンマ区切りの文字列を数値の配列にし、空の要素を完全に排除する
+        $bikeIds = array_filter(array_map('intval', explode(',', $bikesParam)));
         
         $riderType = $this->getRiderTypeByKey($type);
         
-        // 提案された最大3台を取得（順序を維持するために orderByRaw を使用）
-        $bikes = [];
+        // デフォルトは空のコレクション
+        $bikes = collect(); 
+
         if (!empty($bikeIds)) {
-            $idsString = implode(',', array_map('intval', $bikeIds));
+            $idsString = implode(',', $bikeIds);
             $bikes = BikeModel::with(['manufacturer', 'categoryData'])
                 ->whereIn('id', $bikeIds)
                 ->orderByRaw("FIELD(id, $idsString)")

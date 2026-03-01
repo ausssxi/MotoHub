@@ -107,7 +107,7 @@
 
             {{-- 3. アクションエリア --}}
             <div class="space-y-4 pt-10 border-t border-white/10">
-                <a href="{{ route('shindan.index') }}" class="block w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black text-center py-5 rounded-2xl transition active:scale-[0.98]">
+                <a href="{{ route('shindan.index') }}" class="block w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black text-center py-6 rounded-2xl transition active:scale-[0.98] text-lg">
                     もう一度診断する 🔄
                 </a>
                 <a href="{{ route('bikes.index') }}" class="block w-full text-center text-gray-500 hover:text-white text-xs font-bold transition">
