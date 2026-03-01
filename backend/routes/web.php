@@ -14,6 +14,7 @@ use App\Http\Controllers\Page\SellController; // 買取査定LP
 use App\Http\Controllers\MyBike\MyBikeController; // 愛車ログ機能
 use App\Http\Controllers\Auth\GoogleLoginController;
 use App\Http\Controllers\Auth\LineAuthController;
+use App\Http\Controllers\Shindan\ShindanController;
 
 /**
  * MotoHub Route Definitions
@@ -164,6 +165,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('/auth/line/unlink', [LineAuthController::class, 'unlink'])
         ->name('auth.line.unlink');
 });
+
+Route::get('/shindan', [ShindanController::class, 'index'])->name('shindan.index');
+Route::post('/shindan/diagnose', [ShindanController::class, 'diagnose'])->name('shindan.diagnose');
+Route::get('/shindan/result', [ShindanController::class, 'result'])->name('shindan.result');
 
 // Breezeの認証ルート読み込み (login, register等)
 require __DIR__.'/auth.php';

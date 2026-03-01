@@ -16,6 +16,17 @@ export default {
     safelist: [
         'z-[9999]', 
         'z-[9998]',
+
+        // LINEカラー (以前追加したもの)
+        'bg-line-green',
+        'bg-line-green-hover',
+        
+        // グラデーション関連
+        // Tailwindは from-xxx to-xxx を個別のクラスとして扱うため、1つずつ記述します
+        'from-blue-500',
+        'from-blue-600',
+        'to-indigo-600',
+        'to-indigo-700',
     ],
 
     theme: {

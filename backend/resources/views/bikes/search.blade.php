@@ -379,40 +379,59 @@
                     @forelse ($items as $listing)
                         {{-- ★ここを修正！ $loop->index < 4 を渡す --}}
                         @include('bikes.partials.bike_card', ['listing' => $listing, 'isFirstView' => $loop->index < 4])
+                    {{-- results-grid の @empty ブロックを以下のようにリッチ化します --}}
                     @empty
-                        {{-- ★修正: 0件ヒット時のリッチなケア（サジェスト表示） --}}
-                        <div class="col-span-full bg-white rounded-3xl border border-gray-100 shadow-sm p-8 sm:p-16 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <i data-lucide="search-x" class="w-10 h-10 text-gray-300"></i>
+                        <div class="col-span-full">
+                            {{-- 既存の「見つかりませんでした」メッセージを少しコンパクトに --}}
+                            <div class="bg-white rounded-3xl p-8 sm:p-12 text-center border border-gray-100 shadow-sm mb-8">
+                                <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
+                                    <i data-lucide="search-x" class="w-8 h-8"></i>
+                                </div>
+                                <h3 class="text-lg font-black text-gray-800 mb-2">条件に合うバイクが見つかりませんでした</h3>
+                                <p class="text-sm text-gray-400 font-bold mb-8">もう少し条件を広げて探してみませんか？</p>
+            
+                                @if(!empty($relaxSuggestions))
+                                    <div class="flex flex-wrap justify-center gap-3">
+                                        @foreach($relaxSuggestions as $suggest)
+                                            <a href="{{ $suggest['url'] }}" class="inline-flex items-center gap-2 bg-gray-50 hover:bg-blue-50 text-gray-600 hover:text-blue-600 px-5 py-2.5 rounded-xl text-xs font-black border border-gray-100 hover:border-blue-200 transition-all">
+                                                <i data-lucide="{{ $suggest['icon'] }}" class="w-4 h-4"></i>
+                                                {{ $suggest['label'] }} ({{ number_format($suggest['count']) }}台)
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                @endif
                             </div>
-                            <h3 class="text-xl font-black text-gray-900 mb-2">ご指定の条件に一致する車両がありません</h3>
-                            <p class="text-sm font-bold text-gray-400 mb-8">条件が少し厳しすぎるかもしれません。以下の条件で再検索してみてください。</p>
-                            
-                            @if(!empty($relaxSuggestions))
-                            <div class="max-w-xl mx-auto text-left">
-                                <h4 class="text-xs font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                    <i data-lucide="lightbulb" class="w-4 h-4 text-yellow-500"></i>
-                                    おすすめの検索条件
-                                </h4>
-                                <div class="space-y-3">
-                                    @foreach($relaxSuggestions as $suggestion)
-                                    <a href="{{ $suggestion['url'] }}" class="flex items-center justify-between p-4 rounded-xl bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 transition group">
-                                        <div class="flex items-center gap-3">
-                                            <div class="p-2 bg-white rounded-lg shadow-sm text-gray-400 group-hover:text-blue-500 transition-colors">
-                                                <i data-lucide="{{ $suggestion['icon'] }}" class="w-4 h-4"></i>
-                                            </div>
-                                            <span class="text-sm font-bold text-gray-700 group-hover:text-blue-700 transition-colors">{{ $suggestion['label'] }}</span>
-                                        </div>
-                                        <span class="text-xs font-black bg-white px-3 py-1.5 rounded-lg shadow-sm text-blue-600 border border-gray-100">
-                                            {{ number_format($suggestion['count']) }}台
-                                        </span>
+
+                            {{-- ★新設：診断へのレスキュー導線カード --}}
+                            <div class="relative overflow-hidden bg-gradient-to-br from-gray-900 to-blue-950 rounded-3xl p-8 sm:p-10 shadow-2xl text-center">
+                                {{-- 背景装飾 --}}
+                                <div class="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+                                    <div class="absolute -top-24 -left-24 w-64 h-64 bg-blue-500 rounded-full blur-3xl"></div>
+                                    <div class="absolute -bottom-24 -right-24 w-64 h-64 bg-indigo-500 rounded-full blur-3xl"></div>
+                                </div>
+
+                                <div class="relative z-10">
+                                    <div class="inline-flex items-center gap-2 bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 border border-blue-500/30">
+                                        <i data-lucide="sparkles" class="w-3 h-3"></i> AI Concierge
+                                    </div>
+                
+                                    <h4 class="text-xl sm:text-2xl font-black text-white mb-4 leading-tight">
+                                        こだわりを少し横に置いて、<br>
+                                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">「あなたに合うスタイル」</span>から探しませんか？
+                                    </h4>
+                
+                                    <p class="text-sm text-gray-200 font-bold mb-8 max-w-lg mx-auto leading-relaxed drop-shadow-sm">
+                                        車種名が決まっていない方も大歓迎。5つの質問に答えるだけで、MotoHubのAIがあなたの理想に最も近いバイクを3台提案します。
+                                    </p>
+
+                                    <a href="/shindan" class="inline-flex items-center gap-3 bg-white text-gray-900 px-8 py-4 rounded-2xl font-black text-sm hover:bg-blue-50 transition-all shadow-xl active:scale-95 group">
+                                        今すぐバイク診断をはじめる
+                                        <i data-lucide="arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform"></i>
                                     </a>
-                                    @endforeach
                                 </div>
                             </div>
-                            @endif
                         </div>
-                    @endforelse
+                    @endempty
                 </div>
 
                 {{-- さらに読み込むボタン --}}

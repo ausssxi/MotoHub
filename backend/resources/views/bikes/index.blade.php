@@ -65,61 +65,85 @@
                 <div id="suggest-results" class="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden hidden z-[110] text-left">
                     <div id="suggest-list" class="py-2 max-h-[400px] overflow-y-auto"></div>
                 </div>
-            </form>
-            
-            {{-- クイックリンク＆人気の条件（タグ）の露出強化 --}}
+            </form>            
+
             <div class="mt-8 flex flex-col items-center gap-5">
-                
-                {{-- コントローラーから渡された $popularTags を使用 --}}
                 <div class="flex flex-wrap justify-center items-center gap-2">
                     <span class="text-[10px] font-black text-blue-300 uppercase tracking-widest mr-1">
                         <i data-lucide="zap" class="w-3 h-3 inline-block -mt-0.5 text-yellow-400"></i> トレンド:
                     </span>
                     @foreach($popularTags as $tag)
                         <a href="{{ route('bikes.search', ['tag' => $tag]) }}" 
-                           class="px-3 py-1.5 rounded-full bg-blue-500/20 hover:bg-blue-500/40 text-blue-50 text-[10px] font-bold border border-blue-400/30 backdrop-blur-sm transition shadow-lg shadow-blue-500/10">
+                           class="px-3 py-1.5 rounded-full bg-blue-500/20 hover:bg-blue-500/40 text-blue-50 text-[10px] font-bold border border-blue-400/30 backdrop-blur-sm transition-all shadow-lg shadow-blue-500/10">
                             #{{ $tag }}
                         </a>
                     @endforeach
                 </div>
 
-                {{-- メーカーリンク --}}
                 <div class="flex flex-wrap justify-center gap-2">
                     @foreach($manufacturers as $maker)
-                        <a href="{{ route('bikes.search', ['manufacturer_id' => $maker->id]) }}" class="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] font-bold border border-white/10 backdrop-blur-sm transition">
+                        <a href="{{ route('bikes.search', ['manufacturer_id' => $maker->id]) }}" class="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] font-bold border border-white/10 backdrop-blur-sm transition-all">
                             {{ $maker->name }}
                         </a>
                     @endforeach
                 </div>
-
+            </div>
+            {{-- ★追加: バイク診断へのクイック導線バナー --}}
+            <div class="mt-8 flex justify-center">
+                <a href="/shindan" class="group relative inline-flex items-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl hover:bg-white/20 transition-all shadow-xl">
+                    <div class="flex -space-x-2">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white border-2 border-white/20 shadow-lg">
+                            <i data-lucide="sparkles" class="w-4 h-4 fill-current"></i>
+                        </div>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-[10px] font-black text-blue-300 uppercase tracking-tighter leading-none mb-1">AI Style Match</p>
+                        <p class="text-sm font-black text-white leading-none">あなたにぴったりの1台を診断する <i data-lucide="chevron-right" class="w-4 h-4 inline-block group-hover:translate-x-1 transition-transform"></i></p>
+                    </div>
+                </a>
             </div>
         </div>
     </div>
 
-    {{-- 以下変更なし --}}
+    {{-- 特集セクションの先頭にも診断を追加 --}}
     <div class="bg-gray-50 py-16 sm:py-24">
         <div class="max-w-7xl mx-auto px-4">
-        {{-- おすすめ特集セクション --}}
             <section class="mb-20">
                 <div class="flex items-end justify-between mb-8 px-2">
                     <div>
                         <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
-                            おすすめ特集
+                            おすすめコンテンツ
                         </h2>
                         <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Special Features</p>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {{-- ★診断カード --}}
+                    <a href="/shindan" 
+                       class="group relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-blue-600 to-indigo-700 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 flex flex-col justify-between h-32 sm:h-40 border border-white/10">
+                        <div class="absolute -right-6 -bottom-6 opacity-20 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500">
+                            <i data-lucide="sparkles" class="w-32 h-32 text-white"></i>
+                        </div>
+                        <div class="relative z-10 text-white flex-1 flex flex-col justify-between">
+                            <div class="flex justify-between items-start">
+                                <i data-lucide="zap" class="w-6 h-6 mb-2 text-yellow-300 fill-current"></i>
+                                <span class="bg-white/20 text-[8px] font-black px-2 py-1 rounded-full uppercase">New Tool</span>
+                            </div>
+                            <div>
+                                <h3 class="text-base sm:text-lg font-black leading-tight drop-shadow-sm group-hover:-translate-y-1 transition-transform duration-300">
+                                    30秒でわかる<br>あなたの相棒バイク診断
+                                </h3>
+                            </div>
+                        </div>
+                    </a>
+
                     @foreach($features as $feature)
                         <a href="{{ $feature['url'] }}" 
-                           class="group relative overflow-hidden rounded-2xl p-6 {{ $feature['color'] }} shadow-sm hover:shadow-xl transition duration-300 flex flex-col justify-between h-32 sm:h-40 border border-white/20">
-                            
-                            {{-- 背景の装飾アイコン --}}
+                           class="group relative overflow-hidden rounded-2xl p-6 {{ $feature['color'] }} shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between h-32 sm:h-40 border border-white/20">
                             <div class="absolute -right-6 -bottom-6 opacity-20 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500">
                                 <i data-lucide="{{ $feature['icon'] }}" class="w-32 h-32 text-white"></i>
                             </div>
-
                             <div class="relative z-10 text-white flex-1 flex flex-col justify-between">
                                 <i data-lucide="{{ $feature['icon'] }}" class="w-6 h-6 mb-2 opacity-80"></i>
                                 <h3 class="text-sm sm:text-base font-black leading-snug drop-shadow-sm group-hover:-translate-y-1 transition-transform duration-300">
@@ -128,23 +152,6 @@
                             </div>
                         </a>
                     @endforeach
-                </div>
-            </section>
-
-            {{-- ★追加: 最近見た車両セクション（履歴がある場合のみJSで表示） --}}
-            <section id="top-history-section" class="mb-20 hidden">
-                <div class="flex items-end justify-between mb-8 px-2">
-                    <div>
-                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1 flex items-center gap-2">
-                            <i data-lucide="clock" class="w-6 h-6 text-gray-400"></i>
-                            最近見た車両
-                        </h2>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Recently Viewed</p>
-                    </div>
-                </div>
-
-                <div id="top-history-widget" class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
-                    {{-- JSでカードが挿入されます --}}
                 </div>
             </section>
             
