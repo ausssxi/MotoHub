@@ -93,7 +93,8 @@ final class PageController extends Controller
 
     /**
      * 利用規約・免責事項の表示
-     * * @return View 利用規約・免責事項ページのビュー
+     *
+     * @return View 利用規約・免責事項ページのビュー
      */
     public function terms(): View
     {
