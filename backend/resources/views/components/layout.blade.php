@@ -13,7 +13,8 @@
     <meta property="og:title" content="{{ $title ?? 'MotoHub' }}" />
     <meta property="og:description" content="{{ $metaDescription ?? '日本最大級のバイク検索・比較プラットフォーム。GooBike、BDS、Webikeから一括検索！' }}" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="{{ url()->current() }}" />
+    {{-- ★修正: url()->current() から request()->fullUrl() に変更。これにより ?type=... などのパラメータがXに正しく伝わります --}}
+    <meta property="og:url" content="{{ request()->fullUrl() }}" />
     <meta property="og:site_name" content="MotoHub" />
     <meta property="og:locale" content="ja_JP" />
     <meta property="og:image" content="{{ $ogImage ?? asset('images/twitter_template.png') }}" />
@@ -144,7 +145,9 @@
         <script src="{{ asset('js/promo/registration-promo.js') }}"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
-                RegistrationPromo.init(false);
+                if (typeof RegistrationPromo !== 'undefined') {
+                    RegistrationPromo.init(false);
+                }
             });
         </script>
     @endguest
