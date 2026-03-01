@@ -3,6 +3,9 @@
 
     <x-slot:scripts>
         <script src="{{ asset('js/search/suggest.js') }}"></script>
+        
+        {{-- 閲覧履歴のスクリプトを読み込み、描画を実行 --}}
+        <script src="{{ asset('js/history/manager.js') }}"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.HistoryManager) {
@@ -37,7 +40,6 @@
                   class="w-full h-full object-cover opacity-40">
         </div>
         
-        {{-- ★修正: 親要素に id="search-container" を追加 --}}
         <div class="relative z-10 w-full max-w-4xl px-4 text-center" id="search-container">
             <h1 class="text-3xl sm:text-5xl font-black text-white mb-4 tracking-tight leading-tight">
                 掲載台数<span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">&nbsp;No.1！</span>
@@ -46,49 +48,25 @@
                 日本最大級のバイク検索・比較プラットフォーム
             </p>
 
-            {{-- ★修正: id="search-form" に変更 --}}
             <form action="{{ route('bikes.search') }}" method="GET" class="relative max-w-2xl mx-auto" id="search-form" autocomplete="off">
                 <div class="relative group">
                     <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
                         <i data-lucide="search" class="w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors"></i>
                     </div>
-                    {{-- ★修正: id="search-input" に変更 --}}
                     <input type="text" name="keyword" id="search-input"
-                        class="w-full h-14 pl-12 pr-4 rounded-full border-none focus:ring-4 focus:ring-blue-500/30 text-base font-bold shadow-2xl placeholder:text-gray-400 transition"
+                        class="w-full h-14 pl-12 pr-4 rounded-full border-none focus:ring-4 focus:ring-blue-500/30 text-base font-bold shadow-2xl placeholder:text-gray-400 transition-all"
                         placeholder="車種名、メーカー名、キーワードを入力..." autocomplete="off">
-                    <button type="submit" class="absolute right-2 top-2 h-10 px-6 bg-black text-white rounded-full text-xs font-black hover:bg-gray-800 transition flex items-center gap-2">
+                    <button type="submit" class="absolute right-2 top-2 h-10 px-6 bg-black text-white rounded-full text-xs font-black hover:bg-gray-800 transition-all flex items-center gap-2">
                         検索
                     </button>
                 </div>
 
-                {{-- ★追加: サジェスト結果表示エリア (id="suggest-results", id="suggest-list") --}}
                 <div id="suggest-results" class="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden hidden z-[110] text-left">
                     <div id="suggest-list" class="py-2 max-h-[400px] overflow-y-auto"></div>
                 </div>
-            </form>            
-
-            <div class="mt-8 flex flex-col items-center gap-5">
-                <div class="flex flex-wrap justify-center items-center gap-2">
-                    <span class="text-[10px] font-black text-blue-300 uppercase tracking-widest mr-1">
-                        <i data-lucide="zap" class="w-3 h-3 inline-block -mt-0.5 text-yellow-400"></i> トレンド:
-                    </span>
-                    @foreach($popularTags as $tag)
-                        <a href="{{ route('bikes.search', ['tag' => $tag]) }}" 
-                           class="px-3 py-1.5 rounded-full bg-blue-500/20 hover:bg-blue-500/40 text-blue-50 text-[10px] font-bold border border-blue-400/30 backdrop-blur-sm transition-all shadow-lg shadow-blue-500/10">
-                            #{{ $tag }}
-                        </a>
-                    @endforeach
-                </div>
-
-                <div class="flex flex-wrap justify-center gap-2">
-                    @foreach($manufacturers as $maker)
-                        <a href="{{ route('bikes.search', ['manufacturer_id' => $maker->id]) }}" class="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] font-bold border border-white/10 backdrop-blur-sm transition-all">
-                            {{ $maker->name }}
-                        </a>
-                    @endforeach
-                </div>
-            </div>
-            {{-- ★追加: バイク診断へのクイック導線バナー --}}
+            </form>
+            
+            {{-- バイク診断へのクイック導線バナー --}}
             <div class="mt-8 flex justify-center">
                 <a href="/shindan" class="group relative inline-flex items-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl hover:bg-white/20 transition-all shadow-xl">
                     <div class="flex -space-x-2">
@@ -102,12 +80,58 @@
                     </div>
                 </a>
             </div>
+
+            {{-- クイックリンク＆人気の条件（タグ）の露出強化 --}}
+            <div class="mt-8 flex flex-col items-center gap-5">
+                
+                {{-- コントローラーから渡された $popularTags を使用 --}}
+                <div class="flex flex-wrap justify-center items-center gap-2">
+                    <span class="text-[10px] font-black text-blue-300 uppercase tracking-widest mr-1">
+                        <i data-lucide="zap" class="w-3 h-3 inline-block -mt-0.5 text-yellow-400"></i> トレンド:
+                    </span>
+                    @foreach($popularTags as $tag)
+                        <a href="{{ route('bikes.search', ['tag' => $tag]) }}" 
+                           class="px-3 py-1.5 rounded-full bg-blue-500/20 hover:bg-blue-500/40 text-blue-50 text-[10px] font-bold border border-blue-400/30 backdrop-blur-sm transition-all shadow-lg shadow-blue-500/10">
+                            #{{ $tag }}
+                        </a>
+                    @endforeach
+                </div>
+
+                {{-- メーカーリンク --}}
+                <div class="flex flex-wrap justify-center gap-2">
+                    @foreach($manufacturers as $maker)
+                        <a href="{{ route('bikes.search', ['manufacturer_id' => $maker->id]) }}" class="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] font-bold border border-white/10 backdrop-blur-sm transition-all">
+                            {{ $maker->name }}
+                        </a>
+                    @endforeach
+                </div>
+
+            </div>
         </div>
     </div>
 
     {{-- 特集セクションの先頭にも診断を追加 --}}
     <div class="bg-gray-50 py-16 sm:py-24">
         <div class="max-w-7xl mx-auto px-4">
+            
+            {{-- 最近見た車両（閲覧履歴）セクション --}}
+            <section id="top-history-section" class="mb-20 hidden">
+                <div class="flex items-end justify-between mb-6 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1 flex items-center gap-2">
+                            <i data-lucide="clock" class="w-6 h-6 text-gray-400"></i>
+                            最近見た車両
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Recently Viewed</p>
+                    </div>
+                </div>
+                
+                {{-- JSによって、この中に履歴のカードが横スクロールで自動生成されます --}}
+                <div id="top-history-widget" class="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory px-2 -mx-2 sm:mx-0 sm:px-0">
+                </div>
+            </section>
+
+            {{-- ★修正: 構造が壊れていたおすすめコンテンツを復旧 --}}
             <section class="mb-20">
                 <div class="flex items-end justify-between mb-8 px-2">
                     <div>
@@ -119,7 +143,7 @@
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {{-- ★診断カード --}}
+                    {{-- 診断カード --}}
                     <a href="/shindan" 
                        class="group relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-blue-600 to-indigo-700 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 flex flex-col justify-between h-32 sm:h-40 border border-white/10">
                         <div class="absolute -right-6 -bottom-6 opacity-20 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500">
@@ -154,7 +178,7 @@
                     @endforeach
                 </div>
             </section>
-            
+
             {{-- タイプから探す --}}
             <section class="mb-20">
                 <div class="flex items-end justify-between mb-8 px-2">
@@ -170,7 +194,7 @@
                     @foreach($categories as $category)
                         @if($category->display_icon_url)
                         <a href="{{ route('bikes.search', ['category_id' => $category->id]) }}" 
-                           class="group bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition duration-300 flex flex-col items-center text-center h-full">
+                           class="group bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col items-center text-center h-full">
                             
                             <div class="w-16 h-12 sm:w-20 sm:h-14 mb-3 relative flex items-center justify-center">
                                 <img src="{{ $category->display_icon_url }}" 
@@ -201,7 +225,7 @@
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     @foreach($licenses as $license)
                         <a href="{{ route('bikes.search', ['min_displacement' => $license['min_cc'], 'max_displacement' => $license['max_cc']]) }}" 
-                           class="group relative overflow-hidden rounded-2xl p-6 {{ $license['color'] }} transition duration-300 hover:shadow-lg border border-transparent hover:border-current flex flex-col items-center justify-center text-center h-32">
+                           class="group relative overflow-hidden rounded-2xl p-6 {{ $license['color'] }} transition-all duration-300 hover:shadow-lg border border-transparent hover:border-current flex flex-col items-center justify-center text-center h-32">
                             
                             {{-- 背景の装飾アイコン --}}
                             <div class="absolute -right-4 -bottom-4 opacity-10 transform group-hover:scale-125 transition-transform duration-500">
@@ -238,7 +262,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     @foreach($popularBikes as $bike)
                         <a href="{{ route('bikes.search', ['bike_model_id' => $bike->id]) }}" 
-                           class="group flex items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md transition duration-300">
+                           class="group flex items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-300">
                             
                             <div class="w-14 h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 border border-gray-50 relative">
                                 @if($bike->image_url)
@@ -263,7 +287,7 @@
                                 </div>
                             </div>
                             
-                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-blue-400 group-hover:translate-x-1 transition"></i>
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-blue-400 group-hover:translate-x-1 transition-all"></i>
                         </a>
                     @endforeach
                 </div>
@@ -284,7 +308,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     @foreach($latestReviews as $review)
                         <a href="{{ route('bikes.model_detail', $review->bike_model_id) }}#reviews" 
-                           class="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition duration-300 flex flex-col h-full">
+                           class="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col h-full">
                             
                             {{-- ヘッダー: 車種名と評価 --}}
                             <div class="flex items-start justify-between mb-3">
@@ -340,7 +364,7 @@
                         <div class="flex flex-wrap justify-center gap-3">
                             @foreach(['東京', '神奈川', '埼玉', '千葉', '大阪', '愛知', '福岡', '北海道'] as $pref)
                                 <a href="{{ route('bikes.search', ['prefecture' => $pref]) }}" 
-                                   class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition border border-white/20">
+                                   class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">
                                     {{ $pref }}
                                 </a>
                             @endforeach
