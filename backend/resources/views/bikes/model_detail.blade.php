@@ -4,12 +4,41 @@
 
     <x-slot:scripts>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        {{-- チャート描画用JS (インライン記述) --}}
+        {{-- reCAPTCHA v3 の読み込み --}}
+        <script src="https://www.google.com/recaptcha/api.js?render={{ env('RECAPTCHA_SITE_KEY') }}"></script>
         <script>
             window.bikeModelStats = @json($stats ?? []);
             window.bikeModelHistory = @json($history ?? []);
         </script>
         <script src="{{ asset('js/bikes/model_detail.js') }}"></script>
+        {{-- フォーム送信時にreCAPTCHAトークンを取得する処理 --}}
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const form = document.getElementById('review-form-element');
+                if (form) {
+                    form.addEventListener('submit', function(e) {
+                        e.preventDefault(); // 一旦送信を止める
+                        
+                        const submitBtn = form.querySelector('button[type="submit"]');
+                        const originalText = submitBtn.innerHTML;
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = 'スパムチェック中...';
+
+                        grecaptcha.ready(function() {
+                            grecaptcha.execute('{{ env('RECAPTCHA_SITE_KEY') }}', {action: 'submit_review'}).then(function(token) {
+                                // 取得したトークンを隠しフィールドにセットして送信再開
+                                document.getElementById('recaptcha-token').value = token;
+                                form.submit();
+                            }).catch(function() {
+                                submitBtn.disabled = false;
+                                submitBtn.innerHTML = originalText;
+                                alert('スパムチェックに失敗しました。時間をおいて再試行してください。');
+                            });
+                        });
+                    });
+                }
+            });
+        </script>
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -290,8 +319,12 @@
                                 </div>
                             @endif
 
-                            <form action="{{ route('bikes.model_detail.review', $model->id) }}" method="POST">
+                            {{-- formにIDを付与 --}}
+                            <form id="review-form-element" action="{{ route('bikes.model_detail.review', $model->id) }}" method="POST">
                                 @csrf
+                                {{-- トークンを格納する隠しフィールド --}}
+                                <input type="hidden" name="recaptcha_token" id="recaptcha-token">
+                                
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                     <div>
                                         <label class="block text-xs font-bold text-gray-500 mb-1">ニックネーム</label>

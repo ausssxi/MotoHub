@@ -16,6 +16,7 @@ use App\Services\Bike\PriceStatsService;
 use App\Http\Resources\Bike\ListingResource;
 use App\Http\Requests\Bike\StoreReviewRequest;
 use App\Http\Requests\Bike\BikeSearchRequest;
+use Illuminate\Support\Facades\Http;
 
 /**
  * バイク検索・表示機能を提供するメインコントローラー
@@ -237,6 +238,22 @@ final class BikeController extends Controller
 
     public function storeReview(StoreReviewRequest $request, int $id)
     {
+        // === 1. reCAPTCHAの検証 ===
+        $response = \Illuminate\Support\Facades\Http::asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
+            'secret' => env('RECAPTCHA_SECRET_KEY'),
+            'response' => $request->recaptcha_token, // フロントから送られてきたトークン
+        ]);
+
+        // Googleからの返答を配列として変数に格納する（★ここが抜けていた原因です）
+        $recaptchaResult = $response->json();
+        
+        // ★原因究明のため、Googleからの返事をログに書き出す
+        \Illuminate\Support\Facades\Log::info('reCAPTCHA検証結果: ', $recaptchaResult);
+
+        if (!$response->json('success') || $response->json('score') < 0.5) {
+            return response()->json(['message' => 'スパム判定されました。'], 403);
+        }
+
         $validated = $request->validated();
         $model = $this->bikeService->getBikeModelDetail($id);
         $this->bikeService->createReview($model->id, $validated);

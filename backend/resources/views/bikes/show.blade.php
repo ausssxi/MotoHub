@@ -12,11 +12,13 @@
         <script src="{{ asset('js/compare/ui.js') }}"></script>
         <script src="{{ asset('js/bikes/loan-simulator.js') }}"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="https://www.google.com/recaptcha/api.js?render={{ env('RECAPTCHA_SITE_KEY') }}"></script>
 
         {{-- JSにBladeの変数を渡す --}}
         <script>
             window.bikeModelStats = {!! json_encode($stats ?? [], JSON_HEX_TAG) !!};
             window.currentListingId = "{{ $listing->id }}";
+            window.recaptchaSiteKey = "{{ env('RECAPTCHA_SITE_KEY') }}";
         </script>
         
         <script src="{{ asset('js/bikes/model_detail.js') }}"></script>

@@ -49,7 +49,7 @@ function appendReviewToList(review) {
     }
 
     const html = `
-        <div class="p-4 bg-yellow-50/80 border-yellow-200 rounded-2xl border transition animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
+        <div class="p-4 bg-yellow-50/80 border-yellow-200 rounded-2xl border transition-all animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
             <div class="flex justify-between items-start mb-2">
                 <div class="flex items-center gap-2">
                     <div class="flex text-yellow-400">
@@ -115,23 +115,40 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const originalBtnText = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> 投稿しています...';
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> スパムチェック中...';
             if (window.lucide) window.lucide.createIcons();
             errorDiv.classList.add('hidden');
             
-            const formData = new FormData(form);
-            const data = Object.fromEntries(formData.entries());
-            
             try {
+                // ★追加: reCAPTCHAトークンの取得
+                const token = await new Promise((resolve, reject) => {
+                    if (typeof grecaptcha !== 'undefined' && window.recaptchaSiteKey) {
+                        grecaptcha.ready(() => {
+                            grecaptcha.execute(window.recaptchaSiteKey, {action: 'submit_review'})
+                                .then(resolve)
+                                .catch(() => reject(new Error('スパム認証に失敗しました。')));
+                        });
+                    } else {
+                        // 設定漏れ等の場合はとりあえず空で進める（バックエンドで弾かれます）
+                        resolve(''); 
+                    }
+                });
+
+                btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> 投稿しています...';
+
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData.entries());
+                data.recaptcha_token = token; // ★取得したトークンをデータに追加
+                
                 const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-                const token = csrfMeta ? csrfMeta.content : '';
+                const csrfToken = csrfMeta ? csrfMeta.content : '';
                 
                 const response = await fetch(form.action, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
-                        'X-CSRF-TOKEN': token
+                        'X-CSRF-TOKEN': csrfToken
                     },
                     body: JSON.stringify(data)
                 });

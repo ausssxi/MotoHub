@@ -61,8 +61,10 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     // 車種別カタログページ
     Route::get('/models/{id}', 'modelDetail')->name('model_detail')->where('id', '[0-9]+');
     
-    // レビュー投稿
-    Route::post('/models/{id}/reviews', 'storeReview')->name('model_detail.review');
+    // レビュー投稿（★スパム対策：1分間に3回までのレート制限を追加）
+    Route::post('/models/{id}/reviews', 'storeReview')
+        ->name('model_detail.review')
+        ->middleware('throttle:3,1');
 
     // 詳細ページ (ID指定) - 他の固定ルートより後に書く
     Route::get('/{id}', 'show')->name('show')->where('id', '[0-9]+'); 
@@ -167,7 +169,9 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::get('/shindan', [ShindanController::class, 'index'])->name('shindan.index');
-Route::post('/shindan/diagnose', [ShindanController::class, 'diagnose'])->name('shindan.diagnose');
+Route::post('/shindan/diagnose', [ShindanController::class, 'diagnose'])
+    ->name('shindan.diagnose')
+    ->middleware('throttle:3,1');
 Route::get('/shindan/result', [ShindanController::class, 'result'])->name('shindan.result');
 
 // Breezeの認証ルート読み込み (login, register等)
