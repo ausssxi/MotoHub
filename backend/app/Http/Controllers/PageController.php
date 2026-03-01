@@ -93,13 +93,10 @@ final class PageController extends Controller
 
     /**
      * 利用規約・免責事項の表示
-     * 
-     * サイト全体の有効掲載台数を取得して利用規約・免責事項ページを表示します。
-     * 
-     * @return View 利用規約・免責事項ページのビュー
+     * * @return View 利用規約・免責事項ページのビュー
      */
     public function terms(): View
     {
-        return view('pages.terms', compact('totalListingsCount'));
+        return view('pages.terms');
     }
 }
