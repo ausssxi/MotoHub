@@ -7,6 +7,9 @@
         {{ mb_substr(strip_tags($listing->description ?? "{$listing->maker} {$listing->name} の詳細ページです。販売店:{$listing->shop_name} 価格:{$listing->total_price}万円"), 0, 120) }}...
     </x-slot:metaDescription>
 
+    <x-jsonld.product :listing="$listing" />
+    <x-jsonld.breadcrumb :listing="$listing" />
+
     <x-slot:scripts>
         <script src="{{ asset('js/compare/manager.js') }}"></script>
         <script src="{{ asset('js/compare/ui.js') }}"></script>

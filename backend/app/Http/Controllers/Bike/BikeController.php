@@ -17,6 +17,7 @@ use App\Http\Resources\Bike\ListingResource;
 use App\Http\Requests\Bike\StoreReviewRequest;
 use App\Http\Requests\Bike\BikeSearchRequest;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
 
 /**
  * バイク検索・表示機能を提供するメインコントローラー
@@ -299,7 +300,12 @@ final class BikeController extends Controller
         $history = $priceStatsService->getPriceHistory((int)$id);
         $resale = $priceStatsService->getResaleStats((int)$id);
 
-        return view('bikes.model_detail', compact('model', 'stats', 'history', 'resale', 'listings'));
+        $reviewStats = DB::table('reviews')
+            ->where('bike_model_id', $id)
+            ->selectRaw('ROUND(AVG(rating), 1) as avg_rating, COUNT(*) as count')
+            ->first();
+
+        return view('bikes.model_detail', compact('model', 'stats', 'history', 'resale', 'listings', 'reviewStats'));
     }
 
 }

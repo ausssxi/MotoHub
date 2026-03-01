@@ -71,6 +71,7 @@
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
+    <x-jsonld.website />
 </head>
 <body class="bg-white text-gray-900 font-sans min-h-screen flex flex-col" data-logged-in="{{ Auth::check() ? 'true' : 'false' }}">
 

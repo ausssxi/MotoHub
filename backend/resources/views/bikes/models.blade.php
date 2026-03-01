@@ -9,25 +9,37 @@
 
     <x-slot:scripts>
         <script src="{{ asset('js/bikes/models.js') }}"></script>
-        {{-- ★PV向上施策: 閲覧履歴マネージャーを読み込み --}}
+        {{-- 閲覧履歴マネージャーを読み込み --}}
         <script src="{{ asset('js/history/manager.js') }}"></script>
+        
+        {{-- ★修正: DOMの読み込みを待たずに即座にAPI通信を開始して表示を高速化 --}}
         <script>
-            document.addEventListener('DOMContentLoaded', () => {
-                if (window.HistoryManager) {
-                    const authMeta = document.querySelector('meta[name="auth-check"]');
-                    const bodyLoggedIn = document.body.dataset.loggedIn === 'true';
-                    const isLoggedIn = (authMeta && authMeta.content === 'true') || bodyLoggedIn;
-                    
-                    HistoryManager.init(isLoggedIn).then(() => {
+            (async function() {
+                // manager.js の読み込みを待つ
+                while (typeof HistoryManager === 'undefined') {
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+
+                const authMeta = document.querySelector('meta[name="auth-check"]');
+                const bodyLoggedIn = document.body.dataset.loggedIn === 'true';
+                const isLoggedIn = (authMeta && authMeta.content === 'true') || bodyLoggedIn;
+                
+                // 裏側で通信を開始
+                await HistoryManager.init(isLoggedIn);
+                
+                // HTML(DOM)が生成されるのを待ってから描画
+                const renderInterval = setInterval(() => {
+                    const widget = document.getElementById('history-widget');
+                    if (widget) {
+                        clearInterval(renderInterval);
                         HistoryManager.render('history-widget').then(() => {
-                            const widget = document.getElementById('history-widget');
-                            if (widget && widget.children.length > 0) {
+                            if (widget.children.length > 0) {
                                 document.getElementById('history-section').classList.remove('hidden');
                             }
                         });
-                    });
-                }
-            });
+                    }
+                }, 100);
+            })();
         </script>
     </x-slot:scripts>
 
@@ -48,7 +60,21 @@
                 </p>
             </div>
 
-            {{-- ★修正: 変数名を $trendingBikes に変更 --}}
+            {{-- ★PV向上施策1: 最近見た車両（行き止まりを作らず、興味を再燃させる） --}}
+            <section id="history-section" class="hidden mb-12 bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+                <div class="flex items-center gap-2 mb-6">
+                    <div class="p-2 bg-gray-100 rounded-lg text-gray-600">
+                        <i data-lucide="clock" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-lg font-black text-gray-900">最近チェックした車両</h3>
+                </div>
+                
+                <div id="history-widget" class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-2 px-2 sm:mx-0 sm:px-0">
+                    {{-- JSでカードが挿入されます --}}
+                </div>
+            </section>
+
+            {{-- 急上昇トレンド車種 TOP10 --}}
             @if(isset($trendingBikes) && count($trendingBikes) > 0)
             <section class="mb-12 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-100 overflow-hidden relative">
                 <div class="absolute -right-6 -top-6 text-yellow-50 opacity-50 pointer-events-none">
@@ -66,11 +92,13 @@
                     </div>
                     
                     <div class="flex gap-4 sm:gap-5 overflow-x-auto pb-6 pt-2 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
-                        {{-- 取得したトレンド車種から上位10件だけを表示 --}}
                         @foreach($trendingBikes->take(10) as $index => $bike)
-                            <div class="snap-start shrink-0 w-36 sm:w-44 group relative block cursor-pointer" onclick="window.location='{{ route('bikes.search', ['bike_model_id' => $bike->id]) }}'">
+                            <div class="snap-start shrink-0 w-36 sm:w-44 group relative block">
                                 
-                                {{-- ★修正: CSSの再ビルド不要で確実に表示されるよう、インラインのカラーコードで直接色を指定 --}}
+                                {{-- ★メインリンク --}}
+                                <a href="{{ route('bikes.search', ['bike_model_id' => $bike->id]) }}" class="absolute inset-0 z-10"></a>
+
+                                {{-- 順位メダルバッジ --}}
                                 <div class="absolute -top-3 -left-3 z-20 w-8 h-8 rounded-full flex items-center justify-center font-black text-white border-2 border-white"
                                      style="{{ $index === 0 ? 'background: linear-gradient(135deg, #facc15, #d97706); box-shadow: 0 4px 10px rgba(217, 119, 6, 0.4);' : 
                                               ($index === 1 ? 'background: linear-gradient(135deg, #9ca3af, #4b5563); box-shadow: 0 4px 10px rgba(75, 85, 99, 0.4);' : 
@@ -99,8 +127,10 @@
                                             <span class="inline-flex items-center text-[9px] sm:text-[10px] font-black bg-blue-50 text-blue-600 px-2 py-1 rounded-md">
                                                 {{ number_format($bike->listings_count ?? 0) }}台
                                             </span>
-                                            {{-- ★追加: 口コミ・レビューへのリンク --}}
-                                            <a href="{{ route('bikes.model_detail', $bike->id) }}#reviews" class="relative z-20 pointer-events-auto inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold text-yellow-600 bg-yellow-50 hover:bg-yellow-100 px-2 py-1 rounded-md border border-yellow-200 transition-colors shadow-sm" title="オーナーの口コミを見る">
+                                            {{-- ★修正: onclick="event.stopPropagation();" を追加して親のリンク発火を防止 --}}
+                                            <a href="{{ route('bikes.model_detail', $bike->id) }}#reviews" 
+                                               onclick="event.stopPropagation();"
+                                               class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold text-yellow-600 bg-yellow-50 hover:bg-yellow-100 px-2 py-1 rounded-md border border-yellow-200 transition-colors shadow-sm" title="オーナーの口コミを見る">
                                                 @if(isset($bike->reviews_avg_rating) && $bike->reviews_count > 0)
                                                     <i data-lucide="star" class="w-3 h-3 fill-current text-yellow-500"></i>
                                                     {{ number_format($bike->reviews_avg_rating, 1) }}
@@ -118,20 +148,6 @@
             </section>
             @endif
 
-            {{-- ★PV向上施策1: 最近見た車両（行き止まりを作らず、興味を再燃させる） --}}
-            <section id="history-section" class="hidden mb-12 bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-                <div class="flex items-center gap-2 mb-6">
-                    <div class="p-2 bg-gray-100 rounded-lg text-gray-600">
-                        <i data-lucide="clock" class="w-5 h-5"></i>
-                    </div>
-                    <h3 class="text-lg font-black text-gray-900">最近チェックした車両</h3>
-                </div>
-                
-                <div id="history-widget" class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-2 px-2 sm:mx-0 sm:px-0">
-                    {{-- JSでカードが挿入されます --}}
-                </div>
-            </section>
-            
             {{-- メーカー別アコーディオンリスト --}}
             <div class="space-y-4 content-visibility-auto mb-16">
                 @foreach($manufacturers as $manufacturer)
@@ -183,12 +199,12 @@
                                             <div id="sub-list-{{ $subId }}" class="hidden border-t border-gray-100 p-3 sm:p-4 bg-gray-50/50">
                                                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                                                     @foreach($list as $bike)
-                                                    @php 
-                                                        // 万が一データが配列形式で渡ってきてもエラーにならないよう安全に処理
-                                                        $b = is_array($bike) ? (object)$bike : $bike; 
-                                                    @endphp
-                                                    <div class="group/item relative flex items-center p-3 bg-white rounded-xl border border-gray-200 hover:border-blue-400 hover:shadow-md hover:-translate-y-0.5 transition duration-300 cursor-pointer" onclick="window.location='{{ route('bikes.search', ['bike_model_id' => $b->id]) }}'">
+                                                    @php $b = is_array($bike) ? (object)$bike : $bike; @endphp
+                                                    <div class="group/item relative flex items-center p-3 bg-white rounded-xl border border-gray-200 hover:border-blue-400 hover:shadow-md hover:-translate-y-0.5 transition duration-300">
                                                         
+                                                        {{-- ★メインリンク --}}
+                                                        <a href="{{ route('bikes.search', ['bike_model_id' => $b->id]) }}" class="absolute inset-0 z-10"></a>
+
                                                         <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 mr-3 border border-gray-100 relative">
                                                             @if($b->image_url)
                                                             <img src="{{ $b->image_url }}" alt="{{ $b->name }}" 
@@ -214,8 +230,10 @@
                                                             </span>
                                                         </div>
 
-                                                        {{-- ★追加: 口コミ・レビューへのリンクボタン --}}
-                                                        <a href="{{ route('bikes.model_detail', $b->id) }}#reviews" class="relative z-20 pointer-events-auto shrink-0 inline-flex items-center justify-center w-11 h-11 sm:w-auto sm:h-auto sm:px-3 sm:py-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 rounded-lg border border-yellow-200 transition-colors shadow-sm group-hover/item:border-yellow-300 flex-col sm:flex-row gap-0.5 sm:gap-1.5" title="オーナーの口コミを見る">
+                                                        {{-- ★修正: onclick="event.stopPropagation();" を追加して親のリンク発火を防止 --}}
+                                                        <a href="{{ route('bikes.model_detail', $b->id) }}#reviews" 
+                                                           onclick="event.stopPropagation();"
+                                                           class="relative z-20 shrink-0 inline-flex items-center justify-center w-11 h-11 sm:w-auto sm:h-auto sm:px-3 sm:py-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 rounded-lg border border-yellow-200 transition-colors shadow-sm group-hover/item:border-yellow-300 flex-col sm:flex-row gap-0.5 sm:gap-1.5" title="オーナーの口コミを見る">
                                                             @if(isset($b->reviews_avg_rating) && $b->reviews_count > 0)
                                                                 <i data-lucide="star" class="w-4 h-4 sm:w-3 sm:h-3 fill-current text-yellow-500"></i>
                                                                 <span class="text-[8px] sm:text-[10px] font-bold leading-none">{{ number_format($b->reviews_avg_rating, 1) }}<span class="hidden sm:inline"> ({{ $b->reviews_count }})</span></span>
@@ -238,7 +256,7 @@
                 @endforeach
             </div>
 
-            {{-- ★PV向上施策2: 回遊リンク（他の探し方を提案し、直帰率を下げる） --}}
+            {{-- PV向上施策2: 回遊リンク --}}
             <div class="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 mb-12">
                 <h3 class="text-lg font-black text-gray-900 mb-6 flex items-center gap-2">
                     <i data-lucide="search" class="w-5 h-5 text-blue-500"></i>
