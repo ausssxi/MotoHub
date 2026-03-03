@@ -374,7 +374,8 @@
                             <p class="text-[10px] text-gray-400 mt-4 text-right">※MotoHubに掲載中の「{{ $listing->name }}」全車両のデータから算出</p>
                             @if($listing->bike_model_id)
                             <div class="mt-8 pt-6 border-t border-gray-100 text-center">
-                                <a href="{{ $listing->bikeModel->seo_url }}" class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-700 font-bold rounded-xl transition shadow-sm border border-blue-100 group">
+                                @php $bikeModelForUrl = \App\Models\BikeModel::with('manufacturer')->find($listing->bike_model_id); @endphp
+                                <a href="{{ $bikeModelForUrl?->seo_url ?? '#' }}" class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-700 font-bold rounded-xl transition shadow-sm border border-blue-100 group">
                                     <i data-lucide="coins" class="w-4 h-4 text-yellow-500"></i>
                                     <span>この車種の買取相場・リセール情報を見る</span>
                                     <i data-lucide="chevron-right" class="w-4 h-4 text-blue-400 group-hover:translate-x-1 transition-transform"></i>
@@ -401,7 +402,7 @@
                                 </button>
                                 
                                 @if($reviews->isNotEmpty())
-                                <a href="{{ $listing->bikeModel->seo_url }}#reviews" class="inline-flex items-center text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors py-2">
+                                <a href="{{ $bikeModelForUrl?->seo_url ? $bikeModelForUrl->seo_url . '#reviews' : '#' }}" class="inline-flex items-center text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors py-2">
                                     すべて見る <i data-lucide="chevron-right" class="w-4 h-4 ml-0.5"></i>
                                 </a>
                                 @endif
