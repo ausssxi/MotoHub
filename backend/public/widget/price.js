@@ -109,9 +109,8 @@
         html += '</div>';
 
         // 更新日
-        html += '<div style="text-align:right;font-size:9px;color:#9ca3af;margin-top:4px;padding-right:4px;">更新: ' + data.updated_at + '</div>';
-
-        return html;
+        html += '<div style="text-align:right;font-size:9px;color:#9ca3af;margin-top:4px;padding-right:4px;max-width:400px;">更新: ' + data.updated_at + '</div>';
+        return '<div style="display:block;">' + html + '</div>';
     }
 
     function priceBox(label, value, bg, valueColor, labelColor) {

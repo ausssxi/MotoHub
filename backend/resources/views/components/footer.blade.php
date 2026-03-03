@@ -34,6 +34,12 @@
                     <li>
                         <a href="{{ route('pages.terms') }}" class="footer-link">利用規約・免責事項</a>
                     </li>
+
+                    <div class="basis-full h-0 sm:hidden"></div>
+                    
+                    <li>
+                        <a href="{{ route('pages.widget') }}" class="footer-link">相場ウィジェット</a>
+                    </li>
                 </ul>
             </nav>
 

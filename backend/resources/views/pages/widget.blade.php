@@ -311,9 +311,9 @@
             html += '<span style="font-size:11px;font-weight:700;color:'+accent+';">詳細を見る →</span>';
             html += '<span style="font-size:10px;font-weight:600;color:'+subtext+';">Powered by MotoHub</span>';
             html += '</div></div>';
-            html += '<div style="text-align:right;font-size:9px;color:#9ca3af;margin-top:4px;">更新: '+data.updated_at+'</div>';
+            html += '<div style="text-align:right;font-size:9px;color:#9ca3af;margin-top:4px;max-width:400px;">更新: '+data.updated_at+'</div>';
             html += '</div>';
-            return html;
+            return '<div style="display:block;">' + html + '</div>';
         }
 
         function pBox(label, value, bg, valueColor, labelColor) {

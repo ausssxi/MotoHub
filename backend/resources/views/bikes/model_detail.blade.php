@@ -595,6 +595,16 @@
                                 {{ $model->name }} の在庫を検索する
                             </a>
                         </div>
+                        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mt-6">
+                            <div class="text-center">
+                                <i data-lucide="code" class="w-6 h-6 text-blue-500 mx-auto mb-2"></i>
+                                <h3 class="text-sm font-black text-gray-900 mb-1">ブログに相場を貼りませんか？</h3>
+                                <p class="text-[10px] text-gray-400 mb-3">{{ $model->name }}の相場ウィジェットを無料で埋め込めます</p>
+                                <a href="{{ route('pages.widget', ['model_id' => $model->id]) }}" class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs text-center py-2.5 rounded-xl transition-colors">
+                                    埋め込みコードを取得
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
