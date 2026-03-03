@@ -9,9 +9,6 @@
 
     <x-slot:scripts>
         <script src="{{ asset('js/bikes/models.js') }}"></script>
-        {{-- 閲覧履歴マネージャーを読み込み --}}
-        <script src="{{ asset('js/history/manager.js') }}"></script>
-        
         {{-- ★修正: DOMの読み込みを待たずに即座にAPI通信を開始して表示を高速化 --}}
         <script>
             (async function() {
