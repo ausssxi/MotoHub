@@ -139,6 +139,7 @@ final class BikeController extends Controller
 
         return view('bikes.show', [
             'listing'         => $data,
+            'bikeModelForUrl' => $listing->bikeModel,
             'relatedListings' => ListingResource::collection($relatedRaw)->resolve(),
             'similarListings' => ListingResource::collection($similarRaw)->resolve(),
             'dynamicLinks'    => $dynamicLinks,

@@ -374,7 +374,6 @@
                             <p class="text-[10px] text-gray-400 mt-4 text-right">※MotoHubに掲載中の「{{ $listing->name }}」全車両のデータから算出</p>
                             @if($listing->bike_model_id)
                             <div class="mt-8 pt-6 border-t border-gray-100 text-center">
-                                @php $bikeModelForUrl = \App\Models\BikeModel::with('manufacturer')->find($listing->bike_model_id); @endphp
                                 <a href="{{ $bikeModelForUrl?->seo_url ?? '#' }}" class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-700 font-bold rounded-xl transition shadow-sm border border-blue-100 group">
                                     <i data-lucide="coins" class="w-4 h-4 text-yellow-500"></i>
                                     <span>この車種の買取相場・リセール情報を見る</span>
