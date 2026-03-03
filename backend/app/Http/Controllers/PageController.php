@@ -100,4 +100,9 @@ final class PageController extends Controller
     {
         return view('pages.terms');
     }
+
+    public function widget()
+    {
+        return view('pages.widget');
+    }
 }

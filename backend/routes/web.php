@@ -105,6 +105,7 @@ Route::prefix('api')->group(function () {
     Route::get('/bikes/count', [BikeApiController::class, 'count']);
     Route::get('/manufacturers/{manufacturer}/models', [BikeApiController::class, 'models']);
     Route::get('/stats/price/{bikeModelId}', [App\Http\Controllers\Api\StatsApiController::class, 'getPriceStats']);
+    Route::get('/widget/price/{bikeModelId}', [\App\Http\Controllers\Api\WidgetApiController::class, 'price']);
 });
 
 // 固定ページ (運営者情報など)
@@ -114,6 +115,7 @@ Route::prefix('pages')->name('pages.')->group(function () {
     Route::post('/contact', [PageController::class, 'send'])->name('contact.send');
     Route::get('/privacy-policy', [PageController::class, 'privacyPolicy'])->name('privacy-policy');
     Route::get('/terms', [PageController::class, 'terms'])->name('terms');
+    Route::get('/widget', [PageController::class, 'widget'])->name('widget');
 });
 
 // 買取査定LP 
