@@ -110,8 +110,8 @@
                                 <div class="bg-white rounded-2xl overflow-hidden shadow-sm group-hover:shadow-xl transition-all duration-300 border border-gray-100 flex flex-col h-full group-hover:-translate-y-1 relative">
                                     <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
                                         @if($bike->image_url)
-                                            <img src="{{ $bike->image_url }}" alt="{{ $bike->name }}" 
-                                                 class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" decoding="async">
+                                            <img src="{{ Str::startsWith($bike->image_url, ['http://', 'https://']) ? $bike->image_url : asset($bike->image_url) }}" alt="{{ $bike->name }}" 
+                                                 class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" decoding="async">
                                         @else
                                             <div class="w-full h-full flex items-center justify-center text-gray-300">
                                                 <i data-lucide="bike" class="w-8 h-8"></i>
@@ -128,7 +128,7 @@
                                                 {{ number_format($bike->listings_count ?? 0) }}台
                                             </span>
                                             {{-- ★修正: onclick="event.stopPropagation();" を追加して親のリンク発火を防止 --}}
-                                            <a href="{{ route('bikes.model_detail', $bike->id) }}#reviews" 
+                                            <a href="{{ $bike->seo_url }}#reviews" 
                                                onclick="event.stopPropagation();"
                                                class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold text-yellow-600 bg-yellow-50 hover:bg-yellow-100 px-2 py-1 rounded-md border border-yellow-200 transition-colors shadow-sm" title="オーナーの口コミを見る">
                                                 @if(isset($bike->reviews_avg_rating) && $bike->reviews_count > 0)
@@ -149,7 +149,8 @@
             @endif
 
             {{-- メーカー別アコーディオンリスト --}}
-            <div class="space-y-4 content-visibility-auto mb-16">
+            {{-- ★修正: content-visibility-auto クラスを削除して画像の透明化バグを防ぐ --}}
+            <div class="space-y-4 mb-16">
                 @foreach($manufacturers as $manufacturer)
                     
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition duration-300 hover:shadow-md" id="maker-section-{{ $manufacturer['id'] }}">
@@ -158,8 +159,15 @@
                         <button onclick="toggleMaker({{ $manufacturer['id'] }})" class="w-full flex items-center justify-between px-4 sm:px-6 py-4 bg-white hover:bg-gray-50/50 transition-colors text-left group cursor-pointer focus:outline-none">
                             <div class="flex items-center gap-4">
                                 <div class="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center group-hover:border-blue-200 transition-colors">
-                                    @if($manufacturer['image_url'])
-                                        <img src="{{ $manufacturer['image_url'] }}" alt="{{ $manufacturer['name'] }}" class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" loading="lazy" decoding="async">
+                                    {{-- ★修正: オブジェクトでも配列でも対応できるようにし、loading="lazy" を削除 --}}
+                                    @php $mImageUrl = $manufacturer['image_url'] ?? $manufacturer['logo_url'] ?? null; @endphp
+                                    @if($mImageUrl)
+                                        <img src="{{ Str::startsWith($mImageUrl, ['http://', 'https://']) ? $mImageUrl : asset($mImageUrl) }}" 
+                                             alt="{{ $manufacturer['name'] }}" 
+                                             class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" 
+                                             decoding="async"
+                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                        <i data-lucide="bike" class="w-5 h-5 text-gray-300 hidden"></i>
                                     @else
                                         <i data-lucide="bike" class="w-5 h-5 text-gray-300"></i>
                                     @endif
@@ -187,7 +195,7 @@
                                 @foreach($manufacturer['groups'] as $label => $list)
                                     @if(count($list) > 0)
                                         @php $subId = $manufacturer['id'] . '-' . $loop->index; @endphp
-                                        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden content-visibility-auto">
+                                        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
                                             <button onclick="toggleSubGroup('{{ $subId }}')" class="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-50 transition-colors text-left group/sub">
                                                 <div class="flex items-center gap-3">
                                                     <span class="text-sm font-bold text-gray-700 min-w-[2rem]">{{ $label }}</span>
@@ -207,8 +215,8 @@
 
                                                         <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 mr-3 border border-gray-100 relative">
                                                             @if($b->image_url)
-                                                            <img src="{{ $b->image_url }}" alt="{{ $b->name }}" 
-                                                                 loading="lazy" decoding="async"
+                                                            <img src="{{ Str::startsWith($b->image_url, ['http://', 'https://']) ? $b->image_url : asset($b->image_url) }}" alt="{{ $b->name }}" 
+                                                                 decoding="async"
                                                                  class="w-full h-full object-cover transform group-hover/item:scale-110 transition-transform duration-500"
                                                                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                                             <div class="hidden w-full h-full items-center justify-center text-gray-300">
@@ -231,7 +239,7 @@
                                                         </div>
 
                                                         {{-- ★修正: onclick="event.stopPropagation();" を追加して親のリンク発火を防止 --}}
-                                                        <a href="{{ route('bikes.model_detail', $b->id) }}#reviews" 
+                                                        <a href="{{ $b->seo_url }}#reviews" 
                                                            onclick="event.stopPropagation();"
                                                            class="relative z-20 shrink-0 inline-flex items-center justify-center w-11 h-11 sm:w-auto sm:h-auto sm:px-3 sm:py-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 rounded-lg border border-yellow-200 transition-colors shadow-sm group-hover/item:border-yellow-300 flex-col sm:flex-row gap-0.5 sm:gap-1.5" title="オーナーの口コミを見る">
                                                             @if(isset($b->reviews_avg_rating) && $b->reviews_count > 0)
@@ -300,10 +308,5 @@
         </div>
     </div>
     
-    <style>
-        .content-visibility-auto {
-            content-visibility: auto;
-            contain-intrinsic-size: 100px;
-        }
-    </style>
+    {{-- ★修正: ここにあった <style>...</style> の不具合原因コードを削除しました --}}
 </x-layout>

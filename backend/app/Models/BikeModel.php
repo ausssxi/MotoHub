@@ -26,6 +26,7 @@ final class BikeModel extends Model
         'displacement',
         'manufacturer_id',
         'category_id',
+        'slug',
     ];
 
     /**
@@ -111,5 +112,22 @@ final class BikeModel extends Model
     {
         return $this->hasMany(MarketPriceLog::class)->orderBy('recorded_at', 'asc');
     }
-    
+
+    /**
+     * SEOフレンドリーなURLを生成
+     * スラッグがあれば /bikes/honda/cb400sf
+     * なければ /bikes/honda/123 (IDフォールバック)
+     */
+    public function getSeoUrlAttribute(): string
+    {
+        $mfrSlug = $this->manufacturer?->slug;
+        $modelSlug = $this->slug ?? $this->id;
+
+        if ($mfrSlug) {
+            return "/bikes/{$mfrSlug}/{$modelSlug}";
+        }
+
+        // メーカースラッグもない場合（レアケース）
+        return "/bikes/model/{$this->id}";
+    }
 }

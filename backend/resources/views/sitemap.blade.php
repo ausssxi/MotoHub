@@ -205,7 +205,7 @@ class GenerateSitemap extends Command
                 foreach ($models as $model) {
                     $this->writeUrl(
                         $handle,
-                        route('bikes.model_detail', $model->id),
+                        url($model->seo_url),
                         $model->updated_at->format('Y-m-d'),
                         'weekly',
                         '0.8'

@@ -59,7 +59,19 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     Route::get('/trends', [TrendController::class, 'index'])->name('trends');
 
     // 車種別カタログページ
-    Route::get('/models/{id}', 'modelDetail')->name('model_detail')->where('id', '[0-9]+');
+    Route::get('/models/{id}', function ($id) {
+        $model = \App\Models\BikeModel::with('manufacturer')->findOrFail($id);
+        $mfrSlug = $model->manufacturer?->slug;
+        $modelSlug = $model->slug;
+    
+        if ($mfrSlug && $modelSlug) {
+            return redirect("/bikes/{$mfrSlug}/{$modelSlug}", 301);
+        }
+        if ($mfrSlug) {
+            return redirect("/bikes/{$mfrSlug}/{$id}", 301);
+        }
+        return app(\App\Http\Controllers\Bike\BikeController::class)->modelDetail($id);
+    })->where('id', '[0-9]+')->name('model_detail.legacy');
     
     // レビュー投稿（★スパム対策：1分間に3回までのレート制限を追加）
     Route::post('/models/{id}/reviews', 'storeReview')
@@ -69,6 +81,10 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     // 詳細ページ (ID指定) - 他の固定ルートより後に書く
     Route::get('/{id}', 'show')->name('show')->where('id', '[0-9]+'); 
 });
+
+Route::get('/bikes/{mfrSlug}/{modelSlug}', [BikeController::class, 'modelDetailBySlug'])
+    ->where('mfrSlug', '[a-z][a-z0-9\-]*')
+    ->name('bikes.model_detail');
 
 Route::prefix('shops')->name('shops.')->group(function () {
     // マップページ

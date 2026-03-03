@@ -307,7 +307,7 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     @foreach($latestReviews as $review)
-                        <a href="{{ route('bikes.model_detail', $review->bike_model_id) }}#reviews" 
+                        <a href="{{ $review->bikeModel->seo_url }}#reviews" 
                            class="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col h-full">
                             
                             {{-- ヘッダー: 車種名と評価 --}}

@@ -308,4 +308,35 @@ final class BikeController extends Controller
         return view('bikes.model_detail', compact('model', 'stats', 'history', 'resale', 'listings', 'reviewStats'));
     }
 
+   /**
+    * 車種詳細ページ（スラッグURL版）
+    * URL: /bikes/{mfrSlug}/{modelSlug}
+    * 
+    * $modelSlug はスラッグ文字列 or 数値ID（日本語名フォールバック）
+    */
+    public function modelDetailBySlug(string $mfrSlug, string $modelSlug)
+    {
+        // 1. メーカーをスラッグで検索
+        $manufacturer = \App\Models\Manufacturer::where('slug', $mfrSlug)->first();
+
+        if (!$manufacturer) {
+            abort(404);
+        }
+
+        // 2. 車種を検索（スラッグ or ID）
+        if (is_numeric($modelSlug)) {
+            // IDフォールバック（日本語車種名の場合）
+            $model = \App\Models\BikeModel::where('id', $modelSlug)
+                ->where('manufacturer_id', $manufacturer->id)
+                ->firstOrFail();
+        } else {
+            // スラッグで検索
+            $model = \App\Models\BikeModel::where('slug', $modelSlug)
+                ->where('manufacturer_id', $manufacturer->id)
+                ->firstOrFail();
+        }
+
+        $priceStatsService = app(\App\Services\Bike\PriceStatsService::class);
+        return $this->modelDetail($model->id, $priceStatsService);
+    }
 }

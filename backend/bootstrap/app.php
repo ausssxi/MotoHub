@@ -128,6 +128,11 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->withoutOverlapping()
                  ->appendOutputTo($statsLog);
 
+        // 新規追加された車種やメーカーにスラッグを自動付与 (06:30)
+        $schedule->command('slug:generate')
+                 ->dailyAt('06:30')
+                 ->withoutOverlapping();
+
         // 検索高速化用データの最適化 (毎時)
         $schedule->command('bikes:optimize-search-data')
                  ->hourly()

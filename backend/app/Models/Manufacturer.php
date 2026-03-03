@@ -12,6 +12,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 final class Manufacturer extends Model
 {
+    protected $fillable = [
+        'slug',
+    ];
+    
     /**
      * このメーカーに属する車種一覧を取得
      */
