@@ -305,8 +305,22 @@ final class BikeController extends Controller
             ->where('bike_model_id', $id)
             ->selectRaw('ROUND(AVG(rating), 1) as avg_rating, COUNT(*) as count')
             ->first();
+        
+        $relatedModels = \App\Models\BikeModel::with('manufacturer')
+            ->where('manufacturer_id', $model->manufacturer_id)
+            ->where('id', '!=', $model->id)
+            ->whereNotNull('slug')
+            ->withCount(['listings' => fn($q) => $q->active()])
+            ->orderByDesc('listings_count')
+            ->limit(6)
+            ->get();
+        
+        $activeCount = \App\Models\Listing::where('bike_model_id', $id)->active()->count();
 
-        return view('bikes.model_detail', compact('model', 'stats', 'history', 'resale', 'listings', 'reviewStats'));
+        return view('bikes.model_detail', compact(
+            'model', 'stats', 'history', 'resale', 'listings',
+            'reviewStats', 'relatedModels', 'activeCount'
+        ));
     }
 
    /**
