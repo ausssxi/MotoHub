@@ -308,5 +308,10 @@
         </div>
     </div>
     
-    {{-- ★修正: ここにあった <style>...</style> の不具合原因コードを削除しました --}}
+    <style>
+        .content-visibility-auto {
+            content-visibility: auto;
+            contain-intrinsic-size: 100px;
+        }
+    </style>
 </x-layout>
