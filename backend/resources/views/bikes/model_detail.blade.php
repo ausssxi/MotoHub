@@ -615,6 +615,9 @@
                     </div>
                     @endif
 
+                    {{-- 閲覧履歴ウィジェット --}}
+                    @include('bikes.partials.history_widget', ['widgetId' => 'model-history-widget'])
+
                 </div>
 
                 {{-- サイドバー --}}

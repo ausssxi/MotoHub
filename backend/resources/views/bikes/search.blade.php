@@ -336,6 +336,9 @@
                     </div>
                 </div>
 
+                {{-- 閲覧履歴ウィジェット --}}
+                @include('bikes.partials.history_widget', ['widgetId' => 'search-history-widget'])
+
                 {{-- 市場相場パネル --}}
                 @if(isset($stats['avg']) && $stats['avg'] && $stats['count'] > 0)
                 <div class="mb-8 bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden flex flex-col sm:flex-row animate-in fade-in slide-in-from-top-4 duration-500">
