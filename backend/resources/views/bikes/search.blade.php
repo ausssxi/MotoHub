@@ -434,6 +434,9 @@
                     @endempty
                 </div>
 
+                {{-- おすすめ車種セクション --}}
+                @include('bikes.partials.search_recommendations')
+
                 {{-- さらに読み込むボタン --}}
                 @if($pagination['next_url'])
                 <div id="load-more-container" class="mt-12 text-center pb-8">

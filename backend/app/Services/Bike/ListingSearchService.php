@@ -269,4 +269,79 @@ final class ListingSearchService
     }
 
     public function getPopularTags(): array { return ['ETC', 'ドラレコ', 'ワンオーナー', 'ABS', '低走行', 'グリップヒーター', '社外マフラー', 'USB電源']; }
+
+    /**
+     * 検索結果ページ向けのおすすめ車種を取得
+     */
+    public function getRecommendedModels(array $filters, array $items): Collection
+    {
+        if (empty($items)) {
+            return collect();
+        }
+
+        $cacheKey = 'search_recommend_' . md5(serialize($filters));
+
+        return Cache::remember($cacheKey, 1800, function () use ($filters, $items) {
+            $excludeModelId = !empty($filters['bike_model_id']) ? (int) $filters['bike_model_id'] : null;
+            $manufacturerId = !empty($filters['manufacturer_id']) ? (int) $filters['manufacturer_id'] : null;
+
+            // 優先1: メーカー指定あり → 同メーカーの他車種
+            if ($manufacturerId) {
+                $models = \App\Models\BikeModel::with('manufacturer')
+                    ->where('manufacturer_id', $manufacturerId)
+                    ->when($excludeModelId, fn($q, $id) => $q->where('id', '!=', $id))
+                    ->whereNotNull('slug')
+                    ->withCount(['listings' => fn($q) => $q->active()])
+                    ->having('listings_count', '>', 0)
+                    ->orderByDesc('listings_count')
+                    ->limit(6)
+                    ->get();
+
+                if ($models->isNotEmpty()) {
+                    return $models;
+                }
+            }
+
+            // 優先2: 検索結果から最頻出カテゴリを推論 → 同カテゴリの人気車種
+            $dominantCategoryId = $this->inferDominantCategory($items);
+            if ($dominantCategoryId) {
+                $models = \App\Models\BikeModel::with('manufacturer')
+                    ->where('category_id', $dominantCategoryId)
+                    ->when($excludeModelId, fn($q, $id) => $q->where('id', '!=', $id))
+                    ->whereNotNull('slug')
+                    ->withCount(['listings' => fn($q) => $q->active()])
+                    ->having('listings_count', '>', 0)
+                    ->orderByDesc('listings_count')
+                    ->limit(6)
+                    ->get();
+
+                if ($models->isNotEmpty()) {
+                    return $models;
+                }
+            }
+
+            return collect();
+        });
+    }
+
+    /**
+     * 検索結果から最も出現頻度の高いカテゴリIDを推論
+     */
+    private function inferDominantCategory(array $items): ?int
+    {
+        $modelIds = collect($items)->pluck('bike_model_id')->filter()->unique()->values();
+
+        if ($modelIds->isEmpty()) {
+            return null;
+        }
+
+        $topCategoryId = \App\Models\BikeModel::whereIn('id', $modelIds)
+            ->whereNotNull('category_id')
+            ->selectRaw('category_id, COUNT(*) as cnt')
+            ->groupBy('category_id')
+            ->orderByDesc('cnt')
+            ->value('category_id');
+
+        return $topCategoryId ? (int) $topCategoryId : null;
+    }
 }

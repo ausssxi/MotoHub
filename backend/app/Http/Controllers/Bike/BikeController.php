@@ -93,13 +93,15 @@ final class BikeController extends Controller
 
         $pageTitle = $this->listingSearchService->generatePageTitle($keyword, $prefecture, $filters);
         $popularTags = $this->listingSearchService->getPopularTags();
+        $recommendedModels = $this->listingSearchService->getRecommendedModels($result['filters'], $result['items']);
 
         return view('bikes.search', array_merge($result, [
-            'keyword'     => $keyword,
-            'prefecture'  => $prefecture,
-            'sort'        => $sort,
-            'pageTitle'   => $pageTitle,
-            'popularTags' => $popularTags,
+            'keyword'           => $keyword,
+            'prefecture'        => $prefecture,
+            'sort'              => $sort,
+            'pageTitle'         => $pageTitle,
+            'popularTags'       => $popularTags,
+            'recommendedModels' => $recommendedModels,
         ]));
     }
 
@@ -316,12 +318,42 @@ final class BikeController extends Controller
             ->orderByDesc('listings_count')
             ->limit(6)
             ->get();
-        
+
+        // 同排気量帯の人気車種（±50cc、他メーカー含む、自車種と同メーカー除外）
+        $similarDisplacementModels = collect();
+        if ($model->displacement) {
+            $similarDisplacementModels = \App\Models\BikeModel::with('manufacturer')
+                ->where('id', '!=', $model->id)
+                ->where('manufacturer_id', '!=', $model->manufacturer_id)
+                ->whereBetween('displacement', [$model->displacement - 50, $model->displacement + 50])
+                ->whereNotNull('slug')
+                ->withCount(['listings' => fn($q) => $q->active()])
+                ->orderByDesc('listings_count')
+                ->limit(6)
+                ->get();
+        }
+
+        // 同カテゴリの車種（他メーカー含む、自車種と同メーカー除外）
+        $sameCategoryModels = collect();
+        if ($model->category_id) {
+            $excludeIds = $similarDisplacementModels->pluck('id')->push($model->id)->all();
+            $sameCategoryModels = \App\Models\BikeModel::with('manufacturer')
+                ->where('category_id', $model->category_id)
+                ->where('manufacturer_id', '!=', $model->manufacturer_id)
+                ->whereNotIn('id', $excludeIds)
+                ->whereNotNull('slug')
+                ->withCount(['listings' => fn($q) => $q->active()])
+                ->orderByDesc('listings_count')
+                ->limit(6)
+                ->get();
+        }
+
         $activeCount = \App\Models\Listing::where('bike_model_id', $id)->active()->count();
 
         return view('bikes.model_detail', compact(
             'model', 'stats', 'history', 'resale', 'listings',
-            'reviewStats', 'relatedModels', 'activeCount'
+            'reviewStats', 'relatedModels', 'similarDisplacementModels',
+            'sameCategoryModels', 'activeCount'
         ));
     }
 
