@@ -1,7 +1,7 @@
 {{-- 閲覧履歴ウィジェット（再利用可能パーシャル） --}}
 @php $widgetId = $widgetId ?? 'history-widget'; @endphp
 
-<section id="{{ $widgetId }}-section" class="hidden mb-12 bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+<section id="{{ $widgetId }}-section" class="hidden mb-12 bg-white rounded-3xl p-6 shadow-sm border border-gray-100 overflow-hidden min-w-0">
     <div class="flex items-center gap-2 mb-6">
         <div class="p-2 bg-gray-100 rounded-lg text-gray-600">
             <i data-lucide="clock" class="w-5 h-5"></i>
@@ -9,7 +9,7 @@
         <h3 class="text-lg font-black text-gray-900">最近チェックした車両</h3>
     </div>
 
-    <div id="{{ $widgetId }}" class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-2 px-2 sm:mx-0 sm:px-0">
+    <div id="{{ $widgetId }}" class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
     </div>
 </section>
 

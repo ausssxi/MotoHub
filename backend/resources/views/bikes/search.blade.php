@@ -293,7 +293,7 @@
             </aside>
 
             <!-- 2. メインコンテンツ -->
-            <div class="flex-1">
+            <div class="flex-1 min-w-0">
 
                 {{-- LINE通知バナー（未ログイン時にJSで表示） --}}
                 @guest
