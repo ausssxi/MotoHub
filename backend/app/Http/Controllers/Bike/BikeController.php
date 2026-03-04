@@ -229,6 +229,24 @@ final class BikeController extends Controller
         return view('pages.compare');
     }
 
+    /**
+     * カタログページ（地域なしプログラマティックSEO）
+     * URL: /bikes/catalog/{slug}
+     */
+    public function catalog(string $slug): View
+    {
+        $pageInfo = $this->seoLandingService->resolveCatalogPage($slug);
+        if (empty($pageInfo)) abort(404);
+
+        $result = $this->listingSearchService->search(null, null, 'latest', $pageInfo['filters']);
+
+        return view('bikes.catalog', array_merge($result, [
+            'pageInfo' => $pageInfo['meta'],
+            'keyword' => '',
+            'sort' => 'latest',
+        ]));
+    }
+
     public function landing(string $prefecture, string $slug): View
     {
         $pageInfo = $this->seoLandingService->resolvePageInfo($prefecture, $slug);

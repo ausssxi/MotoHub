@@ -55,7 +55,27 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     
     // SEO着地ページ
     Route::get('/area/{prefecture}/{slug}', 'landing')->name('landing');
-    
+
+    // カタログページ（地域なしプログラマティックSEO）
+    Route::get('/catalog/{slug}', 'catalog')->name('catalog');
+
+    // seo_urlフォールバック: メーカーslugがないモデルの /bikes/model/{id} を処理
+    Route::get('/model/{id}', function ($id) {
+        $model = \App\Models\BikeModel::with('manufacturer')->findOrFail($id);
+        $mfrSlug = $model->manufacturer?->slug;
+        $modelSlug = $model->slug;
+
+        if ($mfrSlug && $modelSlug) {
+            return redirect("/bikes/{$mfrSlug}/{$modelSlug}", 301);
+        }
+        if ($mfrSlug) {
+            return redirect("/bikes/{$mfrSlug}/{$id}", 301);
+        }
+        $controller = app(\App\Http\Controllers\Bike\BikeController::class);
+        $priceStats = app(\App\Services\Bike\PriceStatsService::class);
+        return $controller->modelDetail($id, $priceStats);
+    })->where('id', '[0-9]+')->name('model_detail.fallback');
+
     // トレンド・ランキング
     Route::get('/trends', [TrendController::class, 'index'])->name('trends');
 
@@ -71,7 +91,9 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
         if ($mfrSlug) {
             return redirect("/bikes/{$mfrSlug}/{$id}", 301);
         }
-        return app(\App\Http\Controllers\Bike\BikeController::class)->modelDetail($id);
+        $controller = app(\App\Http\Controllers\Bike\BikeController::class);
+        $priceStats = app(\App\Services\Bike\PriceStatsService::class);
+        return $controller->modelDetail($id, $priceStats);
     })->where('id', '[0-9]+')->name('model_detail.legacy');
     
     // レビュー投稿（★スパム対策：1分間に3回までのレート制限を追加）

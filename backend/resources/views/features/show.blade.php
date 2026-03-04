@@ -3,11 +3,9 @@
     <x-slot:title>{{ $feature->title }} | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $feature->meta_description }}</x-slot:metaDescription>
 
-    <x-slot:styles>
-        @if($pagination['total'] === 0)
-            <meta name="robots" content="noindex, follow">
-        @endif
-    </x-slot:styles>
+    @if($pagination['total'] === 0)
+        <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
+    @endif
 
     <x-slot:scripts>
         <script src="{{ asset('js/compare/manager.js') }}" defer></script>

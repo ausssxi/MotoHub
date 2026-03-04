@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne; 
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * 車種マスタモデル
@@ -39,21 +40,44 @@ final class BikeModel extends Model
 
     /**
      * 画像のフルURLを $bike->image_url で取得できるようにする
+     * 実際の掲載車両（Listing）の画像を優先し、なければ local_image_path にフォールバック
      */
     protected function imageUrl(): Attribute
     {
         return Attribute::make(
             get: function () {
-                // 配列でない、または空の場合は null を返す
-                if (!is_array($this->local_image_path) || empty($this->local_image_path)) {
-                    return null;
+                // 1. 代表Listingの画像を優先（実際の掲載車両なので正確）
+                $listing = $this->relationLoaded('representativeListing')
+                    ? $this->representativeListing
+                    : $this->representativeListing()->first();
+
+                if ($listing) {
+                    $images = $listing->images;
+                    if (!empty($images)) {
+                        return $images[0];
+                    }
                 }
 
-                // 先頭の / を削ってから storage/ と結合する（二重スラッシュ防止）
-                $path = ltrim($this->local_image_path[0], '/');
-                
-                return asset('storage/' . $path);
+                // 2. BikeModel自身の画像にフォールバック
+                if (is_array($this->local_image_path) && !empty($this->local_image_path)) {
+                    $path = ltrim($this->local_image_path[0], '/');
+                    return asset('storage/' . $path);
+                }
+
+                return null;
             },
+        );
+    }
+
+    /**
+     * 代表となる1件のアクティブなListingを取得（画像フォールバック用）
+     * ofMany で効率的なサブクエリJOINを生成（全Listingをロードしない）
+     */
+    public function representativeListing(): HasOne
+    {
+        return $this->hasOne(Listing::class)->ofMany(
+            ['id' => 'max'],
+            fn(Builder $q) => $q->where('is_sold_out', false)
         );
     }
 

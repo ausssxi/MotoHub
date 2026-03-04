@@ -79,6 +79,113 @@ final class SeoLandingService
     }
 
     /**
+     * カタログページ（地域なし）のslugを解析してページ情報を生成
+     *
+     * slug例:
+     *   "honda-naked"  → メーカー×カテゴリ
+     *   "250cc"        → 排気量帯
+     *   "honda"        → メーカー全車種
+     */
+    public function resolveCatalogPage(string $slug): array
+    {
+        $filters = [];
+        $typeLabel = '';
+        $type = 'unknown';
+
+        // 1. 排気量帯判定 (例: 250cc, 125cc, 400cc)
+        if (preg_match('/^(\d+)cc$/', $slug, $matches)) {
+            $cc = (int) $matches[1];
+            $displacement = $this->mapCcToRange($cc);
+            if ($displacement) {
+                if (isset($displacement['min'])) $filters['min_displacement'] = $displacement['min'];
+                if (isset($displacement['max'])) $filters['max_displacement'] = $displacement['max'];
+                $typeLabel = $displacement['label'];
+                $type = 'displacement';
+            }
+        }
+
+        // 2. メーカー×カテゴリ判定 (例: honda-naked)
+        if (empty($typeLabel) && str_contains($slug, '-')) {
+            [$mfrSlug, $catSlug] = explode('-', $slug, 2);
+
+            $manufacturers = $this->manufacturerRepo->getAllSortedByName();
+            $maker = $manufacturers->first(fn($m) => strtolower($m->slug) === strtolower($mfrSlug));
+
+            $categories = $this->categoryRepo->getAllSorted();
+            $category = $categories->first(fn($c) => strtolower($c->slug) === strtolower($catSlug));
+
+            if ($maker && $category) {
+                $filters['manufacturer_id'] = $maker->id;
+                $filters['category_id'] = $category->id;
+                $typeLabel = "{$maker->name} {$category->name}";
+                $type = 'maker_category';
+            }
+        }
+
+        // 3. メーカー単体判定 (例: honda)
+        if (empty($typeLabel)) {
+            $manufacturers = $this->manufacturerRepo->getAllSortedByName();
+            $maker = $manufacturers->first(fn($m) => strtolower($m->slug) === strtolower($slug));
+
+            if ($maker) {
+                $filters['manufacturer_id'] = $maker->id;
+                $typeLabel = $maker->name;
+                $type = 'maker';
+            }
+        }
+
+        if (empty($typeLabel)) {
+            return [];
+        }
+
+        return [
+            'filters' => $filters,
+            'meta' => $this->generateCatalogMetaData($typeLabel, $type, $slug),
+        ];
+    }
+
+    /**
+     * cc数値を排気量帯にマッピング
+     */
+    private function mapCcToRange(int $cc): ?array
+    {
+        return match (true) {
+            $cc <= 50  => ['min' => 0, 'max' => 50, 'label' => '50cc以下（原付）バイク'],
+            $cc <= 125 => ['min' => 51, 'max' => 125, 'label' => "{$cc}cc以下バイク"],
+            $cc <= 250 => ['min' => 126, 'max' => 250, 'label' => "{$cc}ccバイク"],
+            $cc <= 400 => ['min' => 126, 'max' => 400, 'label' => "{$cc}cc以下（中型）バイク"],
+            $cc <= 750 => ['min' => 401, 'max' => 750, 'label' => "{$cc}ccバイク"],
+            default    => ['min' => 401, 'max' => null, 'label' => "大型（{$cc}cc〜）バイク"],
+        };
+    }
+
+    /**
+     * カタログページ用のSEOメタデータを生成
+     */
+    private function generateCatalogMetaData(string $label, string $type, string $slug): array
+    {
+        $title = "{$label} 中古バイク・新車一覧";
+        $h1 = "<span class='text-blue-600'>{$label}</span> 中古バイク・新車一覧";
+        $description = "{$label}の中古バイク・新車を一括検索。MotoHubなら、複数のバイクショップの在庫を一括で比較・検討できます。価格相場やスペックの比較も簡単です。";
+
+        if ($type === 'maker_category') {
+            $title = "{$label} 中古バイク・新車【在庫一覧・価格比較】";
+            $description = "{$label}の中古・新車バイクの在庫一覧。支払総額の安い順や走行距離の少ない順で比較できます。{$label}の相場情報も掲載中。";
+        } elseif ($type === 'displacement') {
+            $title = "{$label} 中古・新車を探す | MotoHub";
+        }
+
+        return [
+            'title' => $title,
+            'description' => $description,
+            'h1_html' => $h1,
+            'target_name' => $label,
+            'type' => $type,
+            'slug' => $slug,
+        ];
+    }
+
+    /**
      * カテゴリを検索
      */
     private function findCategory(string $slug)

@@ -290,7 +290,7 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     @foreach($popularBikes as $bike)
-                        <a href="{{ route('bikes.search', ['bike_model_id' => $bike->id]) }}" 
+                        <a href="{{ $bike->seo_url }}"
                            class="group flex items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-300">
                             
                             <div class="w-14 h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 border border-gray-50 relative">

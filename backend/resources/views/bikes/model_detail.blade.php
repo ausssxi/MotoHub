@@ -1,6 +1,10 @@
 <x-layout>
     <x-slot:title>{{ $model->name }} 中古車・買取相場 | {{ $model->manufacturer->name }} | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $model->name }}（{{ $model->manufacturer->name }}）の中古車情報{{ $activeCount > 0 ? '【現在' . $activeCount . '台販売中】' : '' }}。買取相場・リセールバリュー・価格推移・オーナーレビューを徹底分析。</x-slot:metaDescription>
+    <x-slot:canonical>{{ url($model->seo_url) }}</x-slot:canonical>
+    @if($model->image_url)
+    <x-slot:ogImage>{{ $model->image_url }}</x-slot:ogImage>
+    @endif
 
     <x-slot:styles>
         <x-jsonld.model-product :model="$model" :stats="$stats" :reviewStats="$reviewStats ?? null" />

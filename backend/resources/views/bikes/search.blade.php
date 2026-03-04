@@ -23,7 +23,10 @@
         @endif
     </x-slot:metaDescription>
 
+    <x-slot:canonical>{{ route('bikes.search', request()->only(['keyword', 'manufacturer_id', 'bike_model_id', 'prefecture', 'tag'])) }}</x-slot:canonical>
+
     <x-slot:styles>
+        <x-jsonld.breadcrumb-search :filters="$filters ?? []" :pageTitle="$pageTitle ?? ''" />
         <link rel="preload" href="{{ asset('css/bike-search.css') }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="{{ asset('css/bike-search.css') }}"></noscript>
     </x-slot:styles>

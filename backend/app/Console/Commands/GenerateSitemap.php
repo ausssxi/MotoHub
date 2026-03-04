@@ -143,21 +143,6 @@ class GenerateSitemap extends Command
             }
         });
 
-        // タグ別の検索結果ページ
-        Tag::select('slug', 'updated_at')->chunk(100, function ($tags) use ($handle, &$count) {
-            foreach ($tags as $tag) {
-                // タグ一覧は検索需要が高いので、優先度0.8のdailyでクローラーを呼び込みます
-                $this->writeUrl(
-                    $handle,
-                    route('bikes.search', ['tag' => $tag->slug]),
-                    $tag->updated_at ? $tag->updated_at->format('Y-m-d') : date('Y-m-d'),
-                    'daily',
-                    '0.8'
-                );
-                $count++;
-            }
-        });
-
         // SEO特集ページ: 一覧ページ
         $this->writeUrl($handle, route('features.index'), date('Y-m-d'), 'daily', '0.8');
         $count++;
@@ -269,7 +254,60 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
-        // 3. 店舗詳細サイトマップ (sitemap-shops.xml)
+        // 3. カタログページ (sitemap-catalog.xml)
+        // =========================================================
+        $this->info("カタログページサイトマップを生成中...");
+        $catalogFileName = 'sitemap-catalog.xml';
+        $handle = $this->openSitemap($catalogFileName);
+        $sitemapFiles[] = $catalogFileName;
+        $catalogCount = 0;
+
+        // メーカー単体のカタログページ
+        $catalogManufacturers = Manufacturer::whereNotNull('slug')->get();
+        foreach ($catalogManufacturers as $maker) {
+            $this->writeUrl(
+                $handle,
+                route('bikes.catalog', $maker->slug),
+                date('Y-m-d'),
+                'weekly',
+                '0.8'
+            );
+            $catalogCount++;
+        }
+
+        // メーカー×カテゴリの組み合わせカタログページ
+        $catalogCategories = Category::whereNotNull('slug')->get();
+        foreach ($catalogManufacturers as $maker) {
+            foreach ($catalogCategories as $cat) {
+                $this->writeUrl(
+                    $handle,
+                    route('bikes.catalog', "{$maker->slug}-{$cat->slug}"),
+                    date('Y-m-d'),
+                    'weekly',
+                    '0.7'
+                );
+                $catalogCount++;
+            }
+        }
+
+        // 排気量帯カタログページ
+        foreach (['50cc', '125cc', '250cc', '400cc', '750cc'] as $cc) {
+            $this->writeUrl(
+                $handle,
+                route('bikes.catalog', $cc),
+                date('Y-m-d'),
+                'weekly',
+                '0.8'
+            );
+            $catalogCount++;
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$catalogCount} URL (Catalog)");
+
+
+        // =========================================================
+        // 4. 店舗詳細サイトマップ (sitemap-shops.xml)
         // =========================================================
         $this->info("店舗詳細サイトマップを生成中...");
         $shopFileName = 'sitemap-shops.xml';
@@ -297,7 +335,7 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
-        // 4. 車種別カタログページ (sitemap-models.xml)
+        // 5. 車種別カタログページ (sitemap-models.xml)
         // =========================================================
         $this->info("車種別カタログサイトマップを生成中...");
         $modelFileName = 'sitemap-models.xml';
@@ -305,13 +343,13 @@ class GenerateSitemap extends Command
         $sitemapFiles[] = $modelFileName;
         $modelCount = 0;
 
-        BikeModel::select('id', 'updated_at')
+        BikeModel::with('manufacturer')->select('id', 'slug', 'manufacturer_id', 'updated_at')
             ->orderBy('updated_at', 'desc')
             ->chunk(1000, function ($models) use ($handle, &$modelCount) {
                 foreach ($models as $model) {
                     $this->writeUrl(
                         $handle,
-                        route('bikes.model_detail.legacy', $model->id), // 相場情報ページ
+                        url($model->seo_url),
                         $model->updated_at->format('Y-m-d'),
                         'weekly',
                         '0.8'
@@ -325,7 +363,7 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
-        // 5. 車両詳細ページ (50,000件ごとにファイルを分割)
+        // 6. 車両詳細ページ (50,000件ごとにファイルを分割)
         // =========================================================
         $this->info("車両詳細サイトマップを生成中...");
         
@@ -372,7 +410,7 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
-        // 6. サイトマップインデックス (目次) の生成
+        // 7. サイトマップインデックス (目次) の生成
         // =========================================================
         $this->info("インデックスファイル (sitemap.xml) を生成中...");
         $this->generateIndexFile($sitemapFiles);

@@ -15,6 +15,36 @@
                 </p>
             </div>
 
+            <!-- SEO内部リンク: 人気の車種 -->
+            @if(isset($footerPopularBikes) && $footerPopularBikes->isNotEmpty())
+            <div class="mb-10 w-full max-w-4xl">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">人気の車種</h3>
+                <div class="flex flex-wrap justify-center gap-2">
+                    @foreach($footerPopularBikes as $bike)
+                        <a href="{{ $bike->seo_url }}"
+                           class="px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors">
+                            {{ $bike->manufacturer?->name }} {{ $bike->name }}
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
+            <!-- SEO内部リンク: カテゴリから探す -->
+            @if(isset($footerCategories) && $footerCategories->isNotEmpty())
+            <div class="mb-10 w-full max-w-4xl">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">カテゴリから探す</h3>
+                <div class="flex flex-wrap justify-center gap-2">
+                    @foreach($footerCategories as $category)
+                        <a href="{{ route('bikes.search', ['category_id' => $category->id]) }}"
+                           class="px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors">
+                            {{ $category->name }}
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
             <!-- リンクメニュー -->
             <nav class="mb-10">
                 <ul class="flex flex-wrap justify-center gap-x-8 gap-y-4 text-xs font-bold text-gray-500 uppercase tracking-widest">

@@ -8,13 +8,20 @@
     {{-- SEO用メタデータ --}}
     <meta name="description" content="{{ $metaDescription ?? '日本最大級のバイク検索・比較プラットフォーム。GooBike、BDS、Webikeから一括検索！' }}">
     <meta name="auth-check" content="{{ Auth::check() ? 'true' : 'false' }}">
-    
+
+    {{-- canonical URL（重複コンテンツ防止） --}}
+    <link rel="canonical" href="{{ $canonical ?? url()->current() }}">
+
+    {{-- robots meta（ページ単位でのクロール制御） --}}
+    @if(isset($robotsMeta))
+    <meta name="robots" content="{{ $robotsMeta }}">
+    @endif
+
     {{-- OGP設定 (SNSシェア用) --}}
     <meta property="og:title" content="{{ $title ?? 'MotoHub' }}" />
     <meta property="og:description" content="{{ $metaDescription ?? '日本最大級のバイク検索・比較プラットフォーム。GooBike、BDS、Webikeから一括検索！' }}" />
     <meta property="og:type" content="website" />
-    {{-- ★修正: url()->current() から request()->fullUrl() に変更。これにより ?type=... などのパラメータがXに正しく伝わります --}}
-    <meta property="og:url" content="{{ request()->fullUrl() }}" />
+    <meta property="og:url" content="{{ $canonical ?? url()->current() }}" />
     <meta property="og:site_name" content="MotoHub" />
     <meta property="og:locale" content="ja_JP" />
     <meta property="og:image" content="{{ $ogImage ?? asset('images/twitter_template.png') }}" />

@@ -43,7 +43,6 @@ final class BikeModelRepository
     public function getByManufacturerId(int $manufacturerId): Collection
     {
         return BikeModel::where('manufacturer_id', $manufacturerId)
-            // ★変更: Listingモデルの active() スコープを利用して一元管理
             ->withCount(['listings' => fn($q) => $q->active()])
             ->orderBy('id', 'asc')
             ->get();
@@ -69,7 +68,7 @@ final class BikeModelRepository
     public function getTopModels(int $limit = 16): Collection
     {
         return BikeModel::query()
-            // ★変更: active() スコープを利用
+            ->with(['manufacturer', 'representativeListing'])
             ->withCount(['listings' => fn($q) => $q->active()])
             ->orderBy('listings_count', 'desc')
             ->limit($limit)
@@ -82,6 +81,7 @@ final class BikeModelRepository
     public function getTrendingModels(int $limit = 10): Collection
     {
         return BikeModel::query()
+            ->with('representativeListing')
             ->withCount(['listings' => fn($q) => $q->active()])
             // その車種に属する有効な車両の「本日の閲覧数」の合計を取得
             ->withSum(['listings as today_views' => fn($q) => $q->active()], 'view_count_today')

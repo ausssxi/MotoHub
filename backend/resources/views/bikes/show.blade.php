@@ -7,6 +7,10 @@
         {{ mb_substr(strip_tags($listing->description ?? "{$listing->maker} {$listing->name} の詳細ページです。販売店:{$listing->shop_name} 価格:{$listing->total_price}万円"), 0, 120) }}...
     </x-slot:metaDescription>
 
+    @if(!empty($listing->images) && isset($listing->images[0]))
+    <x-slot:ogImage>{{ $listing->images[0] }}</x-slot:ogImage>
+    @endif
+
     <x-jsonld.product :listing="$listing" />
     <x-jsonld.breadcrumb :listing="$listing" />
 

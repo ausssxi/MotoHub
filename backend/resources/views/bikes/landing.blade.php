@@ -3,11 +3,8 @@
     <x-slot:title>{{ $pageInfo['title'] }} | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $pageInfo['description'] }}</x-slot:metaDescription>
 
-    {{-- ★追加: 在庫0件の場合はGoogleにインデックスさせない（サイト全体の評価低下を防ぐ） --}}
     @if($pagination['total'] === 0)
-        <x-slot:head>
-            <meta name="robots" content="noindex, follow">
-        </x-slot:head>
+        <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
     @endif
 
     <x-slot:styles>
