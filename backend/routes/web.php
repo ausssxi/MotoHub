@@ -15,6 +15,7 @@ use App\Http\Controllers\MyBike\MyBikeController; // 愛車ログ機能
 use App\Http\Controllers\Auth\GoogleLoginController;
 use App\Http\Controllers\Auth\LineAuthController;
 use App\Http\Controllers\Shindan\ShindanController;
+use App\Http\Controllers\Feature\FeatureController;
 
 /**
  * MotoHub Route Definitions
@@ -93,6 +94,12 @@ Route::prefix('shops')->name('shops.')->group(function () {
     Route::get('/api/area', [ShopController::class, 'area'])->name('api.area');
     
     Route::get('/{id}', [ShopController::class, 'show'])->name('show')->where('id', '[0-9]+');
+});
+
+// 特集ページ (SEOランディング)
+Route::prefix('features')->name('features.')->controller(FeatureController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/{slug}', 'show')->name('show');
 });
 
 // お気に入り・比較機能 (未ログインでも閲覧可能なページ)

@@ -163,7 +163,7 @@
                     </a>
 
                     @foreach($features as $feature)
-                        <a href="{{ $feature['url'] }}" 
+                        <a href="{{ $feature['url'] }}"
                            class="group relative overflow-hidden rounded-2xl p-6 {{ $feature['color'] }} shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between h-32 sm:h-40 border border-white/20">
                             <div class="absolute -right-6 -bottom-6 opacity-20 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500">
                                 <i data-lucide="{{ $feature['icon'] }}" class="w-32 h-32 text-white"></i>
@@ -177,6 +177,35 @@
                         </a>
                     @endforeach
                 </div>
+
+                {{-- SEO特集ページへの導線 --}}
+                @if($seoFeatures->isNotEmpty())
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                        @foreach($seoFeatures as $sf)
+                            <a href="{{ $sf->url }}"
+                               class="group relative overflow-hidden rounded-2xl p-6 bg-gray-800 {{ $sf->color ?? '' }} shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between h-32 sm:h-40 border border-white/10">
+                                <div class="absolute -right-6 -bottom-6 opacity-20 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500">
+                                    <i data-lucide="{{ $sf->icon ?? 'bookmark' }}" class="w-32 h-32 text-white"></i>
+                                </div>
+                                <div class="relative z-10 text-white flex-1 flex flex-col justify-between">
+                                    <i data-lucide="{{ $sf->icon ?? 'bookmark' }}" class="w-6 h-6 mb-2 opacity-80"></i>
+                                    <h3 class="text-sm sm:text-base font-black leading-snug drop-shadow-sm group-hover:-translate-y-1 transition-transform duration-300">
+                                        {{ $sf->title }}
+                                    </h3>
+                                </div>
+                            </a>
+                        @endforeach
+                    </div>
+
+                    <div class="mt-6 text-center">
+                        <a href="{{ route('features.index') }}"
+                           class="group inline-flex items-center gap-2 px-8 py-4 bg-gray-900 text-white font-black text-sm rounded-2xl hover:bg-gray-700 transition-all duration-300 shadow-lg hover:shadow-xl">
+                            <i data-lucide="layout-grid" class="w-5 h-5"></i>
+                            すべての特集・おすすめバイクを見る
+                            <i data-lucide="arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform"></i>
+                        </a>
+                    </div>
+                @endif
             </section>
 
             {{-- タイプから探す --}}

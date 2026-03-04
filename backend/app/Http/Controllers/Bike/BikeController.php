@@ -16,6 +16,7 @@ use App\Services\Bike\PriceStatsService;
 use App\Http\Resources\Bike\ListingResource;
 use App\Http\Requests\Bike\StoreReviewRequest;
 use App\Http\Requests\Bike\BikeSearchRequest;
+use App\Models\SeoFeature;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 
@@ -45,8 +46,9 @@ final class BikeController extends Controller
         $licenses = $this->bikeService->getLicenses();
         $popularTags = $this->listingSearchService->getPopularTags();
         $features = $this->bikeService->getFeaturesForTopPage();
+        $seoFeatures = SeoFeature::active()->latest()->limit(4)->get();
 
-        return view('bikes.index', compact('popularBikes', 'categories', 'manufacturers', 'regions', 'latestReviews', 'licenses', 'popularTags', 'features'));
+        return view('bikes.index', compact('popularBikes', 'categories', 'manufacturers', 'regions', 'latestReviews', 'licenses', 'popularTags', 'features', 'seoFeatures'));
     }
 
     /**

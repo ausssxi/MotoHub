@@ -431,7 +431,7 @@ final class BikeService
                 return $feature;
             })
             ->sortByDesc('final_score')
-            ->take(4)
+            ->take(3)
             ->values()
             ->map(function ($f) {
                 return [

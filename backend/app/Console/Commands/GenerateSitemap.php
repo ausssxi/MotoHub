@@ -11,6 +11,7 @@ use App\Models\Shop;
 use App\Models\Manufacturer;
 use App\Models\Category;
 use App\Models\Tag;
+use App\Models\SeoFeature;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 
@@ -151,6 +152,24 @@ class GenerateSitemap extends Command
                     route('bikes.search', ['tag' => $tag->slug]),
                     $tag->updated_at ? $tag->updated_at->format('Y-m-d') : date('Y-m-d'),
                     'daily',
+                    '0.8'
+                );
+                $count++;
+            }
+        });
+
+        // SEO特集ページ: 一覧ページ
+        $this->writeUrl($handle, route('features.index'), date('Y-m-d'), 'daily', '0.8');
+        $count++;
+
+        // SEO特集ページ: 各詳細ページ
+        SeoFeature::active()->select('slug', 'updated_at')->chunk(100, function ($features) use ($handle, &$count) {
+            foreach ($features as $feature) {
+                $this->writeUrl(
+                    $handle,
+                    route('features.show', $feature->slug),
+                    $feature->updated_at->format('Y-m-d'),
+                    'weekly',
                     '0.8'
                 );
                 $count++;
