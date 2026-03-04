@@ -43,6 +43,7 @@ final class BikeModelRepository
     public function getByManufacturerId(int $manufacturerId): Collection
     {
         return BikeModel::where('manufacturer_id', $manufacturerId)
+            ->with('representativeListing')
             ->withCount(['listings' => fn($q) => $q->active()])
             ->orderBy('id', 'asc')
             ->get();

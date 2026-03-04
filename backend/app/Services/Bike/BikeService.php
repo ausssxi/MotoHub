@@ -180,39 +180,50 @@ final class BikeService
         $groups['その他'] = [];
 
         foreach ($models as $bike) {
+            // Eloquentモデルをキャッシュに保存せず、必要データだけの軽量配列に変換
+            $item = [
+                'id' => $bike->id,
+                'name' => $bike->name,
+                'image_url' => $bike->image_url,
+                'seo_url' => $bike->seo_url,
+                'listings_count' => $bike->listings_count ?? 0,
+                'reviews_avg_rating' => $bike->reviews_avg_rating ?? null,
+                'reviews_count' => $bike->reviews_count ?? 0,
+            ];
+
             $firstChar = mb_convert_kana(mb_substr($bike->name, 0, 1), 'KaC');
 
             if (preg_match('/^[0-9]/', $firstChar)) {
-                $groups['0-9'][] = $bike;
+                $groups['0-9'][] = $item;
             } elseif (preg_match('/^[A-Za-z]/', $firstChar)) {
                 $key = strtoupper(substr($firstChar, 0, 1));
                 if (isset($groups[$key])) {
-                    $groups[$key][] = $bike;
+                    $groups[$key][] = $item;
                 } else {
-                    $groups['その他'][] = $bike;
+                    $groups['その他'][] = $item;
                 }
             } elseif (preg_match('/^[ア-オァ-ォヴ]/u', $firstChar)) {
-                $groups['あ行'][] = $bike;
+                $groups['あ行'][] = $item;
             } elseif (preg_match('/^[カ-コガ-ゴヵヶ]/u', $firstChar)) {
-                $groups['か行'][] = $bike;
+                $groups['か行'][] = $item;
             } elseif (preg_match('/^[サ-ソザ-ゾ]/u', $firstChar)) {
-                $groups['さ行'][] = $bike;
+                $groups['さ行'][] = $item;
             } elseif (preg_match('/^[タ-トダ-ドッ]/u', $firstChar)) {
-                $groups['た行'][] = $bike;
+                $groups['た行'][] = $item;
             } elseif (preg_match('/^[ナ-ノ]/u', $firstChar)) {
-                $groups['な行'][] = $bike;
+                $groups['な行'][] = $item;
             } elseif (preg_match('/^[ハ-ホバ-ボパ-ポ]/u', $firstChar)) {
-                $groups['は行'][] = $bike;
+                $groups['は行'][] = $item;
             } elseif (preg_match('/^[マ-モ]/u', $firstChar)) {
-                $groups['ま行'][] = $bike;
+                $groups['ま行'][] = $item;
             } elseif (preg_match('/^[ヤ-ヨャ-ョ]/u', $firstChar)) {
-                $groups['や行'][] = $bike;
+                $groups['や行'][] = $item;
             } elseif (preg_match('/^[ラ-ロ]/u', $firstChar)) {
-                $groups['ら行'][] = $bike;
+                $groups['ら行'][] = $item;
             } elseif (preg_match('/^[ワ-ンヮ]/u', $firstChar)) {
-                $groups['わ行'][] = $bike;
+                $groups['わ行'][] = $item;
             } else {
-                $groups['その他'][] = $bike;
+                $groups['その他'][] = $item;
             }
         }
 
