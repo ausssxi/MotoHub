@@ -10,6 +10,9 @@ class SeoFeatureSeeder extends Seeder
     public function run(): void
     {
         $features = [
+            // ==========================================
+            // 既存の8件（デグレ防止のため完全維持）
+            // ==========================================
             [
                 'slug' => 'commute-125cc',
                 'title' => '通勤・通学におすすめの125cc以下バイク',
@@ -121,6 +124,66 @@ class SeoFeatureSeeder extends Seeder
                 'sort_order' => 80,
                 'icon' => 'shield-check',
                 'color' => 'bg-gradient-to-br from-teal-500 to-green-400',
+            ],
+
+            // ==========================================
+            // 追加分：アクセス急増中のお宝キーワード 4件
+            // ==========================================
+            [
+                'slug' => 'delivery-business-bike',
+                'title' => '雨の日も快適！デリバリー・配達におすすめのビジネスバイク',
+                'meta_description' => 'ウーバーイーツなどの配達やビジネス用途に最適な屋根付きバイク（ジャイロキャノピーなど）や、積載力抜群のタフなビジネスバイクを厳選しました。',
+                'content_header' => '<p>配達業務を効率化し、雨の日も快適に走れる「働くバイク」を集めました。屋根付きでワイパー装備のジャイロキャノピーや、巨大なリアボックスを積載できるベンリィ、ギアなど、プロ仕様のタフなモデルが揃っています。</p>',
+                'search_conditions' => json_encode([]), // キーワード単体で引くため空配列
+                'keyword' => 'ジャイロ キャノピー ギア ベンリィ',
+                'prefecture' => null,
+                'sort' => 'latest',
+                'is_active' => true,
+                'sort_order' => 90,
+                'icon' => 'package',
+                'color' => 'bg-gradient-to-br from-orange-500 to-red-400',
+            ],
+            [
+                'slug' => 'full-normal-used',
+                'title' => '【安心の無改造】フルノーマルの中古バイク特集',
+                'meta_description' => 'カスタムされていない、メーカー出荷時そのままの状態を保った「フルノーマル」のバイク特集です。前オーナーのクセがなく、信頼性を重視する方に最適です。',
+                'content_header' => '<p>中古車選びで「安心」を求めるならフルノーマル車がおすすめ！改造によるバランスの崩れや、予期せぬトラブルのリスクが低く、これから自分好みにカスタムしたい方や、長く安心して乗れる車両だけをピックアップしました。</p>',
+                'search_conditions' => json_encode(['tag' => 'ノーマル車']),
+                'keyword' => null,
+                'prefecture' => null,
+                'sort' => 'latest',
+                'is_active' => true,
+                'sort_order' => 100,
+                'icon' => 'shield',
+                'color' => 'bg-gradient-to-br from-gray-500 to-gray-400',
+            ],
+            [
+                'slug' => '250cc-4cylinder',
+                'title' => '超高回転の咆哮！250cc・4気筒エンジン搭載モデル',
+                'meta_description' => 'Ninja ZX-25Rやホーネット、バリオスなど、今や希少となった250ccの並列4気筒（マルチ）エンジンを搭載した熱いバイクの在庫一覧です。',
+                'content_header' => '<p>1万回転以上まで回した時の「クォォォン！」というF1マシンのような甲高い排気音。現行のZX-25Rはもちろん、ホーネットやバリオス、ZXR250など、往年の名車たちを含めた「250cc・4気筒」のロマンあふれる車両を集めました。</p>',
+                'search_conditions' => json_encode([]),
+                'keyword' => 'ZX-25R ホーネット バリオス ZXR250 CBR250RR CB250F バンディット',
+                'prefecture' => null,
+                'sort' => 'latest',
+                'is_active' => true,
+                'sort_order' => 110,
+                'icon' => 'gauge',
+                'color' => 'bg-gradient-to-br from-red-600 to-rose-500',
+            ],
+            [
+                'slug' => 'camp-adventure',
+                'title' => '荷物を積んで大自然へ！キャンプ向けアドベンチャー',
+                'meta_description' => 'VストロームやVersys、アフリカツインなど、未舗装路も走れて荷物もたっぷり積める「アドベンチャー」タイプのバイク特集。キャンプツーリングに最適です。',
+                'content_header' => '<p>圧倒的な積載力と、長距離を走っても疲れない快適なポジション。そしてフラット林道などの未舗装路も走破できる走破性。いま最も熱い「アドベンチャー」モデルで、テントとシュラフを積んで週末のキャンプツーリングへ出かけませんか？</p>',
+                'search_conditions' => json_encode([]),
+                'keyword' => 'アドベンチャー Vストローム Versys アフリカツイン テネレ トランザルプ',
+                'prefecture' => null,
+                'sort' => 'latest',
+                'is_active' => true,
+                'sort_order' => 120,
+                'icon' => 'mountain',
+                'color' => 'bg-gradient-to-br from-emerald-600 to-green-500',
             ],
         ];
 
