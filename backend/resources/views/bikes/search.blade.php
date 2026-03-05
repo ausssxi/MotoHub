@@ -385,6 +385,27 @@
                     @forelse ($items as $listing)
                         {{-- ★ここを修正！ $loop->index < 4 を渡す --}}
                         @include('bikes.partials.bike_card', ['listing' => $listing, 'isFirstView' => $loop->index < 4])
+
+                        {{-- 15件目の後にLINE通知カードを挿入（ゲストのみ） --}}
+                        @if($loop->index === 14)
+                            @guest
+                            <div class="col-span-full bg-gradient-to-r from-[#06C755]/5 to-[#06C755]/10 border-2 border-[#06C755]/20 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                                <div class="flex items-center gap-3 shrink-0">
+                                    <div class="w-12 h-12 bg-[#06C755] rounded-xl flex items-center justify-center shadow-lg shadow-green-200">
+                                        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 5.88 2 10.54c0 4.07 3.42 7.49 8.05 8.44.31.07.73.21.84.48.1.25.06.63.03.88l-.14.83c-.04.25-.2.97.85.53s5.61-3.31 7.66-5.67C21.03 13.86 22 12.28 22 10.54 22 5.88 17.52 2 12 2z"/></svg>
+                                    </div>
+                                </div>
+                                <div class="flex-1 text-center sm:text-left">
+                                    <p class="text-sm font-black text-gray-800 mb-1">この条件の新着・値下げをLINEでお知らせ</p>
+                                    <p class="text-[11px] text-gray-500 font-bold">条件に合うバイクが入荷・値下げされたら即通知。見逃しゼロ！</p>
+                                </div>
+                                <a href="/auth/line/redirect" class="shrink-0 inline-flex items-center gap-2 px-6 py-3 rounded-xl font-black text-white text-sm shadow-lg shadow-green-200 transition-all hover:opacity-90 active:scale-95" style="background-color: #06C755;">
+                                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 5.88 2 10.54c0 4.07 3.42 7.49 8.05 8.44.31.07.73.21.84.48.1.25.06.63.03.88l-.14.83c-.04.25-.2.97.85.53s5.61-3.31 7.66-5.67C21.03 13.86 22 12.28 22 10.54 22 5.88 17.52 2 12 2z"/></svg>
+                                    LINEで通知を受け取る
+                                </a>
+                            </div>
+                            @endguest
+                        @endif
                     {{-- results-grid の @empty ブロックを以下のようにリッチ化します --}}
                     @empty
                         <div class="col-span-full">

@@ -42,6 +42,77 @@
                 }
             });
         </script>
+        {{-- セクションナビ制御 --}}
+        <script>
+            (function() {
+                function initSectionNav() {
+                    var nav = document.getElementById('section-nav');
+                    var header = document.getElementById('model-header');
+                    if (!nav || !header) return;
+
+                    var links = nav.querySelectorAll('.section-nav-link');
+                    var navHeight = 44;
+                    var navVisible = false;
+
+                    // セクション要素を取得
+                    var sections = [];
+                    links.forEach(function(l) {
+                        var el = document.getElementById(l.dataset.navTarget);
+                        if (el) sections.push(el);
+                    });
+
+                    // スクロールでナビ表示/非表示 + アクティブセクション更新
+                    function onScroll() {
+                        var headerBottom = header.getBoundingClientRect().bottom;
+                        var shouldShow = headerBottom < 0;
+
+                        if (shouldShow !== navVisible) {
+                            navVisible = shouldShow;
+                            nav.style.transform = shouldShow ? 'translateY(0)' : 'translateY(-100%)';
+                            nav.style.opacity = shouldShow ? '1' : '0';
+                        }
+
+                        // アクティブセクション判定
+                        if (shouldShow) {
+                            var currentId = '';
+                            for (var i = 0; i < sections.length; i++) {
+                                var rect = sections[i].getBoundingClientRect();
+                                if (rect.top <= navHeight + 60) {
+                                    currentId = sections[i].id;
+                                }
+                            }
+                            links.forEach(function(l) {
+                                var isActive = l.dataset.navTarget === currentId;
+                                l.classList.toggle('text-blue-600', isActive);
+                                l.classList.toggle('bg-blue-50', isActive);
+                                l.classList.toggle('text-gray-500', !isActive);
+                            });
+                        }
+                    }
+
+                    window.addEventListener('scroll', onScroll, { passive: true });
+                    onScroll(); // 初回チェック
+
+                    // スムーズスクロール
+                    links.forEach(function(link) {
+                        link.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            var target = document.getElementById(this.dataset.navTarget);
+                            if (target) {
+                                var top = target.getBoundingClientRect().top + window.pageYOffset - navHeight - 8;
+                                window.scrollTo({ top: top, behavior: 'smooth' });
+                            }
+                        });
+                    });
+                }
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initSectionNav);
+                } else {
+                    initSectionNav();
+                }
+            })();
+        </script>
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -64,7 +135,7 @@
     </nav>
 
     {{-- ヘッダーエリア --}}
-    <div class="bg-gray-900 text-white pt-10 pb-16 relative overflow-hidden">
+    <div id="model-header" class="bg-gray-900 text-white pt-10 pb-16 relative overflow-hidden">
         <div class="absolute inset-0 z-0 opacity-30">
             @if($model->image_url)
                 <img src="{{ $model->image_url }}" class="w-full h-full object-cover blur-sm" alt="">
@@ -107,6 +178,29 @@
                     </span>
                 </div>
                 @endif
+            </div>
+        </div>
+    </div>
+
+    {{-- セクションナビ（fixed：ヘッダーがスクロールアウトしたらトップに表示） --}}
+    <div id="section-nav" class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm transition-all duration-300" style="transform:translateY(-100%);opacity:0;will-change:transform,opacity;">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex items-center gap-1 overflow-x-auto scrollbar-hide py-2.5 -mx-1">
+                @php
+                    $sections = [
+                        ['id' => 'specs', 'label' => 'スペック'],
+                        ['id' => 'resale', 'label' => '買取相場'],
+                        ['id' => 'price-distribution', 'label' => '価格分布'],
+                        ['id' => 'price-trend', 'label' => '価格推移'],
+                        ['id' => 'reviews', 'label' => 'レビュー' . (isset($reviewStats) && $reviewStats->count > 0 ? '★' . $reviewStats->avg_rating : '')],
+                        ['id' => 'faq', 'label' => 'FAQ'],
+                    ];
+                @endphp
+                @foreach($sections as $sec)
+                    <a href="#{{ $sec['id'] }}" data-nav-target="{{ $sec['id'] }}" class="section-nav-link whitespace-nowrap px-3 py-1.5 rounded-lg text-[11px] font-bold text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all shrink-0">
+                        {{ $sec['label'] }}
+                    </a>
+                @endforeach
             </div>
         </div>
     </div>
@@ -164,7 +258,7 @@
                     </div>
 
                     {{-- カタログスペック情報 --}}
-                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                    <div id="specs" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
                         <div class="flex items-center gap-2 mb-6">
                             <div class="p-2 bg-gray-800 rounded-lg text-white">
                                 <i data-lucide="book-open" class="w-5 h-5"></i>
@@ -210,7 +304,7 @@
                     </div>
                     
                     {{-- 1. 買取相場・リセール情報 --}}
-                    <div class="bg-white rounded-3xl shadow-lg p-6 sm:p-8 border border-gray-100">
+                    <div id="resale" class="bg-white rounded-3xl shadow-lg p-6 sm:p-8 border border-gray-100">
                         <h2 class="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
                             <span class="bg-yellow-100 text-yellow-600 p-2 rounded-lg"><i data-lucide="coins" class="w-5 h-5"></i></span>
                             {{ $model->name }} の買取相場・リセールバリュー
@@ -266,7 +360,7 @@
                     </div>
 
                     {{-- 2. 市場価格分析 --}}
-                    <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
+                    <div id="price-distribution" class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
                         <h2 class="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
                             <span class="bg-blue-100 text-blue-600 p-2 rounded-lg"><i data-lucide="bar-chart-2" class="w-5 h-5"></i></span>
                             {{ $model->name }} 中古車価格の分布
@@ -298,7 +392,7 @@
                     </div>
 
                     {{-- 価格推移・買い時分析 --}}
-                    <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
+                    <div id="price-trend" class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
                             <h2 class="text-xl font-black text-gray-900 flex items-center gap-2">
                                 <span class="bg-orange-100 text-orange-600 p-2 rounded-lg"><i data-lucide="trending-up" class="w-5 h-5"></i></span>
@@ -416,7 +510,7 @@
                     </div>
 
                     {{-- ★追加: FAQ（よくある質問） --}}
-                    <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
+                    <div id="faq" class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
                         <h2 class="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
                             <span class="bg-purple-100 text-purple-600 p-2 rounded-lg"><i data-lucide="help-circle" class="w-5 h-5"></i></span>
                             {{ $model->name }} よくある質問

@@ -32,19 +32,19 @@
         <x-navigation :showSearch="false" />
     </x-slot:navigation>
 
-    {{-- メインビジュアル & 検索ボックス --}}
-    <div class="relative bg-black h-[500px] sm:h-[600px] flex items-center justify-center overflow-hidden">
+    {{-- メインビジュアル & 検索ボックス（縮小版） --}}
+    <div class="relative bg-black h-[320px] sm:h-[400px] flex items-center justify-center overflow-hidden py-6 sm:py-8">
         <div class="absolute inset-0 z-0">
-             <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=2070&auto=format&fit=crop" 
-                  alt="Motorcycle Background" 
+             <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=2070&auto=format&fit=crop"
+                  alt="Motorcycle Background"
                   class="w-full h-full object-cover opacity-40">
         </div>
-        
+
         <div class="relative z-10 w-full max-w-4xl px-4 text-center" id="search-container">
             <h1 class="text-3xl sm:text-5xl font-black text-white mb-4 tracking-tight leading-tight">
                 掲載台数<span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">&nbsp;No.1！</span>
             </h1>
-            <p class="text-gray-300 text-xs sm:text-sm font-bold mb-8 tracking-widest">
+            <p class="text-gray-300 text-xs sm:text-sm font-bold mb-6 tracking-widest">
                 日本最大級のバイク検索・比較プラットフォーム
             </p>
 
@@ -65,9 +65,9 @@
                     <div id="suggest-list" class="py-2 max-h-[400px] overflow-y-auto"></div>
                 </div>
             </form>
-            
+
             {{-- バイク診断へのクイック導線バナー --}}
-            <div class="mt-8 flex justify-center">
+            <div class="mt-6 flex justify-center">
                 <a href="/shindan" class="group relative inline-flex items-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl hover:bg-white/20 transition-all shadow-xl">
                     <div class="flex -space-x-2">
                         <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white border-2 border-white/20 shadow-lg">
@@ -80,37 +80,55 @@
                     </div>
                 </a>
             </div>
+        </div>
+    </div>
 
-            {{-- クイックリンク＆人気の条件（タグ）の露出強化 --}}
-            <div class="mt-8 flex flex-col items-center gap-5">
-                
-                {{-- コントローラーから渡された $popularTags を使用 --}}
-                <div class="flex flex-wrap justify-center items-center gap-2">
-                    <span class="text-[10px] font-black text-blue-300 uppercase tracking-widest mr-1">
-                        <i data-lucide="zap" class="w-3 h-3 inline-block -mt-0.5 text-yellow-400"></i> トレンド:
-                    </span>
-                    @foreach($popularTags as $tag)
-                        <a href="{{ route('bikes.search', ['tag' => $tag]) }}" 
-                           class="px-3 py-1.5 rounded-full bg-blue-500/20 hover:bg-blue-500/40 text-blue-50 text-[10px] font-bold border border-blue-400/30 backdrop-blur-sm transition-all shadow-lg shadow-blue-500/10">
-                            #{{ $tag }}
-                        </a>
-                    @endforeach
-                </div>
-
-                {{-- メーカーリンク --}}
-                <div class="flex flex-wrap justify-center gap-2">
-                    @foreach($manufacturers as $maker)
-                        <a href="{{ route('bikes.search', ['manufacturer_id' => $maker->id]) }}" class="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] font-bold border border-white/10 backdrop-blur-sm transition-all">
-                            {{ $maker->name }}
-                        </a>
-                    @endforeach
-                </div>
-
+    {{-- ライブ統計バー --}}
+    <div class="bg-white border-b border-gray-100 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-3 grid grid-cols-3 divide-x divide-gray-200 text-center">
+            <div class="px-2">
+                <span class="text-[10px] font-bold text-gray-400 block">掲載</span>
+                <span class="text-sm font-black text-gray-900 tabular-nums">{{ number_format($totalListings) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
+            </div>
+            <div class="px-2">
+                <span class="text-[10px] font-bold text-gray-400 block">本日値下げ</span>
+                <span class="text-sm font-black text-red-600 tabular-nums">{{ number_format($priceDropCount) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
+            </div>
+            <div class="px-2">
+                <span class="text-[10px] font-bold text-gray-400 block">新着</span>
+                <span class="text-sm font-black text-green-600 tabular-nums">{{ number_format($newListingsCount) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
             </div>
         </div>
     </div>
 
-    {{-- 特集セクションの先頭にも診断を追加 --}}
+    {{-- トレンドタグ & メーカーリンク（ヒーロー外の独立セクション） --}}
+    <div class="bg-gray-50 border-b border-gray-100 py-6">
+        <div class="max-w-7xl mx-auto px-4 space-y-4">
+            {{-- トレンドタグ --}}
+            <div class="flex flex-wrap justify-center items-center gap-2">
+                <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest mr-1">
+                    <i data-lucide="zap" class="w-3 h-3 inline-block -mt-0.5 text-yellow-500"></i> トレンド:
+                </span>
+                @foreach($popularTags as $tag)
+                    <a href="{{ route('bikes.search', ['tag' => $tag]) }}"
+                       class="px-3 py-1.5 rounded-full bg-white hover:bg-blue-50 text-gray-700 hover:text-blue-600 text-[10px] font-bold border border-gray-200 hover:border-blue-300 transition-all shadow-sm">
+                        #{{ $tag }}
+                    </a>
+                @endforeach
+            </div>
+
+            {{-- メーカーリンク --}}
+            <div class="flex flex-wrap justify-center gap-2">
+                @foreach($manufacturers as $maker)
+                    <a href="{{ route('bikes.search', ['manufacturer_id' => $maker->id]) }}" class="px-3 py-1 rounded-full bg-white hover:bg-blue-50 text-gray-600 hover:text-blue-600 text-[10px] font-bold border border-gray-200 hover:border-blue-300 transition-all shadow-sm">
+                        {{ $maker->name }}
+                    </a>
+                @endforeach
+            </div>
+        </div>
+    </div>
+
+    {{-- 特集セクション --}}
     <div class="bg-gray-50 py-16 sm:py-24">
         <div class="max-w-7xl mx-auto px-4">
             

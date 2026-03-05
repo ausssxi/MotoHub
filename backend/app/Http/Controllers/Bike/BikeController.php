@@ -48,7 +48,21 @@ final class BikeController extends Controller
         $features = $this->bikeService->getFeaturesForTopPage();
         $seoFeatures = SeoFeature::active()->latest()->limit(4)->get();
 
-        return view('bikes.index', compact('popularBikes', 'categories', 'manufacturers', 'regions', 'latestReviews', 'licenses', 'popularTags', 'features', 'seoFeatures'));
+        // ライブ統計バー用のカウント
+        $totalListings = Listing::active()->count();
+        $priceDropCount = DB::table('price_histories')
+            ->whereDate('created_at', today())
+            ->distinct('listing_id')
+            ->count('listing_id');
+        $newListingsCount = Listing::active()
+            ->whereDate('listings.created_at', today())
+            ->count();
+
+        return view('bikes.index', compact(
+            'popularBikes', 'categories', 'manufacturers', 'regions',
+            'latestReviews', 'licenses', 'popularTags', 'features', 'seoFeatures',
+            'totalListings', 'priceDropCount', 'newListingsCount'
+        ));
     }
 
     /**
