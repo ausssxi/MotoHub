@@ -36,8 +36,8 @@ final class SeoLandingService
         // 1. メーカー判定 (例: ホンダ, Yamaha)
         $manufacturers = $this->manufacturerRepo->getAllSortedByName();
         $maker = $manufacturers->first(function ($m) use ($slug) {
-            return strtolower($m->name) === strtolower($slug) || 
-                   str_contains(strtolower($m->name), strtolower($slug));
+            return $m->name !== null && (strtolower($m->name) === strtolower($slug) ||
+                   str_contains(strtolower($m->name), strtolower($slug)));
         });
 
         if ($maker) {
@@ -109,10 +109,10 @@ final class SeoLandingService
             [$mfrSlug, $catSlug] = explode('-', $slug, 2);
 
             $manufacturers = $this->manufacturerRepo->getAllSortedByName();
-            $maker = $manufacturers->first(fn($m) => strtolower($m->slug) === strtolower($mfrSlug));
+            $maker = $manufacturers->first(fn($m) => $m->slug !== null && strtolower($m->slug) === strtolower($mfrSlug));
 
             $categories = $this->categoryRepo->getAllSorted();
-            $category = $categories->first(fn($c) => strtolower($c->slug) === strtolower($catSlug));
+            $category = $categories->first(fn($c) => $c->slug !== null && strtolower($c->slug) === strtolower($catSlug));
 
             if ($maker && $category) {
                 $filters['manufacturer_id'] = $maker->id;
@@ -125,7 +125,7 @@ final class SeoLandingService
         // 3. メーカー単体判定 (例: honda)
         if (empty($typeLabel)) {
             $manufacturers = $this->manufacturerRepo->getAllSortedByName();
-            $maker = $manufacturers->first(fn($m) => strtolower($m->slug) === strtolower($slug));
+            $maker = $manufacturers->first(fn($m) => $m->slug !== null && strtolower($m->slug) === strtolower($slug));
 
             if ($maker) {
                 $filters['manufacturer_id'] = $maker->id;
@@ -192,7 +192,7 @@ final class SeoLandingService
     {
         $categories = $this->categoryRepo->getAllSorted();
         return $categories->first(function ($c) use ($slug) {
-            return strtolower($c->slug) === strtolower($slug) || $c->name === $slug;
+            return ($c->slug !== null && strtolower($c->slug) === strtolower($slug)) || $c->name === $slug;
         });
     }
 
