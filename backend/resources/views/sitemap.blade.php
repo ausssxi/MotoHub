@@ -199,7 +199,8 @@ class GenerateSitemap extends Command
         $sitemapFiles[] = $modelFileName;
         $modelCount = 0;
 
-        BikeModel::select('id', 'updated_at')
+        BikeModel::with('manufacturer')
+            ->select('id', 'slug', 'manufacturer_id', 'updated_at')
             ->orderBy('updated_at', 'desc')
             ->chunk(1000, function ($models) use ($handle, &$modelCount) {
                 foreach ($models as $model) {
@@ -216,6 +217,35 @@ class GenerateSitemap extends Command
 
         $this->closeSitemap($handle);
         $this->info(" -> {$modelCount} URL (Model Catalogs)");
+
+
+        // =========================================================
+        // 4.5 メーカー×排気量カテゴリページ (sitemap-categories.xml)
+        // =========================================================
+        $this->info("メーカー×排気量カテゴリサイトマップを生成中...");
+        $categoryFileName = 'sitemap-categories.xml';
+        $handle = $this->openSitemap($categoryFileName);
+        $sitemapFiles[] = $categoryFileName;
+        $categoryCount = 0;
+
+        $ccValues = [50, 125, 250, 400, 750, 1000];
+        $allManufacturers = Manufacturer::whereNotNull('slug')->get();
+
+        foreach ($allManufacturers as $mfr) {
+            foreach ($ccValues as $cc) {
+                $this->writeUrl(
+                    $handle,
+                    url("/bikes/{$mfr->slug}/{$cc}cc"),
+                    date('Y-m-d'),
+                    'weekly',
+                    '0.7'
+                );
+                $categoryCount++;
+            }
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$categoryCount} URL (Manufacturer x CC Categories)");
 
 
         // =========================================================

@@ -261,6 +261,56 @@ final class BikeController extends Controller
         ]));
     }
 
+    /**
+     * メーカー×排気量カテゴリページ
+     * URL: /bikes/{mfrSlug}/{displacement}cc (例: /bikes/honda/250cc)
+     */
+    public function categoryByDisplacement(string $mfrSlug, string $ccSlug): View
+    {
+        $manufacturer = \App\Models\Manufacturer::where('slug', $mfrSlug)->firstOrFail();
+        $displacement = (int) rtrim($ccSlug, 'cc');
+
+        // 排気量レンジの定義
+        $ranges = [
+            50   => ['min' => 0,    'max' => 50,   'label' => '50cc以下（原付一種）'],
+            125  => ['min' => 51,   'max' => 125,  'label' => '51〜125cc（原付二種）'],
+            250  => ['min' => 126,  'max' => 250,  'label' => '126〜250cc（軽二輪）'],
+            400  => ['min' => 251,  'max' => 400,  'label' => '251〜400cc（普通二輪）'],
+            750  => ['min' => 401,  'max' => 750,  'label' => '401〜750cc'],
+            1000 => ['min' => 751,  'max' => null,  'label' => '751cc以上（大型）'],
+        ];
+
+        if (!isset($ranges[$displacement])) {
+            abort(404);
+        }
+
+        $range = $ranges[$displacement];
+        $filters = ['manufacturer_id' => $manufacturer->id];
+
+        if ($range['min'] > 0) {
+            $filters['min_displacement'] = $range['min'];
+        }
+        if ($range['max'] !== null) {
+            $filters['max_displacement'] = $range['max'];
+        }
+
+        $result = $this->listingSearchService->search(null, null, 'latest', $filters);
+
+        $mfrName = $manufacturer->name;
+        $pageInfo = [
+            'title' => "{$mfrName} {$displacement}cc 中古バイク一覧",
+            'description' => "{$mfrName}の{$range['label']}中古バイク・新車を一括検索。価格・年式・走行距離で比較して、あなたにピッタリの1台を見つけましょう。",
+            'h1_html' => "{$mfrName} <span class=\"text-blue-600\">{$displacement}cc</span> の中古バイク一覧",
+            'target_name' => "{$mfrName} {$displacement}cc",
+        ];
+
+        return view('bikes.catalog', array_merge($result, [
+            'pageInfo' => $pageInfo,
+            'keyword' => '',
+            'sort' => 'latest',
+        ]));
+    }
+
     public function landing(string $prefecture, string $slug): View
     {
         $pageInfo = $this->seoLandingService->resolvePageInfo($prefecture, $slug);

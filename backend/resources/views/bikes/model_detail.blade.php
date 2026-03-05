@@ -148,10 +148,10 @@
                 {{ $model->manufacturer->name }}
             </div>
             <h1 class="text-3xl sm:text-5xl font-black tracking-tight mb-2">
-                {{ $model->name }}
+                {{ $model->name }} <span class="text-2xl sm:text-3xl text-gray-300">の中古車・買取相場</span>
             </h1>
             <p class="text-gray-300 font-bold text-sm">
-                中古車価格・買取相場・オーナーレビュー
+                {{ $model->manufacturer->name }}｜価格推移・リセールバリュー・オーナーレビュー
             </p>
 
             {{-- ★追加: ヘッダーに要約スタッツ --}}

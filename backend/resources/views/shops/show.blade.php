@@ -1,15 +1,12 @@
 <x-layout>
-    {{-- ★ 1. タイトルの改修（地域名とキーワードを含める） --}}
-    <x-slot:title>
-        {{ $shop->name }}の在庫一覧 @if(!empty($shop->prefecture))({{ $shop->prefecture }})@endif - 中古・新車バイク | MotoHub
-    </x-slot:title>
+    {{-- ★ 1. タイトルの改修（店舗名＋地域名＋SEOキーワード） --}}
+    <x-slot:title>{{ $shop->name }} - バイク在庫{{ $pagination['total'] > 0 ? '(' . $pagination['total'] . '台)' : '' }}・アクセス@if(!empty($shop->prefecture))｜{{ $shop->prefecture }}@endif | MotoHub</x-slot:title>
 
-    {{-- ★ 2. メタディスクリプションの追加（店舗名＋地域名＋検索キーワードを盛り込む） --}}
-    <x-slot:metaDescription>
-        @if(!empty($shop->prefecture)){{ $shop->prefecture }}にある@endif「{{ $shop->name }}」のバイク在庫一覧ページです。MotoHubでは、同店舗で現在販売中の中古バイク・新車を価格や排気量で比較できます。住所や営業時間などの店舗情報も確認可能です。
-    </x-slot:metaDescription>
-    
+    {{-- ★ 2. メタディスクリプション（店舗名＋地域名＋在庫数＋取扱情報） --}}
+    <x-slot:metaDescription>@if(!empty($shop->prefecture)){{ $shop->prefecture }}にある@endif「{{ $shop->name }}」のバイク在庫一覧{{ $pagination['total'] > 0 ? '【現在' . $pagination['total'] . '台販売中】' : '' }}。中古バイク・新車を価格・排気量で比較。住所・営業時間・地図などの店舗情報も掲載。</x-slot:metaDescription>
+
     <x-slot:styles>
+        <x-jsonld.local-business :shop="$shop" :stockCount="$pagination['total'] ?? 0" />
         {{-- CSSの非同期読み込み（レンダリングブロック完全解除） --}}
         <link rel="preload" href="{{ asset('css/bike-search.css') }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="{{ asset('css/bike-search.css') }}"></noscript>
@@ -42,8 +39,8 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {{-- 左カラム: 店舗情報 --}}
-                <div class="lg:col-span-4 space-y-6">
-                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 sticky top-24">
+                <div class="lg:col-span-4 space-y-6 lg:sticky lg:top-24 lg:self-start">
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
                         <div class="text-center mb-6">
                             <div class="w-24 h-24 rounded-full bg-gray-100 mx-auto mb-4 overflow-hidden border-2 border-white shadow-sm flex items-center justify-center">
                                 @if($shop->image_url)
@@ -97,6 +94,25 @@
                         </div>
                         @endif
                     </div>
+
+                    {{-- 取扱メーカー --}}
+                    @if(isset($manufacturers) && $manufacturers->isNotEmpty())
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <h2 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
+                            <i data-lucide="factory" class="w-4 h-4 text-blue-500"></i>
+                            取扱メーカー
+                        </h2>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($manufacturers as $mfr)
+                            <a href="{{ route('bikes.search', ['manufacturer_id' => $mfr->id, 'shop_id' => $shop->id]) }}"
+                               class="inline-flex items-center gap-1.5 bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 text-xs font-bold px-3 py-2 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
+                                {{ $mfr->name }}
+                                <span class="text-[10px] text-gray-400">({{ $mfr->stock_count }})</span>
+                            </a>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
                 </div>
 
                 {{-- 右カラム: 在庫リスト --}}

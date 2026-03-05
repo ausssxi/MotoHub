@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Services\Shop;
 
 use App\Models\Shop;
+use App\Models\Listing;
+use App\Models\Manufacturer;
 use App\Repositories\Shop\ShopRepository;
 use App\Repositories\Bike\ListingRepository;
 use App\Services\Bike\Search\PaginationFormatter;
 use App\Http\Resources\Bike\ListingResource;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * 店舗関連のビジネスロジック
@@ -41,10 +44,21 @@ final class ShopService
             $pagination['total'] = $paginated->count();
         }
 
+        // 取扱メーカー集計（在庫がある車両のメーカーを台数順で取得）
+        $manufacturers = Listing::where('shop_id', $shopId)
+            ->where('is_sold_out', false)
+            ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
+            ->join('manufacturers', 'bike_models.manufacturer_id', '=', 'manufacturers.id')
+            ->select('manufacturers.id', 'manufacturers.name', 'manufacturers.slug', DB::raw('COUNT(*) as stock_count'))
+            ->groupBy('manufacturers.id', 'manufacturers.name', 'manufacturers.slug')
+            ->orderByDesc('stock_count')
+            ->get();
+
         return [
             'shop' => $shop,
             'items' => ListingResource::collection($paginated->getCollection())->resolve(),
             'pagination' => $pagination,
+            'manufacturers' => $manufacturers,
         ];
     }
 

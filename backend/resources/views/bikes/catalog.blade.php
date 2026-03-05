@@ -162,6 +162,21 @@
                             </ul>
                         </div>
                     </div>
+
+                    {{-- メーカー×排気量 組み合わせリンク --}}
+                    <div class="mt-8">
+                        <h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 border-b border-gray-100 pb-2">メーカー × 排気量で探す</h4>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                            @foreach(['honda' => 'ホンダ', 'yamaha' => 'ヤマハ', 'kawasaki' => 'カワサキ', 'suzuki' => 'スズキ'] as $mSlug => $mName)
+                                @foreach([50, 125, 250, 400] as $cc)
+                                    <a href="{{ route('bikes.category_displacement', ['mfrSlug' => $mSlug, 'ccSlug' => $cc . 'cc']) }}"
+                                       class="text-xs font-bold text-gray-500 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors text-center">
+                                        {{ $mName }} {{ $cc }}cc
+                                    </a>
+                                @endforeach
+                            @endforeach
+                        </div>
+                    </div>
                 </div>
 
             </div>

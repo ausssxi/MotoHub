@@ -105,6 +105,12 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     Route::get('/{id}', 'show')->name('show')->where('id', '[0-9]+'); 
 });
 
+// メーカー×排気量カテゴリページ (例: /bikes/honda/250cc)
+Route::get('/bikes/{mfrSlug}/{ccSlug}', [BikeController::class, 'categoryByDisplacement'])
+    ->where('mfrSlug', '[a-z][a-z0-9\-]*')
+    ->where('ccSlug', '\d+cc')
+    ->name('bikes.category_displacement');
+
 Route::get('/bikes/{mfrSlug}/{modelSlug}', [BikeController::class, 'modelDetailBySlug'])
     ->where('mfrSlug', '[a-z][a-z0-9\-]*')
     ->name('bikes.model_detail');
