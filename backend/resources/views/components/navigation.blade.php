@@ -69,6 +69,85 @@
                     買取相場
                 </a>
 
+                {{-- 通知ベル --}}
+                <div class="relative" x-data="pushBellDropdown()" x-on:click.outside="open = false">
+                    <button x-on:click="toggle()" class="relative flex flex-col items-center justify-center min-w-[40px] px-2 py-1 rounded-xl transition group"
+                            x-bind:class="count > 0 ? 'text-blue-500 hover:bg-blue-50' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50'" title="通知設定">
+                        <i data-lucide="bell" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
+                        <span x-show="count > 0" x-text="count"
+                              class="absolute -top-1 -right-2 min-w-[18px] h-[18px] px-1 bg-blue-500 text-white text-[10px] font-bold rounded-full border-2 border-white flex items-center justify-center shadow-sm">
+                        </span>
+                    </button>
+                    <div x-show="open" x-transition
+                         class="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50"
+                         style="display: none;">
+                        <div class="px-4 py-2 border-b border-gray-50">
+                            <p class="text-xs font-black text-gray-900">通知中の車種</p>
+                        </div>
+                        <div class="max-h-60 overflow-y-auto">
+                            <template x-if="count === 0">
+                                <p class="px-4 py-6 text-xs text-gray-400 text-center">通知登録はまだありません。<br>車種詳細ページから登録できます。</p>
+                            </template>
+                            <template x-for="item in items" x-bind:key="item.id">
+                                <a x-bind:href="item.url" class="flex items-center justify-between px-4 py-2.5 hover:bg-blue-50 transition-colors">
+                                    <span class="text-xs font-bold text-gray-700 truncate" x-text="item.name"></span>
+                                    <i data-lucide="chevron-right" class="w-3 h-3 text-gray-300 shrink-0"></i>
+                                </a>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                <script>
+                    document.addEventListener('alpine:init', function() {
+                        Alpine.data('pushBellDropdown', function() {
+                            return {
+                                open: false,
+                                count: 0,
+                                items: [],
+                                init: function() {
+                                    this.loadSubs();
+                                    var self = this;
+                                    window.addEventListener('push-subs-changed', function() {
+                                        self.items = [];
+                                        self.loadSubs();
+                                    });
+                                },
+                                toggle: function() {
+                                    this.loadSubs();
+                                    this.open = !this.open;
+                                    var self = this;
+                                    if (this.open) {
+                                        this.$nextTick(function() { if (typeof lucide !== 'undefined') lucide.createIcons(); });
+                                    }
+                                },
+                                loadSubs: function() {
+                                    try {
+                                        var subs = JSON.parse(localStorage.getItem('push_subs') || '{}');
+                                        var ids = Object.keys(subs);
+                                        this.count = ids.length;
+                                        if (ids.length === 0) {
+                                            this.items = [];
+                                            return;
+                                        }
+                                        var self = this;
+                                        fetch('/api/push/subscribed-models?ids=' + ids.join(','))
+                                            .then(function(r) { return r.json(); })
+                                            .then(function(data) {
+                                                self.items = data;
+                                                self.$nextTick(function() { if (typeof lucide !== 'undefined') lucide.createIcons(); });
+                                            })
+                                            .catch(function() {
+                                                self.items = ids.map(function(id) {
+                                                    return { id: id, name: '車種ID: ' + id, url: '/bikes/search?bike_model_id=' + id };
+                                                });
+                                            });
+                                    } catch(e) { this.count = 0; this.items = []; }
+                                }
+                            };
+                        });
+                    });
+                </script>
+
                 {{-- お気に入り --}}
                 <a href="{{ route('wishlist') }}" class="relative flex flex-col items-center justify-center min-w-[40px] px-2 py-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition group" title="お気に入り一覧">
                     <i data-lucide="heart" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>

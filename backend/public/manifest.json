@@ -1,0 +1,22 @@
+{
+    "name": "MotoHub - 中古・新車バイク一括検索",
+    "short_name": "MotoHub",
+    "description": "日本最大級のバイク検索・比較プラットフォーム",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#1f2937",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/favicon-96x96.png",
+            "sizes": "96x96",
+            "type": "image/png"
+        },
+        {
+            "src": "/favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        }
+    ]
+}

@@ -42,6 +42,65 @@
                 }
             });
         </script>
+        {{-- Push通知購読コンポーネント --}}
+        <script>
+            document.addEventListener('alpine:init', function() {
+                Alpine.data('pushSubscribe', function(bikeModelId) {
+                    return {
+                        subscribed: typeof MotoHubPush !== 'undefined' && MotoHubPush.isSubscribed(bikeModelId),
+                        loading: false,
+                        message: '',
+
+                        toggle: function() {
+                            if (typeof MotoHubPush === 'undefined') {
+                                this.message = 'お使いのブラウザはプッシュ通知に対応していません';
+                                return;
+                            }
+
+                            this.loading = true;
+                            this.message = '';
+                            var self = this;
+
+                            if (this.subscribed) {
+                                MotoHubPush.unsubscribe(bikeModelId).then(function() {
+                                    self.subscribed = false;
+                                    self.message = '通知をオフにしました';
+                                    self.refreshIcons();
+                                    window.dispatchEvent(new CustomEvent('push-subs-changed'));
+                                }).catch(function(e) {
+                                    self.message = '解除に失敗しました';
+                                    console.error(e);
+                                }).finally(function() {
+                                    self.loading = false;
+                                });
+                            } else {
+                                MotoHubPush.subscribe(bikeModelId).then(function() {
+                                    self.subscribed = true;
+                                    self.message = '通知をオンにしました！新着入荷時にお知らせします';
+                                    self.refreshIcons();
+                                    window.dispatchEvent(new CustomEvent('push-subs-changed'));
+                                }).catch(function(e) {
+                                    if (e.message && e.message.includes('許可されませんでした')) {
+                                        self.message = 'ブラウザの通知を許可してください';
+                                    } else {
+                                        self.message = '登録に失敗しました';
+                                    }
+                                    console.error(e);
+                                }).finally(function() {
+                                    self.loading = false;
+                                });
+                            }
+                        },
+
+                        refreshIcons: function() {
+                            if (typeof lucide !== 'undefined') {
+                                this.$nextTick(function() { lucide.createIcons(); });
+                            }
+                        }
+                    };
+                });
+            });
+        </script>
         {{-- セクションナビ制御 --}}
         <script>
             (function() {
@@ -178,6 +237,22 @@
                     </span>
                 </div>
                 @endif
+            </div>
+
+            {{-- 通知購読ボタン --}}
+            <div class="mt-4" x-data="pushSubscribe({{ $model->id }})">
+                <button
+                    x-on:click="toggle()"
+                    x-bind:disabled="loading"
+                    x-bind:class="subscribed
+                        ? 'bg-white/20 border-white/40 text-white'
+                        : 'bg-blue-500 hover:bg-blue-400 border-blue-400 text-white'"
+                    class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold transition-all"
+                >
+                    <i x-bind:data-lucide="subscribed ? 'bell-off' : 'bell'" class="w-4 h-4"></i>
+                    <span x-text="loading ? '処理中...' : (subscribed ? '通知をオフにする' : 'この車種の入荷通知を受け取る')"></span>
+                </button>
+                <p x-show="message" x-text="message" x-transition class="text-[10px] text-green-300 mt-1.5 font-bold"></p>
             </div>
         </div>
     </div>
@@ -753,10 +828,25 @@
                             @endforelse
                         </div>
                         
-                        <div class="mt-6 pt-6 border-t border-gray-100">
+                        <div class="mt-6 pt-6 border-t border-gray-100 space-y-3">
                             <a href="{{ route('bikes.search', ['bike_model_id' => $model->id]) }}" class="block w-full bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs text-center py-3 rounded-xl transition-colors">
                                 {{ $model->name }} の在庫を検索する
                             </a>
+                            {{-- サイドバー通知ボタン --}}
+                            <div x-data="pushSubscribe({{ $model->id }})">
+                                <button
+                                    x-on:click="toggle()"
+                                    x-bind:disabled="loading"
+                                    x-bind:class="subscribed
+                                        ? 'bg-gray-100 text-gray-500 border-gray-200'
+                                        : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'"
+                                    class="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border text-xs font-bold transition-all"
+                                >
+                                    <i x-bind:data-lucide="subscribed ? 'bell-off' : 'bell'" class="w-3.5 h-3.5"></i>
+                                    <span x-text="loading ? '処理中...' : (subscribed ? '通知オフ' : '入荷通知を受け取る')"></span>
+                                </button>
+                                <p x-show="message" x-text="message" x-transition class="text-[10px] text-green-600 mt-1 text-center font-bold"></p>
+                            </div>
                         </div>
                         <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mt-6">
                             <div class="text-center">

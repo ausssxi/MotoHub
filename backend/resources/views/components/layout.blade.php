@@ -54,11 +54,14 @@
 
     {{-- サードパーティの重いJSに「defer(遅延)」をつけて画面描画を優先させる --}}
     <script src="https://unpkg.com/lucide@latest" defer></script>
+    <script src="{{ asset('js/push-manager.js') }}" defer></script>
     <script src="//unpkg.com/alpinejs" defer></script>
     
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
     <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="vapid-public-key" content="{{ config('webpush.vapid.public_key') }}">
     
     {{-- ページごとの独自のCSS --}}
     {{ $styles ?? '' }}
