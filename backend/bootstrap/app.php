@@ -167,5 +167,23 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->twiceDaily(12, 20)
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/review_tweets.log'));
+
+        // 新着入荷まとめ (08:00)
+        $schedule->command('bikes:tweet-new-stock')
+                 ->dailyAt('08:00')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/new_stock_tweets.log'));
+
+        // 値下げ速報 (10:00)
+        $schedule->command('bikes:tweet-price-drop')
+                 ->dailyAt('10:00')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/price_drop_tweets.log'));
+
+        // 週間トレンド (日曜 11:00)
+        $schedule->command('bikes:tweet-trending')
+                 ->weeklyOn(0, '11:00')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/trending_tweets.log'));
     })
     ->create();

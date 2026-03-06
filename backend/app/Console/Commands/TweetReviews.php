@@ -61,7 +61,7 @@ class TweetReviews extends Command
         $text .= "{$bodySnippet}\n\n";
 
         $text .= "👇 全文を読む\n";
-        $text .= route('bikes.model_detail.legacy', $review->bike_model_id) . "#reviews\n\n";
+        $text .= 'https://www.motohub.jp' . $review->bikeModel->seo_url . "#reviews\n\n";
         
         // ★修正: ハッシュタグの生成（車種名を追加）
         // スペース、カッコ、スラッシュなどを除去してハッシュタグとして有効な形式にする

@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany; 
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Tag;
 use Laravel\Scout\Searchable;
 
@@ -108,6 +109,7 @@ class Listing extends Model
     public function shop(): BelongsTo { return $this->belongsTo(Shop::class); }
     public function site(): BelongsTo { return $this->belongsTo(Site::class); }
     public function tags(): BelongsToMany { return $this->belongsToMany(Tag::class); }
+    public function priceHistories(): HasMany { return $this->hasMany(PriceHistory::class); }
 
     /**
      * ★追加: この車両をお気に入りしているユーザー（多対多）
