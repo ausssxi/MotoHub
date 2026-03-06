@@ -1,7 +1,7 @@
 import scrapy
 import datetime
 from sqlalchemy import update, or_
-from common.database import SessionLocal, Site, Listing
+from common.database import SessionLocal, Site, Listing, PriceHistory
 
 # もし ShopManager を使っていない場合は削除してください（環境に合わせて調整）
 # from common.shop_manager import ShopManager
@@ -73,11 +73,26 @@ class BaseBikeSpider(scrapy.Spider):
         self.db.add(new_listing)
 
     def update_listing(self, url, data):
-        """既存の出品情報を更新"""
+        """既存の出品情報を更新（価格変動があれば履歴も記録）"""
+        # 価格変動の検知: 更新前の価格を取得
+        existing = self.db.query(Listing.id, Listing.total_price).filter(
+            Listing.source_url == url
+        ).first()
+
+        if existing:
+            old_price = int(existing.total_price or 0)
+            new_price = int(data.get('total_price') or 0)
+            if old_price > 0 and new_price > 0 and new_price != old_price:
+                self.db.add(PriceHistory(
+                    listing_id=existing.id,
+                    old_price=old_price,
+                    new_price=new_price,
+                    is_notified=False,
+                ))
+
         update_values = {
             "price": data.get('price'),
             "total_price": data.get('total_price'),
-            # ✨ 追加: 説明文も更新対象にする（変更されている可能性があるため）
             "description": data.get('description'),
             "is_sold_out": False,
             "updated_at": datetime.datetime.now()

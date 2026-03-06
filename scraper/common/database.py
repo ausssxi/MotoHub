@@ -86,6 +86,16 @@ class Shop(Base):
     image_url = Column(String(255))
     local_image_path = Column(String(255))
 
+class PriceHistory(Base):
+    __tablename__ = "price_histories"
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    listing_id = Column(BigInteger, ForeignKey("listings.id", ondelete="CASCADE"))
+    old_price = Column(Integer, nullable=False)
+    new_price = Column(Integer, nullable=False)
+    is_notified = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
 class BikeModelIdentifier(Base):
     __tablename__ = "bike_model_identifiers"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
