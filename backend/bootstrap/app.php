@@ -185,5 +185,15 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->weeklyOn(0, '11:00')
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/trending_tweets.log'));
+
+        /**
+         * --- 5. Push通知 ---
+         */
+
+        // 新着入荷プッシュ通知 (08:30 - データ更新後)
+        $schedule->command('push:new-stock')
+                 ->dailyAt('08:30')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/push_new_stock.log'));
     })
     ->create();

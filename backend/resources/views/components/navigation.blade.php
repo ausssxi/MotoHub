@@ -69,8 +69,8 @@
                     買取相場
                 </a>
 
-                {{-- 通知ベル --}}
-                <div class="relative" x-data="pushBellDropdown()" x-on:click.outside="open = false">
+                {{-- 通知ベル（対応環境のみ表示） --}}
+                <div class="relative" x-data="pushBellDropdown()" x-on:click.outside="open = false" x-show="supported" x-cloak>
                     <button x-on:click="toggle()" class="relative flex flex-col items-center justify-center min-w-[40px] px-2 py-1 rounded-xl transition group"
                             x-bind:class="count > 0 ? 'text-blue-500 hover:bg-blue-50' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50'" title="通知設定">
                         <i data-lucide="bell" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
@@ -104,6 +104,7 @@
                                 open: false,
                                 count: 0,
                                 items: [],
+                                supported: typeof MotoHubPush !== 'undefined' && MotoHubPush.getNotificationSupport() === 'supported',
                                 init: function() {
                                     this.loadSubs();
                                     var self = this;

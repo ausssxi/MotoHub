@@ -70,6 +70,7 @@
     <meta name="adsense-id" content="{{ config('app.adsense_id', 'ca-pub-3690883624273126') }}">
 
     <style>
+        [x-cloak] { display: none !important; }
         .footer-link { transition: all 0.2s ease; }
         .footer-link:hover { color: #000; text-decoration: underline; }
         
