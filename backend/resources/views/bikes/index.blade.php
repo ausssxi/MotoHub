@@ -4,8 +4,7 @@
     <x-slot:scripts>
         <script src="{{ asset('js/search/suggest.js') }}"></script>
         
-        {{-- 閲覧履歴のスクリプトを読み込み、描画を実行 --}}
-        <script src="{{ asset('js/history/manager.js') }}"></script>
+        {{-- 閲覧履歴の描画（manager.js は layout.blade.php で読み込み済み） --}}
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.HistoryManager) {
@@ -313,8 +312,9 @@
                             
                             <div class="w-14 h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 border border-gray-50 relative">
                                 @if($bike->image_url)
-                                    <img src="{{ $bike->image_url }}" alt="{{ $bike->name }}" 
-                                         class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500">
+                                    <img src="{{ $bike->image_url }}" alt="{{ $bike->name }}"
+                                         class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
+                                         onerror="handleImageError(this)">
                                 @else
                                     <div class="w-full h-full flex items-center justify-center text-gray-300">
                                         <i data-lucide="bike" class="w-6 h-6"></i>

@@ -46,22 +46,51 @@ final class BikeModel extends Model
     {
         return Attribute::make(
             get: function () {
-                // 1. 代表Listingの画像を優先（実際の掲載車両なので正確）
+                // 1. 代表Listingのローカル画像を優先（確実に表示できる）
                 $listing = $this->relationLoaded('representativeListing')
                     ? $this->representativeListing
                     : $this->representativeListing()->first();
 
                 if ($listing) {
-                    $images = $listing->images;
-                    if (!empty($images)) {
-                        return $images[0];
+                    $localPaths = is_string($listing->local_image_paths)
+                        ? json_decode($listing->local_image_paths, true)
+                        : $listing->local_image_paths;
+                    if (!empty($localPaths) && is_array($localPaths)) {
+                        return asset('storage/' . ltrim($localPaths[0], '/'));
                     }
                 }
 
-                // 2. BikeModel自身の画像にフォールバック
+                // 2. BikeModel自身のローカル画像
                 if (is_array($this->local_image_path) && !empty($this->local_image_path)) {
                     $path = ltrim($this->local_image_path[0], '/');
                     return asset('storage/' . $path);
+                }
+
+                // 3. ローカル画像を持つ別のListingを探す
+                $altListing = $this->listings()
+                    ->where('is_sold_out', false)
+                    ->whereNotNull('local_image_paths')
+                    ->where('local_image_paths', '!=', '[]')
+                    ->orderByDesc('id')
+                    ->first(['id', 'local_image_paths']);
+
+                if ($altListing) {
+                    $altPaths = is_string($altListing->local_image_paths)
+                        ? json_decode($altListing->local_image_paths, true)
+                        : $altListing->local_image_paths;
+                    if (!empty($altPaths) && is_array($altPaths)) {
+                        return asset('storage/' . ltrim($altPaths[0], '/'));
+                    }
+                }
+
+                // 4. 最終手段: 代表Listingの外部URL（GooBike等、404の可能性あり）
+                if ($listing) {
+                    $imageUrls = is_string($listing->image_urls)
+                        ? json_decode($listing->image_urls, true)
+                        : $listing->image_urls;
+                    if (!empty($imageUrls) && is_array($imageUrls)) {
+                        return $imageUrls[0];
+                    }
                 }
 
                 return null;
