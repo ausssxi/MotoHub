@@ -104,8 +104,27 @@
                                 open: false,
                                 count: 0,
                                 items: [],
-                                supported: typeof MotoHubPush !== 'undefined' && MotoHubPush.getNotificationSupport() === 'supported',
+                                supported: false,
                                 init: function() {
+                                    // defer読み込み順の問題を回避: init時に判定
+                                    try {
+                                        this.supported = typeof MotoHubPush !== 'undefined'
+                                            && typeof MotoHubPush.getNotificationSupport === 'function'
+                                            && MotoHubPush.getNotificationSupport() === 'supported';
+                                    } catch(e) {
+                                        this.supported = false;
+                                    }
+                                    // それでもfalseなら少し待って再判定
+                                    if (!this.supported) {
+                                        var self = this;
+                                        setTimeout(function() {
+                                            try {
+                                                self.supported = typeof MotoHubPush !== 'undefined'
+                                                    && typeof MotoHubPush.getNotificationSupport === 'function'
+                                                    && MotoHubPush.getNotificationSupport() === 'supported';
+                                            } catch(e) {}
+                                        }, 500);
+                                    }
                                     this.loadSubs();
                                     var self = this;
                                     window.addEventListener('push-subs-changed', function() {
