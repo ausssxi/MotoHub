@@ -12,6 +12,7 @@ use App\Models\Manufacturer;
 use App\Models\Category;
 use App\Models\Tag;
 use App\Models\SeoFeature;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 
@@ -20,14 +21,23 @@ class GenerateSitemap extends Command
     protected $signature = 'sitemap:generate';
     protected $description = 'サイトマップを分割生成し、インデックスファイルを作成してGoogleに通知します';
 
-    // 1ファイルあたりのURL上限
-    private const MAX_URLS_PER_FILE = 45000;
+    // 1ファイルあたりのURL上限 (Google推奨: 10,000以下)
+    private const MAX_URLS_PER_FILE = 10000;
 
     public function handle(): void
     {
         ini_set('memory_limit', '512M');
         $this->info("サイトマップの分割生成を開始します...");
         $startTime = microtime(true);
+
+        // 古い分割サイトマップファイルを削除（ファイル数が減った時のゴースト参照を防止）
+        foreach (glob(public_path('sitemap-landings-*.xml')) as $old) {
+            unlink($old);
+        }
+        foreach (glob(public_path('sitemap-listings-*.xml')) as $old) {
+            unlink($old);
+        }
+        $this->info("古いサイトマップファイルを削除しました。");
 
         $sitemapFiles = [];
 
@@ -204,9 +214,45 @@ class GenerateSitemap extends Command
         // 排気量キーワードリスト
         $displacements = ['原付', 'スクーター', '小型', '中型', '大型', 'リッター'];
 
-        // 1. メーカー・カテゴリ・排気量の組み合わせ
+        // config都道府県(短縮形) → DB shops.prefecture(正式名) への変換
+        $toFullPref = fn(string $pref): string => match($pref) {
+            '北海道' => '北海道',
+            '東京' => '東京都',
+            '大阪' => '大阪府',
+            '京都' => '京都府',
+            default => $pref . '県',
+        };
+
+        // ★ Listingが存在する組み合わせのみサイトマップに含める（クロールバジェット最適化）
+        // 都道府県×メーカーの有効な組み合わせを事前取得
+        $activeManufPrefSet = DB::table('listings')
+            ->join('shops', 'listings.shop_id', '=', 'shops.id')
+            ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
+            ->where('listings.is_sold_out', false)
+            ->whereNotNull('listings.bike_model_id')
+            ->select(DB::raw('DISTINCT CONCAT(shops.prefecture, "-", bike_models.manufacturer_id) as combo'))
+            ->pluck('combo')
+            ->flip(); // flip で O(1) ルックアップ
+
+        // 都道府県×車種(bike_model_id)の有効な組み合わせを事前取得
+        $activeModelPrefSet = DB::table('listings')
+            ->join('shops', 'listings.shop_id', '=', 'shops.id')
+            ->where('listings.is_sold_out', false)
+            ->whereNotNull('listings.bike_model_id')
+            ->select(DB::raw('DISTINCT CONCAT(shops.prefecture, "-", listings.bike_model_id) as combo'))
+            ->pluck('combo')
+            ->flip();
+
+        $this->info("  有効な都道府県×メーカー: {$activeManufPrefSet->count()} / 都道府県×車種: {$activeModelPrefSet->count()}");
+
+        // 1. メーカー・カテゴリ・排気量の組み合わせ（Listingがある場合のみ）
         foreach ($allPrefectures as $pref) {
+            $fullPref = $toFullPref($pref);
+
             foreach ($manufacturers as $maker) {
+                if (!$activeManufPrefSet->has("{$fullPref}-{$maker->id}")) {
+                    continue;
+                }
                 $writeLandingUrl(
                     route('bikes.landing', ['prefecture' => $pref, 'slug' => $maker->name]),
                     date('Y-m-d'),
@@ -215,6 +261,7 @@ class GenerateSitemap extends Command
                 );
             }
 
+            // カテゴリと排気量は在庫数に関係なく含める（種類が少ない & 需要がある）
             foreach ($categories as $cat) {
                 $writeLandingUrl(
                     route('bikes.landing', ['prefecture' => $pref, 'slug' => $cat->name]),
@@ -234,11 +281,13 @@ class GenerateSitemap extends Command
             }
         }
 
-        // 2. 車種名(モデル)との掛け合わせ
-        // 件数が多いためChunk処理
-        BikeModel::select('name', 'updated_at')->chunk(500, function ($models) use ($allPrefectures, $writeLandingUrl) {
+        // 2. 車種名(モデル)との掛け合わせ（Listingがある場合のみ）
+        BikeModel::select('id', 'name', 'updated_at')->chunk(500, function ($models) use ($allPrefectures, $writeLandingUrl, $activeModelPrefSet, $toFullPref) {
             foreach ($models as $model) {
                 foreach ($allPrefectures as $pref) {
+                    if (!$activeModelPrefSet->has("{$toFullPref($pref)}-{$model->id}")) {
+                        continue;
+                    }
                     $writeLandingUrl(
                         route('bikes.landing', ['prefecture' => $pref, 'slug' => $model->name]),
                         $model->updated_at->format('Y-m-d'),
@@ -363,7 +412,7 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
-        // 6. 車両詳細ページ (50,000件ごとにファイルを分割)
+        // 6. 車両詳細ページ (10,000件ごとにファイルを分割)
         // =========================================================
         $this->info("車両詳細サイトマップを生成中...");
         

@@ -9,5 +9,14 @@ Disallow: /email/
 Disallow: /bikes/search?*sort=*
 Disallow: /bikes/search?*load_more=*
 Disallow: /bikes/search?*page=*
+Disallow: /bikes/search?*min_price=*
+Disallow: /bikes/search?*max_price=*
+Disallow: /bikes/search?*min_year=*
+Disallow: /bikes/search?*max_year=*
+Disallow: /bikes/search?*min_mileage=*
+Disallow: /bikes/search?*max_mileage=*
+Disallow: /bikes/search?*source=*
+Disallow: /bikes/compare?*
+Disallow: /wishlist
 
 Sitemap: https://motohub.jp/sitemap.xml

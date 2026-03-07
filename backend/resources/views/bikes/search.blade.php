@@ -23,6 +23,10 @@
         @endif
     </x-slot:metaDescription>
 
+    @if($pagination['total'] === 0)
+        <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
+    @endif
+
     <x-slot:canonical>{{ route('bikes.search', request()->only(['keyword', 'manufacturer_id', 'bike_model_id', 'prefecture', 'tag'])) }}</x-slot:canonical>
 
     <x-slot:styles>
