@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Services;
+namespace App\Services\Line;
 
+use App\Models\Listing;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -27,7 +28,7 @@ class LineNotificationService
      * @param float  $oldPrice  旧価格（万円）
      * @param float  $newPrice  新価格（万円）
      */
-    public function sendPriceDropAlert(User $user, $listing, float $oldPrice, float $newPrice): bool
+    public function sendPriceDropAlert(User $user, Listing $listing, float $oldPrice, float $newPrice): bool
     {
         if (!$user->line_id) {
             Log::warning("LINE通知スキップ: User#{$user->id} にline_idがありません");
@@ -35,12 +36,13 @@ class LineNotificationService
         }
 
         $priceDiff = $oldPrice - $newPrice;
-        $detailUrl = url("/bikes/{$listing->id}");
-        $imageUrl = !empty($listing->images[0]) ? $listing->images[0] : null;
+        $detailUrl = 'https://www.motohub.jp/bikes/' . $listing->id;
+        $imageUrl = !empty($listing->image_urls[0]) ? $listing->image_urls[0] : null;
 
         // Flex Messageでリッチな通知を送信
+        $bikeName = $listing->title ?? $listing->bikeModel?->name ?? 'バイク';
         $flexMessage = $this->buildPriceDropFlexMessage(
-            $listing->name,
+            $bikeName,
             $oldPrice,
             $newPrice,
             $priceDiff,
@@ -51,7 +53,7 @@ class LineNotificationService
         return $this->pushMessage($user->line_id, [
             [
                 'type'     => 'flex',
-                'altText'  => "【値下げ】{$listing->name} が {$priceDiff}万円値下げされました！",
+                'altText'  => "【値下げ】{$bikeName} が {$priceDiff}万円値下げされました！",
                 'contents' => $flexMessage,
             ]
         ]);
