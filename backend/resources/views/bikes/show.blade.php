@@ -693,7 +693,9 @@
                     </div>
                 </div>
             </div>
+            <div class="mt-12">
             @include('bikes.partials.recommendations')
+            </div>
         </div>
     </div>
 

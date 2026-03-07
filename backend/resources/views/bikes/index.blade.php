@@ -32,8 +32,8 @@
     </x-slot:navigation>
 
     {{-- メインビジュアル & 検索ボックス（縮小版） --}}
-    <div class="relative bg-black h-[320px] sm:h-[400px] flex items-center justify-center overflow-hidden py-6 sm:py-8">
-        <div class="absolute inset-0 z-0">
+    <div class="relative bg-black h-[320px] sm:h-[400px] flex items-center justify-center overflow-visible py-6 sm:py-8">
+        <div class="absolute inset-0 z-0 overflow-hidden">
              <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=2070&auto=format&fit=crop"
                   alt="Motorcycle Background"
                   class="w-full h-full object-cover opacity-40">
