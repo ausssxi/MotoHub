@@ -17,6 +17,8 @@
             window.bikeModelStats = @json($stats ?? []);
             window.bikeModelHistory = @json($history ?? []);
         </script>
+        <script>window.__bikeModelId = {{ $model->id }};</script>
+        <script src="{{ asset('js/promo/engagement-banner.js') }}" defer></script>
         <script src="{{ asset('js/bikes/model_detail.js') }}"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function() {

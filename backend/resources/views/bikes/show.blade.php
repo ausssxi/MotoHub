@@ -27,7 +27,9 @@
             window.currentListingId = "{{ $listing->id }}";
             window.recaptchaSiteKey = "{{ env('RECAPTCHA_SITE_KEY') }}";
         </script>
-        
+        <script>window.__bikeModelId = {{ $listing->bike_model_id ?? 'null' }};</script>
+        <script src="{{ asset('js/promo/engagement-banner.js') }}" defer></script>
+
         <script src="{{ asset('js/bikes/model_detail.js') }}"></script>
         <script src="{{ asset('js/bikes/review.js') }}"></script>
         <script src="{{ asset('js/search/seamless-nav.js') }}"></script>
