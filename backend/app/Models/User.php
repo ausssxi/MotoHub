@@ -28,8 +28,9 @@ class User extends Authenticatable implements FilamentUser
         'email',
         'password',
         'is_admin',
+        'notify_price_drop',
         'google_id',
-        'avatar',       
+        'avatar',
         'line_id',
     ];
 
@@ -54,6 +55,7 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_admin' => 'boolean',
+            'notify_price_drop' => 'boolean',
         ];
     }
 

@@ -144,10 +144,9 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->dailyAt('07:00')
                  ->withoutOverlapping();
 
-        // ★追加: 値下げアラートの送信 (08:00)
-        // データ更新が全て完了し、ユーザーがメールを見やすい朝の時間帯に一斉送信
+        // 値下げアラート送信 (10:00) - 1ユーザー最大3通/日
         $schedule->command('bikes:send-price-alerts')
-                 ->dailyAt('08:00')
+                 ->dailyAt('10:00')
                  ->withoutOverlapping()
                  ->appendOutputTo($alertLog);
 

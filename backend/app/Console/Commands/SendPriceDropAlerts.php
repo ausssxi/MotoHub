@@ -1,26 +1,35 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use App\Models\PriceHistory;
 use App\Mail\PriceDropMail;
-use Illuminate\Support\Facades\Mail;
+use App\Models\PriceHistory;
+use App\Models\User;
 use App\Services\Line\LineNotificationService;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Mail;
 
 class SendPriceDropAlerts extends Command
 {
     protected $signature = 'bikes:send-price-alerts {--dry-run : 実際に送信せず対象を表示}';
-    protected $description = 'お気に入り登録されている車両が値下げされた際、該当ユーザーにアラートメールを非同期で送信します';
+    protected $description = 'お気に入り車両の値下げ通知を送信（メール + LINE）';
 
-    public function handle()
+    /** 1ユーザーあたりの1日最大通知件数 */
+    private const MAX_PER_USER = 3;
+
+    public function handle(): void
     {
         $this->info('値下げアラートの送信処理を開始します...');
+        $isDryRun = $this->option('dry-run');
 
-        // 未通知の価格変更履歴を取得（値下げのみ: old_price > new_price）
+        // 過去24時間 & 未通知 & 値下げのみ
         $histories = PriceHistory::with(['listing.favoritedByUsers', 'listing.bikeModel.manufacturer'])
             ->where('is_notified', false)
+            ->where('created_at', '>=', now()->subDay())
             ->whereColumn('old_price', '>', 'new_price')
+            ->orderByRaw('(old_price - new_price) DESC')  // 値下げ額が大きい順（上限対策）
             ->get();
 
         if ($histories->isEmpty()) {
@@ -28,33 +37,50 @@ class SendPriceDropAlerts extends Command
             return;
         }
 
-        $this->info("未通知の値下げ履歴: {$histories->count()}件");
+        $this->info("対象の値下げ履歴: {$histories->count()}件");
 
-        $sentCount = 0;
-        $isDryRun = $this->option('dry-run');
+        // ユーザーごとの送信カウンター
+        $userSentCount = [];
+        $totalSent = 0;
+        $totalSkipped = 0;
 
         foreach ($histories as $history) {
             $listing = $history->listing;
 
-            // 車両が既に削除されている、またはお気に入りしているユーザーがいない場合はスキップ
-            if (!$listing || $listing->favoritedByUsers->isEmpty()) {
+            // 車両なし or 売切 or お気に入りユーザーなし → スキップ
+            if (!$listing || $listing->is_sold_out || $listing->favoritedByUsers->isEmpty()) {
                 if (!$isDryRun) {
                     $history->update(['is_notified' => true]);
                 }
                 continue;
             }
 
-            $users = $listing->favoritedByUsers;
             $bikeName = $listing->title ?? $listing->bikeModel?->name ?? 'バイク';
             $diff = number_format(($history->old_price - $history->new_price) / 10000, 1);
 
-            if ($isDryRun) {
-                $this->line("  {$bikeName}: {$diff}万円値下げ → {$users->count()}人に通知");
-                $sentCount += $users->count();
-                continue;
-            }
+            foreach ($listing->favoritedByUsers as $user) {
+                // 通知オフのユーザーはスキップ
+                if (!$user->notify_price_drop) {
+                    continue;
+                }
 
-            foreach ($users as $user) {
+                // 1日の上限チェック
+                $uid = $user->id;
+                $userSentCount[$uid] = ($userSentCount[$uid] ?? 0);
+                if ($userSentCount[$uid] >= self::MAX_PER_USER) {
+                    $totalSkipped++;
+                    continue;
+                }
+
+                if ($isDryRun) {
+                    $channel = $user->hasLineLinked() ? 'LINE' : 'メール';
+                    $this->line("  [{$channel}] {$user->name} ← {$bikeName} (-{$diff}万円)");
+                    $userSentCount[$uid]++;
+                    $totalSent++;
+                    continue;
+                }
+
+                // 送信
                 try {
                     if ($user->hasLineLinked()) {
                         $lineService = app(LineNotificationService::class);
@@ -67,19 +93,23 @@ class SendPriceDropAlerts extends Command
                     } else {
                         Mail::to($user->email)->send(new PriceDropMail($user, $listing, $history));
                     }
-                    $sentCount++;
+                    $userSentCount[$uid]++;
+                    $totalSent++;
                 } catch (\Exception $e) {
-                    $this->error("送信失敗 (User#{$user->id}): {$e->getMessage()}");
+                    $this->error("  送信失敗 (User#{$uid}): {$e->getMessage()}");
                 }
             }
 
-            $history->update(['is_notified' => true]);
+            if (!$isDryRun) {
+                $history->update(['is_notified' => true]);
+            }
         }
 
+        $this->newLine();
         if ($isDryRun) {
-            $this->info("--- Dry Run: {$sentCount}通の通知が送信される予定 ---");
-        } else {
-            $this->info("処理完了！ {$sentCount} 通のアラートを送信しました。");
+            $this->info("--- Dry Run ---");
         }
+        $this->info("送信: {$totalSent}通 / スキップ(上限超過): {$totalSkipped}通");
+        $this->info("対象ユーザー: " . count($userSentCount) . "人");
     }
 }
