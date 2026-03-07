@@ -516,9 +516,10 @@
                         <div class="flex items-start gap-6">
                             <div class="w-16 h-16 rounded-full shrink-0 overflow-hidden flex items-center justify-center border border-gray-100">
                                 @if(!empty($listing->shop_image))
-                                    <img src="{{ $listing->shop_image }}" alt="{{ $listing->shop_name }}" 
+                                    <img src="{{ $listing->shop_image }}" alt="{{ $listing->shop_name }}"
                                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
-                                        class="w-full h-full object-cover">
+                                        class="w-full h-full object-cover"
+                                        loading="lazy" decoding="async">
                                 @else
                                     <i data-lucide="map-pin" class="w-8 h-8 text-gray-300"></i>
                                 @endif
@@ -629,7 +630,7 @@
                                                 通知を受け取るには、無料のログインが必要です。
                                             </p>
                                             <a href="{{ route('login') }}" class="inline-flex items-center justify-center w-full bg-white border border-gray-200 hover:border-blue-300 text-gray-700 text-[10px] font-black py-2 rounded-lg transition-colors shadow-sm">
-                                                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-3 h-3 mr-1.5" alt="G">
+                                                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-3 h-3 mr-1.5" alt="G" loading="lazy" decoding="async">
                                                 Googleで1秒ログイン
                                             </a>
                                         </div>

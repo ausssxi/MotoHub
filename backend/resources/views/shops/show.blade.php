@@ -44,7 +44,7 @@
                         <div class="text-center mb-6">
                             <div class="w-24 h-24 rounded-full bg-gray-100 mx-auto mb-4 overflow-hidden border-2 border-white shadow-sm flex items-center justify-center">
                                 @if($shop->image_url)
-                                    <img src="{{ $shop->image_url }}" alt="{{ $shop->name }}" class="w-full h-full object-cover">
+                                    <img src="{{ $shop->image_url }}" alt="{{ $shop->name }}" class="w-full h-full object-cover" loading="lazy" decoding="async">
                                 @else
                                     <i data-lucide="store" class="w-10 h-10 text-gray-300"></i>
                                 @endif

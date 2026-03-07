@@ -154,7 +154,7 @@
     {{-- 登録促進プロモーション（未ログイン時のみ） --}}
     @guest
         <link rel="stylesheet" href="{{ asset('css/registration-promo.css') }}">
-        <script src="{{ asset('js/promo/registration-promo.js') }}"></script>
+        <script src="{{ asset('js/promo/registration-promo.js') }}" defer></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (typeof RegistrationPromo !== 'undefined') {

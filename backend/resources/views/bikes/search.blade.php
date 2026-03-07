@@ -31,8 +31,7 @@
 
     <x-slot:styles>
         <x-jsonld.breadcrumb-search :filters="$filters ?? []" :pageTitle="$pageTitle ?? ''" />
-        <link rel="preload" href="{{ asset('css/bike-search.css') }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
-        <noscript><link rel="stylesheet" href="{{ asset('css/bike-search.css') }}"></noscript>
+        <link rel="stylesheet" href="{{ asset('css/bike-search.css') }}">
     </x-slot:styles>
 
     <x-slot:scripts>

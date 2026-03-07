@@ -149,7 +149,7 @@ final class BikeService
 
                 if ($count === 0) return null;
 
-                $topModel = $models->sortByDesc('listings_count')->first(fn($m) => !empty($m->image_url)) 
+                $topModel = $models->sortByDesc('listings_count')->first(fn($m) => !empty($m->image_url))
                             ?? $models->sortByDesc('listings_count')->first();
                 $makerImage = $topModel?->image_url;
 
@@ -168,6 +168,51 @@ final class BikeService
                 'manufacturers' => $formattedManufacturers,
                 'totalModelsCount' => $totalModelsCount
             ];
+        });
+    }
+
+    /**
+     * 車種一覧ページ用: メーカー一覧のみ（車種データなし、軽量）
+     */
+    public function getManufacturersForIndex(): array
+    {
+        return Cache::remember('manufacturers_for_index', 86400, function () {
+            $manufacturersRaw = $this->manufacturerRepo->getAll();
+            $totalModelsCount = 0;
+
+            $formattedManufacturers = $manufacturersRaw->map(function ($maker) use (&$totalModelsCount) {
+                $models = $this->modelRepo->getByManufacturerId((int)$maker->id);
+                $count = $models->count();
+                $totalModelsCount += $count;
+
+                if ($count === 0) return null;
+
+                $topModel = $models->sortByDesc('listings_count')->first(fn($m) => !empty($m->image_url))
+                            ?? $models->sortByDesc('listings_count')->first();
+
+                return [
+                    'id' => $maker->id,
+                    'name' => $maker->name,
+                    'bike_models_count' => $count,
+                    'image_url' => $topModel?->image_url,
+                ];
+            })->filter()->values();
+
+            return [
+                'manufacturers' => $formattedManufacturers,
+                'totalModelsCount' => $totalModelsCount,
+            ];
+        });
+    }
+
+    /**
+     * 特定メーカーの車種一覧をグループ化して返す（Ajax用）
+     */
+    public function getGroupedModelsForManufacturer(int $manufacturerId): array
+    {
+        return Cache::remember("models_for_manufacturer_{$manufacturerId}", 86400, function () use ($manufacturerId) {
+            $models = $this->modelRepo->getByManufacturerId($manufacturerId);
+            return $this->groupModelsByName($models);
         });
     }
 

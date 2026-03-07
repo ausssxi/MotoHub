@@ -1,10 +1,4 @@
 <x-layout>
-    @php
-        // ★メモリ不足エラー（Allowed memory size exhausted）を回避するため、
-        // この重い一覧ページを開く時だけ、一時的にPHPのメモリ上限を大幅に引き上げます。
-        ini_set('memory_limit', '512M');
-    @endphp
-
     <x-slot:title>車種一覧から探す - MotoHub</x-slot:title>
 
     <x-slot:scripts>
@@ -185,76 +179,13 @@
                             </div>
                         </button>
 
-                        {{-- メーカー詳細エリア --}}
+                        {{-- メーカー詳細エリア（Ajax遅延読み込み） --}}
                         <div id="maker-list-{{ $manufacturer['id'] }}" class="hidden border-t border-gray-100 bg-gray-50/30">
-                            <div class="p-2 sm:p-4 space-y-2">
-                                
-                                @foreach($manufacturer['groups'] as $label => $list)
-                                    @if(count($list) > 0)
-                                        @php $subId = $manufacturer['id'] . '-' . $loop->index; @endphp
-                                        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                                            <button onclick="toggleSubGroup('{{ $subId }}')" class="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-50 transition-colors text-left group/sub">
-                                                <div class="flex items-center gap-3">
-                                                    <span class="text-sm font-bold text-gray-700 min-w-[2rem]">{{ $label }}</span>
-                                                    <span class="text-[10px] font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{{ count($list) }}</span>
-                                                </div>
-                                                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-300 group-hover/sub:text-blue-500 transition-transform duration-200" id="sub-icon-{{ $subId }}"></i>
-                                            </button>
-
-                                            <div id="sub-list-{{ $subId }}" class="hidden border-t border-gray-100 p-3 sm:p-4 bg-gray-50/50">
-                                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                                                    @foreach($list as $bike)
-                                                    @php $b = is_array($bike) ? (object)$bike : $bike; @endphp
-                                                    <div class="group/item relative flex items-center p-3 bg-white rounded-xl border border-gray-200 hover:border-blue-400 hover:shadow-md hover:-translate-y-0.5 transition duration-300">
-                                                        
-                                                        {{-- ★メインリンク --}}
-                                                        <a href="{{ route('bikes.search', ['bike_model_id' => $b->id]) }}" class="absolute inset-0 z-10"></a>
-
-                                                        <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 mr-3 border border-gray-100 relative">
-                                                            @if($b->image_url)
-                                                            <img src="{{ Str::startsWith($b->image_url, ['http://', 'https://']) ? $b->image_url : asset($b->image_url) }}" alt="{{ $b->name }}" 
-                                                                 decoding="async"
-                                                                 class="w-full h-full object-cover transform group-hover/item:scale-110 transition-transform duration-500"
-                                                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                                            <div class="hidden w-full h-full items-center justify-center text-gray-300">
-                                                                <i data-lucide="bike" class="w-5 h-5"></i>
-                                                            </div>
-                                                            @else
-                                                            <div class="w-full h-full flex items-center justify-center text-gray-300">
-                                                                <i data-lucide="bike" class="w-5 h-5"></i>
-                                                            </div>
-                                                            @endif
-                                                        </div>
-
-                                                        <div class="flex-1 min-w-0 pr-2 pointer-events-none relative z-0">
-                                                            <h3 class="text-xs font-bold text-gray-700 leading-tight group-hover/item:text-blue-600 transition-colors line-clamp-1 mb-1">
-                                                                {{ $b->name }}
-                                                            </h3>
-                                                            <span class="inline-flex items-center text-[9px] font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
-                                                                <span class="text-blue-500 font-bold mr-0.5">{{ number_format($b->listings_count ?? 0) }}</span>台
-                                                            </span>
-                                                        </div>
-
-                                                        {{-- ★修正: onclick="event.stopPropagation();" を追加して親のリンク発火を防止 --}}
-                                                        <a href="{{ $b->seo_url }}#reviews" 
-                                                           onclick="event.stopPropagation();"
-                                                           class="relative z-20 shrink-0 inline-flex items-center justify-center w-11 h-11 sm:w-auto sm:h-auto sm:px-3 sm:py-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 rounded-lg border border-yellow-200 transition-colors shadow-sm group-hover/item:border-yellow-300 flex-col sm:flex-row gap-0.5 sm:gap-1.5" title="オーナーの口コミを見る">
-                                                            @if(isset($b->reviews_avg_rating) && $b->reviews_count > 0)
-                                                                <i data-lucide="star" class="w-4 h-4 sm:w-3 sm:h-3 fill-current text-yellow-500"></i>
-                                                                <span class="text-[8px] sm:text-[10px] font-bold leading-none">{{ number_format($b->reviews_avg_rating, 1) }}<span class="hidden sm:inline"> ({{ $b->reviews_count }})</span></span>
-                                                            @else
-                                                                <i data-lucide="message-square-quote" class="w-4 h-4 sm:w-3 sm:h-3"></i>
-                                                                <span class="text-[8px] sm:text-[10px] font-bold leading-none">口コミ</span>
-                                                            @endif
-                                                        </a>
-                                                    </div>
-                                                    @endforeach
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endif
-                                @endforeach
-
+                            <div class="p-2 sm:p-4 space-y-2" id="maker-content-{{ $manufacturer['id'] }}">
+                                <div class="flex items-center justify-center py-8 text-gray-400">
+                                    <svg class="animate-spin w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                    <span class="text-xs font-bold">読み込み中...</span>
+                                </div>
                             </div>
                         </div>
                     </div>

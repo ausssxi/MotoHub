@@ -214,10 +214,22 @@ final class BikeController extends Controller
 
     public function models(): View
     {
-        $data = $this->bikeService->getAllModelsForIndex();
-        // ★修正: トップページの定番ではなく、専用の「急上昇トレンド」を取得する
+        $data = $this->bikeService->getManufacturersForIndex();
         $data['trendingBikes'] = $this->bikeService->getTrendingBikes(10);
         return view('bikes.models', $data);
+    }
+
+    /**
+     * メーカー別車種一覧API（Ajax用）
+     */
+    public function modelsApi(int $manufacturerId): JsonResponse
+    {
+        $groups = $this->bikeService->getGroupedModelsForManufacturer($manufacturerId);
+
+        // 空グループを除外
+        $groups = array_filter($groups, fn($list) => count($list) > 0);
+
+        return response()->json(['groups' => $groups]);
     }
 
     public function wishlist(): View

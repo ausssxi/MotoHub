@@ -141,9 +141,9 @@
     <div id="model-header" class="bg-gray-900 text-white pt-10 pb-16 relative overflow-hidden">
         <div class="absolute inset-0 z-0 opacity-30">
             @if($model->image_url)
-                <img src="{{ $model->image_url }}" class="w-full h-full object-cover blur-sm" alt="">
+                <img src="{{ $model->image_url }}" class="w-full h-full object-cover blur-sm" alt="" fetchpriority="high" decoding="async">
             @else
-                <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=2070" class="w-full h-full object-cover blur-sm" alt="">
+                <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=2070" class="w-full h-full object-cover blur-sm" alt="" fetchpriority="high" decoding="async">
             @endif
         </div>
         <div class="max-w-7xl mx-auto px-4 relative z-10">
@@ -640,7 +640,7 @@
                             <a href="{{ $related->seo_url }}" class="group block bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
                                 <div class="aspect-[4/3] rounded-lg bg-gray-100 overflow-hidden mb-3">
                                     @if($related->image_url)
-                                        <img src="{{ $related->image_url }}" alt="{{ $related->name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" decoding="async">
+                                        <img src="{{ $related->image_url }}" alt="{{ $related->name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" decoding="async">
                                     @else
                                         <div class="w-full h-full flex items-center justify-center text-gray-300">
                                             <i data-lucide="bike" class="w-6 h-6"></i>
@@ -670,7 +670,7 @@
                             <a href="{{ $related->seo_url }}" class="group block bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
                                 <div class="aspect-[4/3] rounded-lg bg-gray-100 overflow-hidden mb-3">
                                     @if($related->image_url)
-                                        <img src="{{ $related->image_url }}" alt="{{ $related->name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" decoding="async">
+                                        <img src="{{ $related->image_url }}" alt="{{ $related->name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" decoding="async">
                                     @else
                                         <div class="w-full h-full flex items-center justify-center text-gray-300">
                                             <i data-lucide="bike" class="w-6 h-6"></i>
@@ -701,7 +701,7 @@
                             <a href="{{ $related->seo_url }}" class="group block bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
                                 <div class="aspect-[4/3] rounded-lg bg-gray-100 overflow-hidden mb-3">
                                     @if($related->image_url)
-                                        <img src="{{ $related->image_url }}" alt="{{ $related->name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" decoding="async">
+                                        <img src="{{ $related->image_url }}" alt="{{ $related->name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" decoding="async">
                                     @else
                                         <div class="w-full h-full flex items-center justify-center text-gray-300">
                                             <i data-lucide="bike" class="w-6 h-6"></i>
@@ -737,7 +737,7 @@
                                 <a href="{{ route('bikes.show', $bike['id']) }}" class="flex gap-3 group">
                                     <div class="w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-gray-100 relative">
                                         @if(!empty($bike['images'][0]))
-                                            <img src="{{ $bike['images'][0] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                            <img src="{{ $bike['images'][0] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" decoding="async">
                                         @else
                                             <div class="w-full h-full flex items-center justify-center text-gray-300"><i data-lucide="bike"></i></div>
                                         @endif

@@ -50,6 +50,7 @@ Route::get('/', [BikeController::class, 'index'])->name('bikes.index');
 Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group(function () {
     Route::get('/search', 'search')->name('search');    // /bikes/search
     Route::get('/models', 'models')->name('models');    // /bikes/models
+    Route::get('/models/{manufacturer}/bikes', 'modelsApi')->name('models.api'); // Ajax
     Route::get('/suggest', 'suggest')->name('suggest'); // /bikes/suggest
     Route::get('/prefectures', 'prefectures')->name('prefectures');
     

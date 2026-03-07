@@ -72,7 +72,7 @@
                             {{-- 画像エリア --}}
                             <div class="w-32 sm:w-48 shrink-0 relative overflow-hidden bg-gray-800">
                                 @if($b->image_url)
-                                    <img src="{{ $b->image_url }}" alt="{{ $b->name }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                                    <img src="{{ $b->image_url }}" alt="{{ $b->name }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" loading="lazy" decoding="async">
                                 @else
                                     <div class="w-full h-full flex items-center justify-center text-gray-700">
                                         <i data-lucide="bike" class="w-10 h-10"></i>

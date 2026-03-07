@@ -1,6 +1,10 @@
 <x-layout>
     <x-slot:title>MotoHub - 中古・新車バイク一括検索</x-slot:title>
 
+    <x-slot:styles>
+        <link rel="preload" as="image" href="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=2070&auto=format&fit=crop" fetchpriority="high">
+    </x-slot:styles>
+
     <x-slot:scripts>
         <script src="{{ asset('js/search/suggest.js') }}"></script>
         
@@ -36,7 +40,8 @@
         <div class="absolute inset-0 z-0 overflow-hidden">
              <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=2070&auto=format&fit=crop"
                   alt="Motorcycle Background"
-                  class="w-full h-full object-cover opacity-40">
+                  class="w-full h-full object-cover opacity-40"
+                  fetchpriority="high" decoding="async">
         </div>
 
         <div class="relative z-10 w-full max-w-4xl px-4 text-center" id="search-container">
@@ -243,9 +248,10 @@
                            class="group bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col items-center text-center h-full">
                             
                             <div class="w-16 h-12 sm:w-20 sm:h-14 mb-3 relative flex items-center justify-center">
-                                <img src="{{ $category->display_icon_url }}" 
-                                     alt="{{ $category->name }}" 
-                                     class="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-500">
+                                <img src="{{ $category->display_icon_url }}"
+                                     alt="{{ $category->name }}"
+                                     class="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-500"
+                                     loading="lazy" decoding="async">
                             </div>
                             
                             <span class="text-xs font-bold text-gray-700 group-hover:text-blue-600 transition-colors leading-tight">
@@ -314,6 +320,7 @@
                                 @if($bike->image_url)
                                     <img src="{{ $bike->image_url }}" alt="{{ $bike->name }}"
                                          class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
+                                         loading="lazy" decoding="async"
                                          onerror="handleImageError(this)">
                                 @else
                                     <div class="w-full h-full flex items-center justify-center text-gray-300">

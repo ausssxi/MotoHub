@@ -8,7 +8,7 @@
     {{-- 画像 --}}
     <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-gray-50 overflow-hidden flex-shrink-0 relative border border-gray-100 mt-2 ml-2">
         @if($item['image_url'])
-            <img src="{{ $item['image_url'] }}" alt="{{ $item['model_name'] }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+            <img src="{{ $item['image_url'] }}" alt="{{ $item['model_name'] }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" decoding="async">
         @else
             <div class="w-full h-full flex items-center justify-center text-gray-300">
                 <i data-lucide="bike" class="w-8 h-8"></i>

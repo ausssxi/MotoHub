@@ -20,9 +20,10 @@
             @foreach($relatedListings as $rel)
                 <a href="{{ route('bikes.show', $rel['id']) }}" class="snap-start shrink-0 w-40 sm:w-48 group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition border border-gray-100 flex flex-col relative block">
                     <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
-                        <img src="{{ $rel['images'][0] ?? 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop' }}" 
+                        <img src="{{ $rel['images'][0] ?? 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop' }}"
                              onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
-                             class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 {{ empty($rel['images']) ? 'grayscale opacity-50' : '' }}" alt="{{ $rel['name'] }}">
+                             class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 {{ empty($rel['images']) ? 'grayscale opacity-50' : '' }}" alt="{{ $rel['name'] }}"
+                             loading="lazy" decoding="async">
                         
                         {{-- お買い得バッジ --}}
                         @if(isset($rel['bargain_score']) && $rel['bargain_score'] > 5)
@@ -70,9 +71,10 @@
             @foreach($similarListings as $sim)
                 <a href="{{ route('bikes.show', $sim['id']) }}" class="snap-start shrink-0 w-40 sm:w-48 group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition border border-gray-100 flex flex-col relative block">
                     <div class="aspect-[4/3] bg-gray-50 relative overflow-hidden">
-                        <img src="{{ $sim['images'][0] ?? 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop' }}" 
+                        <img src="{{ $sim['images'][0] ?? 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop' }}"
                              onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
-                             class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 {{ empty($sim['images']) ? 'grayscale opacity-50' : '' }}" alt="{{ $sim['name'] }}">
+                             class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 {{ empty($sim['images']) ? 'grayscale opacity-50' : '' }}" alt="{{ $sim['name'] }}"
+                             loading="lazy" decoding="async">
                         
                         {{-- お買い得バッジ --}}
                         @if(isset($sim['bargain_score']) && $sim['bargain_score'] > 5)
