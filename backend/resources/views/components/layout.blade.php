@@ -54,7 +54,7 @@
 
     {{-- サードパーティの重いJSに「defer(遅延)」をつけて画面描画を優先させる --}}
     <script src="https://unpkg.com/lucide@latest" defer></script>
-    <script src="{{ asset('js/push-manager.js') }}" defer></script>
+    <script src="{{ asset('js/push-manager.js') }}?v={{ filemtime(public_path('js/push-manager.js')) }}" defer></script>
     <script src="//unpkg.com/alpinejs" defer></script>
     
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
