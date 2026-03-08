@@ -16,6 +16,7 @@ use App\Http\Controllers\Auth\GoogleLoginController;
 use App\Http\Controllers\Auth\LineAuthController;
 use App\Http\Controllers\Shindan\ShindanController;
 use App\Http\Controllers\Feature\FeatureController;
+use App\Http\Controllers\Parking\ParkingController;
 
 /**
  * MotoHub Route Definitions
@@ -123,6 +124,20 @@ Route::prefix('shops')->name('shops.')->group(function () {
     Route::get('/api/area', [ShopController::class, 'area'])->name('api.area');
     
     Route::get('/{id}', [ShopController::class, 'show'])->name('show')->where('id', '[0-9]+');
+});
+
+// 駐車場マップ（公開）
+Route::prefix('parking')->name('parking.')->controller(ParkingController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/api/search', 'search')->name('search');
+    Route::get('/create', 'create')->name('create')->middleware('auth');
+    Route::get('/{bikeParking}', 'show')->name('show')->where('bikeParking', '[0-9]+');
+});
+
+// 駐車場マップ（要ログイン）
+Route::middleware('auth')->prefix('parking')->name('parking.')->controller(ParkingController::class)->group(function () {
+    Route::post('/', 'store')->name('store');
+    Route::post('/{bikeParking}/review', 'storeReview')->name('review')->where('bikeParking', '[0-9]+')->middleware('throttle:3,1');
 });
 
 // 特集ページ (SEOランディング)
