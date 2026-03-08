@@ -232,7 +232,7 @@
 
             {{-- 駐車場マップへの導線 --}}
             <section class="mb-20">
-                <a href="{{ route('parking.index') }}" class="group relative overflow-hidden rounded-3xl bg-gradient-to-r from-green-600 to-emerald-600 p-8 sm:p-10 block shadow-lg hover:shadow-2xl transition-all duration-300">
+                <a href="{{ route('parking.index') }}" class="group relative overflow-hidden rounded-3xl p-8 sm:p-10 block shadow-lg hover:shadow-2xl transition-all duration-300" style="background: linear-gradient(to right, #16a34a, #059669);">
                     <div class="absolute -right-8 -bottom-8 opacity-10 transform group-hover:scale-110 transition-transform duration-500">
                         <i data-lucide="square-parking" class="w-48 h-48 text-white"></i>
                     </div>
