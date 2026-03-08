@@ -76,20 +76,50 @@
                     @endif
                 </div>
 
-                {{-- 住所・料金 --}}
+                {{-- 基本情報テーブル --}}
                 <div class="space-y-3 mb-6">
                     <div class="flex items-start gap-3">
                         <i data-lucide="map-pin" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
                         <span class="text-sm text-gray-700">{{ $parking->address }}</span>
                     </div>
+                    @if($parking->tel)
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="phone" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
+                        <a href="tel:{{ $parking->tel }}" class="text-sm text-blue-600 hover:underline">{{ $parking->tel }}</a>
+                    </div>
+                    @endif
                     <div class="flex items-start gap-3">
                         <i data-lucide="coins" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
-                        <span class="text-sm text-gray-700">{{ $parking->getPriceDisplay() }}</span>
+                        <span class="text-sm text-gray-700">{{ $parking->price_detail ?: $parking->getPriceDisplay() }}</span>
                     </div>
                     @if($parking->capacity)
                     <div class="flex items-start gap-3">
                         <i data-lucide="car" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
                         <span class="text-sm text-gray-700">収容台数: {{ $parking->capacity }}台</span>
+                    </div>
+                    @endif
+                    @if($parking->available_hours)
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="clock" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
+                        <span class="text-sm text-gray-700">{{ $parking->available_hours }}</span>
+                    </div>
+                    @endif
+                    @if($parking->closed_days)
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="calendar-off" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
+                        <span class="text-sm text-gray-700">{{ $parking->closed_days }}</span>
+                    </div>
+                    @endif
+                    @if($parking->parking_form)
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="tag" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
+                        <span class="text-sm text-gray-700">{{ $parking->parking_form }}</span>
+                    </div>
+                    @endif
+                    @if($parking->vehicle_restriction)
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="alert-triangle" class="w-4 h-4 text-yellow-500 mt-0.5 shrink-0"></i>
+                        <span class="text-sm text-gray-700">{{ $parking->vehicle_restriction }}</span>
                     </div>
                     @endif
                 </div>
@@ -118,19 +148,26 @@
                     @endif
                 </div>
 
-                {{-- 説明文 --}}
-                @if($parking->description)
+                {{-- 備考 --}}
+                @if($parking->notes || $parking->description)
                 <div class="bg-gray-50 rounded-xl p-4 mb-6">
-                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ $parking->description }}</p>
+                    <p class="text-xs font-bold text-gray-500 mb-1">備考</p>
+                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ $parking->notes ?: $parking->description }}</p>
                 </div>
                 @endif
 
-                {{-- データソース --}}
-                @if($parking->source_url)
-                <div class="text-xs text-gray-400">
-                    出典: <a href="{{ $parking->source_url }}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">{{ parse_url($parking->source_url, PHP_URL_HOST) }}</a>
+                {{-- 管理会社・データソース --}}
+                <div class="space-y-1 text-xs text-gray-400">
+                    @if($parking->management_company)
+                    <p>管理会社: {{ $parking->management_company }}</p>
+                    @endif
+                    @if($parking->jmpsa_updated_at)
+                    <p>情報更新日: {{ $parking->jmpsa_updated_at->format('Y年n月j日') }}</p>
+                    @endif
+                    @if($parking->source_url)
+                    <p>出典: <a href="{{ $parking->source_url }}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">{{ parse_url($parking->source_url, PHP_URL_HOST) }}</a></p>
+                    @endif
                 </div>
-                @endif
             </div>
 
             {{-- 地図 --}}

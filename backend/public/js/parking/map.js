@@ -95,6 +95,11 @@ document.addEventListener('DOMContentLoaded', () => {
             parkings.forEach(p => {
                 const marker = L.marker([p.latitude, p.longitude], { icon: parkingIcon }).addTo(map);
 
+                const detailRows = [];
+                if (p.available_hours) detailRows.push(`<p class="text-[10px] text-gray-500"><span class="font-bold text-gray-600">時間:</span> ${p.available_hours}</p>`);
+                if (p.capacity) detailRows.push(`<p class="text-[10px] text-gray-500"><span class="font-bold text-gray-600">台数:</span> ${p.capacity}台</p>`);
+                if (p.price_detail) detailRows.push(`<p class="text-[10px] text-gray-500"><span class="font-bold text-gray-600">料金:</span> ${p.price_detail}</p>`);
+
                 const popupContent = `
                     <div class="p-4">
                         <h3 class="font-bold text-sm mb-1 line-clamp-1">${p.name}</h3>
@@ -105,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </span>
                             <span class="text-[10px] font-bold text-gray-700">${priceDisplay(p)}</span>
                         </div>
+                        ${detailRows.length ? '<div class="space-y-0.5 mt-1 mb-1">' + detailRows.join('') + '</div>' : ''}
                         ${ratingStars(p.avg_rating)}
                         ${facilityBadges(p)}
                         <a href="/parking/${p.id}" target="_blank" class="block w-full bg-green-600 text-white text-center text-xs font-bold py-2 rounded-lg hover:bg-green-700 transition-colors mt-3">
