@@ -27,33 +27,19 @@
     <div class="relative w-full">
         <div id="map" class="w-full bg-gray-100"></div>
 
-        {{-- レビュー促進バナー --}}
-        <div id="review-banner" class="absolute bottom-4 left-4 right-16 z-[1000] max-w-sm">
-            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-3 border border-blue-100 shadow-lg relative">
-                <button onclick="document.getElementById('review-banner').remove()" class="absolute top-1.5 right-2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
-                <div class="flex items-center gap-3">
-                    <div class="text-2xl">🅿️</div>
-                    <div>
-                        <p class="text-xs font-black text-gray-800">バイク乗りの知恵を共有しよう</p>
-                        <p class="text-[10px] text-gray-500">使ったことがある駐車場に★評価をつけてみんなの参考に</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         {{-- 検索中ローディング --}}
         <div id="map-loading" class="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-lg z-[1000] flex items-center gap-2 hidden">
             <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-green-600"></i>
             <span class="text-xs font-bold text-gray-600">駐車場を検索中...</span>
         </div>
 
-        {{-- フィルタパネル --}}
-        <div x-data="{ open: false }" class="absolute top-4 left-4 z-[1000]">
-            <button @click="open = !open" class="bg-white px-4 py-2.5 rounded-xl shadow-lg border border-gray-200 flex items-center gap-2 text-sm font-bold text-gray-700 hover:bg-gray-50 transition">
-                <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+        {{-- 左上: フィルタ --}}
+        <div x-data="{ open: false }" class="absolute top-3 left-3 z-[1000]">
+            <button @click="open = !open" class="bg-white px-3 py-2 rounded-lg shadow-md border border-gray-200 flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50 transition">
+                <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>
                 フィルタ
             </button>
-            <div x-show="open" x-transition @click.outside="open = false" class="mt-2 bg-white rounded-xl shadow-xl border border-gray-100 p-4 w-64" style="display: none;">
+            <div x-show="open" x-transition @click.outside="open = false" class="mt-2 bg-white rounded-xl shadow-xl border border-gray-100 p-4 w-56" style="display: none;">
                 <p class="text-xs font-black text-gray-900 mb-3">駐車場タイプ</p>
                 <div class="space-y-2" id="filter-type">
                     <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
@@ -72,22 +58,26 @@
             </div>
         </div>
 
-        {{-- 駐車場登録ボタン --}}
-        <a href="{{ route('parking.create') }}" class="absolute top-4 right-16 bg-green-600 text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-xs font-bold hover:bg-green-700 transition z-[1000]">
-            <i data-lucide="plus" class="w-4 h-4"></i>
+        {{-- 右上: 駐車場登録ボタン --}}
+        <a href="{{ route('parking.create') }}" class="absolute top-3 right-3 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-md flex items-center gap-1.5 text-xs font-bold hover:bg-gray-700 transition z-[1000]">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
             駐車場を登録
         </a>
 
-        {{-- 現在地ボタン --}}
-        <button id="btn-current-location" class="absolute bottom-4 right-4 bg-white p-3 rounded-full shadow-lg z-[1000] text-gray-600 hover:text-green-600 transition-colors border border-gray-200">
-            <i data-lucide="crosshair" class="w-6 h-6"></i>
+        {{-- 右下: 現在地ボタン（Leafletズームは左下） --}}
+        <button id="btn-current-location" class="absolute bottom-4 right-3 bg-white p-2.5 rounded-lg shadow-md z-[1000] text-gray-600 hover:text-green-600 transition-colors border border-gray-200">
+            <i data-lucide="crosshair" class="w-5 h-5"></i>
         </button>
     </div>
 
-    {{-- 件数バー --}}
-    <div class="bg-white border-t border-b border-gray-200 px-4 py-2 flex items-center justify-between">
-        <span id="parking-count" class="text-sm font-black text-gray-800">地図内に0件</span>
-        <span class="text-xs text-gray-400">← スクロールで他の駐車場を見る →</span>
+    {{-- 件数バー + レビュー促進 --}}
+    <div class="bg-white border-t border-b border-gray-200 px-4 py-2 flex items-center justify-between gap-3">
+        <span id="parking-count" class="text-sm font-black text-gray-800 shrink-0">地図内に0件</span>
+        <div id="review-banner" class="flex items-center gap-2 text-[10px] text-gray-400">
+            <span>🅿️ 使った駐車場に★評価をつけてみんなの参考に</span>
+            <button onclick="document.getElementById('review-banner').remove()" class="text-gray-300 hover:text-gray-500">✕</button>
+        </div>
+        <span class="text-xs text-gray-400 shrink-0 hidden sm:inline">← スクロール →</span>
     </div>
 
     {{-- カードスライダー --}}

@@ -7,7 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const defaultLng = lngParam ? parseFloat(lngParam) : 139.767125;
     const defaultZoom = latParam ? 15 : 13;
 
-    const map = L.map('map').setView([defaultLat, defaultLng], defaultZoom);
+    const map = L.map('map', { zoomControl: false }).setView([defaultLat, defaultLng], defaultZoom);
+    L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
