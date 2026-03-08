@@ -15,7 +15,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }).addTo(map);
 
     let markers = [];
+    let debounceTimer = null;
+    let isPanning = false;
     const loading = document.getElementById('map-loading');
+    const cardsContainer = document.getElementById('parking-cards');
+    const countEl = document.getElementById('parking-count');
 
     const getSelectedParkingType = () => {
         const checked = document.querySelector('input[name="parking_type"]:checked');
@@ -60,7 +64,23 @@ document.addEventListener('DOMContentLoaded', () => {
             : '';
     };
 
-    // カスタムアイコン（レビューあり=黄色、なし=グレー）
+    // ── 距離計算 ──
+    const getDistance = (center, parking) => {
+        const R = 6371000;
+        const dLat = (parking.latitude - center.lat) * Math.PI / 180;
+        const dLon = (parking.longitude - center.lng) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(center.lat * Math.PI / 180) * Math.cos(parking.latitude * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    const getDistanceText = (center, parking) => {
+        const d = getDistance(center, parking);
+        return d < 1000 ? `${Math.round(d)}m` : `${(d / 1000).toFixed(1)}km`;
+    };
+
+    // ── マーカーアイコン ──
     const createParkingIcon = (hasReviews) => {
         const color = hasReviews ? '#eab308' : '#9ca3af';
         return L.divIcon({
@@ -72,10 +92,70 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    // ── カード描画 ──
+    const renderCards = (parkings, center) => {
+        if (!cardsContainer) return;
+
+        if (parkings.length === 0) {
+            cardsContainer.innerHTML = '<div class="flex items-center justify-center w-full text-sm text-gray-400">この範囲に駐車場はありません</div>';
+            if (countEl) countEl.textContent = '地図内に0件';
+            return;
+        }
+
+        // 中心からの距離でソート
+        parkings.sort((a, b) => getDistance(center, a) - getDistance(center, b));
+
+        cardsContainer.innerHTML = parkings.map(p => {
+            const dist = getDistanceText(center, p);
+            const rating = p.avg_rating > 0 ? `<span class="text-xs font-bold text-yellow-600 ml-2">★${Number(p.avg_rating).toFixed(1)}</span>` : '';
+            const price = p.price_detail || priceDisplay(p);
+
+            return `<div class="parking-card snap-start shrink-0 w-[200px] sm:w-[260px] bg-white rounded-xl border border-gray-200 p-3 sm:p-4 shadow-sm hover:shadow-md transition-all cursor-pointer" data-id="${p.id}" data-lat="${p.latitude}" data-lng="${p.longitude}">
+                <div class="flex items-start justify-between mb-1">
+                    <h3 class="text-xs sm:text-sm font-black text-gray-800 line-clamp-1 flex-1">${p.name}</h3>
+                    ${rating}
+                </div>
+                ${p.capacity ? `<div class="text-[10px] sm:text-xs text-blue-600 font-bold mb-1">🅿️ ${p.capacity}台</div>` : ''}
+                <div class="text-[10px] text-gray-500 mb-1">📍 中心から${dist}</div>
+                <div class="text-[10px] text-gray-600 line-clamp-2">💰 ${price}</div>
+                ${p.available_hours ? `<div class="text-[10px] text-gray-500 mt-0.5">🕐 ${p.available_hours}</div>` : ''}
+            </div>`;
+        }).join('');
+
+        if (countEl) countEl.textContent = `地図内に${parkings.length}件`;
+
+        // カードクリックイベント
+        cardsContainer.querySelectorAll('.parking-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const lat = parseFloat(card.dataset.lat);
+                const lng = parseFloat(card.dataset.lng);
+
+                // パン中フラグを立てて moveend での再取得をスキップ
+                isPanning = true;
+                map.setView([lat, lng], Math.max(map.getZoom(), 16));
+                setTimeout(() => { isPanning = false; }, 500);
+
+                // 対応するマーカーのポップアップを開く
+                markers.forEach(m => {
+                    const pos = m.getLatLng();
+                    if (Math.abs(pos.lat - lat) < 0.0001 && Math.abs(pos.lng - lng) < 0.0001) {
+                        m.openPopup();
+                    }
+                });
+
+                // アクティブ状態
+                cardsContainer.querySelectorAll('.parking-card').forEach(c => c.classList.remove('parking-card-active'));
+                card.classList.add('parking-card-active');
+            });
+        });
+    };
+
+    // ── データ取得 + マーカー描画 + カード描画 ──
     const fetchParkings = async () => {
         if (loading) loading.classList.remove('hidden');
 
         const bounds = map.getBounds();
+        const center = map.getCenter();
         const params = new URLSearchParams({
             ne_lat: bounds.getNorthEast().lat,
             ne_lng: bounds.getNorthEast().lng,
@@ -92,6 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const parkings = await response.json();
 
+            // マーカー更新
             markers.forEach(m => map.removeLayer(m));
             markers = [];
 
@@ -132,11 +213,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 marker.bindPopup(popupContent, {
                     className: 'custom-popup',
-                    minWidth: 280
+                    minWidth: 280,
+                    autoClose: false,
+                    closeOnClick: false
                 });
 
                 markers.push(marker);
             });
+
+            // カード描画
+            renderCards(parkings, center);
 
         } catch (error) {
             console.error('Failed to fetch parkings:', error);
@@ -145,7 +231,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    map.on('moveend', fetchParkings);
+    // デバウンス付きmoveend（カードクリックによるパン中はスキップ）
+    const debouncedFetch = () => {
+        if (isPanning) return;
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(fetchParkings, 300);
+    };
+
+    map.on('moveend', debouncedFetch);
     fetchParkings();
 
     // フィルタ変更時に再検索

@@ -12,71 +12,65 @@ class ImportBikeparkParkings extends Command
 {
     protected $signature = 'parking:import-bikepark
         {--dry-run : 保存せず確認のみ}
-        {--limit= : 取得上限件数}';
+        {--limit= : 取得上限件数}
+        {--start=1 : 開始ID}
+        {--end=3900 : 終了ID}';
 
-    protected $description = 'bikepark.in からバイク駐車場データを取得してDBに保存します';
+    protected $description = 'bikepark.in の個別ページ(ID=1~3900)を巡回してバイク駐車場データを取得します';
 
-    private const API_URL = 'https://bikepark.in/api.pl';
     private const DETAIL_URL = 'https://bikepark.in/detail.cgi';
     private const USER_AGENT = 'MotoHub/1.0 (https://www.motohub.jp)';
     private const REQUEST_INTERVAL_US = 2000000; // 2秒（個人サイトなので配慮）
-
-    // 日本全国を網羅するための座標グリッド（主要都市・エリア）
-    private const SCAN_POINTS = [
-        // 北海道
-        [43.06, 141.35], [43.77, 142.37], [42.92, 143.20], [41.77, 140.73],
-        // 東北
-        [40.82, 140.74], [39.70, 141.15], [38.27, 140.87], [39.72, 140.10],
-        [38.24, 140.36], [37.75, 140.47],
-        // 関東
-        [36.34, 140.45], [36.57, 139.88], [36.39, 139.06], [35.86, 139.65],
-        [35.61, 140.12], [35.68, 139.77], [35.45, 139.64], [35.69, 139.70],
-        [35.63, 139.88], [35.73, 139.65], [35.33, 139.55], [35.47, 139.63],
-        // 中部
-        [37.90, 139.02], [36.70, 137.21], [36.59, 136.63], [36.07, 136.22],
-        [35.66, 138.57], [36.23, 138.18], [35.39, 136.72], [34.98, 138.38],
-        [35.18, 136.91], [35.17, 136.88],
-        // 近畿
-        [34.73, 136.51], [35.00, 135.87], [35.02, 135.76], [34.69, 135.52],
-        [34.69, 135.18], [34.69, 135.83], [34.23, 135.17], [34.65, 135.50],
-        [34.70, 135.50],
-        // 中国・四国
-        [35.50, 134.24], [35.47, 133.05], [34.66, 133.93], [34.40, 132.46],
-        [34.19, 131.47], [34.07, 134.56], [34.34, 134.04], [33.84, 132.77],
-        [33.56, 133.53],
-        // 九州・沖縄
-        [33.61, 130.42], [33.25, 130.30], [32.74, 129.87], [32.79, 130.74],
-        [33.24, 131.61], [31.91, 131.42], [31.56, 130.56], [26.34, 127.68],
-        [33.59, 130.40],
-    ];
 
     private int $created = 0;
     private int $skipped = 0;
     private int $duplicated = 0;
     private int $failed = 0;
-    private array $seenIds = [];
+    private int $notFound = 0;
 
     public function handle(): void
     {
         $dryRun = $this->option('dry-run');
         $limit = $this->option('limit') ? (int) $this->option('limit') : null;
+        $startId = (int) $this->option('start');
+        $endId = (int) $this->option('end');
 
         if ($dryRun) {
             $this->info('[DRY RUN] データは保存されません。');
         }
 
-        $this->info('bikepark.in からデータを取得開始...');
-        $this->info('スキャンポイント: ' . count(self::SCAN_POINTS) . '箇所');
+        // 既に取得済みのbikepark.in IDを収集（スキップ用）
+        $existingIds = BikeParking::where('source_url', 'like', '%bikepark.in%')
+            ->pluck('source_url')
+            ->map(function ($url) {
+                preg_match('/ID=(\d+)/', $url, $m);
 
-        $bar = $this->output->createProgressBar(count(self::SCAN_POINTS));
+                return $m[1] ?? null;
+            })
+            ->filter()
+            ->flip()
+            ->toArray();
+
+        $this->info("bikepark.in ID={$startId}〜{$endId} を巡回開始...");
+        $this->info('取得済み: ' . count($existingIds) . '件（スキップ対象）');
+
+        $totalIds = $endId - $startId + 1;
+        $bar = $this->output->createProgressBar($totalIds);
         $bar->start();
 
-        foreach (self::SCAN_POINTS as $point) {
+        for ($id = $startId; $id <= $endId; $id++) {
             if ($limit && $this->created >= $limit) {
                 break;
             }
 
-            $this->fetchAndProcess($point[0], $point[1], $dryRun, $limit);
+            // 既に取得済みならスキップ（リクエスト不要）
+            if (isset($existingIds[(string) $id])) {
+                $this->skipped++;
+                $bar->advance();
+                continue;
+            }
+
+            $this->fetchAndProcess($id, $dryRun);
             $bar->advance();
 
             usleep(self::REQUEST_INTERVAL_US);
@@ -86,79 +80,113 @@ class ImportBikeparkParkings extends Command
         $this->newLine(2);
 
         $this->info('========================================');
-        $this->info("完了！ 新規: {$this->created}件 / 重複: {$this->duplicated}件 / スキップ: {$this->skipped}件 / 失敗: {$this->failed}件");
+        $this->info("完了！ 新規: {$this->created}件 / 重複(JMPSA等): {$this->duplicated}件 / 取得済スキップ: {$this->skipped}件 / 存在しないID: {$this->notFound}件 / 失敗: {$this->failed}件");
     }
 
-    private function fetchAndProcess(float $lat, float $lng, bool $dryRun, ?int $limit): void
+    private function fetchAndProcess(int $id, bool $dryRun): void
     {
         try {
             $response = Http::withHeaders([
                 'User-Agent' => self::USER_AGENT,
-            ])->timeout(15)->get(self::API_URL, [
-                'lat' => $lat,
-                'lng' => $lng,
+            ])->timeout(15)->get(self::DETAIL_URL, [
+                'ID' => $id,
             ]);
 
             if (!$response->successful()) {
                 $this->failed++;
+
                 return;
             }
 
-            $items = $response->json();
-            if (!is_array($items)) {
+            $body = $response->body();
+
+            // Shift_JIS → UTF-8
+            $html = mb_convert_encoding($body, 'UTF-8', 'SJIS-win');
+
+            // ページが存在しないか確認（タイトルに駐輪場名が無い場合）
+            if (!preg_match('/駐輪場詳細/u', $html)) {
+                $this->notFound++;
+
                 return;
             }
 
-            foreach ($items as $item) {
-                if ($limit && $this->created >= $limit) {
+            $data = $this->parseDetailPage($html, $id);
+            if ($data === null) {
+                $this->notFound++;
+
+                return;
+            }
+
+            // 重複チェック（JMPSAデータ等との重複）
+            if ($this->isDuplicate($data['name'], $data['address'] ?? '', $data['latitude'] ?? 0, $data['longitude'] ?? 0)) {
+                $this->duplicated++;
+
+                return;
+            }
+
+            if ($dryRun) {
+                $this->newLine();
+                $this->line("  [DRY] ID={$id} | {$data['name']} | {$data['address']} | cap={$data['capacity']} | {$data['available_hours']}");
+            } else {
+                try {
+                    BikeParking::create($data);
+                } catch (\Exception $e) {
+                    $this->failed++;
+
                     return;
                 }
-
-                // 既に処理済みのIDはスキップ
-                $id = $item['ID'] ?? null;
-                if (!$id || isset($this->seenIds[$id])) {
-                    continue;
-                }
-                $this->seenIds[$id] = true;
-
-                $this->processItem($item, $dryRun);
             }
+
+            $this->created++;
         } catch (\Exception $e) {
             $this->failed++;
         }
     }
 
-    private function processItem(array $item, bool $dryRun): void
+    /**
+     * detail.cgi のHTMLから全情報をパース
+     */
+    private function parseDetailPage(string $html, int $id): ?array
     {
-        $name = $item['name'] ?? '';
-        $address = $item['address'] ?? '';
-        $fee = $item['fee'] ?? '';
-
+        // 名称
+        $name = $this->extractField($html, '名称');
         if (empty($name)) {
-            $this->skipped++;
-            return;
+            return null;
         }
 
-        // DMS座標を10進数に変換
-        $lat = $this->dmsToDecimal($item['nl'] ?? '');
-        $lng = $this->dmsToDecimal($item['el'] ?? '');
+        // 住所
+        $address = $this->extractField($html, '住所') ?? '';
+
+        // 座標（Google Maps リンクから取得）
+        $lat = null;
+        $lng = null;
+        if (preg_match('/q=([\d.-]+),([\d.-]+)/', $html, $m)) {
+            $lat = (float) $m[1];
+            $lng = (float) $m[2];
+        } elseif (preg_match('/lat=([\d.-]+)&lon=([\d.-]+)/', $html, $m)) {
+            $lat = (float) $m[1];
+            $lng = (float) $m[2];
+        }
 
         if ($lat === null || $lng === null) {
-            $this->skipped++;
-            return;
+            return null;
         }
 
-        // 重複チェック
-        if ($this->isDuplicate($name, $address, $lat, $lng)) {
-            $this->duplicated++;
-            return;
+        // 各フィールドを抽出
+        $fee = $this->extractField($html, '料金') ?? '';
+        $capacity = null;
+        $capacityRaw = $this->extractField($html, '台数');
+        if ($capacityRaw && preg_match('/(\d+)\s*台/', $capacityRaw, $m)) {
+            $capacity = (int) $m[1];
         }
+        $availableHours = $this->extractField($html, '入出庫時間');
+        $station = $this->extractField($html, '最寄り駅');
+        $tel = $this->extractField($html, '問い合わせ先');
+        $notes = $this->extractField($html, '備考');
 
-        // 都道府県と市区町村を抽出
+        // 都道府県と市区町村
         $prefecture = $this->extractPrefecture($address);
         $city = $this->extractCity($address);
-
-        $sourceUrl = self::DETAIL_URL . '?ID=' . ($item['ID'] ?? '');
 
         $data = [
             'name' => $name,
@@ -167,46 +195,57 @@ class ImportBikeparkParkings extends Command
             'longitude' => $lng,
             'prefecture' => $prefecture,
             'city' => $city,
-            'parking_type' => $this->detectParkingType($item['type'] ?? ''),
+            'parking_type' => 'bike_only',
             'description' => $fee,
-            'source_url' => $sourceUrl,
+            'source_url' => self::DETAIL_URL . '?ID=' . $id,
             'is_active' => true,
         ];
+
+        if ($capacity) {
+            $data['capacity'] = $capacity;
+        }
+        if ($availableHours && $availableHours !== '-') {
+            $data['available_hours'] = $availableHours;
+            if (preg_match('/24\s*時間/u', $availableHours)) {
+                $data['available_24h'] = true;
+            }
+        }
+        if ($tel && $tel !== '-') {
+            $data['tel'] = $tel;
+        }
+
+        // notes にまとめる
+        $notesParts = [];
+        if ($station && $station !== '-') {
+            $notesParts[] = '最寄り駅: ' . $station;
+        }
+        if ($notes && $notes !== '-') {
+            $notesParts[] = $notes;
+        }
+        if ($notesParts) {
+            $data['notes'] = implode("\n", $notesParts);
+        }
 
         // 料金パース
         $this->parseFee($fee, $data);
 
-        if ($dryRun) {
-            $this->line("  [DRY] {$name} | {$address} | lat={$lat} lng={$lng}");
-        } else {
-            try {
-                BikeParking::create($data);
-            } catch (\Exception $e) {
-                $this->failed++;
-                return;
-            }
-        }
-
-        $this->created++;
+        return $data;
     }
 
     /**
-     * DMS座標（度.分.秒.小数）を10進数に変換
-     * 例: "35.41.05.98" → 35 + 41/60 + 5.98/3600
+     * 「ラベル： 値<br>」形式からフィールド値を抽出
      */
-    private function dmsToDecimal(string $dms): ?float
+    private function extractField(string $html, string $label): ?string
     {
-        $parts = explode('.', $dms);
-        if (count($parts) < 3) {
-            return null;
+        // 「ラベル： 値」のパターン（<br> or </ で終端）
+        $pattern = '/' . preg_quote($label, '/') . '[：:]\s*(.+?)(?:<br|<\/)/iu';
+        if (preg_match($pattern, $html, $m)) {
+            $value = trim(strip_tags($m[1]));
+
+            return $value !== '' ? $value : null;
         }
 
-        $degrees = (int) $parts[0];
-        $minutes = (int) $parts[1];
-        // 秒と小数秒を結合
-        $seconds = (float) ($parts[2] . '.' . ($parts[3] ?? '0'));
-
-        return $degrees + $minutes / 60.0 + $seconds / 3600.0;
+        return null;
     }
 
     /**
@@ -214,6 +253,10 @@ class ImportBikeparkParkings extends Command
      */
     private function isDuplicate(string $name, string $address, float $lat, float $lng): bool
     {
+        if ($lat == 0 || $lng == 0) {
+            return false;
+        }
+
         // 名前完全一致
         if (BikeParking::where('name', $name)->exists()) {
             return true;
@@ -231,7 +274,7 @@ class ImportBikeparkParkings extends Command
             }
         }
 
-        // 座標が50m以内の駐車場があるか（緯度経度の50m ≒ 約0.00045度）
+        // 座標が50m以内の駐車場があるか
         $veryNearby = BikeParking::whereBetween('latitude', [$lat - 0.00045, $lat + 0.00045])
             ->whereBetween('longitude', [$lng - 0.00045, $lng + 0.00045])
             ->exists();
@@ -266,28 +309,18 @@ class ImportBikeparkParkings extends Command
         return '';
     }
 
-    private function detectParkingType(string $type): string
-    {
-        return match ($type) {
-            '3', '4' => 'bicycle_shared',
-            default => 'bike_only',
-        };
-    }
-
     private function parseFee(string $fee, array &$data): void
     {
         if (empty($fee)) {
             return;
         }
 
-        // 無料判定
         if (preg_match('/無料/', $fee) && !preg_match('/\d+円/', $fee)) {
             $data['is_free'] = true;
 
             return;
         }
 
-        // 時間料金
         if (preg_match('/(\d+)分[^\d]*?(\d+)円/', $fee, $m)) {
             $minutes = (int) $m[1];
             $price = (int) $m[2];
@@ -302,14 +335,12 @@ class ImportBikeparkParkings extends Command
             }
         }
 
-        // 日額
         if (preg_match('/24時間[^\d]*(\d[\d,]*)円/', $fee, $m)) {
             $data['price_per_day'] = (int) str_replace(',', '', $m[1]);
         } elseif (preg_match('/最大[^\d]*(\d[\d,]*)円/', $fee, $m)) {
             $data['price_per_day'] = (int) str_replace(',', '', $m[1]);
         }
 
-        // 月額
         if (preg_match('/月[極額]?\s*(\d[\d,]*)円/', $fee, $m)) {
             $data['price_per_month'] = (int) str_replace(',', '', $m[1]);
         }

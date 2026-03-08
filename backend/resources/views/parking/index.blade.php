@@ -5,9 +5,13 @@
     <x-slot:styles>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
         <style>
-            #map { height: calc(100vh - 64px); z-index: 10; }
+            #map { height: 60vh; z-index: 10; }
+            @media (max-width: 640px) { #map { height: 50vh; } }
             .custom-popup .leaflet-popup-content-wrapper { border-radius: 12px; padding: 0; overflow: hidden; }
             .custom-popup .leaflet-popup-content { margin: 0; width: 280px !important; }
+            .scrollbar-hide::-webkit-scrollbar { display: none; }
+            .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+            .parking-card-active { border-color: #16a34a !important; box-shadow: 0 0 0 2px rgba(22,163,74,.3); }
         </style>
     </x-slot:styles>
 
@@ -20,18 +24,18 @@
         <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
-    <div class="relative w-full h-[calc(100vh-64px)]">
-        <div id="map" class="w-full h-full bg-gray-100"></div>
+    <div class="relative w-full">
+        <div id="map" class="w-full bg-gray-100"></div>
 
         {{-- レビュー促進バナー --}}
-        <div id="review-banner" class="absolute bottom-20 left-4 right-16 z-[1000] max-w-sm">
-            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100 shadow-lg relative">
-                <button onclick="document.getElementById('review-banner').remove()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+        <div id="review-banner" class="absolute bottom-4 left-4 right-16 z-[1000] max-w-sm">
+            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-3 border border-blue-100 shadow-lg relative">
+                <button onclick="document.getElementById('review-banner').remove()" class="absolute top-1.5 right-2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
                 <div class="flex items-center gap-3">
-                    <div class="text-3xl">🅿️</div>
+                    <div class="text-2xl">🅿️</div>
                     <div>
-                        <p class="text-sm font-black text-gray-800">バイク乗りの知恵を共有しよう</p>
-                        <p class="text-xs text-gray-500">使ったことがある駐車場に★評価をつけてみんなの参考に</p>
+                        <p class="text-xs font-black text-gray-800">バイク乗りの知恵を共有しよう</p>
+                        <p class="text-[10px] text-gray-500">使ったことがある駐車場に★評価をつけてみんなの参考に</p>
                     </div>
                 </div>
             </div>
@@ -75,9 +79,22 @@
         </a>
 
         {{-- 現在地ボタン --}}
-        <button id="btn-current-location" class="absolute bottom-8 right-4 bg-white p-3 rounded-full shadow-lg z-[1000] text-gray-600 hover:text-green-600 transition-colors border border-gray-200">
+        <button id="btn-current-location" class="absolute bottom-4 right-4 bg-white p-3 rounded-full shadow-lg z-[1000] text-gray-600 hover:text-green-600 transition-colors border border-gray-200">
             <i data-lucide="crosshair" class="w-6 h-6"></i>
         </button>
+    </div>
+
+    {{-- 件数バー --}}
+    <div class="bg-white border-t border-b border-gray-200 px-4 py-2 flex items-center justify-between">
+        <span id="parking-count" class="text-sm font-black text-gray-800">地図内に0件</span>
+        <span class="text-xs text-gray-400">← スクロールで他の駐車場を見る →</span>
+    </div>
+
+    {{-- カードスライダー --}}
+    <div id="parking-cards"
+         class="flex gap-3 overflow-x-auto pb-4 px-4 py-3 bg-gray-50 snap-x snap-mandatory scrollbar-hide"
+         style="min-height: 120px;">
+        <div class="flex items-center justify-center w-full text-sm text-gray-400">地図を移動すると駐車場カードが表示されます</div>
     </div>
 
     {{-- レビューが多い駐車場ランキング --}}
