@@ -230,6 +230,25 @@
                 @endif
             </section>
 
+            {{-- 駐車場マップへの導線 --}}
+            <section class="mb-20">
+                <a href="{{ route('parking.index') }}" class="group relative overflow-hidden rounded-3xl bg-gradient-to-r from-green-600 to-emerald-600 p-8 sm:p-10 block shadow-lg hover:shadow-2xl transition-all duration-300">
+                    <div class="absolute -right-8 -bottom-8 opacity-10 transform group-hover:scale-110 transition-transform duration-500">
+                        <i data-lucide="square-parking" class="w-48 h-48 text-white"></i>
+                    </div>
+                    <div class="relative z-10 flex items-center justify-between">
+                        <div class="text-white">
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-2">Parking Map</p>
+                            <h2 class="text-xl sm:text-2xl font-black mb-2">バイク駐車場マップ</h2>
+                            <p class="text-xs sm:text-sm text-white/80 font-medium">全国1,000件以上の駐車場をマップで検索。料金・設備情報も掲載。</p>
+                        </div>
+                        <div class="hidden sm:flex items-center justify-center w-14 h-14 bg-white/20 rounded-full group-hover:bg-white/30 transition-colors shrink-0 ml-6">
+                            <i data-lucide="arrow-right" class="w-6 h-6 text-white group-hover:translate-x-1 transition-transform"></i>
+                        </div>
+                    </div>
+                </a>
+            </section>
+
             {{-- タイプから探す --}}
             <section class="mb-20">
                 <div class="flex items-end justify-between mb-8 px-2">

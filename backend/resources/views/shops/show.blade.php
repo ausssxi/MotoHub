@@ -93,6 +93,16 @@
                             </a>
                         </div>
                         @endif
+
+                        @if($shop->latitude && $shop->longitude)
+                        <div class="mt-4">
+                            <a href="{{ route('parking.index', ['lat' => $shop->latitude, 'lng' => $shop->longitude]) }}"
+                               class="flex items-center justify-center gap-2 w-full bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 font-bold text-xs py-3 rounded-xl transition">
+                                <i data-lucide="square-parking" class="w-4 h-4"></i>
+                                この店舗の近くの駐車場を探す
+                            </a>
+                        </div>
+                        @endif
                     </div>
 
                     {{-- 取扱メーカー --}}
