@@ -12,6 +12,7 @@ use App\Models\Manufacturer;
 use App\Models\Category;
 use App\Models\Tag;
 use App\Models\SeoFeature;
+use App\Models\BikeParking;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
@@ -67,6 +68,9 @@ class GenerateSitemap extends Command
             
             // 相場ランキング (データが毎日変わるので daily)
             ['route' => 'bikes.trends',      'priority' => '0.8', 'freq' => 'daily'],
+
+            // 駐車場マップ
+            ['route' => 'parking.index',     'priority' => '0.8', 'freq' => 'daily'],
 
             // ツール系
             ['route' => 'bikes.compare',     'priority' => '0.5', 'freq' => 'daily'],
@@ -381,6 +385,39 @@ class GenerateSitemap extends Command
 
         $this->closeSitemap($handle);
         $this->info(" -> {$shopCount} URL (Shops)");
+
+
+        // =========================================================
+        // 4.5. 駐車場サイトマップ (sitemap-parking.xml)
+        // =========================================================
+        $this->info("駐車場サイトマップを生成中...");
+        $parkingFileName = 'sitemap-parking.xml';
+        $handle = $this->openSitemap($parkingFileName);
+        $sitemapFiles[] = $parkingFileName;
+        $parkingCount = 0;
+
+        // 駐車場マップトップ
+        $this->writeUrl($handle, route('parking.index'), date('Y-m-d'), 'daily', '0.8');
+        $parkingCount++;
+
+        // 各駐車場詳細ページ
+        BikeParking::active()->select('id', 'updated_at')
+            ->orderBy('updated_at', 'desc')
+            ->chunk(1000, function ($parkings) use ($handle, &$parkingCount) {
+                foreach ($parkings as $parking) {
+                    $this->writeUrl(
+                        $handle,
+                        route('parking.show', $parking->id),
+                        $parking->updated_at->format('Y-m-d'),
+                        'weekly',
+                        '0.6'
+                    );
+                    $parkingCount++;
+                }
+            });
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$parkingCount} URL (Parking)");
 
 
         // =========================================================
