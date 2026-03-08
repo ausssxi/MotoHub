@@ -25,7 +25,13 @@ class ParkingController extends Controller
      */
     public function index(): View
     {
-        return view('parking.index');
+        $topReviewed = BikeParking::active()
+            ->where('reviews_count', '>', 0)
+            ->orderByDesc('reviews_count')
+            ->limit(5)
+            ->get();
+
+        return view('parking.index', compact('topReviewed'));
     }
 
     /**
@@ -80,7 +86,7 @@ class ParkingController extends Controller
     }
 
     /**
-     * レビュー投稿
+     * レビュー投稿（ログイン不要）
      */
     public function storeReview(BikeParking $bikeParking, StoreParkingReviewRequest $request): RedirectResponse
     {
@@ -91,6 +97,19 @@ class ParkingController extends Controller
         );
 
         return redirect()->route('parking.show', $bikeParking)
-            ->with('success', 'レビューを投稿しました！');
+            ->with('review_success', json_encode([
+                'name' => $bikeParking->name,
+                'url' => route('parking.show', $bikeParking),
+            ]));
+    }
+
+    /**
+     * 「使ったことある」カウントアップ
+     */
+    public function incrementUsed(BikeParking $bikeParking): JsonResponse
+    {
+        $bikeParking->increment('used_count');
+
+        return response()->json(['used_count' => $bikeParking->fresh()->used_count]);
     }
 }

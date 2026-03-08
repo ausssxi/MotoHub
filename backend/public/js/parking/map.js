@@ -60,14 +60,17 @@ document.addEventListener('DOMContentLoaded', () => {
             : '';
     };
 
-    // カスタムアイコン（緑のマーカー）
-    const parkingIcon = L.divIcon({
-        html: '<div style="background:#16a34a;width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:12px;">P</div>',
-        className: '',
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-        popupAnchor: [0, -16]
-    });
+    // カスタムアイコン（レビューあり=黄色、なし=グレー）
+    const createParkingIcon = (hasReviews) => {
+        const color = hasReviews ? '#eab308' : '#9ca3af';
+        return L.divIcon({
+            html: `<div style="background:${color};width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:12px;">P</div>`,
+            className: '',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+            popupAnchor: [0, -16]
+        });
+    };
 
     const fetchParkings = async () => {
         if (loading) loading.classList.remove('hidden');
@@ -93,12 +96,19 @@ document.addEventListener('DOMContentLoaded', () => {
             markers = [];
 
             parkings.forEach(p => {
-                const marker = L.marker([p.latitude, p.longitude], { icon: parkingIcon }).addTo(map);
+                const hasReviews = p.reviews_count > 0;
+                const marker = L.marker([p.latitude, p.longitude], { icon: createParkingIcon(hasReviews) }).addTo(map);
 
                 const detailRows = [];
                 if (p.available_hours) detailRows.push(`<p class="text-[10px] text-gray-500"><span class="font-bold text-gray-600">時間:</span> ${p.available_hours}</p>`);
                 if (p.capacity) detailRows.push(`<p class="text-[10px] text-gray-500"><span class="font-bold text-gray-600">台数:</span> ${p.capacity}台</p>`);
                 if (p.price_detail) detailRows.push(`<p class="text-[10px] text-gray-500"><span class="font-bold text-gray-600">料金:</span> ${p.price_detail}</p>`);
+
+                const reviewAction = hasReviews
+                    ? `<p class="text-[10px] text-gray-400 mt-1">${p.reviews_count}件のレビュー</p>`
+                    : `<a href="/parking/${p.id}#review-detail-form" class="text-[10px] text-blue-500 hover:underline mt-1 block">最初のレビューを投稿する →</a>`;
+
+                const usedInfo = p.used_count > 0 ? `<span class="text-[10px] text-gray-400 ml-2">${p.used_count}人が使った</span>` : '';
 
                 const popupContent = `
                     <div class="p-4">
@@ -111,7 +121,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="text-[10px] font-bold text-gray-700">${priceDisplay(p)}</span>
                         </div>
                         ${detailRows.length ? '<div class="space-y-0.5 mt-1 mb-1">' + detailRows.join('') + '</div>' : ''}
-                        ${ratingStars(p.avg_rating)}
+                        <div class="flex items-center">${ratingStars(p.avg_rating)}${usedInfo}</div>
+                        ${reviewAction}
                         ${facilityBadges(p)}
                         <a href="/parking/${p.id}" target="_blank" class="block w-full bg-green-600 text-white text-center text-xs font-bold py-2 rounded-lg hover:bg-green-700 transition-colors mt-3">
                             詳細を見る

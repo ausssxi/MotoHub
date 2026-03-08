@@ -23,6 +23,20 @@
     <div class="relative w-full h-[calc(100vh-64px)]">
         <div id="map" class="w-full h-full bg-gray-100"></div>
 
+        {{-- レビュー促進バナー --}}
+        <div id="review-banner" class="absolute bottom-20 left-4 right-16 z-[1000] max-w-sm">
+            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100 shadow-lg relative">
+                <button onclick="document.getElementById('review-banner').remove()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                <div class="flex items-center gap-3">
+                    <div class="text-3xl">🅿️</div>
+                    <div>
+                        <p class="text-sm font-black text-gray-800">バイク乗りの知恵を共有しよう</p>
+                        <p class="text-xs text-gray-500">使ったことがある駐車場に★評価をつけてみんなの参考に</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- 検索中ローディング --}}
         <div id="map-loading" class="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-lg z-[1000] flex items-center gap-2 hidden">
             <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-green-600"></i>
@@ -65,6 +79,34 @@
             <i data-lucide="crosshair" class="w-6 h-6"></i>
         </button>
     </div>
+
+    {{-- レビューが多い駐車場ランキング --}}
+    @if($topReviewed->isNotEmpty())
+    <section class="bg-gray-50 py-8">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-lg font-black text-gray-900 text-center mb-6">レビューが多い駐車場</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                @foreach($topReviewed as $rank => $p)
+                <a href="{{ route('parking.show', $p) }}" class="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md transition-shadow block">
+                    <div class="flex items-start gap-3">
+                        <span class="text-2xl font-black text-gray-200">{{ $rank + 1 }}</span>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="text-sm font-bold text-gray-800 truncate">{{ $p->name }}</h3>
+                            <p class="text-[10px] text-gray-400 truncate">{{ $p->prefecture }} {{ $p->city }}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-yellow-500 text-xs">
+                                    @for($i = 1; $i <= 5; $i++){{ $i <= round($p->avg_rating) ? '★' : '☆' }}@endfor
+                                </span>
+                                <span class="text-[10px] text-gray-400">{{ number_format($p->avg_rating, 1) }} ({{ $p->reviews_count }}件)</span>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+                @endforeach
+            </div>
+        </div>
+    </section>
+    @endif
 
     {{-- 都道府県から探す（SEO用内部リンク） --}}
     <section class="bg-white py-12">

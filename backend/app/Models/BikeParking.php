@@ -45,6 +45,7 @@ final class BikeParking extends Model
         'source_url',
         'avg_rating',
         'reviews_count',
+        'used_count',
         'is_verified',
         'is_active',
     ];
@@ -64,6 +65,7 @@ final class BikeParking extends Model
         'available_24h' => 'boolean',
         'avg_rating' => 'float',
         'reviews_count' => 'integer',
+        'used_count' => 'integer',
         'is_verified' => 'boolean',
         'is_active' => 'boolean',
     ];

@@ -24,6 +24,44 @@
                 L.marker([lat, lng]).addTo(map);
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             });
+
+            function setRating(rating) {
+                document.getElementById('rating-input').value = rating;
+                document.getElementById('review-detail-form').classList.remove('hidden');
+
+                document.querySelectorAll('.rating-star').forEach(btn => {
+                    const r = parseInt(btn.dataset.rating);
+                    btn.textContent = r <= rating ? '★' : '☆';
+                    btn.classList.toggle('bg-yellow-100', r <= rating);
+                    btn.classList.toggle('text-yellow-500', r <= rating);
+                    btn.classList.toggle('bg-gray-100', r > rating);
+                });
+            }
+
+            function markUsed(parkingId) {
+                const btn = document.getElementById('btn-used');
+                btn.disabled = true;
+                btn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor" class="opacity-75"/></svg>';
+
+                fetch(`/parking/${parkingId}/used`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json',
+                    }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('used-count').textContent = data.used_count;
+                    btn.innerHTML = '✓ 回答済み';
+                    btn.classList.remove('bg-gray-100', 'hover:bg-green-100', 'text-gray-600');
+                    btn.classList.add('bg-green-100', 'text-green-700');
+                })
+                .catch(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i data-lucide="check-circle" class="w-4 h-4"></i> 使った！';
+                });
+            }
         </script>
     </x-slot:scripts>
 
@@ -215,68 +253,68 @@
                 @endif
             </div>
 
-            {{-- レビュー投稿フォーム --}}
-            @auth
-            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
-                <h2 class="text-sm font-black text-gray-900 mb-4 flex items-center gap-2">
-                    <i data-lucide="pen-line" class="w-4 h-4 text-green-600"></i>
-                    レビューを投稿
-                </h2>
+            {{-- 「使ったことある」ボタン --}}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-bold text-gray-700">この駐車場を使ったことがある？</p>
+                    <p class="text-xs text-gray-400"><span id="used-count">{{ $parking->used_count ?? 0 }}</span>人が「使った」と回答</p>
+                </div>
+                <button id="btn-used" onclick="markUsed({{ $parking->id }})"
+                    class="bg-gray-100 hover:bg-green-100 text-gray-600 hover:text-green-700 font-bold text-sm px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4"></i>
+                    使った！
+                </button>
+            </div>
 
-                @if(session('success'))
+            {{-- レビュー投稿フォーム（ログイン不要・ワンタップ評価） --}}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h2 class="text-lg font-black text-gray-900 mb-4">この駐車場を使ったことがありますか？</h2>
+
+                @if(session('review_success'))
+                @php $reviewData = json_decode(session('review_success'), true); @endphp
                 <div class="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 mb-4">
-                    {{ session('success') }}
+                    レビューを投稿しました！
+                    <div class="mt-2 flex gap-2">
+                        <a href="https://twitter.com/intent/tweet?text={{ urlencode('バイク駐車場「' . ($reviewData['name'] ?? '') . '」をレビューしました！') }}&url={{ urlencode($reviewData['url'] ?? '') }}&hashtags=MotoHub,バイク駐車場"
+                           target="_blank" rel="noopener noreferrer"
+                           class="inline-flex items-center gap-1 bg-black text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-gray-800 transition">
+                            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                            Xでシェア
+                        </a>
+                    </div>
                 </div>
                 @endif
 
-                <form action="{{ route('parking.review', $parking) }}" method="POST" class="space-y-4">
-                    @csrf
-                    <div>
-                        <label for="nickname" class="block text-xs font-bold text-gray-700 mb-1">ニックネーム</label>
-                        <input type="text" name="nickname" id="nickname" value="{{ old('nickname', auth()->user()->name) }}" required maxlength="50"
-                            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
-                        @error('nickname') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                    </div>
+                @error('rating')
+                <div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-4">{{ $message }}</div>
+                @enderror
 
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 mb-1">評価</label>
-                        <div class="flex items-center gap-1" x-data="{ rating: {{ old('rating', 0) }} }">
-                            @for($i = 1; $i <= 5; $i++)
-                            <button type="button" @click="rating = {{ $i }}" class="focus:outline-none">
-                                <i data-lucide="star" class="w-6 h-6 transition-colors" :class="rating >= {{ $i }} ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'"></i>
-                            </button>
-                            @endfor
-                            <input type="hidden" name="rating" x-bind:value="rating">
+                <div class="text-center mb-4">
+                    <p class="text-sm text-gray-500 mb-2">タップで評価してください</p>
+                    <div class="flex justify-center gap-2" id="quick-rating">
+                        @for($i = 1; $i <= 5; $i++)
+                        <button type="button" onclick="setRating({{ $i }})"
+                                class="w-12 h-12 rounded-full bg-gray-100 hover:bg-yellow-100 transition-colors flex items-center justify-center text-2xl cursor-pointer rating-star"
+                                data-rating="{{ $i }}">☆</button>
+                        @endfor
+                    </div>
+                </div>
+                <div id="review-detail-form" class="hidden mt-4">
+                    <form action="{{ route('parking.review', $parking->id) }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="rating" id="rating-input" value="">
+                        <div class="mb-3">
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">コメント（任意）</label>
+                            <textarea name="body" rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                                placeholder="停めやすさ、見つけやすさ、周辺の雰囲気など...">{{ old('body') }}</textarea>
                         </div>
-                        @error('rating') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                    </div>
-
-                    <div>
-                        <label for="body" class="block text-xs font-bold text-gray-700 mb-1">レビュー内容</label>
-                        <textarea name="body" id="body" rows="4" required maxlength="1000" placeholder="駐車場の使い心地やアクセスの良さなど..."
-                            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent transition resize-none">{{ old('body') }}</textarea>
-                        @error('body') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                    </div>
-
-                    <div>
-                        <label for="visited_at" class="block text-xs font-bold text-gray-700 mb-1">訪問日（任意）</label>
-                        <input type="date" name="visited_at" id="visited_at" value="{{ old('visited_at') }}" max="{{ date('Y-m-d') }}"
-                            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
-                    </div>
-
-                    <button type="submit" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition text-sm">
-                        レビューを投稿する
-                    </button>
-                </form>
+                        <div class="flex gap-2">
+                            <input type="text" name="nickname" value="{{ old('nickname', auth()->user()?->name ?? '') }}" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="ニックネーム（任意）">
+                            <button type="submit" class="bg-blue-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">投稿</button>
+                        </div>
+                    </form>
+                </div>
             </div>
-            @else
-            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 text-center">
-                <p class="text-sm text-gray-500 mb-3">レビューを投稿するにはログインが必要です</p>
-                <a href="{{ route('login') }}" class="inline-flex items-center gap-2 bg-black text-white text-xs font-bold px-6 py-2.5 rounded-full hover:bg-gray-800 transition">
-                    <i data-lucide="log-in" class="w-3.5 h-3.5"></i> ログインする
-                </a>
-            </div>
-            @endauth
         </div>
     </div>
 </x-layout>
