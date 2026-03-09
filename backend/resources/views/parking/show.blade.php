@@ -89,7 +89,7 @@
                     <div>
                         <h1 class="text-xl sm:text-2xl font-black text-gray-900 mb-2">{{ $parking->name }}</h1>
                         <div class="flex items-center gap-2 flex-wrap">
-                            <span class="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[10px] font-bold px-2.5 py-1 rounded-full">
+                            <span class="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[11px] font-bold px-3 py-1 rounded-full">
                                 <i data-lucide="square-parking" class="w-3 h-3"></i>
                                 {{ $parking->getParkingTypeLabel() }}
                             </span>

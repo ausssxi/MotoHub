@@ -16,12 +16,90 @@ document.addEventListener('DOMContentLoaded', () => {
     }).addTo(map);
 
     let markers = [];
+    let parkingsCache = [];
     let debounceTimer = null;
     let isPanning = false;
     const loading = document.getElementById('map-loading');
     const cardsContainer = document.getElementById('parking-cards');
     const countEl = document.getElementById('parking-count');
 
+    // ── Detail Panel ──
+    const panel = document.getElementById('detail-panel');
+    const panelBody = document.getElementById('detail-panel-body');
+    const panelOverlay = document.getElementById('detail-panel-overlay');
+    const panelClose = document.getElementById('detail-panel-close');
+
+    const openPanel = (p) => {
+        panelBody.innerHTML = buildPanelContent(p);
+        panel.classList.add('open');
+        panelOverlay.classList.add('open');
+        // パネル上部にスクロールリセット
+        panel.scrollTop = 0;
+    };
+
+    const closePanel = () => {
+        panel.classList.remove('open');
+        panelOverlay.classList.remove('open');
+    };
+
+    panelClose.addEventListener('click', closePanel);
+    panelOverlay.addEventListener('click', closePanel);
+
+    const buildPanelContent = (p) => {
+        const rating = ratingStars(p.avg_rating);
+        const usedInfo = p.used_count > 0 ? `<span style="font-size:10px;color:#9ca3af;">${p.used_count}人が使った</span>` : '';
+        const reviewAction = (p.reviews_count > 0)
+            ? `<p style="font-size:12px;color:#9ca3af;margin:0;">${p.reviews_count}件のレビュー</p>`
+            : `<a href="/parking/${p.id}#review-detail-form" style="font-size:12px;color:#3b82f6;text-decoration:none;">最初のレビューを投稿する →</a>`;
+
+        const detailRows = [];
+        const rowStyle = 'display:flex;justify-content:space-between;font-size:12px;padding:4px 0;';
+        const labelStyle = 'color:#9ca3af;';
+        const valueStyle = 'color:#374151;font-weight:700;';
+        if (p.available_hours) detailRows.push(`<div style="${rowStyle}"><span style="${labelStyle}">営業時間</span><span style="${valueStyle}">${p.available_hours}</span></div>`);
+        if (p.capacity) detailRows.push(`<div style="${rowStyle}"><span style="${labelStyle}">収容台数</span><span style="${valueStyle}">${p.capacity}台</span></div>`);
+        const price = p.price_detail || priceDisplay(p);
+        detailRows.push(`<div style="${rowStyle}"><span style="${labelStyle}">料金</span><span style="${valueStyle}">${price}</span></div>`);
+
+        const badges = [];
+        if (p.is_covered) badges.push('屋根あり');
+        if (p.is_locked) badges.push('施錠あり');
+
+        return `
+            <div style="margin-bottom:12px;">
+                <h3 style="font-size:16px;font-weight:900;color:#111827;margin:0 0 4px 0;">${p.name}</h3>
+                <p style="font-size:12px;color:#9ca3af;margin:0 0 12px 0;">${p.address || p.prefecture || ''}</p>
+                <span style="display:inline-block;background:#dcfce7;color:#15803d;font-size:11px;padding:4px 12px;border-radius:6px;font-weight:700;">
+                    ${parkingTypeLabel(p.parking_type)}
+                </span>
+                ${badges.length ? badges.map(b => `<span style="display:inline-block;background:#f3f4f6;color:#6b7280;font-size:10px;padding:2px 8px;border-radius:4px;margin-left:4px;">${b}</span>`).join('') : ''}
+            </div>
+
+            <div style="background:#f9fafb;border-radius:12px;padding:12px;margin-bottom:12px;">
+                ${detailRows.join('')}
+            </div>
+
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                ${rating}
+                ${usedInfo}
+            </div>
+            ${reviewAction}
+
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px;padding-bottom:16px;">
+                <a href="https://www.google.com/maps/dir/?api=1&destination=${p.latitude},${p.longitude}" target="_blank" rel="noopener"
+                   style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:#2563eb;color:#fff;font-size:14px;font-weight:700;padding:12px 0;border-radius:12px;text-decoration:none;text-align:center;">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                    ルート案内（Google マップ）
+                </a>
+                <a href="/parking/${p.id}" target="_blank"
+                   style="display:block;width:100%;background:#16a34a;color:#fff;font-size:14px;font-weight:700;padding:12px 0;border-radius:12px;text-decoration:none;text-align:center;">
+                    詳細ページを見る
+                </a>
+            </div>
+        `;
+    };
+
+    // ── Helpers ──
     const getSelectedParkingType = () => {
         const checked = document.querySelector('input[name="parking_type"]:checked');
         return checked ? checked.value : '';
@@ -56,15 +134,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<span class="text-yellow-500 text-xs">${stars}</span> <span class="text-[10px] text-gray-400">${Number(rating).toFixed(1)}</span>`;
     };
 
-    const facilityBadges = (p) => {
-        const badges = [];
-        if (p.is_covered) badges.push('屋根');
-        if (p.is_locked) badges.push('施錠');
-        return badges.length
-            ? `<div class="flex gap-1 mt-1">${badges.map(b => `<span class="bg-gray-100 text-gray-500 text-[9px] px-1.5 py-0.5 rounded">${b}</span>`).join('')}</div>`
-            : '';
-    };
-
     // ── 距離計算 ──
     const getDistance = (center, parking) => {
         const R = 6371000;
@@ -88,8 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
             html: `<div style="background:${color};width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:12px;">P</div>`,
             className: '',
             iconSize: [28, 28],
-            iconAnchor: [14, 14],
-            popupAnchor: [0, -16]
+            iconAnchor: [14, 14]
         });
     };
 
@@ -103,7 +171,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 中心からの距離でソート
         parkings.sort((a, b) => getDistance(center, a) - getDistance(center, b));
 
         cardsContainer.innerHTML = parkings.map(p => {
@@ -125,24 +192,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (countEl) countEl.textContent = `地図内に${parkings.length}件`;
 
-        // カードクリックイベント
+        // カードクリック → パン + パネル表示
         cardsContainer.querySelectorAll('.parking-card').forEach(card => {
             card.addEventListener('click', () => {
+                const id = parseInt(card.dataset.id, 10);
                 const lat = parseFloat(card.dataset.lat);
                 const lng = parseFloat(card.dataset.lng);
 
-                // パン中フラグを立てて moveend での再取得をスキップ
                 isPanning = true;
                 map.setView([lat, lng], Math.max(map.getZoom(), 16));
                 setTimeout(() => { isPanning = false; }, 500);
 
-                // 対応するマーカーのポップアップを開く
-                markers.forEach(m => {
-                    const pos = m.getLatLng();
-                    if (Math.abs(pos.lat - lat) < 0.0001 && Math.abs(pos.lng - lng) < 0.0001) {
-                        m.openPopup();
-                    }
-                });
+                // パネル表示
+                const parking = parkingsCache.find(p => p.id === id);
+                if (parking) openPanel(parking);
 
                 // アクティブ状態
                 cardsContainer.querySelectorAll('.parking-card').forEach(c => c.classList.remove('parking-card-active'));
@@ -172,6 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('API Error');
 
             const parkings = await response.json();
+            parkingsCache = parkings;
 
             // マーカー更新
             markers.forEach(m => map.removeLayer(m));
@@ -181,42 +245,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const hasReviews = p.reviews_count > 0;
                 const marker = L.marker([p.latitude, p.longitude], { icon: createParkingIcon(hasReviews) }).addTo(map);
 
-                const detailRows = [];
-                if (p.available_hours) detailRows.push(`<p class="text-[10px] text-gray-500"><span class="font-bold text-gray-600">時間:</span> ${p.available_hours}</p>`);
-                if (p.capacity) detailRows.push(`<p class="text-[10px] text-gray-500"><span class="font-bold text-gray-600">台数:</span> ${p.capacity}台</p>`);
-                if (p.price_detail) detailRows.push(`<p class="text-[10px] text-gray-500"><span class="font-bold text-gray-600">料金:</span> ${p.price_detail}</p>`);
-
-                const reviewAction = hasReviews
-                    ? `<p class="text-[10px] text-gray-400 mt-1">${p.reviews_count}件のレビュー</p>`
-                    : `<a href="/parking/${p.id}#review-detail-form" class="text-[10px] text-blue-500 hover:underline mt-1 block">最初のレビューを投稿する →</a>`;
-
-                const usedInfo = p.used_count > 0 ? `<span class="text-[10px] text-gray-400 ml-2">${p.used_count}人が使った</span>` : '';
-
-                const popupContent = `
-                    <div class="p-4">
-                        <h3 class="font-bold text-sm mb-1 line-clamp-1">${p.name}</h3>
-                        <p class="text-[10px] text-gray-500 mb-1">${p.address || p.prefecture || ''}</p>
-                        <div class="flex items-center gap-2 mb-1 flex-wrap">
-                            <span class="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded font-bold">
-                                ${parkingTypeLabel(p.parking_type)}
-                            </span>
-                            <span class="text-[10px] font-bold text-gray-700">${priceDisplay(p)}</span>
-                        </div>
-                        ${detailRows.length ? '<div class="space-y-0.5 mt-1 mb-1">' + detailRows.join('') + '</div>' : ''}
-                        <div class="flex items-center">${ratingStars(p.avg_rating)}${usedInfo}</div>
-                        ${reviewAction}
-                        ${facilityBadges(p)}
-                        <a href="/parking/${p.id}" target="_blank" class="block w-full bg-green-600 text-white text-center text-xs font-bold py-2 rounded-lg hover:bg-green-700 transition-colors mt-3">
-                            詳細を見る
-                        </a>
-                    </div>
-                `;
-
-                marker.bindPopup(popupContent, {
-                    className: 'custom-popup',
-                    minWidth: 280,
-                    autoClose: false,
-                    closeOnClick: false
+                // マーカークリック → パネル表示
+                marker.on('click', () => {
+                    openPanel(p);
                 });
 
                 markers.push(marker);

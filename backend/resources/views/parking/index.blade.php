@@ -7,17 +7,52 @@
         <style>
             #map { height: 60vh; z-index: 10; }
             @media (max-width: 640px) { #map { height: 50vh; } }
-            .custom-popup .leaflet-popup-content-wrapper { border-radius: 12px; padding: 0; overflow: hidden; }
-            .custom-popup .leaflet-popup-content { margin: 0; width: 280px !important; }
             .scrollbar-hide::-webkit-scrollbar { display: none; }
             .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
             .parking-card-active { border-color: #16a34a !important; box-shadow: 0 0 0 2px rgba(22,163,74,.3); }
+
+            /* Detail Panel */
+            #detail-panel {
+                position: fixed;
+                z-index: 1100;
+                background: #fff;
+                box-shadow: 0 -4px 24px rgba(0,0,0,.12);
+                transition: transform .3s cubic-bezier(.4,0,.2,1);
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            /* Mobile: bottom sheet */
+            @media (max-width: 767px) {
+                #detail-panel {
+                    bottom: 0; left: 0; right: 0;
+                    height: 50vh;
+                    border-radius: 16px 16px 0 0;
+                    transform: translateY(100%);
+                }
+                #detail-panel.open { transform: translateY(0); }
+            }
+            /* PC: right side panel */
+            @media (min-width: 768px) {
+                #detail-panel {
+                    top: 0; right: 0; bottom: 0;
+                    width: 400px;
+                    transform: translateX(100%);
+                }
+                #detail-panel.open { transform: translateX(0); }
+            }
+            #detail-panel-overlay {
+                position: fixed; inset: 0; z-index: 1099;
+                background: rgba(0,0,0,.25);
+                opacity: 0; pointer-events: none;
+                transition: opacity .3s ease;
+            }
+            #detail-panel-overlay.open { opacity: 1; pointer-events: auto; }
         </style>
     </x-slot:styles>
 
     <x-slot:scripts>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-        <script src="{{ asset('js/parking/map.js') }}"></script>
+        <script src="{{ asset('js/parking/map.js') }}?v={{ time() }}"></script>
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -114,6 +149,18 @@
         </div>
     </section>
     @endif
+
+    {{-- 詳細パネル --}}
+    <div id="detail-panel-overlay"></div>
+    <div id="detail-panel">
+        <div style="position:sticky;top:0;z-index:1;background:#fff;border-bottom:1px solid #f3f4f6;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:12px;font-weight:700;color:#9ca3af;">駐車場詳細</span>
+            <button id="detail-panel-close" style="color:#9ca3af;background:none;border:none;cursor:pointer;padding:4px;">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div id="detail-panel-body" style="padding:20px;"></div>
+    </div>
 
     {{-- 都道府県から探す（SEO用内部リンク） --}}
     <section class="bg-white py-12">
