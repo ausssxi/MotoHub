@@ -7,6 +7,8 @@
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
         <style>
             #detail-map { height: 250px; z-index: 10; border-radius: 12px; }
+            .scrollbar-hide::-webkit-scrollbar { display: none; }
+            .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         </style>
     </x-slot:styles>
 
@@ -73,8 +75,8 @@
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 
             {{-- パンくず --}}
-            <nav class="flex text-xs font-bold text-gray-400 mb-6" aria-label="Breadcrumb">
-                <ol class="flex items-center space-x-2">
+            <nav class="overflow-x-auto text-xs font-bold text-gray-400 mb-6 scrollbar-hide" aria-label="Breadcrumb">
+                <ol class="flex items-center space-x-2 whitespace-nowrap">
                     <li><a href="/" class="hover:text-gray-600 transition-colors">HOME</a></li>
                     <li><span class="text-gray-300">＞</span></li>
                     <li><a href="{{ route('parking.index') }}" class="hover:text-gray-600 transition-colors">駐車場マップ</a></li>
