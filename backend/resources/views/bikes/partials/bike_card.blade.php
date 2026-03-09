@@ -11,15 +11,17 @@
 
         @if(!empty($listing['images']) && isset($listing['images'][0]))
             {{-- ★修正: 判定した属性($loadAttr)を出力する --}}
-            <img src="{{ $listing['images'][0] }}" 
-                 class="bike-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+            <img src="{{ $listing['images'][0] }}"
+                 class="bike-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                  alt="{{ $listing['name'] }}"
+                 width="400" height="300"
                  onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
                  {!! $loadAttr !!}>
         @else
-            <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop" 
-                 class="bike-img w-full h-full object-cover grayscale opacity-50 group-hover:scale-105 transition-transform duration-500" 
+            <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop"
+                 class="bike-img w-full h-full object-cover grayscale opacity-50 group-hover:scale-105 transition-transform duration-500"
                  alt="No Image"
+                 width="400" height="300"
                  {!! $loadAttr !!}>
             <div class="absolute inset-0 flex items-center justify-center">
                 <i data-lucide="image-off" class="w-10 h-10 text-white/50"></i>

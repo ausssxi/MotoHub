@@ -18,8 +18,6 @@
         <script src="{{ asset('js/compare/manager.js') }}"></script>
         <script src="{{ asset('js/compare/ui.js') }}"></script>
         <script src="{{ asset('js/bikes/loan-simulator.js') }}"></script>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <script src="https://www.google.com/recaptcha/api.js?render={{ env('RECAPTCHA_SITE_KEY') }}"></script>
 
         {{-- JSにBladeの変数を渡す --}}
         <script>
@@ -30,7 +28,44 @@
         <script>window.__bikeModelId = {{ $listing->bike_model_id ?? 'null' }};</script>
         <script src="{{ asset('js/promo/engagement-banner.js') }}" defer></script>
 
-        <script src="{{ asset('js/bikes/model_detail.js') }}"></script>
+        {{-- Chart.js + model_detail.js: チャートが見えた時のみ遅延読込（TBT大幅改善） --}}
+        <script>
+            (function() {
+                var target = document.getElementById('priceChart') || document.getElementById('historyChart');
+                if (!target) return;
+                var obs = new IntersectionObserver(function(entries) {
+                    if (entries[0].isIntersecting) {
+                        obs.disconnect();
+                        var s = document.createElement('script');
+                        s.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+                        s.onload = function() {
+                            var s2 = document.createElement('script');
+                            s2.src = '{{ asset("js/bikes/model_detail.js") }}';
+                            document.head.appendChild(s2);
+                        };
+                        document.head.appendChild(s);
+                    }
+                }, { rootMargin: '200px' });
+                obs.observe(target);
+            })();
+        </script>
+
+        {{-- reCAPTCHA: レビューフォームが見えた時のみ遅延読込 --}}
+        <script>
+            (function() {
+                var form = document.getElementById('review-form');
+                if (!form) return;
+                var obs = new IntersectionObserver(function(entries) {
+                    if (entries[0].isIntersecting) {
+                        obs.disconnect();
+                        var s = document.createElement('script');
+                        s.src = 'https://www.google.com/recaptcha/api.js?render=' + window.recaptchaSiteKey;
+                        document.head.appendChild(s);
+                    }
+                }, { rootMargin: '300px' });
+                obs.observe(form);
+            })();
+        </script>
         <script src="{{ asset('js/bikes/review.js') }}"></script>
         <script src="{{ asset('js/search/seamless-nav.js') }}"></script>
         <script src="{{ asset('js/bikes/show.js') }}"></script>
@@ -117,9 +152,10 @@
                                      aria-hidden="true"></div>
                                 
                                 <div class="absolute inset-0 z-10 flex items-center justify-center p-1">
-                                    <img src="{{ $listing->images[0] }}" alt="{{ $listing->name }}" 
+                                    <img src="{{ $listing->images[0] }}" alt="{{ $listing->name }}"
                                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=600&auto=format&fit=crop'; this.classList.add('grayscale', 'opacity-50');"
                                         class="max-w-full max-h-full object-contain shadow-sm"
+                                        width="800" height="600"
                                         fetchpriority="high" decoding="async">
                                 </div>
                             @else

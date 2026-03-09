@@ -41,6 +41,7 @@
              <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=2070&auto=format&fit=crop"
                   alt="Motorcycle Background"
                   class="w-full h-full object-cover opacity-40"
+                  width="2070" height="1380"
                   fetchpriority="high" decoding="async">
         </div>
 

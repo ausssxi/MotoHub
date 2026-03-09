@@ -2,7 +2,7 @@
  * MotoHub Model Detail Page Scripts
  * 統計データの数値反映とチャート描画を行います。
  */
-document.addEventListener('DOMContentLoaded', () => {
+function initModelDetail() {
     // グローバル変数からデータを取得（Blade側で window.bikeModelStats = ... と定義されている前提）
     const stats = window.bikeModelStats || {};
     const history = window.bikeModelHistory || {};
@@ -62,14 +62,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         maintainAspectRatio: false,
                         plugins: { legend: { display: false } },
                         scales: {
-                            y: { 
-                                beginAtZero: true, 
+                            y: {
+                                beginAtZero: true,
                                 grid: { color: '#f3f4f6' },
                                 ticks: { stepSize: 1 }
                             },
-                            x: { 
-                                grid: { display: false }, 
-                                ticks: { font: { size: 10 } } 
+                            x: {
+                                grid: { display: false },
+                                ticks: { font: { size: 10 } }
                             }
                         }
                     }
@@ -116,4 +116,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-});
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initModelDetail);
+} else {
+    initModelDetail();
+}
