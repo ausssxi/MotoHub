@@ -48,6 +48,12 @@ final class BikeController extends Controller
         $features = $this->bikeService->getFeaturesForTopPage();
         $seoFeatures = SeoFeature::active()->latest()->limit(4)->get();
 
+        // 最近登録された愛車
+        $latestMyBikes = \App\Models\MyBike::with(['bikeModel.manufacturer', 'user'])
+            ->latest()
+            ->limit(6)
+            ->get();
+
         // ライブ統計バー用のカウント
         $totalListings = Listing::active()->count();
         $priceDropCount = DB::table('price_histories')
@@ -61,7 +67,7 @@ final class BikeController extends Controller
         return view('bikes.index', compact(
             'popularBikes', 'categories', 'manufacturers', 'regions',
             'latestReviews', 'licenses', 'popularTags', 'features', 'seoFeatures',
-            'totalListings', 'priceDropCount', 'newListingsCount'
+            'totalListings', 'priceDropCount', 'newListingsCount', 'latestMyBikes'
         ));
     }
 
@@ -444,10 +450,17 @@ final class BikeController extends Controller
 
         $activeCount = \App\Models\Listing::where('bike_model_id', $id)->active()->count();
 
+        // オーナー一覧（この車種のMyBike）
+        $owners = \App\Models\MyBike::with('user')
+            ->where('bike_model_id', $model->id)
+            ->latest()
+            ->limit(6)
+            ->get();
+
         return view('bikes.model_detail', compact(
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'relatedModels', 'similarDisplacementModels',
-            'sameCategoryModels', 'activeCount'
+            'sameCategoryModels', 'activeCount', 'owners'
         ));
     }
 

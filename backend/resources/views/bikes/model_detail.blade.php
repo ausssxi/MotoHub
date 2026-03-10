@@ -628,6 +628,61 @@
                         </script>
                     </div>
 
+                    {{-- この車種のオーナー --}}
+                    @if(isset($owners) && $owners->count() > 0)
+                    <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
+                        <h2 class="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
+                            <span class="bg-pink-100 text-pink-600 p-2 rounded-lg">
+                                <i data-lucide="users" class="w-5 h-5"></i>
+                            </span>
+                            {{ $model->name }} のオーナー
+                            <span class="text-sm text-gray-400 font-bold">({{ $owners->count() }}人)</span>
+                        </h2>
+
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            @foreach($owners as $owner)
+                            <a href="{{ route('garage.public.show', $owner->id) }}"
+                               class="group block bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-pink-300 hover:shadow-md transition-all">
+                                <div class="aspect-[4/3] rounded-lg bg-gray-200 overflow-hidden mb-3">
+                                    @if($owner->display_image)
+                                        <img src="{{ $owner->display_image }}" alt="{{ $owner->display_name }}"
+                                             class="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                             loading="lazy" decoding="async">
+                                    @else
+                                        <div class="w-full h-full flex items-center justify-center text-gray-400">
+                                            <i data-lucide="bike" class="w-8 h-8"></i>
+                                        </div>
+                                    @endif
+                                </div>
+                                <p class="text-xs font-bold text-gray-500">{{ $owner->user->name ?? '名無しライダー' }}</p>
+                                <p class="text-sm font-black text-gray-800">{{ $owner->display_name }}</p>
+                                @if($owner->model_year)
+                                    <span class="text-[10px] text-gray-400">{{ $owner->model_year }}年式</span>
+                                @endif
+                            </a>
+                            @endforeach
+                        </div>
+
+                        <div class="mt-6 text-center">
+                            <a href="{{ route('garage.public.index') }}" class="text-xs font-bold text-pink-600 hover:underline">
+                                みんなの愛車をもっと見る →
+                            </a>
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- オーナーがいなくても登録を促すCTA --}}
+                    @if(!isset($owners) || $owners->count() === 0)
+                    <div class="bg-gradient-to-r from-pink-50 to-rose-50 rounded-3xl p-6 sm:p-8 border border-pink-100 text-center">
+                        <i data-lucide="heart" class="w-8 h-8 text-pink-400 mx-auto mb-2"></i>
+                        <h3 class="text-lg font-black text-gray-900 mb-2">{{ $model->name }} に乗っていますか？</h3>
+                        <p class="text-xs text-gray-500 mb-4">愛車を登録して、燃費記録・整備ログを管理しましょう</p>
+                        <a href="{{ route('mybikes.index') }}" class="inline-block bg-pink-600 text-white font-bold text-sm px-6 py-3 rounded-xl hover:bg-pink-700 transition-colors">
+                            愛車を登録する
+                        </a>
+                    </div>
+                    @endif
+
                     {{-- 関連車種: 同メーカー --}}
                     @if(isset($relatedModels) && $relatedModels->count() > 0)
                     <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">

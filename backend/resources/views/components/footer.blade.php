@@ -73,6 +73,9 @@
                     <li>
                         <a href="{{ route('parking.index') }}" class="footer-link">バイク駐車場マップ</a>
                     </li>
+                    <li>
+                        <a href="{{ route('garage.public.index') }}" class="footer-link">愛車ガレージ</a>
+                    </li>
                 </ul>
             </nav>
 

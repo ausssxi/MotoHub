@@ -424,6 +424,42 @@
             </section>
             @endif
 
+            {{-- 最近登録された愛車 --}}
+            @if(isset($latestMyBikes) && $latestMyBikes->isNotEmpty())
+            <section class="mb-20">
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            みんなの愛車
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Owner's Garage</p>
+                    </div>
+                    <a href="{{ route('garage.public.index') }}" class="text-xs font-bold text-pink-600 hover:underline">
+                        もっと見る →
+                    </a>
+                </div>
+                <div class="flex gap-4 overflow-x-auto pb-4 snap-x scrollbar-hide">
+                    @foreach($latestMyBikes as $myBike)
+                    <a href="{{ route('garage.public.show', $myBike->id) }}" class="snap-start shrink-0 w-48 group">
+                        <div class="aspect-[4/3] rounded-xl bg-gray-100 overflow-hidden mb-2">
+                            @if($myBike->display_image)
+                                <img src="{{ $myBike->display_image }}" alt="{{ $myBike->display_name }}"
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" decoding="async">
+                            @else
+                                <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                    <i data-lucide="bike" class="w-6 h-6"></i>
+                                </div>
+                            @endif
+                        </div>
+                        <p class="text-[10px] font-bold text-gray-400">{{ $myBike->bikeModel->manufacturer->name ?? '' }}</p>
+                        <p class="text-sm font-black text-gray-800 line-clamp-1 group-hover:text-pink-600 transition-colors">{{ $myBike->display_name }}</p>
+                        <p class="text-[10px] text-gray-400">{{ $myBike->user->name ?? '名無しライダー' }}</p>
+                    </a>
+                    @endforeach
+                </div>
+            </section>
+            @endif
+
             {{-- 都道府県から探す --}}
             <section>
                 <div class="bg-gray-900 rounded-3xl p-8 sm:p-12 text-center relative overflow-hidden">

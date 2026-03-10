@@ -57,6 +57,12 @@
                     <span class="hidden xl:inline">地図検索</span>
                 </a>
 
+                {{-- 愛車ガレージへのリンク --}}
+                <a href="{{ route('garage.public.index') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition uppercase tracking-widest" title="みんなの愛車ガレージ">
+                    <i data-lucide="heart" class="w-4 h-4"></i>
+                    <span class="hidden xl:inline">ガレージ</span>
+                </a>
+
                 {{-- 駐車場マップへのリンク --}}
                 <a href="{{ route('parking.index') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-xl transition uppercase tracking-widest" title="バイク駐車場を探す">
                     <i data-lucide="square-parking" class="w-4 h-4"></i>

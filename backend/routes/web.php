@@ -12,6 +12,7 @@ use App\Http\Controllers\ProfileController; // Breeze用
 use App\Http\Controllers\Api\StatsApiController; // 統計情報API
 use App\Http\Controllers\Page\SellController; // 買取査定LP
 use App\Http\Controllers\MyBike\MyBikeController; // 愛車ログ機能
+use App\Http\Controllers\MyBike\GaragePublicController; // 公開ガレージ
 use App\Http\Controllers\Auth\GoogleLoginController;
 use App\Http\Controllers\Auth\LineAuthController;
 use App\Http\Controllers\Shindan\ShindanController;
@@ -124,6 +125,12 @@ Route::prefix('shops')->name('shops.')->group(function () {
     Route::get('/api/area', [ShopController::class, 'area'])->name('api.area');
     
     Route::get('/{id}', [ShopController::class, 'show'])->name('show')->where('id', '[0-9]+');
+});
+
+// 公開ガレージ（auth不要）
+Route::prefix('garage/public')->name('garage.public.')->controller(GaragePublicController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/{myBike}', 'show')->name('show')->where('myBike', '[0-9]+');
 });
 
 // 駐車場マップ（公開）
