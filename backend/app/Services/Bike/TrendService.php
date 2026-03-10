@@ -31,7 +31,7 @@ final class TrendService
             if ($latestLogs->isEmpty()) return ['drop' => [], 'rise' => []];
 
             // 2. 比較対象の過去データ
-            // (指定日数の前後10日間で一番新しいデータを取得し、欠損に対応)
+            // まず指定日数(30日前)の前後10日で探し、なければ最古のデータにフォールバック
             $pastDateTarget = Carbon::parse($latestDate)->subDays($days)->toDateString();
             $pastDateLimit = Carbon::parse($latestDate)->subDays($days + 10)->toDateString();
 
@@ -41,6 +41,20 @@ final class TrendService
                 ->get()
                 ->unique('bike_model_id')
                 ->keyBy('bike_model_id');
+
+            // 過去データが見つからない場合、最古の記録日から比較（データ蓄積が浅い場合の救済）
+            if ($pastLogs->isEmpty()) {
+                $oldestDate = MarketPriceLog::where('recorded_at', '<', $latestDate)->min('recorded_at');
+                if ($oldestDate) {
+                    $pastLogs = MarketPriceLog::where('recorded_at', $oldestDate)
+                        ->orderBy('recorded_at', 'desc')
+                        ->get()
+                        ->unique('bike_model_id')
+                        ->keyBy('bike_model_id');
+                    $pastDateTarget = $oldestDate;
+                    $days = (int) Carbon::parse($oldestDate)->diffInDays(Carbon::parse($latestDate));
+                }
+            }
 
             $trends = [];
             $modelIds = $latestLogs->keys()->toArray();
