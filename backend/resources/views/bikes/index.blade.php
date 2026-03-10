@@ -7,7 +7,7 @@
 
     <x-slot:scripts>
         <script src="{{ asset('js/search/suggest.js') }}"></script>
-        
+
         {{-- 閲覧履歴の描画（manager.js は layout.blade.php で読み込み済み） --}}
         <script>
             document.addEventListener('DOMContentLoaded', () => {
@@ -15,18 +15,63 @@
                     const bodyLoggedIn = document.body.dataset.loggedIn === 'true';
                     const metaLoggedIn = document.querySelector('meta[name="auth-check"]')?.content === 'true';
                     const isLoggedIn = bodyLoggedIn || metaLoggedIn;
-                    
+
                     HistoryManager.init(isLoggedIn).then(() => {
-                        // 指定したIDのコンテナに履歴カードを描画
                         HistoryManager.render('top-history-widget').then(() => {
                             const widget = document.getElementById('top-history-widget');
-                            // 履歴が1件以上あればセクション全体を表示する
                             if (widget && widget.children.length > 0) {
                                 document.getElementById('top-history-section').classList.remove('hidden');
                             }
                         });
                     });
                 }
+            });
+        </script>
+
+        {{-- スティッキータブナビゲーション --}}
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                var tabBar = document.getElementById('top-tab-bar');
+                if (!tabBar) return;
+
+                var tabs = tabBar.querySelectorAll('[data-tab-target]');
+                var sectionIds = ['section-search', 'section-market', 'section-community'];
+                var sections = sectionIds.map(function(id) { return document.getElementById(id); }).filter(Boolean);
+                if (sections.length === 0) return;
+
+                var navHeight = 64;
+                var totalOffset = navHeight + tabBar.offsetHeight;
+
+                // クリックでスムーススクロール
+                tabs.forEach(function(tab) {
+                    tab.addEventListener('click', function() {
+                        var target = document.getElementById(this.dataset.tabTarget);
+                        if (target) {
+                            var top = target.getBoundingClientRect().top + window.pageYOffset - totalOffset - 8;
+                            window.scrollTo({ top: top, behavior: 'smooth' });
+                        }
+                    });
+                });
+
+                // スクロールでアクティブタブ更新
+                function updateActiveTab() {
+                    var currentId = sectionIds[0];
+                    for (var i = 0; i < sections.length; i++) {
+                        if (sections[i].getBoundingClientRect().top <= totalOffset + 60) {
+                            currentId = sections[i].id;
+                        }
+                    }
+                    tabs.forEach(function(tab) {
+                        var isActive = tab.dataset.tabTarget === currentId;
+                        tab.classList.toggle('border-blue-600', isActive);
+                        tab.classList.toggle('text-blue-600', isActive);
+                        tab.classList.toggle('border-transparent', !isActive);
+                        tab.classList.toggle('text-gray-500', !isActive);
+                    });
+                }
+
+                window.addEventListener('scroll', updateActiveTab, { passive: true });
+                updateActiveTab();
             });
         </script>
     </x-slot:scripts>
@@ -106,8 +151,49 @@
         </div>
     </div>
 
-    {{-- トレンドタグ & メーカーリンク（ヒーロー外の独立セクション） --}}
-    <div class="bg-gray-50 border-b border-gray-100 py-6">
+    {{-- スティッキータブナビゲーション --}}
+    <div id="top-tab-bar" class="sticky top-16 z-40 bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex items-center justify-center">
+                <button type="button" data-tab-target="section-search"
+                    class="flex-1 sm:flex-none px-6 py-3 text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-all text-center whitespace-nowrap">
+                    🔍 探す
+                </button>
+                <button type="button" data-tab-target="section-market"
+                    class="flex-1 sm:flex-none px-6 py-3 text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-all text-center whitespace-nowrap">
+                    📊 相場
+                </button>
+                <button type="button" data-tab-target="section-community"
+                    class="flex-1 sm:flex-none px-6 py-3 text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-all text-center whitespace-nowrap">
+                    👥 コミュニティ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- 最近見た車両（パーソナルコンテンツ / タブセクションの上に常時表示） --}}
+    <section id="top-history-section" class="bg-gray-50 hidden">
+        <div class="max-w-7xl mx-auto px-4 pt-10 sm:pt-16 pb-6">
+            <div class="flex items-end justify-between mb-6 px-2">
+                <div>
+                    <h2 class="text-2xl font-black text-black tracking-tighter mb-1 flex items-center gap-2">
+                        <i data-lucide="clock" class="w-6 h-6 text-gray-400"></i>
+                        最近見た車両
+                    </h2>
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Recently Viewed</p>
+                </div>
+            </div>
+            <div id="top-history-widget" class="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory px-2 -mx-2 sm:mx-0 sm:px-0">
+            </div>
+        </div>
+    </section>
+
+    {{-- ======================= --}}
+    {{-- 🔍 探す セクション      --}}
+    {{-- ======================= --}}
+
+    {{-- トレンドタグ & メーカーリンク --}}
+    <div id="section-search" class="bg-gray-50 border-b border-gray-100 py-6">
         <div class="max-w-7xl mx-auto px-4 space-y-4">
             {{-- トレンドタグ --}}
             <div class="flex flex-wrap justify-center items-center gap-2">
@@ -133,28 +219,181 @@
         </div>
     </div>
 
-    {{-- 特集セクション --}}
+    {{-- メインコンテンツ --}}
     <div class="bg-gray-50 py-16 sm:py-24">
         <div class="max-w-7xl mx-auto px-4">
-            
-            {{-- 最近見た車両（閲覧履歴）セクション --}}
-            <section id="top-history-section" class="mb-20 hidden">
-                <div class="flex items-end justify-between mb-6 px-2">
+
+            {{-- 🔍探す: タイプから探す --}}
+            <section class="mb-20">
+                <div class="flex items-end justify-between mb-8 px-2">
                     <div>
-                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1 flex items-center gap-2">
-                            <i data-lucide="clock" class="w-6 h-6 text-gray-400"></i>
-                            最近見た車両
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            タイプから探す
                         </h2>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Recently Viewed</p>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Search by Body Type</p>
                     </div>
                 </div>
-                
-                {{-- JSによって、この中に履歴のカードが横スクロールで自動生成されます --}}
-                <div id="top-history-widget" class="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory px-2 -mx-2 sm:mx-0 sm:px-0">
+
+                <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+                    @foreach($categories as $category)
+                        @if($category->display_icon_url)
+                        <a href="{{ route('bikes.search', ['category_id' => $category->id]) }}"
+                           class="group bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col items-center text-center h-full">
+
+                            <div class="w-16 h-12 sm:w-20 sm:h-14 mb-3 relative flex items-center justify-center">
+                                <img src="{{ $category->display_icon_url }}"
+                                     alt="{{ $category->name }}"
+                                     class="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-500"
+                                     loading="lazy" decoding="async">
+                            </div>
+
+                            <span class="text-xs font-bold text-gray-700 group-hover:text-blue-600 transition-colors leading-tight">
+                                {{ $category->name }}
+                            </span>
+                        </a>
+                        @endif
+                    @endforeach
                 </div>
             </section>
 
-            {{-- ★修正: 構造が壊れていたおすすめコンテンツを復旧 --}}
+            {{-- 🔍探す: 免許・排気量から探す --}}
+            <section class="mb-20">
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            免許・排気量から探す
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Search by License</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    @foreach($licenses as $license)
+                        <a href="{{ route('bikes.search', ['min_displacement' => $license['min_cc'], 'max_displacement' => $license['max_cc']]) }}"
+                           class="group relative overflow-hidden rounded-2xl p-6 {{ $license['color'] }} transition-all duration-300 hover:shadow-lg border border-transparent hover:border-current flex flex-col items-center justify-center text-center h-32">
+
+                            {{-- 背景の装飾アイコン --}}
+                            <div class="absolute -right-4 -bottom-4 opacity-10 transform group-hover:scale-125 transition-transform duration-500">
+                                <i data-lucide="{{ $license['icon'] }}" class="w-24 h-24"></i>
+                            </div>
+
+                            <div class="relative z-10">
+                                <div class="mb-2 opacity-80 group-hover:scale-110 transition-transform duration-300">
+                                    <i data-lucide="{{ $license['icon'] }}" class="w-8 h-8 mx-auto"></i>
+                                </div>
+                                <span class="text-sm font-black tracking-tight block">
+                                    {{ $license['label'] }}
+                                </span>
+                            </div>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+
+            {{-- 🔍探す: 人気車種 --}}
+            <section class="mb-20">
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            人気車種
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Popular Models</p>
+                    </div>
+                    <a href="{{ route('bikes.models') }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 group">
+                        すべて見る <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+                    </a>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    @foreach($popularBikes as $bike)
+                        <a href="{{ $bike->seo_url }}"
+                           class="group flex items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-300">
+
+                            <div class="w-14 h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 border border-gray-50 relative">
+                                @if($bike->image_url)
+                                    <img src="{{ $bike->image_url }}" alt="{{ $bike->name }}"
+                                         class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
+                                         loading="lazy" decoding="async"
+                                         onerror="handleImageError(this)">
+                                @else
+                                    <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                        <i data-lucide="bike" class="w-6 h-6"></i>
+                                    </div>
+                                @endif
+                            </div>
+
+                            <div class="ml-3 flex-1 min-w-0">
+                                <p class="text-[9px] font-bold text-gray-400 mb-0.5">{{ $bike->manufacturer?->name }}</p>
+                                <h3 class="text-sm font-black text-gray-800 leading-tight truncate group-hover:text-blue-600 transition-colors">
+                                    {{ $bike->name }}
+                                </h3>
+                                <div class="mt-1">
+                                    <span class="inline-flex items-center text-[9px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
+                                        {{ number_format($bike->listings_count) }}台
+                                    </span>
+                                </div>
+                            </div>
+
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-blue-400 group-hover:translate-x-1 transition-all"></i>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+
+            {{-- 🔍探す: 駐車場マップへの導線 --}}
+            <section class="mb-20">
+                <a href="{{ route('parking.index') }}" class="group relative overflow-hidden rounded-3xl p-8 sm:p-10 block shadow-lg hover:shadow-2xl transition-all duration-300" style="background: linear-gradient(to right, #16a34a, #059669);">
+                    <div class="absolute -right-8 -bottom-8 opacity-10 transform group-hover:scale-110 transition-transform duration-500">
+                        <i data-lucide="square-parking" class="w-48 h-48 text-white"></i>
+                    </div>
+                    <div class="relative z-10 flex items-center justify-between">
+                        <div class="text-white">
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-2">Parking Map</p>
+                            <h2 class="text-xl sm:text-2xl font-black mb-2">バイク駐車場マップ</h2>
+                            <p class="text-xs sm:text-sm text-white/80 font-medium">全国1,000件以上の駐車場をマップで検索。料金・設備情報も掲載。</p>
+                        </div>
+                        <div class="hidden sm:flex items-center justify-center w-14 h-14 bg-white/20 rounded-full group-hover:bg-white/30 transition-colors shrink-0 ml-6">
+                            <i data-lucide="arrow-right" class="w-6 h-6 text-white group-hover:translate-x-1 transition-transform"></i>
+                        </div>
+                    </div>
+                </a>
+            </section>
+
+            {{-- 🔍探す: 都道府県から探す --}}
+            <section class="mb-20">
+                <div class="bg-gray-900 rounded-3xl p-8 sm:p-12 text-center relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 pointer-events-none"></div>
+                    <div class="absolute -top-24 -left-24 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="absolute -bottom-24 -right-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <div class="relative z-10">
+                        <h2 class="text-2xl font-black text-white mb-2 tracking-tighter">地域から探す</h2>
+                        <p class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-8">Search by Area</p>
+
+                        <div class="flex flex-wrap justify-center gap-3">
+                            @foreach(['東京', '神奈川', '埼玉', '千葉', '大阪', '愛知', '福岡', '北海道'] as $pref)
+                                <a href="{{ route('bikes.search', ['prefecture' => $pref]) }}"
+                                   class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">
+                                    {{ $pref }}
+                                </a>
+                            @endforeach
+                        </div>
+
+                        <div class="mt-8">
+                            <a href="{{ route('bikes.prefectures') }}" class="text-gray-400 text-xs font-bold hover:text-white transition-colors inline-flex items-center justify-center gap-2">
+                                <i data-lucide="map" class="w-4 h-4"></i> すべての地域を見る
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {{-- ======================= --}}
+            {{-- 📊 相場 セクション      --}}
+            {{-- ======================= --}}
+            <div id="section-market">
+
+            {{-- おすすめコンテンツ --}}
             <section class="mb-20">
                 <div class="flex items-end justify-between mb-8 px-2">
                     <div>
@@ -167,7 +406,7 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {{-- 診断カード --}}
-                    <a href="/shindan" 
+                    <a href="/shindan"
                        class="group relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-blue-600 to-indigo-700 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 flex flex-col justify-between h-32 sm:h-40 border border-white/10">
                         <div class="absolute -right-6 -bottom-6 opacity-20 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500">
                             <i data-lucide="sparkles" class="w-32 h-32 text-white"></i>
@@ -231,141 +470,12 @@
                 @endif
             </section>
 
-            {{-- 駐車場マップへの導線 --}}
-            <section class="mb-20">
-                <a href="{{ route('parking.index') }}" class="group relative overflow-hidden rounded-3xl p-8 sm:p-10 block shadow-lg hover:shadow-2xl transition-all duration-300" style="background: linear-gradient(to right, #16a34a, #059669);">
-                    <div class="absolute -right-8 -bottom-8 opacity-10 transform group-hover:scale-110 transition-transform duration-500">
-                        <i data-lucide="square-parking" class="w-48 h-48 text-white"></i>
-                    </div>
-                    <div class="relative z-10 flex items-center justify-between">
-                        <div class="text-white">
-                            <p class="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-2">Parking Map</p>
-                            <h2 class="text-xl sm:text-2xl font-black mb-2">バイク駐車場マップ</h2>
-                            <p class="text-xs sm:text-sm text-white/80 font-medium">全国1,000件以上の駐車場をマップで検索。料金・設備情報も掲載。</p>
-                        </div>
-                        <div class="hidden sm:flex items-center justify-center w-14 h-14 bg-white/20 rounded-full group-hover:bg-white/30 transition-colors shrink-0 ml-6">
-                            <i data-lucide="arrow-right" class="w-6 h-6 text-white group-hover:translate-x-1 transition-transform"></i>
-                        </div>
-                    </div>
-                </a>
-            </section>
+            </div>{{-- /section-market --}}
 
-            {{-- タイプから探す --}}
-            <section class="mb-20">
-                <div class="flex items-end justify-between mb-8 px-2">
-                    <div>
-                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
-                            タイプから探す
-                        </h2>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Search by Body Type</p>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-                    @foreach($categories as $category)
-                        @if($category->display_icon_url)
-                        <a href="{{ route('bikes.search', ['category_id' => $category->id]) }}" 
-                           class="group bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col items-center text-center h-full">
-                            
-                            <div class="w-16 h-12 sm:w-20 sm:h-14 mb-3 relative flex items-center justify-center">
-                                <img src="{{ $category->display_icon_url }}"
-                                     alt="{{ $category->name }}"
-                                     class="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-500"
-                                     loading="lazy" decoding="async">
-                            </div>
-                            
-                            <span class="text-xs font-bold text-gray-700 group-hover:text-blue-600 transition-colors leading-tight">
-                                {{ $category->name }}
-                            </span>
-                        </a>
-                        @endif
-                    @endforeach
-                </div>
-            </section>
-
-            {{-- 免許・排気量から探す --}}
-            <section class="mb-20">
-                <div class="flex items-end justify-between mb-8 px-2">
-                    <div>
-                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
-                            免許・排気量から探す
-                        </h2>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Search by License</p>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    @foreach($licenses as $license)
-                        <a href="{{ route('bikes.search', ['min_displacement' => $license['min_cc'], 'max_displacement' => $license['max_cc']]) }}" 
-                           class="group relative overflow-hidden rounded-2xl p-6 {{ $license['color'] }} transition-all duration-300 hover:shadow-lg border border-transparent hover:border-current flex flex-col items-center justify-center text-center h-32">
-                            
-                            {{-- 背景の装飾アイコン --}}
-                            <div class="absolute -right-4 -bottom-4 opacity-10 transform group-hover:scale-125 transition-transform duration-500">
-                                <i data-lucide="{{ $license['icon'] }}" class="w-24 h-24"></i>
-                            </div>
-
-                            <div class="relative z-10">
-                                <div class="mb-2 opacity-80 group-hover:scale-110 transition-transform duration-300">
-                                    <i data-lucide="{{ $license['icon'] }}" class="w-8 h-8 mx-auto"></i>
-                                </div>
-                                <span class="text-sm font-black tracking-tight block">
-                                    {{ $license['label'] }}
-                                </span>
-                            </div>
-                        </a>
-                    @endforeach
-                </div>
-            </section>
-
-            {{-- 人気車種セクション --}}
-            <section class="mb-20">
-                <div class="flex items-end justify-between mb-8 px-2">
-                    <div>
-                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
-                            人気車種
-                        </h2>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Popular Models</p>
-                    </div>
-                    <a href="{{ route('bikes.models') }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 group">
-                        すべて見る <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    @foreach($popularBikes as $bike)
-                        <a href="{{ $bike->seo_url }}"
-                           class="group flex items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-300">
-                            
-                            <div class="w-14 h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 border border-gray-50 relative">
-                                @if($bike->image_url)
-                                    <img src="{{ $bike->image_url }}" alt="{{ $bike->name }}"
-                                         class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
-                                         loading="lazy" decoding="async"
-                                         onerror="handleImageError(this)">
-                                @else
-                                    <div class="w-full h-full flex items-center justify-center text-gray-300">
-                                        <i data-lucide="bike" class="w-6 h-6"></i>
-                                    </div>
-                                @endif
-                            </div>
-                            
-                            <div class="ml-3 flex-1 min-w-0">
-                                <p class="text-[9px] font-bold text-gray-400 mb-0.5">{{ $bike->manufacturer?->name }}</p>
-                                <h3 class="text-sm font-black text-gray-800 leading-tight truncate group-hover:text-blue-600 transition-colors">
-                                    {{ $bike->name }}
-                                </h3>
-                                <div class="mt-1">
-                                    <span class="inline-flex items-center text-[9px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
-                                        {{ number_format($bike->listings_count) }}台
-                                    </span>
-                                </div>
-                            </div>
-                            
-                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-blue-400 group-hover:translate-x-1 transition-all"></i>
-                        </a>
-                    @endforeach
-                </div>
-            </section>
+            {{-- ======================= --}}
+            {{-- 👥 コミュ セクション    --}}
+            {{-- ======================= --}}
+            <div id="section-community">
 
             {{-- 新着ユーザーレビュー --}}
             @if($latestReviews->isNotEmpty())
@@ -381,9 +491,9 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     @foreach($latestReviews as $review)
-                        <a href="{{ $review->bikeModel->seo_url }}#reviews" 
+                        <a href="{{ $review->bikeModel->seo_url }}#reviews"
                            class="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col h-full">
-                            
+
                             {{-- ヘッダー: 車種名と評価 --}}
                             <div class="flex items-start justify-between mb-3">
                                 <div>
@@ -424,7 +534,7 @@
             </section>
             @endif
 
-            {{-- 最近登録された愛車 --}}
+            {{-- みんなの愛車 --}}
             @if(isset($latestMyBikes) && $latestMyBikes->isNotEmpty())
             <section class="mb-20">
                 <div class="flex items-end justify-between mb-8 px-2">
@@ -460,34 +570,8 @@
             </section>
             @endif
 
-            {{-- 都道府県から探す --}}
-            <section>
-                <div class="bg-gray-900 rounded-3xl p-8 sm:p-12 text-center relative overflow-hidden">
-                    <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 pointer-events-none"></div>
-                    <div class="absolute -top-24 -left-24 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
-                    <div class="absolute -bottom-24 -right-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
-                    
-                    <div class="relative z-10">
-                        <h2 class="text-2xl font-black text-white mb-2 tracking-tighter">地域から探す</h2>
-                        <p class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-8">Search by Area</p>
-                        
-                        <div class="flex flex-wrap justify-center gap-3">
-                            @foreach(['東京', '神奈川', '埼玉', '千葉', '大阪', '愛知', '福岡', '北海道'] as $pref)
-                                <a href="{{ route('bikes.search', ['prefecture' => $pref]) }}" 
-                                   class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">
-                                    {{ $pref }}
-                                </a>
-                            @endforeach
-                        </div>
-                        
-                        <div class="mt-8">
-                            <a href="{{ route('bikes.prefectures') }}" class="text-gray-400 text-xs font-bold hover:text-white transition-colors inline-flex items-center justify-center gap-2">
-                                <i data-lucide="map" class="w-4 h-4"></i> すべての地域を見る
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </section>
+            </div>{{-- /section-community --}}
+
         </div>
     </div>
 </x-layout>

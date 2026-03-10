@@ -15,7 +15,7 @@
 
             <!-- 中央: PC用検索窓 -->
             @if($showSearch)
-            <div class="hidden md:flex flex-grow max-w-md relative mx-8" id="nav-search-container">
+            <div class="hidden md:flex flex-grow max-w-xl relative mx-4" id="nav-search-container">
                 <form action="{{ route('bikes.search') }}" method="GET" class="w-full" autocomplete="off" id="nav-search-form">
                     <div class="relative w-full">
                         <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
@@ -32,7 +32,7 @@
             @endif
 
             <!-- 右側のアクションエリア -->
-            <div class="flex items-center gap-3 sm:gap-5 flex-shrink-0">
+            <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                 
                 <!-- スマホ用検索ボタン -->
                 @if($showSearch)
@@ -70,13 +70,13 @@
                 </a>
 
                 {{-- 相場ランキング (PCのみ) --}}
-                <a href="{{ route('bikes.trends') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="相場・価格変動ランキング">
+                <a href="{{ route('bikes.trends') }}" class="hidden xl:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="相場・価格変動ランキング">
                     <i data-lucide="trending-up" class="w-4 h-4"></i>
                     <span class="hidden xl:inline">相場ランキング</span>
                 </a>
 
                 {{-- 買取査定LPへのリンク --}}
-                <a href="{{ route('sell.index') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-xl transition uppercase tracking-widest" title="あなたのバイクいくらで売れる？">
+                <a href="{{ route('sell.index') }}" class="hidden xl:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-xl transition uppercase tracking-widest" title="あなたのバイクいくらで売れる？">
                     <i data-lucide="coins" class="w-4 h-4 text-yellow-500"></i>
                     買取相場
                 </a>
