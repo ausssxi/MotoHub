@@ -77,7 +77,7 @@ final class TrendService
                 $trends[] = [
                     'model_id' => $modelId,
                     'model_name' => $models[$modelId]->name,
-                    'maker_name' => $models[$modelId]->manufacturer->name ?? '不明',
+                    'maker_name' => $models[$modelId]->manufacturer?->name ?? '不明',
                     'current_price' => round($latest->avg_price / 10000, 1),
                     'past_price' => round($past->avg_price / 10000, 1),
                     'diff' => round($diff / 10000, 1),
