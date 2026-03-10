@@ -741,6 +741,13 @@
                     愛車ガレージに登録して燃費・整備を記録する →
                 </a>
             </div>
+
+            {{-- 近くの駐車場・ショップ・回遊リンク --}}
+            <div class="mt-12 space-y-6">
+                <x-nearby-parkings :nearbyParkings="$nearbyParkings" :latitude="$shopLat" :longitude="$shopLng" />
+                <x-nearby-shops :nearbyShops="$nearbyShops" :latitude="$shopLat" :longitude="$shopLng" />
+                <x-cross-links :crossLinks="$crossLinks" />
+            </div>
         </div>
     </div>
 

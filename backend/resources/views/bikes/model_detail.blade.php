@@ -777,6 +777,9 @@
                     {{-- 閲覧履歴ウィジェット --}}
                     @include('bikes.partials.history_widget', ['widgetId' => 'model-history-widget'])
 
+                    {{-- 回遊リンク --}}
+                    <x-cross-links :crossLinks="$crossLinks" />
+
                 </div>
 
                 {{-- サイドバー --}}

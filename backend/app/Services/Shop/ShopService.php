@@ -10,6 +10,7 @@ use App\Models\Manufacturer;
 use App\Repositories\Shop\ShopRepository;
 use App\Repositories\Bike\ListingRepository;
 use App\Services\Bike\Search\PaginationFormatter;
+use App\Services\NearbyService;
 use App\Http\Resources\Bike\ListingResource;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +23,8 @@ final class ShopService
     public function __construct(
         private readonly ShopRepository $shopRepo,
         private readonly ListingRepository $listingRepo,
-        private readonly PaginationFormatter $paginator
+        private readonly PaginationFormatter $paginator,
+        private readonly NearbyService $nearbyService
     ) {}
 
     /**
@@ -54,11 +56,30 @@ final class ShopService
             ->orderByDesc('stock_count')
             ->get();
 
+        // 近くの駐車場・ショップ・回遊リンク
+        $nearbyParkings = collect();
+        $nearbyShops = collect();
+        if ($shop->latitude && $shop->longitude) {
+            $nearbyParkings = $this->nearbyService->getNearbyParkings((float) $shop->latitude, (float) $shop->longitude);
+            $nearbyShops = $this->nearbyService->getNearbyShops((float) $shop->latitude, (float) $shop->longitude, $shop->id);
+        }
+
+        $crossLinks = [
+            ['label' => '中古バイク検索', 'url' => route('bikes.search'), 'icon' => 'search', 'description' => '全国の在庫を検索'],
+            ['label' => '車種カタログ', 'url' => route('bikes.models'), 'icon' => 'book-open', 'description' => '車種の相場を確認'],
+            ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => 'バイク駐車場を探す'],
+            ['label' => 'バイク診断', 'url' => route('shindan.index'), 'icon' => 'sparkles', 'description' => 'あなたにピッタリの1台'],
+            ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'garage', 'description' => '愛車を登録・管理'],
+        ];
+
         return [
             'shop' => $shop,
             'items' => ListingResource::collection($paginated->getCollection())->resolve(),
             'pagination' => $pagination,
             'manufacturers' => $manufacturers,
+            'nearbyParkings' => $nearbyParkings,
+            'nearbyShops' => $nearbyShops,
+            'crossLinks' => $crossLinks,
         ];
     }
 

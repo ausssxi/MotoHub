@@ -11,8 +11,9 @@ use Illuminate\Contracts\View\View;
 use App\Models\Listing;
 use App\Services\Bike\BikeService;
 use App\Services\Bike\ListingSearchService;
-use App\Services\Bike\SeoLandingService; 
+use App\Services\Bike\SeoLandingService;
 use App\Services\Bike\PriceStatsService;
+use App\Services\NearbyService;
 use App\Http\Resources\Bike\ListingResource;
 use App\Http\Requests\Bike\StoreReviewRequest;
 use App\Http\Requests\Bike\BikeSearchRequest;
@@ -30,7 +31,8 @@ final class BikeController extends Controller
         private readonly BikeService $bikeService,
         private readonly ListingSearchService $listingSearchService,
         private readonly SeoLandingService $seoLandingService,
-        private readonly PriceStatsService $priceStatsService
+        private readonly PriceStatsService $priceStatsService,
+        private readonly NearbyService $nearbyService
     ) {}
 
     /**
@@ -161,6 +163,24 @@ final class BikeController extends Controller
         $seoLinks = $this->bikeService->getSeoLinks($listing);
         $dynamicLinks = $this->bikeService->generateDynamicLinks($data, $seoLinks, $listing->tags);
 
+        // 近くの駐車場・ショップ（店舗のlat/lngを使用）
+        $nearbyParkings = collect();
+        $nearbyShops = collect();
+        $shopLat = $listing->shop?->latitude;
+        $shopLng = $listing->shop?->longitude;
+        if ($shopLat && $shopLng) {
+            $nearbyParkings = $this->nearbyService->getNearbyParkings((float) $shopLat, (float) $shopLng);
+            $nearbyShops = $this->nearbyService->getNearbyShops((float) $shopLat, (float) $shopLng, $listing->shop->id);
+        }
+
+        $crossLinks = [
+            ['label' => '中古バイク検索', 'url' => route('bikes.search'), 'icon' => 'search', 'description' => '全国の在庫を検索'],
+            ['label' => '車種カタログ', 'url' => route('bikes.models'), 'icon' => 'book-open', 'description' => '車種の相場を確認'],
+            ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => 'バイク駐車場を探す'],
+            ['label' => 'バイク診断', 'url' => route('shindan.index'), 'icon' => 'sparkles', 'description' => 'あなたにピッタリの1台'],
+            ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'garage', 'description' => '愛車を登録・管理'],
+        ];
+
         return view('bikes.show', [
             'listing'         => $data,
             'bikeModelForUrl' => $listing->bikeModel,
@@ -173,6 +193,11 @@ final class BikeController extends Controller
             'tags'            => $listing->tags,
             'reviews'         => $reviews,
             'priceDropDiff'   => $priceDropDiff,
+            'nearbyParkings'  => $nearbyParkings,
+            'nearbyShops'     => $nearbyShops,
+            'crossLinks'      => $crossLinks,
+            'shopLat'         => $shopLat,
+            'shopLng'         => $shopLng,
         ]);
     }
 
@@ -457,10 +482,19 @@ final class BikeController extends Controller
             ->limit(6)
             ->get();
 
+        $crossLinks = [
+            ['label' => $model->name . 'の在庫検索', 'url' => route('bikes.search', ['bike_model_id' => $model->id]), 'icon' => 'search', 'description' => '販売中の車両を探す'],
+            ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => 'バイク駐車場を探す'],
+            ['label' => 'ショップマップ', 'url' => route('shops.map'), 'icon' => 'store', 'description' => 'バイクショップを探す'],
+            ['label' => $model->manufacturer->name . 'の車種一覧', 'url' => route('bikes.models'), 'icon' => 'list', 'description' => '同メーカーの他モデル'],
+            ['label' => 'バイク診断', 'url' => route('shindan.index'), 'icon' => 'sparkles', 'description' => 'あなたにピッタリの1台'],
+            ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'garage', 'description' => '愛車を登録・管理'],
+        ];
+
         return view('bikes.model_detail', compact(
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'relatedModels', 'similarDisplacementModels',
-            'sameCategoryModels', 'activeCount', 'owners'
+            'sameCategoryModels', 'activeCount', 'owners', 'crossLinks'
         ));
     }
 

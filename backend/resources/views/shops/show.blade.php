@@ -183,6 +183,13 @@
                     @endif
                 </div>
             </div>
+
+            {{-- 近くの駐車場・ショップ・回遊リンク --}}
+            <div class="mt-12 space-y-6">
+                <x-nearby-parkings :nearbyParkings="$nearbyParkings" :latitude="$shop->latitude" :longitude="$shop->longitude" />
+                <x-nearby-shops :nearbyShops="$nearbyShops" :latitude="$shop->latitude" :longitude="$shop->longitude" />
+                <x-cross-links :crossLinks="$crossLinks" />
+            </div>
         </div>
     </div>
 </x-layout>

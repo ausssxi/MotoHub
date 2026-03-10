@@ -216,9 +216,16 @@
                     <i data-lucide="map" class="w-4 h-4 text-green-600"></i> 位置情報
                 </h2>
                 <div id="detail-map" class="w-full"></div>
-                <a href="{{ route('parking.index', ['lat' => $parking->latitude, 'lng' => $parking->longitude]) }}" class="block mt-3 text-center text-xs font-bold text-green-600 hover:text-green-700 transition">
-                    周辺の駐車場を探す →
-                </a>
+                <div class="mt-3 flex flex-col sm:flex-row items-center justify-center gap-2">
+                    <a href="https://www.google.com/maps/dir/?api=1&destination={{ $parking->latitude }},{{ $parking->longitude }}" target="_blank" rel="noopener noreferrer"
+                       class="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 px-5 rounded-xl transition-colors shadow-sm">
+                        <i data-lucide="navigation" class="w-4 h-4"></i>
+                        Google Maps でルートを表示
+                    </a>
+                    <a href="{{ route('parking.index', ['lat' => $parking->latitude, 'lng' => $parking->longitude]) }}" class="text-xs font-bold text-green-600 hover:text-green-700 transition">
+                        周辺の駐車場を探す →
+                    </a>
+                </div>
             </div>
 
             {{-- レビュー一覧 --}}
@@ -316,6 +323,13 @@
                         </div>
                     </form>
                 </div>
+            </div>
+
+            {{-- 近くの駐車場・ショップ・回遊リンク --}}
+            <div class="mt-6 space-y-6">
+                <x-nearby-parkings :nearbyParkings="$nearbyParkings" :latitude="$parking->latitude" :longitude="$parking->longitude" />
+                <x-nearby-shops :nearbyShops="$nearbyShops" :latitude="$parking->latitude" :longitude="$parking->longitude" />
+                <x-cross-links :crossLinks="$crossLinks" />
             </div>
         </div>
     </div>
