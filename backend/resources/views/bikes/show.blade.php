@@ -733,6 +733,14 @@
             <div class="mt-12">
             @include('bikes.partials.recommendations')
             </div>
+
+            {{-- 愛車ガレージCTA --}}
+            <div class="mt-8 bg-pink-50 rounded-2xl p-5 border border-pink-100 text-center">
+                <p class="text-sm font-bold text-gray-800 mb-2">この車種に乗っていますか？</p>
+                <a href="{{ route('mybikes.index') }}" class="text-xs font-bold text-pink-600 hover:underline">
+                    愛車ガレージに登録して燃費・整備を記録する →
+                </a>
+            </div>
         </div>
     </div>
 

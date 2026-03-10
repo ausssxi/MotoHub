@@ -389,6 +389,16 @@
                         {{-- ★ここを修正！ $loop->index < 4 を渡す --}}
                         @include('bikes.partials.bike_card', ['listing' => $listing, 'isFirstView' => $loop->index < 4])
 
+                        {{-- 6件目の後に愛車ガレージCTAを挿入 --}}
+                        @if($loop->index === 5)
+                        <div class="col-span-full bg-pink-50 rounded-2xl p-5 border border-pink-100 text-center">
+                            <p class="text-sm font-bold text-gray-800 mb-1">バイクを持っている方へ</p>
+                            <a href="{{ route('garage.public.index') }}" class="text-xs text-pink-600 font-bold hover:underline">
+                                愛車ガレージで燃費・整備を記録しませんか？ →
+                            </a>
+                        </div>
+                        @endif
+
                         {{-- 15件目の後にLINE通知カードを挿入（ゲストのみ） --}}
                         @if($loop->index === 14)
                             @guest
