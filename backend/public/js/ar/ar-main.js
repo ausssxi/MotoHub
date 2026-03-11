@@ -270,23 +270,12 @@ function createTextCanvas(text, { fontSize = 24, bgColor = "rgba(0,0,0,0.7)", te
 }
 
 function createLabel(target, distance) {
+    // >400m: no labels at all (pin only)
+    if (distance > 400) return null;
+
     const group = new THREE.Group();
 
-    // Name label
-    const displayName = target.name.length > 8 ? target.name.substring(0, 8) + "\u2026" : target.name;
-    const nameCanvas = createTextCanvas(displayName, {
-        fontSize: 24, bgColor: "rgba(0,0,0,0.7)", textColor: "white", padding: 8
-    });
-    const nameTexture = new THREE.Texture(nameCanvas);
-    nameTexture.needsUpdate = true;
-    const nameMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(nameCanvas.width, nameCanvas.height),
-        new THREE.MeshBasicMaterial({ map: nameTexture, transparent: true, side: THREE.DoubleSide })
-    );
-    nameMesh.position.y = 50;
-    group.add(nameMesh);
-
-    // Distance label
+    // Distance label (always shown when <=400m)
     const distText = distance < 1000 ? `${Math.round(distance)}m` : `${(distance / 1000).toFixed(1)}km`;
     const distCanvas = createTextCanvas(distText, {
         fontSize: 20,
@@ -302,6 +291,22 @@ function createLabel(target, distance) {
     );
     distMesh.position.y = 15;
     group.add(distMesh);
+
+    // Name label (only shown when <=200m)
+    if (distance <= 200) {
+        const displayName = target.name.length > 6 ? target.name.substring(0, 6) + "\u2026" : target.name;
+        const nameCanvas = createTextCanvas(displayName, {
+            fontSize: 24, bgColor: "rgba(0,0,0,0.7)", textColor: "white", padding: 8
+        });
+        const nameTexture = new THREE.Texture(nameCanvas);
+        nameTexture.needsUpdate = true;
+        const nameMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(nameCanvas.width, nameCanvas.height),
+            new THREE.MeshBasicMaterial({ map: nameTexture, transparent: true, side: THREE.DoubleSide })
+        );
+        nameMesh.position.y = 50;
+        group.add(nameMesh);
+    }
 
     return group;
 }
@@ -382,18 +387,20 @@ function rebuildMarkers() {
     // Remove old markers
     markerGroups.forEach(mg => {
         scene.remove(mg.group);
-        scene.remove(mg.labelGroup);
+        if (mg.labelGroup) scene.remove(mg.labelGroup);
     });
     markerGroups = [];
 
     targets.forEach(target => {
         const visible = (target.type === "parking" && showParking) || (target.type === "shop" && showShop);
         const group = createMarker(target);
-        const labelGroup = createLabel(target, target.distance);
+        const labelGroup = createLabel(target, target.distance); // may be null if >400m
         group.visible = visible;
-        labelGroup.visible = visible;
         scene.add(group);
-        scene.add(labelGroup);
+        if (labelGroup) {
+            labelGroup.visible = visible;
+            scene.add(labelGroup);
+        }
         markerGroups.push({ group, labelGroup, target });
     });
 }
@@ -417,6 +424,13 @@ function updateStatusBar() {
         if (showShop) parts.push(`ショップ ${shopCount}件`);
         el.textContent = parts.join(" / ") || "検索中...";
     }
+}
+
+// --- Scale by distance ---
+function getMarkerScale(distance) {
+    if (distance < 50) return 0.5;
+    if (distance < 200) return 1.0;
+    return 0.8;
 }
 
 // --- Animation Loop ---
@@ -452,8 +466,9 @@ function startARLoop() {
         }
 
         // Position markers based on device orientation
+        // Fix: beta≈90° when phone held horizontally, subtract 90 so markers center on screen
         const rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
-        const pitchY = -rotation[1];
+        const pitchY = -(rotation[1] - 90);
         const moveYFromPitch = (canvasH / fov) * pitchY;
 
         markerGroups.forEach(mg => {
@@ -469,19 +484,21 @@ function startARLoop() {
             const altAngle = Math.atan2(heightDiff, Math.max(t.distance, 1)) * (180 / Math.PI);
             const setY = (canvasH / fov) * altAngle;
 
-            // Scale by distance (nearer = bigger)
-            const scale = Math.max(0.3, Math.min(2.0, 200 / Math.max(t.distance, 50)));
+            // Scale by distance: close=small, mid=normal, far=slightly small
+            const scale = getMarkerScale(t.distance);
 
             mg.group.position.set(moveX, setY + moveYFromPitch, -Math.min(t.distance, 1000));
             mg.group.scale.set(scale, scale, scale);
 
-            mg.labelGroup.position.set(moveX, setY + moveYFromPitch + 63 * scale, -Math.min(t.distance, 1000));
-            mg.labelGroup.scale.set(scale, scale, scale);
+            if (mg.labelGroup) {
+                mg.labelGroup.position.set(moveX, setY + moveYFromPitch + 63 * scale, -Math.min(t.distance, 1000));
+                mg.labelGroup.scale.set(scale, scale, scale);
+            }
 
             // Visibility
             const visible = (t.type === "parking" && showParking) || (t.type === "shop" && showShop);
             mg.group.visible = visible;
-            mg.labelGroup.visible = visible;
+            if (mg.labelGroup) mg.labelGroup.visible = visible;
         });
 
         // Render
@@ -525,31 +542,45 @@ function showInfoPanel(target) {
 function initTapDetection() {
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
+    const canvas = document.getElementById("ar-canvas");
 
-    document.getElementById("ar-canvas").addEventListener("click", (event) => {
-        // Don't raycast if clicking UI elements
-        if (event.target !== document.getElementById("ar-canvas")) return;
-
-        pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
-        pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    function onTap(clientX, clientY) {
+        pointer.x = (clientX / window.innerWidth) * 2 - 1;
+        pointer.y = -(clientY / window.innerHeight) * 2 + 1;
 
         raycaster.setFromCamera(pointer, camera);
-        const meshes = markerGroups.filter(mg => mg.group.visible).map(mg => mg.group);
-        const intersects = raycaster.intersectObjects(meshes, true);
+        // Include both pin groups and label groups for wider hit area
+        const allObjects = markerGroups
+            .filter(mg => mg.group.visible)
+            .flatMap(mg => mg.labelGroup ? [mg.group, mg.labelGroup] : [mg.group]);
+        const intersects = raycaster.intersectObjects(allObjects, true);
 
         if (intersects.length > 0) {
             const hitObj = intersects[0].object;
             const mg = markerGroups.find(m => {
                 let parent = hitObj;
                 while (parent) {
-                    if (parent === m.group) return true;
+                    if (parent === m.group || parent === m.labelGroup) return true;
                     parent = parent.parent;
                 }
                 return false;
             });
             if (mg) showInfoPanel(mg.target);
         }
+    }
+
+    // Desktop click
+    canvas.addEventListener("click", (event) => {
+        if (event.target !== canvas) return;
+        onTap(event.clientX, event.clientY);
     });
+
+    // Mobile touch (more reliable than click on some devices)
+    canvas.addEventListener("touchend", (event) => {
+        event.preventDefault();
+        const touch = event.changedTouches[0];
+        onTap(touch.clientX, touch.clientY);
+    }, { passive: false });
 }
 
 // --- Filter Toggle ---
@@ -566,7 +597,7 @@ window.toggleFilter = function (type) {
     markerGroups.forEach(mg => {
         const visible = (mg.target.type === "parking" && showParking) || (mg.target.type === "shop" && showShop);
         mg.group.visible = visible;
-        mg.labelGroup.visible = visible;
+        if (mg.labelGroup) mg.labelGroup.visible = visible;
     });
     updateStatusBar();
 };
