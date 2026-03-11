@@ -18,6 +18,7 @@ use App\Http\Controllers\Auth\LineAuthController;
 use App\Http\Controllers\Shindan\ShindanController;
 use App\Http\Controllers\Feature\FeatureController;
 use App\Http\Controllers\Parking\ParkingController;
+use App\Http\Controllers\Ar\ArController;
 
 /**
  * MotoHub Route Definitions
@@ -147,6 +148,9 @@ Route::prefix('parking')->name('parking.')->controller(ParkingController::class)
 Route::middleware('auth')->prefix('parking')->name('parking.')->controller(ParkingController::class)->group(function () {
     Route::post('/', 'store')->name('store');
 });
+
+// AR駐車場・ショップファインダー
+Route::get('/ar', [ArController::class, 'index'])->name('ar.index');
 
 // 特集ページ (SEOランディング)
 Route::prefix('features')->name('features.')->controller(FeatureController::class)->group(function () {

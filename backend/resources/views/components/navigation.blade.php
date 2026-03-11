@@ -69,6 +69,16 @@
                     <span class="hidden xl:inline">駐車場</span>
                 </a>
 
+                {{-- AR駐車場ファインダー (モバイルのみ) --}}
+                <a href="{{ route('ar.index') }}" class="flex lg:hidden items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-xl transition uppercase tracking-widest relative" title="ARで駐車場を探す">
+                    <i data-lucide="camera" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">AR</span>
+                    <span class="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    </span>
+                </a>
+
                 {{-- 相場ランキング (PCのみ) --}}
                 <a href="{{ route('bikes.trends') }}" class="hidden xl:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="相場・価格変動ランキング">
                     <i data-lucide="trending-up" class="w-4 h-4"></i>

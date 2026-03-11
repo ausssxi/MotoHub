@@ -93,6 +93,15 @@
             </div>
         </div>
 
+        {{-- 左上2段目: ARボタン (モバイルのみ) --}}
+        <a href="{{ route('ar.index') }}" class="absolute top-14 left-3 bg-black/70 text-white px-3 py-2 rounded-lg shadow-md flex items-center gap-1.5 text-xs font-bold hover:bg-black/90 transition z-[1000] backdrop-blur-sm sm:hidden">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+            </svg>
+            ARで探す
+        </a>
+
         {{-- 右上: 駐車場登録ボタン --}}
         <a href="{{ route('parking.create') }}" class="absolute top-3 right-3 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-md flex items-center gap-1.5 text-xs font-bold hover:bg-gray-700 transition z-[1000]">
             <i data-lucide="plus" class="w-3.5 h-3.5"></i>
