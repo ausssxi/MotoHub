@@ -41,7 +41,7 @@
                         s.src = 'https://cdn.jsdelivr.net/npm/chart.js';
                         s.onload = function() {
                             var s2 = document.createElement('script');
-                            s2.src = '{{ asset("js/bikes/model_detail.js") }}';
+                            s2.src = '{{ asset("js/bikes/model_detail.js") }}?v={{ filemtime(public_path("js/bikes/model_detail.js")) }}';
                             document.head.appendChild(s2);
                         };
                         s.onerror = function() {

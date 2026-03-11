@@ -1,56 +1,25 @@
 /**
  * MotoHub Model Detail Page Scripts
- * 統計データの数値反映とチャート描画を行います。
+ * チャート描画のみを担当。統計数値はサーバーサイド(Blade)でレンダリング済み。
  */
 function initModelDetail() {
-    // グローバル変数からデータを取得（Blade側で window.bikeModelStats = ... と定義されている前提）
-    const stats = window.bikeModelStats || {};
-    const history = window.bikeModelHistory || {};
+    var stats = window.bikeModelStats || {};
+    var history = window.bikeModelHistory || {};
 
     // ==========================================
-    // 0. 統計数値・ローディング表示のDOM更新
-    // ==========================================
-    const loading = document.getElementById('price-stats-loading');
-    const content = document.getElementById('price-stats-content');
-
-    // データがある場合のみ数値を反映して表示
-    if (stats && stats.count > 0) {
-        const setVal = (id, val) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = val;
-        };
-
-        // HTML側のID (stat-avgなど) に数値をセット
-        setVal('stat-avg', stats.avg);
-        setVal('stat-min', stats.min);
-        setVal('stat-max', stats.max);
-
-        // ローディングを消してコンテンツを表示
-        if (loading) loading.style.display = 'none';
-        if (content) {
-            content.classList.remove('hidden');
-            content.classList.add('animate-in', 'fade-in');
-        }
-    } else {
-        // データがない場合
-        if (loading) loading.innerHTML = '<p class="text-xs text-gray-400 font-bold">データが不足しています</p>';
-    }
-
-    // ==========================================
-    // 1. 価格分布チャート (Stats)
+    // 1. 価格分布ヒストグラム (Chart.js)
     // ==========================================
     if (stats.distribution && stats.distribution.length > 0) {
-        const chartCanvas = document.getElementById('priceChart');
-        if (chartCanvas) {
+        var chartCanvas = document.getElementById('priceChart');
+        if (chartCanvas && typeof Chart !== 'undefined') {
             try {
-                const ctx = chartCanvas.getContext('2d');
-                new Chart(ctx, {
+                new Chart(chartCanvas.getContext('2d'), {
                     type: 'bar',
                     data: {
-                        labels: stats.distribution.map(d => d.label),
+                        labels: stats.distribution.map(function(d) { return d.label; }),
                         datasets: [{
                             label: '台数',
-                            data: stats.distribution.map(d => d.count),
+                            data: stats.distribution.map(function(d) { return d.count; }),
                             backgroundColor: 'rgba(59, 130, 246, 0.5)',
                             borderColor: 'rgba(59, 130, 246, 1)',
                             borderWidth: 1,
@@ -84,18 +53,17 @@ function initModelDetail() {
     // 2. 価格推移チャート (History)
     // ==========================================
     if (history.prices && history.prices.length > 0) {
-        const historyCanvas = document.getElementById('historyChart');
-        if (historyCanvas) {
+        var historyCanvas = document.getElementById('historyChart');
+        if (historyCanvas && typeof Chart !== 'undefined') {
             try {
-                const ctxHistory = historyCanvas.getContext('2d');
-                new Chart(ctxHistory, {
+                new Chart(historyCanvas.getContext('2d'), {
                     type: 'line',
                     data: {
                         labels: history.labels,
                         datasets: [{
                             label: '平均価格推移 (万円)',
                             data: history.prices,
-                            borderColor: 'rgb(234, 88, 12)', // オレンジ
+                            borderColor: 'rgb(234, 88, 12)',
                             backgroundColor: 'rgba(234, 88, 12, 0.1)',
                             fill: true,
                             tension: 0.4
