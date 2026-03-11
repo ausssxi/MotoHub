@@ -31,7 +31,7 @@
         {{-- Chart.js + model_detail.js: チャートが見えた時のみ遅延読込（TBT大幅改善） --}}
         <script>
             (function() {
-                var target = document.getElementById('priceChart') || document.getElementById('historyChart');
+                var target = document.getElementById('price-stats-container') || document.getElementById('priceChart') || document.getElementById('historyChart');
                 if (!target) return;
                 var obs = new IntersectionObserver(function(entries) {
                     if (entries[0].isIntersecting) {
