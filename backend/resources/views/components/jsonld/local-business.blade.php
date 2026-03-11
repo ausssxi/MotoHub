@@ -10,7 +10,7 @@
 @php
     $schema = [
         '@context' => 'https://schema.org',
-        '@type' => 'AutoDealer',
+        '@type' => 'MotorcycleDealer',
         'name' => $shop->name,
         'description' => ($shop->prefecture ? $shop->prefecture . 'にある' : '') . '「' . $shop->name . '」のバイク在庫情報。' . ($stockCount > 0 ? "現在{$stockCount}台販売中。" : ''),
         'address' => [
@@ -45,6 +45,8 @@
     if ($imageUrl) {
         $schema['image'] = $imageUrl;
     }
+
+    $schema['priceRange'] = '¥';
 
     if ($shop->rating && $shop->rating > 0) {
         $schema['aggregateRating'] = [

@@ -7,6 +7,7 @@
 
     <x-slot:styles>
         <x-jsonld.local-business :shop="$shop" :stockCount="$pagination['total'] ?? 0" />
+        <x-jsonld.breadcrumb-shop :shop="$shop" />
         {{-- CSSの非同期読み込み（レンダリングブロック完全解除） --}}
         <link rel="preload" href="{{ asset('css/bike-search.css') }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="{{ asset('css/bike-search.css') }}"></noscript>
@@ -63,11 +64,19 @@
                             
                             {{-- ★追加: 地図で見るボタン --}}
                             @if($shop->latitude && $shop->longitude)
-                            <a href="{{ route('shops.map', ['lat' => $shop->latitude, 'lng' => $shop->longitude, 'shop_id' => $shop->id]) }}" 
-                               class="block w-full bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-black text-center py-3 rounded-xl transition flex items-center justify-center gap-2 group">
-                                <i data-lucide="map" class="w-4 h-4 group-hover:scale-110 transition-transform"></i>
-                                地図で場所を確認する
-                            </a>
+                            <div class="flex gap-2">
+                                <a href="https://www.google.com/maps/dir/?api=1&destination={{ $shop->latitude }},{{ $shop->longitude }}"
+                                   target="_blank"
+                                   class="flex-1 bg-blue-600 text-white hover:bg-blue-700 font-black text-center py-3 rounded-xl transition flex items-center justify-center gap-2 text-sm">
+                                    <i data-lucide="navigation" class="w-4 h-4"></i>
+                                    ルート案内
+                                </a>
+                                <a href="{{ route('shops.map', ['lat' => $shop->latitude, 'lng' => $shop->longitude, 'shop_id' => $shop->id]) }}"
+                                   class="flex-1 bg-gray-100 text-gray-700 hover:bg-gray-200 font-black text-center py-3 rounded-xl transition flex items-center justify-center gap-2 text-sm">
+                                    <i data-lucide="map" class="w-4 h-4"></i>
+                                    地図で見る
+                                </a>
+                            </div>
                             @endif
 
                             <div class="border-t border-gray-100 my-4"></div>
@@ -183,6 +192,38 @@
                     @endif
                 </div>
             </div>
+
+            {{-- 訪問済みボタン --}}
+            <div class="mt-8 bg-indigo-50 rounded-2xl p-5 border border-indigo-100 text-center max-w-md mx-auto">
+                <p class="text-sm font-bold text-gray-800 mb-3">この店舗に行ったことはありますか？</p>
+                <button onclick="markVisited({{ $shop->id }})" id="visited-btn"
+                    class="bg-indigo-600 text-white font-bold text-sm px-6 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors">
+                    行ったことある！
+                </button>
+                <p class="text-xs text-gray-400 mt-2" id="visited-count">
+                    {{ $shop->visited_count ?? 0 }}人が訪問済み
+                </p>
+            </div>
+            <script>
+            function markVisited(shopId) {
+                fetch(`/shops/${shopId}/visited`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    const btn = document.getElementById('visited-btn');
+                    btn.textContent = '訪問済み！';
+                    btn.disabled = true;
+                    btn.classList.replace('bg-indigo-600', 'bg-gray-400');
+                    btn.classList.remove('hover:bg-indigo-700');
+                    document.getElementById('visited-count').textContent = data.count + '人が訪問済み';
+                });
+            }
+            </script>
 
             {{-- 近くの駐車場・ショップ・回遊リンク --}}
             <div class="mt-12 space-y-6">

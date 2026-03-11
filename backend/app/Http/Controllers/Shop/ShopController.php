@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
+use App\Models\Shop;
 use App\Services\Shop\ShopService;
 
 class ShopController extends Controller
@@ -25,6 +26,16 @@ class ShopController extends Controller
         $data = $this->shopService->getShopDetailWithListings($id);
 
         return view('shops.show', $data);
+    }
+
+    /**
+     * 訪問済みカウントをインクリメント
+     */
+    public function visited(Shop $shop): JsonResponse
+    {
+        $shop->increment('visited_count');
+
+        return response()->json(['count' => $shop->visited_count]);
     }
 
     /**

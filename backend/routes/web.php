@@ -126,6 +126,7 @@ Route::prefix('shops')->name('shops.')->group(function () {
     Route::get('/api/area', [ShopController::class, 'area'])->name('api.area');
     
     Route::get('/{id}', [ShopController::class, 'show'])->name('show')->where('id', '[0-9]+');
+    Route::post('/{shop}/visited', [ShopController::class, 'visited'])->name('visited')->where('shop', '[0-9]+')->middleware('throttle:10,1');
 });
 
 // 公開ガレージ（auth不要）
