@@ -31,8 +31,9 @@
         {{-- Chart.js + model_detail.js: チャートが見えた時のみ遅延読込（TBT大幅改善） --}}
         <script>
             (function() {
-                var target = document.getElementById('price-stats-container') || document.getElementById('priceChart') || document.getElementById('historyChart');
-                if (!target) return;
+                var canvas = document.getElementById('priceChart') || document.getElementById('historyChart');
+                if (!canvas) return;
+                var container = document.getElementById('price-stats-container') || canvas;
                 var obs = new IntersectionObserver(function(entries) {
                     if (entries[0].isIntersecting) {
                         obs.disconnect();
@@ -43,10 +44,13 @@
                             s2.src = '{{ asset("js/bikes/model_detail.js") }}';
                             document.head.appendChild(s2);
                         };
+                        s.onerror = function() {
+                            console.warn('Chart.js CDN load failed');
+                        };
                         document.head.appendChild(s);
                     }
                 }, { rootMargin: '200px' });
-                obs.observe(target);
+                obs.observe(container);
             })();
         </script>
 
@@ -376,11 +380,11 @@
 
                     {{-- 相場分析チャート --}}
                     @if($listing->model_year && is_numeric($listing->total_price))
-                    <div id="price-stats-container" 
-                         data-model-id="{{ $listing->bike_model_id ?? '' }}" 
+                    <div id="price-stats-container"
+                         data-model-id="{{ $listing->bike_model_id ?? '' }}"
                          data-total-price="{{ $listing->total_price ?? 0 }}"
                          class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 overflow-hidden">
-                         
+
                         <div class="flex items-center gap-2 mb-6">
                             <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
                                 <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
@@ -388,27 +392,25 @@
                             <h3 class="text-lg font-black text-gray-900">市場価格分析</h3>
                         </div>
 
-                        <div id="price-stats-loading" class="text-center py-10">
-                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                            <p class="text-xs text-gray-400 font-bold mt-3">市場データを分析中...</p>
-                        </div>
-
-                        <div id="price-stats-content" class="hidden">
+                        @if(isset($stats) && ($stats['count'] ?? 0) > 0)
+                        {{-- サーバーサイドで直接レンダリング（JSの読み込み連鎖に依存しない） --}}
+                        <div id="price-stats-content">
                             <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-8">
                                 <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
                                     <div class="text-[10px] font-bold text-gray-400 mb-1">相場平均</div>
-                                    <div class="text-base sm:text-xl font-black text-gray-800"><span id="stat-avg">---</span><span class="text-xs ml-0.5">万円</span></div>
+                                    <div class="text-base sm:text-xl font-black text-gray-800">{{ $stats['avg'] }}<span class="text-xs ml-0.5">万円</span></div>
                                 </div>
                                 <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
                                     <div class="text-[10px] font-bold text-gray-400 mb-1">最安値</div>
-                                    <div class="text-base sm:text-xl font-black text-blue-600"><span id="stat-min">---</span><span class="text-xs ml-0.5">万円</span></div>
+                                    <div class="text-base sm:text-xl font-black text-blue-600">{{ $stats['min'] }}<span class="text-xs ml-0.5">万円</span></div>
                                 </div>
                                 <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
                                     <div class="text-[10px] font-bold text-gray-400 mb-1">最高値</div>
-                                    <div class="text-base sm:text-xl font-black text-red-500"><span id="stat-max">---</span><span class="text-xs ml-0.5">万円</span></div>
+                                    <div class="text-base sm:text-xl font-black text-red-500">{{ $stats['max'] }}<span class="text-xs ml-0.5">万円</span></div>
                                 </div>
                             </div>
-                            
+
+                            {{-- ヒストグラムはChart.js遅延読込後に描画 --}}
                             <div class="relative h-64 w-full">
                                 <canvas id="priceChart"></canvas>
                             </div>
@@ -424,6 +426,9 @@
                             </div>
                             @endif
                         </div>
+                        @else
+                        <p class="text-xs text-gray-400 font-bold text-center py-6">この車種の価格データが不足しています</p>
+                        @endif
                     </div>
                     @endif
 
