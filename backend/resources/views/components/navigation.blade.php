@@ -15,7 +15,7 @@
 
             <!-- 中央: PC用検索窓 -->
             @if($showSearch)
-            <div class="hidden md:flex flex-grow max-w-xl relative mx-4" id="nav-search-container">
+            <div class="hidden md:flex flex-grow max-w-xl relative mx-8" id="nav-search-container">
                 <form action="{{ route('bikes.search') }}" method="GET" class="w-full" autocomplete="off" id="nav-search-form">
                     <div class="relative w-full">
                         <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
