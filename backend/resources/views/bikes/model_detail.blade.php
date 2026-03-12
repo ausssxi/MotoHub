@@ -194,6 +194,7 @@
             <div class="flex items-center gap-1 overflow-x-auto scrollbar-hide py-2.5 -mx-1">
                 @php
                     $sections = [
+                        ['id' => 'overview', 'label' => '概要'],
                         ['id' => 'specs', 'label' => 'スペック'],
                         ['id' => 'resale', 'label' => '買取相場'],
                         ['id' => 'price-distribution', 'label' => '価格分布'],
@@ -220,7 +221,7 @@
                 <div class="lg:col-span-8 space-y-8">
 
                     {{-- ★追加: 車種紹介テキスト（SEOの要） --}}
-                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                    <div id="overview" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
                         <h2 class="text-xl font-black text-gray-900 mb-4 flex items-center gap-2">
                             <span class="bg-indigo-100 text-indigo-600 p-2 rounded-lg"><i data-lucide="info" class="w-5 h-5"></i></span>
                             {{ $model->name }}とは
