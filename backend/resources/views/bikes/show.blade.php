@@ -751,6 +751,33 @@
             <div class="mt-12 space-y-6">
                 <x-nearby-parkings :nearbyParkings="$nearbyParkings" :latitude="$shopLat" :longitude="$shopLng" />
                 <x-nearby-shops :nearbyShops="$nearbyShops" :latitude="$shopLat" :longitude="$shopLng" />
+                @if($alsoViewed->count() > 0)
+                <div class="mt-8">
+                    <h2 class="text-lg font-black text-gray-900 mb-4">この車両を見た人はこれも見ています</h2>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                        @foreach($alsoViewed as $item)
+                        <a href="{{ route('bikes.show', $item->id) }}" class="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+                            <div class="h-28 sm:h-40 bg-gray-100 overflow-hidden">
+                                @if(!empty($item->images[0]))
+                                <img src="{{ $item->images[0] }}" alt="{{ $item->title }}" class="w-full h-full object-cover" loading="lazy" decoding="async">
+                                @endif
+                            </div>
+                            <div class="p-3">
+                                @if($item->total_price)
+                                <p class="text-sm font-black text-red-600 mb-1">{{ number_format($item->total_price / 10000, 1) }}万円</p>
+                                @endif
+                                <p class="text-xs font-bold text-gray-800 line-clamp-2">{{ $item->title }}</p>
+                                <div class="flex items-center gap-2 mt-1 text-[10px] text-gray-400">
+                                    @if($item->model_year)<span>{{ $item->model_year }}年</span>@endif
+                                    @if($item->mileage)<span>{{ number_format($item->mileage) }}km</span>@endif
+                                    @if($item->shop?->prefecture)<span>{{ $item->shop->prefecture }}</span>@endif
+                                </div>
+                            </div>
+                        </a>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
                 <x-cross-links :crossLinks="$crossLinks" />
             </div>
         </div>

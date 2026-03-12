@@ -173,6 +173,25 @@ final class BikeController extends Controller
             $nearbyShops = $this->nearbyService->getNearbyShops((float) $shopLat, (float) $shopLng, $listing->shop->id);
         }
 
+        $alsoViewed = collect();
+        if ($listing->bike_model_id && $listing->total_price) {
+            $alsoViewed = \App\Models\Listing::with('shop')
+                ->where('is_sold_out', 0)
+                ->where('id', '!=', $listing->id)
+                ->where(function($query) use ($listing) {
+                    $query->where('category_id', $listing->category_id)
+                          ->orWhereBetween('total_price', [
+                              $listing->total_price * 0.8,
+                              $listing->total_price * 1.2
+                          ]);
+                })
+                ->whereNotNull('total_price')
+                ->where('total_price', '>', 0)
+                ->inRandomOrder()
+                ->limit(6)
+                ->get();
+        }
+
         $crossLinks = [
             ['label' => '中古バイク検索', 'url' => route('bikes.search'), 'icon' => 'search', 'description' => '全国の在庫を検索'],
             ['label' => '車種カタログ', 'url' => route('bikes.models'), 'icon' => 'book-open', 'description' => '車種の相場を確認'],
@@ -196,6 +215,7 @@ final class BikeController extends Controller
             'nearbyParkings'  => $nearbyParkings,
             'nearbyShops'     => $nearbyShops,
             'crossLinks'      => $crossLinks,
+            'alsoViewed'      => $alsoViewed,
             'shopLat'         => $shopLat,
             'shopLng'         => $shopLng,
         ]);
@@ -482,6 +502,23 @@ final class BikeController extends Controller
             ->limit(6)
             ->get();
 
+        $similarModels = \App\Models\BikeModel::with('manufacturer')
+            ->where('id', '!=', $model->id)
+            ->where(function($query) use ($model) {
+                if ($model->category_id) {
+                    $query->where('category_id', $model->category_id);
+                }
+            })
+            ->whereHas('listings', function($query) {
+                $query->where('is_sold_out', 0);
+            })
+            ->withCount(['listings' => function($query) {
+                $query->where('is_sold_out', 0);
+            }])
+            ->orderByDesc('listings_count')
+            ->limit(6)
+            ->get();
+
         $crossLinks = [
             ['label' => $model->name . 'の在庫検索', 'url' => route('bikes.search', ['bike_model_id' => $model->id]), 'icon' => 'search', 'description' => '販売中の車両を探す'],
             ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => 'バイク駐車場を探す'],
@@ -494,7 +531,7 @@ final class BikeController extends Controller
         return view('bikes.model_detail', compact(
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'relatedModels', 'similarDisplacementModels',
-            'sameCategoryModels', 'activeCount', 'owners', 'crossLinks'
+            'sameCategoryModels', 'activeCount', 'owners', 'similarModels', 'crossLinks'
         ));
     }
 

@@ -778,6 +778,21 @@
                     {{-- 閲覧履歴ウィジェット --}}
                     @include('bikes.partials.history_widget', ['widgetId' => 'model-history-widget'])
 
+                    @if(isset($similarModels) && $similarModels->count() > 0)
+                    <div class="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 mt-8">
+                        <h2 class="text-lg font-black text-gray-900 mb-4">{{ $model->name }}を見た人はこの車種も見ています</h2>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            @foreach($similarModels as $similar)
+                            <a href="{{ $similar->seo_url ?? route('bikes.modelDetail', $similar->id) }}" class="bg-gray-50 rounded-xl p-3 border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all">
+                                <p class="text-xs text-gray-400 font-bold">{{ $similar->manufacturer->name ?? '' }}</p>
+                                <p class="text-sm font-black text-gray-800 line-clamp-1">{{ $similar->name }}</p>
+                                <p class="text-xs text-blue-600 font-bold mt-1">{{ $similar->listings_count }}台販売中</p>
+                            </a>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
                     {{-- 回遊リンク --}}
                     <x-cross-links :crossLinks="$crossLinks" />
 
