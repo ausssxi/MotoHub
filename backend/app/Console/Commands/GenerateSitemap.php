@@ -383,8 +383,23 @@ class GenerateSitemap extends Command
                 }
             });
 
+        // チェーン別まとめページ
+        $chains = config('bike.chains', []);
+        $chainCount = 0;
+        foreach ($chains as $slug => $chain) {
+            $this->writeUrl(
+                $handle,
+                route('shops.chain', $slug),
+                date('Y-m-d'),
+                'weekly',
+                '0.7'
+            );
+            $chainCount++;
+        }
+
         $this->closeSitemap($handle);
         $this->info(" -> {$shopCount} URL (Shops)");
+        $this->info(" -> {$chainCount} URL (Chain Shops)");
 
 
         // =========================================================
