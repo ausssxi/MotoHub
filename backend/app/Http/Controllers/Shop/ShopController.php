@@ -47,6 +47,33 @@ class ShopController extends Controller
     }
 
     /**
+     * チェーン別ショップまとめページ
+     */
+    public function chainShow(string $chainSlug): View
+    {
+        $chains = config('bike.chains');
+        if (!isset($chains[$chainSlug])) {
+            abort(404);
+        }
+
+        $chain = $chains[$chainSlug];
+        $shops = Shop::where('name', 'like', "%{$chain['pattern']}%")
+            ->withCount(['listings' => fn ($q) => $q->where('is_sold_out', 0)])
+            ->orderByDesc('listings_count')
+            ->get();
+
+        $totalStock = $shops->sum('listings_count');
+
+        $crossLinks = [
+            ['label' => '中古バイク検索', 'url' => route('bikes.search'), 'icon' => 'search', 'description' => '全国の在庫を検索'],
+            ['label' => '車種カタログ', 'url' => route('bikes.models'), 'icon' => 'book-open', 'description' => '車種の相場を確認'],
+            ['label' => 'ショップマップ', 'url' => route('shops.map'), 'icon' => 'store', 'description' => 'バイクショップを探す'],
+        ];
+
+        return view('shops.chain', compact('chain', 'chainSlug', 'shops', 'totalStock', 'crossLinks'));
+    }
+
+    /**
      * 地図用データ取得API
      */
     public function area(Request $request): JsonResponse

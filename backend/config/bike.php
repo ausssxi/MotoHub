@@ -36,6 +36,16 @@ return [
         ],
     ],
 
+    // チェーン店定義（shops.name の LIKE 検索で判別）
+    'chains' => [
+        'red-baron'   => ['name' => 'レッドバロン', 'pattern' => 'レッドバロン'],
+        'bikeo'       => ['name' => 'バイク王',     'pattern' => 'バイク王'],
+        'bikekan'     => ['name' => 'バイク館',     'pattern' => 'バイク館'],
+        'scs'         => ['name' => 'SCS',          'pattern' => 'SCS'],
+        'naps'        => ['name' => 'ナップス',     'pattern' => 'ナップス'],
+        'ricoland'    => ['name' => 'ライコランド', 'pattern' => 'ライコランド'],
+    ],
+
     // ランキングの設定
     'ranking' => [
         'top_page_limit' => 16,

@@ -124,7 +124,10 @@ Route::prefix('shops')->name('shops.')->group(function () {
     Route::get('/map', [ShopController::class, 'map'])->name('map');
     // エリア検索API (※公開APIなので一旦ここに残します)
     Route::get('/api/area', [ShopController::class, 'area'])->name('api.area');
-    
+
+    // チェーン別まとめページ（/{id} の前に配置）
+    Route::get('/chain/{chainSlug}', [ShopController::class, 'chainShow'])->name('chain');
+
     Route::get('/{id}', [ShopController::class, 'show'])->name('show')->where('id', '[0-9]+');
     Route::post('/{shop}/visited', [ShopController::class, 'visited'])->name('visited')->where('shop', '[0-9]+')->middleware('throttle:10,1');
 });

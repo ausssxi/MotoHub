@@ -37,4 +37,27 @@
             <i data-lucide="crosshair" class="w-6 h-6"></i>
         </button>
     </div>
+
+    {{-- チェーン店リンク --}}
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+            <div class="flex items-center gap-2 mb-6">
+                <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
+                    <i data-lucide="building-2" class="w-5 h-5"></i>
+                </div>
+                <h2 class="text-lg font-black text-gray-900">チェーン店から探す</h2>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                @foreach(config('bike.chains') as $slug => $chain)
+                <a href="{{ route('shops.chain', $slug) }}"
+                   class="group flex items-center gap-3 bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm">
+                    <div class="shrink-0 w-8 h-8 rounded-lg bg-white border border-gray-100 group-hover:border-blue-200 flex items-center justify-center text-gray-400 group-hover:text-blue-600 transition-colors">
+                        <i data-lucide="store" class="w-4 h-4"></i>
+                    </div>
+                    <p class="text-xs font-black text-gray-800 group-hover:text-blue-700 transition-colors">{{ $chain['name'] }}</p>
+                </a>
+                @endforeach
+            </div>
+        </div>
+    </section>
 </x-layout>
