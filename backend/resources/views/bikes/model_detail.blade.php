@@ -1,6 +1,6 @@
 <x-layout>
-    <x-slot:title>{{ $model->name }} 中古車・買取相場 | {{ $model->manufacturer->name }} | MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $model->name }}（{{ $model->manufacturer->name }}）の中古車情報{{ $activeCount > 0 ? '【現在' . $activeCount . '台販売中】' : '' }}。買取相場・リセールバリュー・価格推移・オーナーレビューを徹底分析。</x-slot:metaDescription>
+    <x-slot:title>{{ $model->name }}の中古バイク一覧・相場{{ $activeCount > 0 ? ' | ' . $activeCount . '台掲載' : '' }} | MotoHub</x-slot:title>
+    <x-slot:metaDescription>{{ $model->name }}の中古バイクを{{ $activeCount > 0 ? $activeCount . '台掲載' : '掲載中' }}。{{ !empty($stats) && isset($stats['avg']) && $stats['count'] > 0 ? '平均相場' . $stats['avg'] . '万円、最安値' . $stats['min'] . '万円。' : '' }}年式・走行距離・価格で絞り込み検索できます。</x-slot:metaDescription>
     <x-slot:canonical>{{ url($model->seo_url) }}</x-slot:canonical>
     @if($model->image_url)
     <x-slot:ogImage>{{ $model->image_url }}</x-slot:ogImage>
