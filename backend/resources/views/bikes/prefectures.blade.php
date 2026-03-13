@@ -1,5 +1,6 @@
 <x-layout>
-    <x-slot:title>地域から探す - MotoHub</x-slot:title>
+    <x-slot:title>都道府県から中古バイクを探す | MotoHub</x-slot:title>
+    <x-slot:metaDescription>全国47都道府県から中古バイク・新車を地域別に検索。お住まいのエリアで販売中のバイク在庫を価格・排気量・メーカーで比較できます。</x-slot:metaDescription>
 
     <x-slot:navigation>
         <x-navigation :showSearch="true" />

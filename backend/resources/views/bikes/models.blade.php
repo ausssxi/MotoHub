@@ -1,5 +1,6 @@
 <x-layout>
-    <x-slot:title>車種一覧から探す - MotoHub</x-slot:title>
+    <x-slot:title>バイク車種一覧・中古相場カタログ | MotoHub</x-slot:title>
+    <x-slot:metaDescription>全{{ number_format($totalModelsCount) }}車種のバイクカタログ。メーカー別にスペック・中古相場・リセールバリューを比較できます。気になる車種の価格推移やオーナーレビューもチェック。</x-slot:metaDescription>
 
     <x-slot:scripts>
         <script src="{{ asset('js/bikes/models.js') }}"></script>
