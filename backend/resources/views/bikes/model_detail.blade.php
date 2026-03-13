@@ -8,6 +8,7 @@
 
     <x-slot:styles>
         <x-jsonld.model-product :model="$model" :stats="$stats" :reviewStats="$reviewStats ?? null" />
+        <x-jsonld.breadcrumb-model :model="$model" />
     </x-slot:styles>
     
     <x-slot:scripts>
@@ -603,29 +604,64 @@
                         </div>
 
                         {{-- FAQ構造化データ --}}
+                        @php
+                            $faqItems = [
+                                [
+                                    '@type' => 'Question',
+                                    'name' => "{$model->name}の中古車相場はいくらですか？",
+                                    'acceptedAnswer' => [
+                                        '@type' => 'Answer',
+                                        'text' => !empty($stats) && isset($stats['avg']) && $stats['count'] > 0
+                                            ? "{$model->name}の中古車は現在{$stats['count']}台が流通。価格帯は{$stats['min']}万円〜{$stats['max']}万円で、平均価格は約{$stats['avg']}万円です。"
+                                            : '現在データ収集中です。',
+                                    ],
+                                ],
+                                [
+                                    '@type' => 'Question',
+                                    'name' => "{$model->name}の買取価格はいくらですか？",
+                                    'acceptedAnswer' => [
+                                        '@type' => 'Answer',
+                                        'text' => !empty($resale) && isset($resale['resale_min']) && $resale['data_count'] > 0
+                                            ? "想定買取価格は{$resale['resale_min']}〜{$resale['resale_max']}万円です。"
+                                            : '現在データ収集中です。',
+                                    ],
+                                ],
+                                [
+                                    '@type' => 'Question',
+                                    'name' => "{$model->name}の維持費はどれくらいですか？",
+                                    'acceptedAnswer' => [
+                                        '@type' => 'Answer',
+                                        'text' => $model->displacement
+                                            ? ($model->displacement <= 125
+                                                ? "{$model->name}は{$model->displacement}ccのため車検不要。年間維持費は約3〜5万円が目安です。"
+                                                : ($model->displacement <= 250
+                                                    ? "{$model->name}は{$model->displacement}ccのため車検不要。年間維持費は約5〜10万円が目安です。"
+                                                    : ($model->displacement <= 400
+                                                        ? "{$model->name}は{$model->displacement}ccのため2年ごとに車検が必要。年間維持費は約10〜15万円が目安です。"
+                                                        : "{$model->name}は{$model->displacement}ccの大型バイク。年間維持費は約12〜20万円が目安です。")))
+                                            : "{$model->name}の維持費は排気量クラスによって異なります。",
+                                    ],
+                                ],
+                                [
+                                    '@type' => 'Question',
+                                    'name' => "{$model->name}のオーナー評価・口コミは？",
+                                    'acceptedAnswer' => [
+                                        '@type' => 'Answer',
+                                        'text' => isset($reviewStats) && $reviewStats->count > 0
+                                            ? "{$model->name}のオーナーレビューは{$reviewStats->count}件、平均評価は★{$reviewStats->avg_rating}です。"
+                                            : "まだ{$model->name}のオーナーレビューは投稿されていません。",
+                                    ],
+                                ],
+                            ];
+
+                            $faqSchema = [
+                                '@context' => 'https://schema.org',
+                                '@type' => 'FAQPage',
+                                'mainEntity' => $faqItems,
+                            ];
+                        @endphp
                         <script type="application/ld+json">
-                        {
-                            "@@context": "https://schema.org",
-                            "@@type": "FAQPage",
-                            "mainEntity": [
-                                {
-                                    "@@type": "Question",
-                                    "name": "{{ $model->name }}の中古車相場はいくらですか？",
-                                    "acceptedAnswer": {
-                                        "@@type": "Answer",
-                                        "text": "{{ !empty($stats) && isset($stats['avg']) && $stats['count'] > 0 ? "{$model->name}の中古車は現在{$stats['count']}台が流通。価格帯は{$stats['min']}万円〜{$stats['max']}万円で、平均価格は約{$stats['avg']}万円です。" : "現在データ収集中です。" }}"
-                                    }
-                                },
-                                {
-                                    "@@type": "Question",
-                                    "name": "{{ $model->name }}の買取価格はいくらですか？",
-                                    "acceptedAnswer": {
-                                        "@@type": "Answer",
-                                        "text": "{{ !empty($resale) && isset($resale['resale_min']) && $resale['data_count'] > 0 ? "想定買取価格は{$resale['resale_min']}〜{$resale['resale_max']}万円です。" : "現在データ収集中です。" }}"
-                                    }
-                                }
-                            ]
-                        }
+                            {!! json_encode($faqSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) !!}
                         </script>
                     </div>
 
@@ -769,6 +805,25 @@
                                 @if($related->listings_count > 0)
                                 <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{{ $related->listings_count }}台</span>
                                 @endif
+                            </a>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- エリア別リンク --}}
+                    @if(isset($prefectureStocks) && $prefectureStocks->isNotEmpty())
+                    <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
+                        <h2 class="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
+                            <span class="bg-orange-100 text-orange-600 p-2 rounded-lg"><i data-lucide="map-pin" class="w-5 h-5"></i></span>
+                            {{ $model->name }}をエリアから探す
+                        </h2>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                            @foreach($prefectureStocks as $ps)
+                            <a href="{{ route('bikes.search', ['bike_model_id' => $model->id, 'prefecture' => $ps->prefecture]) }}"
+                               class="group flex items-center justify-between bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl px-4 py-3 transition-all duration-200">
+                                <span class="text-xs font-black text-gray-800 group-hover:text-blue-700 transition-colors">{{ $ps->prefecture }}</span>
+                                <span class="text-[10px] font-bold text-gray-400 group-hover:text-blue-500 bg-white px-2 py-0.5 rounded-full border border-gray-100">{{ $ps->stock_count }}台</span>
                             </a>
                             @endforeach
                         </div>

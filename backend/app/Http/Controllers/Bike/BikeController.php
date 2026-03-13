@@ -519,6 +519,16 @@ final class BikeController extends Controller
             ->limit(6)
             ->get();
 
+        // エリア別在庫数（主要都道府県のみ、在庫ありのもの上位表示）
+        $prefectureStocks = \App\Models\Listing::where('bike_model_id', $id)
+            ->active()
+            ->join('shops', 'listings.shop_id', '=', 'shops.id')
+            ->whereNotNull('shops.prefecture')
+            ->selectRaw('shops.prefecture, COUNT(*) as stock_count')
+            ->groupBy('shops.prefecture')
+            ->orderByDesc('stock_count')
+            ->get();
+
         $crossLinks = [
             ['label' => $model->name . 'の在庫検索', 'url' => route('bikes.search', ['bike_model_id' => $model->id]), 'icon' => 'search', 'description' => '販売中の車両を探す'],
             ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => 'バイク駐車場を探す'],
@@ -531,7 +541,8 @@ final class BikeController extends Controller
         return view('bikes.model_detail', compact(
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'relatedModels', 'similarDisplacementModels',
-            'sameCategoryModels', 'activeCount', 'owners', 'similarModels', 'crossLinks'
+            'sameCategoryModels', 'activeCount', 'owners', 'similarModels', 'crossLinks',
+            'prefectureStocks'
         ));
     }
 
