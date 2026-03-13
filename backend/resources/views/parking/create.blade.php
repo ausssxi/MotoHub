@@ -3,6 +3,7 @@
     <x-slot:metaDescription>バイク駐車場の情報を共有しましょう。みんなの投稿でバイク駐車場マップを充実させよう。</x-slot:metaDescription>
 
     <x-slot:styles>
+        <x-jsonld.breadcrumb-parking currentName="駐車場を登録" />
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
         <style>
             #create-map { height: 350px; z-index: 10; border-radius: 12px; }

@@ -35,6 +35,30 @@ class ParkingController extends Controller
     }
 
     /**
+     * 都道府県別ランディングページ
+     */
+    public function areaIndex(string $prefecture): View
+    {
+        $parkings = BikeParking::active()
+            ->byPrefecture($prefecture)
+            ->orderByDesc('reviews_count')
+            ->orderByDesc('used_count')
+            ->get();
+
+        if ($parkings->isEmpty()) {
+            abort(404);
+        }
+
+        $crossLinks = [
+            ['label' => '中古バイク検索', 'url' => route('bikes.search', ['prefecture' => mb_substr($prefecture, 0, -1)]), 'icon' => 'search', 'description' => $prefecture . 'の在庫を検索'],
+            ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => '全国の駐車場を探す'],
+            ['label' => 'ショップマップ', 'url' => route('shops.map'), 'icon' => 'store', 'description' => 'バイクショップを探す'],
+        ];
+
+        return view('parking.area', compact('prefecture', 'parkings', 'crossLinks'));
+    }
+
+    /**
      * 詳細ページ
      */
     public function show(BikeParking $bikeParking): View

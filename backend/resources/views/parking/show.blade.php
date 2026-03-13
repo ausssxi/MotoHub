@@ -4,6 +4,7 @@
 
     <x-slot:styles>
         <x-jsonld.parking :parking="$parking" />
+        <x-jsonld.breadcrumb-parking :parking="$parking" />
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
         <style>
             #detail-map { height: 250px; z-index: 10; border-radius: 12px; }
