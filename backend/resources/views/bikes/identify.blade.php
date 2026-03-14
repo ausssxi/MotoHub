@@ -222,6 +222,25 @@
             reader.readAsDataURL(file);
         }
 
+        // Canvas を使って画像をリサイズ・圧縮
+        function compressImage(file, callback) {
+            var canvas = document.createElement('canvas');
+            var img = new Image();
+            img.onload = function() {
+                var maxSize = 1024;
+                var w = img.width, h = img.height;
+                if (w > h && w > maxSize) { h = h * maxSize / w; w = maxSize; }
+                else if (h > maxSize) { w = w * maxSize / h; h = maxSize; }
+                canvas.width = w;
+                canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                canvas.toBlob(function(blob) {
+                    callback(blob);
+                }, 'image/jpeg', 0.8);
+            };
+            img.src = URL.createObjectURL(file);
+        }
+
         function submitIdentify() {
             if (!selectedFile) return;
 
@@ -232,32 +251,34 @@
             document.getElementById('error-area').classList.add('hidden');
             document.getElementById('result-area').classList.add('hidden');
 
-            var formData = new FormData();
-            formData.append('image', selectedFile);
+            compressImage(selectedFile, function(blob) {
+                var formData = new FormData();
+                formData.append('image', blob, 'photo.jpg');
 
-            fetch('{{ route("bikes.identify.post") }}', {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Accept': 'application/json'
-                },
-                body: formData
-            })
-            .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
-            .then(function(res) {
-                document.getElementById('loading-area').classList.add('hidden');
-                btn.disabled = false;
+                fetch('{{ route("bikes.identify.post") }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                })
+                .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+                .then(function(res) {
+                    document.getElementById('loading-area').classList.add('hidden');
+                    btn.disabled = false;
 
-                if (!res.ok || res.data.error) {
-                    showError(res.data.error || 'AI判定に失敗しました。');
-                    return;
-                }
-                showResult(res.data);
-            })
-            .catch(function() {
-                document.getElementById('loading-area').classList.add('hidden');
-                btn.disabled = false;
-                showError('通信エラーが発生しました。');
+                    if (!res.ok || res.data.error) {
+                        showError(res.data.error || 'AI判定に失敗しました。');
+                        return;
+                    }
+                    showResult(res.data);
+                })
+                .catch(function() {
+                    document.getElementById('loading-area').classList.add('hidden');
+                    btn.disabled = false;
+                    showError('通信エラーが発生しました。');
+                });
             });
         }
 
