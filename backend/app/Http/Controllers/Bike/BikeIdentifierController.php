@@ -30,7 +30,7 @@ class BikeIdentifierController extends Controller
             'image' => 'required|image|max:10240', // 10MB
         ]);
 
-        $apiKey = config('services.anthropic.api_key');
+        $apiKey = config('services.openai.api_key');
         if (empty($apiKey)) {
             return response()->json(['error' => 'APIキーが設定されていません。'], 500);
         }
@@ -86,35 +86,37 @@ class BikeIdentifierController extends Controller
 - 自信がない場合はconfidenceを「低」にすること
 - 絶対に似ているだけで断定しないこと
 
+名前の表記ルール：
+- modelフィールドは必ず日本語カタカナで返すこと（例：Grom→グロム、Gyro Canopy→ジャイロキャノピー、CB400SF→CB400SF）
+- maker_jpフィールドは日本語で返すこと（例：Honda→ホンダ、Yamaha→ヤマハ）
+- candidatesのmodelも同様にカタカナで返すこと
+- アルファベット+数字の型番（CB400SF、YZF-R25等）はそのままでOK
+
 バイクが写っていない場合は {"error": "バイクが見つかりませんでした"} を返してください。
 
 JSON形式のみで返してください。形式：
-{"maker":"最有力メーカー英語名","maker_jp":"最有力メーカー日本語名","model":"最有力車種名","confidence":"高 or 中 or 低","candidates":[{"maker":"メーカー1","model":"車種名1","probability":"高"},{"maker":"メーカー2","model":"車種名2","probability":"中"},{"maker":"メーカー3","model":"車種名3","probability":"低"}],"year":"推定年式","category":"カテゴリ","displacement":"排気量","features":["特徴1","特徴2","特徴3"],"comment":"一言コメント"}
+{"maker":"メーカー英語名","maker_jp":"メーカー日本語名","model":"車種名（カタカナ）","confidence":"高 or 中 or 低","candidates":[{"maker":"メーカー英語名","model":"車種名（カタカナ）","probability":"高"},{"maker":"メーカー英語名","model":"車種名（カタカナ）","probability":"中"},{"maker":"メーカー英語名","model":"車種名（カタカナ）","probability":"低"}],"year":"推定年式","category":"カテゴリ","displacement":"排気量","features":["特徴1","特徴2","特徴3"],"comment":"一言コメント"}
 PROMPT;
 
         try {
             $response = Http::withHeaders([
-                'x-api-key' => $apiKey,
-                'anthropic-version' => '2023-06-01',
-            ])->connectTimeout(10)->timeout(60)->post('https://api.anthropic.com/v1/messages', [
-                'model' => 'claude-sonnet-4-20250514',
-                'max_tokens' => 1024,
-                'system' => $systemPrompt,
+                'Authorization' => 'Bearer ' . $apiKey,
+            ])->connectTimeout(10)->timeout(60)->post('https://api.openai.com/v1/chat/completions', [
+                'model' => 'gpt-4o',
+                'max_tokens' => 1000,
                 'messages' => [
                     [
                         'role' => 'user',
                         'content' => [
                             [
-                                'type' => 'image',
-                                'source' => [
-                                    'type' => 'base64',
-                                    'media_type' => $mediaType,
-                                    'data' => $base64,
+                                'type' => 'image_url',
+                                'image_url' => [
+                                    'url' => 'data:' . $mediaType . ';base64,' . $base64,
                                 ],
                             ],
                             [
                                 'type' => 'text',
-                                'text' => 'この画像に写っているバイクの車種を判定してください。',
+                                'text' => $systemPrompt . "\n\nこの画像に写っているバイクの車種を判定してください。",
                             ],
                         ],
                     ],
@@ -122,12 +124,12 @@ PROMPT;
             ]);
 
             if ($response->failed()) {
-                Log::error('Anthropic API error', ['status' => $response->status(), 'body' => $response->body()]);
+                Log::error('OpenAI API error', ['status' => $response->status(), 'body' => $response->body()]);
                 return response()->json(['error' => 'AI判定に失敗しました。しばらくしてから再度お試しください。'], 502);
             }
 
             $body = $response->json();
-            $text = $body['content'][0]['text'] ?? '';
+            $text = $body['choices'][0]['message']['content'] ?? '';
 
             // JSONブロックを抽出（```json...``` やプレーンJSON対応）
             if (preg_match('/\{[\s\S]*\}/', $text, $matches)) {
