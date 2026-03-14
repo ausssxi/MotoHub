@@ -80,10 +80,16 @@
         /* 横スクロールバー非表示用 (Tailwindのscrollbar-hideクラス用) */
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* スライドアップアニメーション（ボトムナビ等で使用） */
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
     </style>
     <x-jsonld.website />
 </head>
-<body class="bg-white text-gray-900 font-sans min-h-screen flex flex-col" data-logged-in="{{ Auth::check() ? 'true' : 'false' }}">
+<body class="bg-white text-gray-900 font-sans min-h-screen flex flex-col pb-[60px] md:pb-0" data-logged-in="{{ Auth::check() ? 'true' : 'false' }}">
 
     {{-- ナビゲーション（ヘッダー） --}}
     {{ $navigation }}
@@ -95,6 +101,9 @@
 
     {{-- フッター --}}
     <x-footer />
+
+    {{-- モバイル下部タブナビ --}}
+    <x-bottom-nav />
 
     {{-- 独自スクリプト --}}
     <script src="{{ asset('js/wishlist/manager.js') }}" defer></script>
@@ -162,12 +171,6 @@
             });
         </script>
         <script src="{{ asset('js/promo/return-trigger.js') }}" defer></script>
-        <style>
-            @keyframes slideUp {
-                from { transform: translateY(100%); opacity: 0; }
-                to   { transform: translateY(0);    opacity: 1; }
-            }
-        </style>
     @endguest
 </body>
 </html>
