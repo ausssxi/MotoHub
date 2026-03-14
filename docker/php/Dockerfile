@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
     # 画像処理(GD)用
     libfreetype6-dev \
     libjpeg62-turbo-dev \
+    libwebp-dev \
     # --- Python 実行環境 ---
     python3 \
     python3-pip \
@@ -37,7 +38,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 
 # PHP 拡張のインストール (MySQL, GD, intl, zip等)
 # ★修正: zip を追加しました
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j$(nproc) pdo_mysql mbstring exif pcntl bcmath gd intl zip
 
 # Composer のインストール

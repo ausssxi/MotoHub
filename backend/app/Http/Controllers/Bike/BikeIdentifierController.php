@@ -37,6 +37,9 @@ class BikeIdentifierController extends Controller
 
         // 画像をリサイズ・圧縮（API送信サイズ削減）
         $imageData = file_get_contents($request->file('image')->getRealPath());
+        $originalSize = strlen($imageData);
+        Log::info('画像圧縮: 元サイズ ' . number_format($originalSize / 1024) . ' KB');
+
         $srcImage = @imagecreatefromstring($imageData);
         if (!$srcImage) {
             return response()->json(['error' => '画像の読み込みに失敗しました。別の画像でお試しください。'], 422);
@@ -66,8 +69,11 @@ class BikeIdentifierController extends Controller
         $compressed = ob_get_clean();
         imagedestroy($resized);
 
+        $compressedSize = strlen($compressed);
         $base64 = base64_encode($compressed);
         $mediaType = 'image/jpeg';
+
+        Log::info('画像圧縮: 圧縮後 ' . number_format($compressedSize / 1024) . ' KB, ' . $newWidth . 'x' . $newHeight . 'px, 削減率 ' . round((1 - $compressedSize / $originalSize) * 100) . '%');
 
         $systemPrompt = <<<'PROMPT'
 あなたは日本のバイク専門家AIです。画像を見てバイクの車種を特定してください。
