@@ -61,6 +61,15 @@
                 </div>
             </div>
 
+            {{-- iPhone HEIC案内 --}}
+            <div class="mt-4 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-left">
+                <p class="text-xs font-black text-amber-700 flex items-center gap-1 mb-1">
+                    <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+                    iPhoneをお使いの方へ
+                </p>
+                <p class="text-[11px] text-amber-600 leading-relaxed">設定 → カメラ → フォーマット →「互換性優先」に変更するとJPEGで保存されます。または上の「カメラで撮影」ボタンをご利用ください。</p>
+            </div>
+
             {{-- 判定ボタン --}}
             <div id="identify-btn-area" class="hidden mt-6">
                 <button id="identify-btn" onclick="submitIdentify()"
@@ -183,6 +192,8 @@
     <x-slot:scripts>
     <script>
         var selectedFile = null;
+        var uploadedBase64 = null;
+        var uploadedMediaType = null;
 
         // モバイル判定：カメラボタン表示
         (function() {
@@ -206,6 +217,17 @@
 
         function handleFile(file) {
             if (!file) return;
+
+            // HEIC/HEIF検出
+            var isHeic = file.type === 'image/heic'
+                || file.type === 'image/heif'
+                || file.name.toLowerCase().endsWith('.heic')
+                || file.name.toLowerCase().endsWith('.heif');
+            if (isHeic) {
+                showError('iPhoneのHEIC形式は非対応です。設定でJPEG形式に変更するか、「カメラで撮影」ボタンをご利用ください。');
+                return;
+            }
+
             selectedFile = file;
 
             var reader = new FileReader();
@@ -215,30 +237,15 @@
                 document.getElementById('upload-preview').classList.remove('hidden');
                 document.getElementById('identify-btn-area').classList.remove('hidden');
 
+                // base64とmediaTypeを保存
+                uploadedBase64 = e.target.result.split(',')[1];
+                uploadedMediaType = file.type || 'image/jpeg';
+
                 // 結果やエラーをリセット
                 document.getElementById('result-area').classList.add('hidden');
                 document.getElementById('error-area').classList.add('hidden');
             };
             reader.readAsDataURL(file);
-        }
-
-        // Canvas を使って画像をリサイズ・圧縮
-        function compressImage(file, callback) {
-            var canvas = document.createElement('canvas');
-            var img = new Image();
-            img.onload = function() {
-                var maxSize = 1024;
-                var w = img.width, h = img.height;
-                if (w > h && w > maxSize) { h = h * maxSize / w; w = maxSize; }
-                else if (h > maxSize) { w = w * maxSize / h; h = maxSize; }
-                canvas.width = w;
-                canvas.height = h;
-                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                canvas.toBlob(function(blob) {
-                    callback(blob);
-                }, 'image/jpeg', 0.8);
-            };
-            img.src = URL.createObjectURL(file);
         }
 
         function submitIdentify() {
@@ -251,34 +258,32 @@
             document.getElementById('error-area').classList.add('hidden');
             document.getElementById('result-area').classList.add('hidden');
 
-            compressImage(selectedFile, function(blob) {
-                var formData = new FormData();
-                formData.append('image', blob, 'photo.jpg');
+            var formData = new FormData();
+            formData.append('image', selectedFile);
 
-                fetch('{{ route("bikes.identify.post") }}', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                        'Accept': 'application/json'
-                    },
-                    body: formData
-                })
-                .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
-                .then(function(res) {
-                    document.getElementById('loading-area').classList.add('hidden');
-                    btn.disabled = false;
+            fetch('{{ route("bikes.identify.post") }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+            .then(function(res) {
+                document.getElementById('loading-area').classList.add('hidden');
+                btn.disabled = false;
 
-                    if (!res.ok || res.data.error) {
-                        showError(res.data.error || 'AI判定に失敗しました。');
-                        return;
-                    }
-                    showResult(res.data);
-                })
-                .catch(function() {
-                    document.getElementById('loading-area').classList.add('hidden');
-                    btn.disabled = false;
-                    showError('通信エラーが発生しました。');
-                });
+                if (!res.ok || res.data.error) {
+                    showError(res.data.error || 'AI判定に失敗しました。');
+                    return;
+                }
+                showResult(res.data);
+            })
+            .catch(function() {
+                document.getElementById('loading-area').classList.add('hidden');
+                btn.disabled = false;
+                showError('通信エラーが発生しました。');
             });
         }
 
