@@ -51,6 +51,12 @@
                     </span>
                 </a>
 
+                {{-- 車種判定AI (PC/タブレット以上) --}}
+                <a href="{{ route('bikes.identify') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition uppercase tracking-widest" title="写真からバイクの車種を判定">
+                    <i data-lucide="scan-eye" class="w-4 h-4"></i>
+                    <span class="hidden xl:inline">車種判定</span>
+                </a>
+
                 {{-- ショップマップへのリンク --}}
                 <a href="{{ route('shops.map') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="地図から探す">
                     <i data-lucide="map" class="w-4 h-4"></i>
@@ -280,6 +286,19 @@
                     </div>
                 </div>
                 <i data-lucide="chevron-right" class="w-5 h-5 opacity-50"></i>
+            </a>
+
+            {{-- 車種判定AIバナー --}}
+            <a href="{{ route('bikes.identify') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="scan-eye" class="w-4 h-4 text-purple-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-black text-gray-800">このバイクなに？ 車種判定AI</p>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
             </a>
 
             <div id="mobile-nav-suggest-results" class="absolute left-0 right-0 top-[60px] mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden hidden z-[120] text-left">

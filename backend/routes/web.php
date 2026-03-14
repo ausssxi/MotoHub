@@ -19,6 +19,7 @@ use App\Http\Controllers\Shindan\ShindanController;
 use App\Http\Controllers\Feature\FeatureController;
 use App\Http\Controllers\Parking\ParkingController;
 use App\Http\Controllers\Ar\ArController;
+use App\Http\Controllers\Bike\BikeIdentifierController;
 
 /**
  * MotoHub Route Definitions
@@ -56,7 +57,11 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     Route::get('/models/{manufacturer}/bikes', 'modelsApi')->name('models.api'); // Ajax
     Route::get('/suggest', 'suggest')->name('suggest'); // /bikes/suggest
     Route::get('/prefectures', 'prefectures')->name('prefectures');
-    
+
+    // 車種判定AI
+    Route::get('/identify', [BikeIdentifierController::class, 'index'])->name('identify');
+    Route::post('/identify', [BikeIdentifierController::class, 'identify'])->name('identify.post');
+
     // SEO着地ページ
     Route::get('/area/{prefecture}/{slug}', 'landing')->name('landing');
 

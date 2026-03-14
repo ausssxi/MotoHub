@@ -56,4 +56,8 @@ return [
         'redirect' => env('LINE_REDIRECT_URI'),
         'messaging_token' => env('LINE_MESSAGING_CHANNEL_TOKEN'),
     ],
+
+    'anthropic' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+    ],
 ];
