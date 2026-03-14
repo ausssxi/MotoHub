@@ -61,8 +61,22 @@
                 </div>
             </div>
 
+            {{-- 撮影のコツ --}}
+            <div class="mt-4 bg-gray-50 border border-gray-200 rounded-2xl p-4 text-left">
+                <p class="text-xs font-black text-gray-700 flex items-center gap-1 mb-2">
+                    <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i>
+                    撮影のコツ
+                </p>
+                <ul class="text-[11px] text-gray-500 space-y-1 leading-relaxed">
+                    <li class="flex items-start gap-1.5"><span class="text-gray-400">・</span>バイクの真横または斜め前から撮影</li>
+                    <li class="flex items-start gap-1.5"><span class="text-gray-400">・</span>全体が画角に入るように</li>
+                    <li class="flex items-start gap-1.5"><span class="text-gray-400">・</span>明るい場所で撮影</li>
+                    <li class="flex items-start gap-1.5"><span class="text-gray-400">・</span>背景はシンプルな方が精度UP</li>
+                </ul>
+            </div>
+
             {{-- iPhone HEIC案内 --}}
-            <div class="mt-4 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-left">
+            <div class="mt-3 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-left">
                 <p class="text-xs font-black text-amber-700 flex items-center gap-1 mb-1">
                     <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
                     iPhoneをお使いの方へ
@@ -137,6 +151,15 @@
                         </p>
                         <p id="result-comment" class="text-sm text-blue-900"></p>
                     </div>
+                </div>
+
+                {{-- 候補一覧 --}}
+                <div id="result-candidates" class="hidden bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                    <p class="text-xs font-black text-gray-500 flex items-center gap-1 mb-4">
+                        <i data-lucide="list-ordered" class="w-3.5 h-3.5"></i>
+                        候補一覧
+                    </p>
+                    <div id="candidates-list" class="space-y-3"></div>
                 </div>
 
                 {{-- アクションボタン --}}
@@ -323,6 +346,35 @@
             var comment = data.comment || '';
             document.getElementById('result-comment').textContent = comment;
             document.getElementById('result-comment-area').classList.toggle('hidden', !comment);
+
+            // 候補一覧
+            var candidatesEl = document.getElementById('candidates-list');
+            var candidatesArea = document.getElementById('result-candidates');
+            candidatesEl.innerHTML = '';
+            var candidates = data.candidates || [];
+            if (candidates.length > 0) {
+                candidates.forEach(function(c, i) {
+                    var rank = i + 1;
+                    var probClass = c.probability === '高' ? 'bg-green-100 text-green-700'
+                        : c.probability === '低' ? 'bg-red-100 text-red-700'
+                        : 'bg-yellow-100 text-yellow-700';
+                    var isFirst = i === 0;
+                    var row = document.createElement('div');
+                    row.className = 'flex items-center justify-between gap-3 p-3 rounded-xl ' + (isFirst ? 'bg-blue-50 border border-blue-100' : 'bg-gray-50');
+                    row.innerHTML = '<div class="flex items-center gap-3 min-w-0">'
+                        + '<span class="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ' + (isFirst ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600') + '">' + rank + '</span>'
+                        + '<div class="min-w-0"><p class="text-sm font-black text-gray-900 truncate">' + (c.model || '') + '</p>'
+                        + '<p class="text-[10px] text-gray-400">' + (c.maker || '') + '</p></div></div>'
+                        + '<div class="flex items-center gap-2 flex-shrink-0">'
+                        + '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ' + probClass + '">' + (c.probability || '') + '</span>'
+                        + '<a href="/bikes/search?keyword=' + encodeURIComponent(c.model || '') + '" class="text-[10px] font-bold text-blue-600 hover:text-blue-800 whitespace-nowrap">検索</a>'
+                        + '</div>';
+                    candidatesEl.appendChild(row);
+                });
+                candidatesArea.classList.remove('hidden');
+            } else {
+                candidatesArea.classList.add('hidden');
+            }
 
             // リンク生成
             var modelName = data.model || '';
