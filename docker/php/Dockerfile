@@ -43,6 +43,9 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 # Composer のインストール
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+# PHP設定（アップロードサイズ等）
+COPY ./docker/php/custom.ini /usr/local/etc/php/conf.d/custom.ini
+
 # 作業ディレクトリの設定
 WORKDIR /var/www
 
