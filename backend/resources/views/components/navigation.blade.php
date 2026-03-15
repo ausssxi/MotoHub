@@ -2,20 +2,20 @@
 
 <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center h-16">
-            <div class="flex items-center">
+        <div class="flex justify-between items-center h-16 gap-3">
+            <div class="flex items-center flex-shrink-0 mr-1 sm:mr-0">
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
-                    <a href="{{ route('bikes.index') }}" class="flex items-center gap-2 flex-shrink-0 group">
-                        <img src="{{ asset('favicon.svg') }}" alt="MotoHub" class="w-8 h-8 group-hover:scale-110 transition-transform">
-                        <span class="text-xl font-black tracking-tighter">MotoHub</span>
+                    <a href="{{ route('bikes.index') }}" class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 group">
+                        <img src="{{ asset('favicon.svg') }}" alt="MotoHub" class="w-7 h-7 sm:w-8 sm:h-8 group-hover:scale-110 transition-transform">
+                        <span class="text-lg sm:text-xl font-black tracking-tighter">MotoHub</span>
                     </a>
                 </div>
             </div>
 
             <!-- 中央: PC用検索窓 -->
             @if($showSearch)
-            <div class="hidden md:flex flex-grow max-w-xl relative mx-8" id="nav-search-container">
+            <div class="hidden md:flex flex-grow max-w-2xl relative mx-4 lg:mx-8" id="nav-search-container">
                 <form action="{{ route('bikes.search') }}" method="GET" class="w-full" autocomplete="off" id="nav-search-form">
                     <div class="relative w-full">
                         <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
@@ -32,12 +32,12 @@
             @endif
 
             <!-- 右側のアクションエリア -->
-            <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                
+            <div class="flex items-center gap-1 sm:gap-2 md:gap-3 flex-shrink-0">
+
                 <!-- スマホ用検索ボタン -->
                 @if($showSearch)
-                <button id="mobile-nav-search-toggle" class="md:hidden p-2 text-gray-400 hover:text-black rounded-full transition">
-                    <i data-lucide="search" class="w-6 h-6"></i>
+                <button id="mobile-nav-search-toggle" class="md:hidden p-1.5 sm:p-2 text-gray-400 hover:text-black rounded-full transition">
+                    <i data-lucide="search" class="w-5 h-5 sm:w-6 sm:h-6"></i>
                 </button>
                 @endif
 
@@ -76,7 +76,7 @@
                 </a>
 
                 {{-- AR駐車場ファインダー (モバイルのみ) --}}
-                <a href="{{ route('ar.index') }}" class="flex lg:hidden items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-xl transition uppercase tracking-widest relative" title="ARで駐車場を探す">
+                <a href="{{ route('ar.index') }}" class="hidden sm:flex lg:hidden items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-xl transition uppercase tracking-widest relative" title="ARで駐車場を探す">
                     <i data-lucide="camera" class="w-4 h-4"></i>
                     <span class="hidden sm:inline">AR</span>
                     <span class="absolute -top-0.5 -right-0.5 flex h-2 w-2">
@@ -99,7 +99,7 @@
 
                 {{-- 通知ベル（対応環境のみ表示） --}}
                 <div class="relative" x-data="pushBellDropdown()" x-on:click.outside="open = false" x-show="supported" x-cloak>
-                    <button x-on:click="toggle()" class="relative flex flex-col items-center justify-center min-w-[40px] px-2 py-1 rounded-xl transition group"
+                    <button x-on:click="toggle()" class="relative flex flex-col items-center justify-center min-w-[36px] sm:min-w-[40px] px-1.5 sm:px-2 py-1 rounded-xl transition group"
                             x-bind:class="count > 0 ? 'text-blue-500 hover:bg-blue-50' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50'" title="通知設定">
                         <i data-lucide="bell" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
                         <span x-show="count > 0" x-text="count"
@@ -197,7 +197,7 @@
                 </script>
 
                 {{-- お気に入り --}}
-                <a href="{{ route('wishlist') }}" class="relative flex flex-col items-center justify-center min-w-[40px] px-2 py-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition group" title="お気に入り一覧">
+                <a href="{{ route('wishlist') }}" class="relative flex flex-col items-center justify-center min-w-[36px] sm:min-w-[40px] px-1.5 sm:px-2 py-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition group" title="お気に入り一覧">
                     <i data-lucide="heart" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
                     <span id="wishlist-count" 
                           class="absolute -top-1 -right-2 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full border-2 border-white flex items-center justify-center shadow-sm transition-transform {{ isset($wishlistCount) && $wishlistCount > 0 ? '' : 'hidden' }}">
@@ -205,8 +205,26 @@
                     </span>
                 </a>
 
+                {{-- 比較（モバイルのみ） --}}
+                <a href="{{ route('bikes.compare') }}" class="md:hidden relative flex flex-col items-center justify-center min-w-[36px] px-1.5 py-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition group" title="車両比較">
+                    <i data-lucide="scale" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
+                    <span id="compare-count-badge"
+                          class="absolute -top-1 -right-2 min-w-[18px] h-[18px] px-1 bg-blue-500 text-white text-[10px] font-bold rounded-full border-2 border-white flex items-center justify-center shadow-sm transition-transform hidden">
+                    </span>
+                </a>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const ids = JSON.parse(localStorage.getItem('motohub_compare_list') || '[]');
+                        const badge = document.getElementById('compare-count-badge');
+                        if (badge && ids.length > 0) {
+                            badge.textContent = ids.length;
+                            badge.classList.remove('hidden');
+                        }
+                    });
+                </script>
+
                 {{-- ログイン・会員登録ボタン --}}
-                <div class="relative ml-2" x-data="{ open: false }">
+                <div class="relative ml-0.5 sm:ml-2" x-data="{ open: false }">
                     @auth
                         <button @click="open = !open" @click.outside="open = false" class="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-200">
                             <div class="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center overflow-hidden">
