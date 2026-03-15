@@ -205,8 +205,8 @@
                     </span>
                 </a>
 
-                {{-- 比較（モバイルのみ） --}}
-                <a href="{{ route('bikes.compare') }}" class="md:hidden relative flex flex-col items-center justify-center min-w-[36px] px-1.5 py-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition group" title="車両比較">
+                {{-- 比較 --}}
+                <a href="{{ route('bikes.compare') }}" class="relative flex flex-col items-center justify-center min-w-[36px] sm:min-w-[40px] px-1.5 sm:px-2 py-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition group" title="車両比較">
                     <i data-lucide="scale" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
                     <span id="compare-count-badge"
                           class="absolute -top-1 -right-2 min-w-[18px] h-[18px] px-1 bg-blue-500 text-white text-[10px] font-bold rounded-full border-2 border-white flex items-center justify-center shadow-sm transition-transform hidden">
@@ -214,8 +214,8 @@
                 </a>
                 <script>
                     document.addEventListener('DOMContentLoaded', function() {
-                        const ids = JSON.parse(localStorage.getItem('motohub_compare_list') || '[]');
-                        const badge = document.getElementById('compare-count-badge');
+                        var ids = JSON.parse(localStorage.getItem('motohub_compare_list') || '[]');
+                        var badge = document.getElementById('compare-count-badge');
                         if (badge && ids.length > 0) {
                             badge.textContent = ids.length;
                             badge.classList.remove('hidden');
