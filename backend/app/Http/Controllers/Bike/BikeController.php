@@ -57,10 +57,8 @@ final class BikeController extends Controller
             ->limit(6)
             ->get();
 
-        // ライブ統計バー用のカウント
-        $totalListings = Cache::remember('total_listings_count', 3600, function () {
-            return Listing::active()->count();
-        });
+        // ライブ統計バー用のカウント（リポジトリ側でキャッシュ済み）
+        $totalListings = $this->listingSearchService->getActiveCount();
         $priceDropCount = DB::table('price_histories')
             ->whereDate('created_at', today())
             ->distinct('listing_id')
@@ -498,7 +496,9 @@ final class BikeController extends Controller
                 ->get();
         }
 
-        $activeCount = \App\Models\Listing::where('bike_model_id', $id)->active()->count();
+        $activeCount = Cache::remember("active_count_model_{$id}", 3600, function () use ($id) {
+            return \App\Models\Listing::where('bike_model_id', $id)->active()->count();
+        });
 
         // オーナー一覧（この車種のMyBike）
         $owners = \App\Models\MyBike::with('user')

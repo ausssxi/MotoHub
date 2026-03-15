@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories\Bike;
 
 use App\Models\Listing;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 
@@ -19,7 +20,9 @@ final class ListingStatsRepository
      */
     public function countActiveListings(): int
     {
-        return Listing::active()->count();
+        return Cache::remember('total_listings_count', 3600, function () {
+            return Listing::active()->count();
+        });
     }
 
     /**
