@@ -20,7 +20,7 @@ final class ListingStatsRepository
      */
     public function countActiveListings(): int
     {
-        return Cache::remember('total_listings_count', 3600, function () {
+        return (int) Cache::remember('total_listings_count', 3600, function () {
             return Listing::active()->count();
         });
     }
