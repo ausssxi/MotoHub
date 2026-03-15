@@ -133,10 +133,6 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->dailyAt('06:30')
                  ->withoutOverlapping();
 
-        // 検索高速化用データの最適化 (毎時)
-        $schedule->command('bikes:optimize-search-data')
-                 ->hourly()
-                 ->withoutOverlapping();
 
         // サイトマップ生成 (07:00)
         // 全ての更新が完了した後に実行
