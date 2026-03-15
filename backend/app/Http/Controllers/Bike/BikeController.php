@@ -18,6 +18,7 @@ use App\Http\Resources\Bike\ListingResource;
 use App\Http\Requests\Bike\StoreReviewRequest;
 use App\Http\Requests\Bike\BikeSearchRequest;
 use App\Models\SeoFeature;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 
@@ -57,7 +58,9 @@ final class BikeController extends Controller
             ->get();
 
         // ライブ統計バー用のカウント
-        $totalListings = Listing::active()->count();
+        $totalListings = Cache::remember('total_listings_count', 3600, function () {
+            return Listing::active()->count();
+        });
         $priceDropCount = DB::table('price_histories')
             ->whereDate('created_at', today())
             ->distinct('listing_id')
@@ -175,21 +178,23 @@ final class BikeController extends Controller
 
         $alsoViewed = collect();
         if ($listing->bike_model_id && $listing->total_price) {
-            $alsoViewed = \App\Models\Listing::with('shop')
-                ->where('is_sold_out', 0)
-                ->where('id', '!=', $listing->id)
-                ->where(function($query) use ($listing) {
-                    $query->where('category_id', $listing->category_id)
-                          ->orWhereBetween('total_price', [
-                              $listing->total_price * 0.8,
-                              $listing->total_price * 1.2
-                          ]);
-                })
-                ->whereNotNull('total_price')
-                ->where('total_price', '>', 0)
-                ->inRandomOrder()
-                ->limit(6)
-                ->get();
+            $alsoViewed = Cache::remember("also_viewed_{$listing->id}", 3600, function () use ($listing) {
+                return \App\Models\Listing::with('shop')
+                    ->where('is_sold_out', 0)
+                    ->where('id', '!=', $listing->id)
+                    ->where(function($query) use ($listing) {
+                        $query->where('category_id', $listing->category_id)
+                              ->orWhereBetween('total_price', [
+                                  $listing->total_price * 0.8,
+                                  $listing->total_price * 1.2
+                              ]);
+                    })
+                    ->whereNotNull('total_price')
+                    ->where('total_price', '>', 0)
+                    ->inRandomOrder()
+                    ->limit(6)
+                    ->get();
+            });
         }
 
         $crossLinks = [
