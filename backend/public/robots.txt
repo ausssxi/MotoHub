@@ -19,4 +19,16 @@ Disallow: /bikes/search?*source=*
 Disallow: /bikes/compare?*
 Disallow: /wishlist
 
+User-agent: YandexBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: AmazonBot
+Disallow: /
+
+User-agent: Applebot
+Crawl-delay: 10
+
 Sitemap: https://motohub.jp/sitemap.xml
