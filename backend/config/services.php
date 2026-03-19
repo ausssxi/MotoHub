@@ -68,4 +68,10 @@ return [
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
     ],
+
+    'rakuten' => [
+        'app_id' => env('RAKUTEN_APP_ID'),
+        'access_key' => env('RAKUTEN_ACCESS_KEY'),
+        'affiliate_id' => env('RAKUTEN_AFFILIATE_ID'),
+    ],
 ];

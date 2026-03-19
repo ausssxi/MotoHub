@@ -15,7 +15,7 @@
 
             <!-- 中央: PC用検索窓 -->
             @if($showSearch)
-            <div class="hidden md:flex flex-grow max-w-2xl relative mx-4 lg:mx-8" id="nav-search-container">
+            <div class="hidden md:flex flex-grow max-w-xl lg:max-w-2xl relative mx-4 lg:mx-8" id="nav-search-container">
                 <form action="{{ route('bikes.search') }}" method="GET" class="w-full" autocomplete="off" id="nav-search-form">
                     <div class="relative w-full">
                         <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
@@ -96,6 +96,23 @@
                     <i data-lucide="coins" class="w-4 h-4 text-yellow-500"></i>
                     買取相場
                 </a>
+
+                {{-- その他ドロップダウン (PC) --}}
+                <div class="hidden md:flex relative" x-data="{ open: false }">
+                    <button @click="open = !open" @click.outside="open = false"
+                        class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition uppercase tracking-widest" title="その他">
+                        <i data-lucide="wrench" class="w-4 h-4"></i>
+                        <span class="hidden xl:inline">その他</span>
+                    </button>
+                    <div x-show="open" x-transition
+                         class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
+                         style="display: none;">
+                        <a href="{{ route('parts.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
+                            パーツ検索
+                        </a>
+                    </div>
+                </div>
 
                 {{-- 通知ベル（対応環境のみ表示） --}}
                 <div class="relative" x-data="pushBellDropdown()" x-on:click.outside="open = false" x-show="supported" x-cloak>
@@ -314,6 +331,19 @@
                     </div>
                     <div>
                         <p class="text-xs font-black text-gray-800">このバイクなに？ 車種判定AI</p>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
+
+            {{-- パーツ検索バナー --}}
+            <a href="{{ route('parts.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="wrench" class="w-4 h-4 text-blue-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-black text-gray-800">バイクパーツ検索</p>
                     </div>
                 </div>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>

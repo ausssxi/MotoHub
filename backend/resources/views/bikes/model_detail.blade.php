@@ -848,6 +848,42 @@
                     </div>
                     @endif
 
+                    {{-- 関連パーツ --}}
+                    @if(!empty($relatedParts))
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+                        <h2 class="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                            <i data-lucide="wrench" class="w-5 h-5 text-blue-500"></i>
+                            {{ $model->name }} のパーツを探す
+                        </h2>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            @foreach($relatedParts as $part)
+                            <a href="{{ $part['url'] }}" target="_blank" rel="noopener noreferrer"
+                                class="group block bg-gray-50 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+                                <div class="aspect-square bg-white flex items-center justify-center overflow-hidden">
+                                    @if($part['image'])
+                                        <img src="{{ str_replace('?_ex=128x128', '?_ex=300x300', $part['image']) }}"
+                                            alt="{{ $part['name'] }}" class="w-full h-full object-contain p-2" loading="lazy">
+                                    @else
+                                        <span class="text-gray-300 text-3xl">🔧</span>
+                                    @endif
+                                </div>
+                                <div class="p-2.5">
+                                    <h3 class="text-xs font-bold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors mb-1">{{ $part['name'] }}</h3>
+                                    <p class="text-sm font-black text-red-600">&yen;{{ number_format($part['price']) }}</p>
+                                </div>
+                            </a>
+                            @endforeach
+                        </div>
+                        <div class="mt-4 text-center">
+                            <a href="{{ route('parts.index', ['bike' => $model->name]) }}"
+                                class="inline-flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                                {{ $model->name }} のパーツをもっと見る
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
+
                     {{-- 回遊リンク --}}
                     <x-cross-links :crossLinks="$crossLinks" />
 

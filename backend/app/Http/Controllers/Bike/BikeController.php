@@ -543,18 +543,74 @@ final class BikeController extends Controller
             ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'garage', 'description' => '愛車を登録・管理'],
         ];
 
+        // 楽天APIから関連パーツを取得（24時間キャッシュ）
+        $relatedParts = $this->fetchRelatedParts($model);
+
         return view('bikes.model_detail', compact(
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'relatedModels', 'similarDisplacementModels',
             'sameCategoryModels', 'activeCount', 'owners', 'similarModels', 'crossLinks',
-            'prefectureStocks'
+            'prefectureStocks', 'relatedParts'
         ));
+    }
+
+    /**
+     * 楽天APIから車種に関連するパーツを取得
+     */
+    private function fetchRelatedParts($model): array
+    {
+        $appId = config('services.rakuten.app_id');
+        $accessKey = config('services.rakuten.access_key');
+
+        if (!$appId || !$accessKey) {
+            return [];
+        }
+
+        try {
+            return Cache::remember("parts:bike_model:{$model->id}", 86400, function () use ($model, $appId, $accessKey) {
+                $params = [
+                    'applicationId' => $appId,
+                    'accessKey'     => $accessKey,
+                    'keyword'       => 'バイク ' . $model->name,
+                    'hits'          => 6,
+                    'format'        => 'json',
+                ];
+
+                $affiliateId = config('services.rakuten.affiliate_id');
+                if ($affiliateId) {
+                    $params['affiliateId'] = $affiliateId;
+                }
+
+                $response = Http::withHeaders([
+                    'Origin'     => 'https://motohub.jp',
+                    'Referer'    => 'https://motohub.jp',
+                    'User-Agent' => 'MotoHub',
+                ])->timeout(5)->get('https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20220601', $params);
+
+                if ($response->failed()) {
+                    return [];
+                }
+
+                $data = $response->json();
+                return collect($data['Items'] ?? [])->map(function ($wrapper) {
+                    $item = $wrapper['Item'] ?? $wrapper;
+                    return [
+                        'name'  => $item['itemName'] ?? '',
+                        'price' => $item['itemPrice'] ?? 0,
+                        'image' => $item['mediumImageUrls'][0]['imageUrl'] ?? '',
+                        'url'   => $item['itemUrl'] ?? '',
+                    ];
+                })->all();
+            });
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
    /**
     * 車種詳細ページ（スラッグURL版）
     * URL: /bikes/{mfrSlug}/{modelSlug}
-    * 
+    *
     * $modelSlug はスラッグ文字列 or 数値ID（日本語名フォールバック）
     */
     public function modelDetailBySlug(string $mfrSlug, string $modelSlug)

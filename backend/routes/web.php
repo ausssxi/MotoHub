@@ -20,6 +20,7 @@ use App\Http\Controllers\Feature\FeatureController;
 use App\Http\Controllers\Parking\ParkingController;
 use App\Http\Controllers\Ar\ArController;
 use App\Http\Controllers\Bike\BikeIdentifierController;
+use App\Http\Controllers\Parts\PartsController;
 
 /**
  * MotoHub Route Definitions
@@ -161,6 +162,10 @@ Route::middleware('auth')->prefix('parking')->name('parking.')->controller(Parki
 
 // AR駐車場・ショップファインダー
 Route::get('/ar', [ArController::class, 'index'])->name('ar.index');
+
+// パーツ検索（楽天市場API）
+Route::get('/parts', [PartsController::class, 'index'])->name('parts.index');
+Route::get('/parts/search', [PartsController::class, 'search'])->name('parts.search');
 
 // 特集ページ (SEOランディング)
 Route::prefix('features')->name('features.')->controller(FeatureController::class)->group(function () {
