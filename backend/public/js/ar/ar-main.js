@@ -429,9 +429,11 @@ function updateStatusBar() {
 
 // --- Scale by distance ---
 function getMarkerScale(distance) {
-    if (distance < 50) return 0.5;
-    if (distance < 200) return 1.0;
-    return 0.8;
+    if (distance < 30) return 0.3;
+    if (distance < 50) return 0.4;
+    if (distance < 100) return 0.6;
+    if (distance < 200) return 0.8;
+    return 0.7;
 }
 
 // --- Animation Loop ---
@@ -480,19 +482,22 @@ function startARLoop() {
 
             const moveX = (canvasW / fov) * xAngle;
 
-            // Altitude angle (default 5m offset so markers appear at eye level, not at feet)
-            const heightDiff = (t.altitude || 5) - (altitude || 0);
+            // Altitude angle (default 15m offset so markers appear at eye level, not at feet)
+            const heightDiff = (t.altitude || 15) - (altitude || 0);
             const altAngle = Math.atan2(heightDiff, Math.max(t.distance, 1)) * (180 / Math.PI);
             const setY = (canvasH / fov) * altAngle;
 
-            // Scale by distance: close=small, mid=normal, far=slightly small
-            const scale = getMarkerScale(t.distance);
+            // Scale by distance: clamped to prevent markers from covering the screen
+            const scale = Math.min(getMarkerScale(t.distance), 1.5);
 
-            mg.group.position.set(moveX, setY + moveYFromPitch, -Math.min(t.distance, 1000));
+            // Z depth: clamp between 30-1000 to prevent near markers from disappearing
+            const zDepth = -Math.min(Math.max(t.distance, 30), 1000);
+
+            mg.group.position.set(moveX, setY + moveYFromPitch, zDepth);
             mg.group.scale.set(scale, scale, scale);
 
             if (mg.labelGroup) {
-                mg.labelGroup.position.set(moveX, setY + moveYFromPitch + 63 * scale, -Math.min(t.distance, 1000));
+                mg.labelGroup.position.set(moveX, setY + moveYFromPitch + 63 * scale, zDepth);
                 mg.labelGroup.scale.set(scale, scale, scale);
             }
 
