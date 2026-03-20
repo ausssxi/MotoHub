@@ -38,6 +38,9 @@ class GenerateSitemap extends Command
         foreach (glob(public_path('sitemap-listings-*.xml')) as $old) {
             unlink($old);
         }
+        foreach (glob(public_path('sitemap-parking-*.xml')) as $old) {
+            unlink($old);
+        }
         $this->info("古いサイトマップファイルを削除しました。");
 
         $sitemapFiles = [];
@@ -403,23 +406,40 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
-        // 4.5. 駐車場サイトマップ (sitemap-parking.xml)
+        // 4.5. 駐車場サイトマップ (10,000件ごとにファイルを分割)
         // =========================================================
         $this->info("駐車場サイトマップを生成中...");
-        $parkingFileName = 'sitemap-parking.xml';
-        $handle = $this->openSitemap($parkingFileName);
-        $sitemapFiles[] = $parkingFileName;
-        $parkingCount = 0;
+
+        $parkingFileIndex = 1;
+        $parkingUrlCount = 0;
+        $totalParkingCount = 0;
+
+        $currentParkingFileName = "sitemap-parking-{$parkingFileIndex}.xml";
+        $handle = $this->openSitemap($currentParkingFileName);
+        $sitemapFiles[] = $currentParkingFileName;
 
         // 駐車場マップトップ
         $this->writeUrl($handle, route('parking.index'), date('Y-m-d'), 'daily', '0.8');
-        $parkingCount++;
+        $parkingUrlCount++;
+        $totalParkingCount++;
 
         // 各駐車場詳細ページ
         BikeParking::active()->select('id', 'updated_at')
             ->orderBy('updated_at', 'desc')
-            ->chunk(1000, function ($parkings) use ($handle, &$parkingCount) {
+            ->chunk(1000, function ($parkings) use (&$handle, &$parkingUrlCount, &$parkingFileIndex, &$sitemapFiles, &$totalParkingCount) {
                 foreach ($parkings as $parking) {
+                    if ($parkingUrlCount >= self::MAX_URLS_PER_FILE) {
+                        $this->closeSitemap($handle);
+                        $this->info("  -> 分割: sitemap-parking-{$parkingFileIndex}.xml 完了");
+
+                        $parkingFileIndex++;
+                        $parkingUrlCount = 0;
+
+                        $nextFileName = "sitemap-parking-{$parkingFileIndex}.xml";
+                        $handle = $this->openSitemap($nextFileName);
+                        $sitemapFiles[] = $nextFileName;
+                    }
+
                     $this->writeUrl(
                         $handle,
                         route('parking.show', $parking->id),
@@ -427,12 +447,13 @@ class GenerateSitemap extends Command
                         'weekly',
                         '0.6'
                     );
-                    $parkingCount++;
+                    $parkingUrlCount++;
+                    $totalParkingCount++;
                 }
             });
 
         $this->closeSitemap($handle);
-        $this->info(" -> {$parkingCount} URL (Parking)");
+        $this->info(" -> {$totalParkingCount} URL (Parking Total, {$parkingFileIndex} files)");
 
 
         // =========================================================
