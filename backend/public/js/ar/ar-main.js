@@ -270,8 +270,8 @@ function createTextCanvas(text, { fontSize = 24, bgColor = "rgba(0,0,0,0.7)", te
 }
 
 function createLabel(target, distance) {
-    // >400m: no labels at all (pin only)
-    if (distance > 400) return null;
+    // >800m: no labels at all (pin only)
+    if (distance > 800) return null;
 
     const group = new THREE.Group();
 
@@ -292,9 +292,10 @@ function createLabel(target, distance) {
     distMesh.position.y = 15;
     group.add(distMesh);
 
-    // Name label (only shown when <=200m)
-    if (distance <= 200) {
-        const displayName = target.name.length > 6 ? target.name.substring(0, 6) + "\u2026" : target.name;
+    // Name label (shown when <=500m, length varies by distance)
+    if (distance <= 500) {
+        const maxLen = distance <= 100 ? 15 : distance <= 300 ? 10 : 8;
+        const displayName = target.name.length > maxLen ? target.name.substring(0, maxLen) + "\u2026" : target.name;
         const nameCanvas = createTextCanvas(displayName, {
             fontSize: 24, bgColor: "rgba(0,0,0,0.7)", textColor: "white", padding: 8
         });
@@ -479,8 +480,8 @@ function startARLoop() {
 
             const moveX = (canvasW / fov) * xAngle;
 
-            // Altitude angle
-            const heightDiff = (t.altitude || 0) - (altitude || 0);
+            // Altitude angle (default 5m offset so markers appear at eye level, not at feet)
+            const heightDiff = (t.altitude || 5) - (altitude || 0);
             const altAngle = Math.atan2(heightDiff, Math.max(t.distance, 1)) * (180 / Math.PI);
             const setY = (canvasH / fov) * altAngle;
 
