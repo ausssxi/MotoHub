@@ -467,8 +467,9 @@ function startARLoop() {
 
         // Position markers based on device orientation
         // Fix: beta≈90° when phone held horizontally, subtract 90 so markers center on screen
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         const rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
-        const pitchY = -(rotation[1] - 90);
+        const pitchY = isSafari ? (rotation[1] - 90) : -(rotation[1] - 90);
         const moveYFromPitch = (canvasH / fov) * pitchY;
 
         markerGroups.forEach(mg => {
