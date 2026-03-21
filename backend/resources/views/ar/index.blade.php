@@ -344,6 +344,16 @@
         if (d) d.innerHTML += 'REJECT: ' + e.reason + '<br>';
     });
     </script>
-    <script type="module" src="{{ asset('js/ar/ar-main.js') }}"></script>
+    <script type="module">
+    const d = document.getElementById('debug-log');
+    try {
+        d.innerHTML += 'import start<br>';
+        await import('/js/ar/ar-main.js');
+        d.innerHTML += 'import ok<br>';
+    } catch(e) {
+        d.innerHTML += 'import fail: ' + e.message + '<br>';
+        d.innerHTML += 'stack: ' + e.stack + '<br>';
+    }
+    </script>
 </body>
 </html>
