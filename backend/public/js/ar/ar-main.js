@@ -17,7 +17,7 @@ debugLog('ar-main.js loaded');
 // --- State ---
 let os;
 let alpha = 0, beta = 0, gamma = 0, degrees = 0;
-let videoSource, viewCanvasContext;
+let videoSource, offscreenCanvas, viewCanvasContext;
 let latitude, longitude, altitude = 0;
 let scene, camera, renderer;
 let magdec = 0;
@@ -139,6 +139,10 @@ async function initCamera() {
     arCanvas.height = window.innerHeight;
     viewCanvasContext = arCanvas.getContext("2d");
 
+    offscreenCanvas = document.createElement("canvas");
+    offscreenCanvas.width = arCanvas.width;
+    offscreenCanvas.height = arCanvas.height;
+
     return stream;
 }
 
@@ -197,25 +201,23 @@ function initThreeJS() {
 
     scene = new THREE.Scene();
 
-    // WebGLキャンバスを新規作成してDOMに追加（ar-canvasの上に重ねる）
-    const glCanvas = document.createElement("canvas");
-    glCanvas.id = "three-canvas";
-    glCanvas.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none;";
-    document.getElementById("ar-container").appendChild(glCanvas);
-
     try {
         renderer = new THREE.WebGLRenderer({
             antialias: true,
             alpha: true,
-            canvas: glCanvas
+            canvas: offscreenCanvas
         });
     } catch (e) {
         debugLog('WebGLRenderer FAIL: ' + e.message);
         throw e;
     }
     renderer.setSize(w, h);
-    renderer.setClearColor(0x000000, 0);
     debugLog('renderer ok: ' + w + 'x' + h);
+
+    // Three.js独自レンダリングループ（setAnimationLoopでバッファを常時更新）
+    renderer.setAnimationLoop(() => {
+        renderer.render(scene, camera);
+    });
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(0, 1, 1);
@@ -540,11 +542,9 @@ function startARLoop() {
             if (mg.labelGroup) mg.labelGroup.visible = visible;
         });
 
-        // Render
-        renderer.render(scene, camera);
-
-        // Draw camera feed only (Three.js renders directly to its own canvas)
+        // Draw camera + Three.js overlay
         viewCanvasContext.drawImage(videoSource, 0, 0, canvasW, canvasH);
+        viewCanvasContext.drawImage(offscreenCanvas, 0, 0);
 
         requestAnimationFrame(animate);
     }
@@ -710,6 +710,10 @@ window.addEventListener("resize", () => {
     const arCanvas = document.getElementById("ar-canvas");
     arCanvas.width = w;
     arCanvas.height = h;
+    if (offscreenCanvas) {
+        offscreenCanvas.width = w;
+        offscreenCanvas.height = h;
+    }
     if (camera) {
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
