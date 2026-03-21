@@ -467,10 +467,16 @@ function startARLoop() {
 
         // Position markers based on device orientation
         // Fix: beta≈90° when phone held horizontally, subtract 90 so markers center on screen
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         const rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
-        const pitchY = isSafari ? (rotation[1] - 90) : -(rotation[1] - 90);
+        const pitchY = -(rotation[1] - 90);
         const moveYFromPitch = (canvasH / fov) * pitchY;
+
+        // Debug: show pitch value on compass
+        const compassEl = document.getElementById("compass");
+        if (compassEl) {
+            const dirs = ["N","NE","E","SE","S","SW","W","NW"];
+            compassEl.textContent = dirs[Math.round(degrees / 45) % 8] + ' ' + Math.round(degrees) + '\u00B0 p:' + Math.round(rotation[1]);
+        }
 
         markerGroups.forEach(mg => {
             const t = mg.target;
