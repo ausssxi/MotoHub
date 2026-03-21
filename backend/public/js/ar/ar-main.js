@@ -182,14 +182,14 @@ function initThreeJS() {
     const w = window.innerWidth;
     const h = window.innerHeight;
 
-    camera = new THREE.PerspectiveCamera(45, w / h, 1, 5000);
+    camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 2000);
     const fovRad = (45 / 2) * (Math.PI / 180);
     const distance = (h / 2) / Math.tan(fovRad);
     camera.position.z = distance;
 
     scene = new THREE.Scene();
     renderer = new THREE.WebGLRenderer({
-        antialias: true,
+        antialias: false,
         alpha: true,
         canvas: offscreenCanvas
     });
