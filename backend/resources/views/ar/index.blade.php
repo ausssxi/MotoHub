@@ -223,6 +223,20 @@
             color: #334155;
         }
 
+        /* Nearby Banner */
+        #nearby-banner {
+            position: fixed;
+            top: max(calc(env(safe-area-inset-top) + 140px), 152px);
+            left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.75); color: white;
+            padding: 10px 20px; border-radius: 16px;
+            font-size: 14px; font-weight: 900;
+            z-index: 50; backdrop-filter: blur(8px);
+            opacity: 0; transition: opacity 0.4s ease;
+            pointer-events: none; white-space: nowrap;
+        }
+        #nearby-banner.visible { opacity: 1; }
+
         /* Status */
         #status-bar {
             position: fixed;
@@ -297,6 +311,11 @@
             <button class="filter-btn active-shop" data-type="shop" onclick="toggleFilter('shop')">
                 S ショップ
             </button>
+        </div>
+
+        {{-- Nearby Banner --}}
+        <div id="nearby-banner">
+            <span id="nearby-banner-text"></span>
         </div>
 
         {{-- Status --}}
