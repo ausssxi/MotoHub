@@ -345,14 +345,23 @@
     });
     </script>
     <script type="module">
-    const d = document.getElementById('debug-log');
+    function log(msg) {
+        var d = document.getElementById('debug-log');
+        if (!d) {
+            d = document.createElement('div');
+            d.id = 'debug-log';
+            d.style.cssText = 'position:fixed;bottom:60px;left:0;right:0;background:rgba(0,0,0,0.8);color:lime;padding:10px;z-index:99999;font-size:14px;max-height:200px;overflow-y:auto;';
+            document.body.appendChild(d);
+        }
+        d.innerHTML += msg + '<br>';
+    }
     try {
-        d.innerHTML += 'import start<br>';
+        log('import start');
         await import('/js/ar/ar-main.js');
-        d.innerHTML += 'import ok<br>';
+        log('import ok');
     } catch(e) {
-        d.innerHTML += 'import fail: ' + e.message + '<br>';
-        d.innerHTML += 'stack: ' + e.stack + '<br>';
+        log('import fail: ' + e.message);
+        log('stack: ' + e.stack);
     }
     </script>
 </body>
