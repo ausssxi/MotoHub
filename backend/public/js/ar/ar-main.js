@@ -108,6 +108,8 @@ function getEulerAngles(m) {
 async function initCamera() {
     debugLog('initCamera start');
     videoSource = document.createElement("video");
+    videoSource.style.cssText = 'position:absolute;opacity:0;pointer-events:none;width:0;height:0;';
+    document.body.appendChild(videoSource);
     const stream = await navigator.mediaDevices.getUserMedia({
         video: {
             facingMode: { exact: "environment" },
@@ -118,8 +120,19 @@ async function initCamera() {
     debugLog('camera ok');
     videoSource.muted = true;
     videoSource.playsInline = true;
+    videoSource.setAttribute('playsinline', '');
+    videoSource.setAttribute('webkit-playsinline', '');
     videoSource.srcObject = stream;
+    await new Promise(resolve => {
+        if (videoSource.readyState >= 1) {
+            resolve();
+        } else {
+            videoSource.addEventListener('loadedmetadata', resolve, { once: true });
+        }
+    });
+    debugLog('video play start');
     await videoSource.play();
+    debugLog('video play ok');
 
     const arCanvas = document.getElementById("ar-canvas");
     arCanvas.width = window.innerWidth;
