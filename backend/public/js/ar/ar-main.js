@@ -99,26 +99,13 @@ function getEulerAngles(m) {
 // --- Camera ---
 async function initCamera() {
     videoSource = document.createElement("video");
-    let stream;
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: { exact: "environment" },
-                width: { ideal: window.innerWidth },
-                height: { ideal: window.innerHeight }
-            }
-        });
-    } catch (e) {
-        // Safari等で exact: "environment" が失敗する場合のフォールバック
-        console.warn("exact facingMode failed, falling back to ideal:", e);
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: { ideal: "environment" },
-                width: { ideal: window.innerWidth },
-                height: { ideal: window.innerHeight }
-            }
-        });
-    }
+    const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: { exact: "environment" },
+            width: { ideal: window.innerWidth },
+            height: { ideal: window.innerHeight }
+        }
+    });
     videoSource.muted = true;
     videoSource.playsInline = true;
     videoSource.srcObject = stream;
@@ -182,14 +169,14 @@ function initThreeJS() {
     const w = window.innerWidth;
     const h = window.innerHeight;
 
-    camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 2000);
+    camera = new THREE.PerspectiveCamera(45, w / h, 1, 5000);
     const fovRad = (45 / 2) * (Math.PI / 180);
     const distance = (h / 2) / Math.tan(fovRad);
     camera.position.z = distance;
 
     scene = new THREE.Scene();
     renderer = new THREE.WebGLRenderer({
-        antialias: false,
+        antialias: true,
         alpha: true,
         canvas: offscreenCanvas
     });
@@ -283,8 +270,8 @@ function createTextCanvas(text, { fontSize = 24, bgColor = "rgba(0,0,0,0.7)", te
 }
 
 function createLabel(target, distance) {
-    // >800m: no labels at all (pin only)
-    if (distance > 800) return null;
+    // >400m: no labels at all (pin only)
+    if (distance > 400) return null;
 
     const group = new THREE.Group();
 
@@ -305,10 +292,9 @@ function createLabel(target, distance) {
     distMesh.position.y = 15;
     group.add(distMesh);
 
-    // Name label (shown when <=500m, length varies by distance)
-    if (distance <= 500) {
-        const maxLen = distance <= 100 ? 15 : distance <= 300 ? 10 : 8;
-        const displayName = target.name.length > maxLen ? target.name.substring(0, maxLen) + "\u2026" : target.name;
+    // Name label (only shown when <=200m)
+    if (distance <= 200) {
+        const displayName = target.name.length > 6 ? target.name.substring(0, 6) + "\u2026" : target.name;
         const nameCanvas = createTextCanvas(displayName, {
             fontSize: 24, bgColor: "rgba(0,0,0,0.7)", textColor: "white", padding: 8
         });
@@ -442,11 +428,9 @@ function updateStatusBar() {
 
 // --- Scale by distance ---
 function getMarkerScale(distance) {
-    if (distance < 30) return 0.3;
-    if (distance < 50) return 0.4;
-    if (distance < 100) return 0.6;
-    if (distance < 200) return 0.8;
-    return 0.7;
+    if (distance < 50) return 0.5;
+    if (distance < 200) return 1.0;
+    return 0.8;
 }
 
 // --- Animation Loop ---
@@ -495,24 +479,19 @@ function startARLoop() {
 
             const moveX = (canvasW / fov) * xAngle;
 
-            // altitudeベースの計算は廃止
-            // 距離に関係なく、マーカーを画面の中央〜やや上に表示する
-            // 固定オフセットとして canvasH * 0.15 を加算（画面高さの15%分上にずらす）
+            // Altitude angle
             const heightDiff = (t.altitude || 0) - (altitude || 0);
             const altAngle = Math.atan2(heightDiff, Math.max(t.distance, 1)) * (180 / Math.PI);
-            const setY = (canvasH / fov) * altAngle + canvasH * 0.15;
+            const setY = (canvasH / fov) * altAngle;
 
-            // Scale by distance: clamped to prevent markers from covering the screen
-            const scale = Math.min(getMarkerScale(t.distance), 1.5);
+            // Scale by distance: close=small, mid=normal, far=slightly small
+            const scale = getMarkerScale(t.distance);
 
-            // Z depth: clamp between 30-1000 to prevent near markers from disappearing
-            const zDepth = -Math.min(Math.max(t.distance, 30), 1000);
-
-            mg.group.position.set(moveX, setY + moveYFromPitch, zDepth);
+            mg.group.position.set(moveX, setY + moveYFromPitch, -Math.min(t.distance, 1000));
             mg.group.scale.set(scale, scale, scale);
 
             if (mg.labelGroup) {
-                mg.labelGroup.position.set(moveX, setY + moveYFromPitch + 63 * scale, zDepth);
+                mg.labelGroup.position.set(moveX, setY + moveYFromPitch + 63 * scale, -Math.min(t.distance, 1000));
                 mg.labelGroup.scale.set(scale, scale, scale);
             }
 
@@ -643,16 +622,9 @@ document.getElementById("start-ar-btn").addEventListener("click", async () => {
         // iOS: DeviceOrientation permission
         if (typeof DeviceOrientationEvent !== "undefined" &&
             typeof DeviceOrientationEvent.requestPermission === "function") {
-            try {
-                const response = await DeviceOrientationEvent.requestPermission();
-                if (response !== "granted") {
-                    alert("コンパスの使用許可が必要です");
-                    document.getElementById("loading").style.display = "none";
-                    return;
-                }
-            } catch (permErr) {
-                console.error("DeviceOrientation permission error:", permErr);
-                alert("コンパスの許可リクエストに失敗しました。ブラウザの設定を確認してください。");
+            const response = await DeviceOrientationEvent.requestPermission();
+            if (response !== "granted") {
+                alert("コンパスの使用許可が必要です");
                 document.getElementById("loading").style.display = "none";
                 return;
             }
