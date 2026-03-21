@@ -169,9 +169,9 @@ function initThreeJS() {
     const w = window.innerWidth;
     const h = window.innerHeight;
 
-    camera = new THREE.PerspectiveCamera(45, w / h, 1, 5000);
+    camera = new THREE.PerspectiveCamera(45, 1, 1, 2000);
     const fovRad = (45 / 2) * (Math.PI / 180);
-    const distance = (h / 2) / Math.tan(fovRad);
+    const distance = (360 / 2) / Math.tan(fovRad);
     camera.position.z = distance;
 
     scene = new THREE.Scene();
@@ -683,7 +683,7 @@ window.addEventListener("resize", () => {
         offscreenCanvas.height = h;
     }
     if (camera) {
-        camera.aspect = w / h;
+        camera.aspect = 1;
         camera.updateProjectionMatrix();
     }
     if (renderer) renderer.setSize(w, h);
