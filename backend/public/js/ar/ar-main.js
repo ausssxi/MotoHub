@@ -177,20 +177,29 @@ function updateMagDec() {
 
 // --- Three.js ---
 function initThreeJS() {
+    debugLog('initThreeJS enter');
     const w = window.innerWidth;
     const h = window.innerHeight;
+    debugLog('viewport: ' + w + 'x' + h);
+    debugLog('offscreenCanvas: ' + (offscreenCanvas ? offscreenCanvas.width + 'x' + offscreenCanvas.height : 'null'));
 
     camera = new THREE.PerspectiveCamera(45, w / h, 1, 5000);
     const fovRad = (45 / 2) * (Math.PI / 180);
     const distance = (h / 2) / Math.tan(fovRad);
     camera.position.z = distance;
+    debugLog('camera ok, z=' + distance);
 
     scene = new THREE.Scene();
-    renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: true,
-        canvas: offscreenCanvas
-    });
+    try {
+        renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true,
+            canvas: offscreenCanvas
+        });
+    } catch (e) {
+        debugLog('WebGLRenderer FAIL: ' + e.message);
+        throw e;
+    }
     renderer.setSize(w, h);
     debugLog('renderer: ' + (renderer ? 'ok' : 'null'));
     debugLog('gl: ' + (renderer.getContext() ? 'ok' : 'null'));
@@ -658,7 +667,9 @@ document.getElementById("start-ar-btn").addEventListener("click", async () => {
         // Camera + GPS
         await initCamera();
         await initGeolocation();
+        debugLog('calling initThreeJS');
         initThreeJS();
+        debugLog('initThreeJS done');
         initTapDetection();
 
         // UI switch
