@@ -468,7 +468,7 @@ function startARLoop() {
         // Position markers based on device orientation
         // Fix: beta≈90° when phone held horizontally, subtract 90 so markers center on screen
         const rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
-        const pitchY = -(rotation[1] + 12);
+        const pitchY = -(rotation[1] + 5);
         const moveYFromPitch = (canvasH / fov) * pitchY;
 
         // Debug: show pitch value on compass
