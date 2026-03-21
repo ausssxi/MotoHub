@@ -325,6 +325,6 @@
         </div>
     </div>
 
-    <script type="module" src="{{ asset('js/ar/ar-main.js') }}"></script>
+    <script type="module" src="{{ asset('js/ar/ar-main.js') }}?v={{ time() }}"></script>
 </body>
 </html>
