@@ -428,9 +428,11 @@ function updateStatusBar() {
 
 // --- Scale by distance ---
 function getMarkerScale(distance) {
-    if (distance < 50) return 0.5;
+    if (distance < 30) return 1.5;
+    if (distance < 100) return 1.2;
     if (distance < 200) return 1.0;
-    return 0.8;
+    if (distance < 400) return 0.8;
+    return 0.6;
 }
 
 // --- Animation Loop ---
@@ -469,7 +471,7 @@ function startARLoop() {
         // Fix: beta≈90° when phone held horizontally, subtract 90 so markers center on screen
         const rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
         const pitchY = -rotation[1];
-        const moveYFromPitch = (canvasH / fov) * pitchY;
+        const moveYFromPitch = (360 / fov) * pitchY;
 
         // Debug: show pitch value on compass
         const compassEl = document.getElementById("compass");
@@ -484,12 +486,12 @@ function startARLoop() {
             if (xAngle < -200) xAngle += 360;
             if (xAngle > 200) xAngle -= 360;
 
-            const moveX = (canvasW / fov) * xAngle;
+            const moveX = (360 / fov) * xAngle;
 
             // Altitude angle
             const heightDiff = (t.altitude || 0) - (altitude || 0);
             const altAngle = Math.atan2(heightDiff, Math.max(t.distance, 1)) * (180 / Math.PI);
-            const setY = (canvasH / fov) * altAngle;
+            const setY = (360 / fov) * altAngle;
 
             // Scale by distance: close=small, mid=normal, far=slightly small
             const scale = getMarkerScale(t.distance);
