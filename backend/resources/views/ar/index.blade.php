@@ -326,12 +326,23 @@
     </div>
 
     <script>
-    window.onerror = function(msg, url, line) {
-        const d = document.createElement('div');
-        d.style.cssText = 'position:fixed;top:50%;left:0;right:0;background:red;color:white;padding:20px;z-index:99999;font-size:18px;';
-        d.textContent = msg + ' (line:' + line + ')';
+    document.addEventListener('DOMContentLoaded', function() {
+        var d = document.createElement('div');
+        d.style.cssText = 'position:fixed;bottom:60px;left:0;right:0;background:rgba(0,0,0,0.8);color:lime;padding:10px;z-index:99999;font-size:14px;';
+        d.id = 'debug-log';
+        d.innerHTML = 'DEBUG: page loaded<br>';
         document.body.appendChild(d);
-    };
+    });
+
+    window.addEventListener('error', function(e) {
+        var d = document.getElementById('debug-log');
+        if (d) d.innerHTML += 'ERROR: ' + e.message + '<br>';
+    }, true);
+
+    window.addEventListener('unhandledrejection', function(e) {
+        var d = document.getElementById('debug-log');
+        if (d) d.innerHTML += 'REJECT: ' + e.reason + '<br>';
+    });
     </script>
     <script type="module" src="{{ asset('js/ar/ar-main.js') }}"></script>
 </body>
