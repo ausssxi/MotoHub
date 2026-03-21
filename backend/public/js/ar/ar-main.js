@@ -218,6 +218,16 @@ function initThreeJS() {
     debugLog('gl: ' + (renderer.getContext() ? 'ok' : 'null'));
     debugLog('canvas: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
     debugLog('pixelRatio: ' + window.devicePixelRatio);
+    debugLog('renderer canvas (offscreen): ' + offscreenCanvas.width + 'x' + offscreenCanvas.height);
+    const arC = document.getElementById('ar-canvas');
+    if (arC) {
+        debugLog('ar-canvas zIndex: ' + (arC.style.zIndex || getComputedStyle(arC).zIndex));
+        debugLog('ar-canvas position: ' + (arC.style.position || getComputedStyle(arC).position));
+        debugLog('ar-canvas opacity: ' + getComputedStyle(arC).opacity);
+        debugLog('ar-canvas size: ' + arC.width + 'x' + arC.height);
+    } else {
+        debugLog('ar-canvas: NOT FOUND');
+    }
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(0, 1, 1);
@@ -442,6 +452,7 @@ function rebuildMarkers() {
         }
         markerGroups.push({ group, labelGroup, target });
     });
+    debugLog('after rebuild: ' + scene.children.length + ' children');
 }
 
 // --- Update Compass ---
