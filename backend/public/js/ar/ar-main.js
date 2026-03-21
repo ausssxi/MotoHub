@@ -6,14 +6,6 @@ import LatLon from "https://esm.sh/geodesy@2.4.0/latlon-ellipsoidal-vincenty.js"
 import * as THREE from "three";
 import { COF, Geomag } from "./wmm.js";
 
-// --- Debug ---
-const dbg = document.getElementById('debug-log');
-function debugLog(msg) {
-    if (dbg) dbg.innerHTML += msg + '<br>';
-    console.log('[AR]', msg);
-}
-debugLog('ar-main.js loaded');
-
 // --- State ---
 let os;
 let alpha = 0, beta = 0, gamma = 0, degrees = 0;
@@ -106,10 +98,7 @@ function getEulerAngles(m) {
 
 // --- Camera ---
 async function initCamera() {
-    debugLog('initCamera start');
     videoSource = document.createElement("video");
-    videoSource.style.cssText = 'position:absolute;opacity:0;pointer-events:none;width:0;height:0;';
-    document.body.appendChild(videoSource);
     const stream = await navigator.mediaDevices.getUserMedia({
         video: {
             facingMode: { exact: "environment" },
@@ -117,22 +106,10 @@ async function initCamera() {
             height: { ideal: window.innerHeight }
         }
     });
-    debugLog('camera ok');
     videoSource.muted = true;
     videoSource.playsInline = true;
-    videoSource.setAttribute('playsinline', '');
-    videoSource.setAttribute('webkit-playsinline', '');
     videoSource.srcObject = stream;
-    await new Promise(resolve => {
-        if (videoSource.readyState >= 1) {
-            resolve();
-        } else {
-            videoSource.addEventListener('loadedmetadata', resolve, { once: true });
-        }
-    });
-    debugLog('video play start');
     await videoSource.play();
-    debugLog('video play ok');
 
     const arCanvas = document.getElementById("ar-canvas");
     arCanvas.width = window.innerWidth;
@@ -156,11 +133,10 @@ function initGeolocation() {
                 latitude = pos.coords.latitude;
                 longitude = pos.coords.longitude;
                 altitude = pos.coords.altitude || 0;
-                debugLog('gps ok: ' + latitude + ',' + longitude);
                 updateMagDec();
                 resolve();
             },
-            (err) => { debugLog('gps fail: ' + err.message); reject(err); },
+            reject,
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
 
@@ -190,7 +166,6 @@ function updateMagDec() {
 
 // --- Three.js ---
 function initThreeJS() {
-    debugLog('initThreeJS enter');
     const w = window.innerWidth;
     const h = window.innerHeight;
 
@@ -200,20 +175,12 @@ function initThreeJS() {
     camera.position.z = distance;
 
     scene = new THREE.Scene();
-
-    try {
-        renderer = new THREE.WebGLRenderer({
-            antialias: true,
-            alpha: true,
-            canvas: offscreenCanvas,
-            preserveDrawingBuffer: true
-        });
-    } catch (e) {
-        debugLog('WebGLRenderer FAIL: ' + e.message);
-        throw e;
-    }
+    renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        canvas: offscreenCanvas
+    });
     renderer.setSize(w, h);
-    debugLog('renderer ok: ' + w + 'x' + h);
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(0, 1, 1);
@@ -411,7 +378,6 @@ async function fetchNearbyTargets() {
     // Sort by distance, limit to 20
     newTargets.sort((a, b) => a.distance - b.distance);
     targets = newTargets.slice(0, 20);
-    debugLog('targets: ' + newTargets.length);
 
     rebuildMarkers();
     updateStatusBar();
@@ -424,7 +390,6 @@ function rebuildMarkers() {
         if (mg.labelGroup) scene.remove(mg.labelGroup);
     });
     markerGroups = [];
-    debugLog('scene children: ' + scene.children.length);
 
     targets.forEach(target => {
         const visible = (target.type === "parking" && showParking) || (target.type === "shop" && showShop);
@@ -438,7 +403,6 @@ function rebuildMarkers() {
         }
         markerGroups.push({ group, labelGroup, target });
     });
-    debugLog('after rebuild: ' + scene.children.length + ' children');
 }
 
 // --- Update Compass ---
@@ -478,7 +442,6 @@ function startARLoop() {
 
     function animate() {
         if (!arRunning) return;
-        if (!window._renderLogged) { debugLog('render loop running'); window._renderLogged = true; }
 
         // Re-fetch periodically
         const now = Date.now();
@@ -538,10 +501,12 @@ function startARLoop() {
             if (mg.labelGroup) mg.labelGroup.visible = visible;
         });
 
-        // Render Three.js → draw camera → composite (same frame, guaranteed order)
+        // Render
         renderer.render(scene, camera);
+
+        // Draw camera + overlay
         viewCanvasContext.drawImage(videoSource, 0, 0, canvasW, canvasH);
-        viewCanvasContext.drawImage(renderer.domElement, 0, 0);
+        viewCanvasContext.drawImage(offscreenCanvas, 0, 0);
 
         requestAnimationFrame(animate);
     }
@@ -675,9 +640,7 @@ document.getElementById("start-ar-btn").addEventListener("click", async () => {
         // Camera + GPS
         await initCamera();
         await initGeolocation();
-        debugLog('calling initThreeJS');
         initThreeJS();
-        debugLog('initThreeJS done');
         initTapDetection();
 
         // UI switch
@@ -693,7 +656,6 @@ document.getElementById("start-ar-btn").addEventListener("click", async () => {
         startARLoop();
 
     } catch (err) {
-        debugLog('startup fail: ' + err.message);
         document.getElementById("loading").style.display = "none";
         alert("カメラまたは位置情報の許可が必要です: " + err.message);
     }

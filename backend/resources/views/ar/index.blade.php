@@ -325,44 +325,6 @@
         </div>
     </div>
 
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var d = document.createElement('div');
-        d.style.cssText = 'position:fixed;bottom:60px;left:0;right:0;background:rgba(0,0,0,0.8);color:lime;padding:10px;z-index:99999;font-size:14px;';
-        d.id = 'debug-log';
-        d.innerHTML = 'DEBUG: page loaded<br>';
-        document.body.appendChild(d);
-    });
-
-    window.addEventListener('error', function(e) {
-        var d = document.getElementById('debug-log');
-        if (d) d.innerHTML += 'ERROR: ' + e.message + '<br>';
-    }, true);
-
-    window.addEventListener('unhandledrejection', function(e) {
-        var d = document.getElementById('debug-log');
-        if (d) d.innerHTML += 'REJECT: ' + e.reason + '<br>';
-    });
-    </script>
-    <script type="module">
-    function log(msg) {
-        var d = document.getElementById('debug-log');
-        if (!d) {
-            d = document.createElement('div');
-            d.id = 'debug-log';
-            d.style.cssText = 'position:fixed;bottom:60px;left:0;right:0;background:rgba(0,0,0,0.8);color:lime;padding:10px;z-index:99999;font-size:14px;max-height:200px;overflow-y:auto;';
-            document.body.appendChild(d);
-        }
-        d.innerHTML += msg + '<br>';
-    }
-    try {
-        log('import start');
-        await import('/js/ar/ar-main.js');
-        log('import ok');
-    } catch(e) {
-        log('import fail: ' + e.message);
-        log('stack: ' + e.stack);
-    }
-    </script>
+    <script type="module" src="{{ asset('js/ar/ar-main.js') }}"></script>
 </body>
 </html>
