@@ -192,6 +192,10 @@ function initThreeJS() {
         canvas: offscreenCanvas
     });
     renderer.setSize(w, h);
+    debugLog('renderer: ' + (renderer ? 'ok' : 'null'));
+    debugLog('gl: ' + (renderer.getContext() ? 'ok' : 'null'));
+    debugLog('canvas: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
+    debugLog('pixelRatio: ' + window.devicePixelRatio);
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(0, 1, 1);
@@ -402,6 +406,7 @@ function rebuildMarkers() {
         if (mg.labelGroup) scene.remove(mg.labelGroup);
     });
     markerGroups = [];
+    debugLog('scene children: ' + scene.children.length);
 
     targets.forEach(target => {
         const visible = (target.type === "parking" && showParking) || (target.type === "shop" && showShop);
@@ -454,6 +459,7 @@ function startARLoop() {
 
     function animate() {
         if (!arRunning) return;
+        if (!window._renderLogged) { debugLog('render loop running'); window._renderLogged = true; }
 
         // Re-fetch periodically
         const now = Date.now();
