@@ -325,6 +325,14 @@
         </div>
     </div>
 
+    <script>
+    window.onerror = function(msg, url, line) {
+        const d = document.createElement('div');
+        d.style.cssText = 'position:fixed;top:50%;left:0;right:0;background:red;color:white;padding:20px;z-index:99999;font-size:18px;';
+        d.textContent = msg + ' (line:' + line + ')';
+        document.body.appendChild(d);
+    };
+    </script>
     <script type="module" src="{{ asset('js/ar/ar-main.js') }}"></script>
 </body>
 </html>
