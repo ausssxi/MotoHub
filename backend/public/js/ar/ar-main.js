@@ -17,7 +17,7 @@ debugLog('ar-main.js loaded');
 // --- State ---
 let os;
 let alpha = 0, beta = 0, gamma = 0, degrees = 0;
-let videoSource, offscreenCanvas, viewCanvasContext;
+let videoSource, viewCanvasContext;
 let latitude, longitude, altitude = 0;
 let scene, camera, renderer;
 let magdec = 0;
@@ -139,10 +139,6 @@ async function initCamera() {
     arCanvas.height = window.innerHeight;
     viewCanvasContext = arCanvas.getContext("2d");
 
-    offscreenCanvas = document.createElement("canvas");
-    offscreenCanvas.width = arCanvas.width;
-    offscreenCanvas.height = arCanvas.height;
-
     return stream;
 }
 
@@ -193,42 +189,33 @@ function initThreeJS() {
     debugLog('initThreeJS enter');
     const w = window.innerWidth;
     const h = window.innerHeight;
-    debugLog('viewport: ' + w + 'x' + h);
-    debugLog('offscreenCanvas: ' + (offscreenCanvas ? offscreenCanvas.width + 'x' + offscreenCanvas.height : 'null'));
 
     camera = new THREE.PerspectiveCamera(45, w / h, 1, 5000);
     const fovRad = (45 / 2) * (Math.PI / 180);
     const distance = (h / 2) / Math.tan(fovRad);
     camera.position.z = distance;
-    debugLog('camera ok, z=' + distance);
 
     scene = new THREE.Scene();
+
+    // WebGLキャンバスを新規作成してDOMに追加（ar-canvasの上に重ねる）
+    const glCanvas = document.createElement("canvas");
+    glCanvas.id = "three-canvas";
+    glCanvas.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none;";
+    document.getElementById("ar-container").appendChild(glCanvas);
+
     try {
         renderer = new THREE.WebGLRenderer({
             antialias: true,
             alpha: true,
-            canvas: offscreenCanvas,
-            preserveDrawingBuffer: true
+            canvas: glCanvas
         });
     } catch (e) {
         debugLog('WebGLRenderer FAIL: ' + e.message);
         throw e;
     }
     renderer.setSize(w, h);
-    debugLog('renderer: ' + (renderer ? 'ok' : 'null'));
-    debugLog('gl: ' + (renderer.getContext() ? 'ok' : 'null'));
-    debugLog('canvas: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
-    debugLog('pixelRatio: ' + window.devicePixelRatio);
-    debugLog('renderer canvas (offscreen): ' + offscreenCanvas.width + 'x' + offscreenCanvas.height);
-    const arC = document.getElementById('ar-canvas');
-    if (arC) {
-        debugLog('ar-canvas zIndex: ' + (arC.style.zIndex || getComputedStyle(arC).zIndex));
-        debugLog('ar-canvas position: ' + (arC.style.position || getComputedStyle(arC).position));
-        debugLog('ar-canvas opacity: ' + getComputedStyle(arC).opacity);
-        debugLog('ar-canvas size: ' + arC.width + 'x' + arC.height);
-    } else {
-        debugLog('ar-canvas: NOT FOUND');
-    }
+    renderer.setClearColor(0x000000, 0);
+    debugLog('renderer ok: ' + w + 'x' + h);
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(0, 1, 1);
@@ -556,9 +543,8 @@ function startARLoop() {
         // Render
         renderer.render(scene, camera);
 
-        // Draw camera + overlay
+        // Draw camera feed only (Three.js renders directly to its own canvas)
         viewCanvasContext.drawImage(videoSource, 0, 0, canvasW, canvasH);
-        viewCanvasContext.drawImage(offscreenCanvas, 0, 0);
 
         requestAnimationFrame(animate);
     }
@@ -724,10 +710,6 @@ window.addEventListener("resize", () => {
     const arCanvas = document.getElementById("ar-canvas");
     arCanvas.width = w;
     arCanvas.height = h;
-    if (offscreenCanvas) {
-        offscreenCanvas.width = w;
-        offscreenCanvas.height = h;
-    }
     if (camera) {
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
