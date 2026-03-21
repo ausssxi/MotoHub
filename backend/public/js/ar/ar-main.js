@@ -215,11 +215,6 @@ function initThreeJS() {
     renderer.setSize(w, h);
     debugLog('renderer ok: ' + w + 'x' + h);
 
-    // Three.js独自レンダリングループ（setAnimationLoopでバッファを常時更新）
-    renderer.setAnimationLoop(() => {
-        renderer.render(scene, camera);
-    });
-
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(0, 1, 1);
     scene.add(light);
@@ -543,9 +538,10 @@ function startARLoop() {
             if (mg.labelGroup) mg.labelGroup.visible = visible;
         });
 
-        // Draw camera + Three.js overlay
+        // Render Three.js → draw camera → composite (same frame, guaranteed order)
+        renderer.render(scene, camera);
         viewCanvasContext.drawImage(videoSource, 0, 0, canvasW, canvasH);
-        viewCanvasContext.drawImage(offscreenCanvas, 0, 0);
+        viewCanvasContext.drawImage(renderer.domElement, 0, 0);
 
         requestAnimationFrame(animate);
     }
