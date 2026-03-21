@@ -15,11 +15,14 @@ let scene, camera, renderer;
 let magdec = 0;
 let showParking = true, showShop = true;
 let targets = [];
-let markerGroups = []; // { group, labelGroup, target }
+let markerGroups = []; // { group, labelGroup, detailCard, target }
 let arRunning = false;
 let lastFetchTime = 0;
+let lastNearbyTargetId = null;
 const FETCH_INTERVAL = 5000; // re-fetch every 5s
 const PITCH_OFFSET = 10; // degrees: positive = markers shift upward
+const DETAIL_CARD_THRESHOLD = 30;  // meters: show detail card instead of pin
+const NEARBY_THRESHOLD = 10;       // meters: show "nearby!" banner
 
 // --- OS Detection ---
 function detectOS() {
@@ -312,6 +315,82 @@ function createLabel(target, distance) {
     return group;
 }
 
+function createDetailCard(target) {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const isParking = target.type === "parking";
+    const bgColor = isParking ? "rgba(22,163,74,0.85)" : "rgba(59,130,246,0.85)";
+
+    // Measure text to size canvas
+    const name = target.name;
+    const distText = target.distance < 1000 ? `${Math.round(target.distance)}m` : `${(target.distance / 1000).toFixed(1)}km`;
+    let infoText = "";
+    if (isParking) {
+        const parts = [];
+        if (target.capacity) parts.push(`${target.capacity}台`);
+        if (target.detail) parts.push(target.detail.length > 12 ? target.detail.substring(0, 12) + "\u2026" : target.detail);
+        infoText = parts.join(" / ");
+    } else {
+        infoText = target.address ? (target.address.length > 16 ? target.address.substring(0, 16) + "\u2026" : target.address) : "";
+    }
+
+    const padding = 12;
+    const lineH = 28;
+    const fontSize = 20;
+    ctx.font = `900 ${fontSize}px system-ui`;
+    const nameW = ctx.measureText(name).width;
+    const distW = ctx.measureText(distText).width;
+    const infoW = infoText ? ctx.measureText(infoText).width : 0;
+    const contentW = Math.max(nameW, distW, infoW);
+    const width = contentW + padding * 2;
+    const lines = infoText ? 3 : 2;
+    const height = lineH * lines + padding * 2;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    // Rounded rect background
+    const r = 12;
+    ctx.fillStyle = bgColor;
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.lineTo(width - r, 0);
+    ctx.quadraticCurveTo(width, 0, width, r);
+    ctx.lineTo(width, height - r);
+    ctx.quadraticCurveTo(width, height, width - r, height);
+    ctx.lineTo(r, height);
+    ctx.quadraticCurveTo(0, height, 0, height - r);
+    ctx.lineTo(0, r);
+    ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.fill();
+
+    // Text
+    ctx.fillStyle = "white";
+    ctx.font = `900 ${fontSize}px system-ui`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    let y = padding + lineH / 2;
+    ctx.fillText(name, width / 2, y);
+    y += lineH;
+    ctx.font = `700 ${fontSize - 2}px system-ui`;
+    ctx.fillText(distText, width / 2, y);
+    if (infoText) {
+        y += lineH;
+        ctx.font = `500 ${fontSize - 4}px system-ui`;
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.fillText(infoText, width / 2, y);
+    }
+
+    const texture = new THREE.Texture(canvas);
+    texture.needsUpdate = true;
+    const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(canvas.width, canvas.height),
+        new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide })
+    );
+    mesh.visible = false;
+    return mesh;
+}
+
 // --- Data Fetching ---
 async function fetchNearbyTargets() {
     if (!latitude || !longitude) return;
@@ -389,20 +468,24 @@ function rebuildMarkers() {
     markerGroups.forEach(mg => {
         scene.remove(mg.group);
         if (mg.labelGroup) scene.remove(mg.labelGroup);
+        if (mg.detailCard) scene.remove(mg.detailCard);
     });
     markerGroups = [];
 
     targets.forEach(target => {
         const visible = (target.type === "parking" && showParking) || (target.type === "shop" && showShop);
         const group = createMarker(target);
-        const labelGroup = createLabel(target, target.distance); // may be null if >400m
+        const labelGroup = createLabel(target, target.distance);
+        const detailCard = createDetailCard(target);
         group.visible = visible;
+        detailCard.visible = false;
         scene.add(group);
         if (labelGroup) {
             labelGroup.visible = visible;
             scene.add(labelGroup);
         }
-        markerGroups.push({ group, labelGroup, target });
+        scene.add(detailCard);
+        markerGroups.push({ group, labelGroup, detailCard, target });
     });
 }
 
@@ -424,6 +507,36 @@ function updateStatusBar() {
         if (showParking) parts.push(`駐車場 ${parkingCount}件`);
         if (showShop) parts.push(`ショップ ${shopCount}件`);
         el.textContent = parts.join(" / ") || "検索中...";
+    }
+}
+
+// --- Nearby Banner ---
+function updateNearbyBanner() {
+    const banner = document.getElementById("nearby-banner");
+    const bannerText = document.getElementById("nearby-banner-text");
+    if (!banner || !bannerText) return;
+
+    // Find closest target within NEARBY_THRESHOLD that passes filter
+    let closest = null;
+    for (const t of targets) {
+        const visible = (t.type === "parking" && showParking) || (t.type === "shop" && showShop);
+        if (!visible) continue;
+        if (t.distance <= NEARBY_THRESHOLD) {
+            if (!closest || t.distance < closest.distance) closest = t;
+        }
+    }
+
+    if (closest) {
+        if (lastNearbyTargetId !== closest.id) {
+            lastNearbyTargetId = closest.id;
+            const dist = Math.round(closest.distance);
+            const icon = closest.type === "parking" ? "P" : "S";
+            bannerText.textContent = `${icon} ${closest.name}  ${dist}m — まもなく到着!`;
+        }
+        banner.classList.add("visible");
+    } else {
+        if (lastNearbyTargetId !== null) lastNearbyTargetId = null;
+        banner.classList.remove("visible");
     }
 }
 
@@ -505,11 +618,34 @@ function startARLoop() {
                 mg.labelGroup.scale.set(scale, scale, scale);
             }
 
-            // Visibility
-            const visible = (t.type === "parking" && showParking) || (t.type === "shop" && showShop);
-            mg.group.visible = visible;
-            if (mg.labelGroup) mg.labelGroup.visible = visible;
+            // Detail card position (above pin)
+            if (mg.detailCard) {
+                mg.detailCard.position.set(moveX, setY + moveYFromPitch + 30 * scale, -Math.min(t.distance, 1000));
+                mg.detailCard.scale.set(scale, scale, scale);
+            }
+
+            // Visibility: switch between pin+label and detailCard based on distance
+            const filterVisible = (t.type === "parking" && showParking) || (t.type === "shop" && showShop);
+            const showDetail = filterVisible && t.distance < DETAIL_CARD_THRESHOLD;
+
+            mg.group.visible = filterVisible && !showDetail;
+            if (mg.labelGroup) mg.labelGroup.visible = filterVisible && !showDetail;
+            if (mg.detailCard) {
+                mg.detailCard.visible = showDetail;
+                // Update detail card texture when distance integer changes
+                if (showDetail && mg._lastDetailDist !== Math.round(t.distance)) {
+                    mg._lastDetailDist = Math.round(t.distance);
+                    const newCard = createDetailCard(t);
+                    mg.detailCard.material.map.dispose();
+                    mg.detailCard.material.map = newCard.material.map;
+                    mg.detailCard.geometry.dispose();
+                    mg.detailCard.geometry = newCard.geometry;
+                }
+            }
         });
+
+        // Update nearby banner
+        updateNearbyBanner();
 
         // Render
         renderer.render(scene, camera);
@@ -559,10 +695,16 @@ function initTapDetection() {
         pointer.y = -(clientY / window.innerHeight) * 2 + 1;
 
         raycaster.setFromCamera(pointer, camera);
-        // Include both pin groups and label groups for wider hit area
+        // Include pin groups, label groups, and detail cards for hit area
         const allObjects = markerGroups
-            .filter(mg => mg.group.visible)
-            .flatMap(mg => mg.labelGroup ? [mg.group, mg.labelGroup] : [mg.group]);
+            .filter(mg => mg.group.visible || (mg.detailCard && mg.detailCard.visible))
+            .flatMap(mg => {
+                const objs = [];
+                if (mg.group.visible) objs.push(mg.group);
+                if (mg.labelGroup && mg.labelGroup.visible) objs.push(mg.labelGroup);
+                if (mg.detailCard && mg.detailCard.visible) objs.push(mg.detailCard);
+                return objs;
+            });
         const intersects = raycaster.intersectObjects(allObjects, true);
 
         if (intersects.length > 0) {
@@ -570,7 +712,7 @@ function initTapDetection() {
             const mg = markerGroups.find(m => {
                 let parent = hitObj;
                 while (parent) {
-                    if (parent === m.group || parent === m.labelGroup) return true;
+                    if (parent === m.group || parent === m.labelGroup || parent === m.detailCard) return true;
                     parent = parent.parent;
                 }
                 return false;
@@ -606,8 +748,10 @@ window.toggleFilter = function (type) {
     }
     markerGroups.forEach(mg => {
         const visible = (mg.target.type === "parking" && showParking) || (mg.target.type === "shop" && showShop);
-        mg.group.visible = visible;
-        if (mg.labelGroup) mg.labelGroup.visible = visible;
+        const showDetail = visible && mg.target.distance < DETAIL_CARD_THRESHOLD;
+        mg.group.visible = visible && !showDetail;
+        if (mg.labelGroup) mg.labelGroup.visible = visible && !showDetail;
+        if (mg.detailCard) mg.detailCard.visible = showDetail;
     });
     updateStatusBar();
 };
