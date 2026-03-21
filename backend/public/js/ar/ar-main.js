@@ -19,6 +19,7 @@ let markerGroups = []; // { group, labelGroup, target }
 let arRunning = false;
 let lastFetchTime = 0;
 const FETCH_INTERVAL = 5000; // re-fetch every 5s
+const PITCH_OFFSET = 10; // degrees: positive = markers shift upward
 
 // --- OS Detection ---
 function detectOS() {
@@ -470,7 +471,7 @@ function startARLoop() {
         // Position markers based on device orientation
         // Fix: beta≈90° when phone held horizontally, subtract 90 so markers center on screen
         const rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
-        const pitchY = -rotation[1];
+        const pitchY = -rotation[1] + PITCH_OFFSET;
         const moveYFromPitch = (360 / fov) * pitchY;
 
         // Debug: show pitch value on compass
