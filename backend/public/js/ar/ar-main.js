@@ -207,7 +207,8 @@ function initThreeJS() {
         renderer = new THREE.WebGLRenderer({
             antialias: true,
             alpha: true,
-            canvas: offscreenCanvas
+            canvas: offscreenCanvas,
+            preserveDrawingBuffer: true
         });
     } catch (e) {
         debugLog('WebGLRenderer FAIL: ' + e.message);
