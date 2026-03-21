@@ -6,6 +6,14 @@ import LatLon from "https://esm.sh/geodesy@2.4.0/latlon-ellipsoidal-vincenty.js"
 import * as THREE from "three";
 import { COF, Geomag } from "./wmm.js";
 
+// --- Debug ---
+const dbg = document.getElementById('debug-log');
+function debugLog(msg) {
+    if (dbg) dbg.innerHTML += msg + '<br>';
+    console.log('[AR]', msg);
+}
+debugLog('ar-main.js loaded');
+
 // --- State ---
 let os;
 let alpha = 0, beta = 0, gamma = 0, degrees = 0;
@@ -98,6 +106,7 @@ function getEulerAngles(m) {
 
 // --- Camera ---
 async function initCamera() {
+    debugLog('initCamera start');
     videoSource = document.createElement("video");
     const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -106,6 +115,7 @@ async function initCamera() {
             height: { ideal: window.innerHeight }
         }
     });
+    debugLog('camera ok');
     videoSource.muted = true;
     videoSource.playsInline = true;
     videoSource.srcObject = stream;
@@ -133,10 +143,11 @@ function initGeolocation() {
                 latitude = pos.coords.latitude;
                 longitude = pos.coords.longitude;
                 altitude = pos.coords.altitude || 0;
+                debugLog('gps ok: ' + latitude + ',' + longitude);
                 updateMagDec();
                 resolve();
             },
-            reject,
+            (err) => { debugLog('gps fail: ' + err.message); reject(err); },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
 
@@ -378,6 +389,7 @@ async function fetchNearbyTargets() {
     // Sort by distance, limit to 20
     newTargets.sort((a, b) => a.distance - b.distance);
     targets = newTargets.slice(0, 20);
+    debugLog('targets: ' + newTargets.length);
 
     rebuildMarkers();
     updateStatusBar();
@@ -656,6 +668,7 @@ document.getElementById("start-ar-btn").addEventListener("click", async () => {
         startARLoop();
 
     } catch (err) {
+        debugLog('startup fail: ' + err.message);
         document.getElementById("loading").style.display = "none";
         alert("カメラまたは位置情報の許可が必要です: " + err.message);
     }
