@@ -99,13 +99,26 @@ function getEulerAngles(m) {
 // --- Camera ---
 async function initCamera() {
     videoSource = document.createElement("video");
-    const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-            facingMode: { exact: "environment" },
-            width: { ideal: window.innerWidth },
-            height: { ideal: window.innerHeight }
-        }
-    });
+    let stream;
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { exact: "environment" },
+                width: { ideal: window.innerWidth },
+                height: { ideal: window.innerHeight }
+            }
+        });
+    } catch (e) {
+        // Safari等で exact: "environment" が失敗する場合のフォールバック
+        console.warn("exact facingMode failed, falling back to ideal:", e);
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { ideal: "environment" },
+                width: { ideal: window.innerWidth },
+                height: { ideal: window.innerHeight }
+            }
+        });
+    }
     videoSource.muted = true;
     videoSource.playsInline = true;
     videoSource.srcObject = stream;
@@ -482,10 +495,12 @@ function startARLoop() {
 
             const moveX = (canvasW / fov) * xAngle;
 
-            // Altitude angle (default 15m offset so markers appear at eye level, not at feet)
-            const heightDiff = (t.altitude || 15) - (altitude || 0);
+            // altitudeベースの計算は廃止
+            // 距離に関係なく、マーカーを画面の中央〜やや上に表示する
+            // 固定オフセットとして canvasH * 0.15 を加算（画面高さの15%分上にずらす）
+            const heightDiff = (t.altitude || 0) - (altitude || 0);
             const altAngle = Math.atan2(heightDiff, Math.max(t.distance, 1)) * (180 / Math.PI);
-            const setY = (canvasH / fov) * altAngle;
+            const setY = (canvasH / fov) * altAngle + canvasH * 0.15;
 
             // Scale by distance: clamped to prevent markers from covering the screen
             const scale = Math.min(getMarkerScale(t.distance), 1.5);
@@ -628,9 +643,16 @@ document.getElementById("start-ar-btn").addEventListener("click", async () => {
         // iOS: DeviceOrientation permission
         if (typeof DeviceOrientationEvent !== "undefined" &&
             typeof DeviceOrientationEvent.requestPermission === "function") {
-            const response = await DeviceOrientationEvent.requestPermission();
-            if (response !== "granted") {
-                alert("コンパスの使用許可が必要です");
+            try {
+                const response = await DeviceOrientationEvent.requestPermission();
+                if (response !== "granted") {
+                    alert("コンパスの使用許可が必要です");
+                    document.getElementById("loading").style.display = "none";
+                    return;
+                }
+            } catch (permErr) {
+                console.error("DeviceOrientation permission error:", permErr);
+                alert("コンパスの許可リクエストに失敗しました。ブラウザの設定を確認してください。");
                 document.getElementById("loading").style.display = "none";
                 return;
             }
