@@ -61,6 +61,19 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->exec("python3 {$basePath}/webike/shop_collector.py")->weeklyOn(1, '02:40')->withoutOverlapping()->appendOutputTo($crawlingLog);
 
         /**
+         * --- 駐車場データ更新（毎週火曜深夜） ---
+         * 月曜の日次・週次タスクとの負荷分散のため火曜に分離
+         */
+        $parkingLog = storage_path('logs/parking.log');
+
+        $schedule->command('parking:import-bikepark')->weeklyOn(2, '01:00')->withoutOverlapping()->appendOutputTo($parkingLog);
+        $schedule->command('parking:import-jmpsa')->weeklyOn(2, '01:30')->withoutOverlapping()->appendOutputTo($parkingLog);
+        $schedule->command('parking:enrich-bikepark')->weeklyOn(2, '02:00')->withoutOverlapping()->appendOutputTo($parkingLog);
+        $schedule->command('parking:enrich-jmpsa')->weeklyOn(2, '02:30')->withoutOverlapping()->appendOutputTo($parkingLog);
+        $schedule->command('parking:geocode')->weeklyOn(2, '03:00')->withoutOverlapping()->appendOutputTo($parkingLog);
+        $schedule->command('shops:geocode')->weeklyOn(2, '03:30')->withoutOverlapping()->appendOutputTo($parkingLog);
+
+        /**
          * --- 3. 日次タスク (毎日実行) ---
          */
 
