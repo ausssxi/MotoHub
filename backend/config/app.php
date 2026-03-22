@@ -134,4 +134,12 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Contact Admin Email
+    |--------------------------------------------------------------------------
+    */
+
+    'contact_admin_email' => env('CONTACT_ADMIN_EMAIL', 'info@motohub.jp'),
+
 ];

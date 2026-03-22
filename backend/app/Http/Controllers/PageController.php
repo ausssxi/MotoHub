@@ -68,7 +68,7 @@ final class PageController extends Controller
 
         try {
             // メール送信 (管理者宛)
-            $adminEmail = config('mail.from.address'); 
+            $adminEmail = config('app.contact_admin_email');
             Mail::to($adminEmail)->send(new ContactMail($validated));
 
             return redirect()->route('pages.contact')
