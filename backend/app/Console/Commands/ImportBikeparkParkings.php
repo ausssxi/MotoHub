@@ -129,7 +129,11 @@ class ImportBikeparkParkings extends Command
                 $this->line("  [DRY] ID={$id} | {$data['name']} | {$data['address']} | cap={$data['capacity']} | {$data['available_hours']}");
             } else {
                 try {
-                    BikeParking::create($data);
+                    $sourceUrl = $data['source_url'];
+                    BikeParking::updateOrCreate(
+                        ['source_url' => $sourceUrl],
+                        $data
+                    );
                 } catch (\Exception $e) {
                     $this->failed++;
 

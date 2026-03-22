@@ -271,7 +271,10 @@ class ImportJmpsaParkings extends Command
             $this->line("  [DRY] {$data['name']} | {$data['address']} | lat={$lat} lng={$lng}");
         } else {
             try {
-                BikeParking::create($data);
+                BikeParking::updateOrCreate(
+                    ['source_url' => $data['source_url']],
+                    $data
+                );
             } catch (\Exception $e) {
                 $this->warn("  保存失敗: {$data['name']} - {$e->getMessage()}");
                 $this->failed++;
