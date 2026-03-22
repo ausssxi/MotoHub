@@ -105,5 +105,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 地名検索を初期化
+    if (typeof initMapSearch === 'function') {
+        initMapSearch(map);
+    }
+
     if (typeof lucide !== 'undefined') lucide.createIcons();
 });

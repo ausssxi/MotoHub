@@ -15,8 +15,9 @@
     <x-slot:scripts>
         {{-- Leaflet JS --}}
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+        <script src="{{ asset('js/common/map-search.js') }}?v={{ time() }}"></script>
         {{-- マップ制御JS --}}
-        <script src="{{ asset('js/shops/map.js') }}"></script>
+        <script src="{{ asset('js/shops/map.js') }}?v={{ time() }}"></script>
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -26,8 +27,21 @@
     <div class="relative w-full h-[calc(100vh-64px)]">
         <div id="map" class="w-full h-full bg-gray-100"></div>
 
+        {{-- 上部中央: 地名検索 --}}
+        <div class="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] w-[min(calc(100%-32px),400px)]">
+            <div class="flex bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+                <input id="map-search-input" type="search" inputmode="search" enterkeyhint="search"
+                       placeholder="地名・住所で検索（例：渋谷、橋本駅）"
+                       class="flex-1 min-w-0 px-3 py-2 text-xs text-gray-800 placeholder-gray-400 outline-none bg-transparent">
+                <button id="map-search-btn" class="px-3 text-gray-500 hover:text-blue-600 transition-colors shrink-0">
+                    <svg class="w-4 h-4 search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-width="2" d="m21 21-4.35-4.35"/></svg>
+                    <svg class="w-4 h-4 search-spinner hidden animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                </button>
+            </div>
+        </div>
+
         {{-- 検索中ローディング --}}
-        <div id="map-loading" class="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-lg z-[1000] flex items-center gap-2 hidden">
+        <div id="map-loading" class="absolute top-14 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-lg z-[1000] flex items-center gap-2 hidden">
             <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-blue-600"></i>
             <span class="text-xs font-bold text-gray-600">エリアを検索中...</span>
         </div>
