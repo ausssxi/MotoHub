@@ -40,7 +40,7 @@ final class ContactMail extends Mailable
 
         return new Envelope(
             subject: '【MotoHub】お問い合わせがありました（' . $categoryName . '）',
-            from: $this->data['email'],
+            replyTo: [$this->data['email']],
         );
     }
 
