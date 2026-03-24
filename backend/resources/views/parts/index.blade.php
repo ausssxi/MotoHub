@@ -2,7 +2,7 @@
     <x-slot:title>バイクパーツ検索 | MotoHub</x-slot:title>
 
     <x-slot:metaDescription>
-        バイクパーツを楽天市場から一括検索。マフラー・タイヤ・シートなど全カテゴリ対応。
+        バイクパーツを楽天市場・Yahoo!ショッピング・Amazonから横断検索。価格比較で最安値を見つけよう。
     </x-slot:metaDescription>
 
     <x-slot:navigation>
@@ -14,31 +14,27 @@
         <section class="bg-gradient-to-r from-gray-900 to-gray-800 text-white py-10">
             <div class="max-w-5xl mx-auto px-4 text-center">
                 <h1 class="text-2xl sm:text-3xl font-black mb-2">バイクパーツ検索</h1>
-                <p class="text-gray-300 text-sm">楽天市場からバイクパーツを横断検索</p>
+                <p class="text-gray-300 text-sm">楽天・Yahoo!・Amazonからバイクパーツを横断検索</p>
             </div>
         </section>
 
         {{-- 検索フォーム --}}
         <section class="max-w-5xl mx-auto px-4 -mt-6">
             <form id="parts-search-form" class="bg-white rounded-xl shadow-lg p-5 sm:p-6">
-                {{-- バリデーションエラー --}}
                 <div id="form-error" class="hidden mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm font-bold"></div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                    {{-- キーワード --}}
                     <div>
                         <label for="keyword" class="block text-xs font-bold text-gray-600 mb-1">キーワード</label>
                         <input type="text" id="keyword" name="keyword" placeholder="例: マフラー、ブレーキパッド"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                     </div>
-                    {{-- 車種名（サジェスト付き） --}}
                     <div class="relative">
                         <label for="bike" class="block text-xs font-bold text-gray-600 mb-1">車種名</label>
                         <input type="text" id="bike" name="bike" placeholder="例: CBR250RR、YZF-R25" autocomplete="off"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                         <ul id="suggest-list" class="hidden absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"></ul>
                     </div>
-                    {{-- カテゴリ --}}
                     <div>
                         <label for="category" class="block text-xs font-bold text-gray-600 mb-1">パーツカテゴリ（任意）</label>
                         <select id="category" name="category"
@@ -81,13 +77,21 @@
 
         {{-- 検索結果 --}}
         <section id="results" class="hidden max-w-5xl mx-auto px-4 py-6">
+            {{-- Amazon検索バー --}}
+            <div id="amazon-bar" class="hidden mb-4 bg-[#FFF8EE] border border-[#FFD89E] rounded-xl p-3 flex items-center justify-between gap-3">
+                <span class="text-xs font-bold text-gray-700">Amazonでも検索する</span>
+                <a id="amazon-search-link" href="#" target="_blank" rel="noopener noreferrer"
+                    class="shrink-0 inline-flex items-center gap-1.5 bg-[#FF9900] hover:bg-[#e88b00] text-white font-bold text-xs px-4 py-2 rounded-lg transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    Amazonで見る
+                </a>
+            </div>
+
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-lg font-bold text-gray-800">検索結果 <span id="result-count" class="text-blue-600 text-sm font-normal"></span></h2>
             </div>
-            <div id="result-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            </div>
+            <div id="result-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
 
-            {{-- もっと見るボタン --}}
             <div id="load-more-wrap" class="hidden text-center mt-8">
                 <button id="load-more-btn"
                     class="inline-flex items-center gap-2 bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold text-sm px-8 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
@@ -108,6 +112,9 @@
     <x-slot:scripts>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
+        const AMAZON_TAG = @json(config('services.amazon.associate_tag', ''));
+        const YAHOO_BASE = 'https://shopping.yahoo.co.jp/search?p=';
+
         // ===== DOM =====
         const form = document.getElementById('parts-search-form');
         const formError = document.getElementById('form-error');
@@ -125,6 +132,8 @@
         const keywordInput = document.getElementById('keyword');
         const bikeInput = document.getElementById('bike');
         const suggestList = document.getElementById('suggest-list');
+        const amazonBar = document.getElementById('amazon-bar');
+        const amazonSearchLink = document.getElementById('amazon-search-link');
 
         // ===== State =====
         let currentPage = 1;
@@ -227,6 +236,13 @@
             if (!bikeInput.contains(e.target) && !suggestList.contains(e.target)) suggestList.classList.add('hidden');
         });
 
+        // ===== Amazon URL生成 =====
+        function buildAmazonUrl(query) {
+            let url = 'https://www.amazon.co.jp/s?k=' + encodeURIComponent(query);
+            if (AMAZON_TAG) url += '&tag=' + encodeURIComponent(AMAZON_TAG);
+            return url;
+        }
+
         // ===== カード描画 =====
         function renderCard(item) {
             const stars = parseFloat(item.review_avg) || 0;
@@ -239,8 +255,58 @@
             for (let i = 0; i < empty; i++) starHtml += '<span class="text-gray-300">&#9733;</span>';
             const price = Number(item.price).toLocaleString();
             const imageUrl = item.image ? item.image.replace('?_ex=128x128', '?_ex=300x300') : '';
+
+            const jan = item.jan_code || '';
+            const partNum = item.part_number || '';
+            const hasCode = jan || partNum;
+
+            // 比較ページURL
+            let compareUrl = '/parts/compare?';
+            const cParams = new URLSearchParams();
+            if (jan) cParams.set('jan', jan);
+            if (partNum) cParams.set('partnum', partNum);
+            cParams.set('keyword', item.name.substring(0, 100));
+            compareUrl += cParams.toString();
+
+            // Yahoo / Amazon フォールバックURL
+            const fallbackQuery = partNum || item.name.substring(0, 60);
+            const yahooUrl = YAHOO_BASE + encodeURIComponent(fallbackQuery);
+            const amazonFallbackUrl = buildAmazonUrl(fallbackQuery);
+
+            // ボタン生成
+            let buttonsHtml;
+            if (hasCode) {
+                // JAN or 品番あり → 比較ボタンのみ
+                const badge = jan
+                    ? `<span class="text-[10px] text-gray-400">JAN: ${jan}</span>`
+                    : `<span class="text-[10px] text-gray-400">品番: ${partNum}</span>`;
+                buttonsHtml = `
+                    ${badge}
+                    <a href="${compareUrl}"
+                        class="block text-center bg-gray-800 hover:bg-gray-900 text-white text-xs font-bold py-2 rounded-lg transition-colors mt-1">
+                        価格を比較する
+                    </a>`;
+            } else {
+                // どちらもなし → 楽天 + Yahoo/Amazon直リンク
+                buttonsHtml = `
+                    <div class="flex flex-col gap-1.5">
+                        <a href="${item.url}" target="_blank" rel="noopener noreferrer"
+                            class="block text-center bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-2 rounded-lg transition-colors">
+                            楽天市場で見る
+                        </a>
+                        <a href="${yahooUrl}" target="_blank" rel="noopener noreferrer"
+                            class="block text-center bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-2 rounded-lg transition-colors">
+                            Yahoo!で探す
+                        </a>
+                        <a href="${amazonFallbackUrl}" target="_blank" rel="noopener noreferrer"
+                            class="block text-center bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-2 rounded-lg transition-colors">
+                            Amazonで探す
+                        </a>
+                    </div>`;
+            }
+
             const card = document.createElement('div');
-            card.className = 'bg-white rounded-xl shadow hover:shadow-lg transition-shadow overflow-hidden flex flex-col';
+            card.className = 'bg-white rounded-xl shadow hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full';
             card.innerHTML = `
                 <div class="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
                     ${imageUrl
@@ -256,10 +322,7 @@
                             ${starHtml}
                             <span class="text-gray-500 ml-1">(${item.review_count}件)</span>
                         </div>
-                        <a href="${item.url}" target="_blank" rel="noopener noreferrer"
-                            class="block text-center bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-2 rounded-lg transition-colors">
-                            楽天市場で見る
-                        </a>
+                        ${buttonsHtml}
                     </div>
                 </div>`;
             return card;
@@ -282,6 +345,17 @@
         function showError(msg) {
             errorMessage.querySelector('div').textContent = msg;
             errorMessage.classList.remove('hidden');
+        }
+
+        function updateAmazonLink() {
+            const keyword = keywordInput.value.trim();
+            const bike = bikeInput.value.trim();
+            const category = document.getElementById('category').value;
+            const parts = ['バイク'];
+            if (keyword) parts.push(keyword);
+            if (bike) parts.push(bike);
+            if (category) parts.push(category);
+            amazonSearchLink.href = buildAmazonUrl(parts.join(' '));
         }
 
         // ===== API通信 =====
@@ -308,6 +382,7 @@
                 updateResultCount();
                 updateLoadMoreButton(data.hasMore);
                 results.classList.remove('hidden');
+                amazonBar.classList.remove('hidden');
             } catch (err) {
                 showError(append ? '読み込みに失敗しました。再度お試しください。' : '通信エラーが発生しました。もう一度お試しください。');
             } finally {
@@ -333,12 +408,16 @@
             noResults.classList.add('hidden');
             errorMessage.classList.add('hidden');
             loadMoreWrap.classList.add('hidden');
+            amazonBar.classList.add('hidden');
             suggestList.classList.add('hidden');
             searchBtn.disabled = true;
             searchBtn.classList.add('opacity-50');
 
             currentPage = 1; totalCount = 0; totalPages = 0; displayedCount = 0;
             lastSearchParams = params;
+
+            updateAmazonLink();
+
             await fetchResults(1, false);
 
             loading.classList.add('hidden');

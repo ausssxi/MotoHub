@@ -74,4 +74,14 @@ return [
         'access_key' => env('RAKUTEN_ACCESS_KEY'),
         'affiliate_id' => env('RAKUTEN_AFFILIATE_ID'),
     ],
+
+    'yahoo_shopping' => [
+        'client_id' => env('YAHOO_CLIENT_ID'),
+        'valuecommerce_sid' => env('VALUECOMMERCE_SID'),
+        'valuecommerce_pid' => env('VALUECOMMERCE_PID'),
+    ],
+
+    'amazon' => [
+        'associate_tag' => env('AMAZON_ASSOCIATE_TAG'),
+    ],
 ];

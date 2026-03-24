@@ -163,9 +163,11 @@ Route::middleware('auth')->prefix('parking')->name('parking.')->controller(Parki
 // AR駐車場・ショップファインダー
 Route::get('/ar', [ArController::class, 'index'])->name('ar.index');
 
-// パーツ検索（楽天市場API）
+// パーツ検索（楽天市場・Yahoo!ショッピングAPI）
 Route::get('/parts', [PartsController::class, 'index'])->name('parts.index');
 Route::get('/parts/search', [PartsController::class, 'search'])->name('parts.search');
+Route::get('/parts/search/yahoo', [PartsController::class, 'searchYahoo'])->name('parts.search.yahoo');
+Route::get('/parts/compare', [PartsController::class, 'compare'])->name('parts.compare');
 
 // 特集ページ (SEOランディング)
 Route::prefix('features')->name('features.')->controller(FeatureController::class)->group(function () {
