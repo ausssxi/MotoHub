@@ -27,6 +27,14 @@ export default {
         'from-blue-600',
         'to-indigo-600',
         'to-indigo-700',
+
+        // パーツ比較ページ (JS template literal内で使用)
+        'bg-amber-500',
+        'bg-amber-600',
+        'hover:bg-amber-600',
+        'bg-blue-500',
+        'bg-blue-600',
+        'hover:bg-blue-600',
     ],
 
     theme: {
