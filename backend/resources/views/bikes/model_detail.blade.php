@@ -857,8 +857,21 @@
                         </h2>
                         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                             @foreach($relatedParts as $part)
-                            <a href="{{ $part['url'] }}" target="_blank" rel="noopener noreferrer"
-                                class="group block bg-gray-50 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+                            @php
+                                $hasCode = !empty($part['jan_code']) || !empty($part['part_number']);
+                                $compareParams = [];
+                                if (!empty($part['jan_code'])) $compareParams['jan'] = $part['jan_code'];
+                                if (!empty($part['part_number'])) $compareParams['partnum'] = $part['part_number'];
+                                $compareParams['keyword'] = \Illuminate\Support\Str::limit($part['name'], 100, '');
+                                $compareUrl = route('parts.compare', $compareParams);
+                                $fallbackQuery = $part['part_number'] ?: \Illuminate\Support\Str::limit($part['name'], 60, '');
+                                $yahooUrl = 'https://shopping.yahoo.co.jp/search?p=' . urlencode($fallbackQuery);
+                                $amazonQuery = $part['jan_code'] ?: $part['part_number'] ?: \Illuminate\Support\Str::limit($part['name'], 60, '');
+                                $amazonUrl = 'https://www.amazon.co.jp/s?k=' . urlencode($amazonQuery);
+                                $amazonTag = config('services.amazon.associate_tag');
+                                if ($amazonTag) $amazonUrl .= '&tag=' . urlencode($amazonTag);
+                            @endphp
+                            <div class="bg-gray-50 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col">
                                 <div class="aspect-square bg-white flex items-center justify-center overflow-hidden">
                                     @if($part['image'])
                                         <img src="{{ str_replace('?_ex=128x128', '?_ex=300x300', $part['image']) }}"
@@ -867,11 +880,34 @@
                                         <span class="text-gray-300 text-3xl">🔧</span>
                                     @endif
                                 </div>
-                                <div class="p-2.5">
-                                    <h3 class="text-xs font-bold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors mb-1">{{ $part['name'] }}</h3>
-                                    <p class="text-sm font-black text-red-600">&yen;{{ number_format($part['price']) }}</p>
+                                <div class="p-2.5 flex flex-col flex-grow">
+                                    <h3 class="text-xs font-bold text-gray-800 line-clamp-2 mb-1">{{ $part['name'] }}</h3>
+                                    <p class="text-sm font-black text-red-600 mb-2">&yen;{{ number_format($part['price']) }}</p>
+                                    <div class="mt-auto flex flex-col gap-1">
+                                        @if($hasCode)
+                                            <a href="{{ $compareUrl }}"
+                                                class="block text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors bg-gray-800 hover:bg-gray-900 text-white">
+                                                価格を比較する
+                                            </a>
+                                        @else
+                                            <a href="{{ $part['url'] }}" target="_blank" rel="noopener noreferrer"
+                                                class="block text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors bg-red-500 hover:bg-red-600 text-white">
+                                                楽天市場で見る
+                                            </a>
+                                            <a href="{{ $yahooUrl }}" target="_blank" rel="noopener noreferrer"
+                                                class="block text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors bg-blue-500 hover:bg-blue-600 text-white"
+                                                style="background-color:#3b82f6;color:#fff">
+                                                Yahoo!で探す
+                                            </a>
+                                            <a href="{{ $amazonUrl }}" target="_blank" rel="noopener noreferrer"
+                                                class="block text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors bg-amber-500 hover:bg-amber-600 text-white"
+                                                style="background-color:#f59e0b;color:#fff">
+                                                Amazonで探す
+                                            </a>
+                                        @endif
+                                    </div>
                                 </div>
-                            </a>
+                            </div>
                             @endforeach
                         </div>
                         <div class="mt-4 text-center">

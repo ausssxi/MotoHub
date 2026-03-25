@@ -18,6 +18,7 @@ use App\Http\Resources\Bike\ListingResource;
 use App\Http\Requests\Bike\StoreReviewRequest;
 use App\Http\Requests\Bike\BikeSearchRequest;
 use App\Models\SeoFeature;
+use App\Services\Parts\PartsCodeExtractor;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
@@ -203,6 +204,10 @@ final class BikeController extends Controller
             ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'garage', 'description' => '愛車を登録・管理'],
         ];
 
+        $relatedParts = $listing->bikeModel
+            ? $this->fetchRelatedParts($listing->bikeModel)
+            : [];
+
         return view('bikes.show', [
             'listing'         => $data,
             'bikeModelForUrl' => $listing->bikeModel,
@@ -221,6 +226,7 @@ final class BikeController extends Controller
             'alsoViewed'      => $alsoViewed,
             'shopLat'         => $shopLat,
             'shopLng'         => $shopLng,
+            'relatedParts'    => $relatedParts,
         ]);
     }
 
@@ -594,11 +600,17 @@ final class BikeController extends Controller
                 $data = $response->json();
                 return collect($data['Items'] ?? [])->map(function ($wrapper) {
                     $item = $wrapper['Item'] ?? $wrapper;
+                    $codes = PartsCodeExtractor::extract(
+                        $item['itemName'] ?? '',
+                        $item['itemCaption'] ?? ''
+                    );
                     return [
-                        'name'  => $item['itemName'] ?? '',
-                        'price' => $item['itemPrice'] ?? 0,
-                        'image' => $item['mediumImageUrls'][0]['imageUrl'] ?? '',
-                        'url'   => $item['itemUrl'] ?? '',
+                        'name'        => $item['itemName'] ?? '',
+                        'price'       => $item['itemPrice'] ?? 0,
+                        'image'       => $item['mediumImageUrls'][0]['imageUrl'] ?? '',
+                        'url'         => $item['itemUrl'] ?? '',
+                        'jan_code'    => $codes['jan'],
+                        'part_number' => $codes['partNumber'],
                     ];
                 })->all();
             });

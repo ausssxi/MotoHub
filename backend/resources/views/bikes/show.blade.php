@@ -592,8 +592,80 @@
                             </div>
                         </div>
                     </div>
+
+                    {{-- 関連パーツ --}}
+                    @if(!empty($relatedParts))
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <h3 class="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                            <i data-lucide="wrench" class="w-5 h-5 text-blue-500"></i>
+                            {{ $bikeModelForUrl->name ?? '' }} のパーツを探す
+                        </h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            @foreach($relatedParts as $part)
+                            @php
+                                $hasCode = !empty($part['jan_code']) || !empty($part['part_number']);
+                                $compareParams = [];
+                                if (!empty($part['jan_code'])) $compareParams['jan'] = $part['jan_code'];
+                                if (!empty($part['part_number'])) $compareParams['partnum'] = $part['part_number'];
+                                $compareParams['keyword'] = \Illuminate\Support\Str::limit($part['name'], 100, '');
+                                $compareUrl = route('parts.compare', $compareParams);
+                                $fallbackQuery = $part['part_number'] ?: \Illuminate\Support\Str::limit($part['name'], 60, '');
+                                $yahooUrl = 'https://shopping.yahoo.co.jp/search?p=' . urlencode($fallbackQuery);
+                                $amazonQuery = $part['jan_code'] ?: $part['part_number'] ?: \Illuminate\Support\Str::limit($part['name'], 60, '');
+                                $amazonUrl = 'https://www.amazon.co.jp/s?k=' . urlencode($amazonQuery);
+                                $amazonTag = config('services.amazon.associate_tag');
+                                if ($amazonTag) $amazonUrl .= '&tag=' . urlencode($amazonTag);
+                            @endphp
+                            <div class="bg-gray-50 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                                <div class="aspect-square bg-white flex items-center justify-center overflow-hidden">
+                                    @if($part['image'])
+                                        <img src="{{ str_replace('?_ex=128x128', '?_ex=300x300', $part['image']) }}"
+                                            alt="{{ $part['name'] }}" class="w-full h-full object-contain p-2" loading="lazy">
+                                    @else
+                                        <span class="text-gray-300 text-3xl">🔧</span>
+                                    @endif
+                                </div>
+                                <div class="p-2.5 flex flex-col flex-grow">
+                                    <h3 class="text-xs font-bold text-gray-800 line-clamp-2 mb-1">{{ $part['name'] }}</h3>
+                                    <p class="text-sm font-black text-red-600 mb-2">&yen;{{ number_format($part['price']) }}</p>
+                                    <div class="mt-auto flex flex-col gap-1">
+                                        @if($hasCode)
+                                            <a href="{{ $compareUrl }}"
+                                                class="block text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors bg-gray-800 hover:bg-gray-900 text-white">
+                                                価格を比較する
+                                            </a>
+                                        @else
+                                            <a href="{{ $part['url'] }}" target="_blank" rel="noopener noreferrer"
+                                                class="block text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors bg-red-500 hover:bg-red-600 text-white">
+                                                楽天市場で見る
+                                            </a>
+                                            <a href="{{ $yahooUrl }}" target="_blank" rel="noopener noreferrer"
+                                                class="block text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors bg-blue-500 hover:bg-blue-600 text-white"
+                                                style="background-color:#3b82f6;color:#fff">
+                                                Yahoo!で探す
+                                            </a>
+                                            <a href="{{ $amazonUrl }}" target="_blank" rel="noopener noreferrer"
+                                                class="block text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors bg-amber-500 hover:bg-amber-600 text-white"
+                                                style="background-color:#f59e0b;color:#fff">
+                                                Amazonで探す
+                                            </a>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                        <div class="mt-4 text-center">
+                            <a href="{{ route('parts.index', ['bike' => $bikeModelForUrl->name ?? '']) }}"
+                                class="inline-flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                                {{ $bikeModelForUrl->name ?? '' }} のパーツをもっと見る
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
                 </div>
-                
+
                 {{-- サイドバー（右側：価格・CV・追従） --}}
                 <div class="lg:col-span-4 mt-8 lg:mt-0">
                     <div class="sticky top-6 space-y-4">
