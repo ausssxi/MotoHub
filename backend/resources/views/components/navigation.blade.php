@@ -41,7 +41,7 @@
                 </button>
                 @endif
 
-                {{-- バイク診断 (PC/タブレット以上) --}}
+                {{-- バイク診断 --}}
                 <a href="/shindan" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest group relative" title="あなたにぴったりの1台を診断">
                     <i data-lucide="sparkles" class="w-4 h-4 text-blue-500 group-hover:animate-pulse"></i>
                     <span class="hidden xl:inline">バイク診断</span>
@@ -51,65 +51,77 @@
                     </span>
                 </a>
 
-                {{-- 車種判定AI (PC/タブレット以上) --}}
+                {{-- 車種判定 --}}
                 <a href="{{ route('bikes.identify') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition uppercase tracking-widest" title="写真からバイクの車種を判定">
                     <i data-lucide="scan-eye" class="w-4 h-4"></i>
                     <span class="hidden xl:inline">車種判定</span>
                 </a>
 
-                {{-- ショップマップへのリンク --}}
-                <a href="{{ route('shops.map') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="地図から探す">
-                    <i data-lucide="map" class="w-4 h-4"></i>
-                    <span class="hidden xl:inline">地図検索</span>
+                {{-- マップ ドロップダウン --}}
+                <div class="hidden md:flex relative" x-data="{ open: false }">
+                    <button @click="open = !open" @click.outside="open = false"
+                        class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="マップ">
+                        <i data-lucide="map" class="w-4 h-4"></i>
+                        <span class="hidden xl:inline">マップ</span>
+                    </button>
+                    <div x-show="open" x-transition
+                         class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
+                         style="display: none;">
+                        <a href="{{ route('shops.map') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="store" class="w-3.5 h-3.5"></i>
+                            ショップマップ
+                        </a>
+                        <a href="{{ route('parking.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="square-parking" class="w-3.5 h-3.5"></i>
+                            駐車場マップ
+                        </a>
+                        <a href="{{ route('ar.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+                            AR駐車場ファインダー
+                        </a>
+                    </div>
+                </div>
+
+                {{-- パーツ --}}
+                <a href="{{ route('parts.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="バイクパーツ検索・価格比較">
+                    <i data-lucide="wrench" class="w-4 h-4"></i>
+                    <span class="hidden xl:inline">パーツ</span>
                 </a>
 
-                {{-- 愛車ガレージへのリンク --}}
-                <a href="{{ route('garage.public.index') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition uppercase tracking-widest" title="みんなの愛車ガレージ">
-                    <i data-lucide="heart" class="w-4 h-4"></i>
-                    <span class="hidden xl:inline">ガレージ</span>
-                </a>
+                {{-- 相場 ドロップダウン --}}
+                <div class="hidden md:flex relative" x-data="{ open: false }">
+                    <button @click="open = !open" @click.outside="open = false"
+                        class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="相場">
+                        <i data-lucide="trending-up" class="w-4 h-4"></i>
+                        <span class="hidden xl:inline">相場</span>
+                    </button>
+                    <div x-show="open" x-transition
+                         class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
+                         style="display: none;">
+                        <a href="{{ route('bikes.trends') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="trophy" class="w-3.5 h-3.5"></i>
+                            相場ランキング
+                        </a>
+                        <a href="{{ route('sell.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-yellow-50 hover:text-yellow-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="coins" class="w-3.5 h-3.5"></i>
+                            買取相場
+                        </a>
+                    </div>
+                </div>
 
-                {{-- 駐車場マップへのリンク --}}
-                <a href="{{ route('parking.index') }}" class="hidden lg:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-xl transition uppercase tracking-widest" title="バイク駐車場を探す">
-                    <i data-lucide="square-parking" class="w-4 h-4"></i>
-                    <span class="hidden xl:inline">駐車場</span>
-                </a>
-
-                {{-- AR駐車場ファインダー (モバイルのみ) --}}
-                <a href="{{ route('ar.index') }}" class="hidden sm:flex lg:hidden items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-xl transition uppercase tracking-widest relative" title="ARで駐車場を探す">
-                    <i data-lucide="camera" class="w-4 h-4"></i>
-                    <span class="hidden sm:inline">AR</span>
-                    <span class="absolute -top-0.5 -right-0.5 flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                    </span>
-                </a>
-
-                {{-- 相場ランキング (PCのみ) --}}
-                <a href="{{ route('bikes.trends') }}" class="hidden xl:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="相場・価格変動ランキング">
-                    <i data-lucide="trending-up" class="w-4 h-4"></i>
-                    <span class="hidden xl:inline">相場ランキング</span>
-                </a>
-
-                {{-- 買取査定LPへのリンク --}}
-                <a href="{{ route('sell.index') }}" class="hidden xl:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-xl transition uppercase tracking-widest" title="あなたのバイクいくらで売れる？">
-                    <i data-lucide="coins" class="w-4 h-4 text-yellow-500"></i>
-                    買取相場
-                </a>
-
-                {{-- その他ドロップダウン (PC) --}}
+                {{-- その他 ドロップダウン --}}
                 <div class="hidden md:flex relative" x-data="{ open: false }">
                     <button @click="open = !open" @click.outside="open = false"
                         class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition uppercase tracking-widest" title="その他">
-                        <i data-lucide="wrench" class="w-4 h-4"></i>
+                        <i data-lucide="more-horizontal" class="w-4 h-4"></i>
                         <span class="hidden xl:inline">その他</span>
                     </button>
                     <div x-show="open" x-transition
                          class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
                          style="display: none;">
-                        <a href="{{ route('parts.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
-                            <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
-                            パーツ検索
+                        <a href="{{ route('garage.public.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="heart" class="w-3.5 h-3.5"></i>
+                            ガレージ
                         </a>
                     </div>
                 </div>

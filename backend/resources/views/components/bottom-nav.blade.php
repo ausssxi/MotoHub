@@ -18,23 +18,23 @@
 
         {{-- 地図（サブメニュー） --}}
         <button onclick="toggleSubMenu('submenu-map')"
-                class="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 {{ request()->is('shops/map*') || request()->is('parking*') ? 'text-blue-600' : 'text-gray-400' }}">
+                class="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 {{ request()->is('shops/map*') || request()->is('parking*') || request()->is('ar*') ? 'text-blue-600' : 'text-gray-400' }}">
             <i data-lucide="map-pin" class="w-5 h-5"></i>
             <span class="text-[10px] font-bold leading-tight">地図</span>
         </button>
 
-        {{-- ガレージ --}}
-        <a href="{{ route('mybikes.index') }}"
-           class="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 {{ request()->is('garage*') ? 'text-blue-600' : 'text-gray-400' }}">
-            <i data-lucide="bike" class="w-5 h-5"></i>
-            <span class="text-[10px] font-bold leading-tight">ガレージ</span>
+        {{-- パーツ --}}
+        <a href="{{ route('parts.index') }}"
+           class="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 {{ request()->is('parts*') ? 'text-blue-600' : 'text-gray-400' }}">
+            <i data-lucide="wrench" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold leading-tight">パーツ</span>
         </a>
 
-        {{-- 相場（サブメニュー） --}}
-        <button onclick="toggleSubMenu('submenu-market')"
-                class="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 {{ request()->is('bikes/trends*') || request()->is('sell*') ? 'text-blue-600' : 'text-gray-400' }}">
-            <i data-lucide="trending-up" class="w-5 h-5"></i>
-            <span class="text-[10px] font-bold leading-tight">相場</span>
+        {{-- その他（サブメニュー） --}}
+        <button onclick="toggleSubMenu('submenu-more')"
+                class="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 {{ request()->is('garage*') || request()->is('bikes/trends*') || request()->is('sell*') ? 'text-blue-600' : 'text-gray-400' }}">
+            <i data-lucide="more-horizontal" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold leading-tight">その他</span>
         </button>
     </div>
 
@@ -87,14 +87,32 @@
                     <p class="text-[10px] text-gray-400">バイク駐車場を探す</p>
                 </div>
             </a>
+            <a href="{{ route('ar.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="camera" class="w-5 h-5 text-green-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">AR駐車場ファインダー</p>
+                    <p class="text-[10px] text-gray-400">ARで近くの駐車場を探す</p>
+                </div>
+            </a>
         </div>
     </div>
 
-    {{-- サブメニュー: 相場 --}}
-    <div id="submenu-market" class="hidden fixed inset-0 z-[60]">
+    {{-- サブメニュー: その他 --}}
+    <div id="submenu-more" class="hidden fixed inset-0 z-[60]">
         <div class="absolute inset-0 bg-black/40" onclick="closeAllSubMenus()"></div>
         <div class="absolute bottom-[60px] inset-x-0 bg-white rounded-t-2xl shadow-xl border-t border-gray-100 p-4 transform transition-transform duration-200 animate-slide-up">
             <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+            <a href="{{ route('mybikes.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-pink-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="bike" class="w-5 h-5 text-pink-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">ガレージ</p>
+                    <p class="text-[10px] text-gray-400">愛車を登録・管理</p>
+                </div>
+            </a>
             <a href="{{ route('bikes.trends') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
                 <div class="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
                     <i data-lucide="trophy" class="w-5 h-5 text-red-600"></i>
