@@ -75,6 +75,9 @@ class GenerateSitemap extends Command
             // 駐車場マップ
             ['route' => 'parking.index',     'priority' => '0.8', 'freq' => 'daily'],
 
+            // パーツ検索
+            ['route' => 'parts.index',       'priority' => '0.7', 'freq' => 'weekly'],
+
             // ツール系
             ['route' => 'bikes.compare',     'priority' => '0.5', 'freq' => 'daily'],
             ['route' => 'wishlist',          'priority' => '0.5', 'freq' => 'monthly'],
