@@ -274,3 +274,6 @@ Route::get('/shindan/result', [ShindanController::class, 'result'])->name('shind
 
 // Breezeの認証ルート読み込み (login, register等)
 require __DIR__.'/auth.php';
+
+// ブログ機能ルート読み込み
+require __DIR__.'/blog.php';

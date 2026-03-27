@@ -1,0 +1,202 @@
+<x-layout>
+    <x-slot:title>{{ $post->meta_title ?? $post->title }} | MotoHub Blog</x-slot:title>
+    <x-slot:metaDescription>{{ $post->meta_description ?? $post->excerpt }}</x-slot:metaDescription>
+    <x-slot:canonical>{{ url('/blog/' . $post->slug) }}</x-slot:canonical>
+    <x-slot:ogImage>{{ $post->getOgImageUrl() ? url($post->getOgImageUrl()) : asset('images/twitter_template.png') }}</x-slot:ogImage>
+
+    <x-slot:navigation>
+        <x-navigation />
+    </x-slot:navigation>
+
+    <x-slot:styles>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github.min.css">
+
+        {{-- JSON-LD 構造化データ --}}
+        <script type="application/ld+json">
+        {
+            "@@context": "https://schema.org",
+            "@@type": "BlogPosting",
+            "headline": "{{ e($post->title) }}",
+            @if($post->eyecatch_image)
+            "image": "{{ url($post->getEyecatchUrl()) }}",
+            @endif
+            "datePublished": "{{ $post->published_at->toIso8601String() }}",
+            "dateModified": "{{ $post->updated_at->toIso8601String() }}",
+            "author": {
+                "@@type": "Person",
+                "name": "{{ e($post->author->name ?? 'MotoHub') }}"
+            },
+            "publisher": {
+                "@@type": "Organization",
+                "name": "MotoHub",
+                "logo": {
+                    "@@type": "ImageObject",
+                    "url": "{{ asset('favicon-96x96.png') }}"
+                }
+            },
+            "description": "{{ e($post->meta_description ?? $post->excerpt) }}",
+            "mainEntityOfPage": {
+                "@@type": "WebPage",
+                "@@id": "{{ url('/blog/' . $post->slug) }}"
+            }
+        }
+        </script>
+
+        <style>
+            .blog-content h2 { font-size: 1.5rem; font-weight: 700; margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e5e7eb; }
+            .blog-content h3 { font-size: 1.25rem; font-weight: 600; margin: 1.5rem 0 0.75rem; }
+            .blog-content p { margin-bottom: 1.25rem; line-height: 1.9; color: #374151; }
+            .blog-content ul, .blog-content ol { margin: 1rem 0; padding-left: 1.5rem; }
+            .blog-content li { margin-bottom: 0.375rem; line-height: 1.8; }
+            .blog-content ul li { list-style: disc; }
+            .blog-content ol li { list-style: decimal; }
+            .blog-content code { background: #f3f4f6; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.875rem; color: #dc2626; }
+            .blog-content pre { background: #1e293b; color: #e2e8f0; padding: 1.25rem; border-radius: 0.75rem; overflow-x: auto; margin: 1.5rem 0; }
+            .blog-content pre code { background: transparent; color: inherit; padding: 0; }
+            .blog-content blockquote { border-left: 4px solid #3b82f6; padding: 1rem 1.25rem; margin: 1.5rem 0; background: #eff6ff; border-radius: 0 0.5rem 0.5rem 0; color: #1e40af; }
+            .blog-content img { max-width: 100%; border-radius: 0.75rem; margin: 1.5rem 0; }
+            .blog-content a { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; }
+            .blog-content a:hover { color: #1d4ed8; }
+            .blog-content table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
+            .blog-content th, .blog-content td { border: 1px solid #d1d5db; padding: 0.625rem 0.875rem; text-align: left; }
+            .blog-content th { background: #f9fafb; font-weight: 600; }
+            .blog-content hr { margin: 2rem 0; border-color: #e5e7eb; }
+
+            .toc { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1.25rem 1.5rem; margin-bottom: 2rem; }
+            .toc ol { list-style: none; padding-left: 0; margin: 0; }
+            .toc > ol > li { margin-bottom: 0.375rem; }
+            .toc ol ol { padding-left: 1.25rem; margin-top: 0.25rem; }
+            .toc a { color: #4b5563; text-decoration: none; font-size: 0.875rem; }
+            .toc a:hover { color: #2563eb; }
+
+            .series-nav { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 2rem; }
+        </style>
+    </x-slot:styles>
+
+    <div class="max-w-4xl mx-auto px-4 py-8">
+        {{-- パンくずリスト --}}
+        <nav class="text-sm text-gray-400 mb-6">
+            <a href="{{ url('/') }}" class="hover:text-gray-600">ホーム</a>
+            <span class="mx-1">/</span>
+            <a href="{{ route('blog.index') }}" class="hover:text-gray-600">ブログ</a>
+            <span class="mx-1">/</span>
+            <span class="text-gray-600">{{ Str::limit($post->title, 30) }}</span>
+        </nav>
+
+        <article>
+            {{-- ヘッダー --}}
+            <header class="mb-8">
+                {{-- タグ --}}
+                @if($post->tags->isNotEmpty())
+                    <div class="flex flex-wrap gap-2 mb-3">
+                        @foreach($post->tags as $tag)
+                            <a href="{{ route('blog.tag', $tag->slug) }}"
+                               class="text-xs px-3 py-1 bg-blue-50 text-blue-700 rounded-full hover:bg-blue-100 transition">
+                                {{ $tag->name }}
+                            </a>
+                        @endforeach
+                    </div>
+                @endif
+
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-900 leading-tight mb-4">
+                    {{ $post->title }}
+                </h1>
+
+                <div class="flex items-center gap-4 text-sm text-gray-500">
+                    <span>{{ $post->author->name ?? 'MotoHub' }}</span>
+                    <span>{{ $post->published_at->format('Y年m月d日') }}</span>
+                    <span>{{ $post->reading_time_minutes }}分で読める</span>
+                </div>
+            </header>
+
+            {{-- アイキャッチ画像 --}}
+            @if($post->eyecatch_image)
+                <div class="mb-8">
+                    <img src="{{ $post->getEyecatchUrl() }}" alt="{{ $post->title }}"
+                         class="w-full rounded-xl" onerror="handleImageError(this)">
+                </div>
+            @endif
+
+            {{-- シリーズナビゲーション --}}
+            @if($seriesNav)
+                <div class="series-nav">
+                    <div class="flex items-center justify-between mb-2">
+                        <a href="{{ route('blog.series.show', $seriesNav['series']->slug) }}" class="font-bold text-blue-800 hover:underline">
+                            {{ $seriesNav['series']->title }}
+                        </a>
+                        <span class="text-sm text-blue-600">第{{ $seriesNav['current'] + 1 }}回 / 全{{ $seriesNav['total'] }}回</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        @if($seriesNav['prev'])
+                            <a href="{{ route('blog.show', $seriesNav['prev']->slug) }}" class="text-blue-600 hover:underline">&larr; 前の記事</a>
+                        @else
+                            <span></span>
+                        @endif
+                        @if($seriesNav['next'])
+                            <a href="{{ route('blog.show', $seriesNav['next']->slug) }}" class="text-blue-600 hover:underline">次の記事 &rarr;</a>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
+            {{-- 目次 --}}
+            @if($toc)
+                <details class="toc" open>
+                    <summary class="font-bold text-gray-700 cursor-pointer mb-2">目次</summary>
+                    {!! $toc !!}
+                </details>
+            @endif
+
+            {{-- 本文 --}}
+            <div class="blog-content">
+                {!! $html !!}
+            </div>
+
+            {{-- シリーズ全記事リスト --}}
+            @if($seriesNav)
+                <details class="mt-8 bg-gray-50 rounded-xl border p-4">
+                    <summary class="font-bold text-gray-700 cursor-pointer">「{{ $seriesNav['series']->title }}」の全記事</summary>
+                    <ol class="mt-3 space-y-2">
+                        @foreach($seriesNav['posts'] as $idx => $sp)
+                            <li class="flex gap-2 {{ $sp->id === $post->id ? 'font-bold text-blue-700' : 'text-gray-600' }}">
+                                <span class="text-gray-400">{{ $idx + 1 }}.</span>
+                                @if($sp->id === $post->id)
+                                    {{ $sp->title }}（この記事）
+                                @else
+                                    <a href="{{ route('blog.show', $sp->slug) }}" class="hover:text-blue-600 hover:underline">{{ $sp->title }}</a>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ol>
+                </details>
+            @endif
+        </article>
+
+        {{-- 関連記事 --}}
+        @if($relatedPosts->isNotEmpty())
+            <section class="mt-12 pt-8 border-t">
+                <h2 class="text-xl font-bold mb-6">関連記事</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    @foreach($relatedPosts as $related)
+                        <a href="{{ route('blog.show', $related->slug) }}" class="block bg-white rounded-lg border p-4 hover:shadow-md transition">
+                            @if($related->eyecatch_image)
+                                <img src="{{ $related->getEyecatchUrl() }}" alt="" class="w-full aspect-video object-cover rounded-lg mb-3" loading="lazy" onerror="handleImageError(this)">
+                            @endif
+                            <h3 class="font-bold text-sm text-gray-900 line-clamp-2">{{ $related->title }}</h3>
+                            <div class="text-xs text-gray-400 mt-2">{{ $related->published_at->format('Y.m.d') }}</div>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+        @endif
+    </div>
+
+    <x-slot:scripts>
+        <script src="https://cdn.jsdelivr.net/npm/highlight.js@11/highlight.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                document.querySelectorAll('.blog-content pre code').forEach(el => hljs.highlightElement(el));
+            });
+        </script>
+    </x-slot:scripts>
+</x-layout>

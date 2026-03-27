@@ -109,6 +109,12 @@
                     </div>
                 </div>
 
+                {{-- ブログ --}}
+                <a href="{{ route('blog.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="ブログ記事">
+                    <i data-lucide="pen-line" class="w-4 h-4"></i>
+                    <span class="hidden xl:inline">ブログ</span>
+                </a>
+
                 {{-- その他 ドロップダウン --}}
                 <div class="hidden md:flex relative" x-data="{ open: false }">
                     <button @click="open = !open" @click.outside="open = false"
@@ -356,6 +362,19 @@
                     </div>
                     <div>
                         <p class="text-xs font-black text-gray-800">バイクパーツ検索</p>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
+
+            {{-- ブログバナー --}}
+            <a href="{{ route('blog.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="pen-line" class="w-4 h-4 text-amber-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-black text-gray-800">ブログ</p>
                     </div>
                 </div>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
