@@ -108,12 +108,15 @@
                         </a>
                     </div>
                 </div>
+<<<<<<< Updated upstream
 
                 {{-- ブログ --}}
                 <a href="{{ route('blog.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="ブログ記事">
                     <i data-lucide="pen-line" class="w-4 h-4"></i>
                     <span class="hidden xl:inline">ブログ</span>
                 </a>
+=======
+>>>>>>> Stashed changes
 
                 {{-- その他 ドロップダウン --}}
                 <div class="hidden md:flex relative" x-data="{ open: false }">
