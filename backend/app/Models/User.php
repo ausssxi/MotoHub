@@ -28,6 +28,7 @@ class User extends Authenticatable implements FilamentUser
         'email',
         'password',
         'is_admin',
+        'role',
         'notify_price_drop',
         'google_id',
         'avatar',
@@ -116,5 +117,13 @@ class User extends Authenticatable implements FilamentUser
     public function hasLineLinked(): bool
     {
         return !is_null($this->line_id);
+    }
+
+    /**
+     * ブログ記事とのリレーション
+     */
+    public function blogPosts(): HasMany
+    {
+        return $this->hasMany(BlogPost::class, 'author_id');
     }
 }
