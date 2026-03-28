@@ -62,18 +62,42 @@
             .blog-content th { background: #f9fafb; font-weight: 600; }
             .blog-content hr { margin: 2rem 0; border-color: #e5e7eb; }
 
-            .toc { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1.25rem 1.5rem; margin-bottom: 2rem; }
-            .toc ol { list-style: none; padding-left: 0; margin: 0; }
-            .toc > ol > li { margin-bottom: 0.375rem; }
-            .toc ol ol { padding-left: 1.25rem; margin-top: 0.25rem; }
-            .toc a { color: #4b5563; text-decoration: none; font-size: 0.875rem; }
-            .toc a:hover { color: #2563eb; }
+            /* 目次レイアウト */
+            .article-layout { display: flex; gap: 40px; }
+            .article-toc-sidebar {
+                width: 200px;
+                flex-shrink: 0;
+                position: sticky;
+                top: 80px;
+                align-self: flex-start;
+                max-height: calc(100vh - 100px);
+                overflow-y: auto;
+            }
+            .article-toc-sidebar ol { list-style: none; padding-left: 0; margin: 0; border-left: 2px solid #e5e7eb; }
+            .article-toc-sidebar li { padding-left: 12px; margin-bottom: 4px; }
+            .article-toc-sidebar ol ol li { padding-left: 24px; }
+            .article-toc-sidebar a { color: #6b7280; text-decoration: none; font-size: 13px; line-height: 1.6; }
+            .article-toc-sidebar a:hover { color: #2563eb; }
+            .article-toc-inline { display: none; }
+            .article-toc-inline .toc { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1.25rem 1.5rem; margin-bottom: 2rem; }
+            .article-toc-inline .toc ol { list-style: none; padding-left: 0; margin: 0; }
+            .article-toc-inline .toc > ol > li { margin-bottom: 0.375rem; }
+            .article-toc-inline .toc ol ol { padding-left: 1.25rem; margin-top: 0.25rem; }
+            .article-toc-inline .toc a { color: #4b5563; text-decoration: none; font-size: 0.875rem; }
+            .article-toc-inline .toc a:hover { color: #2563eb; }
+            .article-main { flex: 1; min-width: 0; }
+
+            @media (max-width: 900px) {
+                .article-toc-sidebar { display: none; }
+                .article-toc-inline { display: block; }
+                .article-layout { flex-direction: column; gap: 0; }
+            }
 
             .series-nav { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 2rem; }
         </style>
     </x-slot:styles>
 
-    <div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="max-w-6xl mx-auto px-4 py-8">
         {{-- パンくずリスト --}}
         <nav class="text-sm text-gray-400 mb-6">
             <a href="{{ url('/') }}" class="hover:text-gray-600">ホーム</a>
@@ -139,17 +163,32 @@
                 </div>
             @endif
 
-            {{-- 目次 --}}
-            @if($toc)
-                <details class="toc" open>
-                    <summary class="font-bold text-gray-700 cursor-pointer mb-2">目次</summary>
-                    {!! $toc !!}
-                </details>
-            @endif
+            {{-- 目次 + 本文レイアウト --}}
+            <div class="article-layout">
+                {{-- 左: 目次サイドバー（デスクトップのみ） --}}
+                @if($toc)
+                    <aside class="article-toc-sidebar">
+                        {!! $toc !!}
+                    </aside>
+                @endif
 
-            {{-- 本文 --}}
-            <div class="blog-content">
-                {!! $html !!}
+                {{-- 右: 記事本文 --}}
+                <div class="article-main">
+                    {{-- モバイル用の折りたたみ目次 --}}
+                    @if($toc)
+                        <div class="article-toc-inline">
+                            <details class="toc" open>
+                                <summary class="font-bold text-gray-700 cursor-pointer mb-2">目次</summary>
+                                {!! $toc !!}
+                            </details>
+                        </div>
+                    @endif
+
+                    {{-- 本文 --}}
+                    <div class="blog-content">
+                        {!! $html !!}
+                    </div>
+                </div>
             </div>
 
             {{-- シリーズ全記事リスト --}}
