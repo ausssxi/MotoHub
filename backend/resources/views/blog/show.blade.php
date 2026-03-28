@@ -2,7 +2,7 @@
     <x-slot:title>{{ $post->meta_title ?? $post->title }} | MotoHub Blog</x-slot:title>
     <x-slot:metaDescription>{{ $post->meta_description ?? $post->excerpt }}</x-slot:metaDescription>
     <x-slot:canonical>{{ url('/blog/' . $post->slug) }}</x-slot:canonical>
-    <x-slot:ogImage>{{ $post->getOgImageUrl() ? url($post->getOgImageUrl()) : route('blog.ogp', $post->slug) }}</x-slot:ogImage>
+    <x-slot:ogImage>{{ route('blog.ogp', $post->slug) }}</x-slot:ogImage>
 
     <x-slot:navigation>
         <x-navigation />
