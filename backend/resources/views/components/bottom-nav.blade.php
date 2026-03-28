@@ -32,11 +32,7 @@
 
         {{-- その他（サブメニュー） --}}
         <button onclick="toggleSubMenu('submenu-more')"
-<<<<<<< Updated upstream
                 class="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 {{ request()->is('garage*') || request()->is('bikes/trends*') || request()->is('sell*') || request()->is('blog*') ? 'text-blue-600' : 'text-gray-400' }}">
-=======
-                class="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 {{ request()->is('garage*') || request()->is('bikes/trends*') || request()->is('sell*') ? 'text-blue-600' : 'text-gray-400' }}">
->>>>>>> Stashed changes
             <i data-lucide="more-horizontal" class="w-5 h-5"></i>
             <span class="text-[10px] font-bold leading-tight">その他</span>
         </button>
