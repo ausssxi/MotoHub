@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\BlogSeriesController as AdminBlogSeriesController
 use App\Http\Controllers\Admin\BlogTagController as AdminBlogTagController;
 use App\Http\Controllers\Admin\BlogImageController;
 use App\Http\Controllers\Api\BlogTagController as ApiBlogTagController;
+use App\Http\Controllers\BlogOgpController;
 use App\Http\Controllers\Api\BlogPreviewController;
 
 /*
@@ -20,6 +21,9 @@ use App\Http\Controllers\Api\BlogPreviewController;
 | 管理画面: auth + can:manage-blog ミドルウェア
 |
 */
+
+// --- OGP画像（キャッシュミドルウェア不要・独自ヘッダーで制御） ---
+Route::get('/blog/{post:slug}/ogp.png', [BlogOgpController::class, 'show'])->name('blog.ogp');
 
 // --- 公開画面（認証不要） ---
 Route::prefix('blog')->name('blog.')->middleware('blog.cache')->group(function () {

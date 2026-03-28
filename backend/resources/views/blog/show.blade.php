@@ -2,7 +2,7 @@
     <x-slot:title>{{ $post->meta_title ?? $post->title }} | MotoHub Blog</x-slot:title>
     <x-slot:metaDescription>{{ $post->meta_description ?? $post->excerpt }}</x-slot:metaDescription>
     <x-slot:canonical>{{ url('/blog/' . $post->slug) }}</x-slot:canonical>
-    <x-slot:ogImage>{{ $post->getOgImageUrl() ? url($post->getOgImageUrl()) : asset('images/twitter_template.png') }}</x-slot:ogImage>
+    <x-slot:ogImage>{{ $post->getOgImageUrl() ? url($post->getOgImageUrl()) : route('blog.ogp', $post->slug) }}</x-slot:ogImage>
 
     <x-slot:navigation>
         <x-navigation />
@@ -170,6 +170,21 @@
                     </ol>
                 </details>
             @endif
+            {{-- シェアボタン --}}
+            <div class="mt-10 pt-6 border-t border-gray-200">
+                <div class="flex items-center gap-3">
+                    <span class="text-sm text-gray-500">共有:</span>
+                    <a href="https://twitter.com/intent/tweet?url={{ urlencode(url('/blog/' . $post->slug)) }}&text={{ urlencode($post->title) }}"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="inline-flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                        </svg>
+                        Xで共有
+                    </a>
+                </div>
+            </div>
         </article>
 
         {{-- 関連記事 --}}
