@@ -8,13 +8,23 @@
     'use strict';
 
     var SESSION_KEY = 'motohub_engagement_banner_shown';
+    var DISMISS_KEY = 'line_banner_dismissed_at';
+    var DISMISS_DAYS = 7;
     var TIMER_MS = 30000;
     var SCROLL_THRESHOLD = 0.5;
 
     // ---- ガード ----
 
+    function isDismissed() {
+        var ts = localStorage.getItem(DISMISS_KEY);
+        if (!ts) return false;
+        return (Date.now() - parseInt(ts, 10)) < DISMISS_DAYS * 24 * 60 * 60 * 1000;
+    }
+
     function shouldShow() {
         if (!window.__bikeModelId) return false;
+        if (document.body.dataset.loggedIn === 'true') return false;
+        if (isDismissed()) return false;
         if (sessionStorage.getItem(SESSION_KEY)) return false;
         if (typeof MotoHubPush !== 'undefined' && MotoHubPush.isSubscribed(window.__bikeModelId)) return false;
         return true;
@@ -74,8 +84,10 @@
         var closeBtn = document.createElement('button');
         closeBtn.type = 'button';
         closeBtn.setAttribute('aria-label', '閉じる');
-        closeBtn.style.cssText = 'position:absolute;top:8px;right:12px;background:none;border:none;font-size:22px;color:#9ca3af;cursor:pointer;padding:4px;line-height:1;';
-        closeBtn.textContent = '\u00d7';
+        closeBtn.style.cssText = 'position:absolute;top:10px;right:10px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:#f3f4f6;border:none;border-radius:50%;cursor:pointer;transition:background .2s;';
+        closeBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2.5" stroke-linecap="round"><path d="M6 18L18 6M6 6l12 12"/></svg>';
+        closeBtn.onmouseenter = function() { this.style.background = '#e5e7eb'; };
+        closeBtn.onmouseleave = function() { this.style.background = '#f3f4f6'; };
         closeBtn.addEventListener('click', function () { dismiss(wrapper); });
         card.appendChild(closeBtn);
 
@@ -171,6 +183,7 @@
 
     function dismiss(wrapper) {
         sessionStorage.setItem(SESSION_KEY, '1');
+        localStorage.setItem(DISMISS_KEY, Date.now().toString());
         wrapper.style.animation = 'engageBannerFadeOut .3s ease-in forwards';
         setTimeout(function () { wrapper.remove(); }, 300);
     }

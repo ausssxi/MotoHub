@@ -8,7 +8,9 @@
  */
 const RegistrationPromo = (() => {
     const STORAGE_KEY = 'motohub_page_views';
-    const POPUP_DISMISSED_KEY = 'motohub_popup_dismissed';
+    const POPUP_DISMISSED_KEY = 'registration_promo_dismissed_at';
+    const LINE_BANNER_DISMISSED_KEY = 'line_banner_dismissed_at';
+    const DISMISS_DAYS = 7;
     const PAGE_VIEW_THRESHOLD = 5; // 5ページ閲覧後にポップアップ
 
     let isLoggedIn = false;
@@ -99,8 +101,25 @@ const RegistrationPromo = (() => {
     // ========================================
     // 施策2: 検索結果ページのLINE通知バナー
     // ========================================
+    function _isDismissedWithin(key) {
+        const ts = localStorage.getItem(key);
+        if (!ts) return false;
+        return (Date.now() - parseInt(ts, 10)) < DISMISS_DAYS * 24 * 60 * 60 * 1000;
+    }
+
+    function _dismissLineBanner(el) {
+        localStorage.setItem(LINE_BANNER_DISMISSED_KEY, Date.now().toString());
+        el.style.transition = 'opacity .3s, transform .3s';
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(10px)';
+        setTimeout(() => el.remove(), 300);
+    }
+
     function showSearchBanner(containerId) {
         if (isLoggedIn) return;
+        if (_isDismissedWithin(LINE_BANNER_DISMISSED_KEY)) return;
+        // 会員登録ポップアップが表示中ならLINEバナーは出さない
+        if (document.getElementById('promo-pageview-popup')) return;
 
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -124,10 +143,11 @@ const RegistrationPromo = (() => {
                     LINE通知を設定
                 </a>
             </div>
-            <button onclick="this.parentElement.remove()" class="absolute top-2 right-2 w-6 h-6 text-gray-300 hover:text-gray-500 flex items-center justify-center rounded-full transition-colors">
+            <button class="promo-search-banner-close absolute top-2 right-2 w-6 h-6 text-gray-300 hover:text-gray-500 flex items-center justify-center rounded-full transition-colors">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         `;
+        banner.querySelector('.promo-search-banner-close').addEventListener('click', () => _dismissLineBanner(banner));
         container.appendChild(banner);
     }
 
@@ -141,14 +161,10 @@ const RegistrationPromo = (() => {
 
     function _checkPageViewPopup() {
         const views = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
-        const dismissed = localStorage.getItem(POPUP_DISMISSED_KEY);
-        
-        // 閾値未満、または過去24時間以内に閉じた場合はスキップ
+
+        // 閾値未満、または7日以内に閉じた場合はスキップ
         if (views < PAGE_VIEW_THRESHOLD) return;
-        if (dismissed) {
-            const dismissedAt = parseInt(dismissed, 10);
-            if (Date.now() - dismissedAt < 24 * 60 * 60 * 1000) return;
-        }
+        if (_isDismissedWithin(POPUP_DISMISSED_KEY)) return;
 
         // 3秒後に表示（いきなり出すとウザい）
         setTimeout(() => _showPageViewPopup(views), 3000);

@@ -44,7 +44,37 @@
         @guest
         <script>
             document.addEventListener('DOMContentLoaded', () => {
-                if (typeof RegistrationPromo !== 'undefined') {
+                var DISMISS_KEY = 'line_banner_dismissed_at';
+                var DISMISS_MS = 7 * 24 * 60 * 60 * 1000;
+
+                function isDismissed() {
+                    var ts = localStorage.getItem(DISMISS_KEY);
+                    return ts && (Date.now() - parseInt(ts, 10)) < DISMISS_MS;
+                }
+
+                function dismissAndHide(el) {
+                    localStorage.setItem(DISMISS_KEY, Date.now().toString());
+                    el.style.transition = 'opacity .3s, transform .3s';
+                    el.style.opacity = '0';
+                    el.style.transform = 'translateY(10px)';
+                    setTimeout(function() { el.remove(); }, 300);
+                }
+
+                // インラインカード（15件目後）
+                var inlineCard = document.getElementById('search-line-inline-card');
+                if (inlineCard) {
+                    if (isDismissed() || document.getElementById('promo-pageview-popup')) {
+                        inlineCard.remove();
+                    } else {
+                        window._dismissLineInlineCard = function() { dismissAndHide(inlineCard); };
+                    }
+                }
+
+                // 上部バナーコンテナ
+                var topBanner = document.getElementById('search-line-banner');
+                if (topBanner && isDismissed()) {
+                    topBanner.remove();
+                } else if (typeof RegistrationPromo !== 'undefined') {
                     RegistrationPromo.showSearchBanner('search-line-banner');
                 }
             });
@@ -402,7 +432,10 @@
                         {{-- 15件目の後にLINE通知カードを挿入（ゲストのみ） --}}
                         @if($loop->index === 14)
                             @guest
-                            <div class="col-span-full bg-gradient-to-r from-[#06C755]/5 to-[#06C755]/10 border-2 border-[#06C755]/20 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                            <div id="search-line-inline-card" class="col-span-full bg-gradient-to-r from-[#06C755]/5 to-[#06C755]/10 border-2 border-[#06C755]/20 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-center gap-4 sm:gap-6 relative">
+                                <button onclick="window._dismissLineInlineCard && window._dismissLineInlineCard()" aria-label="閉じる" class="absolute top-2 right-2 w-7 h-7 flex items-center justify-center bg-white/80 hover:bg-white rounded-full border border-gray-200 transition-colors">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="#6b7280" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
                                 <div class="flex items-center gap-3 shrink-0">
                                     <div class="w-12 h-12 bg-[#06C755] rounded-xl flex items-center justify-center shadow-lg shadow-green-200">
                                         <svg class="w-7 h-7" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 5.88 2 10.54c0 4.07 3.42 7.49 8.05 8.44.31.07.73.21.84.48.1.25.06.63.03.88l-.14.83c-.04.25-.2.97.85.53s5.61-3.31 7.66-5.67C21.03 13.86 22 12.28 22 10.54 22 5.88 17.52 2 12 2z"/></svg>
