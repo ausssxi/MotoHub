@@ -99,6 +99,6 @@
             </div>
         </div>
     </div>
-    <script src="{{ asset('js/compare/manager.js') }}"></script>
-    <script src="{{ asset('js/compare/page.js') }}"></script>
+    <script src="{{ asset('js/compare/manager.js') }}?v={{ filemtime(public_path('js/compare/manager.js')) }}"></script>
+    <script src="{{ asset('js/compare/page.js') }}?v={{ filemtime(public_path('js/compare/page.js')) }}"></script>
 </x-layout>

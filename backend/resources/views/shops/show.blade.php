@@ -15,8 +15,8 @@
 
     <x-slot:scripts>
         <script src="{{ asset('js/search/sidebar.js') }}" defer></script>
-        <script src="{{ asset('js/compare/manager.js') }}" defer></script>
-        <script src="{{ asset('js/compare/ui.js') }}" defer></script>
+        <script src="{{ asset('js/compare/manager.js') }}?v={{ filemtime(public_path('js/compare/manager.js')) }}" defer></script>
+        <script src="{{ asset('js/compare/ui.js') }}?v={{ filemtime(public_path('js/compare/ui.js')) }}" defer></script>
         <script src="{{ asset('js/search/save_condition.js') }}" defer></script>
     </x-slot:scripts>
 

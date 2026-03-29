@@ -15,8 +15,8 @@
     <x-jsonld.breadcrumb :listing="$listing" />
 
     <x-slot:scripts>
-        <script src="{{ asset('js/compare/manager.js') }}"></script>
-        <script src="{{ asset('js/compare/ui.js') }}"></script>
+        <script src="{{ asset('js/compare/manager.js') }}?v={{ filemtime(public_path('js/compare/manager.js')) }}"></script>
+        <script src="{{ asset('js/compare/ui.js') }}?v={{ filemtime(public_path('js/compare/ui.js')) }}"></script>
         <script src="{{ asset('js/bikes/loan-simulator.js') }}"></script>
 
         {{-- JSにBladeの変数を渡す --}}
@@ -26,7 +26,7 @@
             window.recaptchaSiteKey = "{{ env('RECAPTCHA_SITE_KEY') }}";
         </script>
         <script>window.__bikeModelId = {{ $listing->bike_model_id ?? 'null' }};</script>
-        <script src="{{ asset('js/promo/engagement-banner.js') }}" defer></script>
+        <script src="{{ asset('js/promo/engagement-banner.js') }}?v={{ filemtime(public_path('js/promo/engagement-banner.js')) }}" defer></script>
 
         {{-- Chart.js + model_detail.js: チャートが見えた時のみ遅延読込（TBT大幅改善） --}}
         <script>

@@ -162,7 +162,7 @@
     {{-- 登録促進プロモーション（未ログイン時のみ） --}}
     @guest
         <link rel="stylesheet" href="{{ asset('css/registration-promo.css') }}">
-        <script src="{{ asset('js/promo/registration-promo.js') }}" defer></script>
+        <script src="{{ asset('js/promo/registration-promo.js') }}?v={{ filemtime(public_path('js/promo/registration-promo.js')) }}" defer></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (typeof RegistrationPromo !== 'undefined') {
@@ -170,7 +170,7 @@
                 }
             });
         </script>
-        <script src="{{ asset('js/promo/return-trigger.js') }}" defer></script>
+        <script src="{{ asset('js/promo/return-trigger.js') }}?v={{ filemtime(public_path('js/promo/return-trigger.js')) }}" defer></script>
     @endguest
 </body>
 </html>
