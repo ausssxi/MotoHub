@@ -10,7 +10,7 @@
     </x-slot:navigation>
 
     <div id="shindan-app" class="min-h-screen bg-gray-950 text-white overflow-hidden">
-        
+
         {{-- ===================== START画面 ===================== --}}
         <section id="screen-start" class="shindan-screen min-h-[calc(100vh-64px)] flex flex-col items-center justify-center px-4 relative">
             {{-- 背景エフェクト --}}
@@ -58,10 +58,10 @@
                 <div class="mb-8">
                     <div class="flex justify-between items-center mb-3">
                         <span id="q-counter" class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Question 1 / 5</span>
-                        <span id="q-percent" class="text-[10px] font-black text-blue-400 tabular-nums">20%</span>
+                        <span id="q-percent" class="text-[10px] font-black text-blue-400 tabular-nums">0%</span>
                     </div>
                     <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                        <div id="q-progress" class="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-700 ease-out" style="width: 20%"></div>
+                        <div id="q-progress" class="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-700 ease-out" style="width: 0%"></div>
                     </div>
                 </div>
 
@@ -72,20 +72,21 @@
                         <h2 class="text-xl sm:text-2xl font-black tracking-tight leading-tight">理想のエンジンサイズは？</h2>
                         <p class="text-sm text-gray-500 font-bold mt-2">スライダーをドラッグして選んでください</p>
                     </div>
-                    
+
                     <div class="bg-gray-900 rounded-2xl p-6 border border-gray-800">
                         <div class="text-center mb-8">
                             <span id="displacement-value" class="text-5xl font-black text-white tabular-nums tracking-tighter">400</span>
                             <span class="text-xl text-gray-500 font-black ml-1">cc</span>
                             <div id="displacement-label" class="text-xs font-bold text-gray-500 mt-2">普通二輪</div>
                         </div>
-                        <input type="range" id="slider-displacement" min="50" max="1300" value="400" step="50" 
+                        <input type="range" id="slider-displacement" min="50" max="1300" value="400" step="50"
                                class="shindan-slider w-full" oninput="Shindan.updateDisplacement(this.value)">
                         <div class="flex justify-between text-[9px] text-gray-700 font-bold mt-3 px-1">
                             <span>50cc</span><span>125</span><span>250</span><span>400</span><span>650</span><span>1000</span><span>1300+</span>
                         </div>
                     </div>
 
+                    {{-- Q1: 次へのみ（戻るなし） --}}
                     <button onclick="Shindan.next(2)" class="shindan-next-btn mt-6">
                         次の質問へ
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 7l5 5-5 5"/></svg>
@@ -99,7 +100,7 @@
                         <h2 class="text-xl sm:text-2xl font-black tracking-tight leading-tight">メインの使い方は？</h2>
                         <p class="text-sm text-gray-500 font-bold mt-2">一番近いものを選んでください</p>
                     </div>
-                    
+
                     <div class="grid grid-cols-2 gap-3" id="usage-options">
                         <button class="shindan-card" data-value="touring" onclick="Shindan.select('usage', 'touring', 3)">
                             <span class="text-3xl mb-2 block">🗾</span>
@@ -122,6 +123,12 @@
                             <span class="text-[10px] text-gray-500 block mt-1">走りを極めたい</span>
                         </button>
                     </div>
+
+                    {{-- Q2: 戻るのみ --}}
+                    <button onclick="Shindan.prev(1)" class="shindan-prev-btn mt-6">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 17l-5-5 5-5"/></svg>
+                        前の質問へ
+                    </button>
                 </div>
 
                 {{-- ===== Q3: 予算 ===== --}}
@@ -131,7 +138,7 @@
                         <h2 class="text-xl sm:text-2xl font-black tracking-tight leading-tight">予算はどれくらい？</h2>
                         <p class="text-sm text-gray-500 font-bold mt-2">乗り出し総額の上限を教えてください</p>
                     </div>
-                    
+
                     <div class="bg-gray-900 rounded-2xl p-6 border border-gray-800">
                         <div class="text-center mb-8">
                             <span class="text-xl text-gray-500 font-black mr-1">¥</span>
@@ -145,10 +152,17 @@
                         </div>
                     </div>
 
-                    <button onclick="Shindan.next(4)" class="shindan-next-btn mt-6">
-                        次の質問へ
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 7l5 5-5 5"/></svg>
-                    </button>
+                    {{-- Q3: 戻る + 次へ --}}
+                    <div class="flex gap-3 mt-6">
+                        <button onclick="Shindan.prev(2)" class="shindan-prev-btn flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 17l-5-5 5-5"/></svg>
+                            前の質問へ
+                        </button>
+                        <button onclick="Shindan.next(4)" class="shindan-next-btn flex-1">
+                            次の質問へ
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 7l5 5-5 5"/></svg>
+                        </button>
+                    </div>
                 </div>
 
                 {{-- ===== Q4: スタイル ===== --}}
@@ -158,7 +172,7 @@
                         <h2 class="text-xl sm:text-2xl font-black tracking-tight leading-tight">好みのスタイルは？</h2>
                         <p class="text-sm text-gray-500 font-bold mt-2">直感でピンとくるものを</p>
                     </div>
-                    
+
                     <div class="grid grid-cols-2 gap-3" id="style-options">
                         <button class="shindan-card" data-value="sporty" onclick="Shindan.select('style', 'sporty', 5)">
                             <span class="text-3xl mb-2 block">🔥</span>
@@ -181,6 +195,12 @@
                             <span class="text-[10px] text-gray-500 block mt-1">洗練された都会的デザイン</span>
                         </button>
                     </div>
+
+                    {{-- Q4: 戻るのみ --}}
+                    <button onclick="Shindan.prev(3)" class="shindan-prev-btn mt-6">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 17l-5-5 5-5"/></svg>
+                        前の質問へ
+                    </button>
                 </div>
 
                 {{-- ===== Q5: こだわり ===== --}}
@@ -190,7 +210,7 @@
                         <h2 class="text-xl sm:text-2xl font-black tracking-tight leading-tight">一番こだわるポイントは？</h2>
                         <p class="text-sm text-gray-500 font-bold mt-2">最重視するものを1つだけ</p>
                     </div>
-                    
+
                     <div class="space-y-2" id="priority-options">
                         <button class="shindan-list-card" data-value="speed" onclick="Shindan.select('priority', 'speed', 6)">
                             <span class="text-2xl shrink-0">💨</span>
@@ -213,6 +233,12 @@
                             <div><div class="font-black text-sm">乗り心地・足つき</div><div class="text-[10px] text-gray-500 mt-0.5">快適に楽しく走りたい</div></div>
                         </button>
                     </div>
+
+                    {{-- Q5: 戻るのみ --}}
+                    <button onclick="Shindan.prev(4)" class="shindan-prev-btn mt-6">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 17l-5-5 5-5"/></svg>
+                        前の質問へ
+                    </button>
                 </div>
 
             </div>
@@ -296,6 +322,11 @@
             document.querySelectorAll('.shindan-card, .shindan-list-card').forEach(el => {
                 el.classList.remove('shindan-selected');
             });
+            // スライダーを初期値に戻す
+            document.getElementById('slider-displacement').value = 400;
+            updateDisplacement(400);
+            document.getElementById('slider-budget').value = 80;
+            document.getElementById('budget-value').textContent = '80';
             _switchScreen('screen-start');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -309,12 +340,22 @@
                 target.classList.remove('hidden');
                 target.style.animation = 'shindan-fadeSlide 0.4s ease-out';
             }
+            // スライダー値を復元
+            if (num === 1 && answers.displacement !== undefined) {
+                document.getElementById('slider-displacement').value = answers.displacement;
+                updateDisplacement(answers.displacement);
+            }
+            if (num === 3 && answers.budget !== undefined) {
+                document.getElementById('slider-budget').value = answers.budget;
+                document.getElementById('budget-value').textContent = answers.budget;
+            }
             _updateProgress(num);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
+        // 【改善2】進捗バー修正: (num-1)/5 で Q1=0%, Q2=20%, ..., Q5=80%
         function _updateProgress(num) {
-            const pct = Math.round((num / 5) * 100);
+            const pct = Math.round(((num - 1) / 5) * 100);
             document.getElementById('q-counter').textContent = `Question ${num} / 5`;
             document.getElementById('q-percent').textContent = `${pct}%`;
             document.getElementById('q-progress').style.width = pct + '%';
@@ -325,6 +366,14 @@
             if (currentQ === 1) answers.displacement = parseInt(document.getElementById('slider-displacement').value);
             if (currentQ === 3) answers.budget = parseInt(document.getElementById('slider-budget').value);
             _showQuestion(nextNum);
+        }
+
+        // 【改善1】前へ戻る
+        function prev(prevNum) {
+            // 現在のスライダー値を保存してから戻る
+            if (currentQ === 1) answers.displacement = parseInt(document.getElementById('slider-displacement').value);
+            if (currentQ === 3) answers.budget = parseInt(document.getElementById('slider-budget').value);
+            _showQuestion(prevNum);
         }
 
         // --- 選択肢（カード系） ---
@@ -440,10 +489,10 @@
             // ★修正: XシェアボタンのURL生成（bikes=xx,yy,zz の形式に変更）
             const topBike = data.bikes[0];
             const shareText = `🏍️ バイク相性診断やってみた！\n\n${rt.emoji} ライダータイプ「${rt.name}」\n🏆 おすすめ: ${topBike?.name || '??'}\n\nあなたも診断してみよう👇`;
-            
+
             const bikeIds = data.bikes.map(b => b.id).join(',');
             const shareUrl = `${location.origin}/shindan/result?type=${rt.key}&bikes=${bikeIds}`;
-            
+
             document.getElementById('share-x-btn').onclick = () => {
                 window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, '_blank', 'width=550,height=420');
             };
@@ -459,7 +508,7 @@
             document.getElementById(id).classList.remove('hidden');
         }
 
-        return { start, restart, next, select, updateDisplacement };
+        return { start, restart, next, prev, select, updateDisplacement };
     })();
     </script>
     </x-slot:scripts>
@@ -553,6 +602,25 @@
         }
         .shindan-next-btn:hover { background: rgba(255, 255, 255, 0.1); }
         .shindan-next-btn:active { transform: scale(0.98); }
+
+        /* ========== 前へボタン ========== */
+        .shindan-prev-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            color: #6b7280;
+            font-weight: 700;
+            font-size: 0.875rem;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.75rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .shindan-prev-btn:hover { color: #d1d5db; border-color: rgba(255, 255, 255, 0.15); }
+        .shindan-prev-btn:active { transform: scale(0.98); }
 
         /* ========== アニメーション ========== */
         @keyframes shindan-fadeSlide {
