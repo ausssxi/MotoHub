@@ -94,6 +94,13 @@
             }
 
             .series-nav { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 2rem; }
+
+            /* 関連記事カード */
+            .related-posts-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+            .related-post-card { display: flex; flex-direction: column; height: 100%; }
+            .related-post-card img { width: 100%; height: 160px; object-fit: cover; }
+            .related-post-body { flex: 1; }
+            @media (max-width: 768px) { .related-posts-grid { grid-template-columns: 1fr; } }
         </style>
     </x-slot:styles>
 
@@ -230,14 +237,16 @@
         @if($relatedPosts->isNotEmpty())
             <section class="mt-12 pt-8 border-t">
                 <h2 class="text-xl font-bold mb-6">関連記事</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="related-posts-grid">
                     @foreach($relatedPosts as $related)
-                        <a href="{{ route('blog.show', $related->slug) }}" class="block bg-white rounded-lg border p-4 hover:shadow-md transition">
+                        <a href="{{ route('blog.show', $related->slug) }}" class="related-post-card bg-white rounded-lg border overflow-hidden hover:shadow-md transition">
                             @if($related->eyecatch_image)
-                                <img src="{{ $related->getEyecatchUrl() }}" alt="" class="w-full aspect-video object-cover rounded-lg mb-3" loading="lazy" onerror="handleImageError(this)">
+                                <img src="{{ $related->getEyecatchUrl() }}" alt="" class="rounded-t-lg" loading="lazy" onerror="handleImageError(this)">
                             @endif
-                            <h3 class="font-bold text-sm text-gray-900 line-clamp-2">{{ $related->title }}</h3>
-                            <div class="text-xs text-gray-400 mt-2">{{ $related->published_at->format('Y.m.d') }}</div>
+                            <div class="related-post-body p-4">
+                                <h3 class="font-bold text-sm text-gray-900 line-clamp-2">{{ $related->title }}</h3>
+                                <div class="text-xs text-gray-400 mt-2">{{ $related->published_at->format('Y.m.d') }}</div>
+                            </div>
                         </a>
                     @endforeach
                 </div>
