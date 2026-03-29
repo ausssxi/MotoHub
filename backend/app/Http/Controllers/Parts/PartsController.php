@@ -24,15 +24,16 @@ class PartsController extends Controller
 
     /**
      * 楽天API呼び出し（共通）
+     * $genreId を指定するとジャンル絞り込み（200305=バイク用品）
      */
-    private function fetchRakuten(string $searchQuery, int $page = 1, int $hits = 30): ?array
+    private function fetchRakuten(string $searchQuery, int $page = 1, int $hits = 30, ?int $genreId = null): ?array
     {
         $appId = config('services.rakuten.app_id');
         $accessKey = config('services.rakuten.access_key');
         if (!$appId || !$accessKey) return null;
 
-        $cacheKey = 'rakuten_parts_' . md5($searchQuery . '_page_' . $page . '_hits_' . $hits);
-        return Cache::remember($cacheKey, 600, function () use ($appId, $accessKey, $searchQuery, $page, $hits) {
+        $cacheKey = 'rakuten_parts_' . md5($searchQuery . '_page_' . $page . '_hits_' . $hits . '_genre_' . ($genreId ?? 0));
+        return Cache::remember($cacheKey, 600, function () use ($appId, $accessKey, $searchQuery, $page, $hits, $genreId) {
             $params = [
                 'applicationId' => $appId,
                 'accessKey'     => $accessKey,
@@ -41,6 +42,7 @@ class PartsController extends Controller
                 'page'          => $page,
                 'format'        => 'json',
             ];
+            if ($genreId) $params['genreId'] = $genreId;
             $affiliateId = config('services.rakuten.affiliate_id');
             if ($affiliateId) $params['affiliateId'] = $affiliateId;
 
@@ -139,16 +141,16 @@ class PartsController extends Controller
     public function index()
     {
         $popularCategories = [
-            'マフラー'  => 'バイク マフラー',
-            'タイヤ'    => 'バイク タイヤ',
-            'チェーン'  => 'バイク ドライブチェーン',
+            'マフラー'  => 'マフラー',
+            'タイヤ'    => 'タイヤ',
+            'チェーン'  => 'ドライブチェーン',
         ];
         $popularItems = [];
 
         foreach ($popularCategories as $label => $query) {
-            $cacheKey = 'parts_popular_' . md5($query);
+            $cacheKey = 'parts_popular_' . md5($query . '_genre_200305');
             $items = Cache::remember($cacheKey, 3600, function () use ($query) {
-                $data = $this->fetchRakuten($query, 1, 4);
+                $data = $this->fetchRakuten($query, 1, 4, genreId: 200305);
                 return $data ? $this->formatRakutenItems($data) : [];
             });
             $popularItems[$label] = $items;
@@ -175,7 +177,7 @@ class PartsController extends Controller
 
         $searchQuery = $this->buildSearchQuery($request);
         $page = $request->input('page', 1);
-        $data = $this->fetchRakuten($searchQuery, $page);
+        $data = $this->fetchRakuten($searchQuery, $page, 30, genreId: 200305);
 
         if ($data === null) {
             return response()->json(['error' => '楽天APIからデータを取得できませんでした。', 'items' => []], 502);
