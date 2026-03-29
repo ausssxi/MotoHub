@@ -138,16 +138,20 @@ class PartsController extends Controller
      */
     public function index()
     {
-        $popularCategories = ['マフラー', 'タイヤ', 'チェーン'];
+        $popularCategories = [
+            'マフラー'  => 'バイク マフラー',
+            'タイヤ'    => 'バイク タイヤ',
+            'チェーン'  => 'バイク ドライブチェーン',
+        ];
         $popularItems = [];
 
-        foreach ($popularCategories as $category) {
-            $cacheKey = 'parts_popular_' . $category;
-            $items = Cache::remember($cacheKey, 3600, function () use ($category) {
-                $data = $this->fetchRakuten('バイク ' . $category, 1, 4);
+        foreach ($popularCategories as $label => $query) {
+            $cacheKey = 'parts_popular_' . md5($query);
+            $items = Cache::remember($cacheKey, 3600, function () use ($query) {
+                $data = $this->fetchRakuten($query, 1, 4);
                 return $data ? $this->formatRakutenItems($data) : [];
             });
-            $popularItems[$category] = $items;
+            $popularItems[$label] = $items;
         }
 
         return view('parts.index', compact('popularItems'));
