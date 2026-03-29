@@ -64,6 +64,72 @@
             </form>
         </section>
 
+        {{-- カテゴリクイックリンク --}}
+        <section id="quick-categories" class="max-w-5xl mx-auto px-4 mt-6">
+            <div class="flex flex-wrap gap-2 justify-center">
+                @php
+                    $chips = [
+                        ['icon' => '🔧', 'label' => 'マフラー'],
+                        ['icon' => '🛞', 'label' => 'タイヤ'],
+                        ['icon' => '⛓️', 'label' => 'チェーン'],
+                        ['icon' => '🛑', 'label' => 'ブレーキパッド'],
+                        ['icon' => '🛢️', 'label' => 'オイルフィルター'],
+                        ['icon' => '💡', 'label' => 'ヘッドライト'],
+                        ['icon' => '🪞', 'label' => 'ミラー'],
+                        ['icon' => '🔋', 'label' => 'バッテリー'],
+                    ];
+                @endphp
+                @foreach($chips as $chip)
+                    <button type="button" onclick="quickSearch('{{ $chip['label'] }}')"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-bold text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors shadow-sm">
+                        <span>{{ $chip['icon'] }}</span>{{ $chip['label'] }}
+                    </button>
+                @endforeach
+            </div>
+        </section>
+
+        {{-- 人気商品セクション --}}
+        @if(!empty($popularItems))
+        <section id="popular-items" class="max-w-5xl mx-auto px-4 mt-8 mb-8">
+            @php
+                $categoryEmojis = ['マフラー' => '🔧', 'タイヤ' => '🛞', 'チェーン' => '⛓️'];
+            @endphp
+            @foreach($popularItems as $category => $items)
+                @if(count($items) > 0)
+                <div class="mb-8">
+                    <h2 class="text-lg font-black text-gray-800 mb-4">{{ $categoryEmojis[$category] ?? '🔧' }} {{ $category }} の人気商品</h2>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        @foreach($items as $item)
+                        <div class="bg-white rounded-xl shadow hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full">
+                            <div class="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+                                @if(!empty($item['image']))
+                                    <img src="{{ str_replace('?_ex=128x128', '?_ex=300x300', $item['image']) }}" alt="{{ $item['name'] }}" class="w-full h-full object-contain p-2" loading="lazy">
+                                @else
+                                    <div class="text-gray-300 text-4xl">🔧</div>
+                                @endif
+                            </div>
+                            <div class="p-3 flex flex-col flex-grow">
+                                <h3 class="text-xs font-bold text-gray-800 line-clamp-2 mb-1">{{ $item['name'] }}</h3>
+                                <p class="text-[10px] text-gray-500 mb-2">{{ $item['shop'] }}</p>
+                                <div class="mt-auto">
+                                    <p class="text-base font-black text-red-600">&yen;{{ number_format($item['price']) }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                    <div class="mt-3 text-center">
+                        <button type="button" onclick="quickSearch('{{ $category }}')"
+                            class="text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                            「{{ $category }}」でもっと検索 &rarr;
+                        </button>
+                    </div>
+                </div>
+                @endif
+            @endforeach
+        </section>
+        @endif
+
         {{-- ローディング --}}
         <div id="loading" class="hidden max-w-5xl mx-auto px-4 py-12 text-center">
             <div class="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -111,6 +177,13 @@
 
     <x-slot:scripts>
     <script>
+    // クイックサーチ（カテゴリチップ・もっと検索リンク）
+    function quickSearch(keyword) {
+        const keywordInput = document.getElementById('keyword');
+        keywordInput.value = keyword;
+        document.getElementById('parts-search-form').dispatchEvent(new Event('submit', { cancelable: true }));
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         const AMAZON_TAG = @json(config('services.amazon.associate_tag', ''));
         const YAHOO_BASE = 'https://shopping.yahoo.co.jp/search?p=';
@@ -410,6 +483,11 @@
             loadMoreWrap.classList.add('hidden');
             amazonBar.classList.add('hidden');
             suggestList.classList.add('hidden');
+            // 初期コンテンツを非表示
+            const quickCats = document.getElementById('quick-categories');
+            const popularItems = document.getElementById('popular-items');
+            if (quickCats) quickCats.classList.add('hidden');
+            if (popularItems) popularItems.classList.add('hidden');
             searchBtn.disabled = true;
             searchBtn.classList.add('opacity-50');
 

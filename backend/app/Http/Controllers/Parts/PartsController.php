@@ -134,11 +134,23 @@ class PartsController extends Controller
     }
 
     /**
-     * パーツ検索ページ表示
+     * パーツ検索ページ表示（人気カテゴリのプリロード結果付き）
      */
     public function index()
     {
-        return view('parts.index');
+        $popularCategories = ['マフラー', 'タイヤ', 'チェーン'];
+        $popularItems = [];
+
+        foreach ($popularCategories as $category) {
+            $cacheKey = 'parts_popular_' . $category;
+            $items = Cache::remember($cacheKey, 3600, function () use ($category) {
+                $data = $this->fetchRakuten('バイク ' . $category, 1, 4);
+                return $data ? $this->formatRakutenItems($data) : [];
+            });
+            $popularItems[$category] = $items;
+        }
+
+        return view('parts.index', compact('popularItems'));
     }
 
     /**
