@@ -141,6 +141,7 @@
                          style="display: none;">
                         <div class="px-4 py-2 border-b border-gray-50">
                             <p class="text-xs font-black text-gray-900">通知中の車種</p>
+                            <p class="text-[10px] text-gray-400 font-bold mt-0.5">📬 毎朝 8:30 に値下げ・新着をお届け中</p>
                         </div>
                         <div class="max-h-60 overflow-y-auto">
                             <template x-if="count === 0">

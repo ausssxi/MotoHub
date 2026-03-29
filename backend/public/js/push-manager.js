@@ -113,6 +113,13 @@ var MotoHubPush = (function () {
         }
     }
 
+    function appendHint(el, isHeader) {
+        var hint = document.createElement('p');
+        hint.className = 'text-xs font-bold mt-1 ' + (isHeader ? 'text-gray-300' : 'text-gray-400 text-center');
+        hint.textContent = '\uD83D\uDCEC 毎朝 8:30 に値下げ・新着情報をお届けします';
+        el.appendChild(hint);
+    }
+
     function renderArea(el) {
         var modelId = parseInt(el.dataset.modelId, 10);
         if (!modelId) return;
@@ -124,8 +131,10 @@ var MotoHubPush = (function () {
             renderSubscribeButton(el, modelId, isHeader);
         } else if (support === 'ios-safari') {
             renderIOSSafariGuide(el, isHeader);
+            appendHint(el, isHeader);
         } else if (support === 'ios-other-browser') {
             renderIOSOtherGuide(el, isHeader);
+            appendHint(el, isHeader);
         }
     }
 
@@ -178,6 +187,10 @@ var MotoHubPush = (function () {
         el.innerHTML = '';
         el.appendChild(btn);
         el.appendChild(msgEl);
+
+        // 補足テキスト（未購読時）
+        if (!subscribed) appendHint(el, isHeader);
+
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
