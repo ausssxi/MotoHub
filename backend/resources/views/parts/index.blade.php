@@ -6,7 +6,7 @@
     </x-slot:metaDescription>
 
     <x-slot:navigation>
-        <x-navigation :showSearch="false" />
+        <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
     <div class="bg-gray-50 min-h-screen">

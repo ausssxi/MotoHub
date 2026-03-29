@@ -1,6 +1,6 @@
 <x-layout>
     <x-slot:title>{{ $myBike->name }} の記録 | MotoHub</x-slot:title>
-    <x-slot:navigation><x-navigation :showSearch="false" /></x-slot:navigation>
+    <x-slot:navigation><x-navigation :showSearch="true" /></x-slot:navigation>
 
     <div class="bg-gray-50 min-h-screen py-8">
         <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">

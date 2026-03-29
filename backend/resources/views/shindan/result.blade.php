@@ -25,7 +25,7 @@
     </x-slot:metaDescription>
 
     <x-slot:navigation>
-        <x-navigation :showSearch="false" />
+        <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
     <div class="min-h-screen bg-gray-950 text-white py-12 px-4 sm:py-20">

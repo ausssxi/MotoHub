@@ -6,7 +6,7 @@
     </x-slot:metaDescription>
 
     <x-slot:navigation>
-        <x-navigation :showSearch="false" />
+        <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
     @php

@@ -3,7 +3,7 @@
     <x-slot:metaDescription>あなたのバイク、今いくらで売れる？MotoHubの膨大な市場データから、愛車のリアルな買取相場を3秒で診断します。会員登録不要・無料。</x-slot:metaDescription>
 
     <x-slot:navigation>
-        <x-navigation :showSearch="false" />
+        <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
     <div class="bg-gray-50 min-h-screen pb-20">
