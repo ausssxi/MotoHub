@@ -1,31 +1,21 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
     /**
      * Run the migrations.
+     * 次のマイグレーション (fix_cb400sf_encoding_all_columns) で全カラムを修正するため、
+     * このマイグレーションは空にしています（既に実行済みのため削除不可）。
      */
     public function up(): void
     {
-        $correct = [
-            'engine_type' => '水冷4ストローク・4気筒DOHC4バルブ',
-            'max_power'   => '41(56PS)／11000',
-            'max_torque'  => '39(4.0kg･m)／9500',
-        ];
-
-        DB::table('bike_models')
-            ->whereIn('id', [61, 64])
-            ->update($correct);
+        //
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        // 文字化けデータに戻す必要はないため空
+        //
     }
 };
