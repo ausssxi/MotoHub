@@ -23,36 +23,15 @@
                 </button>
                 @endif
 
-                {{-- PC用検索アイコン --}}
-                <div class="hidden md:flex relative" x-data="{ searchOpen: false }">
-                    <button @click="searchOpen = !searchOpen"
-                        class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="検索">
-                        <i data-lucide="search" class="w-4 h-4"></i>
-                        <span class="hidden xl:inline">検索</span>
-                    </button>
-
-                    {{-- 展開検索パネル --}}
-                    <div x-show="searchOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2"
-                         @click.outside="searchOpen = false"
-                         class="absolute right-0 top-full mt-3 w-[480px] bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-[60]"
-                         style="display: none;">
-                        @if($showSearch)
-                        <form action="{{ route('bikes.search') }}" method="GET" class="w-full" autocomplete="off" id="nav-search-form">
-                            <div class="relative w-full">
-                                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
-                                    <i data-lucide="search" class="w-4 h-4"></i>
-                                </div>
-                                <input type="text" name="keyword" id="nav-search-input" value="{{ $keyword }}" placeholder="車種を検索..."
-                                    class="w-full bg-gray-100 border-none rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-black transition"
-                                    x-ref="searchInput" @keydown.escape="searchOpen = false">
-                            </div>
-                        </form>
-                        <div id="nav-suggest-results" class="mt-2 bg-white rounded-xl overflow-hidden hidden text-left">
-                            <div id="nav-suggest-list" class="py-2 max-h-[400px] overflow-y-auto"></div>
-                        </div>
-                        @endif
-                    </div>
-                </div>
+                {{-- PC用検索アイコン（$showSearch=false のTOPページでは非表示） --}}
+                @if($showSearch)
+                <button class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest"
+                        title="検索"
+                        onclick="document.getElementById('nav-search-panel').classList.toggle('hidden'); this.querySelector('[data-lucide]') && lucide.createIcons(); setTimeout(() => document.getElementById('nav-search-input')?.focus(), 100);">
+                    <i data-lucide="search" class="w-4 h-4"></i>
+                    <span class="hidden xl:inline">検索</span>
+                </button>
+                @endif
 
                 {{-- バイク診断 --}}
                 <a href="/shindan" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest group relative" title="あなたにぴったりの1台を診断">
@@ -402,6 +381,30 @@
         </div>
         @endif
     </div>
+
+    {{-- PC用フルワイド検索パネル --}}
+    @if($showSearch)
+    <div id="nav-search-panel" class="hidden border-t border-gray-100 shadow-lg bg-white">
+        <div class="max-w-xl mx-auto px-4 py-4 relative">
+            <form action="{{ route('bikes.search') }}" method="GET" class="w-full" autocomplete="off" id="nav-search-form">
+                <div class="relative w-full">
+                    <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                    </div>
+                    <input type="text" name="keyword" id="nav-search-input" value="{{ $keyword }}" placeholder="車種を検索..."
+                        class="w-full bg-gray-100 border-none rounded-xl pl-10 pr-10 py-3 text-sm focus:ring-2 focus:ring-black transition">
+                    <button type="button" class="absolute inset-y-0 right-2 flex items-center text-gray-400 hover:text-gray-600"
+                            onclick="document.getElementById('nav-search-panel').classList.add('hidden')">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </form>
+            <div id="nav-suggest-results" class="mt-2 bg-white rounded-xl overflow-hidden hidden text-left">
+                <div id="nav-suggest-list" class="py-2 max-h-[400px] overflow-y-auto"></div>
+            </div>
+        </div>
+    </div>
+    @endif
 </nav>
 
 {{-- ★復旧: サジェスト用スクリプトの読み込み --}}
