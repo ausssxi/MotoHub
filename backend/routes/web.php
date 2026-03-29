@@ -184,6 +184,7 @@ Route::get('/compare', [BikeController::class, 'compare'])->name('bikes.compare'
 Route::prefix('api')->group(function () {
     Route::get('/bikes/count', [BikeApiController::class, 'count']);
     Route::get('/manufacturers/{manufacturer}/models', [BikeApiController::class, 'models']);
+    Route::get('/manufacturers/{manufacturer}/models-light', [BikeApiController::class, 'modelsLight']);
     Route::get('/stats/price/{bikeModelId}', [App\Http\Controllers\Api\StatsApiController::class, 'getPriceStats']);
     Route::get('/widget/price/{bikeModelId}', [\App\Http\Controllers\Api\WidgetApiController::class, 'price']);
 });

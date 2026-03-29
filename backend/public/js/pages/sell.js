@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
-                const response = await fetch(`/api/manufacturers/${makerId}/models`);
+                const response = await fetch(`/api/manufacturers/${makerId}/models-light`);
                 const models = await response.json();
 
                 if (models.length > 0) {

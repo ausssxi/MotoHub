@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\BikeModel;
 use App\Services\Bike\ListingSearchService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -52,7 +53,21 @@ final class BikeApiController extends Controller
     public function models(int $manufacturerId): JsonResponse
     {
         $models = $this->searchService->getModelsByManufacturer($manufacturerId);
-        
+
+        return response()->json($models);
+    }
+
+    /**
+     * 特定メーカーの車種一覧（軽量版: id, name のみ）
+     * GET /api/manufacturers/{manufacturer}/models-light
+     */
+    public function modelsLight(int $manufacturerId): JsonResponse
+    {
+        $models = BikeModel::where('manufacturer_id', $manufacturerId)
+            ->select(['id', 'name'])
+            ->orderBy('name', 'asc')
+            ->get();
+
         return response()->json($models);
     }
 }
