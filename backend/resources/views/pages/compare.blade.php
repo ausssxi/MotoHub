@@ -14,12 +14,41 @@
         <div class="max-w-7xl mx-auto">
 
             <div id="compare-empty" class="hidden bg-white rounded-3xl p-8 sm:p-16 text-center shadow-sm border border-gray-100">
-                <div class="w-16 h-16 sm:w-20 sm:h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-300">
-                    <i data-lucide="layers" class="w-8 h-8 sm:w-10 sm:h-10"></i>
+                <div class="w-16 h-16 sm:w-20 sm:h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-400">
+                    <i data-lucide="git-compare-arrows" class="w-8 h-8 sm:w-10 sm:h-10"></i>
                 </div>
-                <h2 class="text-lg sm:text-xl font-black text-gray-800 mb-2">比較する車両がありません</h2>
-                <p class="text-sm sm:text-base text-gray-400 mb-8">検索結果から「比較」ボタンを押して追加してください</p>
-                <a href="{{ route('bikes.search') }}" class="inline-block bg-gray-900 text-white px-6 py-2 sm:px-8 sm:py-3 rounded-full text-sm sm:text-base font-black">車両を探しに行く</a>
+                <h2 class="text-lg sm:text-xl font-black text-gray-800 mb-2">車両を比較しよう</h2>
+                <p class="text-sm text-gray-500 mb-8">気になるバイクを並べてスペック・価格を一目で比較できます</p>
+
+                {{-- 使い方ステップ --}}
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl mx-auto mb-10 text-left sm:text-center">
+                    <div class="flex sm:flex-col items-start sm:items-center gap-3 sm:gap-2">
+                        <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-black text-sm shrink-0">1</div>
+                        <div>
+                            <p class="text-sm font-black text-gray-800">検索結果で比較アイコンをタップ</p>
+                            <p class="text-xs text-gray-400 mt-0.5">車両カードの <i data-lucide="layers" class="w-3 h-3 inline-block"></i> アイコン</p>
+                        </div>
+                    </div>
+                    <div class="flex sm:flex-col items-start sm:items-center gap-3 sm:gap-2">
+                        <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-black text-sm shrink-0">2</div>
+                        <div>
+                            <p class="text-sm font-black text-gray-800">2〜5台を追加</p>
+                            <p class="text-xs text-gray-400 mt-0.5">気になる車両を複数選んでOK</p>
+                        </div>
+                    </div>
+                    <div class="flex sm:flex-col items-start sm:items-center gap-3 sm:gap-2">
+                        <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-black text-sm shrink-0">3</div>
+                        <div>
+                            <p class="text-sm font-black text-gray-800">このページで一覧比較</p>
+                            <p class="text-xs text-gray-400 mt-0.5">価格・年式・走行距離を横並び表示</p>
+                        </div>
+                    </div>
+                </div>
+
+                <a href="{{ route('bikes.search') }}" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full text-sm font-black transition-colors shadow-lg shadow-blue-500/20">
+                    <i data-lucide="search" class="w-4 h-4"></i>
+                    車両を探しに行く
+                </a>
             </div>
 
             <div id="compare-container" class="hidden">

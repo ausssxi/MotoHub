@@ -43,27 +43,32 @@ document.addEventListener('DOMContentLoaded', () => {
         // クラス名を .compare-btn に統一して取得
         document.querySelectorAll('.compare-btn').forEach(btn => {
             const id = parseInt(btn.dataset.id);
-            
-            if (ids.includes(id)) {
-                // --- 【修正】選択中の状態 ---
-                // 元: btn.classList.add('bg-blue-600', 'text-white', ...);
-                // 新: 背景は変えず(白/薄グレーのまま)、文字色と枠線だけ少し変えて「チェック済み」感を出す
-                
-                // 1. 青背景をやめて、薄い青背景＆青文字にする（hoverに近い見た目）
-                btn.classList.add('bg-blue-50', 'text-blue-600', 'border-blue-200');
-                btn.classList.remove('bg-white', 'text-gray-400', 'border-gray-200');
-                
-                // 2. アイコンをチェックマークに変更
-                btn.innerHTML = '<i data-lucide="check" class="w-5 h-5"></i>'; 
+            const iconBtn = btn.querySelector('.compare-icon');
+            const label = btn.querySelector('.compare-label');
+            const sub = btn.querySelector('.compare-sub');
 
+            if (ids.includes(id)) {
+                // --- 選択中: 青系カード ---
+                btn.classList.add('bg-blue-50', 'border-blue-200');
+                btn.classList.remove('bg-gray-50', 'border-gray-200');
+                if (iconBtn) {
+                    iconBtn.classList.add('border-blue-300', 'bg-blue-50', 'text-blue-600');
+                    iconBtn.classList.remove('border-gray-200', 'bg-white', 'text-gray-400');
+                    iconBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i>';
+                }
+                if (label) { label.textContent = '比較中'; label.classList.add('text-blue-700'); label.classList.remove('text-gray-900'); }
+                if (sub) { sub.textContent = 'タップで解除'; sub.classList.add('text-blue-500'); sub.classList.remove('text-gray-500'); }
             } else {
-                // --- 未選択の状態 ---
-                // 元のデザイン（白背景、グレー文字）に戻す
-                btn.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-200');
-                btn.classList.add('bg-white', 'text-gray-400', 'border-gray-200');
-                
-                // アイコンをレイヤー（重なり）に戻す
-                btn.innerHTML = '<i data-lucide="layers" class="w-5 h-5"></i>';
+                // --- 未選択: グレー系カード ---
+                btn.classList.remove('bg-blue-50', 'border-blue-200');
+                btn.classList.add('bg-gray-50', 'border-gray-200');
+                if (iconBtn) {
+                    iconBtn.classList.remove('border-blue-300', 'bg-blue-50', 'text-blue-600');
+                    iconBtn.classList.add('border-gray-200', 'bg-white', 'text-gray-400');
+                    iconBtn.innerHTML = '<i data-lucide="layers" class="w-4 h-4"></i>';
+                }
+                if (label) { label.textContent = '比較'; label.classList.remove('text-blue-700'); label.classList.add('text-gray-900'); }
+                if (sub) { sub.textContent = 'リストに追加'; sub.classList.remove('text-blue-500'); sub.classList.add('text-gray-500'); }
             }
         });
 

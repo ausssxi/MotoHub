@@ -241,11 +241,17 @@
                             
                             {{-- ★修正: イベントバブリングを阻害しないようJS直接呼び出しに変更 --}}
                             <div class="flex items-center gap-3">
-                                <button class="compare-btn w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors shadow-sm" data-id="{{ $listing->id }}">
-                                    <i data-lucide="layers" class="w-5 h-5"></i>
-                                </button>
-                                <div class="flex items-center sm:gap-3 bg-transparent sm:bg-gray-50 sm:pl-4 sm:pr-1.5 sm:py-1.5 rounded-full border-transparent sm:border-gray-200 border cursor-pointer hover:bg-red-50 hover:border-red-200 group transition-colors" onclick="if(window.WishlistManager) window.WishlistManager.toggle('{{ $listing->id }}')">
-                                    <div class="flex flex-col text-right hidden sm:flex pointer-events-none">
+                                <div class="compare-btn flex items-center gap-3 bg-gray-50 pl-4 pr-1.5 py-1.5 rounded-full border border-gray-200 cursor-pointer hover:bg-blue-50 hover:border-blue-200 group transition-colors" data-id="{{ $listing->id }}">
+                                    <div class="flex flex-col text-right pointer-events-none">
+                                        <span class="text-[10px] font-black text-gray-900 group-hover:text-blue-700 leading-none compare-label">比較</span>
+                                        <span class="text-[8px] font-bold text-gray-500 group-hover:text-blue-500 mt-0.5 compare-sub">リストに追加</span>
+                                    </div>
+                                    <button class="w-10 h-10 sm:w-9 sm:h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 bg-white shadow-sm transition-colors pointer-events-none compare-icon">
+                                        <i data-lucide="layers" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                                <div class="flex items-center gap-3 bg-gray-50 pl-4 pr-1.5 py-1.5 rounded-full border border-gray-200 cursor-pointer hover:bg-red-50 hover:border-red-200 group transition-colors" onclick="if(window.WishlistManager) window.WishlistManager.toggle('{{ $listing->id }}')">
+                                    <div class="flex flex-col text-right pointer-events-none">
                                         <span class="text-[10px] font-black text-gray-900 group-hover:text-red-700 leading-none">お気に入り</span>
                                         <span class="text-[8px] font-bold text-gray-500 group-hover:text-red-500 mt-0.5">LINEで値下げ通知</span>
                                     </div>
