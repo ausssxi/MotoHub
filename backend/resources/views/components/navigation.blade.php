@@ -13,24 +13,6 @@
                 </div>
             </div>
 
-            <!-- 中央: PC用検索窓 -->
-            @if($showSearch)
-            <div class="hidden md:flex flex-grow max-w-xl lg:max-w-2xl relative mx-4 lg:mx-8" id="nav-search-container">
-                <form action="{{ route('bikes.search') }}" method="GET" class="w-full" autocomplete="off" id="nav-search-form">
-                    <div class="relative w-full">
-                        <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
-                            <i data-lucide="search" class="w-4 h-4"></i>
-                        </div>
-                        <input type="text" name="keyword" id="nav-search-input" value="{{ $keyword }}" placeholder="車種を検索..." 
-                            class="w-full bg-gray-100 border-none rounded-full pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-black transition">
-                    </div>
-                </form>
-                <div id="nav-suggest-results" class="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden hidden z-[110] text-left">
-                    <div id="nav-suggest-list" class="py-2 max-h-[400px] overflow-y-auto"></div>
-                </div>
-            </div>
-            @endif
-
             <!-- 右側のアクションエリア -->
             <div class="flex items-center gap-1 sm:gap-2 md:gap-3 flex-shrink-0">
 
@@ -40,6 +22,37 @@
                     <i data-lucide="search" class="w-5 h-5 sm:w-6 sm:h-6"></i>
                 </button>
                 @endif
+
+                {{-- PC用検索アイコン --}}
+                <div class="hidden md:flex relative" x-data="{ searchOpen: false }">
+                    <button @click="searchOpen = !searchOpen"
+                        class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="検索">
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                        <span class="hidden xl:inline">検索</span>
+                    </button>
+
+                    {{-- 展開検索パネル --}}
+                    <div x-show="searchOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2"
+                         @click.outside="searchOpen = false"
+                         class="absolute right-0 top-full mt-3 w-[480px] bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-[60]"
+                         style="display: none;">
+                        @if($showSearch)
+                        <form action="{{ route('bikes.search') }}" method="GET" class="w-full" autocomplete="off" id="nav-search-form">
+                            <div class="relative w-full">
+                                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
+                                    <i data-lucide="search" class="w-4 h-4"></i>
+                                </div>
+                                <input type="text" name="keyword" id="nav-search-input" value="{{ $keyword }}" placeholder="車種を検索..."
+                                    class="w-full bg-gray-100 border-none rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-black transition"
+                                    x-ref="searchInput" @keydown.escape="searchOpen = false">
+                            </div>
+                        </form>
+                        <div id="nav-suggest-results" class="mt-2 bg-white rounded-xl overflow-hidden hidden text-left">
+                            <div id="nav-suggest-list" class="py-2 max-h-[400px] overflow-y-auto"></div>
+                        </div>
+                        @endif
+                    </div>
+                </div>
 
                 {{-- バイク診断 --}}
                 <a href="/shindan" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest group relative" title="あなたにぴったりの1台を診断">
@@ -63,6 +76,7 @@
                         class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="マップ">
                         <i data-lucide="map" class="w-4 h-4"></i>
                         <span class="hidden xl:inline">マップ</span>
+                        <i data-lucide="chevron-down" class="w-3 h-3 transition-transform duration-200" x-bind:class="{ 'rotate-180': open }"></i>
                     </button>
                     <div x-show="open" x-transition
                          class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
@@ -94,6 +108,7 @@
                         class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="相場">
                         <i data-lucide="trending-up" class="w-4 h-4"></i>
                         <span class="hidden xl:inline">相場</span>
+                        <i data-lucide="chevron-down" class="w-3 h-3 transition-transform duration-200" x-bind:class="{ 'rotate-180': open }"></i>
                     </button>
                     <div x-show="open" x-transition
                          class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
@@ -121,6 +136,7 @@
                         class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition uppercase tracking-widest" title="その他">
                         <i data-lucide="more-horizontal" class="w-4 h-4"></i>
                         <span class="hidden xl:inline">その他</span>
+                        <i data-lucide="chevron-down" class="w-3 h-3 transition-transform duration-200" x-bind:class="{ 'rotate-180': open }"></i>
                     </button>
                     <div x-show="open" x-transition
                          class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
