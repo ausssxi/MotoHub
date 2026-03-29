@@ -23,6 +23,28 @@
                 </p>
             </div>
 
+            {{-- こんな方におすすめ --}}
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-8">
+                <h2 class="text-sm font-black text-gray-900 mb-3">💡 こんな方におすすめ</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+                    <div class="p-4 bg-gray-50 rounded-xl">
+                        <span class="text-2xl block mb-2">📝</span>
+                        <p class="text-xs font-bold text-gray-700">バイクブログを書いている方</p>
+                        <p class="text-[10px] text-gray-500 mt-1">レビュー記事に相場情報を添えて説得力UP</p>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-xl">
+                        <span class="text-2xl block mb-2">🏍️</span>
+                        <p class="text-xs font-bold text-gray-700">バイクショップのサイト運営者</p>
+                        <p class="text-[10px] text-gray-500 mt-1">取扱車種の相場をお客様に提示</p>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-xl">
+                        <span class="text-2xl block mb-2">💰</span>
+                        <p class="text-xs font-bold text-gray-700">売却を検討中の方</p>
+                        <p class="text-[10px] text-gray-500 mt-1">SNSやブログで相場を共有</p>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
                 {{-- 左: 設定パネル --}}
@@ -99,10 +121,13 @@
                             <i data-lucide="eye" class="w-5 h-5 text-gray-400"></i>
                             プレビュー
                         </h2>
+                        <div id="widget-demo-label" class="text-[10px] text-amber-600 font-bold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 mb-3">
+                            📌 デモ表示中 — 車種を選ぶとあなたのウィジェットに切り替わります
+                        </div>
                         <div id="widget-preview" class="min-h-[200px] flex items-center justify-center">
                             <div class="text-center text-gray-400">
-                                <i data-lucide="mouse-pointer-click" class="w-8 h-8 mx-auto mb-2 text-gray-300"></i>
-                                <p class="text-sm font-bold">車種を選択すると<br>ここにプレビューが表示されます</p>
+                                <i data-lucide="loader-2" class="w-6 h-6 mx-auto mb-2 text-gray-300 animate-spin"></i>
+                                <p class="text-xs font-bold">デモを読み込み中...</p>
                             </div>
                         </div>
                     </div>
@@ -204,6 +229,9 @@
             searchInput.value = name;
             searchResults.classList.add('hidden');
             generateBtn.disabled = false;
+            // デモラベルを消す
+            var demoLabel = document.getElementById('widget-demo-label');
+            if (demoLabel) demoLabel.remove();
             // プレビュー自動更新
             generateCode();
         }
@@ -324,6 +352,20 @@
             if (!str) return '';
             return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         }
+
+        // デモプレビュー（CB400 Super Four）
+        document.addEventListener('DOMContentLoaded', function() {
+            var DEMO_MODEL_ID = 59;
+            var preview = document.getElementById('widget-preview');
+            fetch('/api/widget/price/' + DEMO_MODEL_ID)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    preview.innerHTML = renderPreview(data, 'light', true);
+                })
+                .catch(function() {
+                    preview.innerHTML = '<div style="text-align:center;padding:20px;color:#999;font-size:12px;">デモの読み込みに失敗しました</div>';
+                });
+        });
         </script>
     </x-slot:scripts>
 </x-layout>
