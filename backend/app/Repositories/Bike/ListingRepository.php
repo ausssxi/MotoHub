@@ -181,15 +181,15 @@ final class ListingRepository
             ->get();
     }
 
-    public function getListingDetail(int $id): Listing
+    public function getListingDetail(int $id): ?Listing
     {
         return Listing::with([
-            'shop', 
-            'bikeModel.manufacturer', 
+            'shop',
+            'bikeModel.manufacturer',
             'bikeModel.categoryData',
             'bikeModel.marketStats',
             'tags:id,name'
-        ])->findOrFail($id);
+        ])->find($id);
     }
 
     public function getSimilarListings(?int $manufacturerId, ?int $excludeModelId, int $limit = 8): Collection

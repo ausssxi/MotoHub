@@ -92,7 +92,7 @@
 <body class="bg-white text-gray-900 font-sans min-h-screen flex flex-col pb-[60px] md:pb-0" data-logged-in="{{ Auth::check() ? 'true' : 'false' }}">
 
     {{-- ナビゲーション（ヘッダー） --}}
-    {{ $navigation }}
+    {{ $navigation ?? '' }}
 
     {{-- メインコンテンツ --}}
     <main class="flex-grow">

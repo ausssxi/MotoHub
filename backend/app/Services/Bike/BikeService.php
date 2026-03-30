@@ -285,7 +285,7 @@ final class BikeService
         return $this->listingRepo->getSimilarListings($manufacturerId, $excludeModelId, $limit);
     }
 
-    public function getListingDetail(int $id): Listing
+    public function getListingDetail(int $id): ?Listing
     {
         return $this->listingRepo->getListingDetail($id);
     }

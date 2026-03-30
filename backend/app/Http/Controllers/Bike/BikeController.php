@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\Response;
 use App\Models\Listing;
 use App\Services\Bike\BikeService;
 use App\Services\Bike\ListingSearchService;
@@ -132,11 +133,24 @@ final class BikeController extends Controller
     /**
      * 車両詳細ページを表示
      */
-    public function show(int $id): View
+    public function show(int $id): View|Response
     {
-        $this->bikeService->incrementViewCount($id);
-
         $listing = $this->bikeService->getListingDetail($id);
+
+        // レコード不在 or 売約済み → 404
+        if (!$listing || $listing->is_sold_out) {
+            $searchUrl = $listing?->bikeModel
+                ? route('bikes.search', ['keyword' => $listing->bikeModel->name])
+                : route('bikes.index');
+
+            return response()->view('errors.404', [
+                'message'   => 'この車両は掲載終了しました',
+                'searchUrl' => $searchUrl,
+                'bikeName'  => $listing?->bikeModel?->name ?? $listing?->title ?? null,
+            ], 404);
+        }
+
+        $this->bikeService->incrementViewCount($id);
 
         $relatedRaw = $listing->bike_model_id 
             ? $this->bikeService->getRelatedListings($listing->bike_model_id, $listing->id, 8) 
