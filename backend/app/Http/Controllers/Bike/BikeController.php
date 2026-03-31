@@ -162,6 +162,23 @@ final class BikeController extends Controller
         $currentPrice = is_numeric($listing->total_price) ? (float)$listing->total_price : 0;
         $stats = $this->priceStatsService->getModelStats((int)$listing->bike_model_id, $currentPrice);
 
+        // パーセンタイル算出（distribution から計算、DB追加クエリなし）
+        $pricePercentile = null;
+        if ($currentPrice > 0 && !empty($stats['distribution']) && ($stats['count'] ?? 0) > 1) {
+            $cheaperCount = 0;
+            foreach ($stats['distribution'] as $bucket) {
+                if ($bucket['range_max'] <= $currentPrice) {
+                    $cheaperCount += $bucket['count'];
+                } elseif ($bucket['range_min'] < $currentPrice) {
+                    $range = $bucket['range_max'] - $bucket['range_min'];
+                    if ($range > 0) {
+                        $cheaperCount += (int) round($bucket['count'] * ($currentPrice - $bucket['range_min']) / $range);
+                    }
+                }
+            }
+            $pricePercentile = (int) round($cheaperCount / $stats['count'] * 100);
+        }
+
         // 値下げ額の計算ロジック（コントローラー側で処理してビューへ渡す）
         $priceDropDiff = null;
         if ($listing->relationLoaded('priceHistories') && $listing->priceHistories->isNotEmpty()) {
@@ -243,6 +260,7 @@ final class BikeController extends Controller
             'tags'            => $listing->tags,
             'reviews'         => $reviews,
             'priceDropDiff'   => $priceDropDiff,
+            'pricePercentile' => $pricePercentile,
             'nearbyParkings'  => $nearbyParkings,
             'nearbyShops'     => $nearbyShops,
             'crossLinks'      => $crossLinks,

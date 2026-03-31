@@ -384,6 +384,245 @@
                     </div>
                     @endif
 
+                    {{-- 年間維持費シミュレーション --}}
+                    @if($bikeModelForUrl && $bikeModelForUrl->displacement)
+                    @php
+                        $cc = (int) $bikeModelForUrl->displacement;
+                        if ($cc <= 50) {
+                            $tax = 2000; $jibaiseki = 4325; $shaken = 0; $insurance = 15000; $shakenLabel = 'なし';
+                        } elseif ($cc <= 90) {
+                            $tax = 2000; $jibaiseki = 4325; $shaken = 0; $insurance = 20000; $shakenLabel = 'なし';
+                        } elseif ($cc <= 125) {
+                            $tax = 2400; $jibaiseki = 4325; $shaken = 0; $insurance = 25000; $shakenLabel = 'なし';
+                        } elseif ($cc <= 250) {
+                            $tax = 3600; $jibaiseki = 6110; $shaken = 0; $insurance = 30000; $shakenLabel = 'なし';
+                        } else {
+                            $tax = 6000; $jibaiseki = 4635; $shaken = 20000; $insurance = 40000; $shakenLabel = '約' . number_format($shaken) . '円/年';
+                        }
+                        $maintenanceTotal = $tax + $jibaiseki + $shaken + $insurance;
+                        $costItems = [
+                            ['label' => '軽自動車税', 'amount' => $tax, 'icon' => 'receipt-japanese-yen'],
+                            ['label' => '自賠責保険', 'amount' => $jibaiseki, 'icon' => 'shield-check', 'note' => '2年契約÷2'],
+                            ['label' => '車検費用', 'amount' => $shaken, 'icon' => 'clipboard-check', 'note' => $cc > 250 ? '2年ごと÷2' : null, 'display' => $shakenLabel],
+                            ['label' => '任意保険(目安)', 'amount' => $insurance, 'icon' => 'umbrella'],
+                        ];
+                    @endphp
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+                                <i data-lucide="piggy-bank" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">年間維持費の目安</h3>
+                            <span class="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full ml-auto">{{ $cc }}cc</span>
+                        </div>
+
+                        <div class="space-y-3 mb-5">
+                            @foreach($costItems as $item)
+                            <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                                <span class="text-xs font-bold text-gray-500 flex items-center gap-1.5">
+                                    <i data-lucide="{{ $item['icon'] }}" class="w-3.5 h-3.5 text-gray-300"></i>
+                                    {{ $item['label'] }}
+                                    @if(!empty($item['note']))
+                                        <span class="text-[10px] text-gray-400">({{ $item['note'] }})</span>
+                                    @endif
+                                </span>
+                                <span class="text-sm font-black text-gray-800">
+                                    @if(isset($item['display']) && $item['amount'] === 0)
+                                        {{ $item['display'] }}
+                                    @else
+                                        {{ number_format($item['amount']) }}<span class="text-[10px] text-gray-500 ml-0.5">円</span>
+                                    @endif
+                                </span>
+                            </div>
+                            @endforeach
+                        </div>
+
+                        <div class="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 flex items-center justify-between">
+                            <span class="text-sm font-black text-emerald-800">年間合計（税込目安）</span>
+                            <span class="text-xl font-black text-emerald-700">
+                                約{{ number_format($maintenanceTotal) }}<span class="text-xs text-emerald-500 ml-0.5">円/年</span>
+                            </span>
+                        </div>
+
+                        <p class="text-[10px] text-gray-400 mt-3 leading-relaxed">
+                            ※概算です。任意保険は年齢・等級により異なります。駐車場代・ガソリン代・消耗品は含みません。
+                        </p>
+                    </div>
+                    @endif
+
+                    {{-- 装備ポイント解説 --}}
+                    @php
+                        $tagDescriptions = [
+                            'ETC' => ['icon' => '📡', 'title' => 'ETC搭載', 'desc' => '高速道路の料金所をノンストップで通過可能。ツーリング派には必須の装備です。'],
+                            'ABS' => ['icon' => '🛑', 'title' => 'ABS搭載', 'desc' => '急ブレーキ時のタイヤロックを防止。雨天時や緊急時の安全性が大幅に向上します。'],
+                            'カスタム車' => ['icon' => '🔧', 'title' => 'カスタム車', 'desc' => 'オーナーのこだわりが詰まったカスタム仕様。個性的な1台をお探しの方におすすめです。'],
+                            'ノーマル車' => ['icon' => '✨', 'title' => 'ノーマル車', 'desc' => 'メーカー純正状態を維持。信頼性が高く、リセールバリューも良好です。'],
+                            'FI(インジェクション)' => ['icon' => '⚙️', 'title' => 'インジェクション車', 'desc' => '電子制御燃料噴射で安定した始動性と燃費性能。冬場の始動もスムーズです。'],
+                            'USB電源' => ['icon' => '🔌', 'title' => 'USB電源装備', 'desc' => 'スマホやナビの充電が走行中に可能。ロングツーリングの必需品です。'],
+                            'エンジンガード' => ['icon' => '🛡️', 'title' => 'エンジンガード装着', 'desc' => '転倒時にエンジンやカウルを保護。立ちゴケが心配な方にも安心です。'],
+                            'ワンオーナー' => ['icon' => '👤', 'title' => 'ワンオーナー車', 'desc' => '新車から一人のオーナーが大切に乗ってきた車両。整備履歴が明確で状態の良い車両が多い傾向です。'],
+                            'グリップヒーター' => ['icon' => '🔥', 'title' => 'グリップヒーター装備', 'desc' => '冬場のライディングでも手がかじかまず快適。寒冷地や冬ツーリングに重宝します。'],
+                            'フェンダーレス' => ['icon' => '🏍️', 'title' => 'フェンダーレス化', 'desc' => 'リアフェンダーを取り外しスッキリとしたリア周りに。スポーティな外観が特徴です。'],
+                            'リアボックス' => ['icon' => '📦', 'title' => 'リアボックス装着', 'desc' => '荷物の収納力が大幅アップ。通勤・買い物からツーリングまで幅広く活躍します。'],
+                            '社外マフラー' => ['icon' => '🔧', 'title' => '社外マフラー装着', 'desc' => '排気効率の向上やサウンドの変化が期待できます。見た目のカスタム感もUP。'],
+                            'ドラレコ' => ['icon' => '📹', 'title' => 'ドライブレコーダー装着', 'desc' => '万が一の事故時に映像記録を残せます。あおり運転対策にも有効。'],
+                            'ヨシムラマフラー' => ['icon' => '🏁', 'title' => 'ヨシムラマフラー装着', 'desc' => 'レース界で定評のあるヨシムラ製マフラー。性能とサウンド、ブランド価値の高い人気パーツです。'],
+                            'ローダウン' => ['icon' => '⬇️', 'title' => 'ローダウン仕様', 'desc' => '足つき性を改善。身長が低めの方でも安心して乗れます。'],
+                            'クイックシフター' => ['icon' => '⚡', 'title' => 'クイックシフター装備', 'desc' => 'クラッチ操作なしでシフトアップ可能。スポーツ走行がよりスムーズになります。'],
+                            'モリワキマフラー' => ['icon' => '🏁', 'title' => 'モリワキマフラー装着', 'desc' => '老舗マフラーメーカー・モリワキ製。確かな品質と迫力のサウンドが魅力です。'],
+                            'スマホホルダー' => ['icon' => '📱', 'title' => 'スマホホルダー装備', 'desc' => 'ナビアプリを見ながら走行可能。初めての道でも安心です。'],
+                            'セル付き' => ['icon' => '🔑', 'title' => 'セル付き', 'desc' => 'ボタン一つでエンジン始動。キックスタートが苦手な方にも安心です。'],
+                            'パニアケース' => ['icon' => '🧳', 'title' => 'パニアケース装着', 'desc' => '左右に大容量の収納。長距離ツーリングやキャンプツーリングに最適です。'],
+                            '低走行' => ['icon' => '📏', 'title' => '低走行車', 'desc' => '走行距離が少なく、エンジンや駆動系の摩耗が少ない車両です。'],
+                            '美車' => ['icon' => '💎', 'title' => '美車', 'desc' => '外装の状態が非常に良好。傷や色あせが少なく、見た目を重視する方におすすめです。'],
+                            'ガレージ保管' => ['icon' => '🏠', 'title' => 'ガレージ保管車', 'desc' => '屋内保管で雨風や紫外線から守られてきた車両。外装やゴム類の劣化が少ない傾向です。'],
+                        ];
+
+                        $matchedTags = [];
+                        if ($tags && count($tags) > 0) {
+                            foreach ($tags as $tag) {
+                                $name = $tag->name ?? ($tag['name'] ?? '');
+                                if (isset($tagDescriptions[$name])) {
+                                    $matchedTags[] = array_merge($tagDescriptions[$name], ['tag' => $name]);
+                                }
+                            }
+                        }
+                    @endphp
+
+                    @if(count($matchedTags) > 0)
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-violet-50 rounded-lg text-violet-600">
+                                <i data-lucide="tags" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">この車両の装備ポイント</h3>
+                        </div>
+                        <div class="grid gap-3">
+                            @foreach($matchedTags as $mt)
+                            <div class="flex items-start gap-3 bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                                <span class="text-2xl leading-none mt-0.5">{{ $mt['icon'] }}</span>
+                                <div class="flex-1 min-w-0">
+                                    <a href="{{ route('bikes.search', ['tag' => $mt['tag']]) }}" class="text-sm font-black text-gray-800 hover:text-blue-600 transition mb-0.5 block">{{ $mt['title'] }}</a>
+                                    <p class="text-xs text-gray-500 leading-relaxed">{{ $mt['desc'] }}</p>
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- FAQ（よくある質問） --}}
+                    @php
+                        $faqItems = [];
+                        $faqBikeName = $listing->name;
+                        $faqCc = $bikeModelForUrl?->displacement ? (int) $bikeModelForUrl->displacement : null;
+
+                        // 排気量 & 免許区分
+                        if ($faqCc) {
+                            if ($faqCc <= 50) { $licenseType = '原付免許（または普通自動車免許）'; }
+                            elseif ($faqCc <= 125) { $licenseType = '小型限定普通二輪免許以上'; }
+                            elseif ($faqCc <= 400) { $licenseType = '普通二輪免許以上'; }
+                            else { $licenseType = '大型二輪免許'; }
+                            $faqItems[] = [
+                                'q' => "{$faqBikeName}の排気量は？",
+                                'a' => "{$faqCc}ccです。運転には{$licenseType}が必要です。",
+                            ];
+                        }
+
+                        // 燃費
+                        if (!empty($listing->specs['fuel_consumption'])) {
+                            $faqItems[] = [
+                                'q' => "{$faqBikeName}の燃費は？",
+                                'a' => "カタログ値で{$listing->specs['fuel_consumption']}km/Lです。実燃費は走行環境により異なります。",
+                            ];
+                        }
+
+                        // 維持費（維持費セクションと同じ計算を再利用）
+                        if ($faqCc) {
+                            if ($faqCc <= 50) { $faqMaint = 23325; }
+                            elseif ($faqCc <= 90) { $faqMaint = 26325; }
+                            elseif ($faqCc <= 125) { $faqMaint = 31725; }
+                            elseif ($faqCc <= 250) { $faqMaint = 39710; }
+                            else { $faqMaint = 70635; }
+                            $faqItems[] = [
+                                'q' => "{$faqBikeName}の維持費はいくら？",
+                                'a' => "年間約" . number_format($faqMaint) . "円が目安です（軽自動車税・自賠責保険・車検・任意保険含む）。駐車場代やガソリン代は別途かかります。",
+                            ];
+                        }
+
+                        // 初心者向けか
+                        if ($faqCc) {
+                            if ($faqCc <= 125) {
+                                $beginnerAnswer = "軽量・コンパクトで取り回しやすく、初心者にもおすすめの排気量帯です。車検も不要で維持費を抑えられます。";
+                            } elseif ($faqCc <= 250) {
+                                $beginnerAnswer = "車検不要で維持費が比較的安く、高速道路も走れるため初心者にもバランスの良い排気量帯です。";
+                            } elseif ($faqCc <= 400) {
+                                $beginnerAnswer = "普通二輪免許で乗れる最大排気量です。パワーに余裕があるため、ある程度の運転経験があると安心です。";
+                            } else {
+                                $beginnerAnswer = "大型二輪免許が必要です。車体が重くパワーもあるため、中型バイクで経験を積んでからのステップアップがおすすめです。";
+                            }
+                            $faqItems[] = [
+                                'q' => "{$faqBikeName}は初心者でも乗れる？",
+                                'a' => $beginnerAnswer,
+                            ];
+                        }
+
+                        // 相場
+                        if (isset($stats['avg']) && $stats['avg'] > 0 && ($stats['count'] ?? 0) > 1) {
+                            $faqItems[] = [
+                                'q' => "{$faqBikeName}の相場はいくら？",
+                                'a' => "現在の中古相場平均は{$stats['avg']}万円です（流通中{$stats['count']}台のデータより）。最安値は{$stats['min']}万円、最高値は{$stats['max']}万円です。",
+                            ];
+                        }
+                    @endphp
+
+                    @if(count($faqItems) > 0)
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-amber-50 rounded-lg text-amber-600">
+                                <i data-lucide="help-circle" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">{{ $faqBikeName }} のよくある質問</h3>
+                        </div>
+
+                        <div class="space-y-2" x-data="{ open: null }">
+                            @foreach($faqItems as $i => $faq)
+                            <div class="border border-gray-100 rounded-2xl overflow-hidden">
+                                <button
+                                    @click="open === {{ $i }} ? open = null : open = {{ $i }}"
+                                    class="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                                >
+                                    <span class="text-sm font-black text-gray-800 pr-4">{{ $faq['q'] }}</span>
+                                    <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200" :class="open === {{ $i }} && 'rotate-180'"></i>
+                                </button>
+                                <div x-show="open === {{ $i }}" x-cloak
+                                     x-transition:enter="transition ease-out duration-200"
+                                     x-transition:enter-start="opacity-0 -translate-y-1"
+                                     x-transition:enter-end="opacity-100 translate-y-0"
+                                     class="px-4 pb-4">
+                                    <p class="text-xs leading-relaxed text-gray-600">{{ $faq['a'] }}</p>
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    {{-- FAQ JSON-LD 構造化データ --}}
+                    <script type="application/ld+json">
+                        {!! json_encode([
+                            '@context' => 'https://schema.org',
+                            '@type' => 'FAQPage',
+                            'mainEntity' => array_map(fn($f) => [
+                                '@type' => 'Question',
+                                'name' => $f['q'],
+                                'acceptedAnswer' => [
+                                    '@type' => 'Answer',
+                                    'text' => $f['a'],
+                                ],
+                            ], $faqItems),
+                        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}
+                    </script>
+                    @endif
+
                     {{-- 関連ニュース --}}
                     @if(!empty($news))
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
@@ -747,6 +986,35 @@
                                 </div>
                                 @endif
                             </div>
+
+                            {{-- 相場分析テキスト --}}
+                            @if(isset($stats['avg']) && $stats['avg'] > 0 && is_numeric($listing->total_price) && ($stats['count'] ?? 0) > 1)
+                            @php
+                                $pMan = (float) $listing->total_price;
+                                $avg = $stats['avg'];
+                                $diffAbs = abs($stats['diff']);
+                                $diffPct = $avg > 0 ? (int) round($diffAbs / $avg * 100) : 0;
+                                $count = $stats['count'];
+                                $bikeName = $listing->name;
+                                $isCheaper = $stats['diff'] < 0;
+                            @endphp
+                            <div class="mb-4 rounded-2xl p-4 text-xs leading-relaxed font-bold {{ $isCheaper ? 'bg-blue-50 text-blue-800 border border-blue-100' : 'bg-gray-50 text-gray-700 border border-gray-200' }}">
+                                <div class="flex items-start gap-2">
+                                    <i data-lucide="{{ $isCheaper ? 'badge-check' : 'info' }}" class="w-4 h-4 mt-0.5 flex-shrink-0 {{ $isCheaper ? 'text-blue-500' : 'text-gray-400' }}"></i>
+                                    <p>
+                                        この{{ $bikeName }}は支払総額<strong>{{ $pMan }}万円</strong>で、同車種の相場平均<strong>{{ $avg }}万円</strong>より
+                                        @if($isCheaper)
+                                            約<strong>{{ $diffAbs }}万円（{{ $diffPct }}%）お得</strong>です。
+                                            @if($pricePercentile !== null && $pricePercentile <= 30)
+                                                現在流通中の{{ $count }}台中、価格の安さは<strong>上位{{ $pricePercentile > 0 ? $pricePercentile : 1 }}%</strong>に入ります。
+                                            @endif
+                                        @else
+                                            約<strong>{{ $diffAbs }}万円高め</strong>です。走行距離の少なさやコンディションを考慮すると妥当な価格帯です。
+                                        @endif
+                                    </p>
+                                </div>
+                            </div>
+                            @endif
 
                             <div class="mb-6">
                                 <div class="bg-gray-50 hover:bg-red-50 rounded-2xl p-4 border border-gray-200 hover:border-red-200 flex items-center justify-between group cursor-pointer transition-colors shadow-sm" onclick="if(window.WishlistManager) window.WishlistManager.toggle('{{ $listing->id }}')">
