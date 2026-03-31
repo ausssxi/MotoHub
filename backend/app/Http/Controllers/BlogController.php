@@ -20,12 +20,26 @@ class BlogController extends Controller
         return view('blog.index', compact('posts'));
     }
 
-    public function show(string $slug, MarkdownService $markdown, BlogRelatedPostService $relatedService)
+    public function show(string $slug, Request $request, MarkdownService $markdown, BlogRelatedPostService $relatedService)
     {
         $post = BlogPost::where('slug', $slug)
             ->published()
             ->with(['author', 'tags', 'series'])
             ->firstOrFail();
+
+        // PVカウント（セッションで30分間の重複除外）
+        $sessionKey = "blog_viewed_{$post->id}";
+        if (!$request->session()->has($sessionKey)) {
+            $post->increment('view_count');
+            $request->session()->put($sessionKey, true);
+            $request->session()->put("{$sessionKey}_at", now()->timestamp);
+        } else {
+            $viewedAt = $request->session()->get("{$sessionKey}_at", 0);
+            if (now()->timestamp - $viewedAt >= 1800) {
+                $post->increment('view_count');
+                $request->session()->put("{$sessionKey}_at", now()->timestamp);
+            }
+        }
 
         $html = $markdown->toHtml($post->body);
         $toc = $markdown->generateToc($post->body);

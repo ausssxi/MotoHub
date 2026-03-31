@@ -137,6 +137,7 @@
                     <span>{{ $post->author->name ?? 'MotoHub' }}</span>
                     <span>{{ $post->published_at->format('Y年m月d日') }}</span>
                     <span>{{ $post->reading_time_minutes }}分で読める</span>
+                    <span>👁 {{ number_format($post->view_count) }} views</span>
                 </div>
             </header>
 

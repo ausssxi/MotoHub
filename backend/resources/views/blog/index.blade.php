@@ -65,7 +65,10 @@
                         {{-- メタ情報 --}}
                         <div class="flex items-center justify-between text-xs text-gray-400">
                             <span>{{ $post->published_at->format('Y.m.d') }}</span>
-                            <span>{{ $post->reading_time_minutes }}分で読める</span>
+                            <div class="flex items-center gap-2">
+                                <span>👁 {{ number_format($post->view_count) }}</span>
+                                <span>{{ $post->reading_time_minutes }}分</span>
+                            </div>
                         </div>
                     </div>
                 </article>
