@@ -20,6 +20,7 @@ use App\Http\Requests\Bike\StoreReviewRequest;
 use App\Http\Requests\Bike\BikeSearchRequest;
 use App\Models\SeoFeature;
 use App\Services\Parts\PartsCodeExtractor;
+use App\Services\Bike\BikeNewsService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
@@ -222,6 +223,14 @@ final class BikeController extends Controller
             ? $this->fetchRelatedParts($listing->bikeModel)
             : [];
 
+        try {
+            $makerName = $listing->bikeModel?->manufacturer?->name ?? '';
+            $modelName = $listing->bikeModel?->name ?? $listing->title ?? '';
+            $news = (new BikeNewsService())->fetch("{$makerName} {$modelName} バイク", 3);
+        } catch (\Throwable) {
+            $news = [];
+        }
+
         return view('bikes.show', [
             'listing'         => $data,
             'bikeModelForUrl' => $listing->bikeModel,
@@ -241,6 +250,7 @@ final class BikeController extends Controller
             'shopLat'         => $shopLat,
             'shopLng'         => $shopLng,
             'relatedParts'    => $relatedParts,
+            'news'            => $news,
         ]);
     }
 
@@ -566,11 +576,17 @@ final class BikeController extends Controller
         // 楽天APIから関連パーツを取得（24時間キャッシュ）
         $relatedParts = $this->fetchRelatedParts($model);
 
+        try {
+            $news = (new BikeNewsService())->fetch("{$model->manufacturer->name} {$model->name} バイク", 5);
+        } catch (\Throwable) {
+            $news = [];
+        }
+
         return view('bikes.model_detail', compact(
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'relatedModels', 'similarDisplacementModels',
             'sameCategoryModels', 'activeCount', 'owners', 'similarModels', 'crossLinks',
-            'prefectureStocks', 'relatedParts'
+            'prefectureStocks', 'relatedParts', 'news'
         ));
     }
 

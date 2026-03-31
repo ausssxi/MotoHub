@@ -384,6 +384,40 @@
                     </div>
                     @endif
 
+                    {{-- 関連ニュース --}}
+                    @if(!empty($news))
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                                <i data-lucide="newspaper" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">この車種のニュース</h3>
+                        </div>
+                        <div class="space-y-3">
+                            @foreach($news as $article)
+                            <a href="{{ $article['url'] }}" target="_blank" rel="noopener noreferrer" class="flex items-start gap-3 p-2 -mx-2 rounded-xl hover:bg-gray-50 transition-colors">
+                                <div class="w-20 h-[60px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                    @if(!empty($article['image']))
+                                        <img src="{{ $article['image'] }}" alt="" class="w-full h-full object-cover" loading="lazy" onerror="this.parentNode.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-gray-300\'><svg xmlns=\'http://www.w3.org/2000/svg\' class=\'w-6 h-6\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'currentColor\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5\'/></svg></div>'">
+                                    @else
+                                        <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                            <i data-lucide="bike" class="w-6 h-6"></i>
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-bold text-gray-800 leading-snug mb-1 line-clamp-2">{{ $article['title'] }}</div>
+                                    <div class="flex items-center gap-2 text-[11px] text-gray-400">
+                                        @if($article['source'])<span class="font-bold">{{ $article['source'] }}</span>@endif
+                                        <span>{{ $article['date'] }}</span>
+                                    </div>
+                                </div>
+                            </a>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
                     {{-- 相場分析チャート --}}
                     @if($listing->model_year && is_numeric($listing->total_price))
                     <div id="price-stats-container"
