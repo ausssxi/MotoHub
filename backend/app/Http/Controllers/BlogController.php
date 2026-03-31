@@ -46,7 +46,11 @@ class BlogController extends Controller
             ];
         }
 
-        return view('blog.show', compact('post', 'html', 'toc', 'relatedPosts', 'seriesNav'));
+        // 前後の記事
+        $prevPost = BlogPost::where('status', 'published')->where('id', '<', $post->id)->orderByDesc('id')->first();
+        $nextPost = BlogPost::where('status', 'published')->where('id', '>', $post->id)->orderBy('id')->first();
+
+        return view('blog.show', compact('post', 'html', 'toc', 'relatedPosts', 'seriesNav', 'prevPost', 'nextPost'));
     }
 
     public function byTag(string $slug)

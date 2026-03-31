@@ -109,17 +109,20 @@ class BlogOgpController extends Controller
         $fontPath = storage_path('app/fonts/NotoSansJP-Bold.ttf');
         $hasFont = file_exists($fontPath);
 
-        // タイトル長に応じてフォントサイズ調整
+        // タイトル長に応じてフォントサイズ調整（1200×630に最適化）
         $titleLen = mb_strlen($title);
-        if ($titleLen <= 20) {
-            $fontSize = 48;
-            $charsPerLine = 18;
+        if ($titleLen <= 15) {
+            $fontSize = 72;
+            $charsPerLine = 14;
+        } elseif ($titleLen <= 25) {
+            $fontSize = 64;
+            $charsPerLine = 16;
         } elseif ($titleLen <= 40) {
-            $fontSize = 42;
-            $charsPerLine = 20;
+            $fontSize = 56;
+            $charsPerLine = 18;
         } else {
-            $fontSize = 36;
-            $charsPerLine = 22;
+            $fontSize = 48;
+            $charsPerLine = 20;
         }
 
         // 自動改行処理

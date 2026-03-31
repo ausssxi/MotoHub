@@ -233,6 +233,28 @@
             </div>
         </article>
 
+        {{-- 前の記事・次の記事 --}}
+        @if($prevPost || $nextPost)
+            <nav class="mt-10 pt-6 border-t border-gray-200 grid grid-cols-2 gap-4">
+                <div>
+                    @if($prevPost)
+                        <a href="{{ route('blog.show', $prevPost->slug) }}" class="group block">
+                            <span class="text-xs text-gray-400 group-hover:text-blue-500 transition">&larr; 前の記事</span>
+                            <span class="block text-sm font-bold text-gray-700 group-hover:text-blue-600 transition line-clamp-2 mt-1">{{ $prevPost->title }}</span>
+                        </a>
+                    @endif
+                </div>
+                <div class="text-right">
+                    @if($nextPost)
+                        <a href="{{ route('blog.show', $nextPost->slug) }}" class="group block">
+                            <span class="text-xs text-gray-400 group-hover:text-blue-500 transition">次の記事 &rarr;</span>
+                            <span class="block text-sm font-bold text-gray-700 group-hover:text-blue-600 transition line-clamp-2 mt-1">{{ $nextPost->title }}</span>
+                        </a>
+                    @endif
+                </div>
+            </nav>
+        @endif
+
         {{-- 関連記事 --}}
         @if($relatedPosts->isNotEmpty())
             <section class="mt-12 pt-8 border-t">
