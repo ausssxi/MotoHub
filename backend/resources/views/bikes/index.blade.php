@@ -141,14 +141,14 @@
                 <span class="text-[10px] font-bold text-gray-400 block">掲載</span>
                 <span class="text-sm font-black text-gray-900 tabular-nums">{{ number_format($totalListings) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
             </div>
-            <div class="px-2">
+            <a href="{{ route('bikes.search', ['sort' => 'price_down']) }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors">
                 <span class="text-[10px] font-bold text-gray-400 block">本日値下げ</span>
                 <span class="text-sm font-black text-red-600 tabular-nums">{{ number_format($priceDropCount) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
-            </div>
-            <div class="px-2">
+            </a>
+            <a href="{{ route('bikes.search', ['sort' => 'newest']) }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors">
                 <span class="text-[10px] font-bold text-gray-400 block">新着</span>
                 <span class="text-sm font-black text-green-600 tabular-nums">{{ number_format($newListingsCount) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
-            </div>
+            </a>
         </div>
     </div>
 
@@ -172,6 +172,67 @@
         </div>
     </div>
 
+
+    {{-- ======================= --}}
+    {{-- 🔍 探す セクション      --}}
+    {{-- ======================= --}}
+
+
+    {{-- お得な車両カルーセル（人気車種）--}}
+    <div id="section-search" class="bg-gray-50 py-10 sm:py-16">
+        <div class="max-w-7xl mx-auto px-4">
+            {{-- 🔍探す: 人気車種 --}}
+            <section class="mb-20">
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            人気車種
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Popular Models</p>
+                    </div>
+                    <a href="{{ route('bikes.models') }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 group">
+                        すべて見る <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+                    </a>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    @foreach($popularBikes as $bike)
+                        <a href="{{ $bike->seo_url }}"
+                           class="group flex items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-300">
+
+                            <div class="w-14 h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 border border-gray-50 relative">
+                                @if($bike->image_url)
+                                    <img src="{{ $bike->image_url }}" alt="{{ $bike->name }}"
+                                         class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
+                                         loading="lazy" decoding="async"
+                                         onerror="handleImageError(this)">
+                                @else
+                                    <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                        <i data-lucide="bike" class="w-6 h-6"></i>
+                                    </div>
+                                @endif
+                            </div>
+
+                            <div class="ml-3 flex-1 min-w-0">
+                                <p class="text-[9px] font-bold text-gray-400 mb-0.5">{{ $bike->manufacturer?->name }}</p>
+                                <h3 class="text-sm font-black text-gray-800 leading-tight truncate group-hover:text-blue-600 transition-colors">
+                                    {{ $bike->name }}
+                                </h3>
+                                <div class="mt-1">
+                                    <span class="inline-flex items-center text-[9px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
+                                        {{ number_format($bike->listings_count) }}台
+                                    </span>
+                                </div>
+                            </div>
+
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-blue-400 group-hover:translate-x-1 transition-all"></i>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+        </div>
+    </div>
+
     {{-- 最近見た車両（パーソナルコンテンツ / タブセクションの上に常時表示） --}}
     <section id="top-history-section" class="bg-gray-50 hidden">
         <div class="max-w-7xl mx-auto px-4 pt-10 sm:pt-16 pb-6">
@@ -189,12 +250,8 @@
         </div>
     </section>
 
-    {{-- ======================= --}}
-    {{-- 🔍 探す セクション      --}}
-    {{-- ======================= --}}
-
     {{-- トレンドタグ & メーカーリンク --}}
-    <div id="section-search" class="bg-gray-50 border-b border-gray-100 py-6">
+    <div class="bg-gray-50 border-b border-gray-100 py-6">
         <div class="max-w-7xl mx-auto px-4 space-y-4">
             {{-- トレンドタグ --}}
             <div class="flex flex-wrap justify-center items-center gap-2">
@@ -286,56 +343,6 @@
                                     {{ $license['label'] }}
                                 </span>
                             </div>
-                        </a>
-                    @endforeach
-                </div>
-            </section>
-
-            {{-- 🔍探す: 人気車種 --}}
-            <section class="mb-20">
-                <div class="flex items-end justify-between mb-8 px-2">
-                    <div>
-                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
-                            人気車種
-                        </h2>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Popular Models</p>
-                    </div>
-                    <a href="{{ route('bikes.models') }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 group">
-                        すべて見る <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    @foreach($popularBikes as $bike)
-                        <a href="{{ $bike->seo_url }}"
-                           class="group flex items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-300">
-
-                            <div class="w-14 h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 border border-gray-50 relative">
-                                @if($bike->image_url)
-                                    <img src="{{ $bike->image_url }}" alt="{{ $bike->name }}"
-                                         class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
-                                         loading="lazy" decoding="async"
-                                         onerror="handleImageError(this)">
-                                @else
-                                    <div class="w-full h-full flex items-center justify-center text-gray-300">
-                                        <i data-lucide="bike" class="w-6 h-6"></i>
-                                    </div>
-                                @endif
-                            </div>
-
-                            <div class="ml-3 flex-1 min-w-0">
-                                <p class="text-[9px] font-bold text-gray-400 mb-0.5">{{ $bike->manufacturer?->name }}</p>
-                                <h3 class="text-sm font-black text-gray-800 leading-tight truncate group-hover:text-blue-600 transition-colors">
-                                    {{ $bike->name }}
-                                </h3>
-                                <div class="mt-1">
-                                    <span class="inline-flex items-center text-[9px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
-                                        {{ number_format($bike->listings_count) }}台
-                                    </span>
-                                </div>
-                            </div>
-
-                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-blue-400 group-hover:translate-x-1 transition-all"></i>
                         </a>
                     @endforeach
                 </div>
