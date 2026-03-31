@@ -75,6 +75,10 @@ return [
         'affiliate_id' => env('RAKUTEN_AFFILIATE_ID'),
     ],
 
+    'youtube' => [
+        'api_key' => env('YOUTUBE_API_KEY'),
+    ],
+
     'yahoo_shopping' => [
         'client_id' => env('YAHOO_CLIENT_ID'),
         'valuecommerce_sid' => env('VALUECOMMERCE_SID'),

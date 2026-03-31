@@ -203,6 +203,7 @@
                         ['id' => 'reviews', 'label' => 'レビュー' . (isset($reviewStats) && $reviewStats->count > 0 ? '★' . $reviewStats->avg_rating : '')],
                         ['id' => 'faq', 'label' => 'FAQ'],
                         ['id' => 'news', 'label' => 'ニュース'],
+                        ['id' => 'videos', 'label' => '動画'],
                     ];
                 @endphp
                 @foreach($sections as $sec)
@@ -343,6 +344,56 @@
                             </a>
                             @endforeach
                         </div>
+                    </div>
+                    @endif
+
+                    {{-- YouTube動画 --}}
+                    @if(!empty($videos))
+                    <div id="videos" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-red-50 rounded-lg text-red-600">
+                                <i data-lucide="play-circle" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">{{ $model->name }} の動画</h3>
+                        </div>
+
+                        {{-- 1件目: iframe埋め込み --}}
+                        <div class="relative w-full rounded-2xl overflow-hidden mb-4" style="padding-bottom:56.25%">
+                            <iframe
+                                src="https://www.youtube.com/embed/{{ $videos[0]['video_id'] }}"
+                                title="{{ $videos[0]['title'] }}"
+                                class="absolute inset-0 w-full h-full"
+                                frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen
+                                loading="lazy"
+                            ></iframe>
+                        </div>
+                        <p class="text-xs font-bold text-gray-700 mb-1 line-clamp-2">{{ $videos[0]['title'] }}</p>
+                        <p class="text-[11px] text-gray-400 mb-4">{{ $videos[0]['channel'] }}</p>
+
+                        {{-- 2件目以降: サムネカード --}}
+                        @if(count($videos) > 1)
+                        <div class="space-y-3">
+                            @foreach(array_slice($videos, 1) as $video)
+                            <a href="https://www.youtube.com/watch?v={{ $video['video_id'] }}" target="_blank" rel="noopener noreferrer" class="flex items-start gap-3 p-2 -mx-2 rounded-xl hover:bg-gray-50 transition-colors">
+                                <div class="w-28 h-[64px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 relative">
+                                    <img src="{{ $video['thumbnail'] }}" alt="" class="w-full h-full object-cover" loading="lazy">
+                                    <div class="absolute inset-0 flex items-center justify-center">
+                                        <div class="bg-black/60 rounded-full p-1"><i data-lucide="play" class="w-3.5 h-3.5 text-white fill-white"></i></div>
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-bold text-gray-800 leading-snug mb-1 line-clamp-2">{{ $video['title'] }}</div>
+                                    <div class="flex items-center gap-2 text-[11px] text-gray-400">
+                                        <span class="font-bold">{{ $video['channel'] }}</span>
+                                        @if($video['date'])<span>{{ $video['date'] }}</span>@endif
+                                    </div>
+                                </div>
+                            </a>
+                            @endforeach
+                        </div>
+                        @endif
                     </div>
                     @endif
 

@@ -384,6 +384,117 @@
                     </div>
                     @endif
 
+                    {{-- 装備ポイント解説 --}}
+                    @php
+                        $tagDescriptions = [
+                            'ETC' => ['icon' => '📡', 'title' => 'ETC搭載', 'desc' => '高速道路の料金所をノンストップで通過可能。ツーリング派には必須の装備です。'],
+                            'ABS' => ['icon' => '🛑', 'title' => 'ABS搭載', 'desc' => '急ブレーキ時のタイヤロックを防止。雨天時や緊急時の安全性が大幅に向上します。'],
+                            'カスタム車' => ['icon' => '🔧', 'title' => 'カスタム車', 'desc' => 'オーナーのこだわりが詰まったカスタム仕様。個性的な1台をお探しの方におすすめです。'],
+                            'ノーマル車' => ['icon' => '✨', 'title' => 'ノーマル車', 'desc' => 'メーカー純正状態を維持。信頼性が高く、リセールバリューも良好です。'],
+                            'FI(インジェクション)' => ['icon' => '⚙️', 'title' => 'インジェクション車', 'desc' => '電子制御燃料噴射で安定した始動性と燃費性能。冬場の始動もスムーズです。'],
+                            'USB電源' => ['icon' => '🔌', 'title' => 'USB電源装備', 'desc' => 'スマホやナビの充電が走行中に可能。ロングツーリングの必需品です。'],
+                            'エンジンガード' => ['icon' => '🛡️', 'title' => 'エンジンガード装着', 'desc' => '転倒時にエンジンやカウルを保護。立ちゴケが心配な方にも安心です。'],
+                            'ワンオーナー' => ['icon' => '👤', 'title' => 'ワンオーナー車', 'desc' => '新車から一人のオーナーが大切に乗ってきた車両。整備履歴が明確で状態の良い車両が多い傾向です。'],
+                            'グリップヒーター' => ['icon' => '🔥', 'title' => 'グリップヒーター装備', 'desc' => '冬場のライディングでも手がかじかまず快適。寒冷地や冬ツーリングに重宝します。'],
+                            'フェンダーレス' => ['icon' => '🏍️', 'title' => 'フェンダーレス化', 'desc' => 'リアフェンダーを取り外しスッキリとしたリア周りに。スポーティな外観が特徴です。'],
+                            'リアボックス' => ['icon' => '📦', 'title' => 'リアボックス装着', 'desc' => '荷物の収納力が大幅アップ。通勤・買い物からツーリングまで幅広く活躍します。'],
+                            '社外マフラー' => ['icon' => '🔧', 'title' => '社外マフラー装着', 'desc' => '排気効率の向上やサウンドの変化が期待できます。見た目のカスタム感もUP。'],
+                            'ドラレコ' => ['icon' => '📹', 'title' => 'ドライブレコーダー装着', 'desc' => '万が一の事故時に映像記録を残せます。あおり運転対策にも有効。'],
+                            'ヨシムラマフラー' => ['icon' => '🏁', 'title' => 'ヨシムラマフラー装着', 'desc' => 'レース界で定評のあるヨシムラ製マフラー。性能とサウンド、ブランド価値の高い人気パーツです。'],
+                            'ローダウン' => ['icon' => '⬇️', 'title' => 'ローダウン仕様', 'desc' => '足つき性を改善。身長が低めの方でも安心して乗れます。'],
+                            'クイックシフター' => ['icon' => '⚡', 'title' => 'クイックシフター装備', 'desc' => 'クラッチ操作なしでシフトアップ可能。スポーツ走行がよりスムーズになります。'],
+                            'モリワキマフラー' => ['icon' => '🏁', 'title' => 'モリワキマフラー装着', 'desc' => '老舗マフラーメーカー・モリワキ製。確かな品質と迫力のサウンドが魅力です。'],
+                            'スマホホルダー' => ['icon' => '📱', 'title' => 'スマホホルダー装備', 'desc' => 'ナビアプリを見ながら走行可能。初めての道でも安心です。'],
+                            'セル付き' => ['icon' => '🔑', 'title' => 'セル付き', 'desc' => 'ボタン一つでエンジン始動。キックスタートが苦手な方にも安心です。'],
+                            'パニアケース' => ['icon' => '🧳', 'title' => 'パニアケース装着', 'desc' => '左右に大容量の収納。長距離ツーリングやキャンプツーリングに最適です。'],
+                            '低走行' => ['icon' => '📏', 'title' => '低走行車', 'desc' => '走行距離が少なく、エンジンや駆動系の摩耗が少ない車両です。'],
+                            '美車' => ['icon' => '💎', 'title' => '美車', 'desc' => '外装の状態が非常に良好。傷や色あせが少なく、見た目を重視する方におすすめです。'],
+                            'ガレージ保管' => ['icon' => '🏠', 'title' => 'ガレージ保管車', 'desc' => '屋内保管で雨風や紫外線から守られてきた車両。外装やゴム類の劣化が少ない傾向です。'],
+                        ];
+
+                        $matchedTags = [];
+                        if ($tags && count($tags) > 0) {
+                            foreach ($tags as $tag) {
+                                $name = $tag->name ?? ($tag['name'] ?? '');
+                                if (isset($tagDescriptions[$name])) {
+                                    $matchedTags[] = array_merge($tagDescriptions[$name], ['tag' => $name]);
+                                }
+                            }
+                        }
+                    @endphp
+
+                    @if(count($matchedTags) > 0)
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-violet-50 rounded-lg text-violet-600">
+                                <i data-lucide="tags" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">この車両の装備ポイント</h3>
+                        </div>
+                        <div class="grid gap-3">
+                            @foreach($matchedTags as $mt)
+                            <div class="flex items-start gap-3 bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                                <span class="text-2xl leading-none mt-0.5">{{ $mt['icon'] }}</span>
+                                <div class="flex-1 min-w-0">
+                                    <a href="{{ route('bikes.search', ['tag' => $mt['tag']]) }}" class="text-sm font-black text-gray-800 hover:text-blue-600 transition mb-0.5 block">{{ $mt['title'] }}</a>
+                                    <p class="text-xs text-gray-500 leading-relaxed">{{ $mt['desc'] }}</p>
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- YouTube動画 --}}
+                    @if(!empty($videos))
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-red-50 rounded-lg text-red-600">
+                                <i data-lucide="play-circle" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">この車種の動画</h3>
+                        </div>
+
+                        {{-- 1件目: iframe埋め込み --}}
+                        <div class="relative w-full rounded-2xl overflow-hidden mb-4" style="padding-bottom:56.25%">
+                            <iframe
+                                src="https://www.youtube.com/embed/{{ $videos[0]['video_id'] }}"
+                                title="{{ $videos[0]['title'] }}"
+                                class="absolute inset-0 w-full h-full"
+                                frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen
+                                loading="lazy"
+                            ></iframe>
+                        </div>
+                        <p class="text-xs font-bold text-gray-700 mb-1 line-clamp-2">{{ $videos[0]['title'] }}</p>
+                        <p class="text-[11px] text-gray-400 mb-4">{{ $videos[0]['channel'] }}</p>
+
+                        {{-- 2件目以降: サムネカード --}}
+                        @if(count($videos) > 1)
+                        <div class="space-y-3">
+                            @foreach(array_slice($videos, 1) as $video)
+                            <a href="https://www.youtube.com/watch?v={{ $video['video_id'] }}" target="_blank" rel="noopener noreferrer" class="flex items-start gap-3 p-2 -mx-2 rounded-xl hover:bg-gray-50 transition-colors">
+                                <div class="w-28 h-[64px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 relative">
+                                    <img src="{{ $video['thumbnail'] }}" alt="" class="w-full h-full object-cover" loading="lazy">
+                                    <div class="absolute inset-0 flex items-center justify-center">
+                                        <div class="bg-black/60 rounded-full p-1"><i data-lucide="play" class="w-3.5 h-3.5 text-white fill-white"></i></div>
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-bold text-gray-800 leading-snug mb-1 line-clamp-2">{{ $video['title'] }}</div>
+                                    <div class="flex items-center gap-2 text-[11px] text-gray-400">
+                                        <span class="font-bold">{{ $video['channel'] }}</span>
+                                        @if($video['date'])<span>{{ $video['date'] }}</span>@endif
+                                    </div>
+                                </div>
+                            </a>
+                            @endforeach
+                        </div>
+                        @endif
+                    </div>
+                    @endif
+
                     {{-- 年間維持費シミュレーション --}}
                     @if($bikeModelForUrl && $bikeModelForUrl->displacement)
                     @php
@@ -450,64 +561,57 @@
                     </div>
                     @endif
 
-                    {{-- 装備ポイント解説 --}}
-                    @php
-                        $tagDescriptions = [
-                            'ETC' => ['icon' => '📡', 'title' => 'ETC搭載', 'desc' => '高速道路の料金所をノンストップで通過可能。ツーリング派には必須の装備です。'],
-                            'ABS' => ['icon' => '🛑', 'title' => 'ABS搭載', 'desc' => '急ブレーキ時のタイヤロックを防止。雨天時や緊急時の安全性が大幅に向上します。'],
-                            'カスタム車' => ['icon' => '🔧', 'title' => 'カスタム車', 'desc' => 'オーナーのこだわりが詰まったカスタム仕様。個性的な1台をお探しの方におすすめです。'],
-                            'ノーマル車' => ['icon' => '✨', 'title' => 'ノーマル車', 'desc' => 'メーカー純正状態を維持。信頼性が高く、リセールバリューも良好です。'],
-                            'FI(インジェクション)' => ['icon' => '⚙️', 'title' => 'インジェクション車', 'desc' => '電子制御燃料噴射で安定した始動性と燃費性能。冬場の始動もスムーズです。'],
-                            'USB電源' => ['icon' => '🔌', 'title' => 'USB電源装備', 'desc' => 'スマホやナビの充電が走行中に可能。ロングツーリングの必需品です。'],
-                            'エンジンガード' => ['icon' => '🛡️', 'title' => 'エンジンガード装着', 'desc' => '転倒時にエンジンやカウルを保護。立ちゴケが心配な方にも安心です。'],
-                            'ワンオーナー' => ['icon' => '👤', 'title' => 'ワンオーナー車', 'desc' => '新車から一人のオーナーが大切に乗ってきた車両。整備履歴が明確で状態の良い車両が多い傾向です。'],
-                            'グリップヒーター' => ['icon' => '🔥', 'title' => 'グリップヒーター装備', 'desc' => '冬場のライディングでも手がかじかまず快適。寒冷地や冬ツーリングに重宝します。'],
-                            'フェンダーレス' => ['icon' => '🏍️', 'title' => 'フェンダーレス化', 'desc' => 'リアフェンダーを取り外しスッキリとしたリア周りに。スポーティな外観が特徴です。'],
-                            'リアボックス' => ['icon' => '📦', 'title' => 'リアボックス装着', 'desc' => '荷物の収納力が大幅アップ。通勤・買い物からツーリングまで幅広く活躍します。'],
-                            '社外マフラー' => ['icon' => '🔧', 'title' => '社外マフラー装着', 'desc' => '排気効率の向上やサウンドの変化が期待できます。見た目のカスタム感もUP。'],
-                            'ドラレコ' => ['icon' => '📹', 'title' => 'ドライブレコーダー装着', 'desc' => '万が一の事故時に映像記録を残せます。あおり運転対策にも有効。'],
-                            'ヨシムラマフラー' => ['icon' => '🏁', 'title' => 'ヨシムラマフラー装着', 'desc' => 'レース界で定評のあるヨシムラ製マフラー。性能とサウンド、ブランド価値の高い人気パーツです。'],
-                            'ローダウン' => ['icon' => '⬇️', 'title' => 'ローダウン仕様', 'desc' => '足つき性を改善。身長が低めの方でも安心して乗れます。'],
-                            'クイックシフター' => ['icon' => '⚡', 'title' => 'クイックシフター装備', 'desc' => 'クラッチ操作なしでシフトアップ可能。スポーツ走行がよりスムーズになります。'],
-                            'モリワキマフラー' => ['icon' => '🏁', 'title' => 'モリワキマフラー装着', 'desc' => '老舗マフラーメーカー・モリワキ製。確かな品質と迫力のサウンドが魅力です。'],
-                            'スマホホルダー' => ['icon' => '📱', 'title' => 'スマホホルダー装備', 'desc' => 'ナビアプリを見ながら走行可能。初めての道でも安心です。'],
-                            'セル付き' => ['icon' => '🔑', 'title' => 'セル付き', 'desc' => 'ボタン一つでエンジン始動。キックスタートが苦手な方にも安心です。'],
-                            'パニアケース' => ['icon' => '🧳', 'title' => 'パニアケース装着', 'desc' => '左右に大容量の収納。長距離ツーリングやキャンプツーリングに最適です。'],
-                            '低走行' => ['icon' => '📏', 'title' => '低走行車', 'desc' => '走行距離が少なく、エンジンや駆動系の摩耗が少ない車両です。'],
-                            '美車' => ['icon' => '💎', 'title' => '美車', 'desc' => '外装の状態が非常に良好。傷や色あせが少なく、見た目を重視する方におすすめです。'],
-                            'ガレージ保管' => ['icon' => '🏠', 'title' => 'ガレージ保管車', 'desc' => '屋内保管で雨風や紫外線から守られてきた車両。外装やゴム類の劣化が少ない傾向です。'],
-                        ];
+                    {{-- 相場分析チャート --}}
+                    @if($listing->model_year && is_numeric($listing->total_price))
+                    <div id="price-stats-container"
+                         data-model-id="{{ $listing->bike_model_id ?? '' }}"
+                         data-total-price="{{ $listing->total_price ?? 0 }}"
+                         class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 overflow-hidden">
 
-                        $matchedTags = [];
-                        if ($tags && count($tags) > 0) {
-                            foreach ($tags as $tag) {
-                                $name = $tag->name ?? ($tag['name'] ?? '');
-                                if (isset($tagDescriptions[$name])) {
-                                    $matchedTags[] = array_merge($tagDescriptions[$name], ['tag' => $name]);
-                                }
-                            }
-                        }
-                    @endphp
-
-                    @if(count($matchedTags) > 0)
-                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
                         <div class="flex items-center gap-2 mb-6">
-                            <div class="p-2 bg-violet-50 rounded-lg text-violet-600">
-                                <i data-lucide="tags" class="w-5 h-5"></i>
+                            <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
+                                <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
                             </div>
-                            <h3 class="text-lg font-black text-gray-900">この車両の装備ポイント</h3>
+                            <h3 class="text-lg font-black text-gray-900">市場価格分析</h3>
                         </div>
-                        <div class="grid gap-3">
-                            @foreach($matchedTags as $mt)
-                            <div class="flex items-start gap-3 bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                                <span class="text-2xl leading-none mt-0.5">{{ $mt['icon'] }}</span>
-                                <div class="flex-1 min-w-0">
-                                    <a href="{{ route('bikes.search', ['tag' => $mt['tag']]) }}" class="text-sm font-black text-gray-800 hover:text-blue-600 transition mb-0.5 block">{{ $mt['title'] }}</a>
-                                    <p class="text-xs text-gray-500 leading-relaxed">{{ $mt['desc'] }}</p>
+
+                        @if(isset($stats) && ($stats['count'] ?? 0) > 0)
+                        {{-- サーバーサイドで直接レンダリング（JSの読み込み連鎖に依存しない） --}}
+                        <div id="price-stats-content">
+                            <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-8">
+                                <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
+                                    <div class="text-[10px] font-bold text-gray-400 mb-1">相場平均</div>
+                                    <div class="text-base sm:text-xl font-black text-gray-800">{{ $stats['avg'] }}<span class="text-xs ml-0.5">万円</span></div>
+                                </div>
+                                <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
+                                    <div class="text-[10px] font-bold text-gray-400 mb-1">最安値</div>
+                                    <div class="text-base sm:text-xl font-black text-blue-600">{{ $stats['min'] }}<span class="text-xs ml-0.5">万円</span></div>
+                                </div>
+                                <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
+                                    <div class="text-[10px] font-bold text-gray-400 mb-1">最高値</div>
+                                    <div class="text-base sm:text-xl font-black text-red-500">{{ $stats['max'] }}<span class="text-xs ml-0.5">万円</span></div>
                                 </div>
                             </div>
-                            @endforeach
+
+                            {{-- ヒストグラムはChart.js遅延読込後に描画 --}}
+                            <div class="relative h-64 w-full">
+                                <canvas id="priceChart"></canvas>
+                            </div>
+
+                            <p class="text-[10px] text-gray-400 mt-4 text-right">※MotoHubに掲載中の「{{ $listing->name }}」全車両のデータから算出</p>
+                            @if($listing->bike_model_id)
+                            <div class="mt-8 pt-6 border-t border-gray-100 text-center">
+                                <a href="{{ $bikeModelForUrl?->seo_url ?? '#' }}" class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-700 font-bold rounded-xl transition shadow-sm border border-blue-100 group">
+                                    <i data-lucide="coins" class="w-4 h-4 text-yellow-500"></i>
+                                    <span>この車種の買取相場・リセール情報を見る</span>
+                                    <i data-lucide="chevron-right" class="w-4 h-4 text-blue-400 group-hover:translate-x-1 transition-transform"></i>
+                                </a>
+                            </div>
+                            @endif
                         </div>
+                        @else
+                        <p class="text-xs text-gray-400 font-bold text-center py-6">この車種の価格データが不足しています</p>
+                        @endif
                     </div>
                     @endif
 
@@ -654,60 +758,6 @@
                             </a>
                             @endforeach
                         </div>
-                    </div>
-                    @endif
-
-                    {{-- 相場分析チャート --}}
-                    @if($listing->model_year && is_numeric($listing->total_price))
-                    <div id="price-stats-container"
-                         data-model-id="{{ $listing->bike_model_id ?? '' }}"
-                         data-total-price="{{ $listing->total_price ?? 0 }}"
-                         class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 overflow-hidden">
-
-                        <div class="flex items-center gap-2 mb-6">
-                            <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
-                                <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
-                            </div>
-                            <h3 class="text-lg font-black text-gray-900">市場価格分析</h3>
-                        </div>
-
-                        @if(isset($stats) && ($stats['count'] ?? 0) > 0)
-                        {{-- サーバーサイドで直接レンダリング（JSの読み込み連鎖に依存しない） --}}
-                        <div id="price-stats-content">
-                            <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-8">
-                                <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
-                                    <div class="text-[10px] font-bold text-gray-400 mb-1">相場平均</div>
-                                    <div class="text-base sm:text-xl font-black text-gray-800">{{ $stats['avg'] }}<span class="text-xs ml-0.5">万円</span></div>
-                                </div>
-                                <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
-                                    <div class="text-[10px] font-bold text-gray-400 mb-1">最安値</div>
-                                    <div class="text-base sm:text-xl font-black text-blue-600">{{ $stats['min'] }}<span class="text-xs ml-0.5">万円</span></div>
-                                </div>
-                                <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
-                                    <div class="text-[10px] font-bold text-gray-400 mb-1">最高値</div>
-                                    <div class="text-base sm:text-xl font-black text-red-500">{{ $stats['max'] }}<span class="text-xs ml-0.5">万円</span></div>
-                                </div>
-                            </div>
-
-                            {{-- ヒストグラムはChart.js遅延読込後に描画 --}}
-                            <div class="relative h-64 w-full">
-                                <canvas id="priceChart"></canvas>
-                            </div>
-
-                            <p class="text-[10px] text-gray-400 mt-4 text-right">※MotoHubに掲載中の「{{ $listing->name }}」全車両のデータから算出</p>
-                            @if($listing->bike_model_id)
-                            <div class="mt-8 pt-6 border-t border-gray-100 text-center">
-                                <a href="{{ $bikeModelForUrl?->seo_url ?? '#' }}" class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-700 font-bold rounded-xl transition shadow-sm border border-blue-100 group">
-                                    <i data-lucide="coins" class="w-4 h-4 text-yellow-500"></i>
-                                    <span>この車種の買取相場・リセール情報を見る</span>
-                                    <i data-lucide="chevron-right" class="w-4 h-4 text-blue-400 group-hover:translate-x-1 transition-transform"></i>
-                                </a>
-                            </div>
-                            @endif
-                        </div>
-                        @else
-                        <p class="text-xs text-gray-400 font-bold text-center py-6">この車種の価格データが不足しています</p>
-                        @endif
                     </div>
                     @endif
 

@@ -21,6 +21,7 @@ use App\Http\Requests\Bike\BikeSearchRequest;
 use App\Models\SeoFeature;
 use App\Services\Parts\PartsCodeExtractor;
 use App\Services\Bike\BikeNewsService;
+use App\Services\Bike\BikeYouTubeService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
@@ -240,12 +241,19 @@ final class BikeController extends Controller
             ? $this->fetchRelatedParts($listing->bikeModel)
             : [];
 
+        $makerName = $listing->bikeModel?->manufacturer?->name ?? '';
+        $modelName = $listing->bikeModel?->name ?? $listing->title ?? '';
+
         try {
-            $makerName = $listing->bikeModel?->manufacturer?->name ?? '';
-            $modelName = $listing->bikeModel?->name ?? $listing->title ?? '';
             $news = (new BikeNewsService())->fetch("{$makerName} {$modelName} バイク", 3);
         } catch (\Throwable) {
             $news = [];
+        }
+
+        try {
+            $videos = (new BikeYouTubeService())->fetch("{$makerName} {$modelName} レビュー", 3);
+        } catch (\Throwable) {
+            $videos = [];
         }
 
         return view('bikes.show', [
@@ -269,6 +277,7 @@ final class BikeController extends Controller
             'shopLng'         => $shopLng,
             'relatedParts'    => $relatedParts,
             'news'            => $news,
+            'videos'          => $videos,
         ]);
     }
 
@@ -600,11 +609,17 @@ final class BikeController extends Controller
             $news = [];
         }
 
+        try {
+            $videos = (new BikeYouTubeService())->fetch("{$model->manufacturer->name} {$model->name} レビュー", 5);
+        } catch (\Throwable) {
+            $videos = [];
+        }
+
         return view('bikes.model_detail', compact(
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'relatedModels', 'similarDisplacementModels',
             'sameCategoryModels', 'activeCount', 'owners', 'similarModels', 'crossLinks',
-            'prefectureStocks', 'relatedParts', 'news'
+            'prefectureStocks', 'relatedParts', 'news', 'videos'
         ));
     }
 
