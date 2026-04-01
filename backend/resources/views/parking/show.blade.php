@@ -229,6 +229,21 @@
                 </div>
             </div>
 
+            {{-- ストリートビュー --}}
+            @if($parking->latitude && $parking->longitude && config('services.google_maps.api_key'))
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
+                <h2 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
+                    <i data-lucide="camera" class="w-4 h-4 text-green-600"></i> ストリートビューで入口を確認
+                </h2>
+                <img
+                    src="https://maps.googleapis.com/maps/api/streetview?size=800x400&location={{ $parking->latitude }},{{ $parking->longitude }}&key={{ config('services.google_maps.api_key') }}"
+                    alt="{{ $parking->name }} ストリートビュー"
+                    class="w-full rounded-xl"
+                    loading="lazy"
+                    onerror="this.closest('.bg-white').style.display='none'">
+            </div>
+            @endif
+
             {{-- レビュー一覧 --}}
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6">
                 <h2 class="text-sm font-black text-gray-900 mb-4 flex items-center gap-2">

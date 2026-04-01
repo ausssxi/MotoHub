@@ -88,4 +88,8 @@ return [
     'amazon' => [
         'associate_tag' => env('AMAZON_ASSOCIATE_TAG'),
     ],
+
+    'google_maps' => [
+        'api_key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
 ];
