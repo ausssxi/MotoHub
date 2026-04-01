@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 class BikeYouTubeService
 {
     private const CACHE_TTL = 604800;       // 7日間
-    private const ERROR_CACHE_TTL = 3600;   // エラー時1時間
+    private const ERROR_CACHE_TTL = 86400;  // エラー時24時間
 
     /**
      * @param string      $query      検索クエリ
@@ -22,6 +22,12 @@ class BikeYouTubeService
     {
         $apiKey = config('services.youtube.api_key');
         if (!$apiKey) {
+            return [];
+        }
+
+        // Bot/Crawlerはキャッシュも含めスキップ（クォータ節約）
+        $userAgent = request()->userAgent() ?? '';
+        if (preg_match('/bot|crawl|spider|slurp|facebookexternalhit/i', $userAgent)) {
             return [];
         }
 
