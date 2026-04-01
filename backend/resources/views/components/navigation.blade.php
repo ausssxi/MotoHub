@@ -386,7 +386,7 @@
     {{-- PC用フルワイド検索パネル --}}
     @if($showSearch)
     <div id="nav-search-panel" class="hidden border-t border-gray-100 shadow-lg bg-white">
-        <div class="max-w-xl mx-auto px-4 py-4 relative">
+        <div id="nav-search-container" class="max-w-xl mx-auto px-4 py-4 relative">
             <form action="{{ route('bikes.search') }}" method="GET" class="w-full" autocomplete="off" id="nav-search-form">
                 <div class="relative w-full">
                     <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
