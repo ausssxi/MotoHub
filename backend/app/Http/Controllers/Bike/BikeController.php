@@ -251,7 +251,7 @@ final class BikeController extends Controller
         }
 
         try {
-            $videos = (new BikeYouTubeService())->fetch("{$makerName} {$modelName} レビュー", 3);
+            $videos = (new BikeYouTubeService())->fetch("{$makerName} {$modelName} レビュー", 3, $listing->bike_model_id);
         } catch (\Throwable) {
             $videos = [];
         }
@@ -610,7 +610,7 @@ final class BikeController extends Controller
         }
 
         try {
-            $videos = (new BikeYouTubeService())->fetch("{$model->manufacturer->name} {$model->name} レビュー", 5);
+            $videos = (new BikeYouTubeService())->fetch("{$model->manufacturer->name} {$model->name} レビュー", 5, $model->id);
         } catch (\Throwable) {
             $videos = [];
         }

@@ -6,20 +6,37 @@ namespace App\Services\Bike;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class BikeYouTubeService
 {
-    public function fetch(string $query, int $limit = 5): array
+    private const CACHE_TTL = 604800;       // 7日間
+    private const ERROR_CACHE_TTL = 3600;   // エラー時1時間
+
+    /**
+     * @param string      $query      検索クエリ
+     * @param int         $limit      取得件数
+     * @param int|null    $modelId    bike_model_id（車種単位キャッシュ用）
+     */
+    public function fetch(string $query, int $limit = 5, ?int $modelId = null): array
     {
         $apiKey = config('services.youtube.api_key');
         if (!$apiKey) {
             return [];
         }
 
-        $slug = str($query)->slug();
-        $cacheKey = "youtube_{$slug}";
+        // bike_model_id があれば車種単位、なければクエリ単位でキャッシュ
+        $cacheKey = $modelId
+            ? "youtube_model_{$modelId}"
+            : 'youtube_' . str($query)->slug();
 
-        return Cache::remember($cacheKey, 86400, function () use ($query, $limit, $apiKey) {
+        // エラーキャッシュがあればAPI呼び出しをスキップ
+        $errorCacheKey = "{$cacheKey}_error";
+        if (Cache::has($errorCacheKey)) {
+            return [];
+        }
+
+        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($query, $limit, $apiKey, $errorCacheKey) {
             try {
                 $response = Http::timeout(5)->get('https://www.googleapis.com/youtube/v3/search', [
                     'part'       => 'snippet',
@@ -33,6 +50,11 @@ class BikeYouTubeService
                 ]);
 
                 if ($response->failed()) {
+                    Log::warning('YouTube API error', [
+                        'status' => $response->status(),
+                        'body'   => $response->json(),
+                    ]);
+                    Cache::put($errorCacheKey, true, self::ERROR_CACHE_TTL);
                     return [];
                 }
 
@@ -53,7 +75,9 @@ class BikeYouTubeService
                                     : '',
                     ];
                 })->filter(fn($v) => !empty($v['video_id']))->values()->all();
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                Log::warning('YouTube API exception', ['message' => $e->getMessage()]);
+                Cache::put($errorCacheKey, true, self::ERROR_CACHE_TTL);
                 return [];
             }
         });
