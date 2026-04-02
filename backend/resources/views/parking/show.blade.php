@@ -244,6 +244,185 @@
             </div>
             @endif
 
+            {{-- 料金シミュレーター --}}
+            @if($parking->price_per_hour || $parking->price_per_day)
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
+                <h2 class="text-sm font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="calculator" class="w-4 h-4 text-blue-600"></i> 料金シミュレーター
+                </h2>
+
+                {{-- 結果エリア（常に表示） --}}
+                <div id="parking-fee-result" class="bg-gradient-to-br from-blue-50 to-slate-50 rounded-2xl p-5 mb-4 border border-blue-100">
+                    <p id="pf-duration" class="text-xs font-bold text-blue-500 text-center mb-1">3時間の駐車</p>
+                    <div id="pf-cards" class="flex justify-center gap-3"></div>
+                    <div id="pf-monthly" class="text-center mt-3 pt-3 border-t border-blue-100 hidden">
+                        <span class="text-[11px] text-gray-400">月極契約なら</span>
+                        <span class="text-sm font-black text-gray-700 ml-1">月{{ number_format($parking->price_per_month ?? 0) }}円</span>
+                    </div>
+                    <p id="pf-error" class="text-sm text-red-500 font-bold text-center hidden"></p>
+                </div>
+
+                {{-- 日時入力 --}}
+                <div class="space-y-3 mb-3">
+                    <div>
+                        <label class="text-[11px] font-bold text-gray-400 mb-1 block uppercase tracking-wider">入庫</label>
+                        <div class="flex items-center gap-1.5">
+                            <input type="date" id="ps-date" class="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent transition bg-gray-50">
+                            <select id="ps-hour" class="border border-gray-200 rounded-lg px-1.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent transition appearance-none bg-gray-50 text-center w-[60px]">
+                                @for($h = 0; $h <= 23; $h++)
+                                <option value="{{ $h }}">{{ $h }}時</option>
+                                @endfor
+                            </select>
+                            <select id="ps-min" class="border border-gray-200 rounded-lg px-1.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent transition appearance-none bg-gray-50 text-center w-[60px]">
+                                <option value="0">00分</option>
+                                <option value="15">15分</option>
+                                <option value="30">30分</option>
+                                <option value="45">45分</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-gray-400 mb-1 block uppercase tracking-wider">出庫</label>
+                        <div class="flex items-center gap-1.5">
+                            <input type="date" id="pe-date" class="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent transition bg-gray-50">
+                            <select id="pe-hour" class="border border-gray-200 rounded-lg px-1.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent transition appearance-none bg-gray-50 text-center w-[60px]">
+                                @for($h = 0; $h <= 23; $h++)
+                                <option value="{{ $h }}">{{ $h }}時</option>
+                                @endfor
+                            </select>
+                            <select id="pe-min" class="border border-gray-200 rounded-lg px-1.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent transition appearance-none bg-gray-50 text-center w-[60px]">
+                                <option value="0">00分</option>
+                                <option value="15">15分</option>
+                                <option value="30">30分</option>
+                                <option value="45">45分</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <button type="button" id="calc-parking-fee"
+                        class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 py-2 rounded-lg transition-colors shadow-sm">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> 再計算
+                    </button>
+                </div>
+            </div>
+            <script>
+            (function() {
+                var pricePerHour = {{ $parking->price_per_hour ?? 'null' }};
+                var pricePerDay = {{ $parking->price_per_day ?? 'null' }};
+                var hasMonthly = {{ $parking->price_per_month ? 'true' : 'false' }};
+
+                function calcFee() {
+                    var sd = document.getElementById('ps-date').value;
+                    var ed = document.getElementById('pe-date').value;
+                    var durationEl = document.getElementById('pf-duration');
+                    var cardsEl = document.getElementById('pf-cards');
+                    var monthlyEl = document.getElementById('pf-monthly');
+                    var errorEl = document.getElementById('pf-error');
+
+                    errorEl.classList.add('hidden');
+                    cardsEl.innerHTML = '';
+                    durationEl.textContent = '';
+                    monthlyEl.classList.add('hidden');
+
+                    if (!sd || !ed) {
+                        errorEl.textContent = '日付を入力してください';
+                        errorEl.classList.remove('hidden');
+                        return;
+                    }
+
+                    var start = new Date(sd + 'T' + String(document.getElementById('ps-hour').value).padStart(2,'0') + ':' + String(document.getElementById('ps-min').value).padStart(2,'0'));
+                    var end = new Date(ed + 'T' + String(document.getElementById('pe-hour').value).padStart(2,'0') + ':' + String(document.getElementById('pe-min').value).padStart(2,'0'));
+                    var diffMs = end - start;
+
+                    if (diffMs <= 0) {
+                        errorEl.textContent = '出庫日時は入庫日時より後にしてください';
+                        errorEl.classList.remove('hidden');
+                        return;
+                    }
+
+                    var totalMin = Math.ceil(diffMs / (1000 * 60));
+                    var hours = Math.ceil(totalMin / 60);
+                    var days = Math.ceil(totalMin / (60 * 24));
+
+                    // 駐車時間ラベル
+                    var dur;
+                    if (totalMin < 60) {
+                        dur = totalMin + '分';
+                    } else if (hours < 24) {
+                        var rm = totalMin % 60;
+                        dur = Math.floor(totalMin / 60) + '時間' + (rm > 0 ? rm + '分' : '');
+                    } else {
+                        var rh = hours % 24;
+                        dur = Math.floor(hours / 24) + '日' + (rh > 0 ? rh + '時間' : '');
+                    }
+                    durationEl.textContent = dur + 'の駐車';
+
+                    var options = [];
+                    if (pricePerHour) options.push({ fee: hours * pricePerHour, detail: hours + 'h × ' + pricePerHour.toLocaleString() + '円', type: '時間料金' });
+                    if (pricePerDay) options.push({ fee: days * pricePerDay, detail: days + '日 × ' + pricePerDay.toLocaleString() + '円', type: '日額料金' });
+
+                    if (options.length === 0) return;
+
+                    options.sort(function(a, b) { return a.fee - b.fee; });
+
+                    if (options.length === 2) {
+                        // 2カード比較表示
+                        var best = options[0];
+                        var other = options[1];
+                        cardsEl.innerHTML =
+                            '<div class="flex-1 bg-white rounded-xl p-3 border-2 border-blue-400 shadow-sm text-center relative">' +
+                                '<span class="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full">お得</span>' +
+                                '<p class="text-[10px] font-bold text-blue-500 mb-0.5">' + best.type + '</p>' +
+                                '<p class="text-2xl font-black text-gray-900">' + best.fee.toLocaleString() + '<span class="text-xs font-bold text-gray-400">円</span></p>' +
+                                '<p class="text-[10px] text-gray-400 mt-0.5">' + best.detail + '</p>' +
+                            '</div>' +
+                            '<div class="flex-1 bg-white rounded-xl p-3 border border-gray-200 text-center opacity-70">' +
+                                '<p class="text-[10px] font-bold text-gray-400 mb-0.5">' + other.type + '</p>' +
+                                '<p class="text-2xl font-black text-gray-400">' + other.fee.toLocaleString() + '<span class="text-xs font-bold text-gray-300">円</span></p>' +
+                                '<p class="text-[10px] text-gray-300 mt-0.5">' + other.detail + '</p>' +
+                            '</div>';
+                    } else {
+                        // 1カード表示
+                        var o = options[0];
+                        cardsEl.innerHTML =
+                            '<div class="bg-white rounded-xl p-4 border border-blue-200 shadow-sm text-center min-w-[180px]">' +
+                                '<p class="text-[10px] font-bold text-blue-500 mb-0.5">' + o.type + '</p>' +
+                                '<p class="text-3xl font-black text-gray-900">' + o.fee.toLocaleString() + '<span class="text-sm font-bold text-gray-400">円</span></p>' +
+                                '<p class="text-[10px] text-gray-400 mt-0.5">' + o.detail + '</p>' +
+                            '</div>';
+                    }
+
+                    if (hasMonthly) monthlyEl.classList.remove('hidden');
+                }
+
+                // デフォルト値セット & 自動計算
+                var now = new Date();
+                var mins = [0, 15, 30, 45];
+                var nearMin = mins.reduce(function(a, b) { return Math.abs(b - now.getMinutes()) < Math.abs(a - now.getMinutes()) ? b : a; });
+                var later = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+                var nearMinEnd = mins.reduce(function(a, b) { return Math.abs(b - later.getMinutes()) < Math.abs(a - later.getMinutes()) ? b : a; });
+                var fmt = function(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+
+                document.getElementById('ps-date').value = fmt(now);
+                document.getElementById('ps-hour').value = now.getHours();
+                document.getElementById('ps-min').value = nearMin;
+                document.getElementById('pe-date').value = fmt(later);
+                document.getElementById('pe-hour').value = later.getHours();
+                document.getElementById('pe-min').value = nearMinEnd;
+
+                calcFee();
+
+                document.getElementById('calc-parking-fee').addEventListener('click', calcFee);
+
+                // 入力変更時も自動再計算
+                ['ps-date','ps-hour','ps-min','pe-date','pe-hour','pe-min'].forEach(function(id) {
+                    document.getElementById(id).addEventListener('change', calcFee);
+                });
+            })();
+            </script>
+            @endif
+
             {{-- レビュー一覧 --}}
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6">
                 <h2 class="text-sm font-black text-gray-900 mb-4 flex items-center gap-2">
