@@ -423,6 +423,28 @@
             </script>
             @endif
 
+            {{-- 月額 vs 時間貸し比較 --}}
+            @if($parking->price_per_hour && $parking->price_per_month)
+            @php
+                $hourlyMonthly = $parking->price_per_hour * 8 * 20;
+                $monthly = $parking->price_per_month;
+                $diff = abs($hourlyMonthly - $monthly);
+            @endphp
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-6">
+                <p class="text-sm text-gray-700 leading-relaxed">
+                    💡
+                    月20日・1日8時間利用する場合、時間料金だと月{{ number_format($hourlyMonthly) }}円。
+                    @if($monthly < $hourlyMonthly)
+                        月極契約なら月{{ number_format($monthly) }}円で、<span class="font-bold text-amber-700">月極の方が{{ number_format($diff) }}円お得</span>です。
+                    @elseif($hourlyMonthly < $monthly)
+                        月極契約は月{{ number_format($monthly) }}円なので、<span class="font-bold text-amber-700">時間料金の方が{{ number_format($diff) }}円お得</span>です。
+                    @else
+                        月極契約も月{{ number_format($monthly) }}円で、どちらも同額です。
+                    @endif
+                </p>
+            </div>
+            @endif
+
             {{-- レビュー一覧 --}}
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6">
                 <h2 class="text-sm font-black text-gray-900 mb-4 flex items-center gap-2">
