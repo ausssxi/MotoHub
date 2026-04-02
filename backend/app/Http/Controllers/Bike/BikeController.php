@@ -95,7 +95,7 @@ final class BikeController extends Controller
         // フォームリクエストから安全なフィルター条件のみを取得
         $filters = $request->toFilters();
 
-        $keyword = $request->query('keyword');
+        $keyword = $this->sanitizeKeyword($request->query('keyword'));
         $prefecture = $request->query('prefecture');
         $sort = (string) $request->query('sort', 'bargain_desc');
 
@@ -106,41 +106,77 @@ final class BikeController extends Controller
             }
 
             $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
+
+            // 無限スクロール処理
+            if ($request->query('load_more')) {
+                $html = '';
+                foreach ($result['items'] as $listing) {
+                    $html .= view('bikes.partials.bike_card', ['listing' => $listing])->render();
+                }
+                return response()->json([
+                    'html' => $html,
+                    'next_url' => $result['pagination']['next_url']
+                ]);
+            }
+
+            $pageTitle = $this->listingSearchService->generatePageTitle($keyword, $prefecture, $filters);
+            $popularTags = $this->listingSearchService->getPopularTags();
+            $recommendedModels = $this->listingSearchService->getRecommendedModels($result['filters'], $result['items']);
+
+            return view('bikes.search', array_merge($result, [
+                'keyword'           => $keyword,
+                'prefecture'        => $prefecture,
+                'sort'              => $sort,
+                'pageTitle'         => $pageTitle,
+                'popularTags'       => $popularTags,
+                'recommendedModels' => $recommendedModels,
+            ]));
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Search failed', [
                 'keyword' => $keyword,
                 'filters' => $filters,
                 'error' => $e->getMessage(),
             ]);
-            // 不正なフィルターの場合はフィルターを外してリトライ
-            $filters = array_diff_key($filters, array_flip(['tag']));
-            $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
-        }
 
-        // 無限スクロール処理
-        if ($request->query('load_more')) {
-            $html = '';
-            foreach ($result['items'] as $listing) {
-                $html .= view('bikes.partials.bike_card', ['listing' => $listing])->render();
-            }
-            return response()->json([
-                'html' => $html,
-                'next_url' => $result['pagination']['next_url']
+            return view('bikes.search', [
+                'items'            => [],
+                'pagination'       => ['total' => 0, 'last_page' => 1, 'prev_url' => null, 'next_url' => null, 'pages' => []],
+                'stats'            => [],
+                'meta'             => [],
+                'facets'           => [],
+                'relaxSuggestions' => [],
+                'manufacturers'    => collect(),
+                'models'           => collect(),
+                'regions'          => config('bike.regions', []),
+                'prefectures'      => collect(config('bike.regions', []))->flatten()->toArray(),
+                'filters'          => $filters,
+                'sortOptions'      => [],
+                'keyword'          => $keyword,
+                'prefecture'       => $prefecture,
+                'sort'             => $sort,
+                'pageTitle'        => '検索結果',
+                'popularTags'      => $this->listingSearchService->getPopularTags(),
+                'recommendedModels' => collect(),
             ]);
         }
+    }
 
-        $pageTitle = $this->listingSearchService->generatePageTitle($keyword, $prefecture, $filters);
-        $popularTags = $this->listingSearchService->getPopularTags();
-        $recommendedModels = $this->listingSearchService->getRecommendedModels($result['filters'], $result['items']);
+    /**
+     * 検索キーワードからMeilisearchで問題になる特殊文字を除去
+     */
+    private function sanitizeKeyword(?string $keyword): ?string
+    {
+        if ($keyword === null || $keyword === '') {
+            return $keyword;
+        }
 
-        return view('bikes.search', array_merge($result, [
-            'keyword'           => $keyword,
-            'prefecture'        => $prefecture,
-            'sort'              => $sort,
-            'pageTitle'         => $pageTitle,
-            'popularTags'       => $popularTags,
-            'recommendedModels' => $recommendedModels,
-        ]));
+        // スラッシュ・引用符をスペースに変換
+        $keyword = str_replace(['/', '"', "'"], ' ', $keyword);
+
+        // 連続スペースを1つに
+        $keyword = preg_replace('/\s+/', ' ', trim($keyword));
+
+        return $keyword !== '' ? $keyword : null;
     }
 
     /**
