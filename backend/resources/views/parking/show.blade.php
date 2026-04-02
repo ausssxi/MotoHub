@@ -520,6 +520,78 @@
                 </div>
             </div>
 
+            {{-- FAQ --}}
+            @php
+                $faqs = [];
+                if ($parking->price_per_hour) {
+                    $a = "{$parking->price_per_hour}円/時間です。";
+                    if ($parking->price_per_day) $a .= "日額{$parking->price_per_day}円でもご利用いただけます。";
+                    $faqs[] = ['q' => "{$parking->name}の駐車料金はいくらですか？", 'a' => $a];
+                }
+                if ($parking->capacity) {
+                    $faqs[] = ['q' => "{$parking->name}は何台停められますか？", 'a' => "{$parking->capacity}台駐車可能です。"];
+                }
+                if (!is_null($parking->available_24h)) {
+                    $faqs[] = [
+                        'q' => "{$parking->name}は24時間利用できますか？",
+                        'a' => $parking->available_24h
+                            ? 'はい、24時間いつでも利用できます。'
+                            : '営業時間内のみ利用可能です。詳細は現地看板をご確認ください。',
+                    ];
+                }
+                if ($parking->price_per_month) {
+                    $faqs[] = ['q' => "{$parking->name}の月極料金はいくらですか？", 'a' => "月額" . number_format($parking->price_per_month) . "円で契約可能です。"];
+                }
+                if ($parking->parking_type === 'bike_only') {
+                    $faqs[] = ['q' => "{$parking->name}はバイク専用ですか？", 'a' => 'はい、バイク専用の駐車場です。'];
+                }
+            @endphp
+
+            @if(count($faqs) >= 2)
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6 mt-6" x-data="{ open: null }">
+                <h2 class="text-sm font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="help-circle" class="w-4 h-4 text-green-600"></i> よくある質問
+                </h2>
+                <div class="divide-y divide-gray-100">
+                    @foreach($faqs as $i => $faq)
+                    <div class="py-3 first:pt-0 last:pb-0">
+                        <button type="button" @click="open = open === {{ $i }} ? null : {{ $i }}"
+                            class="w-full flex items-start justify-between gap-3 text-left group">
+                            <span class="text-sm font-bold text-gray-800 group-hover:text-blue-600 transition">{{ $faq['q'] }}</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 shrink-0 mt-0.5 transition-transform duration-200"
+                               x-bind:class="{ 'rotate-180': open === {{ $i }} }"></i>
+                        </button>
+                        <div x-show="open === {{ $i }}" x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
+                             style="display: none;">
+                            <p class="text-sm text-gray-600 mt-2 pl-0.5">{{ $faq['a'] }}</p>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+
+            {{-- FAQPage JSON-LD --}}
+            <script type="application/ld+json">
+            {
+                "@@context": "https://schema.org",
+                "@@type": "FAQPage",
+                "mainEntity": [
+                    @foreach($faqs as $i => $faq)
+                    {
+                        "@@type": "Question",
+                        "name": "{{ e($faq['q']) }}",
+                        "acceptedAnswer": {
+                            "@@type": "Answer",
+                            "text": "{{ e($faq['a']) }}"
+                        }
+                    }@if(!$loop->last),@endif
+                    @endforeach
+                ]
+            }
+            </script>
+            @endif
+
             {{-- 近くの駐車場・ショップ・回遊リンク --}}
             <div class="mt-6 space-y-6">
                 <x-nearby-parkings :nearbyParkings="$nearbyParkings" :latitude="$parking->latitude" :longitude="$parking->longitude" />
