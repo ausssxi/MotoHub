@@ -27,7 +27,7 @@ class BikeYouTubeService
 
         // Bot/Crawlerはキャッシュも含めスキップ（クォータ節約）
         $userAgent = request()->userAgent() ?? '';
-        if (preg_match('/bot|crawl|spider|slurp|facebookexternalhit/i', $userAgent)) {
+        if (!empty($userAgent) && preg_match('/bot|crawl|spider|slurp|facebookexternalhit/i', $userAgent)) {
             return [];
         }
 
