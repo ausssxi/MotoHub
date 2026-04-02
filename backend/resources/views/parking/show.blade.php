@@ -520,6 +520,54 @@
                 </div>
             </div>
 
+            {{-- このエリアで売っているバイク --}}
+            @if($nearbyListings->isNotEmpty())
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6 mt-6">
+                <h2 class="text-sm font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="bike" class="w-4 h-4 text-green-600"></i> {{ $parking->prefecture }}で売っているバイク
+                </h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    @foreach($nearbyListings as $nl)
+                    @php
+                        $img = null;
+                        if ($nl->local_image_paths && is_array($nl->local_image_paths) && count($nl->local_image_paths) > 0) {
+                            $img = asset('storage/' . $nl->local_image_paths[0]);
+                        } elseif ($nl->image_urls) {
+                            $img = is_array($nl->image_urls) ? ($nl->image_urls[0] ?? null) : $nl->image_urls;
+                        }
+                        $price = $nl->total_price ? number_format((int)$nl->total_price / 10000, 1) : null;
+                    @endphp
+                    <a href="{{ route('bikes.show', $nl->id) }}" class="block bg-gray-50 rounded-xl overflow-hidden border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all group">
+                        <div class="aspect-[4/3] bg-gray-200 overflow-hidden">
+                            @if($img)
+                            <img src="{{ $img }}" alt="{{ $nl->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy"
+                                 onerror="this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-gray-300\'><svg class=\'w-8 h-8\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14\'/></svg></div>'">
+                            @else
+                            <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                <i data-lucide="image" class="w-8 h-8"></i>
+                            </div>
+                            @endif
+                        </div>
+                        <div class="p-2.5">
+                            <p class="text-xs font-bold text-gray-800 truncate">{{ $nl->bikeModel->name ?? $nl->title }}</p>
+                            @if($price)
+                            <p class="text-sm font-black text-red-500 mt-0.5">{{ $price }}<span class="text-[10px] font-bold text-gray-400">万円</span></p>
+                            @endif
+                            <p class="text-[10px] text-gray-400 truncate mt-0.5">{{ $nl->shop->name ?? '' }}</p>
+                        </div>
+                    </a>
+                    @endforeach
+                </div>
+                <div class="text-center mt-4">
+                    <a href="{{ route('bikes.search', ['prefecture' => mb_substr($parking->prefecture, 0, -1)]) }}"
+                       class="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 transition">
+                        {{ $parking->prefecture }}の中古バイク一覧を見る
+                        <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                    </a>
+                </div>
+            </div>
+            @endif
+
             {{-- FAQ --}}
             @php
                 $faqs = [];

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Parking;
 
 use App\Models\BikeParking;
+use App\Models\Listing;
 use App\Models\User;
 use App\Repositories\Parking\BikeParkingRepository;
 use App\Repositories\Parking\ParkingReviewRepository;
@@ -50,11 +51,23 @@ final class ParkingService
             ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'garage', 'description' => '愛車を登録・管理'],
         ];
 
+        // このエリアで売っているバイク
+        $nearbyListings = collect();
+        if ($parking->prefecture) {
+            $nearbyListings = Listing::whereHas('shop', fn($q) => $q->where('prefecture', $parking->prefecture))
+                ->where('is_sold_out', 0)
+                ->with(['shop', 'bikeModel'])
+                ->orderByDesc('created_at')
+                ->limit(6)
+                ->get();
+        }
+
         return [
             'parking' => $parking,
             'reviews' => $reviews,
             'nearbyParkings' => $nearbyParkings,
             'nearbyShops' => $nearbyShops,
+            'nearbyListings' => $nearbyListings,
             'crossLinks' => $crossLinks,
         ];
     }
