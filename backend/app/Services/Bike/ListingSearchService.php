@@ -264,7 +264,7 @@ final class ListingSearchService
         $cacheKey = 'search_count_' . md5(json_encode([$k, $p, $f]));
         return Cache::remember($cacheKey, 10800, function () use ($k, $p, $f) {
             $paginated = $this->listingRepo->searchByKeyword($k, $p, 'latest', $f, 1);
-            return method_exists($paginated, 'total') ? $paginated->total() : count($paginated->items()); 
+            return (int) (method_exists($paginated, 'total') ? $paginated->total() : count($paginated->items()));
         });
     }
 
