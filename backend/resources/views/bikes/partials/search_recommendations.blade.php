@@ -24,7 +24,7 @@
                     </div>
                 @endif
             </div>
-            <p class="text-[9px] font-bold text-gray-400 mb-0.5">{{ $related->manufacturer->name }}</p>
+            <p class="text-[9px] font-bold text-gray-400 mb-0.5">{{ $related->manufacturer?->name ?? '' }}</p>
             <h3 class="text-xs font-black text-gray-800 group-hover:text-blue-600 transition-colors line-clamp-2 mb-1">
                 {{ $related->name }}
             </h3>

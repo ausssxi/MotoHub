@@ -94,18 +94,29 @@ final class BikeController extends Controller
     {
         // フォームリクエストから安全なフィルター条件のみを取得
         $filters = $request->toFilters();
-        
+
         $keyword = $request->query('keyword');
         $prefecture = $request->query('prefecture');
         $sort = (string) $request->query('sort', 'bargain_desc');
 
-        if ($request->has('count_only')) {
-            $count = $this->listingSearchService->getFilteredCount($keyword, $prefecture, $filters);
-            return response()->json(['total' => $count]);
+        try {
+            if ($request->has('count_only')) {
+                $count = $this->listingSearchService->getFilteredCount($keyword, $prefecture, $filters);
+                return response()->json(['total' => $count]);
+            }
+
+            $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Search failed', [
+                'keyword' => $keyword,
+                'filters' => $filters,
+                'error' => $e->getMessage(),
+            ]);
+            // 不正なフィルターの場合はフィルターを外してリトライ
+            $filters = array_diff_key($filters, array_flip(['tag']));
+            $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
         }
 
-        $result = $this->listingSearchService->search($keyword, $prefecture, $sort, $filters);
-        
         // 無限スクロール処理
         if ($request->query('load_more')) {
             $html = '';
@@ -438,10 +449,17 @@ final class BikeController extends Controller
     {
         $pageInfo = $this->seoLandingService->resolvePageInfo($prefecture, $slug);
         if (empty($pageInfo)) abort(404);
-        $result = $this->listingSearchService->search(null, $prefecture, 'latest', $pageInfo['filters']);
+
+        try {
+            $result = $this->listingSearchService->search(null, $prefecture, 'latest', $pageInfo['filters']);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Landing search failed: {$prefecture}/{$slug}", ['error' => $e->getMessage()]);
+            abort(404);
+        }
+
         return view('bikes.landing', array_merge($result, [
             'pageInfo' => $pageInfo['meta'],
-            'keyword' => '', 
+            'keyword' => '',
             'prefecture' => $prefecture,
             'sort' => 'latest',
         ]));

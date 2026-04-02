@@ -63,7 +63,7 @@ class ListingResource extends JsonResource
         // --- N+1防御 その2 ---
         // カテゴリ名も同様に、事前にロードされている場合のみ取得
         $categoryName = $this->bikeModel && $this->bikeModel->relationLoaded('categoryData')
-            ? $this->bikeModel->categoryData->name
+            ? ($this->bikeModel->categoryData?->name ?? 'その他')
             : 'その他';
 
         return [

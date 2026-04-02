@@ -293,9 +293,9 @@ final class BikeService
     public function getSeoLinks(Listing $listing): array
     {
         $links = [];
-        $pref = $listing->shop->prefecture ?? null;
-        $maker = $listing->bikeModel->manufacturer->name ?? null;
-        $catName = $listing->bikeModel->categoryData->name ?? null;
+        $pref = $listing->shop?->prefecture;
+        $maker = $listing->bikeModel?->manufacturer?->name;
+        $catName = $listing->bikeModel?->categoryData?->name;
         $catId = $listing->bikeModel?->category_id;
         $makerId = $listing->manufacturer_id ?? $listing->bikeModel?->manufacturer_id;
 

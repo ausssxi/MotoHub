@@ -55,7 +55,7 @@ final class SeoLandingService
         elseif ($model = $this->findModel($slug)) {
             $filters['bike_model_id'] = $model->id;
             // メーカー名も含めるとSEO的に強い (例: ホンダ PCX)
-            $makerName = $model->manufacturer->name ?? '';
+            $makerName = $model->manufacturer?->name ?? '';
             $typeLabel = "{$makerName} {$model->name}";
             $type = 'model';
         }

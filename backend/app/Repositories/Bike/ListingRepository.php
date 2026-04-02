@@ -109,7 +109,10 @@ final class ListingRepository
         if (isset($filters['is_new']) && $filters['is_new'] !== '') $filterStrings[] = "is_new = " . (int)$filters['is_new'];
         if (isset($filters['has_repair_history']) && $filters['has_repair_history'] !== '') $filterStrings[] = "has_repair_history = " . (int)$filters['has_repair_history'];
         
-        if (!empty($filters['tag'])) $filterStrings[] = "tag_slugs = '{$filters['tag']}'";
+        if (!empty($filters['tag'])) {
+            $safeTag = str_replace("'", "\\'", $filters['tag']);
+            $filterStrings[] = "tag_slugs = '{$safeTag}'";
+        }
 
         // --- 範囲指定フィルター ---
         $minPrice = $filters['price_min'] ?? $filters['min_price'] ?? null;
