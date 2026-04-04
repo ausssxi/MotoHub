@@ -1,7 +1,7 @@
 <x-layout>
     <x-slot:title>バイクパーツ検索 | MotoHub</x-slot:title>
 
-    <x-slot:metaDescription>バイクパーツの価格を楽天・Yahoo・Amazonで一括比較。最安値のパーツを見つけてバイクのメンテナンスコストを節約。</x-slot:metaDescription>
+    <x-slot:metaDescription>バイクパーツの価格を楽天・Yahoo・Amazonで一括比較。マフラー・タイヤ・ブレーキパッドなど10カテゴリの選び方ガイド付き。車種別・ブランド別でも検索可能。</x-slot:metaDescription>
 
     <x-slot:navigation>
         <x-navigation :showSearch="true" />
@@ -12,12 +12,12 @@
         <section class="bg-gradient-to-r from-gray-900 to-gray-800 text-white py-10">
             <div class="max-w-5xl mx-auto px-4 text-center">
                 <h1 class="text-2xl sm:text-3xl font-black mb-2">バイクパーツ検索</h1>
-                <p class="text-gray-300 text-sm">楽天・Yahoo!・Amazonからバイクパーツを横断検索</p>
+                <p class="text-gray-300 text-sm">楽天・Yahoo!・Amazonの価格を一括比較。最安値のパーツを見つけよう。</p>
             </div>
         </section>
 
         {{-- 検索フォーム --}}
-        <section class="max-w-5xl mx-auto px-4 -mt-6">
+        <section id="search-form-section" class="max-w-5xl mx-auto px-4 -mt-6">
             <form id="parts-search-form" class="bg-white rounded-xl shadow-lg p-5 sm:p-6">
                 <div id="form-error" class="hidden mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm font-bold"></div>
 
@@ -62,84 +62,176 @@
             </form>
         </section>
 
-        {{-- カテゴリクイックリンク --}}
-        <section id="quick-categories" class="max-w-5xl mx-auto px-4 mt-6">
-            <div class="flex flex-wrap gap-2 justify-center">
+        {{-- 初期コンテンツ（検索実行時に非表示） --}}
+        <div id="initial-content">
+
+            {{-- 車種から探す --}}
+            <section class="max-w-5xl mx-auto px-4 mt-8" x-data="{ maker: 'honda' }">
+                <h2 class="text-lg font-black text-gray-800 mb-4">車種からパーツを探す</h2>
                 @php
-                    $chips = [
-                        ['icon' => '🔧', 'label' => 'マフラー'],
-                        ['icon' => '🛞', 'label' => 'タイヤ'],
-                        ['icon' => '⛓️', 'label' => 'チェーン'],
-                        ['icon' => '🛑', 'label' => 'ブレーキパッド'],
-                        ['icon' => '🛢️', 'label' => 'オイルフィルター'],
-                        ['icon' => '💡', 'label' => 'ヘッドライト'],
-                        ['icon' => '🪞', 'label' => 'ミラー'],
-                        ['icon' => '🔋', 'label' => 'バッテリー'],
+                    $makers = [
+                        'honda' => ['label' => 'ホンダ', 'bikes' => ['CBR250RR', 'PCX', 'レブル250', 'スーパーカブ', 'モンキー125', 'CT125', 'CB400SF', 'CRF250L']],
+                        'yamaha' => ['label' => 'ヤマハ', 'bikes' => ['YZF-R25', 'MT-07', 'セロー250', 'TMAX', 'ジョグ', 'シグナス', 'XSR700', 'テネレ700']],
+                        'suzuki' => ['label' => 'スズキ', 'bikes' => ['GSX-R125', 'Vストローム250', 'ジクサー', 'アドレスV125', 'バーグマン', 'GSX250R']],
+                        'kawasaki' => ['label' => 'カワサキ', 'bikes' => ['Ninja250', 'Z900RS', 'Ninja400', 'Z400', 'KLX230', 'W800', 'ZX-25R']],
                     ];
                 @endphp
-                @foreach($chips as $chip)
-                    <button type="button" onclick="quickSearch('{{ $chip['label'] }}')"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-bold text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors shadow-sm">
-                        <span>{{ $chip['icon'] }}</span>{{ $chip['label'] }}
+                {{-- メーカータブ --}}
+                <div class="flex flex-wrap gap-2 mb-4">
+                    @foreach($makers as $key => $maker)
+                    <button type="button"
+                        x-on:click="maker = '{{ $key }}'"
+                        x-bind:class="maker === '{{ $key }}' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300 hover:text-blue-600'"
+                        class="px-4 py-2 text-sm font-bold rounded-full border transition-colors">
+                        {{ $maker['label'] }}
                     </button>
+                    @endforeach
+                </div>
+                {{-- 車種グリッド --}}
+                @foreach($makers as $key => $maker)
+                <div x-show="maker === '{{ $key }}'" x-cloak class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    @foreach($maker['bikes'] as $bike)
+                    <a href="{{ route('parts.index', ['keyword' => $bike]) }}"
+                       class="bg-white rounded-lg border border-gray-100 px-3 py-2.5 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors text-center">
+                        {{ $bike }}
+                    </a>
+                    @endforeach
+                </div>
                 @endforeach
-            </div>
-        </section>
+            </section>
 
-        {{-- 人気カテゴリから探す --}}
-        <section class="max-w-5xl mx-auto px-4 mt-8">
-            <h2 class="text-lg font-black text-gray-800 mb-4">人気カテゴリから探す</h2>
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                @foreach(config('parts-categories', []) as $cat)
-                <a href="{{ route('parts.category', $cat['slug']) }}"
-                   class="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md hover:border-blue-200 transition-all text-center group">
-                    <span class="text-sm font-black text-gray-800 group-hover:text-blue-600 transition-colors">{{ $cat['name'] }}</span>
-                </a>
-                @endforeach
-            </div>
-        </section>
+            {{-- カテゴリから探す --}}
+            <section class="max-w-5xl mx-auto px-4 mt-8">
+                <h2 class="text-lg font-black text-gray-800 mb-4">カテゴリから探す</h2>
+                @php
+                    $categoryCards = [
+                        ['slug' => 'muffler', 'icon' => '&#128295;', 'name' => 'マフラー', 'desc' => '音と走りを変える'],
+                        ['slug' => 'tire', 'icon' => '&#128710;', 'name' => 'タイヤ', 'desc' => '安全の基本'],
+                        ['slug' => 'brake-pad', 'icon' => '&#128721;', 'name' => 'ブレーキパッド', 'desc' => '効きが命'],
+                        ['slug' => 'oil', 'icon' => '&#128738;', 'name' => 'エンジンオイル', 'desc' => 'エンジンを守る'],
+                        ['slug' => 'chain', 'icon' => '&#9939;', 'name' => 'チェーン・スプロケ', 'desc' => '駆動の要'],
+                        ['slug' => 'battery', 'icon' => '&#128267;', 'name' => 'バッテリー', 'desc' => '始動の必需品'],
+                        ['slug' => 'helmet', 'icon' => '&#9937;', 'name' => 'ヘルメット', 'desc' => '頭を守る'],
+                        ['slug' => 'gloves', 'icon' => '&#129508;', 'name' => 'グローブ', 'desc' => '手を守る'],
+                        ['slug' => 'phone-mount', 'icon' => '&#128241;', 'name' => 'スマホホルダー', 'desc' => 'ナビを快適に'],
+                        ['slug' => 'drive-recorder', 'icon' => '&#128249;', 'name' => 'ドラレコ', 'desc' => '安全の証拠'],
+                    ];
+                @endphp
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    @foreach($categoryCards as $cat)
+                    <a href="{{ route('parts.category', $cat['slug']) }}"
+                       class="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md hover:border-blue-200 transition-all group text-center">
+                        <div class="text-2xl mb-1">{!! $cat['icon'] !!}</div>
+                        <p class="text-sm font-black text-gray-800 group-hover:text-blue-600 transition-colors">{{ $cat['name'] }}</p>
+                        <p class="text-xs text-gray-400 mt-0.5">{{ $cat['desc'] }}</p>
+                    </a>
+                    @endforeach
+                </div>
+            </section>
 
-        {{-- 人気商品セクショ��� --}}
-        @if(!empty($popularItems))
-        <section id="popular-items" class="max-w-5xl mx-auto px-4 mt-8 mb-8">
-            @php
-                $categoryEmojis = ['マフラー' => '🔧', 'タイヤ' => '🛞', 'チェーン' => '⛓️'];
-            @endphp
-            @foreach($popularItems as $category => $items)
-                @if(count($items) > 0)
-                <div class="mb-8">
-                    <h2 class="text-lg font-black text-gray-800 mb-4">{{ $categoryEmojis[$category] ?? '🔧' }} {{ $category }} の人気商品</h2>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        @foreach($items as $item)
-                        <div class="bg-white rounded-xl shadow hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full">
-                            <div class="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
-                                @if(!empty($item['image']))
-                                    <img src="{{ str_replace('?_ex=128x128', '?_ex=300x300', $item['image']) }}" alt="{{ $item['name'] }}" class="w-full h-full object-contain p-2" loading="lazy">
-                                @else
-                                    <div class="text-gray-300 text-4xl">🔧</div>
-                                @endif
-                            </div>
-                            <div class="p-3 flex flex-col flex-grow">
-                                <h3 class="text-xs font-bold text-gray-800 line-clamp-2 mb-1">{{ $item['name'] }}</h3>
-                                <p class="text-[10px] text-gray-500 mb-2">{{ $item['shop'] }}</p>
-                                <div class="mt-auto">
-                                    <p class="text-base font-black text-red-600">&yen;{{ number_format($item['price']) }}</p>
+            {{-- 人気ブランドから探す --}}
+            <section class="max-w-5xl mx-auto px-4 mt-8">
+                <h2 class="text-lg font-black text-gray-800 mb-4">人気ブランドから探す</h2>
+                @php
+                    $brands = [
+                        'ヨシムラ', 'デイトナ', 'キタコ', 'モリワキ', 'コミネ', 'RSタイチ', 'ショウエイ',
+                        'アライ', 'ブリヂストン', 'ダンロップ', 'DID', 'RK', 'カストロール', 'ワコーズ',
+                    ];
+                @endphp
+                <div class="flex flex-wrap gap-2">
+                    @foreach($brands as $brand)
+                    <a href="{{ route('parts.index', ['keyword' => $brand]) }}"
+                       class="inline-flex items-center px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-bold text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors shadow-sm">
+                        {{ $brand }}
+                    </a>
+                    @endforeach
+                </div>
+            </section>
+
+            {{-- 人気商品セクション --}}
+            @if(!empty($popularItems))
+            <section id="popular-items" class="max-w-5xl mx-auto px-4 mt-8 mb-8">
+                @php
+                    $categoryEmojis = ['マフラー' => '&#128295;', 'タイヤ' => '&#128710;', 'チェーン' => '&#9939;'];
+                @endphp
+                @foreach($popularItems as $category => $items)
+                    @if(count($items) > 0)
+                    <div class="mb-8">
+                        <h2 class="text-lg font-black text-gray-800 mb-4">{!! $categoryEmojis[$category] ?? '&#128295;' !!} {{ $category }} の人気商品</h2>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            @foreach($items as $item)
+                            <div class="bg-white rounded-xl shadow hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full">
+                                <div class="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+                                    @if(!empty($item['image']))
+                                        <img src="{{ str_replace('?_ex=128x128', '?_ex=300x300', $item['image']) }}" alt="{{ $item['name'] }}" class="w-full h-full object-contain p-2" loading="lazy">
+                                    @else
+                                        <div class="text-gray-300 text-4xl">&#128295;</div>
+                                    @endif
+                                </div>
+                                <div class="p-3 flex flex-col flex-grow">
+                                    <h3 class="text-xs font-bold text-gray-800 line-clamp-2 mb-1">{{ $item['name'] }}</h3>
+                                    <p class="text-[10px] text-gray-500 mb-2">{{ $item['shop'] }}</p>
+                                    <div class="mt-auto">
+                                        <p class="text-base font-black text-red-600">&yen;{{ number_format($item['price']) }}</p>
+                                    </div>
                                 </div>
                             </div>
+                            @endforeach
                         </div>
-                        @endforeach
+                        <div class="mt-3 text-center">
+                            <button type="button" onclick="quickSearch('{{ $category }}')"
+                                class="text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                                「{{ $category }}」でもっと検索 &rarr;
+                            </button>
+                        </div>
                     </div>
-                    <div class="mt-3 text-center">
-                        <button type="button" onclick="quickSearch('{{ $category }}')"
-                            class="text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline transition-colors">
-                            「{{ $category }}」でもっと検索 &rarr;
-                        </button>
+                    @endif
+                @endforeach
+            </section>
+            @endif
+
+            {{-- パーツ選びのヒント --}}
+            <section class="max-w-5xl mx-auto px-4 mt-8">
+                <h2 class="text-lg font-black text-gray-800 mb-4">パーツ選びのヒント</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
+                        <div class="text-2xl mb-2">&#128230;</div>
+                        <h3 class="text-sm font-black text-gray-800 mb-2">楽天 vs Yahoo vs Amazon どこが安い？</h3>
+                        <p class="text-xs text-gray-600 leading-relaxed mb-3">同じ商品でもサイトごとに価格が異なります。楽天はポイント還元、Yahooは5のつく日、Amazonは即日配送が強み。</p>
+                        <a href="{{ route('parts.category', 'muffler') }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">カテゴリページで詳しく &rarr;</a>
+                    </div>
+                    <div class="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
+                        <div class="text-2xl mb-2">&#128176;</div>
+                        <h3 class="text-sm font-black text-gray-800 mb-2">ポイント還元を活用しよう</h3>
+                        <p class="text-xs text-gray-600 leading-relaxed mb-3">楽天SPUで最大16.5倍、Yahoo!は5のつく日にポイント4倍、Amazonプライムデーで大幅値引き。タイミングを狙ってお得に購入。</p>
+                        <a href="{{ route('parts.category', 'tire') }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">各カテゴリのポイント情報 &rarr;</a>
+                    </div>
+                    <div class="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
+                        <div class="text-2xl mb-2">&#128269;</div>
+                        <h3 class="text-sm font-black text-gray-800 mb-2">車種適合の確認方法</h3>
+                        <p class="text-xs text-gray-600 leading-relaxed mb-3">JAN（バーコード番号）や品番で検索すると、同一商品を高精度で比較可能。車種名+パーツ名での検索もおすすめです。</p>
+                        <a href="#search-form-section" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">検索フォームで探す &rarr;</a>
                     </div>
                 </div>
-                @endif
-            @endforeach
-        </section>
-        @endif
+            </section>
+
+            {{-- SEO用テキストコンテンツ --}}
+            <section class="max-w-5xl mx-auto px-4 mt-12 mb-8">
+                <h2 class="text-lg font-black text-gray-800 mb-4">MotoHubのバイクパーツ検索とは</h2>
+                <div class="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        MotoHubでは楽天市場・Yahoo!ショッピング・Amazonからバイクパーツを横断検索できます。同じ商品でもショップによって価格が異なるため、一括比較することで最安値を見つけられます。
+                    </p>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        JAN（バーコード番号）・品番マッチングにより、同一商品を高精度で比較。送料やポイント還元も考慮して、本当にお得なショップを探せます。
+                    </p>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        マフラー、タイヤ、ブレーキパッドなど10カテゴリの選び方ガイドも充実。初めてのパーツ交換でも安心して選べます。
+                    </p>
+                </div>
+            </section>
+
+        </div>{{-- /initial-content --}}
 
         {{-- ローディング --}}
         <div id="loading" class="hidden max-w-5xl mx-auto px-4 py-12 text-center">
@@ -180,7 +272,7 @@
 
         {{-- 結果0件 --}}
         <div id="no-results" class="hidden max-w-5xl mx-auto px-4 py-12 text-center">
-            <div class="text-5xl mb-3">🔍</div>
+            <div class="text-5xl mb-3">&#128269;</div>
             <p class="text-gray-500 font-bold">該当するパーツが見つかりませんでした</p>
             <p class="text-gray-400 text-sm mt-1">キーワードを変えて再検索してみてください</p>
         </div>
@@ -218,6 +310,7 @@
         const suggestList = document.getElementById('suggest-list');
         const amazonBar = document.getElementById('amazon-bar');
         const amazonSearchLink = document.getElementById('amazon-search-link');
+        const initialContent = document.getElementById('initial-content');
 
         // ===== State =====
         let currentPage = 1;
@@ -395,7 +488,7 @@
                 <div class="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
                     ${imageUrl
                         ? `<img src="${imageUrl}" alt="${item.name}" class="w-full h-full object-contain p-2" loading="lazy">`
-                        : `<div class="text-gray-300 text-4xl">🔧</div>`}
+                        : `<div class="text-gray-300 text-4xl">&#128295;</div>`}
                 </div>
                 <div class="p-3 flex flex-col flex-grow">
                     <h3 class="text-sm font-bold text-gray-800 line-clamp-2 mb-1">${item.name}</h3>
@@ -495,10 +588,7 @@
             amazonBar.classList.add('hidden');
             suggestList.classList.add('hidden');
             // 初期コンテンツを非表示
-            const quickCats = document.getElementById('quick-categories');
-            const popularItems = document.getElementById('popular-items');
-            if (quickCats) quickCats.classList.add('hidden');
-            if (popularItems) popularItems.classList.add('hidden');
+            if (initialContent) initialContent.classList.add('hidden');
             searchBtn.disabled = true;
             searchBtn.classList.add('opacity-50');
 
