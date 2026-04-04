@@ -197,14 +197,20 @@
                     $sections = [
                         ['id' => 'overview', 'label' => '概要'],
                         ['id' => 'specs', 'label' => 'スペック'],
+                    ];
+                    if (!empty($news)) {
+                        $sections[] = ['id' => 'news', 'label' => 'ニュース'];
+                    }
+                    if (!empty($videos)) {
+                        $sections[] = ['id' => 'videos', 'label' => '動画'];
+                    }
+                    $sections = array_merge($sections, [
                         ['id' => 'resale', 'label' => '買取相場'],
                         ['id' => 'price-distribution', 'label' => '価格分布'],
                         ['id' => 'price-trend', 'label' => '価格推移'],
                         ['id' => 'reviews', 'label' => 'レビュー' . (isset($reviewStats) && $reviewStats->count > 0 ? '★' . $reviewStats->avg_rating : '')],
                         ['id' => 'faq', 'label' => 'FAQ'],
-                        ['id' => 'news', 'label' => 'ニュース'],
-                        ['id' => 'videos', 'label' => '動画'],
-                    ];
+                    ]);
                 @endphp
                 @foreach($sections as $sec)
                     <a href="#{{ $sec['id'] }}" data-nav-target="{{ $sec['id'] }}" class="section-nav-link whitespace-nowrap px-3 py-1.5 rounded-lg text-[11px] font-bold text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all shrink-0">
