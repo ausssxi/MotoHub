@@ -13,3 +13,9 @@ Schedule::command('blog:publish-scheduled')->everyMinute();
 
 // ブログサイトマップ生成（毎日3:00）
 Schedule::command('blog:generate-sitemap')->dailyAt('03:00');
+
+// YouTube動画バッチ取得（毎日3:00）
+Schedule::command('youtube:fetch-videos --chunk=50')->dailyAt('03:00');
+
+// YouTube動画リフレッシュ（毎週月曜3:30）
+Schedule::command('youtube:refresh-videos --days=30')->weeklyOn(1, '03:30');

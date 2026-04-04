@@ -159,6 +159,14 @@ final class BikeModel extends Model
     }
 
     /**
+     * YouTube動画とのリレーション
+     */
+    public function videos(): HasMany
+    {
+        return $this->hasMany(BikeModelVideo::class)->orderBy('sort_order');
+    }
+
+    /**
      * 価格推移ログとのリレーション
      */
     public function priceLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
