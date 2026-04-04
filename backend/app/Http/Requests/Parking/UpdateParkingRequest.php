@@ -6,11 +6,14 @@ namespace App\Http\Requests\Parking;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-final class StoreParkingRequest extends FormRequest
+final class UpdateParkingRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $parking = $this->route('bikeParking');
+        $user = $this->user();
+
+        return $user && ($user->is_admin || $parking->user_id === $user->id);
     }
 
     public function rules(): array
@@ -27,15 +30,17 @@ final class StoreParkingRequest extends FormRequest
             'price_per_hour' => ['nullable', 'integer', 'min:0'],
             'price_per_day' => ['nullable', 'integer', 'min:0'],
             'price_per_month' => ['nullable', 'integer', 'min:0'],
+            'price_detail' => ['nullable', 'string', 'max:500'],
             'is_free' => ['nullable', 'boolean'],
             'is_covered' => ['nullable', 'boolean'],
             'is_locked' => ['nullable', 'boolean'],
             'has_security_camera' => ['nullable', 'boolean'],
             'available_24h' => ['nullable', 'boolean'],
-            'price_detail' => ['nullable', 'string', 'max:500'],
             'description' => ['nullable', 'string', 'max:1000'],
             'images' => ['nullable', 'array', 'max:5'],
             'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'delete_images' => ['nullable', 'array'],
+            'delete_images.*' => ['integer'],
         ];
     }
 

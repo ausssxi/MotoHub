@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Parking;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Parking\StoreParkingRequest;
 use App\Http\Requests\Parking\StoreParkingReviewRequest;
+use App\Http\Requests\Parking\UpdateParkingRequest;
 use App\Models\BikeParking;
 use App\Services\Parking\ParkingService;
 use Illuminate\Contracts\View\View;
@@ -83,6 +84,36 @@ class ParkingController extends Controller
 
         return redirect()->route('parking.show', $parking)
             ->with('success', '駐車場を登録しました！');
+    }
+
+    /**
+     * 編集フォーム
+     */
+    public function edit(BikeParking $bikeParking): View|RedirectResponse
+    {
+        $user = auth()->user();
+        if (!$user || (!$user->is_admin && $bikeParking->user_id !== $user->id)) {
+            abort(403);
+        }
+
+        $bikeParking->load('images');
+
+        return view('parking.edit', ['parking' => $bikeParking]);
+    }
+
+    /**
+     * 更新処理
+     */
+    public function update(UpdateParkingRequest $request, BikeParking $bikeParking): RedirectResponse
+    {
+        $this->parkingService->updateParking(
+            $bikeParking,
+            $request->user(),
+            $request->validated()
+        );
+
+        return redirect()->route('parking.show', $bikeParking)
+            ->with('success', '駐車場情報を更新しました！');
     }
 
     /**

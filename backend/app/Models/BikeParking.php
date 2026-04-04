@@ -80,6 +80,11 @@ final class BikeParking extends Model
         return $this->hasMany(ParkingReview::class, 'bike_parking_id');
     }
 
+    public function images(): HasMany
+    {
+        return $this->hasMany(BikeParkingImage::class)->orderBy('sort_order');
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);

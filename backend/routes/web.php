@@ -165,6 +165,8 @@ Route::prefix('parking/area')->name('parking.area.')->controller(ParkingAreaCont
 // 駐車場マップ（要ログイン）
 Route::middleware('auth')->prefix('parking')->name('parking.')->controller(ParkingController::class)->group(function () {
     Route::post('/', 'store')->name('store');
+    Route::get('/{bikeParking}/edit', 'edit')->name('edit')->where('bikeParking', '[0-9]+');
+    Route::put('/{bikeParking}', 'update')->name('update')->where('bikeParking', '[0-9]+');
 });
 
 // AR駐車場・ショップファインダー

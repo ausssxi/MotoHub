@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Services\Parking;
 
 use App\Models\BikeParking;
+use App\Models\BikeParkingImage;
 use App\Models\Listing;
 use App\Models\User;
 use App\Repositories\Parking\BikeParkingRepository;
 use App\Repositories\Parking\ParkingReviewRepository;
 use App\Services\NearbyService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Storage;
 
 final class ParkingService
 {
@@ -34,6 +36,7 @@ final class ParkingService
     public function getParkingDetail(int $id): array
     {
         $parking = $this->parkingRepo->findOrFail($id);
+        $parking->load('images');
         $reviews = $this->reviewRepo->getByParking($id);
 
         $nearbyParkings = collect();
@@ -74,7 +77,66 @@ final class ParkingService
 
     public function registerParking(?User $user, array $data): BikeParking
     {
-        return $this->parkingRepo->create($user, $data);
+        $images = $data['images'] ?? [];
+        unset($data['images']);
+
+        $parking = $this->parkingRepo->create($user, $data);
+
+        // 画像保存
+        if (!empty($images)) {
+            $this->storeImages($parking, $images, $user);
+        }
+
+        return $parking;
+    }
+
+    private function storeImages(BikeParking $parking, array $images, ?User $user, int $startOrder = 0): void
+    {
+        $dir = "parking/user-images/{$parking->id}";
+
+        foreach ($images as $index => $image) {
+            $path = $image->store($dir, 'public');
+
+            BikeParkingImage::create([
+                'bike_parking_id' => $parking->id,
+                'image_path' => $path,
+                'user_id' => $user?->id,
+                'sort_order' => $startOrder + $index,
+            ]);
+        }
+    }
+
+    public function updateParking(BikeParking $parking, ?User $user, array $data): BikeParking
+    {
+        $images = $data['images'] ?? [];
+        $deleteImages = $data['delete_images'] ?? [];
+        unset($data['images'], $data['delete_images']);
+
+        // チェックボックス未送信時はfalseにする
+        foreach (['is_free', 'is_covered', 'is_locked', 'has_security_camera', 'available_24h'] as $field) {
+            if (!isset($data[$field])) {
+                $data[$field] = false;
+            }
+        }
+
+        $parking->update($data);
+
+        // 画像削除
+        if (!empty($deleteImages)) {
+            $imagesToDelete = $parking->images()->whereIn('id', $deleteImages)->get();
+            foreach ($imagesToDelete as $img) {
+                Storage::disk('public')->delete($img->image_path);
+                $img->delete();
+            }
+        }
+
+        // 新しい画像追加
+        if (!empty($images)) {
+            $currentCount = $parking->images()->count();
+            $this->storeImages($parking, $images, $user, $currentCount);
+        }
+
+        return $parking->fresh();
     }
 
     public function addReview(int $parkingId, ?User $user, array $data): void

@@ -98,7 +98,17 @@
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6">
                 <div class="flex items-start justify-between mb-4">
                     <div>
-                        <h1 class="text-xl sm:text-2xl font-black text-gray-900 mb-2">{{ $parking->name }}</h1>
+                        <div class="flex items-center gap-3 mb-2">
+                            <h1 class="text-xl sm:text-2xl font-black text-gray-900">{{ $parking->name }}</h1>
+                            @auth
+                            @if(auth()->user()->is_admin || $parking->user_id === auth()->id())
+                            <a href="{{ route('parking.edit', $parking) }}"
+                               class="inline-flex items-center gap-1 text-xs font-bold text-gray-400 hover:text-blue-600 bg-gray-100 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition-colors shrink-0">
+                                <i data-lucide="pencil" class="w-3 h-3"></i> 編集する
+                            </a>
+                            @endif
+                            @endauth
+                        </div>
                         <div class="flex items-center gap-2 flex-wrap">
                             <span class="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[11px] font-bold px-3 py-1 rounded-full">
                                 <i data-lucide="square-parking" class="w-3 h-3"></i>
@@ -139,8 +149,14 @@
                     @endif
                     <div class="flex items-start gap-3">
                         <i data-lucide="coins" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
-                        <span class="text-sm text-gray-700">{{ $parking->price_detail ?: $parking->getPriceDisplay() }}</span>
+                        <span class="text-sm text-gray-700">{{ $parking->getPriceDisplay() }}</span>
                     </div>
+                    @if($parking->price_detail)
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="file-text" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
+                        <span class="text-sm text-gray-600 whitespace-pre-line">📝 料金の補足: {{ $parking->price_detail }}</span>
+                    </div>
+                    @endif
                     @if($parking->capacity)
                     <div class="flex items-start gap-3">
                         <i data-lucide="car" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
@@ -237,6 +253,76 @@
                 </div>
             </div>
 
+            {{-- 投稿写真 --}}
+            @if($parking->images->isNotEmpty())
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
+                <h2 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
+                    <i data-lucide="images" class="w-4 h-4 text-green-600"></i> 投稿写真 ({{ $parking->images->count() }}枚)
+                </h2>
+                <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                    @foreach($parking->images as $idx => $image)
+                    <button type="button" onclick="openLightbox({{ $idx }})"
+                            class="shrink-0 w-40 h-32 rounded-xl overflow-hidden border border-gray-100 hover:border-green-300 transition-colors cursor-pointer">
+                        <img src="{{ asset('storage/' . $image->image_path) }}"
+                             alt="{{ $parking->name }} 写真{{ $idx + 1 }}"
+                             class="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                             loading="lazy">
+                    </button>
+                    @endforeach
+                </div>
+            </div>
+
+            {{-- ライトボックスモーダル --}}
+            <div id="lightbox" class="fixed inset-0 z-[9999] bg-black/90 hidden items-center justify-center" onclick="closeLightbox(event)">
+                <button type="button" onclick="closeLightbox()" class="absolute top-4 right-4 text-white/70 hover:text-white transition z-10 p-2">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+                <button type="button" id="lb-prev" onclick="event.stopPropagation(); lbNav(-1)" class="absolute left-2 sm:left-4 text-white/70 hover:text-white transition p-2 z-10">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <button type="button" id="lb-next" onclick="event.stopPropagation(); lbNav(1)" class="absolute right-2 sm:right-4 text-white/70 hover:text-white transition p-2 z-10">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+                <img id="lb-img" src="" alt="" class="max-w-[90vw] max-h-[85vh] object-contain rounded-lg" onclick="event.stopPropagation()">
+                <span id="lb-counter" class="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-xs font-bold"></span>
+            </div>
+            <script>
+            (function() {
+                const images = @json($parking->images->pluck('image_path')->map(fn($p) => asset('storage/' . $p)));
+                let current = 0;
+                window.openLightbox = function(idx) {
+                    current = idx;
+                    updateLb();
+                    document.getElementById('lightbox').classList.remove('hidden');
+                    document.getElementById('lightbox').classList.add('flex');
+                    document.body.style.overflow = 'hidden';
+                };
+                window.closeLightbox = function(e) {
+                    if (e && e.target !== document.getElementById('lightbox')) return;
+                    document.getElementById('lightbox').classList.add('hidden');
+                    document.getElementById('lightbox').classList.remove('flex');
+                    document.body.style.overflow = '';
+                };
+                window.lbNav = function(dir) {
+                    current = (current + dir + images.length) % images.length;
+                    updateLb();
+                };
+                function updateLb() {
+                    document.getElementById('lb-img').src = images[current];
+                    document.getElementById('lb-counter').textContent = (current + 1) + ' / ' + images.length;
+                    document.getElementById('lb-prev').style.display = images.length > 1 ? '' : 'none';
+                    document.getElementById('lb-next').style.display = images.length > 1 ? '' : 'none';
+                }
+                document.addEventListener('keydown', function(e) {
+                    if (document.getElementById('lightbox').classList.contains('hidden')) return;
+                    if (e.key === 'Escape') closeLightbox();
+                    if (e.key === 'ArrowLeft') lbNav(-1);
+                    if (e.key === 'ArrowRight') lbNav(1);
+                });
+            })();
+            </script>
+            @endif
+
             {{-- ストリートビュー --}}
             @if($parking->latitude && $parking->longitude && config('services.google_maps.api_key'))
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -268,6 +354,10 @@
                         <span class="text-sm font-black text-gray-700 ml-1">月{{ number_format($parking->price_per_month ?? 0) }}円</span>
                     </div>
                     <p id="pf-error" class="text-sm text-red-500 font-bold text-center hidden"></p>
+                    @if($parking->price_detail)
+                    <p class="text-xs text-gray-500 text-center mt-3 pt-2 border-t border-blue-100">📝 {{ $parking->price_detail }}</p>
+                    @endif
+                    <p class="text-[10px] text-gray-400 text-center mt-2">※実際の料金体系と異なる場合があります。詳しくは現地の看板をご確認ください。</p>
                 </div>
 
                 {{-- 日時入力 --}}
