@@ -3,7 +3,7 @@
     <x-slot:metaDescription>中古バイクの「値下がり」「価格高騰」ランキングを毎日更新！過去30日間の相場変動から、今が買い時のバイクやプレミア化しているバイクが一目で分かります。</x-slot:metaDescription>
 
     <x-slot:scripts>
-        <script src="{{ asset('js/bikes/trends.js') }}"></script>
+        <script src="{{ asset('js/bikes/trends.js') }}?v={{ filemtime(public_path('js/bikes/trends.js')) }}"></script>
     </x-slot:scripts>
 
     <x-slot:navigation>

@@ -106,10 +106,10 @@
     <x-bottom-nav />
 
     {{-- 独自スクリプト --}}
-    <script src="{{ asset('js/wishlist/manager.js') }}" defer></script>
-    <script src="{{ asset('js/wishlist/page.js') }}" defer></script>
-    <script src="{{ asset('js/history/manager.js') }}?v={{ time() }}" defer></script>
-    <script src="{{ asset('js/search/interaction.js') }}" defer></script>
+    <script src="{{ asset('js/wishlist/manager.js') }}?v={{ filemtime(public_path('js/wishlist/manager.js')) }}" defer></script>
+    <script src="{{ asset('js/wishlist/page.js') }}?v={{ filemtime(public_path('js/wishlist/page.js')) }}" defer></script>
+    <script src="{{ asset('js/history/manager.js') }}?v={{ filemtime(public_path('js/history/manager.js')) }}" defer></script>
+    <script src="{{ asset('js/search/interaction.js') }}?v={{ filemtime(public_path('js/search/interaction.js')) }}" defer></script>
     
     {{-- 各ページから渡されるスクリプト --}}
     {{ $scripts ?? '' }}
@@ -161,7 +161,7 @@
     </script>
     {{-- 登録促進プロモーション（未ログイン時のみ） --}}
     @guest
-        <link rel="stylesheet" href="{{ asset('css/registration-promo.css') }}">
+        <link rel="stylesheet" href="{{ asset('css/registration-promo.css') }}?v={{ filemtime(public_path('css/registration-promo.css')) }}">
         <script src="{{ asset('js/promo/registration-promo.js') }}?v={{ filemtime(public_path('js/promo/registration-promo.js')) }}" defer></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {

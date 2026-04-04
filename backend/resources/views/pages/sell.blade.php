@@ -155,5 +155,5 @@
     </div>
 
     {{-- JS読み込み --}}
-    <script src="{{ asset('js/pages/sell.js') }}"></script>
+    <script src="{{ asset('js/pages/sell.js') }}?v={{ filemtime(public_path('js/pages/sell.js')) }}"></script>
 </x-layout>

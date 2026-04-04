@@ -410,5 +410,5 @@
 
 {{-- ★復旧: サジェスト用スクリプトの読み込み --}}
 @if($showSearch)
-    <script src="{{ asset('js/search/suggest.js') }}"></script>
+    <script src="{{ asset('js/search/suggest.js') }}?v={{ filemtime(public_path('js/search/suggest.js')) }}"></script>
 @endif

@@ -29,16 +29,16 @@
 
     <x-slot:styles>
         <x-jsonld.breadcrumb-search :filters="$filters ?? []" :pageTitle="$pageTitle ?? ''" />
-        <link rel="stylesheet" href="{{ asset('css/bike-search.css') }}">
+        <link rel="stylesheet" href="{{ asset('css/bike-search.css') }}?v={{ filemtime(public_path('css/bike-search.css')) }}">
     </x-slot:styles>
 
     <x-slot:scripts>
-        <script src="{{ asset('js/search/sidebar.js') }}" defer></script>
-        <script src="{{ asset('js/common/custom-dropdown.js') }}" defer></script>
+        <script src="{{ asset('js/search/sidebar.js') }}?v={{ filemtime(public_path('js/search/sidebar.js')) }}" defer></script>
+        <script src="{{ asset('js/common/custom-dropdown.js') }}?v={{ filemtime(public_path('js/common/custom-dropdown.js')) }}" defer></script>
         <script src="{{ asset('js/compare/manager.js') }}?v={{ filemtime(public_path('js/compare/manager.js')) }}" defer></script>
         <script src="{{ asset('js/compare/ui.js') }}?v={{ filemtime(public_path('js/compare/ui.js')) }}" defer></script>
-        <script src="{{ asset('js/search/save_condition.js') }}" defer></script>
-        <script src="{{ asset('js/search/infinite-scroll.js') }}" defer></script>
+        <script src="{{ asset('js/search/save_condition.js') }}?v={{ filemtime(public_path('js/search/save_condition.js')) }}" defer></script>
+        <script src="{{ asset('js/search/infinite-scroll.js') }}?v={{ filemtime(public_path('js/search/infinite-scroll.js')) }}" defer></script>
         @guest
         <script>
             document.addEventListener('DOMContentLoaded', () => {

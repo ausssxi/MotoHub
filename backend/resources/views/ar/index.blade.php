@@ -344,6 +344,6 @@
         </div>
     </div>
 
-    <script type="module" src="{{ asset('js/ar/ar-main.js') }}?v={{ time() }}"></script>
+    <script type="module" src="{{ asset('js/ar/ar-main.js') }}?v={{ filemtime(public_path('js/ar/ar-main.js')) }}"></script>
 </body>
 </html>

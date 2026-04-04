@@ -17,7 +17,7 @@
     <x-slot:scripts>
         <script src="{{ asset('js/compare/manager.js') }}?v={{ filemtime(public_path('js/compare/manager.js')) }}"></script>
         <script src="{{ asset('js/compare/ui.js') }}?v={{ filemtime(public_path('js/compare/ui.js')) }}"></script>
-        <script src="{{ asset('js/bikes/loan-simulator.js') }}"></script>
+        <script src="{{ asset('js/bikes/loan-simulator.js') }}?v={{ filemtime(public_path('js/bikes/loan-simulator.js')) }}"></script>
 
         {{-- JSにBladeの変数を渡す --}}
         <script>
@@ -70,9 +70,9 @@
                 obs.observe(form);
             })();
         </script>
-        <script src="{{ asset('js/bikes/review.js') }}"></script>
-        <script src="{{ asset('js/search/seamless-nav.js') }}"></script>
-        <script src="{{ asset('js/bikes/show.js') }}"></script>
+        <script src="{{ asset('js/bikes/review.js') }}?v={{ filemtime(public_path('js/bikes/review.js')) }}"></script>
+        <script src="{{ asset('js/search/seamless-nav.js') }}?v={{ filemtime(public_path('js/search/seamless-nav.js')) }}"></script>
+        <script src="{{ asset('js/bikes/show.js') }}?v={{ filemtime(public_path('js/bikes/show.js')) }}"></script>
     </x-slot:scripts>
 
     <x-slot:navigation>

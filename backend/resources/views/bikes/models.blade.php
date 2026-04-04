@@ -3,7 +3,7 @@
     <x-slot:metaDescription>全{{ number_format($totalModelsCount) }}車種のバイクカタログ。メーカー別にスペック・中古相場・リセールバリューを比較できます。気になる車種の価格推移やオーナーレビューもチェック。</x-slot:metaDescription>
 
     <x-slot:scripts>
-        <script src="{{ asset('js/bikes/models.js') }}"></script>
+        <script src="{{ asset('js/bikes/models.js') }}?v={{ filemtime(public_path('js/bikes/models.js')) }}"></script>
         {{-- ★修正: DOMの読み込みを待たずに即座にAPI通信を開始して表示を高速化 --}}
         <script>
             (async function() {

@@ -20,7 +20,7 @@
         </script>
         <script>window.__bikeModelId = {{ $model->id }};</script>
         <script src="{{ asset('js/promo/engagement-banner.js') }}?v={{ filemtime(public_path('js/promo/engagement-banner.js')) }}" defer></script>
-        <script src="{{ asset('js/bikes/model_detail.js') }}"></script>
+        <script src="{{ asset('js/bikes/model_detail.js') }}?v={{ filemtime(public_path('js/bikes/model_detail.js')) }}"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 const form = document.getElementById('review-form-element');

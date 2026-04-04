@@ -9,12 +9,12 @@
 
     <x-slot:styles>
         {{-- CSSの非同期読み込み（レンダリングブロック完全解除） --}}
-        <link rel="preload" href="{{ asset('css/bike-search.css') }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
-        <noscript><link rel="stylesheet" href="{{ asset('css/bike-search.css') }}"></noscript>
+        <link rel="preload" href="{{ asset('css/bike-search.css') }}?v={{ filemtime(public_path('css/bike-search.css')) }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="{{ asset('css/bike-search.css') }}?v={{ filemtime(public_path('css/bike-search.css')) }}"></noscript>
     </x-slot:styles>
 
     <x-slot:scripts>
-        <script src="{{ asset('js/search/sidebar.js') }}" defer></script>
+        <script src="{{ asset('js/search/sidebar.js') }}?v={{ filemtime(public_path('js/search/sidebar.js')) }}" defer></script>
         <script src="{{ asset('js/compare/manager.js') }}?v={{ filemtime(public_path('js/compare/manager.js')) }}" defer></script>
         <script src="{{ asset('js/compare/ui.js') }}?v={{ filemtime(public_path('js/compare/ui.js')) }}" defer></script>
     </x-slot:scripts>
