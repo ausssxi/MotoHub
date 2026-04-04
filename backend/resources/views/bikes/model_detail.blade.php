@@ -1,6 +1,6 @@
 <x-layout>
     <x-slot:title>{{ $model->name }}の中古バイク一覧・相場{{ $activeCount > 0 ? ' | ' . $activeCount . '台掲載' : '' }} | MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $model->name }}の中古バイクを{{ $activeCount > 0 ? $activeCount . '台掲載' : '掲載中' }}。{{ !empty($stats) && isset($stats['avg']) && $stats['count'] > 0 ? '平均相場' . $stats['avg'] . '万円、最安値' . $stats['min'] . '万円。' : '' }}年式・走行距離・価格で絞り込み検索できます。</x-slot:metaDescription>
+    <x-slot:metaDescription>{{ $model->name }}の中古バイク在庫{{ $activeCount > 0 ? $activeCount . '台' : '掲載中' }}。{{ !empty($stats) && isset($stats['avg']) && $stats['count'] > 0 ? '価格' . $stats['min'] . '〜' . $stats['max'] . '万円、平均' . $stats['avg'] . '万円。' : '' }}スペック・維持費・相場情報をMotoHubで比較。</x-slot:metaDescription>
     <x-slot:canonical>{{ url($model->seo_url) }}</x-slot:canonical>
     @if($model->image_url)
     <x-slot:ogImage>{{ $model->image_url }}</x-slot:ogImage>

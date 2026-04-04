@@ -1,6 +1,6 @@
 <x-layout>
     <x-slot:title>ブログ | MotoHub</x-slot:title>
-    <x-slot:metaDescription>MotoHubのブログ。バイクに関する最新情報、レビュー、メンテナンス情報をお届けします。</x-slot:metaDescription>
+    <x-slot:metaDescription>MotoHubブログ - バイクの選び方、維持費、駐車場情報など、バイクライフに役立つ情報を発信中。</x-slot:metaDescription>
     <x-slot:canonical>{{ url('/blog') }}</x-slot:canonical>
 
     <x-slot:navigation>

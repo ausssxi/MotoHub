@@ -1,9 +1,7 @@
 <x-layout>
     <x-slot:title>バイクパーツ検索 | MotoHub</x-slot:title>
 
-    <x-slot:metaDescription>
-        バイクパーツを楽天市場・Yahoo!ショッピング・Amazonから横断検索。価格比較で最安値を見つけよう。
-    </x-slot:metaDescription>
+    <x-slot:metaDescription>バイクパーツの価格を楽天・Yahoo・Amazonで一括比較。最安値のパーツを見つけてバイクのメンテナンスコストを節約。</x-slot:metaDescription>
 
     <x-slot:navigation>
         <x-navigation :showSearch="true" />

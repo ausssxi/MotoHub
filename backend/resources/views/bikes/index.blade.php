@@ -1,6 +1,6 @@
 <x-layout>
     <x-slot:title>MotoHub - 中古・新車バイク一括検索</x-slot:title>
-    <x-slot:metaDescription>全国{{ number_format($totalListings) }}台以上の中古バイク・新車を一括検索。GooBike・BDS・Webikeなど複数サイトの在庫を価格・排気量・メーカーで比較できます。買取相場・リセールバリュー・オーナーレビューも充実。</x-slot:metaDescription>
+    <x-slot:metaDescription>MotoHubは全国{{ number_format($totalListings) }}台以上の中古・新車バイクを一括検索できるバイクポータルサイト。価格比較、車種判定AI、39,000件のバイク駐車場マップなど、バイク選びに必要な全てが揃います。</x-slot:metaDescription>
 
     <x-slot:styles>
         <link rel="preload" as="image" href="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=2070&auto=format&fit=crop" fetchpriority="high">
