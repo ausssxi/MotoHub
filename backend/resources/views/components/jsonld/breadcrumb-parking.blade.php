@@ -1,4 +1,4 @@
-@props(['parking' => null, 'currentName' => null])
+@props(['parking' => null, 'prefecture' => null, 'city' => null, 'currentName' => null])
 
 @php
     $itemList = [];
@@ -18,13 +18,34 @@
         'item' => route('parking.index')
     ];
 
-    // 都道府県（show で prefecture がある場合）
-    if ($parking && !empty($parking->prefecture)) {
+    // エリアインデックス
+    $pref = $prefecture ?? ($parking->prefecture ?? null);
+    $cityName = $city ?? ($parking->city ?? null);
+
+    if ($pref) {
         $itemList[] = [
             '@type' => 'ListItem',
             'position' => $position++,
-            'name' => $parking->prefecture,
-            'item' => route('parking.area', $parking->prefecture)
+            'name' => 'エリアから探す',
+            'item' => route('parking.area.index')
+        ];
+
+        // 都道府県
+        $itemList[] = [
+            '@type' => 'ListItem',
+            'position' => $position++,
+            'name' => $pref,
+            'item' => route('parking.area.prefecture', $pref)
+        ];
+    }
+
+    // 市区町村
+    if ($pref && $cityName) {
+        $itemList[] = [
+            '@type' => 'ListItem',
+            'position' => $position++,
+            'name' => $cityName,
+            'item' => route('parking.area.city', [$pref, $cityName])
         ];
     }
 

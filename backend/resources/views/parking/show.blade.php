@@ -81,6 +81,14 @@
                     <li><a href="/" class="hover:text-gray-600 transition-colors">HOME</a></li>
                     <li><span class="text-gray-300">＞</span></li>
                     <li><a href="{{ route('parking.index') }}" class="hover:text-gray-600 transition-colors">駐車場マップ</a></li>
+                    @if($parking->prefecture)
+                    <li><span class="text-gray-300">＞</span></li>
+                    <li><a href="{{ route('parking.area.prefecture', $parking->prefecture) }}" class="hover:text-gray-600 transition-colors">{{ $parking->prefecture }}</a></li>
+                    @endif
+                    @if($parking->city)
+                    <li><span class="text-gray-300">＞</span></li>
+                    <li><a href="{{ route('parking.area.city', [$parking->prefecture, $parking->city]) }}" class="hover:text-gray-600 transition-colors">{{ $parking->city }}</a></li>
+                    @endif
                     <li><span class="text-gray-300">＞</span></li>
                     <li><span class="text-gray-800">{{ $parking->name }}</span></li>
                 </ol>

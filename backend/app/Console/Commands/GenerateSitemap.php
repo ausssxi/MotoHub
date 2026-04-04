@@ -41,6 +41,9 @@ class GenerateSitemap extends Command
         foreach (glob(public_path('sitemap-parking-*.xml')) as $old) {
             unlink($old);
         }
+        foreach (glob(public_path('sitemap-parking-area*.xml')) as $old) {
+            unlink($old);
+        }
         $this->info("古いサイトマップファイルを削除しました。");
 
         $sitemapFiles = [];
@@ -457,6 +460,51 @@ class GenerateSitemap extends Command
 
         $this->closeSitemap($handle);
         $this->info(" -> {$totalParkingCount} URL (Parking Total, {$parkingFileIndex} files)");
+
+
+        // =========================================================
+        // 4.6. 駐車場エリアページ (sitemap-parking-area.xml)
+        // =========================================================
+        $this->info("駐車場エリアサイトマップを生成中...");
+        $parkingAreaFileName = 'sitemap-parking-area.xml';
+        $handle = $this->openSitemap($parkingAreaFileName);
+        $sitemapFiles[] = $parkingAreaFileName;
+        $parkingAreaCount = 0;
+
+        // エリアインデックス
+        $this->writeUrl($handle, route('parking.area.index'), date('Y-m-d'), 'weekly', '0.8');
+        $parkingAreaCount++;
+
+        // 都道府県ページ + 市区町村ページ
+        $parkingAreaService = app(\App\Services\Parking\ParkingAreaService::class);
+        $allParkingPrefs = $parkingAreaService->getAllPrefectures();
+
+        foreach ($allParkingPrefs as $pref) {
+            $this->writeUrl(
+                $handle,
+                route('parking.area.prefecture', $pref),
+                date('Y-m-d'),
+                'weekly',
+                '0.7'
+            );
+            $parkingAreaCount++;
+
+            // 市区町村ページ
+            $cities = $parkingAreaService->getCitiesForPrefecture($pref);
+            foreach ($cities as $city) {
+                $this->writeUrl(
+                    $handle,
+                    route('parking.area.city', [$pref, $city]),
+                    date('Y-m-d'),
+                    'weekly',
+                    '0.6'
+                );
+                $parkingAreaCount++;
+            }
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$parkingAreaCount} URL (Parking Area)");
 
 
         // =========================================================
