@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Parts;
 
 use App\Http\Controllers\Controller;
+use App\Models\BikeModel;
 use App\Services\Parts\PartsCodeExtractor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -343,15 +344,36 @@ class PartsController extends Controller
         $amazonUrl = 'https://www.amazon.co.jp/s?k=' . urlencode($amazonQuery);
         if ($amazonTag) $amazonUrl .= '&tag=' . urlencode($amazonTag);
 
+        // カテゴリ代表画像（キャッシュ済みデータの1件目）
+        $categories = config('parts-categories', []);
+        $categoryImages = [];
+        foreach ($categories as $cat) {
+            $cachedItems = Cache::get('parts_category_' . $cat['slug']);
+            $categoryImages[$cat['slug']] = $cachedItems[0]['image'] ?? null;
+        }
+
+        // 人気車種の画像
+        $popularBikeNames = ['CBR250RR', 'PCX', 'レブル250', 'スーパーカブ', 'モンキー125',
+            'CT125', 'YZF-R25', 'Ninja250', 'Z900RS', 'MT-07'];
+        $bikeCards = BikeModel::with('representativeListing')
+            ->whereIn('name', $popularBikeNames)
+            ->get()
+            ->map(fn ($bike) => ['name' => $bike->name, 'image_url' => $bike->image_url])
+            ->sortBy(fn ($b) => array_search($b['name'], $popularBikeNames))
+            ->values()
+            ->all();
+
         return view('parts.compare', [
-            'displayTitle'  => $displayTitle,
-            'jan'           => $jan,
-            'partNumber'    => $partnum,
-            'searchType'    => $searchType,
-            'rakutenItems'  => $rakutenItems,
-            'yahooItems'    => $yahooItems,
-            'best'          => $best,
-            'amazonUrl'     => $amazonUrl,
+            'displayTitle'   => $displayTitle,
+            'jan'            => $jan,
+            'partNumber'     => $partnum,
+            'searchType'     => $searchType,
+            'rakutenItems'   => $rakutenItems,
+            'yahooItems'     => $yahooItems,
+            'best'           => $best,
+            'amazonUrl'      => $amazonUrl,
+            'categoryImages' => $categoryImages,
+            'bikeCards'      => $bikeCards,
         ]);
     }
 }

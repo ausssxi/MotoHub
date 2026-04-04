@@ -70,7 +70,7 @@
                             @if($rakutenBest['image'])
                                 <img src="{{ str_replace('?_ex=128x128', '?_ex=200x200', $rakutenBest['image']) }}" alt="" class="w-full h-full object-contain p-1" loading="lazy">
                             @else
-                                <span class="text-gray-300 text-3xl">🔧</span>
+                                <span class="text-gray-300 text-3xl">&#128295;</span>
                             @endif
                         </div>
                         <p class="text-xs text-gray-800 font-bold text-center line-clamp-2 mb-1">{{ $rakutenBest['name'] }}</p>
@@ -81,7 +81,7 @@
                         @endif
                         @if($rakutenBest['review_count'] > 0)
                         <p class="text-[10px] text-gray-400 mb-3">
-                            <span class="text-yellow-500">★</span>{{ number_format($rakutenBest['review_avg'], 1) }}({{ $rakutenBest['review_count'] }})
+                            <span class="text-yellow-500">&#9733;</span>{{ number_format($rakutenBest['review_avg'], 1) }}({{ $rakutenBest['review_count'] }})
                         </p>
                         @endif
                         <a href="{{ $rakutenBest['url'] }}" target="_blank" rel="noopener noreferrer"
@@ -107,7 +107,7 @@
                             @if($yahooBest['image'])
                                 <img src="{{ $yahooBest['image'] }}" alt="" class="w-full h-full object-contain p-1" loading="lazy">
                             @else
-                                <span class="text-gray-300 text-3xl">🔧</span>
+                                <span class="text-gray-300 text-3xl">&#128295;</span>
                             @endif
                         </div>
                         <p class="text-xs text-gray-800 font-bold text-center line-clamp-2 mb-1">{{ $yahooBest['name'] }}</p>
@@ -118,7 +118,7 @@
                         @endif
                         @if($yahooBest['review_count'] > 0)
                         <p class="text-[10px] text-gray-400 mb-3">
-                            <span class="text-yellow-500">★</span>{{ number_format($yahooBest['review_avg'], 1) }}({{ $yahooBest['review_count'] }})
+                            <span class="text-yellow-500">&#9733;</span>{{ number_format($yahooBest['review_avg'], 1) }}({{ $yahooBest['review_count'] }})
                         </p>
                         @else
                         <div class="mb-3"></div>
@@ -179,7 +179,7 @@
                                 @if($item['image'])
                                     <img src="{{ str_replace('?_ex=128x128', '?_ex=200x200', $item['image']) }}" alt="" class="w-full h-full object-contain p-1" loading="lazy">
                                 @else
-                                    <span class="text-gray-300 text-xl">🔧</span>
+                                    <span class="text-gray-300 text-xl">&#128295;</span>
                                 @endif
                             </div>
                             <div class="flex-1 min-w-0">
@@ -217,7 +217,7 @@
                                 @if($item['image'])
                                     <img src="{{ $item['image'] }}" alt="" class="w-full h-full object-contain p-1" loading="lazy">
                                 @else
-                                    <span class="text-gray-300 text-xl">🔧</span>
+                                    <span class="text-gray-300 text-xl">&#128295;</span>
                                 @endif
                             </div>
                             <div class="flex-1 min-w-0">
@@ -242,6 +242,112 @@
                 details[open] .details-arrow { transform: rotate(180deg); }
             </style>
             @endif
+
+            {{-- 比較結果なしの場合 --}}
+            @if(empty($rakutenItems) && empty($yahooItems))
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+                <div class="text-5xl mb-3">&#128269;</div>
+                <p class="text-gray-600 font-bold mb-2">比較できる商品が見つかりませんでした</p>
+                <p class="text-gray-400 text-sm mb-6">パーツ検索から商品を検索して価格を比較できます</p>
+                <a href="{{ route('parts.index') }}"
+                   class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-6 py-2.5 rounded-lg transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    パーツ検索で探す
+                </a>
+            </div>
+
+            <section>
+                <h3 class="text-lg font-black text-gray-800 mb-4">人気カテゴリから探す</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    @foreach(config('parts-categories', []) as $cat)
+                    <a href="{{ route('parts.category', $cat['slug']) }}"
+                       class="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-blue-200 transition-all group">
+                        <div class="aspect-square bg-gray-50 overflow-hidden flex items-center justify-center">
+                            @if($categoryImages[$cat['slug']] ?? null)
+                                <img src="{{ str_replace('?_ex=128x128', '?_ex=200x200', $categoryImages[$cat['slug']]) }}" alt="{{ $cat['name'] }}" class="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform" loading="lazy">
+                            @else
+                                <span class="text-gray-300 text-3xl">&#128295;</span>
+                            @endif
+                        </div>
+                        <div class="p-2 text-center">
+                            <span class="text-xs font-black text-gray-800 group-hover:text-blue-600 transition-colors">{{ $cat['name'] }}</span>
+                            <p class="text-[10px] text-gray-400 line-clamp-1 mt-0.5">{{ Str::limit($cat['description'], 30) }}</p>
+                        </div>
+                    </a>
+                    @endforeach
+                </div>
+            </section>
+            @endif
+
+            {{-- 内部リンク: カテゴリカード --}}
+            <section>
+                <h3 class="text-sm font-black text-gray-800 mb-3">パーツカテゴリから探す</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    @foreach(config('parts-categories', []) as $cat)
+                    <a href="{{ route('parts.category', $cat['slug']) }}"
+                       class="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-blue-200 transition-all group">
+                        <div class="aspect-square bg-gray-50 overflow-hidden flex items-center justify-center">
+                            @if($categoryImages[$cat['slug']] ?? null)
+                                <img src="{{ str_replace('?_ex=128x128', '?_ex=200x200', $categoryImages[$cat['slug']]) }}" alt="{{ $cat['name'] }}" class="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform" loading="lazy">
+                            @else
+                                <span class="text-gray-300 text-3xl">&#128295;</span>
+                            @endif
+                        </div>
+                        <div class="p-2 text-center">
+                            <span class="text-xs font-black text-gray-800 group-hover:text-blue-600 transition-colors">{{ $cat['name'] }}</span>
+                            <p class="text-[10px] text-gray-400 line-clamp-1 mt-0.5">{{ Str::limit($cat['description'], 30) }}</p>
+                        </div>
+                    </a>
+                    @endforeach
+                </div>
+            </section>
+
+            {{-- 内部リンク: ブランドチップ --}}
+            <section>
+                <h3 class="text-sm font-black text-gray-800 mb-3">人気ブランドから探す</h3>
+                @php
+                    $compareBrands = ['ヨシムラ', 'デイトナ', 'キタコ', 'モリワキ', 'コミネ', 'RSタイチ',
+                        'ショウエイ', 'アライ', 'ブリヂストン', 'ダンロップ', 'DID', 'RK', 'カストロール', 'ワコーズ'];
+                @endphp
+                <div class="flex flex-wrap gap-2">
+                    @foreach($compareBrands as $brand)
+                    <a href="{{ route('parts.index', ['keyword' => $brand]) }}"
+                       class="inline-flex items-center px-3 py-1.5 bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-blue-600 text-sm font-bold rounded-full border border-gray-200 hover:border-blue-200 transition-colors">
+                        {{ $brand }}
+                    </a>
+                    @endforeach
+                </div>
+            </section>
+
+            {{-- 内部リンク: 車種カード --}}
+            <section>
+                <h3 class="text-sm font-black text-gray-800 mb-3">車種からパーツを探す</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    @foreach($bikeCards as $bike)
+                    <a href="{{ route('parts.index', ['keyword' => $bike['name']]) }}"
+                       class="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-blue-200 transition-all group">
+                        <div class="aspect-[4/3] bg-gray-50 overflow-hidden flex items-center justify-center">
+                            @if($bike['image_url'] ?? null)
+                                <img src="{{ $bike['image_url'] }}" alt="{{ $bike['name'] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy">
+                            @else
+                                <span class="text-gray-300 text-3xl">&#128661;</span>
+                            @endif
+                        </div>
+                        <div class="p-2 text-center">
+                            <span class="text-xs font-black text-gray-800 group-hover:text-blue-600 transition-colors">{{ $bike['name'] }}</span>
+                        </div>
+                    </a>
+                    @endforeach
+                </div>
+            </section>
+
+            <div class="text-center pt-2">
+                <a href="{{ route('parts.index') }}"
+                   class="inline-flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    パーツ検索トップ
+                </a>
+            </div>
         </div>
     </div>
 </x-layout>
