@@ -3,7 +3,7 @@
         {{ $listing->name }} | MotoHub
     </x-slot:title>
 
-    <x-slot:metaDescription>{{ $listing->name }}{{ $listing->model_year ? ' ' . $listing->model_year . '年式' : '' }}{{ $listing->mileage ? ' ' . number_format($listing->mileage) . 'km' : '' }}{{ $listing->total_price ? ' ' . $listing->total_price . '万円' : '' }} - {{ $listing->shop_name ?? 'MotoHub' }}{{ $listing->prefecture ? '（' . $listing->prefecture . '）' : '' }}。MotoHubで価格相場と比較して、お買い得な中古バイクを見つけよう。</x-slot:metaDescription>
+    <x-slot:metaDescription>{{ $listing->name }}{{ $listing->model_year ? ' ' . $listing->model_year . '年式' : '' }}{{ $listing->mileage ? ' ' . number_format((int)$listing->mileage) . 'km' : '' }}{{ $listing->total_price ? ' ' . $listing->total_price . '万円' : '' }} - {{ $listing->shop_name ?? 'MotoHub' }}{{ $listing->prefecture ? '（' . $listing->prefecture . '）' : '' }}。MotoHubで価格相場と比較して、お買い得な中古バイクを見つけよう。</x-slot:metaDescription>
 
     @if(!empty($listing->images) && isset($listing->images[0]))
     <x-slot:ogImage>{{ $listing->images[0] }}</x-slot:ogImage>
