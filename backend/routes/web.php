@@ -177,6 +177,7 @@ Route::get('/parts', [PartsController::class, 'index'])->name('parts.index');
 Route::get('/parts/search', [PartsController::class, 'search'])->name('parts.search');
 Route::get('/parts/search/yahoo', [PartsController::class, 'searchYahoo'])->name('parts.search.yahoo');
 Route::get('/parts/compare', [PartsController::class, 'compare'])->name('parts.compare');
+Route::get('/parts/category/{slug}', [PartsController::class, 'category'])->name('parts.category');
 
 // 特集ページ (SEOランディング)
 Route::prefix('features')->name('features.')->controller(FeatureController::class)->group(function () {

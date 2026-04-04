@@ -44,6 +44,9 @@ class GenerateSitemap extends Command
         foreach (glob(public_path('sitemap-parking-area*.xml')) as $old) {
             unlink($old);
         }
+        foreach (glob(public_path('sitemap-parts*.xml')) as $old) {
+            unlink($old);
+        }
         $this->info("古いサイトマップファイルを削除しました。");
 
         $sitemapFiles = [];
@@ -580,6 +583,30 @@ class GenerateSitemap extends Command
 
         $this->closeSitemap($handle);
         $this->info(" -> {$totalListingsCount} URL (Listings)");
+
+
+        // =========================================================
+        // 6.5. パーツカテゴリページ (sitemap-parts.xml)
+        // =========================================================
+        $this->info("パーツカテゴリサイトマップを生成中...");
+        $partsFileName = 'sitemap-parts.xml';
+        $handle = $this->openSitemap($partsFileName);
+        $sitemapFiles[] = $partsFileName;
+        $partsCount = 0;
+
+        foreach (config('parts-categories', []) as $cat) {
+            $this->writeUrl(
+                $handle,
+                route('parts.category', $cat['slug']),
+                date('Y-m-d'),
+                'weekly',
+                '0.7'
+            );
+            $partsCount++;
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$partsCount} URL (Parts Category)");
 
 
         // =========================================================

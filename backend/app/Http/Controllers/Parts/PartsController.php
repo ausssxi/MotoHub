@@ -229,6 +229,35 @@ class PartsController extends Controller
     }
 
     /**
+     * カテゴリ別ランディングページ
+     */
+    public function category(string $slug)
+    {
+        $categories = config('parts-categories', []);
+        $category = collect($categories)->firstWhere('slug', $slug);
+
+        if (!$category) {
+            abort(404);
+        }
+
+        $searchQuery = 'バイク ' . $category['name'];
+        $cacheKey = 'parts_category_' . $slug;
+
+        $items = Cache::remember($cacheKey, 86400, function () use ($searchQuery, $category) {
+            $data = $this->fetchRakuten($searchQuery, 1, 10, genreId: $category['rakuten_genre_id']);
+            return $data ? $this->formatRakutenItems($data) : [];
+        });
+
+        $otherCategories = collect($categories)->where('slug', '!=', $slug)->values();
+
+        return view('parts.category', [
+            'category' => $category,
+            'items' => $items,
+            'otherCategories' => $otherCategories,
+        ]);
+    }
+
+    /**
      * 価格比較ページ（JAN/品番/キーワードで楽天・Yahoo並列取得）
      */
     public function compare(Request $request)

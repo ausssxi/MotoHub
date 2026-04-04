@@ -86,7 +86,20 @@
             </div>
         </section>
 
-        {{-- 人気商品セクション --}}
+        {{-- 人気カテゴリから探す --}}
+        <section class="max-w-5xl mx-auto px-4 mt-8">
+            <h2 class="text-lg font-black text-gray-800 mb-4">人気カテゴリから探す</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                @foreach(config('parts-categories', []) as $cat)
+                <a href="{{ route('parts.category', $cat['slug']) }}"
+                   class="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md hover:border-blue-200 transition-all text-center group">
+                    <span class="text-sm font-black text-gray-800 group-hover:text-blue-600 transition-colors">{{ $cat['name'] }}</span>
+                </a>
+                @endforeach
+            </div>
+        </section>
+
+        {{-- 人気商品セクショ��� --}}
         @if(!empty($popularItems))
         <section id="popular-items" class="max-w-5xl mx-auto px-4 mt-8 mb-8">
             @php
