@@ -190,6 +190,17 @@
             </div>
             @endif
 
+            {{-- バイク検索クロスリンク --}}
+            <div class="mt-8 bg-blue-50 rounded-2xl p-5 border border-blue-100 flex items-center justify-between hover:shadow-md transition-shadow">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">🏍️</span>
+                    <span class="text-sm font-black text-gray-800">{{ $prefecture }}の中古バイクを探す</span>
+                </div>
+                <a href="{{ route('bikes.search', ['prefecture' => $prefecture]) }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                    検索する <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+
             {{-- 回遊リンク --}}
             <div class="mt-8">
                 <x-cross-links :crossLinks="$crossLinks" />

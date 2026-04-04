@@ -1179,8 +1179,21 @@
 
             {{-- 近くの駐車場・ショップ・回遊リンク --}}
             <div class="mt-12 space-y-6">
-                <x-nearby-parkings :nearbyParkings="$nearbyParkings" :latitude="$shopLat" :longitude="$shopLng" />
                 <x-nearby-shops :nearbyShops="$nearbyShops" :latitude="$shopLat" :longitude="$shopLng" />
+                <x-nearby-parkings :nearbyParkings="$nearbyParkings" :latitude="$shopLat" :longitude="$shopLng" :prefecture="$listing->prefecture" />
+
+                {{-- 都道府県エリア駐車場リンク --}}
+                @if($listing->prefecture)
+                <div class="bg-green-50 rounded-2xl p-5 border border-green-100 flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">🅿️</span>
+                        <span class="text-sm font-black text-gray-800">{{ $listing->prefecture }}のバイク駐車場をもっと探す</span>
+                    </div>
+                    <a href="{{ route('parking.area.prefecture', $listing->prefecture) }}" class="text-xs font-bold text-green-600 hover:text-green-800 flex items-center gap-1">
+                        エリア一覧 <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </a>
+                </div>
+                @endif
                 @if($alsoViewed->count() > 0)
                 <div class="mt-8">
                     <h2 class="text-lg font-black text-gray-900 mb-4">この車両を見た人はこれも見ています</h2>

@@ -275,6 +275,17 @@
                 </div>
             </section>
         @endif
+
+        {{-- 駐車場エリアリンク --}}
+        <div class="mt-8 bg-gray-50 rounded-2xl p-5 border border-gray-200 flex items-center justify-between hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">🅿️</span>
+                <span class="text-sm font-black text-gray-800">バイク駐車場をエリアから探す</span>
+            </div>
+            <a href="{{ route('parking.area.index') }}" class="text-xs font-bold text-green-600 hover:text-green-800 flex items-center gap-1">
+                エリア一覧 <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </a>
+        </div>
     </div>
 
     <x-slot:scripts>

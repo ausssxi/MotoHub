@@ -762,8 +762,22 @@
 
             {{-- 近くの駐車場・ショップ・回遊リンク --}}
             <div class="mt-6 space-y-6">
-                <x-nearby-parkings :nearbyParkings="$nearbyParkings" :latitude="$parking->latitude" :longitude="$parking->longitude" />
+                <x-nearby-parkings :nearbyParkings="$nearbyParkings" :latitude="$parking->latitude" :longitude="$parking->longitude" :prefecture="$parking->prefecture" />
                 <x-nearby-shops :nearbyShops="$nearbyShops" :latitude="$parking->latitude" :longitude="$parking->longitude" />
+
+                {{-- 都道府県エリアリンク --}}
+                @if($parking->prefecture)
+                <div class="bg-green-50 rounded-2xl p-5 border border-green-100 flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">🅿️</span>
+                        <span class="text-sm font-black text-gray-800">{{ $parking->prefecture }}の他のバイク駐車場を見る</span>
+                    </div>
+                    <a href="{{ route('parking.area.prefecture', $parking->prefecture) }}" class="text-xs font-bold text-green-600 hover:text-green-800 flex items-center gap-1">
+                        エリア一覧 <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </a>
+                </div>
+                @endif
+
                 <x-cross-links :crossLinks="$crossLinks" />
             </div>
         </div>

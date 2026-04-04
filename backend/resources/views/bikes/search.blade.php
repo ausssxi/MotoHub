@@ -471,6 +471,17 @@
                                         @endforeach
                                     </div>
                                 @endif
+
+                                {{-- 駐車場エリアリンク --}}
+                                <div class="mt-6 bg-green-50 rounded-xl p-4 border border-green-100 flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xl">🅿️</span>
+                                        <span class="text-xs font-black text-gray-700">バイク駐車場をエリアから探す</span>
+                                    </div>
+                                    <a href="{{ route('parking.area.index') }}" class="text-xs font-bold text-green-600 hover:text-green-800 flex items-center gap-1 shrink-0">
+                                        探す <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                                    </a>
+                                </div>
                             </div>
 
                             {{-- ★新設：診断へのレスキュー導線カード --}}

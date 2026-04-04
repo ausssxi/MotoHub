@@ -1,4 +1,4 @@
-@props(['nearbyParkings', 'latitude' => null, 'longitude' => null])
+@props(['nearbyParkings', 'latitude' => null, 'longitude' => null, 'prefecture' => null])
 
 @if($nearbyParkings->isNotEmpty())
 <section class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
@@ -9,7 +9,11 @@
             </div>
             <h3 class="text-lg font-black text-gray-900">近くのバイク駐車場</h3>
         </div>
-        @if($latitude && $longitude)
+        @if($prefecture)
+        <a href="{{ route('parking.area.prefecture', $prefecture) }}" class="text-xs font-bold text-green-600 hover:text-green-800 flex items-center gap-1 group">
+            もっと見る <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+        </a>
+        @elseif($latitude && $longitude)
         <a href="{{ route('parking.index', ['lat' => $latitude, 'lng' => $longitude]) }}" class="text-xs font-bold text-green-600 hover:text-green-800 flex items-center gap-1 group">
             もっと見る <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
         </a>
