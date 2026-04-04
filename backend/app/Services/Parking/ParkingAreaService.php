@@ -13,6 +13,17 @@ use Illuminate\Support\Facades\DB;
 final class ParkingAreaService
 {
     /**
+     * cityカラムから都道府県プレフィックスを除去する
+     * 例: "神奈川県横浜市" → "横浜市"（prefecture="神奈川県"の場合）
+     */
+    private function cleanCityName(string $city, string $prefecture): string
+    {
+        if ($prefecture !== '' && str_starts_with($city, $prefecture)) {
+            return mb_substr($city, mb_strlen($prefecture));
+        }
+        return $city;
+    }
+    /**
      * エリアインデックス: 都道府県別の駐車場件数
      */
     public function getAreaIndex(): array
@@ -49,8 +60,9 @@ final class ParkingAreaService
                 return null;
             }
 
-            // 市区町村別の集計
-            $cities = $parkings->groupBy('city')
+            // 市区町村別の集計（都道府県プレフィックス除去 + 同一名マージ）
+            $cities = $parkings
+                ->groupBy(fn($p) => $this->cleanCityName($p->city ?? '', $prefecture))
                 ->map(function (Collection $cityParkings, string $city) {
                     $paidParkings = $cityParkings->filter(fn($p) => $p->price_per_hour > 0);
                     return [
@@ -62,6 +74,7 @@ final class ParkingAreaService
                             : null,
                     ];
                 })
+                ->filter(fn($c) => $c['name'] !== '')
                 ->sortByDesc('count')
                 ->values();
 
@@ -104,9 +117,14 @@ final class ParkingAreaService
      */
     public function getCityDetail(string $prefecture, string $city): ?array
     {
+        // "相模原市" → city="相模原市" OR city="神奈川県相模原市" の両方にマッチ
+        $prefixedCity = $prefecture . $city;
         $parkings = BikeParking::active()
             ->byPrefecture($prefecture)
-            ->where('city', $city)
+            ->where(function ($q) use ($city, $prefixedCity) {
+                $q->where('city', $city)
+                  ->orWhere('city', $prefixedCity);
+            })
             ->orderByDesc('reviews_count')
             ->orderByDesc('used_count')
             ->get();
@@ -125,15 +143,22 @@ final class ParkingAreaService
             'avg_per_month' => $paidMonthly->isNotEmpty() ? (int) round($paidMonthly->avg('price_per_month')) : null,
         ];
 
-        // 同県内の他の市区町村（周辺エリア）
+        // 同県内の他の市区町村（周辺エリア）- プレフィックス除去+マージ
         $siblingCities = BikeParking::active()
             ->byPrefecture($prefecture)
-            ->where('city', '!=', $city)
-            ->select('city', DB::raw('COUNT(*) as count'))
-            ->groupBy('city')
-            ->orderByDesc('count')
-            ->limit(12)
-            ->get();
+            ->where(function ($q) use ($city, $prefixedCity) {
+                $q->where('city', '!=', $city)
+                  ->where('city', '!=', $prefixedCity);
+            })
+            ->whereNotNull('city')
+            ->where('city', '!=', '')
+            ->get()
+            ->groupBy(fn($p) => $this->cleanCityName($p->city, $prefecture))
+            ->filter(fn($group, $name) => $name !== '')
+            ->map(fn($group, $name) => (object) ['city' => $name, 'count' => $group->count()])
+            ->sortByDesc('count')
+            ->values()
+            ->take(12);
 
         // 在庫バイク
         $nearbyListings = Listing::whereHas('shop', fn($q) => $q->where('prefecture', $prefecture))
@@ -177,6 +202,10 @@ final class ParkingAreaService
             ->distinct()
             ->whereNotNull('city')
             ->where('city', '!=', '')
-            ->pluck('city');
+            ->pluck('city')
+            ->map(fn($city) => $this->cleanCityName($city, $prefecture))
+            ->filter(fn($city) => $city !== '')
+            ->unique()
+            ->values();
     }
 }

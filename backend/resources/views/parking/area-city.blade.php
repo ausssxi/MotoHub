@@ -12,9 +12,17 @@
 
     <x-slot:scripts>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+        @php
+            $parkingMarkers = $parkings->map(fn($p) => [
+                'lat' => $p->latitude,
+                'lng' => $p->longitude,
+                'name' => $p->name,
+                'id' => $p->id,
+            ])->values();
+        @endphp
         <script>
             document.addEventListener('DOMContentLoaded', () => {
-                const parkings = @json($parkings->map(fn($p) => ['lat' => $p->latitude, 'lng' => $p->longitude, 'name' => $p->name, 'id' => $p->id]));
+                const parkings = {!! json_encode($parkingMarkers, JSON_UNESCAPED_UNICODE) !!};
                 const avgLat = {{ $avgLat }};
                 const avgLng = {{ $avgLng }};
                 const map = L.map('city-map').setView([avgLat, avgLng], 13);
