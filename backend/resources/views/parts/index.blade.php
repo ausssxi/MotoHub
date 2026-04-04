@@ -8,7 +8,7 @@
     </x-slot:navigation>
 
     <div class="bg-gray-50 min-h-screen">
-        {{-- ヘッダー --}}
+        {{-- ヘッ���ー --}}
         <section class="bg-gradient-to-r from-gray-900 to-gray-800 text-white py-10">
             <div class="max-w-5xl mx-auto px-4 text-center">
                 <h1 class="text-2xl sm:text-3xl font-black mb-2">バイクパーツ検索</h1>
@@ -76,7 +76,6 @@
                         'kawasaki' => ['label' => 'カワサキ', 'bikes' => ['Ninja250', 'Z900RS', 'Ninja400', 'Z400', 'KLX230', 'W800', 'ZX-25R']],
                     ];
                 @endphp
-                {{-- メーカータブ --}}
                 <div class="flex flex-wrap gap-2 mb-4">
                     @foreach($makers as $key => $maker)
                     <button type="button"
@@ -87,7 +86,6 @@
                     </button>
                     @endforeach
                 </div>
-                {{-- 車種グリッド --}}
                 @foreach($makers as $key => $maker)
                 <div x-show="maker === '{{ $key }}'" x-cloak class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     @foreach($maker['bikes'] as $bike)
@@ -172,7 +170,12 @@
                                     <h3 class="text-xs font-bold text-gray-800 line-clamp-2 mb-1">{{ $item['name'] }}</h3>
                                     <p class="text-[10px] text-gray-500 mb-2">{{ $item['shop'] }}</p>
                                     <div class="mt-auto">
-                                        <p class="text-base font-black text-red-600">&yen;{{ number_format($item['price']) }}</p>
+                                        <div class="flex items-center gap-2">
+                                            <p class="text-base font-black text-red-600">&yen;{{ number_format($item['price']) }}</p>
+                                            @if(($item['postage_flag'] ?? 0) == 1)
+                                            <span class="inline-block px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded">送料無料</span>
+                                            @endif
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -240,12 +243,12 @@
         </div>
 
         {{-- エラー表示 --}}
-        <div id="error-message" class="hidden max-w-5xl mx-auto px-4 py-6">
+        <div id="error-message" class="hidden max-w-6xl mx-auto px-4 py-6">
             <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 text-sm"></div>
         </div>
 
         {{-- 検索結果 --}}
-        <section id="results" class="hidden max-w-5xl mx-auto px-4 py-6">
+        <section id="results" class="hidden max-w-6xl mx-auto px-4 py-6">
             {{-- Amazon検索バー --}}
             <div id="amazon-bar" class="hidden mb-4 bg-[#FFF8EE] border border-[#FFD89E] rounded-xl p-3 flex items-center justify-between gap-3">
                 <span class="text-xs font-bold text-gray-700">Amazonでも検索する</span>
@@ -256,17 +259,85 @@
                 </a>
             </div>
 
-            <div class="flex items-center justify-between mb-4">
+            {{-- 結果ヘッダー --}}
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <h2 class="text-lg font-bold text-gray-800">検索結果 <span id="result-count" class="text-blue-600 text-sm font-normal"></span></h2>
+                <div class="flex items-center gap-3">
+                    <button id="filter-toggle-btn" type="button"
+                        class="lg:hidden inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                        絞り込み
+                    </button>
+                    <select id="sort-select" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white">
+                        <option value="default">おすすめ順</option>
+                        <option value="price-asc">価格が安い順</option>
+                        <option value="price-desc">価格が高い順</option>
+                        <option value="review">レビュー評価順</option>
+                    </select>
+                </div>
             </div>
-            <div id="result-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
 
-            <div id="load-more-wrap" class="hidden text-center mt-8">
-                <button id="load-more-btn"
-                    class="inline-flex items-center gap-2 bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold text-sm px-8 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                    <span id="load-more-text">もっと見る</span>
-                    <div id="load-more-spinner" class="hidden w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                </button>
+            <div class="lg:flex lg:gap-6">
+                {{-- サイドバー --}}
+                <aside id="filter-sidebar" class="hidden lg:block lg:w-[250px] lg:shrink-0 mb-4 lg:mb-0">
+                    <div class="bg-white rounded-xl border border-gray-100 p-4 lg:sticky lg:top-4">
+                        <h3 class="text-sm font-black text-gray-800 mb-3">絞り込み条件</h3>
+
+                        {{-- 価格帯 --}}
+                        <div class="mb-4">
+                            <h4 class="text-xs font-bold text-gray-600 mb-2">価格帯</h4>
+                            <div class="space-y-1.5">
+                                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                    <input type="checkbox" class="filter-price rounded border-gray-300" value="0-3000"> 〜3,000円
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                    <input type="checkbox" class="filter-price rounded border-gray-300" value="3000-10000"> 3,000〜10,000円
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                    <input type="checkbox" class="filter-price rounded border-gray-300" value="10000-30000"> 10,000〜30,000円
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                    <input type="checkbox" class="filter-price rounded border-gray-300" value="30000-50000"> 30,000〜50,000円
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                    <input type="checkbox" class="filter-price rounded border-gray-300" value="50000-"> 50,000円〜
+                                </label>
+                            </div>
+                        </div>
+
+                        {{-- 送料 --}}
+                        <div class="mb-4 border-t border-gray-100 pt-4">
+                            <h4 class="text-xs font-bold text-gray-600 mb-2">送料</h4>
+                            <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                <input type="checkbox" id="filter-free-shipping" class="rounded border-gray-300"> 送料無料のみ
+                            </label>
+                        </div>
+
+                        {{-- リセット --}}
+                        <div class="border-t border-gray-100 pt-3">
+                            <button type="button" id="filter-reset-btn" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                                条件をリセット
+                            </button>
+                        </div>
+                    </div>
+                </aside>
+
+                {{-- メインコンテンツ --}}
+                <div class="flex-1 min-w-0">
+                    <div id="filter-active" class="hidden mb-3 text-xs text-gray-500">
+                        <span id="filtered-count"></span>件表示中（全<span id="total-loaded-count"></span>件中）
+                    </div>
+
+                    <div id="result-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+
+                    <div id="load-more-wrap" class="hidden text-center mt-8">
+                        <button id="load-more-btn"
+                            class="inline-flex items-center gap-2 bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold text-sm px-8 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span id="load-more-text">もっと見る</span>
+                            <div id="load-more-spinner" class="hidden w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        </button>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -280,11 +351,16 @@
 
     <x-slot:scripts>
     <script>
-    // クイックサーチ（カテゴリチップ・もっと検索リンク）
     function quickSearch(keyword) {
         const keywordInput = document.getElementById('keyword');
         keywordInput.value = keyword;
         document.getElementById('parts-search-form').dispatchEvent(new Event('submit', { cancelable: true }));
+    }
+
+    function escapeHtml(text) {
+        const el = document.createElement('span');
+        el.textContent = text;
+        return el.innerHTML;
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -311,6 +387,16 @@
         const amazonBar = document.getElementById('amazon-bar');
         const amazonSearchLink = document.getElementById('amazon-search-link');
         const initialContent = document.getElementById('initial-content');
+
+        // Filter DOM
+        const filterSidebar = document.getElementById('filter-sidebar');
+        const filterToggleBtn = document.getElementById('filter-toggle-btn');
+        const sortSelect = document.getElementById('sort-select');
+        const filterFreeShipping = document.getElementById('filter-free-shipping');
+        const filterResetBtn = document.getElementById('filter-reset-btn');
+        const filterActiveEl = document.getElementById('filter-active');
+        const filteredCountEl = document.getElementById('filtered-count');
+        const totalLoadedCountEl = document.getElementById('total-loaded-count');
 
         // ===== State =====
         let currentPage = 1;
@@ -347,7 +433,7 @@
             if (items.length === 0) { suggestList.classList.add('hidden'); return; }
             suggestList.innerHTML = items.map((item, i) =>
                 `<li class="suggest-item px-3 py-2.5 text-sm cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-0" data-index="${i}">
-                    <span class="font-bold text-gray-800">${item.name}</span>
+                    <span class="font-bold text-gray-800">${escapeHtml(item.name)}</span>
                     <span class="text-gray-400 text-xs ml-1">(${item.count}件)</span>
                 </li>`
             ).join('');
@@ -436,8 +522,12 @@
             const jan = item.jan_code || '';
             const partNum = item.part_number || '';
             const hasCode = jan || partNum;
+            const captionText = item.caption || '';
+            const escapedCaption = captionText ? escapeHtml(captionText) : '';
+            const postageBadge = item.postage_flag == 1
+                ? '<span class="inline-block px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded">送料無料</span>'
+                : '';
 
-            // 比較ページURL
             let compareUrl = '/parts/compare?';
             const cParams = new URLSearchParams();
             if (jan) cParams.set('jan', jan);
@@ -445,15 +535,12 @@
             cParams.set('keyword', item.name.substring(0, 100));
             compareUrl += cParams.toString();
 
-            // Yahoo / Amazon フォールバックURL
             const fallbackQuery = partNum || item.name.substring(0, 60);
             const yahooUrl = YAHOO_BASE + encodeURIComponent(fallbackQuery);
             const amazonFallbackUrl = buildAmazonUrl(fallbackQuery);
 
-            // ボタン生成
             let buttonsHtml;
             if (hasCode) {
-                // JAN or 品番あり → 比較ボタンのみ
                 const badge = jan
                     ? `<span class="text-[10px] text-gray-400">JAN: ${jan}</span>`
                     : `<span class="text-[10px] text-gray-400">品番: ${partNum}</span>`;
@@ -464,10 +551,9 @@
                         価格を比較する
                     </a>`;
             } else {
-                // どちらもなし → 楽天 + Yahoo/Amazon直リンク
                 buttonsHtml = `
                     <div class="flex flex-col gap-1.5">
-                        <a href="${item.url}" target="_blank" rel="noopener noreferrer"
+                        <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer"
                             class="block text-center bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-2 rounded-lg transition-colors">
                             楽天市場で見る
                         </a>
@@ -484,17 +570,24 @@
 
             const card = document.createElement('div');
             card.className = 'bg-white rounded-xl shadow hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full';
+            card.dataset.price = item.price || 0;
+            card.dataset.postage = item.postage_flag || 0;
+            card.dataset.review = item.review_avg || 0;
             card.innerHTML = `
                 <div class="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
                     ${imageUrl
-                        ? `<img src="${imageUrl}" alt="${item.name}" class="w-full h-full object-contain p-2" loading="lazy">`
+                        ? `<img src="${imageUrl}" alt="${escapeHtml(item.name)}" class="w-full h-full object-contain p-2" loading="lazy">`
                         : `<div class="text-gray-300 text-4xl">&#128295;</div>`}
                 </div>
                 <div class="p-3 flex flex-col flex-grow">
-                    <h3 class="text-sm font-bold text-gray-800 line-clamp-2 mb-1">${item.name}</h3>
-                    <p class="text-xs text-gray-500 mb-2">${item.shop}</p>
+                    <h3 class="text-sm font-bold text-gray-800 line-clamp-2 mb-1">${escapeHtml(item.name)}</h3>
+                    ${escapedCaption ? `<p class="text-xs text-gray-500 line-clamp-2 mb-1">${escapedCaption}</p>` : ''}
+                    <p class="text-xs text-gray-500 mb-2">${escapeHtml(item.shop)}</p>
                     <div class="mt-auto">
-                        <p class="text-lg font-black text-red-600 mb-1">&yen;${price}</p>
+                        <div class="flex items-center gap-2 mb-1">
+                            <p class="text-lg font-black text-red-600">&yen;${price}</p>
+                            ${postageBadge}
+                        </div>
                         <div class="flex items-center gap-1 text-xs mb-3">
                             ${starHtml}
                             <span class="text-gray-500 ml-1">(${item.review_count}件)</span>
@@ -535,6 +628,69 @@
             amazonSearchLink.href = buildAmazonUrl(parts.join(' '));
         }
 
+        // ===== フィルター / ソート =====
+        filterToggleBtn.addEventListener('click', () => {
+            filterSidebar.classList.toggle('hidden');
+        });
+
+        function applyFilters() {
+            const checkedPrices = Array.from(document.querySelectorAll('.filter-price:checked')).map(cb => cb.value);
+            const freeOnly = filterFreeShipping.checked;
+            const sortBy = sortSelect.value;
+            const cards = Array.from(resultGrid.children);
+            let visibleCount = 0;
+
+            cards.forEach(card => {
+                const price = parseInt(card.dataset.price) || 0;
+                const postage = parseInt(card.dataset.postage) || 0;
+                let show = true;
+
+                if (checkedPrices.length > 0) {
+                    show = checkedPrices.some(range => {
+                        const [minStr, maxStr] = range.split('-');
+                        const min = parseInt(minStr) || 0;
+                        const max = maxStr ? parseInt(maxStr) : Infinity;
+                        return price >= min && price <= max;
+                    });
+                }
+
+                if (show && freeOnly && postage !== 1) show = false;
+
+                card.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+
+            if (sortBy !== 'default') {
+                const allCards = Array.from(resultGrid.children);
+                allCards.sort((a, b) => {
+                    if (sortBy === 'price-asc') return (parseInt(a.dataset.price) || 0) - (parseInt(b.dataset.price) || 0);
+                    if (sortBy === 'price-desc') return (parseInt(b.dataset.price) || 0) - (parseInt(a.dataset.price) || 0);
+                    if (sortBy === 'review') return (parseFloat(b.dataset.review) || 0) - (parseFloat(a.dataset.review) || 0);
+                    return 0;
+                });
+                allCards.forEach(card => resultGrid.appendChild(card));
+            }
+
+            if (checkedPrices.length > 0 || freeOnly) {
+                filteredCountEl.textContent = visibleCount;
+                totalLoadedCountEl.textContent = cards.length;
+                filterActiveEl.classList.remove('hidden');
+            } else {
+                filterActiveEl.classList.add('hidden');
+            }
+        }
+
+        document.querySelectorAll('.filter-price').forEach(cb => cb.addEventListener('change', applyFilters));
+        filterFreeShipping.addEventListener('change', applyFilters);
+        sortSelect.addEventListener('change', applyFilters);
+
+        filterResetBtn.addEventListener('click', () => {
+            document.querySelectorAll('.filter-price').forEach(cb => cb.checked = false);
+            filterFreeShipping.checked = false;
+            sortSelect.value = 'default';
+            applyFilters();
+        });
+
         // ===== API通信 =====
         async function fetchResults(page, append) {
             if (isLoading) return;
@@ -560,6 +716,7 @@
                 updateLoadMoreButton(data.hasMore);
                 results.classList.remove('hidden');
                 amazonBar.classList.remove('hidden');
+                applyFilters();
             } catch (err) {
                 showError(append ? '読み込みに失敗しました。再度お試しください。' : '通信エラーが発生しました。もう一度お試しください。');
             } finally {
@@ -587,10 +744,15 @@
             loadMoreWrap.classList.add('hidden');
             amazonBar.classList.add('hidden');
             suggestList.classList.add('hidden');
-            // 初期コンテンツを非表示
             if (initialContent) initialContent.classList.add('hidden');
             searchBtn.disabled = true;
             searchBtn.classList.add('opacity-50');
+
+            // Reset filters on new search
+            document.querySelectorAll('.filter-price').forEach(cb => cb.checked = false);
+            filterFreeShipping.checked = false;
+            sortSelect.value = 'default';
+            filterActiveEl.classList.add('hidden');
 
             currentPage = 1; totalCount = 0; totalPages = 0; displayedCount = 0;
             lastSearchParams = params;

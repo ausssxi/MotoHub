@@ -65,13 +65,15 @@ class PartsController extends Controller
         return collect($data['Items'] ?? [])->map(function ($wrapper) use ($withCodes) {
             $item = $wrapper['Item'] ?? $wrapper;
             $result = [
-                'name'        => $item['itemName'] ?? '',
-                'price'       => $item['itemPrice'] ?? 0,
-                'image'       => $item['mediumImageUrls'][0]['imageUrl'] ?? '',
-                'url'         => $item['itemUrl'] ?? '',
-                'shop'        => $item['shopName'] ?? '',
-                'review_count'=> $item['reviewCount'] ?? 0,
-                'review_avg'  => $item['reviewAverage'] ?? 0,
+                'name'         => $item['itemName'] ?? '',
+                'price'        => $item['itemPrice'] ?? 0,
+                'image'        => $item['mediumImageUrls'][0]['imageUrl'] ?? '',
+                'url'          => $item['itemUrl'] ?? '',
+                'shop'         => $item['shopName'] ?? '',
+                'review_count' => $item['reviewCount'] ?? 0,
+                'review_avg'   => $item['reviewAverage'] ?? 0,
+                'caption'      => mb_substr(strip_tags($item['itemCaption'] ?? ''), 0, 200),
+                'postage_flag' => (int) ($item['postageFlag'] ?? 0),
             ];
             if ($withCodes) {
                 $codes = PartsCodeExtractor::extract(
