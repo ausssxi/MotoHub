@@ -75,6 +75,7 @@ class PartsController extends Controller
                 'review_avg'   => $item['reviewAverage'] ?? 0,
                 'caption'      => mb_substr(strip_tags($item['itemCaption'] ?? ''), 0, 200),
                 'postage_flag' => (int) ($item['postageFlag'] ?? 0),
+                'point_rate'   => (int) ($item['pointRate'] ?? 1),
             ];
             if ($withCodes) {
                 $codes = PartsCodeExtractor::extract(

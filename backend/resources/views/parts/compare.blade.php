@@ -76,9 +76,14 @@
                         <p class="text-xs text-gray-800 font-bold text-center line-clamp-2 mb-1">{{ $rakutenBest['name'] }}</p>
                         <p class="text-[10px] text-gray-400 mb-2">{{ $rakutenBest['shop'] }}</p>
                         <p class="text-2xl font-black mb-1 {{ $best && $best['source'] === 'rakuten' && $best['price'] === $rakutenBest['price'] ? 'text-green-600' : 'text-red-600' }}">&yen;{{ number_format($rakutenBest['price']) }}</p>
-                        @if($best && $best['source'] === 'rakuten' && $best['price'] === $rakutenBest['price'])
-                            <span class="text-[10px] font-bold text-green-600 mb-2">最安値</span>
-                        @endif
+                        <div class="flex items-center gap-1.5 mb-1">
+                            @if($best && $best['source'] === 'rakuten' && $best['price'] === $rakutenBest['price'])
+                                <span class="text-[10px] font-bold text-green-600">最安値</span>
+                            @endif
+                            @if(($rakutenBest['point_rate'] ?? 1) > 1)
+                                <span class="inline-block px-1.5 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded">ポイント{{ $rakutenBest['point_rate'] }}倍</span>
+                            @endif
+                        </div>
                         @if($rakutenBest['review_count'] > 0)
                         <p class="text-[10px] text-gray-400 mb-3">
                             <span class="text-yellow-500">&#9733;</span>{{ number_format($rakutenBest['review_avg'], 1) }}({{ $rakutenBest['review_count'] }})
@@ -114,7 +119,7 @@
                         <p class="text-[10px] text-gray-400 mb-2">{{ $yahooBest['shop'] }}</p>
                         <p class="text-2xl font-black mb-1 {{ $best && $best['source'] === 'yahoo' && $best['price'] === $yahooBest['price'] ? 'text-green-600' : 'text-blue-600' }}">&yen;{{ number_format($yahooBest['price']) }}</p>
                         @if($best && $best['source'] === 'yahoo' && $best['price'] === $yahooBest['price'])
-                            <span class="text-[10px] font-bold text-green-600 mb-2">最安値</span>
+                            <span class="text-[10px] font-bold text-green-600 mb-1">最安値</span>
                         @endif
                         @if($yahooBest['review_count'] > 0)
                         <p class="text-[10px] text-gray-400 mb-3">
@@ -166,7 +171,6 @@
                     他のショップも見る（{{ count($rakutenRest) + count($yahooRest) }}件）
                 </summary>
                 <div class="border-t border-gray-100">
-                    {{-- 楽天 2番目以降 --}}
                     @if(count($rakutenRest) > 0)
                     <div class="px-4 sm:px-5 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
                         <span class="bg-[#bf0000] text-white text-[10px] font-black px-2.5 py-0.5 rounded">楽天市場</span>
@@ -187,7 +191,12 @@
                                     <span class="shrink-0 bg-red-100 text-red-600 text-[9px] font-black px-1.5 py-0.5 rounded">楽天</span>
                                     <h3 class="text-xs font-bold text-gray-800 line-clamp-1">{{ $item['name'] }}</h3>
                                 </div>
-                                <p class="text-[10px] text-gray-400">{{ $item['shop'] }}</p>
+                                <div class="flex items-center gap-1.5">
+                                    <p class="text-[10px] text-gray-400">{{ $item['shop'] }}</p>
+                                    @if(($item['point_rate'] ?? 1) > 1)
+                                    <span class="inline-block px-1 py-0.5 bg-red-100 text-red-600 text-[9px] font-bold rounded">P{{ $item['point_rate'] }}倍</span>
+                                    @endif
+                                </div>
                             </div>
                             <div class="shrink-0 text-right flex flex-col items-end justify-center gap-1">
                                 <span class="text-sm font-black text-red-600">&yen;{{ number_format($item['price']) }}</span>
@@ -199,12 +208,10 @@
                     </div>
                     @endif
 
-                    {{-- 区切り線 --}}
                     @if(count($rakutenRest) > 0 && count($yahooRest) > 0)
                     <div class="border-t-2 border-gray-200"></div>
                     @endif
 
-                    {{-- Yahoo 2番目以降 --}}
                     @if(count($yahooRest) > 0)
                     <div class="px-4 sm:px-5 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
                         <span class="bg-blue-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded">Yahoo!ショッピング</span>
@@ -241,6 +248,165 @@
             <style>
                 details[open] .details-arrow { transform: rotate(180deg); }
             </style>
+            @endif
+
+            {{-- ポイント実質価格シミュレーター --}}
+            @if(!empty($rakutenItems) || !empty($yahooItems))
+            <section class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <h3 class="px-4 sm:px-5 py-3 border-b border-gray-100 text-sm font-black text-gray-800 flex items-center gap-2">
+                    &#128176; ポイント実質価格シミュレーター
+                </h3>
+                <div class="p-4 sm:p-5 space-y-5">
+                    {{-- 価格入力 --}}
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-red-600 mb-1">&#128308; 楽天の表示価格</label>
+                            <input type="text" id="sim-rakuten-price" inputmode="numeric" placeholder="例: 5000"
+                                value="{{ $rakutenBest['price'] ?? '' }}"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 focus:border-red-400 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-blue-600 mb-1">&#128993; Yahooの表示価格</label>
+                            <input type="text" id="sim-yahoo-price" inputmode="numeric" placeholder="例: 4800"
+                                value="{{ $yahooBest['price'] ?? '' }}"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-amber-600 mb-1">&#128309; Amazonの表示価格</label>
+                            <input type="text" id="sim-amazon-price" inputmode="numeric" placeholder="Amazonで確認して入力"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none">
+                        </div>
+                    </div>
+
+                    {{-- 設定チェックボックス --}}
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {{-- 楽天SPU --}}
+                        <div class="bg-red-50 rounded-lg p-4 border border-red-100">
+                            <h4 class="text-xs font-black text-red-700 mb-3">&#128308; 楽天市場 SPU設定</h4>
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                                    <input type="checkbox" class="sim-rakuten-spu rounded border-gray-300 text-red-500" value="2"> 楽天カード（+2倍）
+                                </label>
+                                <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                                    <input type="checkbox" class="sim-rakuten-spu rounded border-gray-300 text-red-500" value="4"> 楽天モバイル（+4倍）
+                                </label>
+                                <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                                    <input type="checkbox" class="sim-rakuten-spu rounded border-gray-300 text-red-500" value="2"> 楽天ひかり（+2倍）
+                                </label>
+                                <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                                    <input type="checkbox" class="sim-rakuten-spu rounded border-gray-300 text-red-500" value="2"> プレミアムカード（+2倍）
+                                </label>
+                                <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer" id="sim-rakuten-5day-label">
+                                    <input type="checkbox" id="sim-rakuten-5day" class="sim-rakuten-spu rounded border-gray-300 text-red-500" value="4"> 0と5のつく日（+4倍）<span id="sim-rakuten-5day-badge" class="hidden"></span>
+                                </label>
+                                <div class="flex items-center gap-2 text-xs text-gray-700 flex-wrap">
+                                    <input type="checkbox" id="sim-rakuten-marathon" class="rounded border-gray-300 text-red-500 cursor-pointer">
+                                    <span>お買い物マラソン</span>
+                                    <select id="sim-rakuten-marathon-val" class="border border-gray-300 rounded px-1.5 py-0.5 text-xs bg-white" disabled>
+                                        @foreach(range(1, 9) as $n)
+                                        <option value="{{ $n }}">+{{ $n }}倍</option>
+                                        @endforeach
+                                    </select>
+                                    <span class="text-[10px] text-gray-400">※開催中の場合はチェック</span>
+                                </div>
+                            </div>
+                            <div class="mt-3 pt-3 border-t border-red-200">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-600">店舗ポイント</span>
+                                    <span class="font-bold text-red-600" id="sim-rakuten-store-pt">{{ $rakutenBest['point_rate'] ?? 1 }}倍</span>
+                                </div>
+                                <div class="flex items-center justify-between text-xs mt-1">
+                                    <span class="font-bold text-gray-800">合計SPU倍率</span>
+                                    <span class="font-black text-red-600 text-sm" id="sim-rakuten-total">1倍</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Yahoo設定 --}}
+                        <div class="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                            <h4 class="text-xs font-black text-blue-700 mb-3">&#128993; Yahoo!ショッピング設定</h4>
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                                    <input type="checkbox" class="sim-yahoo-opt rounded border-gray-300 text-blue-500" value="1"> PayPayカード（+1%）
+                                </label>
+                                <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                                    <input type="checkbox" class="sim-yahoo-opt rounded border-gray-300 text-blue-500" value="2"> ソフトバンクユーザー（+2%）
+                                </label>
+                                <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer" id="sim-yahoo-5day-label">
+                                    <input type="checkbox" id="sim-yahoo-5day" class="sim-yahoo-opt rounded border-gray-300 text-blue-500" value="4"> 5のつく日（+4%）<span id="sim-yahoo-5day-badge" class="hidden"></span>
+                                </label>
+                                <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                                    <input type="checkbox" class="sim-yahoo-opt rounded border-gray-300 text-blue-500" value="2"> LYPプレミアム（+2%）
+                                </label>
+                            </div>
+                            <div class="mt-3 pt-3 border-t border-blue-200">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="font-bold text-gray-800">合計還元率</span>
+                                    <span class="font-black text-blue-600 text-sm" id="sim-yahoo-total">1%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Amazon設定 --}}
+                        <div class="bg-amber-50 rounded-lg p-4 border border-amber-100">
+                            <h4 class="text-xs font-black text-amber-700 mb-3">&#128309; Amazon設定</h4>
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                                    <input type="checkbox" id="sim-amazon-prime" class="rounded border-gray-300 text-amber-500"> プライム会員（送料無料）
+                                </label>
+                                <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                                    <input type="checkbox" id="sim-amazon-card" class="rounded border-gray-300 text-amber-500" value="1"> Amazonカード（+1%）
+                                </label>
+                            </div>
+                            <div class="mt-3 pt-3 border-t border-amber-200">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="font-bold text-gray-800">合計還元率</span>
+                                    <span class="font-black text-amber-600 text-sm" id="sim-amazon-total">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- 結果テーブル --}}
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm border-collapse" id="sim-result-table">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="text-left px-3 py-2.5 font-bold text-gray-700 border-b border-gray-200">サイト</th>
+                                    <th class="text-right px-3 py-2.5 font-bold text-gray-700 border-b border-gray-200">表示価格</th>
+                                    <th class="text-right px-3 py-2.5 font-bold text-gray-700 border-b border-gray-200">ポイント</th>
+                                    <th class="text-right px-3 py-2.5 font-bold text-gray-700 border-b border-gray-200">実質価格</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr id="sim-row-rakuten" class="border-b border-gray-100">
+                                    <td class="px-3 py-2.5 font-bold text-red-600">楽天</td>
+                                    <td class="px-3 py-2.5 text-right text-gray-600" id="sim-r-display">---</td>
+                                    <td class="px-3 py-2.5 text-right text-red-500 font-bold" id="sim-r-point">---</td>
+                                    <td class="px-3 py-2.5 text-right font-black" id="sim-r-effective">---</td>
+                                </tr>
+                                <tr id="sim-row-yahoo" class="border-b border-gray-100 bg-gray-50/50">
+                                    <td class="px-3 py-2.5 font-bold text-blue-600">Yahoo!</td>
+                                    <td class="px-3 py-2.5 text-right text-gray-600" id="sim-y-display">---</td>
+                                    <td class="px-3 py-2.5 text-right text-blue-500 font-bold" id="sim-y-point">---</td>
+                                    <td class="px-3 py-2.5 text-right font-black" id="sim-y-effective">---</td>
+                                </tr>
+                                <tr id="sim-row-amazon">
+                                    <td class="px-3 py-2.5 font-bold text-amber-600">Amazon</td>
+                                    <td class="px-3 py-2.5 text-right text-gray-600" id="sim-a-display">---</td>
+                                    <td class="px-3 py-2.5 text-right text-amber-500 font-bold" id="sim-a-point">---</td>
+                                    <td class="px-3 py-2.5 text-right font-black" id="sim-a-effective">---</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- 結果メッセージ --}}
+                    <div id="sim-message" class="hidden text-center py-2">
+                        <p class="text-sm font-bold text-green-600" id="sim-message-text"></p>
+                    </div>
+                </div>
+            </section>
             @endif
 
             {{-- 比較結果なしの場合 --}}
@@ -350,4 +516,156 @@
             </div>
         </div>
     </div>
+
+    <x-slot:scripts>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // ===== ポイントシミュレーター =====
+        const rPriceInput = document.getElementById('sim-rakuten-price');
+        const yPriceInput = document.getElementById('sim-yahoo-price');
+        const aPriceInput = document.getElementById('sim-amazon-price');
+        if (!rPriceInput) return;
+
+        const storePointRate = {{ $rakutenBest['point_rate'] ?? 1 }};
+        const marathonCheck = document.getElementById('sim-rakuten-marathon');
+        const marathonVal = document.getElementById('sim-rakuten-marathon-val');
+        const primeCheck = document.getElementById('sim-amazon-prime');
+        const amazonCardCheck = document.getElementById('sim-amazon-card');
+
+        const badgeHtml = '<span class="inline-block bg-red-500 text-white text-xs px-2 py-0.5 rounded-full ml-2 animate-pulse">本日開催中！</span>';
+
+        // ===== 本日開催中の自動判定 =====
+        const today = new Date().getDate();
+        const isYahoo5day = (today % 10 === 5); // 5, 15, 25日
+        const isRakuten5day = (today % 5 === 0); // 5, 10, 15, 20, 25, 30日
+
+        // Yahoo 5のつく日
+        if (isYahoo5day) {
+            const yBadge = document.getElementById('sim-yahoo-5day-badge');
+            if (yBadge) { yBadge.innerHTML = badgeHtml; yBadge.classList.remove('hidden'); }
+            const yCb = document.getElementById('sim-yahoo-5day');
+            if (yCb) yCb.checked = true;
+        }
+
+        // 楽天 0と5のつく日
+        if (isRakuten5day) {
+            const rBadge = document.getElementById('sim-rakuten-5day-badge');
+            if (rBadge) { rBadge.innerHTML = badgeHtml; rBadge.classList.remove('hidden'); }
+            const rCb = document.getElementById('sim-rakuten-5day');
+            if (rCb) rCb.checked = true;
+        }
+
+        // マラソン連動
+        marathonCheck.addEventListener('change', () => {
+            marathonVal.disabled = !marathonCheck.checked;
+            calculate();
+        });
+
+        function parsePrice(str) {
+            return parseInt(String(str).replace(/[^0-9]/g, ''), 10) || 0;
+        }
+
+        function fmt(n) {
+            return n.toLocaleString();
+        }
+
+        function calculate() {
+            const rPrice = parsePrice(rPriceInput.value);
+            const yPrice = parsePrice(yPriceInput.value);
+            const aPrice = parsePrice(aPriceInput.value);
+
+            // 楽天: base 1倍 + SPUチェック分 + マラソン + 店舗ポイント
+            let spuTotal = 1; // base
+            document.querySelectorAll('.sim-rakuten-spu:checked').forEach(cb => {
+                spuTotal += parseInt(cb.value) || 0;
+            });
+            if (marathonCheck.checked) {
+                spuTotal += parseInt(marathonVal.value) || 0;
+            }
+            const rTotalRate = spuTotal + storePointRate;
+            document.getElementById('sim-rakuten-total').textContent = rTotalRate + '倍';
+
+            // Yahoo: base 1% + チェック分
+            let yRate = 1;
+            document.querySelectorAll('.sim-yahoo-opt:checked').forEach(cb => {
+                yRate += parseInt(cb.value) || 0;
+            });
+            document.getElementById('sim-yahoo-total').textContent = yRate + '%';
+
+            // Amazon: カード還元
+            let aRate = amazonCardCheck.checked ? 1 : 0;
+            document.getElementById('sim-amazon-total').textContent = aRate + '%';
+
+            // 実質価格計算
+            const rPoint = rPrice > 0 ? Math.floor(rPrice * rTotalRate / 100) : 0;
+            const rEffective = rPrice > 0 ? rPrice - rPoint : 0;
+
+            const yPoint = yPrice > 0 ? Math.floor(yPrice * yRate / 100) : 0;
+            const yEffective = yPrice > 0 ? yPrice - yPoint : 0;
+
+            const aPoint = aPrice > 0 ? Math.floor(aPrice * aRate / 100) : 0;
+            const aEffective = aPrice > 0 ? aPrice - aPoint : 0;
+
+            // 表示更新
+            document.getElementById('sim-r-display').textContent = rPrice > 0 ? '\u00A5' + fmt(rPrice) : '---';
+            document.getElementById('sim-r-point').textContent = rPrice > 0 ? '-' + fmt(rPoint) + 'pt' : '---';
+            document.getElementById('sim-r-effective').textContent = rPrice > 0 ? '\u00A5' + fmt(rEffective) : '---';
+
+            document.getElementById('sim-y-display').textContent = yPrice > 0 ? '\u00A5' + fmt(yPrice) : '---';
+            document.getElementById('sim-y-point').textContent = yPrice > 0 ? '-' + fmt(yPoint) + 'pt' : '---';
+            document.getElementById('sim-y-effective').textContent = yPrice > 0 ? '\u00A5' + fmt(yEffective) : '---';
+
+            document.getElementById('sim-a-display').textContent = aPrice > 0 ? '\u00A5' + fmt(aPrice) : '---';
+            document.getElementById('sim-a-point').textContent = aPrice > 0 ? '-' + fmt(aPoint) + 'pt' : '---';
+            document.getElementById('sim-a-effective').textContent = aPrice > 0 ? '\u00A5' + fmt(aEffective) : '---';
+
+            // Prime表示
+            if (primeCheck.checked && aPrice > 0) {
+                document.getElementById('sim-a-point').textContent += ' + 送料無料';
+            }
+
+            // 最安ハイライト
+            const rows = [
+                { el: document.getElementById('sim-row-rakuten'), eff: rPrice > 0 ? rEffective : Infinity, name: '楽天' },
+                { el: document.getElementById('sim-row-yahoo'), eff: yPrice > 0 ? yEffective : Infinity, name: 'Yahoo!' },
+                { el: document.getElementById('sim-row-amazon'), eff: aPrice > 0 ? aEffective : Infinity, name: 'Amazon' },
+            ];
+
+            rows.forEach(r => {
+                r.el.classList.remove('bg-green-50');
+                r.el.querySelectorAll('td').forEach(td => td.classList.remove('text-green-700'));
+            });
+
+            const validRows = rows.filter(r => r.eff < Infinity);
+            const msgEl = document.getElementById('sim-message');
+            const msgText = document.getElementById('sim-message-text');
+
+            if (validRows.length >= 2) {
+                validRows.sort((a, b) => a.eff - b.eff);
+                const best = validRows[0];
+                best.el.classList.add('bg-green-50');
+                best.el.querySelector('td:last-child').innerHTML = '\u00A5' + fmt(best.eff) + ' <span class="text-[10px] text-green-600 font-bold ml-1">&#9733;最安</span>';
+                msgText.textContent = 'ポイント込みで' + best.name + 'が最安です！';
+                msgEl.classList.remove('hidden');
+            } else {
+                msgEl.classList.add('hidden');
+            }
+        }
+
+        // イベントリスナー
+        [rPriceInput, yPriceInput, aPriceInput].forEach(input => {
+            input.addEventListener('input', calculate);
+        });
+        document.querySelectorAll('.sim-rakuten-spu, .sim-yahoo-opt').forEach(cb => {
+            cb.addEventListener('change', calculate);
+        });
+        marathonVal.addEventListener('change', calculate);
+        primeCheck.addEventListener('change', calculate);
+        amazonCardCheck.addEventListener('change', calculate);
+
+        // 初回計算
+        calculate();
+    });
+    </script>
+    </x-slot:scripts>
 </x-layout>

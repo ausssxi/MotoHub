@@ -156,7 +156,7 @@
             @if(count($items) > 0)
             <section class="mb-8">
                 <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-                    <h2 class="text-lg font-black text-gray-800">{{ $category['name'] }}の人気商品</h2>
+                    <h2 class="text-lg font-black text-gray-800">&#127942; {{ $category['name'] }}の売れ筋ランキング</h2>
                     <div class="flex items-center gap-3">
                         <button id="cat-filter-toggle" type="button"
                             class="lg:hidden inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
@@ -212,9 +212,11 @@
                     {{-- 商品グリッド --}}
                     <div class="flex-1 min-w-0">
                         <div id="cat-product-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            @foreach($items as $item)
-                            <div class="product-card bg-white rounded-xl shadow-sm hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full border border-gray-100"
+                            @foreach($items as $idx => $item)
+                            @php $rank = $idx + 1; @endphp
+                            <div class="product-card bg-white rounded-xl shadow-sm hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full border border-gray-100 relative"
                                  data-price="{{ $item['price'] }}" data-postage="{{ $item['postage_flag'] ?? 0 }}" data-review="{{ $item['review_avg'] ?? 0 }}">
+                                <span class="absolute top-2 left-2 z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold {{ $rank === 1 ? 'bg-yellow-400 text-white' : ($rank === 2 ? 'bg-gray-400 text-white' : ($rank === 3 ? 'bg-amber-600 text-white' : 'bg-gray-200 text-gray-600')) }}">{{ $rank }}</span>
                                 <div class="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
                                     @if(!empty($item['image']))
                                         <img src="{{ str_replace('?_ex=128x128', '?_ex=300x300', $item['image']) }}" alt="{{ $item['name'] }}" class="w-full h-full object-contain p-2" loading="lazy">
@@ -233,6 +235,9 @@
                                             <p class="text-lg font-black text-red-600">&yen;{{ number_format($item['price']) }}</p>
                                             @if(($item['postage_flag'] ?? 0) == 1)
                                             <span class="inline-block px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded">送料無料</span>
+                                            @endif
+                                            @if(($item['point_rate'] ?? 1) > 1)
+                                            <span class="inline-block px-1.5 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded">ポイント{{ $item['point_rate'] }}倍</span>
                                             @endif
                                         </div>
                                         @if($item['review_count'] > 0)

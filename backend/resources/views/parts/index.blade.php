@@ -155,10 +155,12 @@
                 @foreach($popularItems as $category => $items)
                     @if(count($items) > 0)
                     <div class="mb-8">
-                        <h2 class="text-lg font-black text-gray-800 mb-4">{!! $categoryEmojis[$category] ?? '&#128295;' !!} {{ $category }} の人気商品</h2>
+                        <h2 class="text-lg font-black text-gray-800 mb-4">&#127942; {{ $category }}の売れ筋ランキング</h2>
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            @foreach($items as $item)
-                            <div class="bg-white rounded-xl shadow hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full">
+                            @foreach($items as $idx => $item)
+                            @php $rank = $idx + 1; @endphp
+                            <div class="bg-white rounded-xl shadow hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full relative">
+                                <span class="absolute top-2 left-2 z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold {{ $rank === 1 ? 'bg-yellow-400 text-white' : ($rank === 2 ? 'bg-gray-400 text-white' : ($rank === 3 ? 'bg-amber-600 text-white' : 'bg-gray-200 text-gray-600')) }}">{{ $rank }}</span>
                                 <div class="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
                                     @if(!empty($item['image']))
                                         <img src="{{ str_replace('?_ex=128x128', '?_ex=300x300', $item['image']) }}" alt="{{ $item['name'] }}" class="w-full h-full object-contain p-2" loading="lazy">
@@ -170,10 +172,13 @@
                                     <h3 class="text-xs font-bold text-gray-800 line-clamp-2 mb-1">{{ $item['name'] }}</h3>
                                     <p class="text-[10px] text-gray-500 mb-2">{{ $item['shop'] }}</p>
                                     <div class="mt-auto">
-                                        <div class="flex items-center gap-2">
+                                        <div class="flex items-center gap-2 flex-wrap">
                                             <p class="text-base font-black text-red-600">&yen;{{ number_format($item['price']) }}</p>
                                             @if(($item['postage_flag'] ?? 0) == 1)
                                             <span class="inline-block px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded">送料無料</span>
+                                            @endif
+                                            @if(($item['point_rate'] ?? 1) > 1)
+                                            <span class="inline-block px-1.5 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded">ポイント{{ $item['point_rate'] }}倍</span>
                                             @endif
                                         </div>
                                     </div>
@@ -527,6 +532,9 @@
             const postageBadge = item.postage_flag == 1
                 ? '<span class="inline-block px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded">送料無料</span>'
                 : '';
+            const pointBadge = (item.point_rate || 1) > 1
+                ? `<span class="inline-block px-1.5 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded">ポイント${item.point_rate}倍</span>`
+                : '';
 
             let compareUrl = '/parts/compare?';
             const cParams = new URLSearchParams();
@@ -584,9 +592,10 @@
                     ${escapedCaption ? `<p class="text-xs text-gray-500 line-clamp-2 mb-1">${escapedCaption}</p>` : ''}
                     <p class="text-xs text-gray-500 mb-2">${escapeHtml(item.shop)}</p>
                     <div class="mt-auto">
-                        <div class="flex items-center gap-2 mb-1">
+                        <div class="flex items-center gap-2 flex-wrap mb-1">
                             <p class="text-lg font-black text-red-600">&yen;${price}</p>
                             ${postageBadge}
+                            ${pointBadge}
                         </div>
                         <div class="flex items-center gap-1 text-xs mb-3">
                             ${starHtml}
