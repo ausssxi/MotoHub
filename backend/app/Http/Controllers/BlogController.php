@@ -27,17 +27,23 @@ class BlogController extends Controller
             ->with(['author', 'tags', 'series'])
             ->firstOrFail();
 
+        // Bot/Crawlerはビューカウントしない
+        $userAgent = $request->userAgent() ?? '';
+        $isBot = preg_match('/bot|crawl|spider|slurp|facebookexternalhit|semrushbot|ahrefsbot|yandex/i', $userAgent);
+
         // PVカウント（セッションで30分間の重複除外）
-        $sessionKey = "blog_viewed_{$post->id}";
-        if (!$request->session()->has($sessionKey)) {
-            $post->increment('view_count');
-            $request->session()->put($sessionKey, true);
-            $request->session()->put("{$sessionKey}_at", now()->timestamp);
-        } else {
-            $viewedAt = $request->session()->get("{$sessionKey}_at", 0);
-            if (now()->timestamp - $viewedAt >= 1800) {
+        if (!$isBot) {
+            $sessionKey = "blog_viewed_{$post->id}";
+            if (!$request->session()->has($sessionKey)) {
                 $post->increment('view_count');
+                $request->session()->put($sessionKey, true);
                 $request->session()->put("{$sessionKey}_at", now()->timestamp);
+            } else {
+                $viewedAt = $request->session()->get("{$sessionKey}_at", 0);
+                if (now()->timestamp - $viewedAt >= 1800) {
+                    $post->increment('view_count');
+                    $request->session()->put("{$sessionKey}_at", now()->timestamp);
+                }
             }
         }
 
