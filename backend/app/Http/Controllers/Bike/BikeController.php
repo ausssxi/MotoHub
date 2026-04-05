@@ -299,10 +299,20 @@ final class BikeController extends Controller
         $makerName = $listing->bikeModel?->manufacturer?->name ?? '';
         $modelName = $listing->bikeModel?->name ?? $listing->title ?? '';
 
-        try {
-            $news = (new BikeNewsService())->fetch("{$makerName} {$modelName} バイク", 3);
-        } catch (\Throwable) {
-            $news = [];
+        $news = [];
+        if ($listing->bike_model_id) {
+            $news = \App\Models\BikeNews::where('bike_model_id', $listing->bike_model_id)
+                ->latest()
+                ->limit(3)
+                ->get()
+                ->toArray();
+        }
+        if (empty($news) && $listing->manufacturer_id) {
+            $news = \App\Models\BikeNews::where('manufacturer_id', $listing->manufacturer_id)
+                ->latest()
+                ->limit(3)
+                ->get()
+                ->toArray();
         }
 
         try {

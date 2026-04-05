@@ -124,6 +124,10 @@
                             <i data-lucide="heart" class="w-3.5 h-3.5"></i>
                             ガレージ
                         </a>
+                        <a href="{{ route('news.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="newspaper" class="w-3.5 h-3.5"></i>
+                            ニュース
+                        </a>
                     </div>
                 </div>
 

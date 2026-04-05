@@ -13,6 +13,7 @@ use App\Models\Category;
 use App\Models\Tag;
 use App\Models\SeoFeature;
 use App\Models\BikeParking;
+use App\Models\BikeNews;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
@@ -607,6 +608,34 @@ class GenerateSitemap extends Command
 
         $this->closeSitemap($handle);
         $this->info(" -> {$partsCount} URL (Parts Category)");
+
+
+        // =========================================================
+        // 6.6. ニュースサイトマップ (sitemap-news.xml)
+        // =========================================================
+        $this->info("ニュースサイトマップを生成中...");
+        $newsFileName = 'sitemap-news.xml';
+        $handle = $this->openSitemap($newsFileName);
+        $sitemapFiles[] = $newsFileName;
+        $newsCount = 0;
+
+        // ニュース一覧ページ
+        $this->writeUrl($handle, route('news.index'), date('Y-m-d'), 'daily', '0.7');
+        $newsCount++;
+
+        // 車種別ニュースページ（在庫のある人気車種）
+        $newsModels = BikeModel::withCount('listings')
+            ->having('listings_count', '>', 0)
+            ->orderByDesc('listings_count')
+            ->limit(100)
+            ->get();
+        foreach ($newsModels as $model) {
+            $this->writeUrl($handle, route('news.model', $model->id), date('Y-m-d'), 'daily', '0.6');
+            $newsCount++;
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$newsCount} URL (News)");
 
 
         // =========================================================

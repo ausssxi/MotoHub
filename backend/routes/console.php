@@ -19,3 +19,6 @@ Schedule::command('youtube:fetch-videos --chunk=50')->dailyAt('03:00');
 
 // YouTube動画リフレッシュ（毎週月曜3:30）
 Schedule::command('youtube:refresh-videos --days=30')->weeklyOn(1, '03:30');
+
+// バイクニュース取得（毎時）
+Schedule::command('news:fetch')->hourly();

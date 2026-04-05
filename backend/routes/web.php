@@ -22,6 +22,7 @@ use App\Http\Controllers\Parking\ParkingAreaController;
 use App\Http\Controllers\Ar\ArController;
 use App\Http\Controllers\Bike\BikeIdentifierController;
 use App\Http\Controllers\Parts\PartsController;
+use App\Http\Controllers\NewsController;
 
 /**
  * MotoHub Route Definitions
@@ -178,6 +179,19 @@ Route::get('/parts/search', [PartsController::class, 'search'])->name('parts.sea
 Route::get('/parts/search/yahoo', [PartsController::class, 'searchYahoo'])->name('parts.search.yahoo');
 Route::get('/parts/compare', [PartsController::class, 'compare'])->name('parts.compare');
 Route::get('/parts/category/{slug}', [PartsController::class, 'category'])->name('parts.category');
+
+// ニュースページ
+Route::prefix('news')->name('news.')->controller(NewsController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/model/{bikeModelId}', 'model')->name('model');
+    Route::get('/{id}', 'show')->name('show')->where('id', '[0-9]+');
+});
+
+Route::middleware('auth')->prefix('news')->name('news.')->controller(NewsController::class)->group(function () {
+    Route::post('/{newsId}/comment', 'comment')->name('comment')->middleware('throttle:3,1');
+    Route::post('/{newsId}/pick', 'togglePick')->name('pick')->middleware('throttle:10,1');
+    Route::post('/comment/{commentId}/like', 'toggleCommentLike')->name('comment.like')->middleware('throttle:10,1');
+});
 
 // 特集ページ (SEOランディング)
 Route::prefix('features')->name('features.')->controller(FeatureController::class)->group(function () {

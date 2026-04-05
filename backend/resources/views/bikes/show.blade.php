@@ -818,10 +818,10 @@
                         </div>
                         <div class="space-y-3">
                             @foreach($news as $article)
-                            <a href="{{ $article['url'] }}" target="_blank" rel="noopener noreferrer" class="flex items-start gap-3 p-2 -mx-2 rounded-xl hover:bg-gray-50 transition-colors">
+                            <a href="{{ route('news.show', $article['id']) }}" class="flex items-start gap-3 p-2 -mx-2 rounded-xl hover:bg-gray-50 transition-colors">
                                 <div class="w-20 h-[60px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                                    @if(!empty($article['image']))
-                                        <img src="{{ $article['image'] }}" alt="" class="w-full h-full object-cover" loading="lazy" onerror="this.parentNode.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-gray-300\'><svg xmlns=\'http://www.w3.org/2000/svg\' class=\'w-6 h-6\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'currentColor\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5\'/></svg></div>'">
+                                    @if(!empty($article['thumbnail_url']))
+                                        <img src="{{ $article['thumbnail_url'] }}" alt="" class="w-full h-full object-cover" loading="lazy" onerror="this.style.display='none'">
                                     @else
                                         <div class="w-full h-full flex items-center justify-center text-gray-300">
                                             <i data-lucide="bike" class="w-6 h-6"></i>
@@ -831,8 +831,16 @@
                                 <div class="flex-1 min-w-0">
                                     <div class="text-sm font-bold text-gray-800 leading-snug mb-1 line-clamp-2">{{ $article['title'] }}</div>
                                     <div class="flex items-center gap-2 text-[11px] text-gray-400">
-                                        @if($article['source'])<span class="font-bold">{{ $article['source'] }}</span>@endif
-                                        <span>{{ $article['date'] }}</span>
+                                        @if(!empty($article['source']))<span class="font-bold">{{ $article['source'] }}</span>@endif
+                                        @if(!empty($article['published_at']))
+                                        <span>{{ \Carbon\Carbon::parse($article['published_at'])->format('Y/m/d') }}</span>
+                                        @endif
+                                        @if(($article['comments_count'] ?? 0) > 0)
+                                        <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-full font-bold text-[10px]">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                                            {{ $article['comments_count'] }}
+                                        </span>
+                                        @endif
                                     </div>
                                 </div>
                             </a>
