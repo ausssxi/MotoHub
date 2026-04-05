@@ -77,6 +77,9 @@
                         <a href="{{ route('parking.area.index') }}" class="footer-link">エリアから駐車場を探す</a>
                     </li>
                     <li>
+                        <a href="{{ route('parts.index') }}" class="footer-link">バイクパーツ検索</a>
+                    </li>
+                    <li>
                         <a href="{{ route('garage.public.index') }}" class="footer-link">愛車ガレージ</a>
                     </li>
                 </ul>

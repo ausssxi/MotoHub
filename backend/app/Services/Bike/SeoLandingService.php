@@ -237,23 +237,24 @@ final class SeoLandingService
     private function generateMetaData(string $prefecture, string $label, string $type): array
     {
         // デフォルト
-        $title = "{$prefecture}の{$label} バイク在庫一覧";
-        $h1 = "{$prefecture}の<span class='text-blue-600'>{$label}</span>在庫一覧";
-        $description = "{$prefecture}で販売中の{$label}をまとめて検索！MotoHubなら、複数のバイクショップの在庫を一括で比較・検討できます。";
+        $title = "{$prefecture}の{$label} 中古バイク在庫一覧";
+        $h1 = "{$prefecture}の<span class='text-blue-600'>{$label}</span>中古バイク在庫一覧";
+        $description = "{$prefecture}で販売中の{$label}の中古バイク・新車をまとめて検索。価格・走行距離で比較、MotoHubなら複数ショップの在庫を一括検討できます。";
 
         // タイプ別の最適化（クリック率向上）
         switch ($type) {
             case 'model': // 車種名の場合（一番購買意欲が高い）
-                $title = "{$prefecture}の{$label} 中古車・新車在庫【相場・価格比較】";
-                $description = "{$prefecture}の{$label}の中古車・新車を掲載中。支払総額の安い順や走行距離の少ない順で比較できます。相場情報や買取価格もチェック！";
+                $title = "{$prefecture}の{$label} 中古バイク・新車【相場・価格比較】";
+                $description = "{$prefecture}の{$label}の中古バイク・新車を掲載中。支払総額の安い順や走行距離の少ない順で比較。相場・価格推移もチェック！";
                 break;
 
             case 'maker': // メーカーの場合
-                $title = "{$prefecture}の{$label} バイク在庫一覧 | MotoHub";
+                $title = "{$prefecture}の{$label} 中古バイク在庫一覧";
+                $description = "{$prefecture}で販売中の{$label}の中古バイクを一括検索。価格・走行距離・年式で比較できます。";
                 break;
-            
+
             case 'displacement': // 排気量の場合
-                $title = "{$prefecture}の{$label} 中古・新車を探す";
+                $title = "{$prefecture}の{$label} 中古バイク・新車を探す";
                 break;
         }
 

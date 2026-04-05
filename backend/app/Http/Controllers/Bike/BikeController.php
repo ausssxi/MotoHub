@@ -84,7 +84,15 @@ final class BikeController extends Controller
     public function prefectures(): View
     {
         $regions = $this->bikeService->getRegions();
-        return view('bikes.prefectures', compact('regions'));
+        $totalListings = \App\Models\Listing::where('status', 'active')->count();
+        $prefCounts = \Illuminate\Support\Facades\Cache::remember('pref_listing_counts', 3600, function () {
+            return \App\Models\Listing::where('status', 'active')
+                ->selectRaw('prefecture, COUNT(*) as cnt')
+                ->groupBy('prefecture')
+                ->pluck('cnt', 'prefecture')
+                ->all();
+        });
+        return view('bikes.prefectures', compact('regions', 'totalListings', 'prefCounts'));
     }
 
     /**

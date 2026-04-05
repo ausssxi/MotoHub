@@ -1,9 +1,7 @@
 <x-layout>
-    {{-- ★ 1. タイトルの改修（店舗名＋地域名＋SEOキーワード） --}}
-    <x-slot:title>{{ $shop->name }} - バイク在庫{{ $pagination['total'] > 0 ? '(' . $pagination['total'] . '台)' : '' }}・アクセス@if(!empty($shop->prefecture))｜{{ $shop->prefecture }}@endif | MotoHub</x-slot:title>
+    <x-slot:title>{{ $shop->name }}の在庫一覧・口コミ{{ $pagination['total'] > 0 ? '【' . $pagination['total'] . '台掲載中】' : '' }}| MotoHub</x-slot:title>
 
-    {{-- ★ 2. メタディスクリプション（店舗名＋地域名＋在庫数＋取扱情報） --}}
-    <x-slot:metaDescription>@if(!empty($shop->prefecture)){{ $shop->prefecture }}にある@endif「{{ $shop->name }}」のバイク在庫一覧{{ $pagination['total'] > 0 ? '【現在' . $pagination['total'] . '台販売中】' : '' }}。中古バイク・新車を価格・排気量で比較。住所・営業時間・地図などの店舗情報も掲載。</x-slot:metaDescription>
+    <x-slot:metaDescription>{{ $shop->name }}@if(!empty($shop->prefecture))（{{ $shop->prefecture }}）@endifの中古バイク在庫{{ $pagination['total'] > 0 ? $pagination['total'] . '台' : '' }}を価格・年式で比較。営業時間・アクセス・地図情報も掲載。MotoHubで最安値をチェック。</x-slot:metaDescription>
 
     <x-slot:styles>
         <x-jsonld.local-business :shop="$shop" :stockCount="$pagination['total'] ?? 0" />

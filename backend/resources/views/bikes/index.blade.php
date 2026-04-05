@@ -367,6 +367,35 @@
                 </a>
             </section>
 
+            {{-- 🔍探す: パーツ・用品カテゴリ --}}
+            <section class="mb-20">
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            パーツ・用品を探す
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Parts &amp; Accessories</p>
+                    </div>
+                    <a href="{{ route('parts.index') }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 group">
+                        すべて見る <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+                    </a>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    @foreach(array_slice(config('parts-categories', []), 0, 5) as $partsCat)
+                        <a href="{{ route('parts.category', $partsCat['slug']) }}"
+                           class="group bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 text-center">
+                            <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                <i data-lucide="wrench" class="w-5 h-5 text-blue-500"></i>
+                            </div>
+                            <span class="text-xs font-bold text-gray-700 group-hover:text-blue-600 transition-colors">
+                                {{ $partsCat['name'] }}
+                            </span>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+
             {{-- 🔍探す: 都道府県から探す --}}
             <section class="mb-20">
                 <div class="bg-gray-900 rounded-3xl p-8 sm:p-12 text-center relative overflow-hidden">
