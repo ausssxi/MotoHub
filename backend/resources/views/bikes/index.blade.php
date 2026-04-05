@@ -137,10 +137,10 @@
     {{-- ライブ統計バー --}}
     <div class="bg-white border-b border-gray-100 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 py-3 grid grid-cols-3 divide-x divide-gray-200 text-center">
-            <div class="px-2">
+            <a href="{{ route('bikes.search') }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors">
                 <span class="text-[10px] font-bold text-gray-400 block">掲載</span>
                 <span class="text-sm font-black text-gray-900 tabular-nums">{{ number_format($totalListings) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
-            </div>
+            </a>
             <a href="{{ route('bikes.search', ['sort' => 'price_down']) }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors">
                 <span class="text-[10px] font-bold text-gray-400 block">本日値下げ</span>
                 <span class="text-sm font-black text-red-600 tabular-nums">{{ number_format($priceDropCount) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
