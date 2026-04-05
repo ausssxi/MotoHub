@@ -44,6 +44,12 @@ return [
         'scs'         => ['name' => 'SCS',          'pattern' => 'SCS'],
         'naps'        => ['name' => 'ナップス',     'pattern' => 'ナップス'],
         'ricoland'    => ['name' => 'ライコランド', 'pattern' => 'ライコランド'],
+        'sox'         => ['name' => 'バイカーズステーションSOX', 'pattern' => 'ソックス'],
+        'bikeland'    => ['name' => 'バイクランド', 'pattern' => 'バイクランド'],
+        'honda-dream' => ['name' => 'ホンダドリーム', 'pattern' => 'ホンダドリーム'],
+        'kawasaki-plaza' => ['name' => 'カワサキプラザ', 'pattern' => 'カワサキプラザ'],
+        'ysp'         => ['name' => 'YSP',         'pattern' => 'YSP'],
+        'sbs'         => ['name' => 'SBS（スズキバイクショップ）', 'pattern' => 'ＳＢＳ'],
     ],
 
     // ランキングの設定
