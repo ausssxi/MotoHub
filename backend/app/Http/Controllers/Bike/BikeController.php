@@ -1025,7 +1025,8 @@ final class BikeController extends Controller
                         COUNT(*) as cnt,
                         AVG(total_price) as avg_price,
                         AVG(mileage) as avg_mileage,
-                        AVG(model_year) as avg_year
+                        AVG(model_year) as avg_year,
+                        AVG(CASE WHEN total_price IS NOT NULL AND price IS NOT NULL AND total_price > price THEN total_price - price ELSE NULL END) as avg_expenses
                     ')
                     ->first();
             }
@@ -1115,6 +1116,37 @@ final class BikeController extends Controller
                 'rank' => $rank,
                 'value' => $listing->model_year . '年',
                 'avg' => round((float) $modelStats->avg_year) . '年',
+            ];
+        }
+
+        // 諸経費比較
+        if ($listing->total_price && $listing->price && $listing->total_price > $listing->price && $modelStats->avg_expenses && $modelStats->avg_expenses > 0) {
+            $thisExpenses = $listing->total_price - $listing->price;
+            $expDiff = $thisExpenses - (float) $modelStats->avg_expenses;
+            $expPercent = ($expDiff / (float) $modelStats->avg_expenses) * 100;
+
+            if ($expPercent <= -15) {
+                $icon = '&#x2705;';
+                $label = '安い';
+                $rank = 'good';
+            } elseif ($expPercent >= 15) {
+                $icon = '&#x26A0;&#xFE0F;';
+                $label = 'やや高め';
+                $rank = 'caution';
+            } else {
+                $icon = '&#x27A1;&#xFE0F;';
+                $label = '平均的';
+                $rank = 'normal';
+            }
+
+            $items[] = [
+                'key' => 'expenses',
+                'title' => '諸経費',
+                'icon' => $icon,
+                'label' => $label,
+                'rank' => $rank,
+                'value' => number_format((int) $thisExpenses) . '円',
+                'avg' => number_format((int) $modelStats->avg_expenses) . '円',
             ];
         }
 

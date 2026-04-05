@@ -13,6 +13,7 @@ use App\Services\Bike\Search\PaginationFormatter;
 use App\Services\NearbyService;
 use App\Http\Resources\Bike\ListingResource;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -72,6 +73,8 @@ final class ShopService
             ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'garage', 'description' => '愛車を登録・管理'],
         ];
 
+        $shopExpensesStats = $this->getShopExpensesStats($shop);
+
         return [
             'shop' => $shop,
             'items' => ListingResource::collection($paginated->getCollection())->resolve(),
@@ -80,6 +83,71 @@ final class ShopService
             'nearbyParkings' => $nearbyParkings,
             'nearbyShops' => $nearbyShops,
             'crossLinks' => $crossLinks,
+            'shopExpensesStats' => $shopExpensesStats,
+        ];
+    }
+
+    /**
+     * ショップの諸経費統計を算出
+     */
+    private function getShopExpensesStats(Shop $shop): ?array
+    {
+        $stats = Listing::where('shop_id', $shop->id)
+            ->where('is_sold_out', false)
+            ->whereNotNull('total_price')
+            ->whereNotNull('price')
+            ->whereRaw('total_price > price')
+            ->selectRaw('
+                AVG(total_price - price) as avg_expenses,
+                MIN(total_price - price) as min_expenses,
+                MAX(total_price - price) as max_expenses,
+                COUNT(*) as count
+            ')
+            ->first();
+
+        if (!$stats || $stats->count < 3) {
+            return null;
+        }
+
+        $nationalAvg = Cache::remember('national_avg_expenses', 3600, function () {
+            return Listing::where('is_sold_out', false)
+                ->whereNotNull('total_price')
+                ->whereNotNull('price')
+                ->whereRaw('total_price > price')
+                ->avg(DB::raw('total_price - price'));
+        });
+
+        if (!$nationalAvg) {
+            return null;
+        }
+
+        $diff = (float) $stats->avg_expenses - (float) $nationalAvg;
+        $diffPercent = ($diff / (float) $nationalAvg) * 100;
+
+        $barPosition = (int) max(1, min(10, round(5 + ($diffPercent / 10))));
+
+        if ($diffPercent <= -20) {
+            $evaluation = ['icon' => 'check', 'text' => '諸経費がかなり安い', 'color' => 'green'];
+        } elseif ($diffPercent <= -5) {
+            $evaluation = ['icon' => 'check', 'text' => '諸経費が安め', 'color' => 'green'];
+        } elseif ($diffPercent <= 5) {
+            $evaluation = ['icon' => 'minus', 'text' => '全国平均並み', 'color' => 'gray'];
+        } elseif ($diffPercent <= 20) {
+            $evaluation = ['icon' => 'alert-triangle', 'text' => '諸経費がやや高め', 'color' => 'orange'];
+        } else {
+            $evaluation = ['icon' => 'alert-triangle', 'text' => '諸経費が高め', 'color' => 'orange'];
+        }
+
+        return [
+            'avg' => (int) $stats->avg_expenses,
+            'min' => (int) $stats->min_expenses,
+            'max' => (int) $stats->max_expenses,
+            'count' => (int) $stats->count,
+            'nationalAvg' => (int) $nationalAvg,
+            'diff' => (int) $diff,
+            'diffPercent' => round($diffPercent, 1),
+            'barPosition' => $barPosition,
+            'evaluation' => $evaluation,
         ];
     }
 

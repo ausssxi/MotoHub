@@ -145,6 +145,62 @@
                         </div>
                     </div>
                     @endif
+
+                    {{-- 諸経費傾向 --}}
+                    @if(!empty($shopExpensesStats))
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <h2 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
+                            <i data-lucide="receipt-japanese-yen" class="w-4 h-4 text-blue-500"></i>
+                            諸経費の傾向
+                            <span class="text-[10px] text-gray-400 font-normal ml-1">在庫{{ $shopExpensesStats['count'] }}台から算出</span>
+                        </h2>
+
+                        <div class="flex justify-between items-end mb-4">
+                            <div>
+                                <p class="text-[10px] text-gray-400 font-bold">このショップの平均</p>
+                                <p class="text-xl font-black text-gray-900">{{ number_format($shopExpensesStats['avg']) }}<span class="text-sm font-bold text-gray-400">円</span></p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[10px] text-gray-400 font-bold">全国平均</p>
+                                <p class="text-xl font-black text-gray-400">{{ number_format($shopExpensesStats['nationalAvg']) }}<span class="text-sm font-bold text-gray-300">円</span></p>
+                            </div>
+                        </div>
+
+                        {{-- バーグラフ --}}
+                        <div class="mb-4">
+                            <div class="flex justify-between text-[10px] text-gray-400 font-bold mb-1">
+                                <span>安い</span>
+                                <span>高い</span>
+                            </div>
+                            <div class="flex gap-0.5">
+                                @for($i = 1; $i <= 10; $i++)
+                                    @php
+                                        $pos = $shopExpensesStats['barPosition'];
+                                        if ($i <= $pos) {
+                                            $barColor = $pos <= 4 ? 'bg-green-400' : ($pos <= 6 ? 'bg-gray-300' : 'bg-orange-400');
+                                        } else {
+                                            $barColor = 'bg-gray-100';
+                                        }
+                                    @endphp
+                                    <div class="h-3 flex-1 rounded-sm {{ $barColor }}"></div>
+                                @endfor
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 text-sm font-bold {{ $shopExpensesStats['evaluation']['color'] === 'green' ? 'text-green-600' : ($shopExpensesStats['evaluation']['color'] === 'orange' ? 'text-orange-600' : 'text-gray-600') }}">
+                            <i data-lucide="{{ $shopExpensesStats['evaluation']['icon'] }}" class="w-4 h-4"></i>
+                            <span>{{ $shopExpensesStats['evaluation']['text'] }}</span>
+                            @if($shopExpensesStats['diff'] != 0)
+                                <span class="text-xs text-gray-400 font-normal">（全国平均より{{ $shopExpensesStats['diff'] > 0 ? '+' : '' }}{{ number_format($shopExpensesStats['diff']) }}円）</span>
+                            @endif
+                        </div>
+
+                        <div class="mt-3 flex gap-4 text-[10px] text-gray-400 font-bold border-t border-gray-50 pt-3">
+                            <span>最安: {{ number_format($shopExpensesStats['min']) }}円</span>
+                            <span>最高: {{ number_format($shopExpensesStats['max']) }}円</span>
+                        </div>
+                    </div>
+                    @endif
                 </div>
 
                 {{-- 右カラム: 在庫リスト --}}
