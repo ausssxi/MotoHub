@@ -77,27 +77,41 @@ function appendReviewToList(review) {
 
 document.addEventListener('DOMContentLoaded', () => {
     // 星の評価UIの制御
-    const stars = document.querySelectorAll('.star-btn');
-    const ratingInput = document.getElementById('rating-value');
-    
+    var stars = document.querySelectorAll('.star-btn');
+    var ratingInput = document.getElementById('rating-value');
+    var ratingLabel = document.getElementById('rating-label');
+    var labels = ['', '悪い', 'いまいち', '普通', '良い', '最高'];
+
+    function paintStars(count) {
+        stars.forEach(function(s, idx) {
+            var svg = s.querySelector('svg');
+            if (idx < count) {
+                s.classList.add('text-yellow-400');
+                s.classList.remove('text-gray-200');
+                svg.classList.add('fill-current');
+            } else {
+                s.classList.remove('text-yellow-400');
+                s.classList.add('text-gray-200');
+                svg.classList.remove('fill-current');
+            }
+        });
+    }
+
     if (stars.length > 0 && ratingInput) {
-        stars.forEach(btn => {
-            btn.addEventListener('click', () => {
+        stars.forEach(function(btn) {
+            btn.addEventListener('click', function() {
                 reviewRating = parseInt(btn.dataset.val);
                 ratingInput.value = reviewRating;
-                
-                stars.forEach((s, idx) => {
-                    const icon = s.querySelector('i');
-                    if (idx < reviewRating) {
-                        icon.classList.add('fill-current');
-                        s.classList.add('text-yellow-400');
-                        s.classList.remove('text-gray-300');
-                    } else {
-                        icon.classList.remove('fill-current');
-                        s.classList.remove('text-yellow-400');
-                        s.classList.add('text-gray-300');
-                    }
-                });
+                paintStars(reviewRating);
+                if (ratingLabel) ratingLabel.textContent = labels[reviewRating] || '';
+            });
+            btn.addEventListener('mouseenter', function() {
+                paintStars(parseInt(btn.dataset.val));
+                if (ratingLabel) ratingLabel.textContent = labels[parseInt(btn.dataset.val)] || '';
+            });
+            btn.addEventListener('mouseleave', function() {
+                paintStars(reviewRating);
+                if (ratingLabel) ratingLabel.textContent = labels[reviewRating] || '';
             });
         });
     }
@@ -177,7 +191,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         successMsg.classList.add('hidden');
                         btn.disabled = false;
                         btn.innerHTML = originalBtnText;
-                        if(stars[4]) stars[4].click();
+                        // 星評価をデフォルト(5)にリセット
+                        reviewRating = 5;
+                        if (ratingInput) ratingInput.value = 5;
+                        paintStars(5);
+                        if (ratingLabel) ratingLabel.textContent = labels[5];
                     }, 500);
                 }, 2000);
                 
