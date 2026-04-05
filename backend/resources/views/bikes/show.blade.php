@@ -1161,16 +1161,7 @@
                                     (車両本体価格: {{ $listing->price }}万円)
                                 </div>
                                 @endif
-                                
-                                @if($priceDropDiff)
-                                <div class="mt-3 inline-flex flex-col items-center justify-center gap-1 bg-yellow-50 text-yellow-800 px-4 py-2.5 rounded-xl text-xs font-black border border-yellow-300 shadow-sm animate-pulse w-full">
-                                    <div class="flex items-center gap-1.5">
-                                        <i data-lucide="arrow-down-circle" class="w-4 h-4 text-yellow-600"></i>
-                                        以前より {{ $priceDropDiff }}万円 値下がりしました！
-                                    </div>
-                                </div>
-                                @endif
-                                
+
                                 @if($priceDropDiff)
                                 <div class="mt-3 inline-flex flex-col items-center justify-center gap-1 bg-yellow-50 text-yellow-800 px-4 py-2.5 rounded-xl text-xs font-black border border-yellow-300 shadow-sm animate-pulse w-full">
                                     <div class="flex items-center gap-1.5">
@@ -1206,6 +1197,49 @@
                                             約<strong>{{ $diffAbs }}万円高め</strong>です。走行距離の少なさやコンディションを考慮すると妥当な価格帯です。
                                         @endif
                                     </p>
+                                </div>
+                            </div>
+                            @endif
+
+                            {{-- 市場ポジション分析 --}}
+                            @if(!empty($marketPosition) && !empty($marketPosition['items']))
+                            <div class="mb-4 rounded-2xl border border-gray-200 overflow-hidden">
+                                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <h4 class="text-xs font-black text-gray-800 flex items-center gap-1.5">
+                                            <i data-lucide="bar-chart-3" class="w-3.5 h-3.5 text-blue-500"></i>
+                                            市場ポジション
+                                        </h4>
+                                        <span class="text-[10px] font-bold text-gray-400">同車種{{ $marketPosition['count'] }}台と比較</span>
+                                    </div>
+                                </div>
+                                <div class="divide-y divide-gray-100">
+                                    @foreach($marketPosition['items'] as $mp)
+                                    <div class="flex items-center justify-between px-4 py-3 bg-white">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm">{!! $mp['icon'] !!}</span>
+                                            <span class="text-xs font-bold text-gray-600">{{ $mp['title'] }}</span>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="text-xs font-black {{ $mp['rank'] === 'good' ? 'text-green-600' : ($mp['rank'] === 'caution' ? 'text-orange-500' : 'text-gray-700') }}">
+                                                {{ $mp['label'] }}
+                                            </span>
+                                            <div class="text-[10px] text-gray-400 font-bold">
+                                                {{ $mp['value'] }} / 平均{{ $mp['avg'] }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endforeach
+                                </div>
+                                @php
+                                    $overallLabel = match($marketPosition['overall']) {
+                                        'excellent' => ['label' => 'とてもお買い得', 'color' => 'bg-green-50 text-green-700 border-green-200'],
+                                        'good' => ['label' => 'お買い得', 'color' => 'bg-blue-50 text-blue-700 border-blue-200'],
+                                        default => ['label' => '標準的', 'color' => 'bg-gray-50 text-gray-600 border-gray-200'],
+                                    };
+                                @endphp
+                                <div class="px-4 py-3 {{ $overallLabel['color'] }} border-t text-center">
+                                    <span class="text-xs font-black">総合評価: {{ $overallLabel['label'] }}</span>
                                 </div>
                             </div>
                             @endif

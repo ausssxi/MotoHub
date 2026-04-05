@@ -318,6 +318,9 @@ final class BikeController extends Controller
         $regionComment = $this->getRegionComment($data);
         $priceBandComment = $this->getPriceBandComment($data);
 
+        // 多角的比較指標（市場ポジション分析）
+        $marketPosition = $this->getMarketPosition($listing);
+
         // 施策E: ブログ記事連携
         $relatedBlogPosts = collect();
         try {
@@ -364,6 +367,7 @@ final class BikeController extends Controller
             'regionComment'     => $regionComment,
             'priceBandComment'  => $priceBandComment,
             'relatedBlogPosts'  => $relatedBlogPosts,
+            'marketPosition'    => $marketPosition,
         ]);
     }
 
@@ -985,6 +989,142 @@ final class BikeController extends Controller
             $priceYen < 2000000 => '150〜200万円はプレミアムクラス。高年式の大型スポーツやツアラー、輸入車のエントリーモデルが中心。充実した電子制御や安全装備を備えたモデルが多いです。',
             default => '200万円以上はハイエンドクラス。最新のフラッグシップモデルや希少な限定車が中心です。新車に近い走行距離や極上コンディションの車両が多く、所有する喜びを最大限に味わえます。',
         };
+    }
+
+    /**
+     * 同車種在庫と比較した市場ポジション分析
+     * @param Listing $listing Raw Eloquent model
+     * @return array{items: array, overall: string, count: int}|null
+     */
+    private function getMarketPosition(Listing $listing): ?array
+    {
+        if (!$listing->bike_model_id) {
+            return null;
+        }
+
+        $modelStats = Cache::remember(
+            "market_position_{$listing->bike_model_id}",
+            3600,
+            function () use ($listing) {
+                return Listing::where('bike_model_id', $listing->bike_model_id)
+                    ->where('is_sold_out', false)
+                    ->selectRaw('
+                        COUNT(*) as cnt,
+                        AVG(total_price) as avg_price,
+                        AVG(mileage) as avg_mileage,
+                        AVG(model_year) as avg_year
+                    ')
+                    ->first();
+            }
+        );
+
+        if (!$modelStats || $modelStats->cnt < 5) {
+            return null;
+        }
+
+        $items = [];
+
+        // 価格比較
+        if ($listing->total_price && $listing->total_price > 0 && $modelStats->avg_price > 0) {
+            $priceDiffPct = (($listing->total_price - (float) $modelStats->avg_price) / (float) $modelStats->avg_price) * 100;
+            if ($priceDiffPct <= -10) {
+                $icon = '&#x2705;'; // ✅
+                $label = '割安';
+                $rank = 'good';
+            } elseif ($priceDiffPct <= 10) {
+                $icon = '&#x27A1;&#xFE0F;'; // ➡️
+                $label = '相場並み';
+                $rank = 'normal';
+            } else {
+                $icon = '&#x26A0;&#xFE0F;'; // ⚠️
+                $label = '割高';
+                $rank = 'caution';
+            }
+            $items[] = [
+                'key' => 'price',
+                'title' => '価格',
+                'icon' => $icon,
+                'label' => $label,
+                'rank' => $rank,
+                'value' => number_format((float)($listing->total_price / 10000), 1) . '万円',
+                'avg' => number_format((float)($modelStats->avg_price / 10000), 1) . '万円',
+            ];
+        }
+
+        // 走行距離比較
+        if ($listing->mileage !== null && (float) $modelStats->avg_mileage > 0) {
+            $mileageDiffPct = (($listing->mileage - (float) $modelStats->avg_mileage) / (float) $modelStats->avg_mileage) * 100;
+            if ($mileageDiffPct <= -10) {
+                $icon = '&#x2705;';
+                $label = '低走行';
+                $rank = 'good';
+            } elseif ($mileageDiffPct <= 10) {
+                $icon = '&#x27A1;&#xFE0F;';
+                $label = '平均的';
+                $rank = 'normal';
+            } else {
+                $icon = '&#x26A0;&#xFE0F;';
+                $label = '多走行';
+                $rank = 'caution';
+            }
+            $items[] = [
+                'key' => 'mileage',
+                'title' => '走行距離',
+                'icon' => $icon,
+                'label' => $label,
+                'rank' => $rank,
+                'value' => number_format($listing->mileage) . 'km',
+                'avg' => number_format((int) round((float) $modelStats->avg_mileage)) . 'km',
+            ];
+        }
+
+        // 年式比較
+        if ($listing->model_year && $listing->model_year > 0 && (float) $modelStats->avg_year > 0) {
+            $yearDiff = $listing->model_year - (float) $modelStats->avg_year;
+            if ($yearDiff >= 1) {
+                $icon = '&#x2705;';
+                $label = '高年式';
+                $rank = 'good';
+            } elseif ($yearDiff >= -1) {
+                $icon = '&#x27A1;&#xFE0F;';
+                $label = '平均的';
+                $rank = 'normal';
+            } else {
+                $icon = '&#x26A0;&#xFE0F;';
+                $label = '低年式';
+                $rank = 'caution';
+            }
+            $items[] = [
+                'key' => 'year',
+                'title' => '年式',
+                'icon' => $icon,
+                'label' => $label,
+                'rank' => $rank,
+                'value' => $listing->model_year . '年',
+                'avg' => round((float) $modelStats->avg_year) . '年',
+            ];
+        }
+
+        if (empty($items)) {
+            return null;
+        }
+
+        // 総合評価
+        $goodCount = collect($items)->where('rank', 'good')->count();
+        $total = count($items);
+        if ($goodCount === $total) {
+            $overall = 'excellent';
+        } elseif ($goodCount >= $total / 2) {
+            $overall = 'good';
+        } else {
+            $overall = 'fair';
+        }
+
+        return [
+            'items' => $items,
+            'overall' => $overall,
+            'count' => (int) $modelStats->cnt,
+        ];
     }
 
    /**
