@@ -60,7 +60,7 @@
                         </h2>
 
                         {{-- 抜粋 --}}
-                        <p class="text-sm text-gray-600 mb-3 line-clamp-2">{{ $post->excerpt }}</p>
+                        <p class="text-sm text-gray-600 mb-3 line-clamp-2">{{ \App\Models\BlogPost::stripMarkdown($post->excerpt ?? '') }}</p>
 
                         {{-- メタ情報 --}}
                         <div class="flex items-center justify-between text-xs text-gray-400">

@@ -52,7 +52,7 @@
 
                     <div class="flex-1 min-w-0">
                         <h2 class="font-bold text-gray-900 group-hover:text-blue-600 transition">{{ $post->title }}</h2>
-                        <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ $post->excerpt }}</p>
+                        <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ \App\Models\BlogPost::stripMarkdown($post->excerpt ?? '') }}</p>
                         <div class="flex gap-3 mt-2 text-xs text-gray-400">
                             <span>{{ $post->published_at->format('Y.m.d') }}</span>
                             <span>{{ $post->reading_time_minutes }}分</span>

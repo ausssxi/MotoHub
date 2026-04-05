@@ -12,7 +12,7 @@
         <item>
             <title>{{ e($post->title) }}</title>
             <link>{{ url('/blog/' . $post->slug) }}</link>
-            <description>{{ e($post->excerpt ?? Str::limit(strip_tags($post->body), 200)) }}</description>
+            <description>{{ e($post->excerpt ? \App\Models\BlogPost::stripMarkdown($post->excerpt) : Str::limit(\App\Models\BlogPost::stripMarkdown($post->body), 200)) }}</description>
             <pubDate>{{ $post->published_at->toRfc2822String() }}</pubDate>
             <guid isPermaLink="true">{{ url('/blog/' . $post->slug) }}</guid>
             @if($post->author)

@@ -47,9 +47,9 @@ class BlogPost extends Model
             // 読了時間の自動算出（日本語: 約500文字/分）
             $post->reading_time_minutes = max(1, (int) ceil(mb_strlen(strip_tags($post->body)) / 500));
 
-            // 抜粋の自動生成（未入力時は本文先頭150文字）
+            // 抜粋の自動生成（未入力時は本文先頭150文字、Markdown記号除去）
             if (empty($post->excerpt) && !empty($post->body)) {
-                $post->excerpt = Str::limit(strip_tags($post->body), 150);
+                $post->excerpt = Str::limit(self::stripMarkdown($post->body), 150);
             }
         });
 
@@ -58,7 +58,7 @@ class BlogPost extends Model
                 $post->reading_time_minutes = max(1, (int) ceil(mb_strlen(strip_tags($post->body)) / 500));
 
                 if (empty($post->excerpt)) {
-                    $post->excerpt = Str::limit(strip_tags($post->body), 150);
+                    $post->excerpt = Str::limit(self::stripMarkdown($post->body), 150);
                 }
             }
         });
@@ -93,6 +93,28 @@ class BlogPost extends Model
     {
         return $query->where('status', 'scheduled')
                      ->where('published_at', '<=', now());
+    }
+
+    /**
+     * Markdown記号を除去してプレーンテキストにする
+     */
+    public static function stripMarkdown(string $text): string
+    {
+        $text = strip_tags($text);
+        $text = preg_replace('/^#+\s*/m', '', $text);           // # 見出し
+        $text = preg_replace('/\*\*([^*]+)\*\*/', '$1', $text); // **太字**
+        $text = preg_replace('/\*([^*]+)\*/', '$1', $text);     // *斜体*
+        $text = preg_replace('/`{3}[\s\S]*?`{3}/m', '', $text); // ```コードブロック```
+        $text = preg_replace('/`([^`]+)`/', '$1', $text);       // `インラインコード`
+        $text = preg_replace('/^[-*]\s+/m', '', $text);         // リスト記号
+        $text = preg_replace('/^\d+\.\s+/m', '', $text);        // 番号付きリスト
+        $text = preg_replace('/^>\s*/m', '', $text);             // 引用
+        $text = preg_replace('/\[([^\]]+)\]\([^)]+\)/', '$1', $text); // [リンク](url)
+        $text = preg_replace('/^→\s*/m', '', $text);            // →リンク行
+        $text = preg_replace('/\|/m', '', $text);               // テーブル|
+        $text = preg_replace('/^-{3,}$/m', '', $text);          // --- 水平線
+        $text = preg_replace('/\s+/', ' ', $text);              // 連続空白を1つに
+        return trim($text);
     }
 
     // ---- Helpers ----
