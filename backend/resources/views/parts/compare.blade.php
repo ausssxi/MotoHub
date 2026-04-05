@@ -15,6 +15,10 @@
         $rakutenRest  = array_slice($rakutenItems, 1);
         $yahooRest    = array_slice($yahooItems, 1);
         $hasRest      = count($rakutenRest) > 0 || count($yahooRest) > 0;
+        $commonCaption     = $rakutenBest['caption'] ?? '';
+        $commonCaptionFull = $rakutenBest['caption_full'] ?? '';
+        $commonJan         = $rakutenBest['jan_code'] ?? $jan ?? '';
+        $commonPartNumber  = $rakutenBest['part_number'] ?? $partNumber ?? '';
     @endphp
 
     <div class="bg-gray-50 min-h-screen">
@@ -39,6 +43,31 @@
         </section>
 
         <div class="max-w-5xl mx-auto px-4 py-6 space-y-6">
+            {{-- 共通: 品番・JAN・商品説明 --}}
+            @if($commonCaption || $commonJan || $commonPartNumber)
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5">
+                @if($commonPartNumber || $commonJan)
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                    @if($commonPartNumber)
+                    <span class="bg-gray-100 text-gray-600 text-[10px] font-mono font-bold px-2 py-0.5 rounded">品番: {{ $commonPartNumber }}</span>
+                    @endif
+                    @if($commonJan)
+                    <span class="bg-gray-100 text-gray-600 text-[10px] font-mono font-bold px-2 py-0.5 rounded">JAN: {{ $commonJan }}</span>
+                    @endif
+                </div>
+                @endif
+                @if($commonCaption)
+                <div x-data="{ open: false }" class="text-xs text-gray-600 leading-relaxed">
+                    <p x-show="!open" class="line-clamp-3">{{ $commonCaption }}@if(mb_strlen($commonCaptionFull) > 200)...@endif</p>
+                    @if(mb_strlen($commonCaptionFull) > 200)
+                    <p x-show="open" x-cloak>{{ $commonCaptionFull }}</p>
+                    <button @click="open = !open" class="text-blue-500 hover:underline text-[10px] font-bold mt-1" x-text="open ? '閉じる' : 'もっと見る'"></button>
+                    @endif
+                </div>
+                @endif
+            </div>
+            @endif
+
             {{-- 最安価格サマリー --}}
             @if($best)
             <div class="bg-white rounded-xl shadow-sm border border-green-200 p-4 sm:p-5">
