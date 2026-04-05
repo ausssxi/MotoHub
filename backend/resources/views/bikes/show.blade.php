@@ -1,9 +1,44 @@
 <x-layout>
-    <x-slot:title>
-        {{ $listing->name }} | MotoHub
-    </x-slot:title>
+    @php
+        $titleParts = [$listing->name];
+        if ($listing->total_price) {
+            $titleParts[] = number_format((float)$listing->total_price * 10000) . '円';
+        }
+        if ($listing->model_year) {
+            $titleParts[] = $listing->model_year . '年式';
+        }
+        $rawMileage = preg_replace('/[^0-9]/', '', (string) ($listing->mileage ?? ''));
+        if ($rawMileage !== '' && $rawMileage !== '0') {
+            $m = (int) $rawMileage;
+            $titleParts[] = ($m < 5000 ? '低走行' : '') . number_format($m) . 'km';
+        }
 
-    <x-slot:metaDescription>{{ $listing->name }}{{ $listing->model_year ? ' ' . $listing->model_year . '年式' : '' }}{{ $listing->mileage ? ' ' . number_format((int)$listing->mileage) . 'km' : '' }}{{ $listing->total_price ? ' ' . $listing->total_price . '万円' : '' }} - {{ $listing->shop_name ?? 'MotoHub' }}{{ $listing->prefecture ? '（' . $listing->prefecture . '）' : '' }}。MotoHubで価格相場と比較して、お買い得な中古バイクを見つけよう。</x-slot:metaDescription>
+        $categoryMessages = [
+            'ネイキッド' => '街乗りからツーリングまで万能',
+            'スポーツ/レプリカ' => 'サーキットも公道も楽しめる',
+            'アメリカン' => 'ゆったりクルーズに最適',
+            'オフロード' => '林道もダートも走破',
+            'スクーター' => '通勤・通学の足に',
+            'ツアラー' => 'ロングツーリングの相棒',
+            'アドベンチャー' => 'オンもオフも自由自在',
+            'クラシック' => 'レトロな佇まいが魅力',
+            'ミニバイク' => '取り回し抜群のコンパクトサイズ',
+        ];
+        $catName = $listing->category ?? '';
+        $catMsg = $categoryMessages[$catName] ?? '';
+
+        $descParts = [$listing->name];
+        if ($listing->total_price) {
+            $descParts[] = '総額' . number_format((float)$listing->total_price * 10000) . '円';
+        }
+        if ($catMsg) {
+            $descParts[] = $catMsg;
+        }
+        $descParts[] = ($listing->shop_name ?? '') . ($listing->prefecture ? '（' . $listing->prefecture . '）' : '');
+    @endphp
+    <x-slot:title>{{ implode('｜', $titleParts) }} - MotoHub</x-slot:title>
+
+    <x-slot:metaDescription>{{ implode('。', array_filter($descParts)) }}。MotoHubで価格相場と比較して、お買い得な中古バイクを見つけよう。</x-slot:metaDescription>
 
     @if(!empty($listing->images) && isset($listing->images[0]))
     <x-slot:ogImage>{{ $listing->images[0] }}</x-slot:ogImage>
@@ -443,6 +478,25 @@
                     </div>
                     @endif
 
+                    {{-- 施策B: カテゴリ×排気量帯の特徴テキスト --}}
+                    @if(!empty($bikeHighlight))
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center gap-2 mb-4">
+                            <div class="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+                                <i data-lucide="info" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">{{ $listing->category ?? 'バイク' }}・{{ $bikeModelForUrl?->displacement ?? '?' }}ccクラスの特徴</h3>
+                        </div>
+                        <div class="space-y-2">
+                            @foreach(explode("\n", $bikeHighlight) as $line)
+                                @if(trim($line))
+                                <p class="text-sm text-gray-600 leading-relaxed">{{ $line }}</p>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
                     {{-- YouTube動画 --}}
                     @if(!empty($videos))
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
@@ -596,6 +650,11 @@
                                 <canvas id="priceChart"></canvas>
                             </div>
 
+                            @if(!empty($priceAnalysisText))
+                            <div class="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                                <p class="text-xs text-blue-800 leading-relaxed font-bold">{{ $priceAnalysisText }}</p>
+                            </div>
+                            @endif
                             <p class="text-[10px] text-gray-400 mt-4 text-right">※MotoHubに掲載中の「{{ $listing->name }}」全車両のデータから算出</p>
                             @if($listing->bike_model_id)
                             <div class="mt-8 pt-6 border-t border-gray-100 text-center">
@@ -676,6 +735,29 @@
                                 'a' => "現在の中古相場平均は{$stats['avg']}万円です（流通中{$stats['count']}台のデータより）。最安値は{$stats['min']}万円、最高値は{$stats['max']}万円です。",
                             ];
                         }
+
+                        // 車検FAQ（排気量帯別）
+                        if ($faqCc) {
+                            if ($faqCc <= 250) {
+                                $faqItems[] = [
+                                    'q' => "{$faqBikeName}に車検は必要？",
+                                    'a' => "250cc以下のため車検は不要です。ただし自賠責保険の加入と定期的な点検整備は必要です。",
+                                ];
+                            } else {
+                                $faqItems[] = [
+                                    'q' => "{$faqBikeName}に車検は必要？",
+                                    'a' => "251cc以上のため車検が必要です（新車は3年、以降2年ごと）。費用は法定費用+整備費で約5〜10万円が目安です。",
+                                ];
+                            }
+                        }
+
+                        // 総額FAQ
+                        if ($listing->total_price && is_numeric($listing->total_price)) {
+                            $faqItems[] = [
+                                'q' => "この{$faqBikeName}の総額はいくら？",
+                                'a' => "支払総額は{$listing->total_price}万円です。車両本体価格に諸費用（登録費用・自賠責保険・納車整備費等）が含まれています。",
+                            ];
+                        }
                     @endphp
 
                     @if(count($faqItems) > 0)
@@ -753,6 +835,70 @@
                                         <span>{{ $article['date'] }}</span>
                                     </div>
                                 </div>
+                            </a>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- 施策F/G/H: 車種・地域・価格帯テキスト --}}
+                    @if(!empty($modelComment) || !empty($regionComment) || !empty($priceBandComment))
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-cyan-50 rounded-lg text-cyan-600">
+                                <i data-lucide="book-open" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">この車両について</h3>
+                        </div>
+                        <div class="space-y-4">
+                            @if(!empty($modelComment))
+                            <div>
+                                <h4 class="text-sm font-black text-gray-800 mb-1 flex items-center gap-1.5">
+                                    <i data-lucide="bike" class="w-4 h-4 text-gray-400"></i>
+                                    {{ $listing->bike_model_name ?? $listing->maker ?? 'この車種' }}とは
+                                </h4>
+                                <p class="text-sm text-gray-600 leading-relaxed">{{ $modelComment }}</p>
+                            </div>
+                            @endif
+                            @if(!empty($priceBandComment))
+                            <div>
+                                <h4 class="text-sm font-black text-gray-800 mb-1 flex items-center gap-1.5">
+                                    <i data-lucide="coins" class="w-4 h-4 text-gray-400"></i>
+                                    この価格帯の特徴
+                                </h4>
+                                <p class="text-sm text-gray-600 leading-relaxed">{{ $priceBandComment }}</p>
+                            </div>
+                            @endif
+                            @if(!empty($regionComment))
+                            <div>
+                                <h4 class="text-sm font-black text-gray-800 mb-1 flex items-center gap-1.5">
+                                    <i data-lucide="map-pin" class="w-4 h-4 text-gray-400"></i>
+                                    {{ $listing->prefecture ?? 'この地域' }}のツーリング情報
+                                </h4>
+                                <p class="text-sm text-gray-600 leading-relaxed">{{ $regionComment }}</p>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- 施策E: 関連ブログ記事 --}}
+                    @if(isset($relatedBlogPosts) && $relatedBlogPosts->isNotEmpty())
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-pink-50 rounded-lg text-pink-600">
+                                <i data-lucide="file-text" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">関連記事</h3>
+                        </div>
+                        <div class="space-y-3">
+                            @foreach($relatedBlogPosts as $post)
+                            <a href="{{ route('blog.show', $post->slug) }}" class="flex items-start gap-3 p-3 -mx-1 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-bold text-gray-800 leading-snug mb-1 line-clamp-2">{{ $post->title }}</p>
+                                    <p class="text-xs text-gray-400">{{ $post->published_at?->format('Y.m.d') }}</p>
+                                </div>
+                                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 flex-shrink-0 mt-1"></i>
                             </a>
                             @endforeach
                         </div>
