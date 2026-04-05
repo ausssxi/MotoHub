@@ -578,7 +578,10 @@ final class BikeController extends Controller
                 ]
             ]);
         }
-        return redirect()->route('bikes.model_detail', $id)->with('success', 'レビューを投稿しました！');
+        return redirect()->route('bikes.model_detail', [
+            'mfrSlug'   => $model->manufacturer->slug ?? $model->manufacturer_id,
+            'modelSlug' => $model->slug ?? $model->id,
+        ])->with('success', 'レビューを投稿しました！');
     }
 
     public function modelDetail($id, \App\Services\Bike\PriceStatsService $priceStatsService)
