@@ -13,7 +13,7 @@
     
     <x-slot:scripts>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <script src="https://www.google.com/recaptcha/api.js?render={{ env('RECAPTCHA_SITE_KEY') }}"></script>
+        <script src="https://www.google.com/recaptcha/api.js?render={{ config('services.recaptcha.site_key') }}"></script>
         <script>
             window.bikeModelStats = @json($stats ?? []);
             window.bikeModelHistory = @json($history ?? []);
@@ -32,7 +32,7 @@
                         submitBtn.disabled = true;
                         submitBtn.innerHTML = 'スパムチェック中...';
                         grecaptcha.ready(function() {
-                            grecaptcha.execute('{{ env('RECAPTCHA_SITE_KEY') }}', {action: 'submit_review'}).then(function(token) {
+                            grecaptcha.execute('{{ config('services.recaptcha.site_key') }}', {action: 'submit_review'}).then(function(token) {
                                 document.getElementById('recaptcha-token').value = token;
                                 form.submit();
                             }).catch(function() {

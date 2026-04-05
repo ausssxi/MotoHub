@@ -56,7 +56,7 @@
         <script>
             window.bikeModelStats = {!! json_encode($stats ?? [], JSON_HEX_TAG) !!};
             window.currentListingId = "{{ $listing->id }}";
-            window.recaptchaSiteKey = "{{ env('RECAPTCHA_SITE_KEY') }}";
+            window.recaptchaSiteKey = "{{ config('services.recaptcha.site_key') }}";
         </script>
         <script>window.__bikeModelId = {{ $listing->bike_model_id ?? 'null' }};</script>
         <script src="{{ asset('js/promo/engagement-banner.js') }}?v={{ filemtime(public_path('js/promo/engagement-banner.js')) }}" defer></script>

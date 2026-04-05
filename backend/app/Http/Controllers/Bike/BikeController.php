@@ -548,7 +548,7 @@ final class BikeController extends Controller
     {
         // === 1. reCAPTCHAの検証 ===
         $response = \Illuminate\Support\Facades\Http::asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
-            'secret' => env('RECAPTCHA_SECRET_KEY'),
+            'secret' => config('services.recaptcha.secret_key'),
             'response' => $request->recaptcha_token, // フロントから送られてきたトークン
         ]);
 
