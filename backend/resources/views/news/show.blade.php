@@ -15,7 +15,7 @@
                 <li><span class="text-gray-300">/</span></li>
                 <li><a href="{{ route('news.index') }}" class="hover:text-black transition">ニュース</a></li>
                 <li><span class="text-gray-300">/</span></li>
-                <li class="text-gray-600 truncate max-w-[200px]">{{ $newsItem->title }}</li>
+                <li class="text-gray-600"><span class="truncate max-w-[200px] sm:max-w-none inline-block align-bottom">{{ \Illuminate\Support\Str::limit($newsItem->title, 30) }}</span></li>
             </ol>
         </nav>
 
