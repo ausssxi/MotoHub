@@ -50,7 +50,7 @@
             </div>
 
             {{-- 7日間の横並び --}}
-            <div class="grid grid-cols-7 gap-1 sm:gap-2">
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
                 @foreach($weekDays as $day)
                 @php
                     $isSelected = $targetDate->toDateString() === $day['date'];
@@ -58,17 +58,19 @@
                     $isSat = $day['dow'] === '土';
                 @endphp
                 @if($day['isFuture'])
-                <div class="flex flex-col items-center justify-center py-2 sm:py-3 rounded-xl text-gray-300">
-                    <span class="text-[10px] font-bold">{{ $day['dow'] }}</span>
-                    <span class="text-sm font-black">{{ $day['label'] }}</span>
-                    <span class="text-[10px] font-bold mt-0.5">-</span>
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 2px;border-radius:12px;color:#d1d5db">
+                    <span style="font-size:10px;font-weight:700">{{ $day['dow'] }}</span>
+                    <span style="font-size:13px;font-weight:900">{{ $day['label'] }}</span>
+                    <span style="font-size:10px;font-weight:700;margin-top:2px">-</span>
                 </div>
                 @else
                 <a href="{{ route('ranking.daily', $day['date']) }}"
-                   class="flex flex-col items-center justify-center py-2 sm:py-3 rounded-xl transition {{ $isSelected ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-gray-50' }}">
-                    <span class="text-[10px] font-bold {{ $isSelected ? 'text-blue-200' : ($isSun ? 'text-red-400' : ($isSat ? 'text-blue-400' : 'text-gray-400')) }}">{{ $day['dow'] }}</span>
-                    <span class="text-sm font-black {{ $isSelected ? '' : 'text-gray-900' }}">{{ $day['label'] }}</span>
-                    <span class="text-[10px] font-bold mt-0.5 {{ $isSelected ? 'text-blue-100' : 'text-gray-400' }}">
+                   style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 2px;border-radius:12px;text-decoration:none;transition:all .15s;{{ $isSelected ? 'background:#2563eb;color:#fff;box-shadow:0 4px 6px -1px rgba(37,99,235,.3)' : '' }}"
+                   onmouseover="{{ $isSelected ? '' : "this.style.background='#f9fafb'" }}"
+                   onmouseout="{{ $isSelected ? '' : "this.style.background=''" }}">
+                    <span style="font-size:10px;font-weight:700;color:{{ $isSelected ? '#bfdbfe' : ($isSun ? '#f87171' : ($isSat ? '#60a5fa' : '#9ca3af')) }}">{{ $day['dow'] }}</span>
+                    <span style="font-size:13px;font-weight:900;color:{{ $isSelected ? '#fff' : '#111827' }}">{{ $day['label'] }}</span>
+                    <span style="font-size:10px;font-weight:700;margin-top:2px;color:{{ $isSelected ? '#dbeafe' : '#9ca3af' }}">
                         {{ $day['count'] > 0 ? number_format($day['count']) . '台' : '-' }}
                     </span>
                 </a>
