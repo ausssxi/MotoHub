@@ -25,25 +25,23 @@
         {{-- タブ切替 --}}
         @include('ranking._tabs', ['active' => 'daily'])
 
-        {{-- カレンダー --}}
+        {{-- 直近7日間ナビ --}}
         @php
-            $calYear = $targetDate->year;
-            $calMonth = $targetDate->month;
-            $firstDay = \Carbon\Carbon::create($calYear, $calMonth, 1);
-            $daysInMonth = $firstDay->daysInMonth;
-            $startDow = $firstDay->dayOfWeek; // 0=Sun
-            $prevMonth = $firstDay->copy()->subMonth();
-            $nextMonth = $firstDay->copy()->addMonth();
-            $today = \Carbon\Carbon::today();
+            $prevWeekDate = $weekStart->copy()->subDays(7)->toDateString();
+            $nextWeekDate = $weekEnd->copy()->addDay()->toDateString();
+            $canGoNext = $weekEnd->copy()->addDay()->lte(\Carbon\Carbon::today());
         @endphp
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6 mb-6">
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5 mb-6">
+            {{-- 週切替ヘッダー --}}
             <div class="flex items-center justify-between mb-4">
-                <a href="{{ route('ranking.daily', $prevMonth->format('Y-m-d')) }}" class="p-2 rounded-lg hover:bg-gray-100 transition">
+                <a href="{{ route('ranking.daily', $prevWeekDate) }}" class="p-2 rounded-lg hover:bg-gray-100 transition" title="前の週">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                 </a>
-                <h2 class="text-base font-black text-gray-900">{{ $calYear }}年{{ $calMonth }}月</h2>
-                @if($nextMonth->startOfMonth()->lte($today))
-                <a href="{{ route('ranking.daily', $nextMonth->format('Y-m-d')) }}" class="p-2 rounded-lg hover:bg-gray-100 transition">
+                <h2 class="text-sm font-black text-gray-900">
+                    {{ $weekStart->format('Y年n月j日') }}〜{{ $weekEnd->format('n月j日') }}
+                </h2>
+                @if($canGoNext)
+                <a href="{{ route('ranking.daily', $nextWeekDate) }}" class="p-2 rounded-lg hover:bg-gray-100 transition" title="次の週">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                 </a>
                 @else
@@ -51,43 +49,31 @@
                 @endif
             </div>
 
-            {{-- 曜日ヘッダー --}}
-            <div class="grid grid-cols-7 gap-1 mb-1">
-                @foreach(['日', '月', '火', '水', '木', '金', '土'] as $i => $dow)
-                <div class="text-center text-[10px] font-bold {{ $i === 0 ? 'text-red-400' : ($i === 6 ? 'text-blue-400' : 'text-gray-400') }}">{{ $dow }}</div>
-                @endforeach
-            </div>
-
-            {{-- 日付セル --}}
-            <div class="grid grid-cols-7 gap-1">
-                {{-- 空セル --}}
-                @for($i = 0; $i < $startDow; $i++)
-                <div></div>
-                @endfor
-
-                @for($d = 1; $d <= $daysInMonth; $d++)
+            {{-- 7日間の横並び --}}
+            <div class="grid grid-cols-7 gap-1 sm:gap-2">
+                @foreach($weekDays as $day)
                 @php
-                    $cellDate = \Carbon\Carbon::create($calYear, $calMonth, $d);
-                    $dateStr = $cellDate->toDateString();
-                    $isSelected = $targetDate->toDateString() === $dateStr;
-                    $isFuture = $cellDate->isFuture();
-                    $cnt = $calendarData[$dateStr] ?? 0;
-                    $dow = $cellDate->dayOfWeek;
+                    $isSelected = $targetDate->toDateString() === $day['date'];
+                    $isSun = $day['dow'] === '日';
+                    $isSat = $day['dow'] === '土';
                 @endphp
-                @if($isFuture)
-                <div class="aspect-square flex flex-col items-center justify-center rounded-lg text-gray-300">
-                    <span class="text-xs font-bold">{{ $d }}</span>
+                @if($day['isFuture'])
+                <div class="flex flex-col items-center justify-center py-2 sm:py-3 rounded-xl text-gray-300">
+                    <span class="text-[10px] font-bold">{{ $day['dow'] }}</span>
+                    <span class="text-sm font-black">{{ $day['label'] }}</span>
+                    <span class="text-[10px] font-bold mt-0.5">-</span>
                 </div>
                 @else
-                <a href="{{ route('ranking.daily', $dateStr) }}"
-                   class="aspect-square flex flex-col items-center justify-center rounded-lg transition {{ $isSelected ? 'bg-blue-600 text-white' : 'hover:bg-gray-50' }} {{ !$isSelected && $dow === 0 ? 'text-red-500' : '' }} {{ !$isSelected && $dow === 6 ? 'text-blue-500' : '' }}">
-                    <span class="text-xs font-bold">{{ $d }}</span>
-                    @if($cnt > 0)
-                    <span class="text-[8px] {{ $isSelected ? 'text-blue-100' : 'text-gray-400' }} font-bold leading-none mt-0.5">{{ $cnt >= 1000 ? round($cnt / 1000, 1) . 'k' : $cnt }}</span>
-                    @endif
+                <a href="{{ route('ranking.daily', $day['date']) }}"
+                   class="flex flex-col items-center justify-center py-2 sm:py-3 rounded-xl transition {{ $isSelected ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-gray-50' }}">
+                    <span class="text-[10px] font-bold {{ $isSelected ? 'text-blue-200' : ($isSun ? 'text-red-400' : ($isSat ? 'text-blue-400' : 'text-gray-400')) }}">{{ $day['dow'] }}</span>
+                    <span class="text-sm font-black {{ $isSelected ? '' : 'text-gray-900' }}">{{ $day['label'] }}</span>
+                    <span class="text-[10px] font-bold mt-0.5 {{ $isSelected ? 'text-blue-100' : 'text-gray-400' }}">
+                        {{ $day['count'] > 0 ? number_format($day['count']) . '台' : '-' }}
+                    </span>
                 </a>
                 @endif
-                @endfor
+                @endforeach
             </div>
         </div>
 

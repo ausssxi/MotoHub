@@ -33,15 +33,15 @@ final class RankingController extends Controller
     }
 
     /**
-     * 日別ランキング（カレンダー付き）
+     * 日別ランキング（直近7日間ナビ付き）
      */
     public function daily(Request $request, ?string $date = null): View
     {
-        $targetDate = $date ? Carbon::parse($date) : Carbon::today();
+        $targetDate = $date ? Carbon::parse($date) : Carbon::yesterday();
 
-        // 未来の日付は今日にリダイレクト
+        // 未来の日付は昨日にフォールバック
         if ($targetDate->isFuture()) {
-            $targetDate = Carbon::today();
+            $targetDate = Carbon::yesterday();
         }
 
         $ranking = Cache::remember(
@@ -50,14 +50,20 @@ final class RankingController extends Controller
             fn () => $this->getDailyRanking($targetDate),
         );
 
-        $calendarData = $this->getDailySummary(
-            $targetDate->year,
-            $targetDate->month,
-        );
+        // 直近7日間の販売台数（選択日を含む週）
+        $weekStart = $targetDate->copy()->startOfWeek(Carbon::MONDAY);
+        $weekEnd = $weekStart->copy()->addDays(6);
+        // 未来の日は今日まで
+        if ($weekEnd->isFuture()) {
+            $weekEnd = Carbon::today();
+        }
+        $weekDays = $this->getWeekSummary($weekStart, $weekEnd);
 
         return view('ranking.daily', [
             'ranking' => $ranking,
-            'calendarData' => $calendarData,
+            'weekDays' => $weekDays,
+            'weekStart' => $weekStart,
+            'weekEnd' => $weekEnd,
             'targetDate' => $targetDate,
         ]);
     }
@@ -309,5 +315,42 @@ final class RankingController extends Controller
                     ->toArray();
             },
         );
+    }
+
+    /**
+     * 指定週の日別販売台数を取得
+     */
+    private function getWeekSummary(Carbon $start, Carbon $end): array
+    {
+        $cacheKey = "ranking_week_{$start->toDateString()}_{$end->toDateString()}";
+        $ttl = $end->gte(Carbon::today()) ? 3600 : 86400;
+
+        $dayCounts = Cache::remember($cacheKey, $ttl, function () use ($start, $end) {
+            return Listing::where('is_sold_out', true)
+                ->whereBetween('updated_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+                ->select(
+                    DB::raw('DATE(updated_at) as sold_date'),
+                    DB::raw('COUNT(*) as cnt'),
+                )
+                ->groupBy(DB::raw('DATE(updated_at)'))
+                ->pluck('cnt', 'sold_date')
+                ->toArray();
+        });
+
+        $days = [];
+        $current = $start->copy();
+        while ($current->lte($end)) {
+            $dateStr = $current->toDateString();
+            $days[] = [
+                'date' => $dateStr,
+                'label' => $current->format('n/j'),
+                'dow' => ['日','月','火','水','木','金','土'][$current->dayOfWeek],
+                'count' => $dayCounts[$dateStr] ?? 0,
+                'isFuture' => $current->isFuture(),
+            ];
+            $current->addDay();
+        }
+
+        return $days;
     }
 }
