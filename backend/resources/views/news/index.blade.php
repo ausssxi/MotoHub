@@ -16,33 +16,52 @@
 
         <h1 class="text-2xl sm:text-3xl font-black text-gray-900 mb-6">バイクニュース</h1>
 
-        {{-- メーカーフィルタタブ --}}
+        {{-- メーカーフィルタタブ（ロゴ付き） --}}
         @if($manufacturers->isNotEmpty())
         <div class="mb-2">
             <div class="flex flex-wrap gap-2">
                 <a href="{{ route('news.index') }}"
-                   class="px-3 py-1.5 rounded-full text-xs font-bold transition {{ !$currentManufacturerId ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
+                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition {{ !$currentManufacturerId ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
                     すべて
                 </a>
                 @foreach($manufacturers as $mfr)
                 <a href="{{ route('news.index', ['manufacturer_id' => $mfr->id]) }}"
-                   class="px-3 py-1.5 rounded-full text-xs font-bold transition {{ $currentManufacturerId == $mfr->id ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
+                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition {{ $currentManufacturerId == $mfr->id ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
+                    @if($mfr->local_logo_path)
+                        <img src="{{ asset('storage/' . ltrim($mfr->local_logo_path, '/')) }}" alt="" class="w-5 h-5 object-contain rounded-sm" loading="lazy">
+                    @elseif($mfr->logo_url)
+                        <img src="{{ $mfr->logo_url }}" alt="" class="w-5 h-5 object-contain rounded-sm" loading="lazy" onerror="this.style.display='none'">
+                    @endif
                     {{ $mfr->name }}
                 </a>
                 @endforeach
             </div>
         </div>
 
-        {{-- 車種サブタブ（メーカー選択時のみ表示） --}}
+        {{-- 車種サブタブ（車種画像付き） --}}
         @if($currentManufacturerId && $modelTabs->isNotEmpty())
         <div class="flex flex-wrap gap-1.5 mb-6 pl-2 border-l-2 border-gray-200">
             <a href="{{ route('news.index', ['manufacturer_id' => $currentManufacturerId]) }}"
-               class="px-2.5 py-1 rounded-full text-[11px] font-bold transition {{ !$currentBikeModelId ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100' }}">
+               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition {{ !$currentBikeModelId ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100' }}">
                 全て
             </a>
             @foreach($modelTabs as $mt)
+            @php
+                $mtImg = null;
+                if (is_array($mt->local_image_path) && !empty($mt->local_image_path)) {
+                    $mtImg = asset('storage/' . ltrim($mt->local_image_path[0], '/'));
+                } elseif (is_string($mt->local_image_path)) {
+                    $decoded = json_decode($mt->local_image_path, true);
+                    if (!empty($decoded) && is_array($decoded)) {
+                        $mtImg = asset('storage/' . ltrim($decoded[0], '/'));
+                    }
+                }
+            @endphp
             <a href="{{ route('news.index', ['manufacturer_id' => $currentManufacturerId, 'bike_model_id' => $mt->id]) }}"
-               class="px-2.5 py-1 rounded-full text-[11px] font-bold transition {{ $currentBikeModelId == $mt->id ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100' }}">
+               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition {{ $currentBikeModelId == $mt->id ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100' }}">
+                @if($mtImg)
+                    <img src="{{ $mtImg }}" alt="" class="w-6 h-6 object-cover rounded-full" loading="lazy" onerror="this.style.display='none'">
+                @endif
                 {{ $mt->name }}
             </a>
             @endforeach
@@ -52,21 +71,30 @@
         @endif
         @endif
 
-        {{-- 注目のニュース（1ページ目 & engagement > 0 のみ） --}}
+        {{-- 注目のニュース --}}
         @if($featured->isNotEmpty())
         <div class="mb-8">
             <h2 class="text-sm font-black text-gray-500 uppercase tracking-widest mb-3">注目のニュース</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 {{ $featured->count() === 1 ? 'max-w-sm' : '' }}">
                 @foreach($featured as $item)
+                @php
+                    $featThumb = $item->thumbnail_url
+                        ?: ($item->bikeModel ? $item->bikeModel->image_url : null)
+                        ?: ($item->manufacturer && $item->manufacturer->local_logo_path ? asset('storage/' . ltrim($item->manufacturer->local_logo_path, '/')) : null)
+                        ?: ($item->manufacturer ? $item->manufacturer->logo_url : null);
+                    $isFeatLogo = !$item->thumbnail_url
+                        && !($item->bikeModel && $item->bikeModel->image_url)
+                        && $featThumb;
+                @endphp
                 <a href="{{ route('news.show', $item->id) }}" class="block bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition group">
-                    @if($item->thumbnail_url)
-                    <div class="aspect-[16/9] bg-gray-100 overflow-hidden">
-                        <img src="{{ $item->thumbnail_url }}" alt="" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy"
-                             onerror="this.parentNode.innerHTML='<div class=\'w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50 text-indigo-300\'><svg xmlns=\'http://www.w3.org/2000/svg\' class=\'w-8 h-8\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'currentColor\' stroke-width=\'1.5\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' d=\'M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5\'/></svg></div>'">
+                    @if($featThumb)
+                    <div class="h-32 {{ $isFeatLogo ? 'bg-white' : 'bg-gray-100' }} overflow-hidden flex-shrink-0">
+                        <img src="{{ $featThumb }}" alt="" class="w-full h-full {{ $isFeatLogo ? 'object-contain p-4' : 'object-cover' }} group-hover:scale-105 transition-transform duration-300" loading="lazy"
+                             onerror="this.parentNode.innerHTML='<div class=\'w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50 text-indigo-300\'><i data-lucide=\'newspaper\' class=\'w-8 h-8\'></i></div>'">
                     </div>
                     @else
-                    <div class="aspect-[16/9] bg-gradient-to-br from-indigo-50 to-blue-50 flex items-center justify-center text-indigo-300">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5"/></svg>
+                    <div class="h-32 bg-gradient-to-br from-indigo-50 to-blue-50 flex items-center justify-center text-indigo-300 flex-shrink-0">
+                        <i data-lucide="newspaper" class="w-8 h-8"></i>
                     </div>
                     @endif
                     <div class="p-3">
@@ -99,7 +127,28 @@
         {{-- ニュースリスト --}}
         <div class="space-y-1">
             @forelse($news as $article)
+            @php
+                $thumb = $article->thumbnail_url
+                    ?: ($article->bikeModel ? $article->bikeModel->image_url : null)
+                    ?: ($article->manufacturer && $article->manufacturer->local_logo_path ? asset('storage/' . ltrim($article->manufacturer->local_logo_path, '/')) : null)
+                    ?: ($article->manufacturer ? $article->manufacturer->logo_url : null);
+                // ロゴかどうか判定（メーカーロゴをフォールバックで使用している場合）
+                $isLogo = !$article->thumbnail_url
+                    && !($article->bikeModel && $article->bikeModel->image_url)
+                    && $thumb;
+            @endphp
             <a href="{{ route('news.show', $article->id) }}" class="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors group">
+                {{-- サムネイル（左側・常時表示・64x64px統一） --}}
+                <div class="w-16 h-16 rounded-lg overflow-hidden {{ $isLogo ? 'bg-gray-50' : 'bg-gray-100' }} flex-shrink-0">
+                    @if($thumb)
+                        <img src="{{ $thumb }}" alt="" class="w-full h-full {{ $isLogo ? 'object-contain p-1' : 'object-cover' }}" loading="lazy"
+                             onerror="this.onerror=null;this.parentNode.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-gray-300\'><i data-lucide=\'newspaper\' class=\'w-5 h-5\'></i></div>'">
+                    @else
+                        <div class="w-full h-full flex items-center justify-center text-gray-300">
+                            <i data-lucide="newspaper" class="w-5 h-5"></i>
+                        </div>
+                    @endif
+                </div>
                 <div class="flex-1 min-w-0">
                     <h2 class="text-sm sm:text-base font-bold text-gray-900 leading-snug mb-1.5 line-clamp-2 group-hover:text-blue-600 transition-colors">{{ $article->title }}</h2>
                     <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-gray-400">
@@ -133,13 +182,6 @@
                     </div>
                     @endif
                 </div>
-                {{-- サムネイル --}}
-                @if($article->thumbnail_url)
-                <div class="w-20 h-[56px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                    <img src="{{ $article->thumbnail_url }}" alt="" class="w-full h-full object-cover" loading="lazy"
-                         onerror="this.style.display='none'">
-                </div>
-                @endif
             </a>
             @empty
             <div class="text-center py-16 text-gray-400">

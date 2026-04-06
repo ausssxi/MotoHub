@@ -203,12 +203,29 @@ class FetchBikeNews extends Command
             }
         }
 
+        // サムネイルのフォールバック: RSS → bike_model画像 → メーカーロゴ
+        $thumbnailUrl = $item['thumbnail_url'];
+        if (!$thumbnailUrl && $bikeModelId) {
+            $model = BikeModel::find($bikeModelId);
+            if ($model) {
+                $thumbnailUrl = $model->image_url;
+            }
+        }
+        if (!$thumbnailUrl && $manufacturerId) {
+            $mfr = Manufacturer::find($manufacturerId);
+            if ($mfr && $mfr->local_logo_path) {
+                $thumbnailUrl = asset('storage/' . ltrim($mfr->local_logo_path, '/'));
+            } elseif ($mfr && $mfr->logo_url) {
+                $thumbnailUrl = $mfr->logo_url;
+            }
+        }
+
         $news = BikeNews::updateOrCreate(
             ['url' => $item['url']],
             [
                 'title'           => $item['title'],
                 'source'          => $item['source'],
-                'thumbnail_url'   => $item['thumbnail_url'],
+                'thumbnail_url'   => $thumbnailUrl,
                 'published_at'    => $item['published_at'],
                 'bike_model_id'   => $bikeModelId,
                 'manufacturer_id' => $manufacturerId,
