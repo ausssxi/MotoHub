@@ -639,6 +639,31 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
+        // 6.7. ランキングサイトマップ (sitemap-rankings.xml)
+        // =========================================================
+        $this->info("ランキングサイトマップを生成中...");
+        $rankingFileName = 'sitemap-rankings.xml';
+        $handle = $this->openSitemap($rankingFileName);
+        $sitemapFiles[] = $rankingFileName;
+        $rankingCount = 0;
+
+        $this->writeUrl($handle, route('ranking.index'), date('Y-m-d'), 'daily', '0.8');
+        $rankingCount++;
+
+        $this->writeUrl($handle, route('ranking.weekly'), date('Y-m-d'), 'weekly', '0.7');
+        $rankingCount++;
+
+        for ($i = 0; $i < 6; $i++) {
+            $rankDate = now()->subMonths($i);
+            $this->writeUrl($handle, route('ranking.monthly', $rankDate->format('Y-m')), $rankDate->toDateString(), 'monthly', '0.6');
+            $rankingCount++;
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$rankingCount} URL (Rankings)");
+
+
+        // =========================================================
         // 7. サイトマップインデックス (目次) の生成
         // =========================================================
         $this->info("インデックスファイル (sitemap.xml) を生成中...");

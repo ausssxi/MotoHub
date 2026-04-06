@@ -32,7 +32,7 @@
 
         {{-- その他（サブメニュー） --}}
         <button onclick="toggleSubMenu('submenu-more')"
-                class="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 {{ request()->is('garage*') || request()->is('bikes/trends*') || request()->is('sell*') || request()->is('blog*') || request()->is('news*') ? 'text-blue-600' : 'text-gray-400' }}">
+                class="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 {{ request()->is('garage*') || request()->is('bikes/trends*') || request()->is('sell*') || request()->is('blog*') || request()->is('news*') || request()->is('ranking*') ? 'text-blue-600' : 'text-gray-400' }}">
             <i data-lucide="more-horizontal" class="w-5 h-5"></i>
             <span class="text-[10px] font-bold leading-tight">その他</span>
         </button>
@@ -147,6 +147,15 @@
                 <div>
                     <p class="text-sm font-black text-gray-900">ニュース</p>
                     <p class="text-[10px] text-gray-400">バイク業界の最新ニュース</p>
+                </div>
+            </a>
+            <a href="{{ route('ranking.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-yellow-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="trophy" class="w-5 h-5 text-yellow-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">売れ筋ランキング</p>
+                    <p class="text-[10px] text-gray-400">人気車種の販売ランキング</p>
                 </div>
             </a>
         </div>

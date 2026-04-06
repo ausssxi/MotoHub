@@ -23,6 +23,7 @@ use App\Http\Controllers\Ar\ArController;
 use App\Http\Controllers\Bike\BikeIdentifierController;
 use App\Http\Controllers\Parts\PartsController;
 use App\Http\Controllers\NewsController;
+use App\Http\Controllers\RankingController;
 
 /**
  * MotoHub Route Definitions
@@ -191,6 +192,14 @@ Route::middleware('auth')->prefix('news')->name('news.')->controller(NewsControl
     Route::post('/{newsId}/comment', 'comment')->name('comment')->middleware('throttle:3,1');
     Route::post('/{newsId}/pick', 'togglePick')->name('pick')->middleware('throttle:10,1');
     Route::post('/comment/{commentId}/like', 'toggleCommentLike')->name('comment.like')->middleware('throttle:10,1');
+});
+
+// 売れ筋ランキング
+Route::prefix('ranking')->name('ranking.')->controller(RankingController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/daily/{date?}', 'daily')->name('daily')->where('date', '\d{4}-\d{2}-\d{2}');
+    Route::get('/weekly', 'weekly')->name('weekly');
+    Route::get('/monthly/{month?}', 'monthly')->name('monthly')->where('month', '\d{4}-\d{1,2}');
 });
 
 // 特集ページ (SEOランディング)

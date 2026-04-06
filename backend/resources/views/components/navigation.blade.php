@@ -128,6 +128,10 @@
                             <i data-lucide="newspaper" class="w-3.5 h-3.5"></i>
                             ニュース
                         </a>
+                        <a href="{{ route('ranking.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 transition-colors whitespace-nowrap">
+                            <i data-lucide="trophy" class="w-3.5 h-3.5"></i>
+                            売れ筋ランキング
+                        </a>
                     </div>
                 </div>
 
