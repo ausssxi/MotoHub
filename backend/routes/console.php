@@ -27,3 +27,8 @@ Schedule::command('news:fetch')->hourly();
 Schedule::command('news:generate-ranking --type=daily')->dailyAt('06:00');
 Schedule::command('news:generate-ranking --type=weekly')->weeklyOn(1, '06:30');
 Schedule::command('news:generate-ranking --type=monthly')->monthlyOn(1, '07:00');
+
+// ランキングニュース X(Twitter)自動投稿
+Schedule::command('twitter:post-ranking --type=daily')->dailyAt('06:05');
+Schedule::command('twitter:post-ranking --type=weekly')->weeklyOn(1, '06:35');
+Schedule::command('twitter:post-ranking --type=monthly')->monthlyOn(1, '07:05');
