@@ -1252,6 +1252,64 @@
                             </div>
                             @endif
 
+                            {{-- この車種の販売データ --}}
+                            @if(!empty($rankingStats))
+                            <div class="mb-6 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                                <div class="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+                                    <i data-lucide="bar-chart-3" class="w-4 h-4 text-yellow-500"></i>
+                                    <h3 class="text-sm font-black text-gray-900">この車種の販売データ</h3>
+                                </div>
+                                <div class="p-4">
+                                    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px" class="mb-3">
+                                        <div class="bg-gray-50 rounded-xl p-3 text-center">
+                                            <p class="text-[10px] text-gray-400 font-bold mb-1">先月販売台数</p>
+                                            <p class="text-lg font-black text-gray-900">{{ number_format($rankingStats['sold']) }}<span class="text-xs text-gray-400 ml-0.5">台</span></p>
+                                        </div>
+                                        <div class="bg-gray-50 rounded-xl p-3 text-center">
+                                            <p class="text-[10px] text-gray-400 font-bold mb-1">全車種順位</p>
+                                            <p class="text-lg font-black {{ $rankingStats['rank'] && $rankingStats['rank'] <= 10 ? 'text-yellow-600' : 'text-gray-900' }}">
+                                                @if($rankingStats['rank'])
+                                                    {{ $rankingStats['rank'] }}<span class="text-xs text-gray-400 ml-0.5">位</span>
+                                                    <span class="text-[10px] text-gray-400">/{{ number_format($rankingStats['totalModels']) }}</span>
+                                                @else
+                                                    -
+                                                @endif
+                                            </p>
+                                        </div>
+                                        <div class="bg-gray-50 rounded-xl p-3 text-center">
+                                            <p class="text-[10px] text-gray-400 font-bold mb-1">1日平均</p>
+                                            <p class="text-lg font-black text-gray-900">{{ $rankingStats['dailyAvg'] }}<span class="text-xs text-gray-400 ml-0.5">台/日</span></p>
+                                        </div>
+                                        <div class="bg-gray-50 rounded-xl p-3 text-center">
+                                            <p class="text-[10px] text-gray-400 font-bold mb-1">平均在庫日数</p>
+                                            <p class="text-lg font-black text-gray-900">{{ $rankingStats['avgDays'] }}<span class="text-xs text-gray-400 ml-0.5">日</span></p>
+                                        </div>
+                                    </div>
+                                    @if($rankingStats['topPrice'] || $rankingStats['topRegion'])
+                                    <div class="space-y-1.5 mb-3">
+                                        @if($rankingStats['topPrice'])
+                                        <p class="text-[11px] text-gray-500 font-bold flex items-center gap-1.5">
+                                            <i data-lucide="tag" class="w-3 h-3 text-gray-400"></i>
+                                            売れ筋価格帯: <span class="text-gray-800">{{ $rankingStats['topPrice'] }}</span>
+                                        </p>
+                                        @endif
+                                        @if($rankingStats['topRegion'])
+                                        <p class="text-[11px] text-gray-500 font-bold flex items-center gap-1.5">
+                                            <i data-lucide="map-pin" class="w-3 h-3 text-gray-400"></i>
+                                            最多販売地域: <span class="text-gray-800">{{ $rankingStats['topRegion'] }}</span>
+                                        </p>
+                                        @endif
+                                    </div>
+                                    @endif
+                                    @if($listing->bike_model_id)
+                                    <a href="{{ route('ranking.model_stats', $listing->bike_model_id) }}" class="block w-full text-center py-2.5 rounded-xl bg-yellow-50 border border-yellow-200 text-xs font-black text-yellow-700 hover:bg-yellow-100 transition-colors">
+                                        詳しい分析を見る →
+                                    </a>
+                                    @endif
+                                </div>
+                            </div>
+                            @endif
+
                             <div class="mb-6">
                                 <div class="bg-gray-50 hover:bg-red-50 rounded-2xl p-4 border border-gray-200 hover:border-red-200 flex items-center justify-between group cursor-pointer transition-colors shadow-sm" onclick="if(window.WishlistManager) window.WishlistManager.toggle('{{ $listing->id }}')">
                                     <div class="flex flex-col text-left pointer-events-none">

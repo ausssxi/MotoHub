@@ -384,6 +384,62 @@ final class BikeController extends Controller
             $relatedBlogPosts = collect();
         }
 
+        // 車種販売データ（ランキング連携）
+        $rankingStats = null;
+        if ($listing->bike_model_id) {
+            $rankingStats = Cache::remember("show_ranking_stats_{$listing->bike_model_id}", 3600, function () use ($listing) {
+                $lms = now()->subMonth()->startOfMonth();
+                $lme = now()->subMonth()->endOfMonth();
+                $three = now()->subMonths(3);
+
+                $sold = Listing::where('bike_model_id', $listing->bike_model_id)
+                    ->where('is_sold_out', true)
+                    ->whereBetween('updated_at', [$lms, $lme])
+                    ->count();
+
+                if ($sold === 0) return null;
+
+                $allSales = Listing::where('is_sold_out', true)
+                    ->whereBetween('updated_at', [$lms, $lme])
+                    ->whereNotNull('bike_model_id')
+                    ->select('bike_model_id', DB::raw('COUNT(*) as cnt'))
+                    ->groupBy('bike_model_id')
+                    ->orderByDesc('cnt')
+                    ->get();
+                $rank = $allSales->search(fn ($r) => $r->bike_model_id == $listing->bike_model_id);
+                $rank = $rank !== false ? $rank + 1 : null;
+
+                $avgDays = Listing::where('bike_model_id', $listing->bike_model_id)
+                    ->where('is_sold_out', true)
+                    ->whereBetween('updated_at', [$lms, $lme])
+                    ->selectRaw('AVG(DATEDIFF(updated_at, created_at)) as avg_days')
+                    ->value('avg_days');
+
+                $topPrice = Listing::where('bike_model_id', $listing->bike_model_id)
+                    ->where('is_sold_out', true)->where('updated_at', '>=', $three)
+                    ->whereNotNull('total_price')
+                    ->select(DB::raw("CASE WHEN total_price<200000 THEN '〜20万円' WHEN total_price<300000 THEN '20〜30万円' WHEN total_price<400000 THEN '30〜40万円' WHEN total_price<500000 THEN '40〜50万円' WHEN total_price<700000 THEN '50〜70万円' WHEN total_price<1000000 THEN '70〜100万円' ELSE '100万円〜' END as price_range"), DB::raw('COUNT(*) as cnt'))
+                    ->groupBy('price_range')->orderByDesc('cnt')->first();
+
+                $topRegion = Listing::where('listings.bike_model_id', $listing->bike_model_id)
+                    ->where('listings.is_sold_out', true)->where('listings.updated_at', '>=', $three)
+                    ->join('shops', 'listings.shop_id', '=', 'shops.id')
+                    ->whereNotNull('shops.prefecture')
+                    ->select('shops.prefecture', DB::raw('COUNT(*) as cnt'))
+                    ->groupBy('shops.prefecture')->orderByDesc('cnt')->first();
+
+                return [
+                    'sold' => $sold,
+                    'rank' => $rank,
+                    'totalModels' => $allSales->count(),
+                    'dailyAvg' => round($sold / 30, 1),
+                    'avgDays' => (int) round((float) ($avgDays ?? 0)),
+                    'topPrice' => $topPrice?->price_range,
+                    'topRegion' => $topRegion?->prefecture,
+                ];
+            });
+        }
+
         return view('bikes.show', [
             'listing'           => $data,
             'bikeModelForUrl'   => $listing->bikeModel,
@@ -413,6 +469,7 @@ final class BikeController extends Controller
             'priceBandComment'  => $priceBandComment,
             'relatedBlogPosts'  => $relatedBlogPosts,
             'marketPosition'    => $marketPosition,
+            'rankingStats'      => $rankingStats,
         ]);
     }
 
