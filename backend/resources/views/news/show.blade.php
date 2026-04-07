@@ -35,9 +35,7 @@
                     ?: ($newsItem->bikeModel ? $newsItem->bikeModel->image_url : null)
                     ?: ($newsItem->manufacturer && $newsItem->manufacturer->local_logo_path ? asset('storage/' . ltrim($newsItem->manufacturer->local_logo_path, '/')) : null)
                     ?: ($newsItem->manufacturer ? $newsItem->manufacturer->logo_url : null);
-                $isShowLogo = !$newsItem->thumbnail_url
-                    && !($newsItem->bikeModel && $newsItem->bikeModel->image_url)
-                    && $showThumb;
+                $isShowLogo = $showThumb && Str::contains($showThumb, 'manufacturers/');
             @endphp
             @if($showThumb)
             <div class="rounded-xl overflow-hidden {{ $isShowLogo ? 'bg-gray-50 max-w-xs' : 'bg-gray-100' }} mb-6 {{ $isShowLogo ? 'h-32' : 'max-h-[400px]' }}">
@@ -245,9 +243,7 @@
                             ?: ($related->bikeModel ? $related->bikeModel->image_url : null)
                             ?: ($related->manufacturer && $related->manufacturer->local_logo_path ? asset('storage/' . ltrim($related->manufacturer->local_logo_path, '/')) : null)
                             ?: ($related->manufacturer ? $related->manufacturer->logo_url : null);
-                        $isRelLogo = !$related->thumbnail_url
-                            && !($related->bikeModel && $related->bikeModel->image_url)
-                            && $relThumb;
+                        $isRelLogo = $relThumb && Str::contains($relThumb, 'manufacturers/');
                     @endphp
                     @if($relThumb)
                     <div class="w-16 h-[44px] rounded-lg overflow-hidden {{ $isRelLogo ? 'bg-gray-50' : 'bg-gray-100' }} flex-shrink-0">

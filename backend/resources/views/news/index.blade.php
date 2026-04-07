@@ -82,9 +82,7 @@
                         ?: ($item->bikeModel ? $item->bikeModel->image_url : null)
                         ?: ($item->manufacturer && $item->manufacturer->local_logo_path ? asset('storage/' . ltrim($item->manufacturer->local_logo_path, '/')) : null)
                         ?: ($item->manufacturer ? $item->manufacturer->logo_url : null);
-                    $isFeatLogo = !$item->thumbnail_url
-                        && !($item->bikeModel && $item->bikeModel->image_url)
-                        && $featThumb;
+                    $isFeatLogo = $featThumb && Str::contains($featThumb, 'manufacturers/');
                 @endphp
                 <a href="{{ route('news.show', $item->id) }}" class="block bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition group">
                     @if($featThumb)
@@ -133,9 +131,7 @@
                     ?: ($article->manufacturer && $article->manufacturer->local_logo_path ? asset('storage/' . ltrim($article->manufacturer->local_logo_path, '/')) : null)
                     ?: ($article->manufacturer ? $article->manufacturer->logo_url : null);
                 // ロゴかどうか判定（メーカーロゴをフォールバックで使用している場合）
-                $isLogo = !$article->thumbnail_url
-                    && !($article->bikeModel && $article->bikeModel->image_url)
-                    && $thumb;
+                $isLogo = $thumb && Str::contains($thumb, 'manufacturers/');
             @endphp
             <a href="{{ route('news.show', $article->id) }}" class="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors group">
                 {{-- サムネイル（左側・常時表示・64x64px統一） --}}
