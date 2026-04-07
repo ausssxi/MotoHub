@@ -80,6 +80,9 @@
                         <a href="{{ route('parts.index') }}" class="footer-link">バイクパーツ検索</a>
                     </li>
                     <li>
+                        <a href="{{ route('ranking.index') }}" class="footer-link">売れ筋ランキング</a>
+                    </li>
+                    <li>
                         <a href="{{ route('garage.public.index') }}" class="footer-link">愛車ガレージ</a>
                     </li>
                 </ul>

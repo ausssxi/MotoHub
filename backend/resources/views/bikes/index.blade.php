@@ -136,18 +136,22 @@
 
     {{-- ライブ統計バー --}}
     <div class="bg-white border-b border-gray-100 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 py-3 grid grid-cols-3 divide-x divide-gray-200 text-center">
+        <div class="max-w-7xl mx-auto px-4 py-3 text-center" style="display:grid;grid-template-columns:repeat(4,1fr);border-collapse:collapse">
             <a href="{{ route('bikes.search') }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors">
                 <span class="text-[10px] font-bold text-gray-400 block">掲載</span>
                 <span class="text-sm font-black text-gray-900 tabular-nums">{{ number_format($totalListings) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
             </a>
-            <a href="{{ route('bikes.search', ['sort' => 'bargain_desc']) }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors">
+            <a href="{{ route('bikes.search', ['sort' => 'bargain_desc']) }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors" style="border-left:1px solid #e5e7eb">
                 <span class="text-[10px] font-bold text-gray-400 block">本日値下げ</span>
                 <span class="text-sm font-black text-red-600 tabular-nums">{{ number_format($priceDropCount) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
             </a>
-            <a href="{{ route('bikes.search', ['sort' => 'latest']) }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors">
+            <a href="{{ route('bikes.search', ['sort' => 'latest']) }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors" style="border-left:1px solid #e5e7eb">
                 <span class="text-[10px] font-bold text-gray-400 block">新着</span>
                 <span class="text-sm font-black text-green-600 tabular-nums">{{ number_format($newListingsCount) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
+            </a>
+            <a href="{{ route('ranking.index') }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors" style="border-left:1px solid #e5e7eb">
+                <span class="text-[10px] font-bold text-gray-400 block">本日販売</span>
+                <span class="text-sm font-black text-orange-600 tabular-nums">{{ number_format($todaySoldCount) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
             </a>
         </div>
     </div>
@@ -232,6 +236,53 @@
             </section>
         </div>
     </div>
+
+    {{-- 🏆 売れ筋ランキング TOP5 --}}
+    @if($rankingTop5->isNotEmpty())
+    <div class="bg-gray-50 pb-10 sm:pb-16">
+        <div class="max-w-7xl mx-auto px-4">
+            <section>
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            売れ筋ランキング
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Best Selling</p>
+                    </div>
+                    <a href="{{ route('ranking.index') }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 group">
+                        ランキングをもっと見る <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+                    </a>
+                </div>
+
+                <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
+                    @foreach($rankingTop5 as $i => $rk)
+                    @php $rank = $i + 1; $medal = match($rank) { 1 => "\u{1F947}", 2 => "\u{1F948}", 3 => "\u{1F949}", default => null }; @endphp
+                    <a href="{{ route('ranking.model_stats', $rk['bike_model_id']) }}"
+                       class="snap-start shrink-0 w-40 sm:w-44 group bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col">
+                        <div class="aspect-[4/3] bg-gray-100 overflow-hidden relative">
+                            @if($rk['image_url'])
+                            <img src="{{ $rk['image_url'] }}" alt="{{ $rk['name'] }}"
+                                 class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                 loading="lazy" decoding="async" onerror="this.style.display='none'">
+                            @endif
+                            <span class="absolute top-2 left-2 bg-black/70 text-white text-xs font-black px-2 py-1 rounded-lg">
+                                @if($medal) {{ $medal }} @else {{ $rank }}位 @endif
+                            </span>
+                        </div>
+                        <div class="p-3 flex-1 flex flex-col">
+                            <p class="text-[9px] font-bold text-gray-400 mb-0.5">{{ $rk['manufacturer'] }}</p>
+                            <h3 class="text-sm font-black text-gray-800 leading-tight truncate group-hover:text-blue-600 transition-colors mb-1">
+                                {{ $rk['name'] }}
+                            </h3>
+                            <p class="text-xs font-black text-orange-600 mt-auto">{{ number_format($rk['sold_count']) }}台<span class="text-[10px] font-bold text-gray-400 ml-0.5">販売</span></p>
+                        </div>
+                    </a>
+                    @endforeach
+                </div>
+            </section>
+        </div>
+    </div>
+    @endif
 
     {{-- 最近見た車両（パーソナルコンテンツ / タブセクションの上に常時表示） --}}
     <section id="top-history-section" class="bg-gray-50 hidden">
@@ -423,6 +474,25 @@
                         </div>
                     </div>
                 </div>
+            </section>
+
+            {{-- 🏆 売れ筋ランキングバナー --}}
+            <section class="mb-20">
+                <a href="{{ route('ranking.index') }}" class="group relative overflow-hidden rounded-3xl p-8 sm:p-10 block shadow-lg hover:shadow-2xl transition-all duration-300" style="background: linear-gradient(135deg, #f97316, #ea580c);">
+                    <div class="absolute -right-8 -bottom-8 opacity-10 transform group-hover:scale-110 transition-transform duration-500">
+                        <i data-lucide="trophy" class="w-48 h-48 text-white"></i>
+                    </div>
+                    <div class="relative z-10 flex items-center justify-between">
+                        <div class="text-white">
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-2">Ranking Data</p>
+                            <h2 class="text-xl sm:text-2xl font-black mb-2">バイク売れ筋ランキング</h2>
+                            <p class="text-xs sm:text-sm text-white/80 font-medium">全国の販売データからリアルな人気車種をチェック</p>
+                        </div>
+                        <div class="hidden sm:flex items-center justify-center w-14 h-14 bg-white/20 rounded-full group-hover:bg-white/30 transition-colors shrink-0 ml-6">
+                            <i data-lucide="arrow-right" class="w-6 h-6 text-white group-hover:translate-x-1 transition-transform"></i>
+                        </div>
+                    </div>
+                </a>
             </section>
 
             {{-- ======================= --}}

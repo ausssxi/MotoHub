@@ -71,10 +71,45 @@ final class BikeController extends Controller
             ->whereDate('listings.created_at', today())
             ->count();
 
+        // 本日販売台数
+        $todaySoldCount = Cache::remember('top_today_sold', 3600, fn () =>
+            Listing::where('is_sold_out', true)->whereDate('updated_at', today())->count()
+        );
+
+        // 売れ筋ランキングTOP5（今月）
+        $rankingTop5 = Cache::remember('top_ranking_top5', 3600, function () {
+            $start = now()->startOfMonth();
+            $end = now()->endOfMonth();
+            $rows = Listing::where('is_sold_out', true)
+                ->whereBetween('updated_at', [$start, $end])
+                ->whereNotNull('bike_model_id')
+                ->select('bike_model_id', DB::raw('COUNT(*) as sold_count'))
+                ->groupBy('bike_model_id')
+                ->orderByDesc('sold_count')
+                ->limit(5)
+                ->get();
+
+            $models = \App\Models\BikeModel::with('manufacturer')
+                ->whereIn('id', $rows->pluck('bike_model_id'))
+                ->get()->keyBy('id');
+
+            return $rows->map(function ($item) use ($models) {
+                $m = $models->get($item->bike_model_id);
+                return [
+                    'bike_model_id' => $item->bike_model_id,
+                    'name' => $m->name ?? '不明',
+                    'manufacturer' => $m->manufacturer->name ?? '',
+                    'image_url' => $m?->image_url,
+                    'sold_count' => $item->sold_count,
+                ];
+            });
+        });
+
         return view('bikes.index', compact(
             'popularBikes', 'categories', 'manufacturers', 'regions',
             'latestReviews', 'licenses', 'popularTags', 'features', 'seoFeatures',
-            'totalListings', 'priceDropCount', 'newListingsCount', 'latestMyBikes'
+            'totalListings', 'priceDropCount', 'newListingsCount', 'latestMyBikes',
+            'todaySoldCount', 'rankingTop5'
         ));
     }
 
