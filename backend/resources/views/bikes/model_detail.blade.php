@@ -183,6 +183,16 @@
                     </span>
                 </div>
                 @endif
+                @if(!empty($rankingStats) && $rankingStats['overallRank'])
+                <a href="{{ route('ranking.model_stats', $model->id) }}" class="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 hover:bg-white/20 transition-colors">
+                    <span class="text-[10px] text-gray-400 block">売れ筋</span>
+                    <span class="text-xl font-black flex items-center gap-1">
+                        @php $heroMedal = match($rankingStats['overallRank']) { 1 => '🥇', 2 => '🥈', 3 => '🥉', default => '🏆' }; @endphp
+                        <span>{{ $heroMedal }}</span>
+                        {{ $rankingStats['overallRank'] }}<span class="text-xs">位</span>
+                    </span>
+                </a>
+                @endif
             </div>
 
             {{-- 通知購読エリア --}}
@@ -273,6 +283,87 @@
                             @endif
                         </div>
                     </div>
+
+                    {{-- 売れ筋ランキング --}}
+                    @if(!empty($rankingStats))
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+                        <h2 class="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                            🏆 {{ $model->name }}の売れ筋ランキング
+                        </h2>
+
+                        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px" class="mb-4">
+                            {{-- 総合ランキング --}}
+                            <div class="bg-white rounded-lg shadow-sm p-4 text-center">
+                                <p class="text-[10px] text-gray-400 font-bold mb-1">総合ランキング</p>
+                                @if($rankingStats['overallRank'])
+                                    @php
+                                        $medal = match($rankingStats['overallRank']) { 1 => '🥇', 2 => '🥈', 3 => '🥉', default => null };
+                                    @endphp
+                                    <p class="text-2xl font-black {{ $rankingStats['overallRank'] <= 3 ? 'text-yellow-600' : ($rankingStats['overallRank'] <= 10 ? 'text-blue-600' : 'text-gray-900') }}">
+                                        @if($medal)<span class="text-xl">{{ $medal }}</span> @endif
+                                        {{ $rankingStats['overallRank'] }}<span class="text-xs text-gray-400 ml-0.5">位</span>
+                                    </p>
+                                    <p class="text-[10px] text-gray-400 font-bold">全{{ number_format($rankingStats['totalModels']) }}車種中</p>
+                                    @if($rankingStats['overallRank'] <= 3)
+                                        <span class="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-yellow-100 text-yellow-700 border border-yellow-200">トップ3！</span>
+                                    @elseif($rankingStats['overallRank'] <= 10)
+                                        <span class="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-700 border border-blue-200">TOP10</span>
+                                    @endif
+                                @else
+                                    <p class="text-2xl font-black text-gray-300">-</p>
+                                @endif
+                            </div>
+
+                            {{-- カテゴリ内ランキング --}}
+                            <div class="bg-white rounded-lg shadow-sm p-4 text-center">
+                                <p class="text-[10px] text-gray-400 font-bold mb-1">カテゴリ内ランキング</p>
+                                @if($rankingStats['categoryRank'])
+                                    <p class="text-2xl font-black {{ $rankingStats['categoryRank'] <= 3 ? 'text-indigo-600' : 'text-gray-900' }}">
+                                        {{ $rankingStats['categoryRank'] }}<span class="text-xs text-gray-400 ml-0.5">位</span>
+                                    </p>
+                                    <p class="text-[10px] text-gray-400 font-bold">{{ $model->categoryData?->name ?? 'カテゴリ' }}で{{ number_format($rankingStats['categoryTotal']) }}車種中</p>
+                                @else
+                                    <p class="text-2xl font-black text-gray-300">-</p>
+                                    <p class="text-[10px] text-gray-400 font-bold">データなし</p>
+                                @endif
+                            </div>
+
+                            {{-- 月間販売台数 --}}
+                            <div class="bg-white rounded-lg shadow-sm p-4 text-center">
+                                <p class="text-[10px] text-gray-400 font-bold mb-1">月間販売台数</p>
+                                <p class="text-2xl font-black text-gray-900">
+                                    {{ number_format($rankingStats['monthlySold']) }}<span class="text-xs text-gray-400 ml-0.5">台</span>
+                                </p>
+                                <p class="text-[10px] text-gray-400 font-bold">先月実績</p>
+                                @if($rankingStats['isPopular'])
+                                    <span class="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-green-100 text-green-700 border border-green-200">人気車種！</span>
+                                @endif
+                            </div>
+
+                            {{-- 平均売却日数 --}}
+                            <div class="bg-white rounded-lg shadow-sm p-4 text-center">
+                                <p class="text-[10px] text-gray-400 font-bold mb-1">平均売却日数</p>
+                                <p class="text-2xl font-black {{ $rankingStats['avgDays'] <= 14 ? 'text-red-600' : 'text-gray-900' }}">
+                                    {{ $rankingStats['avgDays'] }}<span class="text-xs text-gray-400 ml-0.5">日</span>
+                                </p>
+                                <p class="text-[10px] text-gray-400 font-bold">掲載〜売却</p>
+                                @if($rankingStats['avgDays'] <= 14 && $rankingStats['avgDays'] > 0)
+                                    <span class="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-red-100 text-red-700 border border-red-200">即売れ！</span>
+                                @endif
+                            </div>
+                        </div>
+
+                        {{-- リンク --}}
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <a href="{{ route('ranking.index') }}" class="flex-1 text-center py-2.5 rounded-lg bg-white border border-blue-200 text-xs font-black text-blue-700 hover:bg-blue-50 transition-colors">
+                                📊 売れ筋ランキングを見る →
+                            </a>
+                            <a href="{{ route('ranking.model_stats', $model->id) }}" class="flex-1 text-center py-2.5 rounded-lg bg-white border border-indigo-200 text-xs font-black text-indigo-700 hover:bg-indigo-50 transition-colors">
+                                📈 {{ $model->name }}の詳しい分析 →
+                            </a>
+                        </div>
+                    </div>
+                    @endif
 
                     {{-- カタログスペック情報 --}}
                     <div id="specs" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">

@@ -25,6 +25,7 @@ use App\Services\Bike\BikeYouTubeService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use App\Services\RankingService;
 
 /**
  * バイク検索・表示機能を提供するメインコントローラー
@@ -817,11 +818,14 @@ final class BikeController extends Controller
             $videos = [];
         }
 
+        // ランキングデータ
+        $rankingStats = app(RankingService::class)->getModelRankingStats((int)$id, $model->category_id);
+
         return view('bikes.model_detail', compact(
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'relatedModels', 'similarDisplacementModels',
             'sameCategoryModels', 'activeCount', 'owners', 'similarModels', 'crossLinks',
-            'prefectureStocks', 'relatedParts', 'news', 'videos'
+            'prefectureStocks', 'relatedParts', 'news', 'videos', 'rankingStats'
         ));
     }
 
