@@ -88,8 +88,8 @@
                 @endphp
                 <a href="{{ route('news.show', $item->id) }}" class="block bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition group">
                     @if($featThumb)
-                    <div class="h-32 {{ $isFeatLogo ? 'bg-white' : 'bg-gray-100' }} overflow-hidden flex-shrink-0">
-                        <img src="{{ $featThumb }}" alt="" class="w-full h-full {{ $isFeatLogo ? 'object-contain p-4' : 'object-cover' }} group-hover:scale-105 transition-transform duration-300" loading="lazy"
+                    <div class="h-32 {{ $isFeatLogo ? 'bg-gray-50' : 'bg-gray-100' }} overflow-hidden flex-shrink-0">
+                        <img src="{{ $featThumb }}" alt="" class="w-full h-full {{ $isFeatLogo ? 'object-contain p-2' : 'object-cover' }} group-hover:scale-105 transition-transform duration-300" loading="lazy"
                              onerror="this.parentNode.innerHTML='<div class=\'w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50 text-indigo-300\'><i data-lucide=\'newspaper\' class=\'w-8 h-8\'></i></div>'">
                     </div>
                     @else
@@ -141,7 +141,7 @@
                 {{-- サムネイル（左側・常時表示・64x64px統一） --}}
                 <div class="w-16 h-16 rounded-lg overflow-hidden {{ $isLogo ? 'bg-gray-50' : 'bg-gray-100' }} flex-shrink-0">
                     @if($thumb)
-                        <img src="{{ $thumb }}" alt="" class="w-full h-full {{ $isLogo ? 'object-contain p-1' : 'object-cover' }}" loading="lazy"
+                        <img src="{{ $thumb }}" alt="" class="w-full h-full {{ $isLogo ? 'object-contain p-2' : 'object-cover' }}" loading="lazy"
                              onerror="this.onerror=null;this.parentNode.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-gray-300\'><i data-lucide=\'newspaper\' class=\'w-5 h-5\'></i></div>'">
                     @else
                         <div class="w-full h-full flex items-center justify-center text-gray-300">

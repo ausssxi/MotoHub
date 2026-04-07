@@ -41,7 +41,7 @@
             @endphp
             @if($showThumb)
             <div class="rounded-xl overflow-hidden {{ $isShowLogo ? 'bg-gray-50 max-w-xs' : 'bg-gray-100' }} mb-6 {{ $isShowLogo ? 'h-32' : 'max-h-[400px]' }}">
-                <img src="{{ $showThumb }}" alt="{{ $newsItem->title }}" class="w-full h-full {{ $isShowLogo ? 'object-contain p-4' : 'object-cover' }}" loading="lazy"
+                <img src="{{ $showThumb }}" alt="{{ $newsItem->title }}" class="w-full h-full {{ $isShowLogo ? 'object-contain p-2' : 'object-cover' }}" loading="lazy"
                      onerror="this.parentNode.style.display='none'">
             </div>
             @endif
@@ -240,9 +240,18 @@
                             <span>{{ $related->published_at?->diffForHumans() }}</span>
                         </div>
                     </div>
-                    @if($related->thumbnail_url)
-                    <div class="w-16 h-[44px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                        <img src="{{ $related->thumbnail_url }}" alt="" class="w-full h-full object-cover" loading="lazy" onerror="this.style.display='none'">
+                    @php
+                        $relThumb = $related->thumbnail_url
+                            ?: ($related->bikeModel ? $related->bikeModel->image_url : null)
+                            ?: ($related->manufacturer && $related->manufacturer->local_logo_path ? asset('storage/' . ltrim($related->manufacturer->local_logo_path, '/')) : null)
+                            ?: ($related->manufacturer ? $related->manufacturer->logo_url : null);
+                        $isRelLogo = !$related->thumbnail_url
+                            && !($related->bikeModel && $related->bikeModel->image_url)
+                            && $relThumb;
+                    @endphp
+                    @if($relThumb)
+                    <div class="w-16 h-[44px] rounded-lg overflow-hidden {{ $isRelLogo ? 'bg-gray-50' : 'bg-gray-100' }} flex-shrink-0">
+                        <img src="{{ $relThumb }}" alt="" class="w-full h-full {{ $isRelLogo ? 'object-contain p-2' : 'object-cover' }}" loading="lazy" onerror="this.style.display='none'">
                     </div>
                     @endif
                 </a>
