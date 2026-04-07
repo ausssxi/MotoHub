@@ -200,6 +200,7 @@ Route::prefix('ranking')->name('ranking.')->controller(RankingController::class)
     Route::get('/daily/{date?}', 'daily')->name('daily')->where('date', '\d{4}-\d{2}-\d{2}');
     Route::get('/weekly', 'weekly')->name('weekly');
     Route::get('/monthly/{month?}', 'monthly')->name('monthly')->where('month', '\d{4}-\d{1,2}');
+    Route::get('/model/{bikeModelId}', 'modelStats')->name('model_stats')->where('bikeModelId', '[0-9]+');
 });
 
 // 特集ページ (SEOランディング)

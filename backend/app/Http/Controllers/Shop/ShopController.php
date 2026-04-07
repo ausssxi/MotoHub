@@ -9,7 +9,12 @@ use Illuminate\Http\Request;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use App\Models\Shop;
+use App\Models\Listing;
+use App\Models\BikeModel;
 use App\Services\Shop\ShopService;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class ShopController extends Controller
 {
@@ -25,7 +30,80 @@ class ShopController extends Controller
         // サービスからデータ（shop, listings）を一括取得
         $data = $this->shopService->getShopDetailWithListings($id);
 
+        // 販売実績データ
+        $data['salesStats'] = $this->getShopSalesStats($id);
+
         return view('shops.show', $data);
+    }
+
+    private function getShopSalesStats(int $shopId): ?array
+    {
+        return Cache::remember("shop_sales_stats_{$shopId}", 3600, function () use ($shopId) {
+            $threeMonthsAgo = Carbon::now()->subMonths(3);
+
+            $totalSold = Listing::where('shop_id', $shopId)
+                ->where('is_sold_out', true)
+                ->where('updated_at', '>=', $threeMonthsAgo)
+                ->count();
+
+            if ($totalSold === 0) {
+                return null;
+            }
+
+            // 販売推移（過去6ヶ月）
+            $monthlySales = [];
+            for ($i = 5; $i >= 0; $i--) {
+                $ms = Carbon::now()->subMonths($i)->startOfMonth();
+                $me = Carbon::now()->subMonths($i)->endOfMonth();
+                $monthlySales[] = [
+                    'label' => $ms->format('n月'),
+                    'count' => Listing::where('shop_id', $shopId)
+                        ->where('is_sold_out', true)
+                        ->whereBetween('updated_at', [$ms, $me])
+                        ->count(),
+                ];
+            }
+
+            // 人気車種TOP5
+            $topModels = Listing::where('shop_id', $shopId)
+                ->where('is_sold_out', true)
+                ->where('updated_at', '>=', $threeMonthsAgo)
+                ->whereNotNull('bike_model_id')
+                ->select('bike_model_id', DB::raw('COUNT(*) as sold_count'))
+                ->groupBy('bike_model_id')
+                ->orderByDesc('sold_count')
+                ->limit(5)
+                ->get();
+
+            $models = BikeModel::with('manufacturer')
+                ->whereIn('id', $topModels->pluck('bike_model_id'))
+                ->get()->keyBy('id');
+
+            $topModelsList = $topModels->map(function ($item) use ($models) {
+                $m = $models->get($item->bike_model_id);
+                return [
+                    'bike_model_id' => $item->bike_model_id,
+                    'name' => $m->name ?? '不明',
+                    'manufacturer' => $m->manufacturer->name ?? '',
+                    'seo_url' => $m?->seo_url,
+                    'sold_count' => $item->sold_count,
+                ];
+            });
+
+            // 平均在庫日数
+            $avgDays = Listing::where('shop_id', $shopId)
+                ->where('is_sold_out', true)
+                ->where('updated_at', '>=', $threeMonthsAgo)
+                ->selectRaw('AVG(DATEDIFF(updated_at, created_at)) as avg_days')
+                ->value('avg_days');
+
+            return [
+                'totalSold' => $totalSold,
+                'monthlySales' => $monthlySales,
+                'topModels' => $topModelsList,
+                'avgDays' => (int) round((float) ($avgDays ?? 0)),
+            ];
+        });
     }
 
     /**

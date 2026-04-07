@@ -53,6 +53,12 @@
         {{-- メーカー別 --}}
         @include('ranking._maker_ranking', ['makerRanking' => $ranking['makerRanking']])
 
+        {{-- チャート（メーカー別シェア + 価格帯別） --}}
+        @include('ranking._charts')
+
+        {{-- ショップ別販売ランキング --}}
+        @include('ranking._shop_ranking')
+
         {{-- 注記 --}}
         <p class="text-[10px] text-gray-400 mt-6 text-center">※MotoHub掲載車両の売り切れデータに基づく集計です</p>
 

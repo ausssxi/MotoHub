@@ -99,6 +99,12 @@
         {{-- メーカー別 --}}
         @include('ranking._maker_ranking', ['makerRanking' => $ranking['makerRanking']])
 
+        {{-- チャート（メーカー別シェア + 価格帯別） --}}
+        @include('ranking._charts')
+
+        {{-- ショップ別販売ランキング --}}
+        @include('ranking._shop_ranking')
+
         {{-- 価格帯別 --}}
         @if($ranking['priceRanges']->isNotEmpty())
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">

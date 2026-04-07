@@ -14,8 +14,7 @@
             $rank = $i + 1;
             $medal = match($rank) { 1 => '🥇', 2 => '🥈', 3 => '🥉', default => null };
         @endphp
-        <a href="{{ $item['seo_url'] ?? '#' }}"
-           class="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors group">
+        <div class="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors group">
             {{-- 順位 --}}
             <div class="w-8 text-center flex-shrink-0">
                 @if($medal)
@@ -26,15 +25,15 @@
             </div>
 
             {{-- 車両画像 --}}
-            <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+            <a href="{{ $item['seo_url'] ?? '#' }}" class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 block">
                 @if($item['image_url'])
                 <img src="{{ $item['image_url'] }}" alt="" class="w-full h-full object-cover" loading="lazy" onerror="this.style.display='none'">
                 @endif
-            </div>
+            </a>
 
             {{-- 車種名・メーカー --}}
             <div class="flex-1 min-w-0">
-                <p class="text-sm font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">{{ $item['name'] }}</p>
+                <a href="{{ $item['seo_url'] ?? '#' }}" class="text-sm font-bold text-gray-900 truncate block group-hover:text-blue-600 transition-colors">{{ $item['name'] }}</a>
                 <p class="text-[11px] text-gray-400 font-bold">{{ $item['manufacturer'] }}</p>
             </div>
 
@@ -49,7 +48,13 @@
                 <div class="h-full rounded-full {{ $rank <= 3 ? 'bg-yellow-400' : 'bg-gray-300' }}"
                      style="width: {{ max(($item['sold_count'] / $maxSold) * 100, 3) }}%"></div>
             </div>
-        </a>
+
+            {{-- 詳細データリンク --}}
+            @if($item['bike_model_id'])
+            <a href="{{ route('ranking.model_stats', $item['bike_model_id']) }}"
+               class="text-[10px] font-bold text-blue-500 hover:text-blue-700 flex-shrink-0 hidden sm:inline">データ→</a>
+            @endif
+        </div>
         @endforeach
     </div>
 </div>

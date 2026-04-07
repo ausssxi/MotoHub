@@ -201,6 +201,55 @@
                         </div>
                     </div>
                     @endif
+
+                    {{-- 販売実績 --}}
+                    @if(!empty($salesStats))
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <h2 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
+                            <i data-lucide="trending-up" class="w-4 h-4 text-emerald-500"></i>
+                            販売実績（過去3ヶ月）
+                        </h2>
+
+                        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px" class="mb-4">
+                            <div class="bg-gray-50 rounded-xl p-3 text-center">
+                                <p class="text-[10px] font-bold text-gray-400 mb-0.5">販売台数</p>
+                                <p class="text-xl font-black text-gray-900">{{ number_format($salesStats['totalSold']) }}<span class="text-xs text-gray-400">台</span></p>
+                            </div>
+                            <div class="bg-gray-50 rounded-xl p-3 text-center">
+                                <p class="text-[10px] font-bold text-gray-400 mb-0.5">平均在庫日数</p>
+                                <p class="text-xl font-black text-gray-900">{{ $salesStats['avgDays'] }}<span class="text-xs text-gray-400">日</span></p>
+                            </div>
+                        </div>
+
+                        {{-- 販売推移ミニバー --}}
+                        @if(!empty($salesStats['monthlySales']))
+                        <p class="text-[10px] font-bold text-gray-400 mb-2">月別販売推移</p>
+                        <div class="flex items-end gap-1 h-16 mb-4">
+                            @php $maxMonthlyCnt = max(array_column($salesStats['monthlySales'], 'count')) ?: 1; @endphp
+                            @foreach($salesStats['monthlySales'] as $ms)
+                            <div class="flex-1 flex flex-col items-center gap-0.5">
+                                <span class="text-[9px] font-bold text-gray-400">{{ $ms['count'] }}</span>
+                                <div class="w-full bg-emerald-400 rounded-t-sm" style="height: {{ max(($ms['count'] / $maxMonthlyCnt) * 40, 2) }}px"></div>
+                                <span class="text-[9px] font-bold text-gray-400">{{ $ms['label'] }}</span>
+                            </div>
+                            @endforeach
+                        </div>
+                        @endif
+
+                        {{-- 人気車種TOP5 --}}
+                        @if($salesStats['topModels']->isNotEmpty())
+                        <p class="text-[10px] font-bold text-gray-400 mb-2">よく売れている車種</p>
+                        <div class="space-y-1.5">
+                            @foreach($salesStats['topModels'] as $tm)
+                            <div class="flex items-center justify-between gap-2">
+                                <a href="{{ $tm['seo_url'] ?? '#' }}" class="text-xs font-bold text-gray-700 hover:text-blue-600 truncate transition-colors">{{ $tm['name'] }}</a>
+                                <span class="text-xs font-black text-emerald-600 flex-shrink-0">{{ $tm['sold_count'] }}台</span>
+                            </div>
+                            @endforeach
+                        </div>
+                        @endif
+                    </div>
+                    @endif
                 </div>
 
                 {{-- 右カラム: 在庫リスト --}}
