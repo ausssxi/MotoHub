@@ -16,18 +16,21 @@ final class BikeNews extends Model
         'title',
         'url',
         'source',
+        'content',
         'thumbnail_url',
         'published_at',
         'bike_model_id',
         'manufacturer_id',
         'comments_count',
         'picks_count',
+        'is_featured',
     ];
 
     protected $casts = [
         'published_at' => 'datetime',
         'comments_count' => 'integer',
         'picks_count' => 'integer',
+        'is_featured' => 'boolean',
     ];
 
     public function bikeModel(): BelongsTo

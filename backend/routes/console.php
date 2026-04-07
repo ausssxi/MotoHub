@@ -22,3 +22,8 @@ Schedule::command('youtube:refresh-videos --days=30')->weeklyOn(1, '03:30');
 
 // バイクニュース取得（毎時）
 Schedule::command('news:fetch')->hourly();
+
+// ランキングニュース自動生成
+Schedule::command('news:generate-ranking --type=daily')->dailyAt('06:00');
+Schedule::command('news:generate-ranking --type=weekly')->weeklyOn(1, '06:30');
+Schedule::command('news:generate-ranking --type=monthly')->monthlyOn(1, '07:00');
