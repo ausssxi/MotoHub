@@ -634,6 +634,22 @@ class GenerateSitemap extends Command
             $newsCount++;
         }
 
+        // 個別ニュース詳細ページ
+        BikeNews::select('id', 'published_at', 'updated_at')
+            ->orderByDesc('published_at')
+            ->chunk(1000, function ($news) use ($handle, &$newsCount) {
+                foreach ($news as $article) {
+                    $this->writeUrl(
+                        $handle,
+                        route('news.show', $article->id),
+                        ($article->updated_at ?? $article->published_at)->format('Y-m-d'),
+                        'weekly',
+                        '0.6'
+                    );
+                    $newsCount++;
+                }
+            });
+
         $this->closeSitemap($handle);
         $this->info(" -> {$newsCount} URL (News)");
 
