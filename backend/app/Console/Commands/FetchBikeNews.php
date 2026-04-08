@@ -175,7 +175,33 @@ class FetchBikeNews extends Command
             }
         }
 
-        return null;
+        // 3. OGP画像をフォールバック取得
+        return $this->fetchOgImage($articleUrl);
+    }
+
+    private function fetchOgImage(string $url): ?string
+    {
+        try {
+            $response = Http::timeout(5)
+                ->withHeaders(['User-Agent' => 'MotoHub/1.0'])
+                ->get($url);
+
+            if ($response->failed()) {
+                return null;
+            }
+
+            $body = $response->body();
+            if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $body, $m)) {
+                return $m[1];
+            }
+            if (preg_match('/<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']/i', $body, $m)) {
+                return $m[1];
+            }
+
+            return null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function saveNews(array $item): bool

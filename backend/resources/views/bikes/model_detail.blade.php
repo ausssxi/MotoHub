@@ -423,12 +423,18 @@
                         <div class="space-y-3">
                             @foreach($news as $article)
                             <a href="{{ $article['url'] }}" target="_blank" rel="noopener noreferrer" class="flex items-start gap-3 p-2 -mx-2 rounded-xl hover:bg-gray-50 transition-colors">
+                                @php $articleDomain = parse_url($article['url'], PHP_URL_HOST); @endphp
                                 <div class="w-20 h-[60px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                                     @if(!empty($article['image']))
-                                        <img src="{{ $article['image'] }}" alt="" class="w-full h-full object-cover" loading="lazy" onerror="this.parentNode.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-gray-300\'><svg xmlns=\'http://www.w3.org/2000/svg\' class=\'w-6 h-6\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'currentColor\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5\'/></svg></div>'">
+                                        <img src="{{ $article['image'] }}" alt="" class="w-full h-full object-cover" loading="lazy"
+                                             onerror="this.onerror=null;this.parentNode.innerHTML='<div class=\'w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100\'><img src=\'https://www.google.com/s2/favicons?domain={{ $articleDomain }}&sz=64\' class=\'w-5 h-5 rounded\' onerror=\'this.style.display=&quot;none&quot;\'></div>'">
+                                    @elseif($articleDomain)
+                                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+                                            <img src="https://www.google.com/s2/favicons?domain={{ $articleDomain }}&sz=64" alt="" class="w-5 h-5 rounded" loading="lazy" onerror="this.style.display='none'">
+                                        </div>
                                     @else
-                                        <div class="w-full h-full flex items-center justify-center text-gray-300">
-                                            <i data-lucide="bike" class="w-6 h-6"></i>
+                                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50">
+                                            <span class="text-sm font-black text-indigo-200">M</span>
                                         </div>
                                     @endif
                                 </div>

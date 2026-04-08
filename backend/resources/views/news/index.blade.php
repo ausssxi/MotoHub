@@ -83,6 +83,7 @@
                         ?: ($item->manufacturer && $item->manufacturer->local_logo_path ? asset('storage/' . ltrim($item->manufacturer->local_logo_path, '/')) : null)
                         ?: ($item->manufacturer ? $item->manufacturer->logo_url : null);
                     $isFeatLogo = $featThumb && Str::contains($featThumb, 'manufacturers/');
+                    $featSourceDomain = $item->source ? parse_url($item->url, PHP_URL_HOST) : null;
                 @endphp
                 <a href="{{ route('news.show', $item->id) }}" class="block bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition group">
                     @if($featThumb)
@@ -90,9 +91,15 @@
                         <img src="{{ $featThumb }}" alt="" class="w-full h-full {{ $isFeatLogo ? 'object-contain p-2' : 'object-cover' }} group-hover:scale-105 transition-transform duration-300" loading="lazy"
                              onerror="this.parentNode.innerHTML='<div class=\'w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50 text-indigo-300\'><i data-lucide=\'newspaper\' class=\'w-8 h-8\'></i></div>'">
                     </div>
+                    @elseif($featSourceDomain)
+                    <div class="h-32 bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center gap-2 flex-shrink-0">
+                        <img src="https://www.google.com/s2/favicons?domain={{ $featSourceDomain }}&sz=64" alt="" class="w-8 h-8 rounded" loading="lazy" onerror="this.style.display='none'">
+                        <span class="text-[10px] font-bold text-gray-400 px-2 truncate max-w-full">{{ $item->source }}</span>
+                    </div>
                     @else
-                    <div class="h-32 bg-gradient-to-br from-indigo-50 to-blue-50 flex items-center justify-center text-indigo-300 flex-shrink-0">
-                        <i data-lucide="newspaper" class="w-8 h-8"></i>
+                    <div class="h-32 bg-gradient-to-br from-indigo-50 to-blue-50 flex flex-col items-center justify-center gap-1 flex-shrink-0">
+                        <span class="text-2xl font-black text-indigo-200">M</span>
+                        <span class="text-[10px] font-bold text-indigo-300">MotoHub</span>
                     </div>
                     @endif
                     <div class="p-3">
@@ -130,8 +137,8 @@
                     ?: ($article->bikeModel ? $article->bikeModel->image_url : null)
                     ?: ($article->manufacturer && $article->manufacturer->local_logo_path ? asset('storage/' . ltrim($article->manufacturer->local_logo_path, '/')) : null)
                     ?: ($article->manufacturer ? $article->manufacturer->logo_url : null);
-                // ロゴかどうか判定（メーカーロゴをフォールバックで使用している場合）
                 $isLogo = $thumb && Str::contains($thumb, 'manufacturers/');
+                $sourceDomain = $article->source ? parse_url($article->url, PHP_URL_HOST) : null;
             @endphp
             <a href="{{ route('news.show', $article->id) }}" class="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors group">
                 {{-- サムネイル（左側・常時表示・64x64px統一） --}}
@@ -139,9 +146,14 @@
                     @if($thumb)
                         <img src="{{ $thumb }}" alt="" class="w-full h-full {{ $isLogo ? 'object-contain p-2' : 'object-cover' }}" loading="lazy"
                              onerror="this.onerror=null;this.parentNode.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-gray-300\'><i data-lucide=\'newspaper\' class=\'w-5 h-5\'></i></div>'">
+                    @elseif($sourceDomain)
+                        <div class="w-full h-full flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-gray-50 to-gray-100">
+                            <img src="https://www.google.com/s2/favicons?domain={{ $sourceDomain }}&sz=64" alt="" class="w-6 h-6 rounded" loading="lazy" onerror="this.style.display='none'">
+                            <span class="text-[8px] font-bold text-gray-400 truncate max-w-[56px]">{{ $article->source }}</span>
+                        </div>
                     @else
-                        <div class="w-full h-full flex items-center justify-center text-gray-300">
-                            <i data-lucide="newspaper" class="w-5 h-5"></i>
+                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50">
+                            <span class="text-lg font-black text-indigo-200">M</span>
                         </div>
                     @endif
                 </div>

@@ -36,11 +36,17 @@
                     ?: ($newsItem->manufacturer && $newsItem->manufacturer->local_logo_path ? asset('storage/' . ltrim($newsItem->manufacturer->local_logo_path, '/')) : null)
                     ?: ($newsItem->manufacturer ? $newsItem->manufacturer->logo_url : null);
                 $isShowLogo = $showThumb && Str::contains($showThumb, 'manufacturers/');
+                $showSourceDomain = parse_url($newsItem->url, PHP_URL_HOST);
             @endphp
             @if($showThumb)
             <div class="rounded-xl overflow-hidden {{ $isShowLogo ? 'bg-gray-50 max-w-xs' : 'bg-gray-100' }} mb-6 {{ $isShowLogo ? 'h-32' : 'max-h-[400px]' }}">
                 <img src="{{ $showThumb }}" alt="{{ $newsItem->title }}" class="w-full h-full {{ $isShowLogo ? 'object-contain p-2' : 'object-cover' }}" loading="lazy"
                      onerror="this.parentNode.style.display='none'">
+            </div>
+            @elseif($showSourceDomain)
+            <div class="rounded-xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 mb-6 h-40 flex flex-col items-center justify-center gap-3">
+                <img src="https://www.google.com/s2/favicons?domain={{ $showSourceDomain }}&sz=64" alt="" class="w-10 h-10 rounded" loading="lazy" onerror="this.style.display='none'">
+                <span class="text-sm font-bold text-gray-400">{{ $newsItem->source }}</span>
             </div>
             @endif
 
@@ -259,10 +265,15 @@
                             ?: ($related->manufacturer && $related->manufacturer->local_logo_path ? asset('storage/' . ltrim($related->manufacturer->local_logo_path, '/')) : null)
                             ?: ($related->manufacturer ? $related->manufacturer->logo_url : null);
                         $isRelLogo = $relThumb && Str::contains($relThumb, 'manufacturers/');
+                        $relDomain = parse_url($related->url, PHP_URL_HOST);
                     @endphp
                     @if($relThumb)
                     <div class="w-16 h-[44px] rounded-lg overflow-hidden {{ $isRelLogo ? 'bg-gray-50' : 'bg-gray-100' }} flex-shrink-0">
                         <img src="{{ $relThumb }}" alt="" class="w-full h-full {{ $isRelLogo ? 'object-contain p-2' : 'object-cover' }}" loading="lazy" onerror="this.style.display='none'">
+                    </div>
+                    @elseif($relDomain)
+                    <div class="w-16 h-[44px] rounded-lg overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center flex-shrink-0">
+                        <img src="https://www.google.com/s2/favicons?domain={{ $relDomain }}&sz=64" alt="" class="w-5 h-5 rounded" loading="lazy" onerror="this.style.display='none'">
                     </div>
                     @endif
                 </a>
