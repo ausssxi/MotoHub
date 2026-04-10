@@ -11,9 +11,9 @@
     $isRanking  = $navIs('ranking*');
     $isNews     = $navIs('news*');
     $isMap      = $navIs('shops/map*', 'parking*');
-    $isParts    = $navIs('parts*');
+    $isBlog     = $navIs('blog*');
     $isSouba    = $navIs('trends*', 'sell*');
-    $isOther    = $navIs('blog*', 'identify*', 'garage/public*', 'ar*');
+    $isOther    = $navIs('parts*', 'identify*', 'garage/public*', 'ar*');
 @endphp
 
 <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
@@ -93,10 +93,10 @@
                     </div>
                 </div>
 
-                {{-- パーツ --}}
-                <a href="{{ route('parts.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isParts ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="バイクパーツ検索・価格比較">
-                    <i data-lucide="wrench" class="w-4 h-4"></i>
-                    <span class="hidden xl:inline">パーツ</span>
+                {{-- ブログ --}}
+                <a href="{{ route('blog.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isBlog ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="ブログ記事">
+                    <i data-lucide="pen-line" class="w-4 h-4"></i>
+                    <span class="hidden xl:inline">ブログ</span>
                 </a>
 
                 {{-- 相場 ドロップダウン --}}
@@ -132,9 +132,9 @@
                     <div x-show="open" x-transition
                          class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
                          style="display: none;">
-                        <a href="{{ route('blog.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors whitespace-nowrap">
-                            <i data-lucide="pen-line" class="w-3.5 h-3.5"></i>
-                            ブログ
+                        <a href="{{ route('parts.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
+                            パーツ
                         </a>
                         <a href="{{ route('bikes.identify') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors whitespace-nowrap">
                             <i data-lucide="scan-eye" class="w-3.5 h-3.5"></i>
