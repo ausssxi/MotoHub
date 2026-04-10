@@ -57,9 +57,13 @@
             .blog-content img { max-width: 100%; border-radius: 0.75rem; margin: 1.5rem 0; }
             .blog-content a { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; }
             .blog-content a:hover { color: #1d4ed8; }
-            .blog-content table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
+            .blog-content table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; font-size: 14px; }
             .blog-content th, .blog-content td { border: 1px solid #d1d5db; padding: 0.625rem 0.875rem; text-align: left; }
             .blog-content th { background: #f9fafb; font-weight: 600; }
+            @media (max-width: 640px) {
+                .blog-content table { font-size: 12px; }
+                .blog-content th, .blog-content td { padding: 6px 8px; white-space: nowrap; }
+            }
             .blog-content hr { margin: 2rem 0; border-color: #e5e7eb; }
 
             /* 目次レイアウト */
