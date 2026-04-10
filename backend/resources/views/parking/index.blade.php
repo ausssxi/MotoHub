@@ -64,13 +64,13 @@
         <div id="map" class="w-full bg-gray-100"></div>
 
         {{-- 検索中ローディング --}}
-        <div id="map-loading" class="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-lg z-[1000] flex items-center gap-2 hidden">
+        <div id="map-loading" class="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-lg z-40 flex items-center gap-2 hidden">
             <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-green-600"></i>
             <span class="text-xs font-bold text-gray-600">駐車場を検索中...</span>
         </div>
 
         {{-- 上部中央: 地名検索 --}}
-        <div class="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] w-[min(calc(100%-140px),400px)]">
+        <div class="absolute top-3 left-1/2 -translate-x-1/2 z-40 w-[min(calc(100%-140px),400px)]">
             <div class="flex bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
                 <input id="map-search-input" type="search" inputmode="search" enterkeyhint="search"
                        placeholder="地名・住所で検索（例：渋谷、橋本駅）"
@@ -83,7 +83,7 @@
         </div>
 
         {{-- 左上: フィルタ --}}
-        <div x-data="{ open: false }" class="absolute top-14 left-3 z-[1000]">
+        <div x-data="{ open: false }" class="absolute top-14 left-3 z-40">
             <button @click="open = !open" class="bg-white px-3 py-2 rounded-lg shadow-md border border-gray-200 flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50 transition">
                 <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>
                 フィルタ
@@ -108,7 +108,7 @@
         </div>
 
         {{-- 左上2段目: ARボタン (モバイルのみ) --}}
-        <a href="{{ route('ar.index') }}" class="absolute top-[104px] left-3 bg-black/70 text-white px-3 py-2 rounded-lg shadow-md flex items-center gap-1.5 text-xs font-bold hover:bg-black/90 transition z-[1000] backdrop-filter backdrop-blur-sm sm:hidden">
+        <a href="{{ route('ar.index') }}" class="absolute top-[104px] left-3 bg-black/70 text-white px-3 py-2 rounded-lg shadow-md flex items-center gap-1.5 text-xs font-bold hover:bg-black/90 transition z-40 backdrop-filter backdrop-blur-sm sm:hidden">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                 <circle cx="12" cy="13" r="4"/>
@@ -117,13 +117,13 @@
         </a>
 
         {{-- 右上: 駐車場登録ボタン --}}
-        <a href="{{ route('parking.create') }}" class="absolute top-14 right-3 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-md flex items-center gap-1.5 text-xs font-bold hover:bg-gray-700 transition z-[1000]">
+        <a href="{{ route('parking.create') }}" class="absolute top-14 right-3 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-md flex items-center gap-1.5 text-xs font-bold hover:bg-gray-700 transition z-40">
             <i data-lucide="plus" class="w-3.5 h-3.5"></i>
             駐車場を登録
         </a>
 
         {{-- 右下: 現在地ボタン（Leafletズームは左下） --}}
-        <button id="btn-current-location" class="absolute bottom-4 right-3 bg-white p-2.5 rounded-lg shadow-md z-[1000] text-gray-600 hover:text-green-600 transition-colors border border-gray-200">
+        <button id="btn-current-location" class="absolute bottom-4 right-3 bg-white p-2.5 rounded-lg shadow-md z-40 text-gray-600 hover:text-green-600 transition-colors border border-gray-200">
             <i data-lucide="crosshair" class="w-5 h-5"></i>
         </button>
     </div>

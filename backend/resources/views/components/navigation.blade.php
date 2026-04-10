@@ -1,5 +1,21 @@
 @props(['showSearch' => true, 'keyword' => ''])
 
+@php
+    $navIs = function (...$patterns) {
+        foreach ($patterns as $p) {
+            if (request()->is($p)) return true;
+        }
+        return false;
+    };
+    $isShindan  = $navIs('shindan*');
+    $isRanking  = $navIs('ranking*');
+    $isNews     = $navIs('news*');
+    $isMap      = $navIs('shops/map*', 'parking*');
+    $isParts    = $navIs('parts*');
+    $isSouba    = $navIs('trends*', 'sell*');
+    $isOther    = $navIs('blog*', 'identify*', 'garage/public*', 'ar*');
+@endphp
+
 <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16 gap-3">
@@ -34,7 +50,7 @@
                 @endif
 
                 {{-- バイク診断 --}}
-                <a href="/shindan" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest group relative" title="あなたにぴったりの1台を診断">
+                <a href="/shindan" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isShindan ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest group relative" title="あなたにぴったりの1台を診断">
                     <i data-lucide="sparkles" class="w-4 h-4 text-blue-500 group-hover:animate-pulse"></i>
                     <span class="hidden xl:inline">バイク診断</span>
                     <span class="absolute -top-0.5 -right-0.5 flex h-2 w-2">
@@ -43,16 +59,22 @@
                     </span>
                 </a>
 
-                {{-- 車種判定 --}}
-                <a href="{{ route('bikes.identify') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition uppercase tracking-widest" title="写真からバイクの車種を判定">
-                    <i data-lucide="scan-eye" class="w-4 h-4"></i>
-                    <span class="hidden xl:inline">車種判定</span>
+                {{-- ランキング --}}
+                <a href="{{ route('ranking.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isRanking ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="売れ筋ランキング">
+                    <i data-lucide="trophy" class="w-4 h-4"></i>
+                    <span class="hidden xl:inline">ランキング</span>
+                </a>
+
+                {{-- ニュース --}}
+                <a href="{{ route('news.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isNews ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="バイク業界の最新ニュース">
+                    <i data-lucide="newspaper" class="w-4 h-4"></i>
+                    <span class="hidden xl:inline">ニュース</span>
                 </a>
 
                 {{-- マップ ドロップダウン --}}
                 <div class="hidden md:flex relative" x-data="{ open: false }">
                     <button @click="open = !open" @click.outside="open = false"
-                        class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="マップ">
+                        class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isMap ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="マップ">
                         <i data-lucide="map" class="w-4 h-4"></i>
                         <span class="hidden xl:inline">マップ</span>
                         <i data-lucide="chevron-down" class="w-3 h-3 transition-transform duration-200" x-bind:class="{ 'rotate-180': open }"></i>
@@ -68,15 +90,11 @@
                             <i data-lucide="square-parking" class="w-3.5 h-3.5"></i>
                             駐車場マップ
                         </a>
-                        <a href="{{ route('ar.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors whitespace-nowrap">
-                            <i data-lucide="camera" class="w-3.5 h-3.5"></i>
-                            AR駐車場ファインダー
-                        </a>
                     </div>
                 </div>
 
                 {{-- パーツ --}}
-                <a href="{{ route('parts.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="バイクパーツ検索・価格比較">
+                <a href="{{ route('parts.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isParts ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="バイクパーツ検索・価格比較">
                     <i data-lucide="wrench" class="w-4 h-4"></i>
                     <span class="hidden xl:inline">パーツ</span>
                 </a>
@@ -84,7 +102,7 @@
                 {{-- 相場 ドロップダウン --}}
                 <div class="hidden md:flex relative" x-data="{ open: false }">
                     <button @click="open = !open" @click.outside="open = false"
-                        class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="相場">
+                        class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isSouba ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="相場">
                         <i data-lucide="trending-up" class="w-4 h-4"></i>
                         <span class="hidden xl:inline">相場</span>
                         <i data-lucide="chevron-down" class="w-3 h-3 transition-transform duration-200" x-bind:class="{ 'rotate-180': open }"></i>
@@ -103,16 +121,10 @@
                     </div>
                 </div>
 
-                {{-- ブログ --}}
-                <a href="{{ route('blog.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest" title="ブログ記事">
-                    <i data-lucide="pen-line" class="w-4 h-4"></i>
-                    <span class="hidden xl:inline">ブログ</span>
-                </a>
-
                 {{-- その他 ドロップダウン --}}
                 <div class="hidden md:flex relative" x-data="{ open: false }">
                     <button @click="open = !open" @click.outside="open = false"
-                        class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition uppercase tracking-widest" title="その他">
+                        class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isOther ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100' }} rounded-xl transition uppercase tracking-widest" title="その他">
                         <i data-lucide="more-horizontal" class="w-4 h-4"></i>
                         <span class="hidden xl:inline">その他</span>
                         <i data-lucide="chevron-down" class="w-3 h-3 transition-transform duration-200" x-bind:class="{ 'rotate-180': open }"></i>
@@ -120,17 +132,21 @@
                     <div x-show="open" x-transition
                          class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
                          style="display: none;">
+                        <a href="{{ route('blog.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="pen-line" class="w-3.5 h-3.5"></i>
+                            ブログ
+                        </a>
+                        <a href="{{ route('bikes.identify') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="scan-eye" class="w-3.5 h-3.5"></i>
+                            車種判定AI
+                        </a>
                         <a href="{{ route('garage.public.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors whitespace-nowrap">
-                            <i data-lucide="heart" class="w-3.5 h-3.5"></i>
+                            <i data-lucide="bike" class="w-3.5 h-3.5"></i>
                             ガレージ
                         </a>
-                        <a href="{{ route('news.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors whitespace-nowrap">
-                            <i data-lucide="newspaper" class="w-3.5 h-3.5"></i>
-                            ニュース
-                        </a>
-                        <a href="{{ route('ranking.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 transition-colors whitespace-nowrap">
-                            <i data-lucide="trophy" class="w-3.5 h-3.5"></i>
-                            売れ筋ランキング
+                        <a href="{{ route('ar.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+                            AR駐車場ファインダー
                         </a>
                     </div>
                 </div>
