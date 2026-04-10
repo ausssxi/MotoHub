@@ -268,14 +268,16 @@ final class GenerateRankingNews extends Command
                 ? '<img src="' . $imgUrl . '" alt="' . $name . '" class="%imgclass%" loading="lazy" onerror="this.style.display=\'none\'">'
                 : '<div class="%imgclass% bg-gray-200 flex items-center justify-center text-gray-400"><svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"/></svg></div>';
 
+            $modelUrl = e(route('bikes.model_detail.fallback', $row->bike_model_id));
+
             if ($rank <= 3) {
                 // TOP3: 大きめカード
                 $img = str_replace('%imgclass%', 'w-24 h-16 object-cover rounded', $imgTag);
                 $html .= '<div class="flex items-center gap-4 p-4 bg-gray-50 rounded-lg mb-3">';
                 $html .= '<div class="text-2xl font-bold">' . $medal . '</div>';
-                $html .= $img;
+                $html .= '<a href="' . $modelUrl . '" class="block flex-shrink-0">' . $img . '</a>';
                 $html .= '<div>';
-                $html .= '<div class="font-bold">' . $name . $change . '</div>';
+                $html .= '<div><a href="' . $modelUrl . '" class="font-bold text-blue-700 hover:underline">' . $name . '</a>' . $change . '</div>';
                 $html .= '<div class="text-sm text-gray-500">' . $mfr . '</div>';
                 $html .= '<div class="text-blue-600 font-bold">' . $sold . '台 / 平均' . e($price) . '</div>';
                 $html .= $commentHtml;
@@ -285,9 +287,9 @@ final class GenerateRankingNews extends Command
                 $img = str_replace('%imgclass%', 'w-16 h-10 object-cover rounded', $imgTag);
                 $html .= '<div class="flex items-center gap-3 py-2 border-b border-gray-100">';
                 $html .= '<span class="w-8 text-center font-bold text-gray-500">' . $rank . $change . '</span>';
-                $html .= $img;
+                $html .= '<a href="' . $modelUrl . '" class="block flex-shrink-0">' . $img . '</a>';
                 $html .= '<div class="flex-1 min-w-0">';
-                $html .= '<span class="font-bold">' . $name . '</span>';
+                $html .= '<a href="' . $modelUrl . '" class="font-bold text-blue-700 hover:underline">' . $name . '</a>';
                 $html .= '<span class="text-gray-500 text-sm ml-1">' . $mfr . '</span>';
                 if ($commentHtml) {
                     $html .= $commentHtml;
