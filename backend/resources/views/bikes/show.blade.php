@@ -169,15 +169,52 @@
     
     <div class="bg-gray-50 min-h-screen py-6 sm:py-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            
+
+            {{-- 売り切れバナー --}}
+            @if($listing->is_sold_out && $soldOutData)
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 sm:p-6 mb-6 shadow-sm">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="tag" class="w-5 h-5 text-amber-600"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-lg font-black text-amber-800">この車両は販売終了しました</p>
+                        <p class="text-sm text-amber-700 mt-1">
+                            {{ $listing->bike_model_name ?? 'この車種' }}の販売中車両を探しませんか？
+                        </p>
+                        <div class="flex flex-wrap gap-2 mt-3">
+                            @if($listing->bike_model_id)
+                            <a href="{{ route('bikes.search', ['manufacturer_id' => $listing->manufacturer_id, 'bike_model_id' => $listing->bike_model_id]) }}"
+                               class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-full hover:bg-blue-700 transition shadow-sm">
+                                <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                                {{ $listing->bike_model_name ?? 'この車種' }}の販売中車両を見る
+                            </a>
+                            @endif
+                            @if($bikeModelForUrl)
+                            <a href="{{ route('bikes.model_detail.fallback', $bikeModelForUrl->id) }}"
+                               class="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-gray-700 text-xs font-bold rounded-full border border-gray-200 hover:bg-gray-50 transition">
+                                <i data-lucide="bar-chart-3" class="w-3.5 h-3.5"></i>
+                                {{ $listing->bike_model_name ?? 'この車種' }}の相場を見る
+                            </a>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @endif
+
             <div class="lg:grid lg:grid-cols-12 lg:gap-8">
                 {{-- メインカラム --}}
                 <div class="lg:col-span-8 space-y-8">
-                    
+
                 {{-- 1. 画像ギャラリー --}}
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                         {{-- 人気ラベル --}}
-                        @if($listing->engagement['is_popular'] ?? false)
+                        @if($listing->is_sold_out)
+                        <div class="absolute top-4 left-4 z-20 bg-gray-800 text-white px-4 py-2 rounded-xl text-sm font-black flex items-center gap-1.5 shadow-lg">
+                            <i data-lucide="ban" class="w-4 h-4"></i> SOLD OUT
+                        </div>
+                        @elseif($listing->engagement['is_popular'] ?? false)
                         <div class="absolute top-4 left-4 z-20 bg-orange-500 text-white px-3 py-1.5 rounded-xl text-[10px] font-black italic flex items-center gap-1 shadow-lg animate-bounce">
                             <i data-lucide="flame" class="w-3.5 h-3.5 fill-current"></i> POPULAR
                         </div>
@@ -234,17 +271,19 @@
 
                     {{-- 2. 車両基本情報 --}}
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        @if(!$listing->is_sold_out)
                         <div class="flex items-center gap-4 mb-6 py-3 px-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
                             <div class="flex -space-x-2 shrink-0">
                                 <div class="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white border-2 border-white shadow-sm"><i data-lucide="eye" class="w-3 h-3"></i></div>
                                 <div class="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center text-white border-2 border-white shadow-sm"><i data-lucide="heart" class="w-3 h-3 fill-current"></i></div>
                             </div>
                             <div class="text-[10px] sm:text-xs font-bold text-blue-800">
-                                <span class="font-black text-blue-600">本日 {{ $listing->engagement['view_count_today'] ?? 0 }}名</span> が閲覧中 
+                                <span class="font-black text-blue-600">本日 {{ $listing->engagement['view_count_today'] ?? 0 }}名</span> が閲覧中
                                 <span class="mx-2 text-blue-200">|</span>
                                 <span class="font-black text-red-600">{{ $listing->engagement['favorite_count'] ?? 0 }}名</span> がお気に入りに追加
                             </div>
                         </div>
+                        @endif
                         
                         <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
                             <div>
@@ -1310,6 +1349,7 @@
                             </div>
                             @endif
 
+                            @if(!$listing->is_sold_out)
                             <div class="mb-6">
                                 <div class="bg-gray-50 hover:bg-red-50 rounded-2xl p-4 border border-gray-200 hover:border-red-200 flex items-center justify-between group cursor-pointer transition-colors shadow-sm" onclick="if(window.WishlistManager) window.WishlistManager.toggle('{{ $listing->id }}')">
                                     <div class="flex flex-col text-left pointer-events-none">
@@ -1368,13 +1408,23 @@
                                     @endif
                                 @endguest
                             </div>
+                            @endif
 
                             <div class="space-y-3">
+                                @if($listing->is_sold_out)
+                                <div class="bg-gray-100 text-gray-500 font-bold text-center py-4 rounded-xl">
+                                    この車両は販売終了しました
+                                </div>
+                                <a href="{{ route('bikes.search', ['manufacturer_id' => $listing->manufacturer_id, 'bike_model_id' => $listing->bike_model_id]) }}"
+                                   class="block w-full bg-blue-600 hover:bg-blue-500 text-white font-black text-center py-4 rounded-xl shadow-lg transition hover:-translate-y-1">
+                                    {{ $listing->bike_model_name ?? 'この車種' }}の販売中車両を探す
+                                </a>
+                                @else
                                 <a href="{{ $listing->url }}" target="_blank" class="block w-full bg-red-600 hover:bg-red-500 text-white font-black text-center py-4 rounded-xl shadow-lg shadow-red-500/30 transition hover:-translate-y-1">
                                     {{ $listing->site_name ?? '販売店' }} で在庫確認・見積もり
                                     <span class="block text-[10px] font-medium opacity-80 mt-0.5">（無料・別タブで開きます）</span>
                                 </a>
-                                
+
                                 @if(!empty($listing->shop_tel) && $listing->shop_tel !== '-')
                                     <a href="tel:{{ str_replace('-', '', $listing->shop_tel) }}" class="block w-full bg-white border-2 border-gray-100 hover:border-blue-600 text-gray-700 hover:text-blue-600 font-bold text-center py-3 rounded-xl transition group">
                                         <span class="flex items-center justify-center gap-2">
@@ -1388,15 +1438,19 @@
                                         電話番号なし
                                     </button>
                                 @endif
+                                @endif
                             </div>
-                            
+
+                            @if(!$listing->is_sold_out)
                             <div class="mt-6 pt-6 border-t border-gray-100 text-center">
                                 <div class="text-[10px] font-bold text-gray-400">
                                     ※ 見積もり依頼は無料です。<br>
                                     MotoHubを見たとお伝えください。
                                 </div>
                             </div>
+                            @endif
                         </div>
+                        @if(!$listing->is_sold_out)
                         {{-- 検討を促すサイドバーパーツ --}}
                         <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-6 text-white shadow-lg">
                             <h4 class="text-xs font-black uppercase tracking-widest text-orange-400 mb-3 flex items-center gap-2">
@@ -1406,6 +1460,7 @@
                                 この車両は現在 <span class="text-white font-black text-sm">{{ $listing->engagement['view_count_today'] ?? 0 }}名</span> が閲覧し、<span class="text-red-400 font-black text-sm">{{ $listing->engagement['favorite_count'] ?? 0 }}名</span> が検討リストに追加しています。中古バイクは1点物のため、タッチの差で売約済みとなるケースが多くなっています。
                             </p>
                         </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -1420,6 +1475,199 @@
                     愛車ガレージに登録して燃費・整備を記録する →
                 </a>
             </div>
+
+            {{-- ===== 売り切れ車両専用セクション ===== --}}
+            @if($listing->is_sold_out && $soldOutData)
+            <div class="mt-8 space-y-6">
+
+                {{-- 実装②: この車両の販売記録 --}}
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
+                    <div class="flex items-center gap-2 mb-5">
+                        <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
+                            <i data-lucide="receipt" class="w-5 h-5"></i>
+                        </div>
+                        <h2 class="text-lg font-black text-gray-900">この車両の販売記録</h2>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-5">
+                        @if($soldOutData['listing_days'] !== null)
+                        <p class="text-base font-bold text-gray-800 leading-relaxed">
+                            この車両は掲載から<span class="text-xl font-black text-blue-600">{{ $soldOutData['listing_days'] }}日</span>で売却されました
+                            @if($soldOutData['sold_price'])
+                            （販売価格: <span class="font-black text-red-600">{{ $soldOutData['sold_price'] }}万円</span>）
+                            @endif
+                        </p>
+                        @endif
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
+                            @if($soldOutData['created_at'])
+                            <div>
+                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">掲載開始</p>
+                                <p class="text-sm font-black text-gray-800 mt-1">{{ $soldOutData['created_at'] }}</p>
+                            </div>
+                            @endif
+                            @if($soldOutData['updated_at'])
+                            <div>
+                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">売却日</p>
+                                <p class="text-sm font-black text-gray-800 mt-1">{{ $soldOutData['updated_at'] }}</p>
+                            </div>
+                            @endif
+                            @if($soldOutData['sold_price'])
+                            <div>
+                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">販売価格</p>
+                                <p class="text-sm font-black text-red-600 mt-1">{{ $soldOutData['sold_price'] }}万円</p>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- 車種の市場データ --}}
+                    @if($soldOutData['market_avg_price'] || $soldOutData['ranking_rank'] || $soldOutData['avg_sell_days'])
+                    <div class="mt-5 pt-5 border-t border-gray-100">
+                        <h3 class="text-sm font-black text-gray-700 mb-3 flex items-center gap-1.5">
+                            <i data-lucide="trending-up" class="w-4 h-4 text-green-500"></i>
+                            {{ $listing->bike_model_name ?? 'この車種' }}の市場データ
+                        </h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            @if($soldOutData['market_avg_price'])
+                            <div class="bg-blue-50 rounded-xl p-4 text-center">
+                                <p class="text-[10px] font-bold text-blue-500 uppercase tracking-widest">現在の平均価格</p>
+                                <p class="text-xl font-black text-blue-700 mt-1">{{ $soldOutData['market_avg_price'] }}<span class="text-xs">万円</span></p>
+                                <p class="text-[10px] text-blue-400 font-bold mt-0.5">販売中{{ $soldOutData['market_active_count'] }}台</p>
+                            </div>
+                            @endif
+                            @if($soldOutData['ranking_rank'])
+                            <div class="bg-amber-50 rounded-xl p-4 text-center">
+                                <p class="text-[10px] font-bold text-amber-500 uppercase tracking-widest">売れ筋ランキング</p>
+                                <p class="text-xl font-black text-amber-700 mt-1">{{ $soldOutData['ranking_rank'] }}<span class="text-xs">位</span></p>
+                                <p class="text-[10px] text-amber-400 font-bold mt-0.5">{{ $soldOutData['ranking_total'] }}車種中</p>
+                            </div>
+                            @endif
+                            @if($soldOutData['avg_sell_days'])
+                            <div class="bg-green-50 rounded-xl p-4 text-center">
+                                <p class="text-[10px] font-bold text-green-500 uppercase tracking-widest">平均売却日数</p>
+                                <p class="text-xl font-black text-green-700 mt-1">{{ $soldOutData['avg_sell_days'] }}<span class="text-xs">日</span></p>
+                                <p class="text-[10px] text-green-400 font-bold mt-0.5">先月の実績</p>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
+                </div>
+
+                {{-- 実装③: 同車種の販売中車両 --}}
+                @if($activeSameModel->isNotEmpty())
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
+                    <div class="flex items-center gap-2 mb-5">
+                        <div class="p-2 bg-green-50 rounded-lg text-green-600">
+                            <i data-lucide="bike" class="w-5 h-5"></i>
+                        </div>
+                        <h2 class="text-lg font-black text-gray-900">{{ $listing->bike_model_name ?? 'この車種' }}の販売中車両</h2>
+                        <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">{{ $activeSameModel->count() }}台</span>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                        @foreach($activeSameModel as $active)
+                        @php
+                            $activeImg = is_string($active->local_image_paths) ? json_decode($active->local_image_paths, true) : $active->local_image_paths;
+                        @endphp
+                        <a href="{{ route('bikes.show', $active->id) }}" class="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+                            <div class="aspect-[4/3] bg-gray-100 overflow-hidden">
+                                @if(!empty($activeImg) && is_array($activeImg))
+                                <img src="{{ asset('storage/' . ltrim($activeImg[0], '/')) }}" alt="{{ $active->title }}" class="w-full h-full object-cover" loading="lazy">
+                                @else
+                                <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                    <i data-lucide="image-off" class="w-6 h-6"></i>
+                                </div>
+                                @endif
+                            </div>
+                            <div class="p-3">
+                                @if($active->total_price)
+                                <p class="text-sm font-black text-red-600 mb-1">{{ number_format($active->total_price / 10000, 1) }}万円</p>
+                                @endif
+                                <p class="text-xs font-bold text-gray-800 line-clamp-2 mb-1">{{ $active->title }}</p>
+                                <div class="flex items-center gap-2 text-[10px] text-gray-400">
+                                    @if($active->model_year)<span>{{ $active->model_year }}年</span>@endif
+                                    @if($active->mileage)<span>{{ number_format($active->mileage) }}km</span>@endif
+                                    @if($active->shop?->prefecture)<span>{{ $active->shop->prefecture }}</span>@endif
+                                </div>
+                            </div>
+                        </a>
+                        @endforeach
+                    </div>
+                    @if($bikeModelForUrl)
+                    <div class="mt-4 text-center">
+                        <a href="{{ route('bikes.search', ['manufacturer_id' => $listing->manufacturer_id, 'bike_model_id' => $listing->bike_model_id]) }}"
+                           class="inline-flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                            {{ $listing->bike_model_name ?? 'この車種' }}の販売中車両をもっと見る
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </a>
+                    </div>
+                    @endif
+                </div>
+                @elseif($listing->bike_model_id)
+                {{-- 販売中車両が0台の場合 --}}
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 text-center">
+                    <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i data-lucide="inbox" class="w-6 h-6 text-gray-400"></i>
+                    </div>
+                    <p class="text-sm font-bold text-gray-600 mb-1">現在{{ $listing->bike_model_name ?? 'この車種' }}の在庫はありません</p>
+                    <p class="text-xs text-gray-400 mb-4">新しい在庫が入荷したらお知らせします</p>
+                    <a href="{{ route('bikes.search', ['keyword' => $listing->bike_model_name ?? '']) }}"
+                       class="inline-flex items-center gap-1.5 px-5 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-full hover:bg-blue-700 transition">
+                        <i data-lucide="bell" class="w-3.5 h-3.5"></i>
+                        類似車種を探す
+                    </a>
+                </div>
+                @endif
+
+                {{-- 実装⑤: 内部リンクの強化 --}}
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
+                    <h2 class="text-sm font-black text-gray-500 uppercase tracking-widest mb-4">関連ページ</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        @if($bikeModelForUrl)
+                        <a href="{{ route('bikes.model_detail.fallback', $bikeModelForUrl->id) }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors border border-gray-100">
+                            <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-500 flex-shrink-0">
+                                <i data-lucide="book-open" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-gray-800">{{ $listing->bike_model_name }}の車種詳細</p>
+                                <p class="text-[10px] text-gray-400 font-bold">スペック・相場・レビュー</p>
+                            </div>
+                        </a>
+                        @endif
+                        @if($listing->manufacturer_id)
+                        <a href="{{ route('bikes.search', ['manufacturer_id' => $listing->manufacturer_id]) }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors border border-gray-100">
+                            <div class="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center text-orange-500 flex-shrink-0">
+                                <i data-lucide="layers" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-gray-800">{{ $listing->maker }}の車両一覧</p>
+                                <p class="text-[10px] text-gray-400 font-bold">全車種の在庫を検索</p>
+                            </div>
+                        </a>
+                        @endif
+                        @if($listing->shop_id)
+                        <a href="{{ route('shops.show', $listing->shop_id) }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors border border-gray-100">
+                            <div class="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center text-green-500 flex-shrink-0">
+                                <i data-lucide="store" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-gray-800">{{ $listing->shop_name }}の在庫一覧</p>
+                                <p class="text-[10px] text-gray-400 font-bold">この販売店の他の車両</p>
+                            </div>
+                        </a>
+                        @endif
+                        <a href="{{ route('ranking.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors border border-gray-100">
+                            <div class="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center text-amber-500 flex-shrink-0">
+                                <i data-lucide="trophy" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-gray-800">売れ筋ランキング</p>
+                                <p class="text-[10px] text-gray-400 font-bold">人気車種の販売動向</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            @endif
 
             {{-- 近くの駐車場・ショップ・回遊リンク --}}
             <div class="mt-12 space-y-6">
@@ -1471,9 +1719,23 @@
     </div>
 
     {{-- スマホ用固定フッターCV（お気に入り数連動） --}}
+    @if($listing->is_sold_out)
+    {{-- 売り切れ時: 同車種の検索へ誘導 --}}
     <div class="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 p-3 sm:p-4 lg:hidden z-50 safe-area-bottom shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
         <div class="flex gap-2 sm:gap-3 items-center">
-            
+            <div class="flex-1 min-w-0">
+                <p class="text-xs font-bold text-gray-500">この車両は販売終了しました</p>
+            </div>
+            <a href="{{ route('bikes.search', ['manufacturer_id' => $listing->manufacturer_id, 'bike_model_id' => $listing->bike_model_id]) }}"
+               class="w-48 bg-blue-600 text-white font-black flex items-center justify-center gap-1.5 rounded-xl shadow-lg py-2.5 active:scale-95 transition-transform shrink-0">
+                <i data-lucide="search" class="w-4 h-4"></i>
+                <span class="text-xs sm:text-sm">販売中車両を探す</span>
+            </a>
+        </div>
+    @else
+    <div class="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 p-3 sm:p-4 lg:hidden z-50 safe-area-bottom shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+        <div class="flex gap-2 sm:gap-3 items-center">
+
             {{-- ★修正: 中のアイコンとテキストをクリック無視にし、ボタン本体が確実にイベントを拾うように --}}
             <button class="wishlist-btn shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-xl border border-gray-200 flex flex-col items-center justify-center text-gray-400 bg-gray-50 shadow-sm transition-colors" data-id="{{ $listing->id }}">
                 <i data-lucide="heart" class="w-5 h-5 mb-0.5 pointer-events-none"></i>
@@ -1499,6 +1761,7 @@
                 </span>
             </a>
         </div>
+    @endif
     </div>
 
     <style>

@@ -138,6 +138,8 @@ class ListingResource extends JsonResource
                 });
             }, []),
             
+            'is_sold_out'    => (bool) $this->is_sold_out,
+
             'images'         => $this->resolveImageUrls($this->local_image_paths ?? [], $this->image_urls ?? []),
         ];
     }

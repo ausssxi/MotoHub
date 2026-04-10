@@ -230,20 +230,20 @@ final class BikeController extends Controller
     {
         $listing = $this->bikeService->getListingDetail($id);
 
-        // レコード不在 or 売約済み → 404
-        if (!$listing || $listing->is_sold_out) {
-            $searchUrl = $listing?->bikeModel
-                ? route('bikes.search', ['keyword' => $listing->bikeModel->name])
-                : route('bikes.index');
-
+        // レコード不在 → 404
+        if (!$listing) {
             return response()->view('errors.404', [
                 'message'   => 'この車両は掲載終了しました',
-                'searchUrl' => $searchUrl,
-                'bikeName'  => $listing?->bikeModel?->name ?? $listing?->title ?? null,
+                'searchUrl' => route('bikes.index'),
+                'bikeName'  => null,
             ], 404);
         }
 
-        $this->bikeService->incrementViewCount($id);
+        $isSoldOut = (bool) $listing->is_sold_out;
+
+        if (!$isSoldOut) {
+            $this->bikeService->incrementViewCount($id);
+        }
 
         $relatedRaw = $listing->bike_model_id 
             ? $this->bikeService->getRelatedListings($listing->bike_model_id, $listing->id, 8) 
@@ -441,6 +441,55 @@ final class BikeController extends Controller
             });
         }
 
+        // 売り切れ車両用データ
+        $soldOutData = null;
+        $activeSameModel = collect();
+        if ($isSoldOut) {
+            // 販売記録
+            $listingDays = $listing->created_at && $listing->updated_at
+                ? max(0, $listing->created_at->diffInDays($listing->updated_at))
+                : null;
+            $soldPrice = $listing->total_price
+                ? number_format((float) ($listing->total_price / 10000), 1)
+                : null;
+
+            // 同車種の販売中車両（最大6台）
+            if ($listing->bike_model_id) {
+                $activeSameModel = Listing::with('shop:id,name,prefecture')
+                    ->where('bike_model_id', $listing->bike_model_id)
+                    ->where('is_sold_out', false)
+                    ->orderBy('total_price')
+                    ->limit(6)
+                    ->get();
+            }
+
+            // 車種の市場データ（販売中車両ベース）
+            $marketAvgPrice = null;
+            $marketActiveCount = 0;
+            if ($listing->bike_model_id) {
+                $marketData = Listing::where('bike_model_id', $listing->bike_model_id)
+                    ->where('is_sold_out', false)
+                    ->whereNotNull('total_price')
+                    ->where('total_price', '>', 0)
+                    ->selectRaw('AVG(total_price) as avg_price, COUNT(*) as cnt')
+                    ->first();
+                $marketAvgPrice = $marketData->avg_price ? number_format((float) ($marketData->avg_price / 10000), 1) : null;
+                $marketActiveCount = (int) $marketData->cnt;
+            }
+
+            $soldOutData = [
+                'listing_days' => $listingDays,
+                'sold_price'   => $soldPrice,
+                'created_at'   => $listing->created_at?->format('Y年m月d日'),
+                'updated_at'   => $listing->updated_at?->format('Y年m月d日'),
+                'market_avg_price'   => $marketAvgPrice,
+                'market_active_count' => $marketActiveCount,
+                'ranking_rank'  => $rankingStats['rank'] ?? null,
+                'ranking_total' => $rankingStats['totalModels'] ?? null,
+                'avg_sell_days' => $rankingStats['avgDays'] ?? null,
+            ];
+        }
+
         return view('bikes.show', [
             'listing'           => $data,
             'bikeModelForUrl'   => $listing->bikeModel,
@@ -471,6 +520,8 @@ final class BikeController extends Controller
             'relatedBlogPosts'  => $relatedBlogPosts,
             'marketPosition'    => $marketPosition,
             'rankingStats'      => $rankingStats,
+            'soldOutData'       => $soldOutData,
+            'activeSameModel'   => $activeSameModel,
         ]);
     }
 
