@@ -233,7 +233,10 @@ Route::prefix('pages')->name('pages.')->group(function () {
     Route::get('/widget', [PageController::class, 'widget'])->name('widget');
 });
 
-// 買取査定LP 
+// バイク4択クイズ
+Route::view('/quiz', 'quiz.index')->name('quiz');
+
+// 買取査定LP
 Route::get('/sell', [SellController::class, 'index'])->name('sell.index');
 Route::post('/api/sell/calculate', [SellController::class, 'calculate'])->name('sell.calculate');
 

@@ -13,7 +13,7 @@
     $isMap      = $navIs('shops/map*', 'parking*');
     $isBlog     = $navIs('blog*');
     $isSouba    = $navIs('trends*', 'sell*');
-    $isOther    = $navIs('parts*', 'identify*', 'garage/public*', 'ar*');
+    $isOther    = $navIs('parts*', 'identify*', 'garage/public*', 'ar*', 'quiz*');
 @endphp
 
 <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
@@ -147,6 +147,10 @@
                         <a href="{{ route('ar.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors whitespace-nowrap">
                             <i data-lucide="camera" class="w-3.5 h-3.5"></i>
                             AR駐車場ファインダー
+                        </a>
+                        <a href="{{ route('quiz') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="gamepad-2" class="w-3.5 h-3.5"></i>
+                            バイク4択クイズ
                         </a>
                     </div>
                 </div>
