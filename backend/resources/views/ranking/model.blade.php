@@ -40,7 +40,7 @@
         {{-- 販売サマリー --}}
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
             <h2 class="text-sm font-black text-gray-500 uppercase tracking-widest mb-4">販売サマリー</h2>
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div class="bg-gray-50 rounded-xl p-4 text-center">
                     <p class="text-[10px] font-bold text-gray-400 mb-1">先月販売台数</p>
                     <p class="text-2xl font-black text-gray-900">{{ number_format($stats['lastMonthSold']) }}<span class="text-xs text-gray-400">台</span></p>
