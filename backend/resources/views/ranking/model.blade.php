@@ -156,10 +156,10 @@
         @endif
 
         {{-- グラフ 2カラム --}}
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px" class="mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             {{-- 価格帯別 --}}
             @if($stats['priceRanges']->isNotEmpty())
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5" style="grid-column:span 1">
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <h3 class="text-sm font-black text-gray-900 mb-3">売れている価格帯</h3>
                 <div style="height:240px;position:relative"><canvas id="priceChart"></canvas></div>
             </div>
@@ -167,7 +167,7 @@
 
             {{-- 地域TOP10 --}}
             @if($stats['regionRanking']->isNotEmpty())
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5" style="grid-column:span 1">
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <h3 class="text-sm font-black text-gray-900 mb-3">売れている地域 TOP10</h3>
                 <div style="height:240px;position:relative"><canvas id="regionChart"></canvas></div>
             </div>
@@ -175,7 +175,7 @@
 
             {{-- 走行距離帯 --}}
             @if($stats['mileageRanges']->isNotEmpty())
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5" style="grid-column:span 1">
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <h3 class="text-sm font-black text-gray-900 mb-3">売れている走行距離帯</h3>
                 <div style="height:240px;position:relative"><canvas id="mileageChart"></canvas></div>
             </div>
@@ -183,7 +183,7 @@
 
             {{-- 年式 --}}
             @if($stats['yearRanking']->isNotEmpty())
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5" style="grid-column:span 1">
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <h3 class="text-sm font-black text-gray-900 mb-3">売れている年式（新しい順）</h3>
                 <div style="height:240px;position:relative"><canvas id="yearChart"></canvas></div>
             </div>

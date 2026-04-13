@@ -1,4 +1,8 @@
 {
+  "_client-Ccx6zi3W.js": {
+    "file": "assets/client-Ccx6zi3W.js",
+    "name": "client"
+  },
   "resources/css/app.css": {
     "file": "assets/app-DGiRi9sO.css",
     "src": "resources/css/app.css",
@@ -15,9 +19,21 @@
     "isEntry": true
   },
   "resources/js/quiz-app.jsx": {
-    "file": "assets/quiz-app-G9rGpdaU.js",
+    "file": "assets/quiz-app-DCNYSWTU.js",
     "name": "quiz-app",
     "src": "resources/js/quiz-app.jsx",
-    "isEntry": true
+    "isEntry": true,
+    "imports": [
+      "_client-Ccx6zi3W.js"
+    ]
+  },
+  "resources/js/warashibe-app.jsx": {
+    "file": "assets/warashibe-app-Dzj2ObcI.js",
+    "name": "warashibe-app",
+    "src": "resources/js/warashibe-app.jsx",
+    "isEntry": true,
+    "imports": [
+      "_client-Ccx6zi3W.js"
+    ]
   }
 }
