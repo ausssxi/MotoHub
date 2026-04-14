@@ -124,6 +124,13 @@ function checkNewAreaUnlocks(bikes, currentUnlocked) {
   return { unlocked, msgs };
 }
 
+function preloadAllImages() {
+  Object.values(NPCS).forEach(n => { if (n.image) { new Image().src = n.image; } });
+  Object.values(BIKES).forEach(b => { if (b.icon) { new Image().src = b.icon; } });
+  Object.values(AREAS).forEach(a => { if (a.bg) { new Image().src = a.bg; } });
+  new Image().src = `${IMG}title_screen.png`;
+}
+
 /* ═══════════════════════════════════════════
    State & Reducer
    ═══════════════════════════════════════════ */
@@ -402,7 +409,7 @@ export default function App() {
         </div>
 
         {/* Scenes */}
-        {state.scene === 'explore' && npc && <ExploreScene state={state} npc={npc} visNpcs={visNpcs} d={d} />}
+        {state.scene === 'explore' && npc && <ExploreScene state={state} npc={npc} npcId={npcId} visNpcs={visNpcs} d={d} />}
         {state.scene === 'dialog' && <DialogScene state={state} npc={NPCS[state.activeNpc]} d={d} />}
         {state.scene === 'bikeSelect' && <BikeSelectScene state={state} d={d} />}
         {state.scene === 'inventory' && <InventoryScene state={state} d={d} />}
@@ -444,6 +451,7 @@ function VolCtrl({ audioBump }) {
    Title Screen  — fix: <img> object-fit cover
    ═══════════════════════════════════════════ */
 function TitleScreen({ d, hasSave, audioBump }) {
+  useEffect(() => { preloadAllImages(); }, []);
   return (
     <div style={S.shell} className="ws-shell">
       <img src={`${IMG}title_screen.png`} alt="" style={S.bgImg} />
@@ -527,13 +535,13 @@ function PrologueScreen({ d, audioBump }) {
 /* ═══════════════════════════════════════════
    Explore Scene
    ═══════════════════════════════════════════ */
-function ExploreScene({ state, npc, visNpcs, d }) {
+function ExploreScene({ state, npc, npcId, visNpcs, d }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       {/* NPC centered */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animation: 'ws-fadeIn .4s ease-out', width: '100%' }}>
-          <img src={npc.image} alt={npc.name} className="ws-npc-img"
+          <img key={npcId} src={npc.image} alt={npc.name} className="ws-npc-img"
             style={{ width: 180, height: 180, objectFit: 'contain', animation: 'ws-float 3s ease-in-out infinite', filter: 'drop-shadow(0 4px 16px rgba(0,0,0,.6))' }} />
           <p style={{ fontSize: 16, fontWeight: 700, marginTop: 8, textAlign: 'center', textShadow: '0 1px 4px rgba(0,0,0,.6)' }}>{npc.name}</p>
           <p style={{ fontSize: 14, opacity: .75, marginTop: 4, fontStyle: 'italic', textAlign: 'center', lineHeight: 1.6, whiteSpace: 'pre-line', padding: '0 8px' }}>
