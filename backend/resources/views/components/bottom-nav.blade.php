@@ -10,7 +10,8 @@
         || request()->is('wishlist*')
         || request()->is('shops/map*')
         || request()->is('ar*')
-        || request()->is('quiz*');
+        || request()->is('quiz*')
+        || request()->is('warashibe*');
 @endphp
 <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 w-full bg-white border-t border-gray-100 z-50 md:hidden" style="height:60px;" aria-label="モバイルナビゲーション">
     <div class="flex w-full h-full items-center justify-around">
@@ -93,6 +94,15 @@
                 <div>
                     <p class="text-sm font-black text-gray-900">バイク4択クイズ</p>
                     <p class="text-[10px] text-gray-400">中古価格や売れ筋をクイズで学ぼう</p>
+                </div>
+            </a>
+            <a href="{{ route('warashibe') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="gamepad-2" class="w-5 h-5 text-orange-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">わらしべ</p>
+                    <p class="text-[10px] text-gray-400">カブ50から隼を目指す交換ゲーム</p>
                 </div>
             </a>
 
