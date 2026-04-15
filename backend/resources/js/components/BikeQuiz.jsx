@@ -62,6 +62,16 @@ const CATEGORIES = [
 
 const PHASES = { SELECT: 0, READY: 1, PLAY: 2, RESULT_ANS: 3, FINAL: 4 };
 
+// ── Sound Effects ──
+const SE_PATH = '/audio/quiz/';
+
+function unlockAudioContext() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx) { const ctx = new Ctx(); ctx.resume().then(() => ctx.close()).catch(() => {}); }
+  } catch {}
+}
+
 // ── Character Images ──
 
 const CHAR_IMAGES = {
@@ -196,6 +206,19 @@ export default function MotoHubQuiz() {
   const [thinkingSpeech, setThinkingSpeech] = useState("");
   const timerRef = useRef(null);
 
+  // ── SE (Sound Effects) ──
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const soundRef = useRef(false);
+  const playSe = useCallback((key) => {
+    if (!soundRef.current) return;
+    try {
+      const a = new Audio(`${SE_PATH}${key}.mp3`);
+      a.volume = 0.5;
+      const p = a.play();
+      if (p && p.then) p.catch(() => {});
+    } catch {}
+  }, []);
+
   // Timer
   useEffect(() => {
     if (timerRunning && !timerStopped) {
@@ -240,7 +263,10 @@ export default function MotoHubQuiz() {
     setLoading(false);
   };
 
-  const beginPlay = () => {
+  const beginPlay = (withSound) => {
+    setSoundEnabled(withSound);
+    soundRef.current = withSound;
+    if (withSound) unlockAudioContext();
     setTimerRunning(true);
     setTimerStopped(false);
     setThinkingSpeech(pickSpeech("thinking"));
@@ -257,10 +283,12 @@ export default function MotoHubQuiz() {
       setScore((s) => s + POINTS_CORRECT);
       setSpeechMain(pickSpeech("correct_main"));
       setSpeechSub(pickSpeech("correct_sub"));
+      playSe('correct');
     } else {
       setShakeWrong(true);
       setSpeechMain(pickSpeech("wrong_main"));
       setSpeechSub(pickSpeech("wrong_sub"));
+      playSe('wrong');
     }
     setShowOverlay(true);
     setPhase(PHASES.RESULT_ANS);
@@ -269,6 +297,7 @@ export default function MotoHubQuiz() {
   const nextQuestion = () => {
     if (qIndex + 1 >= questions.length) {
       setTimerRunning(false);
+      playSe('result');
       setPhase(PHASES.FINAL);
       return;
     }
@@ -286,6 +315,7 @@ export default function MotoHubQuiz() {
 
   const useHalfHelp = () => {
     if (helpHalf <= 0 || selected !== null) return;
+    playSe('item');
     const curr = questions[qIndex];
     const wrong = curr.choices.map((_, i) => i).filter((i) => i !== curr.answer && !hiddenChoices.includes(i));
     const toHide = shuffle(wrong).slice(0, 2);
@@ -295,6 +325,7 @@ export default function MotoHubQuiz() {
 
   const useStopHelp = () => {
     if (helpStop <= 0 || selected !== null) return;
+    playSe('item');
     setTimerStopped(true);
     setHelpStop((h) => h - 1);
   };
@@ -312,10 +343,13 @@ export default function MotoHubQuiz() {
     setHiddenChoices([]);
     setShakeWrong(false);
     setTimerStopped(false);
+    setSoundEnabled(false);
+    soundRef.current = false;
   };
 
   const retryCategory = () => {
     if (!category) return;
+    const keepSound = soundEnabled;
     setSelected(null);
     setIsCorrect(null);
     setShowOverlay(false);
@@ -326,6 +360,8 @@ export default function MotoHubQuiz() {
     setSpeechMain("");
     setSpeechSub("");
     setThinkingSpeech("");
+    setSoundEnabled(keepSound);
+    soundRef.current = keepSound;
     startGame(category);
   };
 
@@ -500,26 +536,57 @@ export default function MotoHubQuiz() {
           </div>
         </div>
 
-        {/* Start button */}
-        <button
-          onClick={beginPlay}
-          disabled={loading}
-          style={{
-            padding: "18px 60px", fontSize: 22, fontWeight: 900, fontFamily: baseFont,
-            color: "#fff", border: "none", borderRadius: 50,
-            cursor: loading ? "wait" : "pointer",
-            opacity: loading ? 0.6 : 1,
-            background: `linear-gradient(135deg, ${category.color}, ${category.color}cc)`,
-            boxShadow: `0 6px 30px ${category.color}55`,
-            animation: "mq-pulse 2s ease-in-out infinite, mq-fadeUp 0.5s ease-out 0.4s both",
-            transition: "transform 0.15s, opacity 0.3s",
-            position: "relative",
-          }}
-          onPointerDown={(e) => !loading && (e.currentTarget.style.transform = "scale(0.95)")}
-          onPointerUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
-        >
-          {loading ? "問題を準備中..." : "🏍️ START!"}
-        </button>
+        {/* Start buttons */}
+        {loading ? (
+          <div style={{
+            padding: "18px 60px", fontSize: 18, fontWeight: 900, fontFamily: baseFont,
+            color: "#aaa", borderRadius: 50,
+            background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+            animation: "mq-fadeUp 0.5s ease-out 0.4s both",
+            textAlign: "center",
+          }}>
+            問題を準備中...
+          </div>
+        ) : (
+          <div style={{
+            display: "flex", gap: 12, width: "100%", maxWidth: 340,
+            animation: "mq-fadeUp 0.5s ease-out 0.4s both",
+          }}>
+            <button
+              onClick={() => beginPlay(false)}
+              style={{
+                flex: 1, padding: "16px 12px", fontSize: 16, fontWeight: 900, fontFamily: baseFont,
+                color: "#fff", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 16,
+                cursor: "pointer",
+                background: "rgba(255,255,255,0.08)",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+                transition: "transform 0.15s",
+              }}
+              onPointerDown={(e) => (e.currentTarget.style.transform = "scale(0.95)")}
+              onPointerUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+            >
+              <div>🔇</div>
+              <div style={{ fontSize: 13, marginTop: 4 }}>静かにPLAY</div>
+            </button>
+            <button
+              onClick={() => beginPlay(true)}
+              style={{
+                flex: 1, padding: "16px 12px", fontSize: 16, fontWeight: 900, fontFamily: baseFont,
+                color: "#fff", border: "none", borderRadius: 16,
+                cursor: "pointer",
+                background: `linear-gradient(135deg, ${category.color}, ${category.color}cc)`,
+                boxShadow: `0 6px 30px ${category.color}55`,
+                animation: "mq-pulse 2s ease-in-out infinite",
+                transition: "transform 0.15s",
+              }}
+              onPointerDown={(e) => (e.currentTarget.style.transform = "scale(0.95)")}
+              onPointerUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+            >
+              <div>🔊</div>
+              <div style={{ fontSize: 13, marginTop: 4 }}>音ありPLAY</div>
+            </button>
+          </div>
+        )}
 
         <button
           onClick={restart}

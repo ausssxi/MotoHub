@@ -5,7 +5,7 @@ import { BIKES, NPCS, AREAS, PARTS, SYNTHESIS } from './data';
    Constants
    ═══════════════════════════════════════════ */
 const IMG = '/images/warashibe/';
-const SND = '/sounds/warashibe/';
+const SND = '/audio/warashibe/';
 const SAVE_KEY = 'warashibe_save';
 const AUDIO_KEY = 'warashibe_audio';
 const COLORS = { bg: '#1a1a2e', card: '#16213e', text: '#e0e0e0', accent: '#e94560', success: '#4caf50', gold: '#ffd700' };

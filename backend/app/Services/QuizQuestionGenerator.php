@@ -51,7 +51,7 @@ class QuizQuestionGenerator
             ->get();
 
         return $models->map(function ($row) {
-            $avgMan = (int) $row->avg_price; // 万円単位
+            $avgMan = (int) round($row->avg_price / 10000); // 円→万円
             return $this->buildPriceQuestion(
                 "{$row->mfr_name} {$row->model_name}",
                 $avgMan
