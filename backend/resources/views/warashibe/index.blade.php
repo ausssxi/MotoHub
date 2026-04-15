@@ -1,6 +1,8 @@
 <x-layout>
     <x-slot:title>バイクわらしべ長者 - カブ50から始まる交換の旅 | MotoHub</x-slot:title>
-    <x-slot:metaDescription>カブ50から始まる、交換の旅。バイクを交換しながらドリームバイクを目指すブラウザゲーム。</x-slot:metaDescription>
+    <x-slot:metaDescription>蕎麦屋のゲンさんからカブ50をもらい、21人のライダーとバイクを交換してハヤブサを目指す交換パズルゲーム</x-slot:metaDescription>
+    <x-slot:ogImage>https://motohub.jp/images/warashibe/ogp.png</x-slot:ogImage>
+    <x-slot:canonical>https://motohub.jp/warashibe</x-slot:canonical>
 
     <x-slot:navigation>
         <x-navigation :showSearch="true" />

@@ -1,83 +1,63 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
-// ── Quiz Data (hardcoded sample, will be replaced by Laravel API) ──
+// ── Fallback Quiz Data (used when API is unavailable) ──
+const FALLBACK_QUESTIONS = {
+  price: [
+    { q: "ホンダ CB400SFの中古平均価格は？", choices: ["約45万円", "約58万円", "約72万円", "約85万円"], answer: 1 },
+    { q: "カワサキ Z900RSの中古平均価格は？", choices: ["約95万円", "約110万円", "約128万円", "約145万円"], answer: 2 },
+    { q: "ヤマハ YZF-R25の中古平均価格は？", choices: ["約28万円", "約38万円", "約48万円", "約58万円"], answer: 1 },
+    { q: "スズキ GSX-S1000の中古平均価格は？", choices: ["約65万円", "約78万円", "約92万円", "約105万円"], answer: 2 },
+    { q: "ホンダ PCX160の中古平均価格は？", choices: ["約22万円", "約30万円", "約38万円", "約45万円"], answer: 1 },
+    { q: "カワサキ Ninja400の中古平均価格は？", choices: ["約42万円", "約55万円", "約68万円", "約80万円"], answer: 1 },
+    { q: "ヤマハ MT-07の中古平均価格は？", choices: ["約48万円", "約58万円", "約68万円", "約78万円"], answer: 1 },
+    { q: "ホンダ レブル250の中古平均価格は？", choices: ["約38万円", "約48万円", "約58万円", "約68万円"], answer: 2 },
+    { q: "スズキ ジクサー150の中古平均価格は？", choices: ["約18万円", "約25万円", "約33万円", "約40万円"], answer: 1 },
+    { q: "カワサキ ZX-25Rの中古平均価格は？", choices: ["約55万円", "約68万円", "約78万円", "約90万円"], answer: 2 },
+  ],
+  ranking: [
+    { q: "2026年3月の中古バイク売れ筋1位は？", choices: ["PCX", "レブル250", "Z900RS", "CB400SF"], answer: 0 },
+    { q: "250ccクラスで最も売れているのは？", choices: ["Ninja250", "YZF-R25", "レブル250", "CBR250RR"], answer: 2 },
+    { q: "大型バイクで売れ筋TOP3に入らないのは？", choices: ["Z900RS", "GB350", "ハヤブサ", "CB1300SF"], answer: 3 },
+    { q: "スクーターで最も中古流通が多いのは？", choices: ["TMAX", "PCX", "フォルツァ", "マジェスティ"], answer: 1 },
+    { q: "アドベンチャー系で一番人気は？", choices: ["Vストローム650", "テネレ700", "アフリカツイン", "Vストローム250"], answer: 2 },
+    { q: "カワサキ車で最も売れているのは？", choices: ["Z900RS", "Ninja400", "ZX-6R", "W800"], answer: 0 },
+    { q: "ヤマハ車で中古流通量1位は？", choices: ["MT-09", "YZF-R25", "セロー250", "SR400"], answer: 3 },
+    { q: "レトロ系バイクで最も人気なのは？", choices: ["W800", "Z900RS", "SV650X", "XSR700"], answer: 1 },
+    { q: "原付二種で売れ筋1位は？", choices: ["アドレス125", "PCX", "Dio110", "NMAX"], answer: 1 },
+    { q: "2025年に最も値上がりした車種は？", choices: ["RZ250", "NSR250R", "TZR250", "Γ250"], answer: 1 },
+  ],
+  speed: [
+    { q: "レブル250の平均売却日数は？", choices: ["約7日", "約14日", "約21日", "約30日"], answer: 0 },
+    { q: "Z900RSの平均売却日数は？", choices: ["約5日", "約10日", "約18日", "約25日"], answer: 1 },
+    { q: "最も売却が早い価格帯は？", choices: ["〜30万円", "30〜60万円", "60〜100万円", "100万円〜"], answer: 0 },
+    { q: "ハーレー スポーツスターの平均売却日数は？", choices: ["約10日", "約20日", "約35日", "約50日"], answer: 2 },
+    { q: "大型SSの平均売却日数は？", choices: ["約12日", "約22日", "約32日", "約42日"], answer: 1 },
+    { q: "オフロード車の平均売却日数は？", choices: ["約8日", "約15日", "約25日", "約35日"], answer: 2 },
+    { q: "旧車（20年以上）の平均売却日数は？", choices: ["約15日", "約30日", "約45日", "約60日"], answer: 2 },
+    { q: "PCXの平均売却日数は？", choices: ["約5日", "約10日", "約15日", "約20日"], answer: 0 },
+    { q: "春（3〜5月）に最も売却が早い車種は？", choices: ["CB400SF", "セロー250", "PCX", "Ninja400"], answer: 2 },
+    { q: "売却日数が最も長いカテゴリは？", choices: ["ネイキッド", "SS", "アメリカン", "ビッグスクーター"], answer: 3 },
+  ],
+  region: [
+    { q: "東京都で最も人気のバイクは？", choices: ["PCX", "レブル250", "Z900RS", "CB400SF"], answer: 0 },
+    { q: "北海道で最も人気のカテゴリは？", choices: ["SS", "アドベンチャー", "ネイキッド", "スクーター"], answer: 1 },
+    { q: "大阪で中古流通量が最も多いメーカーは？", choices: ["ホンダ", "ヤマハ", "カワサキ", "スズキ"], answer: 0 },
+    { q: "沖縄で最も人気のある排気量帯は？", choices: ["〜125cc", "126〜250cc", "251〜400cc", "401cc〜"], answer: 0 },
+    { q: "愛知県で人気1位のバイクは？", choices: ["Z900RS", "Ninja400", "CB400SF", "MT-07"], answer: 0 },
+    { q: "福岡で最も売れているスクーターは？", choices: ["PCX", "NMAX", "フォルツァ", "アドレス125"], answer: 0 },
+    { q: "バイク保有台数が最も多い都道府県は？", choices: ["東京都", "愛知県", "大阪府", "神奈川県"], answer: 0 },
+    { q: "レブル250が最も売れている地域は？", choices: ["関東", "関西", "中部", "九州"], answer: 0 },
+    { q: "アドベンチャーバイクが最も人気の地域は？", choices: ["北海道", "東北", "関東", "中部"], answer: 0 },
+    { q: "冬でもバイクが売れる地域TOP1は？", choices: ["沖縄", "鹿児島", "東京", "大阪"], answer: 0 },
+  ],
+};
+
+// ── Category definitions (questions loaded from API) ──
 const CATEGORIES = [
-  {
-    id: "price",
-    label: "中古価格",
-    sub: "平均価格を当てろ！",
-    icon: "💰",
-    color: "#FF4136",
-    questions: [
-      { q: "ホンダ CB400SFの中古平均価格は？", choices: ["約45万円", "約58万円", "約72万円", "約85万円"], answer: 1 },
-      { q: "カワサキ Z900RSの中古平均価格は？", choices: ["約95万円", "約110万円", "約128万円", "約145万円"], answer: 2 },
-      { q: "ヤマハ YZF-R25の中古平均価格は？", choices: ["約28万円", "約38万円", "約48万円", "約58万円"], answer: 1 },
-      { q: "スズキ GSX-S1000の中古平均価格は？", choices: ["約65万円", "約78万円", "約92万円", "約105万円"], answer: 2 },
-      { q: "ホンダ PCX160の中古平均価格は？", choices: ["約22万円", "約30万円", "約38万円", "約45万円"], answer: 1 },
-      { q: "カワサキ Ninja400の中古平均価格は？", choices: ["約42万円", "約55万円", "約68万円", "約80万円"], answer: 1 },
-      { q: "ヤマハ MT-07の中古平均価格は？", choices: ["約48万円", "約58万円", "約68万円", "約78万円"], answer: 1 },
-      { q: "ホンダ レブル250の中古平均価格は？", choices: ["約38万円", "約48万円", "約58万円", "約68万円"], answer: 2 },
-      { q: "スズキ ジクサー150の中古平均価格は？", choices: ["約18万円", "約25万円", "約33万円", "約40万円"], answer: 1 },
-      { q: "カワサキ ZX-25Rの中古平均価格は？", choices: ["約55万円", "約68万円", "約78万円", "約90万円"], answer: 2 },
-    ],
-  },
-  {
-    id: "ranking",
-    label: "売れ筋ランキング",
-    sub: "今売れてるのは？",
-    icon: "🏆",
-    color: "#FF851B",
-    questions: [
-      { q: "2026年3月の中古バイク売れ筋1位は？", choices: ["PCX", "レブル250", "Z900RS", "CB400SF"], answer: 0 },
-      { q: "250ccクラスで最も売れているのは？", choices: ["Ninja250", "YZF-R25", "レブル250", "CBR250RR"], answer: 2 },
-      { q: "大型バイクで売れ筋TOP3に入らないのは？", choices: ["Z900RS", "GB350", "ハヤブサ", "CB1300SF"], answer: 3 },
-      { q: "スクーターで最も中古流通が多いのは？", choices: ["TMAX", "PCX", "フォルツァ", "マジェスティ"], answer: 1 },
-      { q: "アドベンチャー系で一番人気は？", choices: ["Vストローム650", "テネレ700", "アフリカツイン", "Vストローム250"], answer: 2 },
-      { q: "カワサキ車で最も売れているのは？", choices: ["Z900RS", "Ninja400", "ZX-6R", "W800"], answer: 0 },
-      { q: "ヤマハ車で中古流通量1位は？", choices: ["MT-09", "YZF-R25", "セロー250", "SR400"], answer: 3 },
-      { q: "レトロ系バイクで最も人気なのは？", choices: ["W800", "Z900RS", "SV650X", "XSR700"], answer: 1 },
-      { q: "原付二種で売れ筋1位は？", choices: ["アドレス125", "PCX", "Dio110", "NMAX"], answer: 1 },
-      { q: "2025年に最も値上がりした車種は？", choices: ["RZ250", "NSR250R", "TZR250", "Γ250"], answer: 1 },
-    ],
-  },
-  {
-    id: "speed",
-    label: "売却スピード",
-    sub: "何日で売れる？",
-    icon: "⚡",
-    color: "#2ECC40",
-    questions: [
-      { q: "レブル250の平均売却日数は？", choices: ["約7日", "約14日", "約21日", "約30日"], answer: 0 },
-      { q: "Z900RSの平均売却日数は？", choices: ["約5日", "約10日", "約18日", "約25日"], answer: 1 },
-      { q: "最も売却が早い価格帯は？", choices: ["〜30万円", "30〜60万円", "60〜100万円", "100万円〜"], answer: 0 },
-      { q: "ハーレー スポーツスターの平均売却日数は？", choices: ["約10日", "約20日", "約35日", "約50日"], answer: 2 },
-      { q: "大型SSの平均売却日数は？", choices: ["約12日", "約22日", "約32日", "約42日"], answer: 1 },
-      { q: "オフロード車の平均売却日数は？", choices: ["約8日", "約15日", "約25日", "約35日"], answer: 2 },
-      { q: "旧車（20年以上）の平均売却日数は？", choices: ["約15日", "約30日", "約45日", "約60日"], answer: 2 },
-      { q: "PCXの平均売却日数は？", choices: ["約5日", "約10日", "約15日", "約20日"], answer: 0 },
-      { q: "春（3〜5月）に最も売却が早い車種は？", choices: ["CB400SF", "セロー250", "PCX", "Ninja400"], answer: 2 },
-      { q: "売却日数が最も長いカテゴリは？", choices: ["ネイキッド", "SS", "アメリカン", "ビッグスクーター"], answer: 3 },
-    ],
-  },
-  {
-    id: "region",
-    label: "地域別人気",
-    sub: "どこで人気？",
-    icon: "📍",
-    color: "#B10DC9",
-    questions: [
-      { q: "東京都で最も人気のバイクは？", choices: ["PCX", "レブル250", "Z900RS", "CB400SF"], answer: 0 },
-      { q: "北海道で最も人気のカテゴリは？", choices: ["SS", "アドベンチャー", "ネイキッド", "スクーター"], answer: 1 },
-      { q: "大阪で中古流通量が最も多いメーカーは？", choices: ["ホンダ", "ヤマハ", "カワサキ", "スズキ"], answer: 0 },
-      { q: "沖縄で最も人気のある排気量帯は？", choices: ["〜125cc", "126〜250cc", "251〜400cc", "401cc〜"], answer: 0 },
-      { q: "愛知県で人気1位のバイクは？", choices: ["Z900RS", "Ninja400", "CB400SF", "MT-07"], answer: 0 },
-      { q: "福岡で最も売れているスクーターは？", choices: ["PCX", "NMAX", "フォルツァ", "アドレス125"], answer: 0 },
-      { q: "バイク保有台数が最も多い都道府県は？", choices: ["東京都", "愛知県", "大阪府", "神奈川県"], answer: 0 },
-      { q: "レブル250が最も売れている地域は？", choices: ["関東", "関西", "中部", "九州"], answer: 0 },
-      { q: "アドベンチャーバイクが最も人気の地域は？", choices: ["北海道", "東北", "関東", "中部"], answer: 0 },
-      { q: "冬でもバイクが売れる地域TOP1は？", choices: ["沖縄", "鹿児島", "東京", "大阪"], answer: 0 },
-    ],
-  },
+  { id: "price", label: "中古価格", sub: "平均価格を当てろ！", icon: "💰", color: "#FF4136" },
+  { id: "ranking", label: "売れ筋ランキング", sub: "今売れてるのは？", icon: "🏆", color: "#FF851B" },
+  { id: "speed", label: "売却スピード", sub: "何日で売れる？", icon: "⚡", color: "#2ECC40" },
+  { id: "region", label: "地域別人気", sub: "どこで人気？", icon: "📍", color: "#B10DC9" },
 ];
 
 const PHASES = { SELECT: 0, READY: 1, PLAY: 2, RESULT_ANS: 3, FINAL: 4 };
@@ -231,16 +211,33 @@ export default function MotoHubQuiz() {
     return { mins, secs: String(secs).padStart(2, "0"), cs: String(cs).padStart(2, "0") };
   };
 
-  const startGame = (cat) => {
+  const [loading, setLoading] = useState(false);
+
+  const startGame = async (cat) => {
     setCategory(cat);
-    const qs = shuffle(cat.questions).slice(0, Q_COUNT);
-    setQuestions(qs);
     setQIndex(0);
     setScore(0);
     setTimer(0);
     setHelpHalf(2);
     setHelpStop(4);
+    setLoading(true);
     setPhase(PHASES.READY);
+
+    let qs;
+    try {
+      const res = await fetch(`/api/quiz/questions?category=${cat.id}&count=${Q_COUNT}`);
+      if (!res.ok) throw new Error("API error");
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        qs = data;
+      } else {
+        throw new Error("Empty response");
+      }
+    } catch {
+      qs = shuffle(FALLBACK_QUESTIONS[cat.id] || []).slice(0, Q_COUNT);
+    }
+    setQuestions(qs);
+    setLoading(false);
   };
 
   const beginPlay = () => {
@@ -506,19 +503,22 @@ export default function MotoHubQuiz() {
         {/* Start button */}
         <button
           onClick={beginPlay}
+          disabled={loading}
           style={{
             padding: "18px 60px", fontSize: 22, fontWeight: 900, fontFamily: baseFont,
-            color: "#fff", border: "none", borderRadius: 50, cursor: "pointer",
+            color: "#fff", border: "none", borderRadius: 50,
+            cursor: loading ? "wait" : "pointer",
+            opacity: loading ? 0.6 : 1,
             background: `linear-gradient(135deg, ${category.color}, ${category.color}cc)`,
             boxShadow: `0 6px 30px ${category.color}55`,
             animation: "mq-pulse 2s ease-in-out infinite, mq-fadeUp 0.5s ease-out 0.4s both",
-            transition: "transform 0.15s",
+            transition: "transform 0.15s, opacity 0.3s",
             position: "relative",
           }}
-          onPointerDown={(e) => (e.currentTarget.style.transform = "scale(0.95)")}
+          onPointerDown={(e) => !loading && (e.currentTarget.style.transform = "scale(0.95)")}
           onPointerUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
         >
-          🏍️ START!
+          {loading ? "問題を準備中..." : "🏍️ START!"}
         </button>
 
         <button

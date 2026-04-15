@@ -36,3 +36,6 @@ Route::get('/shops/nearby', function (Request $request) {
 Route::post('/push/subscribe', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'subscribe']);
 Route::delete('/push/unsubscribe', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'unsubscribe']);
 Route::get('/push/subscribed-models', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'subscribedModels']);
+
+// クイズ問題API
+Route::get('/quiz/questions', [\App\Http\Controllers\Api\QuizController::class, 'questions']);
