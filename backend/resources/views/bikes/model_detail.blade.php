@@ -517,9 +517,23 @@
                                     </span>
                                     <span class="text-sm font-bold text-gray-500">万円</span>
                                 </div>
-                                <p class="text-[10px] text-gray-400 text-center">
-                                    ※市場流通価格（平均{{ $resale['market_avg'] }}万円）から独自アルゴリズムで算出。<br>実際の買取額は車両状態や時期により変動します。
+                                <p class="text-[10px] text-gray-400 text-center mb-3">
+                                    ※{{ $resale['data_count'] }}件の実売データに基づく予想です。実際の買取額は車両状態や時期により変動します。
                                 </p>
+
+                                @if(isset($resale['confidence']))
+                                <div class="flex justify-center gap-4 text-[10px] text-gray-500">
+                                    <span>信頼度:
+                                        @if($resale['confidence'] === 'high') ★★★
+                                        @elseif($resale['confidence'] === 'medium') ★★☆
+                                        @else ★☆☆
+                                        @endif
+                                    </span>
+                                    @if(isset($resale['factors']['speed_label']) && $resale['factors']['speed_label'] !== 'データ不足')
+                                    <span>{{ $resale['factors']['speed_label'] }}</span>
+                                    @endif
+                                </div>
+                                @endif
                             </div>
 
                             <div class="space-y-4">

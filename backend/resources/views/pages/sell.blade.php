@@ -56,17 +56,26 @@
                             </div>
                         </div>
 
-                        {{-- 年式選択（任意） --}}
-                        <div class="mb-8">
-                            <label class="block text-xs font-bold text-gray-500 mb-2">年式 <span class="text-gray-400 font-normal ml-1">(任意)</span></label>
-                            <div class="relative">
-                                <select id="select-year" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3.5 appearance-none">
-                                    <option value="">こだわらない / 不明</option>
-                                    @for($y = date('Y'); $y >= 1980; $y--)
-                                        <option value="{{ $y }}">{{ $y }}年</option>
-                                    @endfor
-                                </select>
-                                <i data-lucide="chevron-down" class="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
+                        {{-- 年式・走行距離 --}}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-2">年式 <span class="text-gray-400 font-normal ml-1">(任意)</span></label>
+                                <div class="relative">
+                                    <select id="select-year" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3.5 appearance-none">
+                                        <option value="">不明</option>
+                                        @for($y = date('Y'); $y >= 1980; $y--)
+                                            <option value="{{ $y }}">{{ $y }}年</option>
+                                        @endfor
+                                    </select>
+                                    <i data-lucide="chevron-down" class="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-2">走行距離 <span class="text-gray-400 font-normal ml-1">(任意)</span></label>
+                                <div class="relative">
+                                    <input type="number" id="input-mileage" min="0" max="999999" placeholder="例: 15000" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3.5">
+                                    <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none">km</span>
+                                </div>
                             </div>
                         </div>
 
@@ -97,10 +106,46 @@
                         <span class="text-xl font-bold text-gray-400 pb-2">万円</span>
                     </div>
 
-                    <p class="text-xs text-gray-400 mb-10">
-                        市場平均販売価格: <span id="result-retail">---</span>万円 から算出<br>
-                        <span id="result-note" class="text-orange-500 hidden">※指定年式のデータが少ないため、車種全体の平均を使用しています</span>
+                    <p class="text-xs text-gray-400 mb-6">
+                        <span id="result-basis-text">売却実績データから算出</span><br>
+                        <span id="result-note" class="text-orange-500 hidden">※売却実績が少ないため、出品中の平均価格から推計しています</span>
                     </p>
+
+                    {{-- 算出根拠 --}}
+                    <div id="result-details" class="hidden mb-10">
+                        <details class="text-left bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">
+                            <summary class="px-5 py-3 cursor-pointer text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors flex items-center gap-1">
+                                <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                                算出根拠を見る
+                            </summary>
+                            <div class="px-5 py-4 text-xs text-gray-600 space-y-2 border-t border-gray-100">
+                                <div class="flex justify-between">
+                                    <span>売却データ件数</span>
+                                    <span class="font-bold" id="detail-count">-</span>
+                                </div>
+                                <div class="flex justify-between" id="detail-avg-row">
+                                    <span>平均売却価格</span>
+                                    <span class="font-bold" id="detail-avg">-</span>
+                                </div>
+                                <div class="flex justify-between" id="detail-speed-row">
+                                    <span>平均売却日数</span>
+                                    <span class="font-bold" id="detail-speed">-</span>
+                                </div>
+                                <div class="flex justify-between" id="detail-mileage-row">
+                                    <span>走行距離補正</span>
+                                    <span class="font-bold" id="detail-mileage">-</span>
+                                </div>
+                                <div class="flex justify-between" id="detail-year-row">
+                                    <span>年式補正</span>
+                                    <span class="font-bold" id="detail-year">-</span>
+                                </div>
+                                <div class="flex justify-between pt-2 border-t border-gray-200">
+                                    <span>データ信頼度</span>
+                                    <span class="font-bold" id="detail-confidence">-</span>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
 
                     {{-- アフィリエイトボタン --}}
                     <div class="space-y-4 max-w-2xl mx-auto">

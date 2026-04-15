@@ -6,7 +6,7 @@ namespace App\Services\Page;
 
 use App\Repositories\Bike\ManufacturerRepository;
 use App\Repositories\Bike\BikeModelRepository;
-use App\Services\Bike\PriceStatsService;
+use App\Services\BuybackPriceCalculator;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -17,7 +17,7 @@ final class SellService
     public function __construct(
         private readonly ManufacturerRepository $manufacturerRepo,
         private readonly BikeModelRepository $modelRepo,
-        private readonly PriceStatsService $priceStatsService
+        private readonly BuybackPriceCalculator $calculator
     ) {}
 
     /**
@@ -25,33 +25,46 @@ final class SellService
      */
     public function getManufacturersForForm(): Collection
     {
-        // BikeServiceを経由せず、直接リポジトリを使う形でもOKです
         return $this->manufacturerRepo->getAllSortedById();
     }
 
     /**
      * 査定額を計算して結果を整形して返す
-     * * @param int $modelId 車種ID
-     * @param int|null $year 年式
-     * @return array
      */
-    public function calculateAssessment(int $modelId, ?int $year): array
+    public function calculateAssessment(int $modelId, ?int $year, ?int $mileage = null): array
     {
-        // 1. 車種情報の取得 (Repository経由)
         $model = $this->modelRepo->findWithManufacturer($modelId);
 
         if (!$model) {
             return ['status' => 'error', 'message' => '指定された車種が見つかりません。'];
         }
 
-        // 2. 査定額の計算 (PriceStatsService利用)
-        $result = $this->priceStatsService->estimatePurchasePrice($modelId, $year);
+        // V2: BuybackPriceCalculator を使用
+        $result = $this->calculator->calculate(
+            bikeModelId: $modelId,
+            mileage: $mileage,
+            year: $year,
+        );
 
-        // 3. 結果の整形 (コントローラーでやっていた結合処理)
+        if ($result['status'] === 'empty') {
+            return $result;
+        }
+
+        // 万円単位に変換してレスポンス（既存フロントとの互換性を保持）
+        $estimatedPrice = $result['estimated_price'];
+        $rangeMin = $result['price_range']['min'];
+        $rangeMax = $result['price_range']['max'];
+
         return array_merge($result, [
+            'purchase_min' => number_format($rangeMin / 10000),
+            'purchase_max' => number_format($rangeMax / 10000),
+            'retail_avg' => number_format(round(($result['base_sold_price'] ?: $estimatedPrice) / 10000, 1), 1),
+            'estimated_man' => number_format(round($estimatedPrice / 10000)),
             'model_name' => $model->name,
             'maker_name' => $model->manufacturer->name ?? '',
             'year' => $year,
+            'mileage' => $mileage,
+            'is_fallback' => $result['confidence'] === 'insufficient',
         ]);
     }
 }

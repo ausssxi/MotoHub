@@ -7,6 +7,7 @@ namespace App\Services\Bike;
 use App\Models\BikeModelMarketStat;
 use App\Repositories\Bike\ListingStatsRepository;
 use App\Repositories\Bike\MarketStatsRepository;
+use App\Services\BuybackPriceCalculator;
 use Illuminate\Support\Collection;
 
 final class PriceStatsService
@@ -17,8 +18,9 @@ final class PriceStatsService
     private array $runtimeCache = [];
 
     public function __construct(
-        private readonly ListingStatsRepository $listingStatsRepo, 
-        private readonly MarketStatsRepository $marketStatsRepo
+        private readonly ListingStatsRepository $listingStatsRepo,
+        private readonly MarketStatsRepository $marketStatsRepo,
+        private readonly BuybackPriceCalculator $buybackCalculator,
     ) {}
 
     /**
@@ -71,31 +73,11 @@ final class PriceStatsService
     }
 
     /**
-     * 買取相場・リセールバリューの推計データを取得
+     * 買取相場・リセールバリューの推計データを取得（V2: 実売データベース）
      */
     public function getResaleStats(int $bikeModelId): array
     {
-        $cached = $this->getMarketStat($bikeModelId);
-        
-        if ($cached && $cached->avg_price > 0) {
-            $avg = $cached->avg_price;
-            $count = $cached->listing_count;
-        } else {
-            $prices = $this->listingStatsRepo->getValidTotalPricesByModelId($bikeModelId);
-            if ($prices->isEmpty()) return [];
-            $avg = $prices->avg();
-            $count = $prices->count();
-        }
-
-        $resaleMin = floor($avg * 0.4 / 10000) * 10000;
-        $resaleMax = floor($avg * 0.65 / 10000) * 10000;
-
-        return [
-            'market_avg' => round($avg / 10000, 1),
-            'resale_min' => round($resaleMin / 10000, 1),
-            'resale_max' => round($resaleMax / 10000, 1),
-            'data_count' => (int)$count,
-        ];
+        return $this->buybackCalculator->getResaleStatsCompat($bikeModelId);
     }
 
     /**

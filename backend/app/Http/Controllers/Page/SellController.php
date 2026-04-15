@@ -35,13 +35,15 @@ class SellController extends Controller
         $validated = $request->validate([
             'bike_model_id' => 'required|integer',
             'year' => 'nullable|integer|min:1980|max:' . (date('Y') + 1),
+            'mileage' => 'nullable|integer|min:0|max:999999',
         ]);
 
         $modelId = (int)$validated['bike_model_id'];
         $year = !empty($validated['year']) ? (int)$validated['year'] : null;
+        $mileage = !empty($validated['mileage']) ? (int)$validated['mileage'] : null;
 
         // ビジネスロジックを実行
-        $result = $this->sellService->calculateAssessment($modelId, $year);
+        $result = $this->sellService->calculateAssessment($modelId, $year, $mileage);
 
         if (isset($result['status']) && $result['status'] === 'error') {
              return response()->json($result, 404);
