@@ -28,6 +28,8 @@ final class BikeModel extends Model
         'manufacturer_id',
         'category_id',
         'slug',
+        'enriched_content',
+        'content_generated_at',
     ];
 
     /**
@@ -36,6 +38,8 @@ final class BikeModel extends Model
     protected $casts = [
         'displacement' => 'integer',
         'local_image_path' => 'array',
+        'enriched_content' => 'array',
+        'content_generated_at' => 'datetime',
     ];
 
     /**

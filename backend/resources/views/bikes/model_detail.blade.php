@@ -240,48 +240,97 @@
                 {{-- メインコンテンツ --}}
                 <div class="lg:col-span-8 space-y-8">
 
-                    {{-- ★追加: 車種紹介テキスト（SEOの要） --}}
+                    {{-- 車種紹介テキスト（SEOの要） --}}
                     <div id="overview" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
                         <h2 class="text-xl font-black text-gray-900 mb-4 flex items-center gap-2">
                             <span class="bg-indigo-100 text-indigo-600 p-2 rounded-lg"><i data-lucide="info" class="w-5 h-5"></i></span>
                             {{ $model->name }}とは
                         </h2>
-                        <div class="text-sm text-gray-600 leading-relaxed space-y-3">
-                            <p>
-                                {{ $model->name }}は{{ $model->manufacturer->name }}が
-                                @if($model->displacement){{ $model->displacement }}ccクラスで@endif
-                                展開する
-                                @if($model->categoryData){{ $model->categoryData->name }}タイプの@endif
-                                バイクです。
-                                @if($model->weight)車両重量は{{ $model->weight }}kgで、@endif
-                                @if($model->seat_height)シート高{{ $model->seat_height }}mmと@endif
-                                @if($model->displacement && $model->displacement <= 125)
-                                    原付二種クラスならではの扱いやすさが魅力です。
-                                @elseif($model->displacement && $model->displacement <= 250)
-                                    車検不要の250ccクラスとして維持費の安さが魅力です。
-                                @elseif($model->displacement && $model->displacement <= 400)
-                                    普通二輪免許で乗れる400ccクラスのモデルです。
-                                @elseif($model->displacement && $model->displacement > 400)
-                                    大型バイクならではのパワフルな走りが魅力です。
-                                @endif
-                            </p>
 
-                            @if(!empty($stats) && isset($stats['avg']) && $stats['count'] > 0)
-                            <p>
-                                中古車市場では現在{{ $stats['count'] }}台が流通しており、
-                                平均価格は約{{ $stats['avg'] }}万円（{{ $stats['min'] }}万円〜{{ $stats['max'] }}万円）となっています。
-                                @if(!empty($resale) && isset($resale['resale_min']) && $resale['data_count'] > 0)
-                                    想定買取価格は{{ $resale['resale_min'] }}〜{{ $resale['resale_max'] }}万円です。
-                                @endif
-                            </p>
-                            @endif
+                        @if($model->enriched_content)
+                            {{-- AI生成コンテンツ --}}
+                            <div class="text-sm text-gray-600 leading-relaxed space-y-4">
+                                <p>{{ $model->enriched_content['introduction'] ?? '' }}</p>
 
-                            @if(isset($reviewStats) && $reviewStats->count > 0)
-                            <p>
-                                MotoHubに寄せられたオーナーレビューの平均評価は★{{ $reviewStats->avg_rating }}（{{ $reviewStats->count }}件）です。
-                            </p>
-                            @endif
-                        </div>
+                                @if(!empty($model->enriched_content['market_insight']))
+                                <div>
+                                    <h3 class="text-sm font-bold text-gray-800 mb-1 flex items-center gap-1.5">
+                                        <i data-lucide="trending-up" class="w-4 h-4 text-indigo-500"></i>
+                                        市場動向
+                                    </h3>
+                                    <p>{{ $model->enriched_content['market_insight'] }}</p>
+                                </div>
+                                @endif
+
+                                @if(!empty($model->enriched_content['target_rider']))
+                                <div>
+                                    <h3 class="text-sm font-bold text-gray-800 mb-1 flex items-center gap-1.5">
+                                        <i data-lucide="user-check" class="w-4 h-4 text-indigo-500"></i>
+                                        こんなライダーにおすすめ
+                                    </h3>
+                                    <p>{{ $model->enriched_content['target_rider'] }}</p>
+                                </div>
+                                @endif
+
+                                @if(!empty($model->enriched_content['buying_tips']))
+                                <div>
+                                    <h3 class="text-sm font-bold text-gray-800 mb-1 flex items-center gap-1.5">
+                                        <i data-lucide="search-check" class="w-4 h-4 text-indigo-500"></i>
+                                        中古で買う際のポイント
+                                    </h3>
+                                    <p>{{ $model->enriched_content['buying_tips'] }}</p>
+                                </div>
+                                @endif
+
+                                @if(!empty($model->enriched_content['rivals']))
+                                <div>
+                                    <h3 class="text-sm font-bold text-gray-800 mb-1 flex items-center gap-1.5">
+                                        <i data-lucide="git-compare" class="w-4 h-4 text-indigo-500"></i>
+                                        ライバル車種
+                                    </h3>
+                                    <p>{{ $model->enriched_content['rivals'] }}</p>
+                                </div>
+                                @endif
+                            </div>
+                        @else
+                            {{-- フォールバック: 既存の定型テンプレート --}}
+                            <div class="text-sm text-gray-600 leading-relaxed space-y-3">
+                                <p>
+                                    {{ $model->name }}は{{ $model->manufacturer->name }}が
+                                    @if($model->displacement){{ $model->displacement }}ccクラスで@endif
+                                    展開する
+                                    @if($model->categoryData){{ $model->categoryData->name }}タイプの@endif
+                                    バイクです。
+                                    @if($model->weight)車両重量は{{ $model->weight }}kgで、@endif
+                                    @if($model->seat_height)シート高{{ $model->seat_height }}mmと@endif
+                                    @if($model->displacement && $model->displacement <= 125)
+                                        原付二種クラスならではの扱いやすさが魅力です。
+                                    @elseif($model->displacement && $model->displacement <= 250)
+                                        車検不要の250ccクラスとして維持費の安さが魅力です。
+                                    @elseif($model->displacement && $model->displacement <= 400)
+                                        普通二輪免許で乗れる400ccクラスのモデルです。
+                                    @elseif($model->displacement && $model->displacement > 400)
+                                        大型バイクならではのパワフルな走りが魅力です。
+                                    @endif
+                                </p>
+
+                                @if(!empty($stats) && isset($stats['avg']) && $stats['count'] > 0)
+                                <p>
+                                    中古車市場では現在{{ $stats['count'] }}台が流通しており、
+                                    平均価格は約{{ $stats['avg'] }}万円（{{ $stats['min'] }}万円〜{{ $stats['max'] }}万円）となっています。
+                                    @if(!empty($resale) && isset($resale['resale_min']) && $resale['data_count'] > 0)
+                                        想定買取価格は{{ $resale['resale_min'] }}〜{{ $resale['resale_max'] }}万円です。
+                                    @endif
+                                </p>
+                                @endif
+
+                                @if(isset($reviewStats) && $reviewStats->count > 0)
+                                <p>
+                                    MotoHubに寄せられたオーナーレビューの平均評価は★{{ $reviewStats->avg_rating }}（{{ $reviewStats->count }}件）です。
+                                </p>
+                                @endif
+                            </div>
+                        @endif
                     </div>
 
                     {{-- 売れ筋ランキング --}}
