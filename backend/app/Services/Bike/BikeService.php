@@ -81,12 +81,17 @@ final class BikeService
     public function createReview(int $bikeModelId, array $data): Review
     {
         return $this->reviewRepo->create([
-            'bike_model_id' => $bikeModelId,
-            'nickname'      => $data['nickname'] ?: '名無しライダー',
-            'rating'        => $data['rating'],
-            'title'         => $data['title'],
-            'body'          => $data['body'],
-            'is_approved'   => true, 
+            'bike_model_id'          => $bikeModelId,
+            'nickname'               => $data['nickname'] ?: '名無しライダー',
+            'rating'                 => $data['rating'],
+            'title'                  => $data['title'],
+            'body'                   => $data['body'],
+            'rating_design'          => $data['rating_design'] ?? null,
+            'rating_engine'          => $data['rating_engine'] ?? null,
+            'rating_handling'        => $data['rating_handling'] ?? null,
+            'rating_fuel_economy'    => $data['rating_fuel_economy'] ?? null,
+            'rating_cost_performance' => $data['rating_cost_performance'] ?? null,
+            'is_approved'            => true,
         ]);
     }
 
