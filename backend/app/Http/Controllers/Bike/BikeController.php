@@ -906,11 +906,43 @@ final class BikeController extends Controller
         // ランキングデータ
         $rankingStats = app(RankingService::class)->getModelRankingStats((int)$id, $model->category_id);
 
+        // 年式分布
+        $yearDistribution = DB::table('listings')
+            ->where('bike_model_id', $model->id)
+            ->whereNotNull('model_year')
+            ->where('model_year', '>', 1980)
+            ->where('model_year', '<=', now()->year + 1)
+            ->select('model_year', DB::raw('COUNT(*) as count'))
+            ->groupBy('model_year')
+            ->orderBy('model_year', 'asc')
+            ->get();
+
+        $yearStats = [];
+        if ($yearDistribution->count() >= 3) {
+            $totalWithYear = $yearDistribution->sum('count');
+            $totalAll = DB::table('listings')->where('bike_model_id', $model->id)->count();
+            $modeRow = $yearDistribution->sortByDesc('count')->first();
+            $hasNew = DB::table('listings')
+                ->where('bike_model_id', $model->id)
+                ->where('model_year', '>=', now()->year)
+                ->where('is_sold_out', false)
+                ->exists();
+
+            $yearStats = [
+                'min'      => $yearDistribution->min('model_year'),
+                'max'      => $yearDistribution->max('model_year'),
+                'mode'     => $modeRow->model_year,
+                'has_new'  => $hasNew,
+                'coverage' => $totalAll > 0 ? round($totalWithYear / $totalAll * 100) : 0,
+            ];
+        }
+
         return view('bikes.model_detail', compact(
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'categoryReviewStats', 'relatedModels', 'similarDisplacementModels',
             'sameCategoryModels', 'activeCount', 'owners', 'similarModels', 'crossLinks',
-            'prefectureStocks', 'relatedParts', 'news', 'videos', 'rankingStats'
+            'prefectureStocks', 'relatedParts', 'news', 'videos', 'rankingStats',
+            'yearDistribution', 'yearStats'
         ));
     }
 

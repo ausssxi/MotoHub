@@ -68,6 +68,10 @@
                             p.style.display = p.id === 'tab-panel-' + tabId ? '' : 'none';
                         });
                         // Chart.js再描画
+                        if (tabId === 'overview' && typeof Chart !== 'undefined') {
+                            var yc = Chart.getChart('yearDistributionChart');
+                            if (yc) yc.resize();
+                        }
                         if (tabId === 'market' && typeof Chart !== 'undefined') {
                             var pc = Chart.getChart('priceChart');
                             var hc = Chart.getChart('historyChart');
@@ -425,6 +429,89 @@
                             </a>
                         </div>
                     </div>
+                    @endif
+
+                    {{-- 年式分布 --}}
+                    @if(!empty($yearStats) && $yearDistribution->count() >= 3)
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <h2 class="text-xl font-black text-gray-900 mb-4 flex items-center gap-2">
+                            <span class="bg-cyan-100 text-cyan-600 p-2 rounded-lg"><i data-lucide="calendar-range" class="w-5 h-5"></i></span>
+                            {{ $model->name }} の年式分布
+                        </h2>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                <div class="text-[10px] font-bold text-gray-400">流通年式</div>
+                                <div class="text-base font-black text-gray-900">{{ $yearStats['min'] }}〜{{ $yearStats['max'] }}<span class="text-xs">年</span></div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                <div class="text-[10px] font-bold text-gray-400">最多年式</div>
+                                <div class="text-base font-black text-gray-900">{{ $yearStats['mode'] }}<span class="text-xs">年</span></div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                <div class="text-[10px] font-bold text-gray-400">新車販売</div>
+                                <div class="text-base font-black {{ $yearStats['has_new'] ? 'text-green-600' : 'text-gray-400' }}">{{ $yearStats['has_new'] ? '販売中' : '終了' }}</div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                <div class="text-[10px] font-bold text-gray-400">データカバー率</div>
+                                <div class="text-base font-black text-gray-900">{{ $yearStats['coverage'] }}<span class="text-xs">%</span></div>
+                            </div>
+                        </div>
+                        <div class="relative w-full" style="height: {{ min(max($yearDistribution->count() * 18, 200), 400) }}px">
+                            <canvas id="yearDistributionChart"></canvas>
+                        </div>
+                    </div>
+                    <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        var ctx = document.getElementById('yearDistributionChart');
+                        if (!ctx) return;
+                        var distData = @json($yearDistribution);
+                        var currentYear = new Date().getFullYear();
+                        var labels = distData.map(function(d) { return d.model_year + '年'; });
+                        var values = distData.map(function(d) { return d.count; });
+                        var colors = distData.map(function(d) {
+                            return d.model_year >= currentYear ? 'rgba(34,197,94,0.7)' : 'rgba(59,130,246,0.7)';
+                        });
+                        var borderColors = distData.map(function(d) {
+                            return d.model_year >= currentYear ? 'rgba(34,197,94,1)' : 'rgba(59,130,246,1)';
+                        });
+                        new Chart(ctx, {
+                            type: 'bar',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: '台数',
+                                    data: values,
+                                    backgroundColor: colors,
+                                    borderColor: borderColors,
+                                    borderWidth: 1,
+                                    borderRadius: 3
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function(ctx) { return ctx.parsed.y + '台'; }
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    x: {
+                                        ticks: { font: { size: 10, weight: 'bold' }, maxRotation: 45, minRotation: 0 },
+                                        grid: { display: false }
+                                    },
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: { precision: 0, font: { size: 10 } }
+                                    }
+                                }
+                            }
+                        });
+                    });
+                    </script>
                     @endif
 
                     {{-- カタログスペック情報 --}}
