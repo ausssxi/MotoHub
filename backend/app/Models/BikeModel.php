@@ -30,6 +30,8 @@ final class BikeModel extends Model
         'slug',
         'enriched_content',
         'content_generated_at',
+        'model_history',
+        'history_generated_at',
     ];
 
     /**
@@ -40,6 +42,8 @@ final class BikeModel extends Model
         'local_image_path' => 'array',
         'enriched_content' => 'array',
         'content_generated_at' => 'datetime',
+        'model_history' => 'array',
+        'history_generated_at' => 'datetime',
     ];
 
     /**

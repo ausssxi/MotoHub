@@ -514,6 +514,67 @@
                     </script>
                     @endif
 
+                    {{-- モデル履歴 --}}
+                    @if($model->model_history)
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <h2 class="text-xl font-black text-gray-900 mb-4 flex items-center gap-2">
+                            <span class="bg-violet-100 text-violet-600 p-2 rounded-lg"><i data-lucide="history" class="w-5 h-5"></i></span>
+                            {{ $model->name }} のモデル履歴
+                        </h2>
+
+                        {{-- サマリー --}}
+                        <div class="flex flex-wrap gap-3 mb-5 text-sm">
+                            @if($model->model_history['first_year'] ?? null)
+                                <span class="bg-gray-50 rounded-lg px-3 py-1.5 font-bold text-gray-700">
+                                    発売: {{ $model->model_history['first_year'] }}年
+                                </span>
+                            @endif
+                            @if($model->model_history['last_year'] ?? null)
+                                <span class="bg-red-50 rounded-lg px-3 py-1.5 font-bold text-red-600">
+                                    生産終了: {{ $model->model_history['last_year'] }}年
+                                </span>
+                            @elseif($model->model_history['is_current'] ?? false)
+                                <span class="bg-green-50 rounded-lg px-3 py-1.5 font-bold text-green-600">
+                                    現行販売中
+                                </span>
+                            @endif
+                            @if($model->model_history['current_new_price_min'] ?? null)
+                                <span class="bg-blue-50 rounded-lg px-3 py-1.5 font-bold text-blue-700">
+                                    新車価格: {{ $model->model_history['current_new_price_min'] }}〜{{ $model->model_history['current_new_price_max'] }}万円
+                                </span>
+                            @endif
+                        </div>
+
+                        {{-- 世代タイムライン --}}
+                        @if(!empty($model->model_history['generations']))
+                        <div class="space-y-0">
+                            @foreach($model->model_history['generations'] as $gen)
+                            <div class="flex gap-4 items-start group">
+                                <div class="w-24 shrink-0 text-right pt-1">
+                                    <span class="text-xs font-black text-gray-500 font-mono">{{ $gen['start_year'] ?? '?' }}〜{{ $gen['end_year'] ?? '現在' }}</span>
+                                </div>
+                                <div class="flex flex-col items-center shrink-0">
+                                    <div class="w-3 h-3 rounded-full {{ $loop->last && !($gen['end_year'] ?? null) ? 'bg-green-500' : 'bg-blue-400' }} border-2 border-white shadow"></div>
+                                    @if(!$loop->last)
+                                        <div class="w-0.5 flex-1 bg-gray-200 min-h-[40px]"></div>
+                                    @endif
+                                </div>
+                                <div class="flex-1 pb-5">
+                                    <div class="text-sm font-black text-gray-800">{{ $gen['name'] ?? '' }}</div>
+                                    @if($gen['changes'] ?? null)
+                                        <div class="text-xs text-gray-500 mt-0.5 leading-relaxed">{{ $gen['changes'] }}</div>
+                                    @endif
+                                    @if($gen['new_price'] ?? null)
+                                        <div class="text-[10px] text-gray-400 mt-1 font-bold">新車価格: 約{{ $gen['new_price'] }}万円</div>
+                                    @endif
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                        @endif
+                    </div>
+                    @endif
+
                     {{-- カタログスペック情報 --}}
                     <div id="specs" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
                         <div class="flex items-center gap-2 mb-6">
