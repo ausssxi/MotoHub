@@ -1845,12 +1845,12 @@
     
     {{-- レビュー投稿モーダル --}}
     @if($listing->bike_model_id)
-    <div id="review-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 sm:p-0">
+    <div id="review-modal" class="fixed inset-0 z-[100] hidden items-start justify-center py-8 px-4 sm:px-0 overflow-y-auto">
         {{-- 背景の黒いオーバーレイ --}}
         <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onclick="closeReviewModal()"></div>
         
         {{-- モーダル本体 --}}
-        <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden transform transition scale-95 opacity-0 duration-300" id="review-modal-content">
+        <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto transform transition scale-95 opacity-0 duration-300" id="review-modal-content">
             
             <div class="p-6 sm:p-8">
                 <div class="flex justify-between items-center mb-6">
