@@ -489,6 +489,22 @@ final class BikeController extends Controller
             ];
         }
 
+        // 項目別レビュー統計（車種モデルページと同じロジック）
+        $reviewDetailedStats = ['total' => 0, 'design' => ['avg' => null], 'engine' => ['avg' => null], 'handling' => ['avg' => null], 'fuel_economy' => ['avg' => null], 'cost_performance' => ['avg' => null]];
+        if ($listing->bike_model_id) {
+            $ratingFields = ['rating_design', 'rating_engine', 'rating_handling', 'rating_fuel_economy', 'rating_cost_performance'];
+            $fieldKeys = ['design', 'engine', 'handling', 'fuel_economy', 'cost_performance'];
+            $modelAvgs = DB::table('reviews')
+                ->where('bike_model_id', $listing->bike_model_id)
+                ->selectRaw('COUNT(*) as total, ' . implode(', ', array_map(fn($f) => "ROUND(AVG($f), 1) as avg_$f", $ratingFields)))
+                ->first();
+            $reviewDetailedStats['total'] = (int) ($modelAvgs->total ?? 0);
+            foreach ($ratingFields as $i => $field) {
+                $avg = $modelAvgs->{"avg_$field"} ?? null;
+                $reviewDetailedStats[$fieldKeys[$i]] = ['avg' => $avg ? (float) $avg : null];
+            }
+        }
+
         return view('bikes.show', [
             'listing'           => $data,
             'bikeModelForUrl'   => $listing->bikeModel,
@@ -521,6 +537,7 @@ final class BikeController extends Controller
             'rankingStats'      => $rankingStats,
             'soldOutData'       => $soldOutData,
             'activeSameModel'   => $activeSameModel,
+            'reviewDetailedStats' => $reviewDetailedStats,
         ]);
     }
 

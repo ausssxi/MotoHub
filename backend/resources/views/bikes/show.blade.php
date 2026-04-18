@@ -417,6 +417,48 @@
                         </div>
                     </div>
 
+                    {{-- この車両について（車種・地域・価格帯テキスト） --}}
+                    @if(!empty($modelComment) || !empty($regionComment) || !empty($priceBandComment))
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-cyan-50 rounded-lg text-cyan-600">
+                                <i data-lucide="book-open" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">この車両について</h3>
+                        </div>
+                        <div class="space-y-4">
+                            @if(!empty($modelComment) && !($bikeModelForUrl && $bikeModelForUrl->enriched_content))
+                            {{-- enriched_contentがない場合のみ定型文を表示（enriched_content有の場合は車種紹介セクションで代替） --}}
+                            <div>
+                                <h4 class="text-sm font-black text-gray-800 mb-1 flex items-center gap-1.5">
+                                    <i data-lucide="bike" class="w-4 h-4 text-gray-400"></i>
+                                    {{ $listing->bike_model_name ?? $listing->maker ?? 'この車種' }}とは
+                                </h4>
+                                <p class="text-sm text-gray-600 leading-relaxed">{{ $modelComment }}</p>
+                            </div>
+                            @endif
+                            @if(!empty($priceBandComment))
+                            <div>
+                                <h4 class="text-sm font-black text-gray-800 mb-1 flex items-center gap-1.5">
+                                    <i data-lucide="coins" class="w-4 h-4 text-gray-400"></i>
+                                    この価格帯の特徴
+                                </h4>
+                                <p class="text-sm text-gray-600 leading-relaxed">{{ $priceBandComment }}</p>
+                            </div>
+                            @endif
+                            @if(!empty($regionComment))
+                            <div>
+                                <h4 class="text-sm font-black text-gray-800 mb-1 flex items-center gap-1.5">
+                                    <i data-lucide="map-pin" class="w-4 h-4 text-gray-400"></i>
+                                    {{ $listing->prefecture ?? 'この地域' }}のツーリング情報
+                                </h4>
+                                <p class="text-sm text-gray-600 leading-relaxed">{{ $regionComment }}</p>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
+
                     {{-- カタログスペック情報 --}}
                     @if(!empty(array_filter($listing->specs)))
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mt-8">
@@ -453,6 +495,56 @@
                                 @endif
                             @endforeach
                         </div>
+                    </div>
+                    @endif
+
+                    {{-- 車種紹介（enriched_content） --}}
+                    @if($bikeModelForUrl && $bikeModelForUrl->enriched_content && !empty($bikeModelForUrl->enriched_content['introduction']))
+                    <div class="bg-blue-50 rounded-3xl border border-blue-100 p-6 sm:p-8">
+                        <h3 class="text-lg font-black text-gray-900 mb-3">
+                            @if($bikeModelForUrl->manufacturer && $bikeModelForUrl->slug)
+                            <a href="{{ route('bikes.model_detail', ['mfrSlug' => $bikeModelForUrl->manufacturer->slug, 'modelSlug' => $bikeModelForUrl->slug]) }}"
+                               class="text-blue-600 hover:underline">
+                                {{ $bikeModelForUrl->name }}について
+                            </a>
+                            @else
+                                {{ $bikeModelForUrl->name }}について
+                            @endif
+                        </h3>
+                        <p class="text-sm text-gray-700 leading-relaxed">{{ $bikeModelForUrl->enriched_content['introduction'] }}</p>
+                        @if(isset($bikeModelForUrl->enriched_content['target_rider']))
+                        <p class="text-sm text-gray-600 mt-3">
+                            <span class="font-black">おすすめ:</span> {{ $bikeModelForUrl->enriched_content['target_rider'] }}
+                        </p>
+                        @endif
+                        @if($bikeModelForUrl->manufacturer && $bikeModelForUrl->slug)
+                        <a href="{{ route('bikes.model_detail', ['mfrSlug' => $bikeModelForUrl->manufacturer->slug, 'modelSlug' => $bikeModelForUrl->slug]) }}"
+                           class="text-sm text-blue-600 hover:underline mt-3 inline-flex items-center gap-1 font-bold">
+                            {{ $bikeModelForUrl->name }}の詳細を見る
+                            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                        </a>
+                        @endif
+                    </div>
+                    @endif
+
+                    {{-- モデル履歴サマリー --}}
+                    @if($bikeModelForUrl && $bikeModelForUrl->model_history)
+                    <div class="flex flex-wrap gap-3 text-sm">
+                        @if($bikeModelForUrl->model_history['first_year'] ?? null)
+                        <span class="bg-gray-100 px-3 py-1.5 rounded-full font-bold text-gray-700">
+                            発売: {{ $bikeModelForUrl->model_history['first_year'] }}年〜
+                        </span>
+                        @endif
+                        @if($bikeModelForUrl->model_history['is_current'] ?? false)
+                        <span class="bg-green-100 text-green-700 px-3 py-1.5 rounded-full font-bold">現行販売中</span>
+                        @else
+                        <span class="bg-red-100 text-red-700 px-3 py-1.5 rounded-full font-bold">生産終了</span>
+                        @endif
+                        @if($bikeModelForUrl->model_history['current_new_price_min'] ?? null)
+                        <span class="bg-gray-100 px-3 py-1.5 rounded-full font-bold text-gray-700">
+                            新車価格: {{ $bikeModelForUrl->model_history['current_new_price_min'] }}〜{{ $bikeModelForUrl->model_history['current_new_price_max'] }}万円
+                        </span>
+                        @endif
                     </div>
                     @endif
 
@@ -512,25 +604,6 @@
                                     <p class="text-xs text-gray-500 leading-relaxed">{{ $mt['desc'] }}</p>
                                 </div>
                             </div>
-                            @endforeach
-                        </div>
-                    </div>
-                    @endif
-
-                    {{-- 施策B: カテゴリ×排気量帯の特徴テキスト --}}
-                    @if(!empty($bikeHighlight))
-                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
-                        <div class="flex items-center gap-2 mb-4">
-                            <div class="p-2 bg-emerald-50 rounded-lg text-emerald-600">
-                                <i data-lucide="info" class="w-5 h-5"></i>
-                            </div>
-                            <h3 class="text-lg font-black text-gray-900">{{ $listing->category ?? 'バイク' }}・{{ $bikeModelForUrl?->displacement ?? '?' }}ccクラスの特徴</h3>
-                        </div>
-                        <div class="space-y-2">
-                            @foreach(explode("\n", $bikeHighlight) as $line)
-                                @if(trim($line))
-                                <p class="text-sm text-gray-600 leading-relaxed">{{ $line }}</p>
-                                @endif
                             @endforeach
                         </div>
                     </div>
@@ -652,7 +725,7 @@
                     </div>
                     @endif
 
-                    {{-- 相場分析チャート --}}
+                    {{-- この車両の価格分析（統合セクション） --}}
                     @if($listing->model_year && is_numeric($listing->total_price))
                     <div id="price-stats-container"
                          data-model-id="{{ $listing->bike_model_id ?? '' }}"
@@ -663,11 +736,83 @@
                             <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
                                 <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
                             </div>
-                            <h3 class="text-lg font-black text-gray-900">市場価格分析</h3>
+                            <h3 class="text-lg font-black text-gray-900">この車両の価格分析</h3>
                         </div>
 
+                        {{-- 相場分析テキスト（サイドバーから移動） --}}
+                        @if(isset($stats['avg']) && $stats['avg'] > 0 && is_numeric($listing->total_price) && ($stats['count'] ?? 0) > 1)
+                        @php
+                            $pMan = (float) $listing->total_price;
+                            $avg = $stats['avg'];
+                            $diffAbs = abs($stats['diff']);
+                            $diffPct = $avg > 0 ? (int) round($diffAbs / $avg * 100) : 0;
+                            $count = $stats['count'];
+                            $bikeName = $listing->name;
+                            $isCheaper = $stats['diff'] < 0;
+                        @endphp
+                        <div class="mb-6 rounded-2xl p-4 text-xs leading-relaxed font-bold {{ $isCheaper ? 'bg-blue-50 text-blue-800 border border-blue-100' : 'bg-gray-50 text-gray-700 border border-gray-200' }}">
+                            <div class="flex items-start gap-2">
+                                <i data-lucide="{{ $isCheaper ? 'badge-check' : 'info' }}" class="w-4 h-4 mt-0.5 flex-shrink-0 {{ $isCheaper ? 'text-blue-500' : 'text-gray-400' }}"></i>
+                                <p>
+                                    この{{ $bikeName }}は支払総額<strong>{{ $pMan }}万円</strong>で、同車種の相場平均<strong>{{ $avg }}万円</strong>より
+                                    @if($isCheaper)
+                                        約<strong>{{ $diffAbs }}万円（{{ $diffPct }}%）お得</strong>です。
+                                        @if($pricePercentile !== null && $pricePercentile <= 30)
+                                            現在流通中の{{ $count }}台中、価格の安さは<strong>上位{{ $pricePercentile > 0 ? $pricePercentile : 1 }}%</strong>に入ります。
+                                        @endif
+                                    @else
+                                        約<strong>{{ $diffAbs }}万円高め</strong>です。走行距離の少なさやコンディションを考慮すると妥当な価格帯です。
+                                    @endif
+                                </p>
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- 市場ポジション分析（サイドバーから移動） --}}
+                        @if(!empty($marketPosition) && !empty($marketPosition['items']))
+                        <div class="mb-6 rounded-2xl border border-gray-200 overflow-hidden">
+                            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-xs font-black text-gray-800 flex items-center gap-1.5">
+                                        <i data-lucide="bar-chart-3" class="w-3.5 h-3.5 text-blue-500"></i>
+                                        市場ポジション
+                                    </h4>
+                                    <span class="text-[10px] font-bold text-gray-400">同車種{{ $marketPosition['count'] }}台と比較</span>
+                                </div>
+                            </div>
+                            <div class="divide-y divide-gray-100">
+                                @foreach($marketPosition['items'] as $mp)
+                                <div class="flex items-center justify-between px-4 py-3 bg-white">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm">{!! $mp['icon'] !!}</span>
+                                        <span class="text-xs font-bold text-gray-600">{{ $mp['title'] }}</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-xs font-black {{ $mp['rank'] === 'good' ? 'text-green-600' : ($mp['rank'] === 'caution' ? 'text-orange-500' : 'text-gray-700') }}">
+                                            {{ $mp['label'] }}
+                                        </span>
+                                        <div class="text-[10px] text-gray-400 font-bold">
+                                            {{ $mp['value'] }} / 平均{{ $mp['avg'] }}
+                                        </div>
+                                    </div>
+                                </div>
+                                @endforeach
+                            </div>
+                            @php
+                                $overallLabel = match($marketPosition['overall']) {
+                                    'excellent' => ['label' => 'とてもお買い得', 'color' => 'bg-green-50 text-green-700 border-green-200'],
+                                    'good' => ['label' => 'お買い得', 'color' => 'bg-blue-50 text-blue-700 border-blue-200'],
+                                    default => ['label' => '標準的', 'color' => 'bg-gray-50 text-gray-600 border-gray-200'],
+                                };
+                            @endphp
+                            <div class="px-4 py-3 {{ $overallLabel['color'] }} border-t text-center">
+                                <span class="text-xs font-black">総合評価: {{ $overallLabel['label'] }}</span>
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- 価格分布グラフ --}}
                         @if(isset($stats) && ($stats['count'] ?? 0) > 0)
-                        {{-- サーバーサイドで直接レンダリング（JSの読み込み連鎖に依存しない） --}}
                         <div id="price-stats-content">
                             <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-8">
                                 <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
@@ -716,86 +861,63 @@
                         $faqItems = [];
                         $faqBikeName = $listing->name;
                         $faqCc = $bikeModelForUrl?->displacement ? (int) $bikeModelForUrl->displacement : null;
+                        $faqModelName = $bikeModelForUrl?->name ?? $faqBikeName;
+                        $ec = $bikeModelForUrl?->enriched_content;
 
-                        // 排気量 & 免許区分
-                        if ($faqCc) {
-                            if ($faqCc <= 50) { $licenseType = '原付免許（または普通自動車免許）'; }
-                            elseif ($faqCc <= 125) { $licenseType = '小型限定普通二輪免許以上'; }
-                            elseif ($faqCc <= 400) { $licenseType = '普通二輪免許以上'; }
-                            else { $licenseType = '大型二輪免許'; }
-                            $faqItems[] = [
-                                'q' => "{$faqBikeName}の排気量は？",
-                                'a' => "{$faqCc}ccです。運転には{$licenseType}が必要です。",
-                            ];
-                        }
-
-                        // 燃費
-                        if (!empty($listing->specs['fuel_consumption'])) {
-                            $faqItems[] = [
-                                'q' => "{$faqBikeName}の燃費は？",
-                                'a' => "カタログ値で{$listing->specs['fuel_consumption']}km/Lです。実燃費は走行環境により異なります。",
-                            ];
-                        }
-
-                        // 維持費（維持費セクションと同じ計算を再利用）
-                        if ($faqCc) {
-                            if ($faqCc <= 50) { $faqMaint = 23325; }
-                            elseif ($faqCc <= 90) { $faqMaint = 26325; }
-                            elseif ($faqCc <= 125) { $faqMaint = 31725; }
-                            elseif ($faqCc <= 250) { $faqMaint = 39710; }
-                            else { $faqMaint = 70635; }
-                            $faqItems[] = [
-                                'q' => "{$faqBikeName}の維持費はいくら？",
-                                'a' => "年間約" . number_format($faqMaint) . "円が目安です（軽自動車税・自賠責保険・車検・任意保険含む）。駐車場代やガソリン代は別途かかります。",
-                            ];
-                        }
-
-                        // 初心者向けか
-                        if ($faqCc) {
-                            if ($faqCc <= 125) {
-                                $beginnerAnswer = "軽量・コンパクトで取り回しやすく、初心者にもおすすめの排気量帯です。車検も不要で維持費を抑えられます。";
-                            } elseif ($faqCc <= 250) {
-                                $beginnerAnswer = "車検不要で維持費が比較的安く、高速道路も走れるため初心者にもバランスの良い排気量帯です。";
-                            } elseif ($faqCc <= 400) {
-                                $beginnerAnswer = "普通二輪免許で乗れる最大排気量です。パワーに余裕があるため、ある程度の運転経験があると安心です。";
-                            } else {
-                                $beginnerAnswer = "大型二輪免許が必要です。車体が重くパワーもあるため、中型バイクで経験を積んでからのステップアップがおすすめです。";
+                        if ($ec && (!empty($ec['introduction']) || !empty($ec['target_rider']) || !empty($ec['buying_tips']) || !empty($ec['rivals']))) {
+                            // enriched_contentがある場合：高品質FAQ 4問のみ
+                            if (!empty($ec['introduction'])) {
+                                $faqItems[] = ['q' => "{$faqModelName}はどんなバイクですか？", 'a' => $ec['introduction']];
                             }
-                            $faqItems[] = [
-                                'q' => "{$faqBikeName}は初心者でも乗れる？",
-                                'a' => $beginnerAnswer,
-                            ];
-                        }
-
-                        // 相場
-                        if (isset($stats['avg']) && $stats['avg'] > 0 && ($stats['count'] ?? 0) > 1) {
-                            $faqItems[] = [
-                                'q' => "{$faqBikeName}の相場はいくら？",
-                                'a' => "現在の中古相場平均は{$stats['avg']}万円です（流通中{$stats['count']}台のデータより）。最安値は{$stats['min']}万円、最高値は{$stats['max']}万円です。",
-                            ];
-                        }
-
-                        // 車検FAQ（排気量帯別）
-                        if ($faqCc) {
-                            if ($faqCc <= 250) {
-                                $faqItems[] = [
-                                    'q' => "{$faqBikeName}に車検は必要？",
-                                    'a' => "250cc以下のため車検は不要です。ただし自賠責保険の加入と定期的な点検整備は必要です。",
-                                ];
-                            } else {
-                                $faqItems[] = [
-                                    'q' => "{$faqBikeName}に車検は必要？",
-                                    'a' => "251cc以上のため車検が必要です（新車は3年、以降2年ごと）。費用は法定費用+整備費で約5〜10万円が目安です。",
-                                ];
+                            if (!empty($ec['target_rider'])) {
+                                $faqItems[] = ['q' => "{$faqModelName}はどんな人におすすめですか？", 'a' => $ec['target_rider']];
                             }
-                        }
-
-                        // 総額FAQ
-                        if ($listing->total_price && is_numeric($listing->total_price)) {
-                            $faqItems[] = [
-                                'q' => "この{$faqBikeName}の総額はいくら？",
-                                'a' => "支払総額は{$listing->total_price}万円です。車両本体価格に諸費用（登録費用・自賠責保険・納車整備費等）が含まれています。",
-                            ];
+                            if (!empty($ec['buying_tips'])) {
+                                $faqItems[] = ['q' => "{$faqModelName}を中古で買う際のポイントは？", 'a' => $ec['buying_tips']];
+                            }
+                            if (!empty($ec['rivals'])) {
+                                $faqItems[] = ['q' => "{$faqModelName}のライバル車種は？", 'a' => $ec['rivals']];
+                            }
+                        } else {
+                            // enriched_contentがない場合：テンプレートFAQにフォールバック
+                            if ($faqCc) {
+                                if ($faqCc <= 50) { $licenseType = '原付免許（または普通自動車免許）'; }
+                                elseif ($faqCc <= 125) { $licenseType = '小型限定普通二輪免許以上'; }
+                                elseif ($faqCc <= 400) { $licenseType = '普通二輪免許以上'; }
+                                else { $licenseType = '大型二輪免許'; }
+                                $faqItems[] = ['q' => "{$faqBikeName}の排気量は？", 'a' => "{$faqCc}ccです。運転には{$licenseType}が必要です。"];
+                            }
+                            if (!empty($listing->specs['fuel_consumption'])) {
+                                $faqItems[] = ['q' => "{$faqBikeName}の燃費は？", 'a' => "カタログ値で{$listing->specs['fuel_consumption']}km/Lです。実燃費は走行環境により異なります。"];
+                            }
+                            if ($faqCc) {
+                                if ($faqCc <= 50) { $faqMaint = 23325; }
+                                elseif ($faqCc <= 90) { $faqMaint = 26325; }
+                                elseif ($faqCc <= 125) { $faqMaint = 31725; }
+                                elseif ($faqCc <= 250) { $faqMaint = 39710; }
+                                else { $faqMaint = 70635; }
+                                $faqItems[] = ['q' => "{$faqBikeName}の維持費はいくら？", 'a' => "年間約" . number_format($faqMaint) . "円が目安です（軽自動車税・自賠責保険・車検・任意保険含む）。駐車場代やガソリン代は別途かかります。"];
+                            }
+                            if ($faqCc) {
+                                if ($faqCc <= 125) { $beginnerAnswer = "軽量・コンパクトで取り回しやすく、初心者にもおすすめの排気量帯です。車検も不要で維持費を抑えられます。"; }
+                                elseif ($faqCc <= 250) { $beginnerAnswer = "車検不要で維持費が比較的安く、高速道路も走れるため初心者にもバランスの良い排気量帯です。"; }
+                                elseif ($faqCc <= 400) { $beginnerAnswer = "普通二輪免許で乗れる最大排気量です。パワーに余裕があるため、ある程度の運転経験があると安心です。"; }
+                                else { $beginnerAnswer = "大型二輪免許が必要です。車体が重くパワーもあるため、中型バイクで経験を積んでからのステップアップがおすすめです。"; }
+                                $faqItems[] = ['q' => "{$faqBikeName}は初心者でも乗れる？", 'a' => $beginnerAnswer];
+                            }
+                            if (isset($stats['avg']) && $stats['avg'] > 0 && ($stats['count'] ?? 0) > 1) {
+                                $faqItems[] = ['q' => "{$faqBikeName}の相場はいくら？", 'a' => "現在の中古相場平均は{$stats['avg']}万円です（流通中{$stats['count']}台のデータより）。最安値は{$stats['min']}万円、最高値は{$stats['max']}万円です。"];
+                            }
+                            if ($faqCc) {
+                                if ($faqCc <= 250) {
+                                    $faqItems[] = ['q' => "{$faqBikeName}に車検は必要？", 'a' => "250cc以下のため車検は不要です。ただし自賠責保険の加入と定期的な点検整備は必要です。"];
+                                } else {
+                                    $faqItems[] = ['q' => "{$faqBikeName}に車検は必要？", 'a' => "251cc以上のため車検が必要です（新車は3年、以降2年ごと）。費用は法定費用+整備費で約5〜10万円が目安です。"];
+                                }
+                            }
+                            if ($listing->total_price && is_numeric($listing->total_price)) {
+                                $faqItems[] = ['q' => "この{$faqBikeName}の総額はいくら？", 'a' => "支払総額は{$listing->total_price}万円です。車両本体価格に諸費用（登録費用・自賠責保険・納車整備費等）が含まれています。"];
+                            }
                         }
                     @endphp
 
@@ -888,47 +1010,6 @@
                     </div>
                     @endif
 
-                    {{-- 施策F/G/H: 車種・地域・価格帯テキスト --}}
-                    @if(!empty($modelComment) || !empty($regionComment) || !empty($priceBandComment))
-                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
-                        <div class="flex items-center gap-2 mb-6">
-                            <div class="p-2 bg-cyan-50 rounded-lg text-cyan-600">
-                                <i data-lucide="book-open" class="w-5 h-5"></i>
-                            </div>
-                            <h3 class="text-lg font-black text-gray-900">この車両について</h3>
-                        </div>
-                        <div class="space-y-4">
-                            @if(!empty($modelComment))
-                            <div>
-                                <h4 class="text-sm font-black text-gray-800 mb-1 flex items-center gap-1.5">
-                                    <i data-lucide="bike" class="w-4 h-4 text-gray-400"></i>
-                                    {{ $listing->bike_model_name ?? $listing->maker ?? 'この車種' }}とは
-                                </h4>
-                                <p class="text-sm text-gray-600 leading-relaxed">{{ $modelComment }}</p>
-                            </div>
-                            @endif
-                            @if(!empty($priceBandComment))
-                            <div>
-                                <h4 class="text-sm font-black text-gray-800 mb-1 flex items-center gap-1.5">
-                                    <i data-lucide="coins" class="w-4 h-4 text-gray-400"></i>
-                                    この価格帯の特徴
-                                </h4>
-                                <p class="text-sm text-gray-600 leading-relaxed">{{ $priceBandComment }}</p>
-                            </div>
-                            @endif
-                            @if(!empty($regionComment))
-                            <div>
-                                <h4 class="text-sm font-black text-gray-800 mb-1 flex items-center gap-1.5">
-                                    <i data-lucide="map-pin" class="w-4 h-4 text-gray-400"></i>
-                                    {{ $listing->prefecture ?? 'この地域' }}のツーリング情報
-                                </h4>
-                                <p class="text-sm text-gray-600 leading-relaxed">{{ $regionComment }}</p>
-                            </div>
-                            @endif
-                        </div>
-                    </div>
-                    @endif
-
                     {{-- 施策E: 関連ブログ記事 --}}
                     @if(isset($relatedBlogPosts) && $relatedBlogPosts->isNotEmpty())
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
@@ -949,6 +1030,28 @@
                             </a>
                             @endforeach
                         </div>
+                    </div>
+                    @endif
+
+                    {{-- レビューサマリー --}}
+                    @if($bikeModelForUrl && isset($reviewDetailedStats) && $reviewDetailedStats['total'] > 0)
+                    <div class="bg-gray-50 rounded-2xl p-4 text-sm flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span class="font-black text-gray-800">{{ $bikeModelForUrl->name }}のオーナー評価:</span>
+                        @if($reviewDetailedStats['design']['avg'])
+                            <span class="text-gray-600">デザイン<span class="text-yellow-500">★</span>{{ number_format($reviewDetailedStats['design']['avg'], 1) }}</span>
+                        @endif
+                        @if($reviewDetailedStats['engine']['avg'])
+                            <span class="text-gray-400">|</span>
+                            <span class="text-gray-600">エンジン<span class="text-yellow-500">★</span>{{ number_format($reviewDetailedStats['engine']['avg'], 1) }}</span>
+                        @endif
+                        @if($reviewDetailedStats['handling']['avg'])
+                            <span class="text-gray-400">|</span>
+                            <span class="text-gray-600">取り回し<span class="text-yellow-500">★</span>{{ number_format($reviewDetailedStats['handling']['avg'], 1) }}</span>
+                        @endif
+                        @if($bikeModelForUrl->manufacturer && $bikeModelForUrl->slug)
+                        <a href="{{ route('bikes.model_detail', ['mfrSlug' => $bikeModelForUrl->manufacturer->slug, 'modelSlug' => $bikeModelForUrl->slug]) }}#community"
+                           class="text-blue-600 hover:underline font-bold ml-auto">詳細を見る</a>
+                        @endif
                     </div>
                     @endif
 
@@ -974,6 +1077,39 @@
                                 @endif
                             </div>
                         </div>
+
+                        {{-- 車種モデルのレビュー統計プレビュー --}}
+                        @if($bikeModelForUrl && isset($reviewDetailedStats) && $reviewDetailedStats['total'] > 0)
+                        <div class="bg-gray-50 rounded-2xl p-4 mb-4 border border-gray-100">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-black text-gray-800">{{ $bikeModelForUrl->name }}のオーナー評価</span>
+                                <span class="text-xs font-bold text-gray-400">{{ $reviewDetailedStats['total'] }}件のレビュー</span>
+                            </div>
+                            <div class="flex flex-wrap gap-3 text-xs font-bold text-gray-600 mb-3">
+                                @if($reviewDetailedStats['design']['avg'])
+                                    <span>デザイン <span class="text-yellow-500">★</span>{{ number_format($reviewDetailedStats['design']['avg'], 1) }}</span>
+                                @endif
+                                @if($reviewDetailedStats['engine']['avg'])
+                                    <span>エンジン <span class="text-yellow-500">★</span>{{ number_format($reviewDetailedStats['engine']['avg'], 1) }}</span>
+                                @endif
+                                @if($reviewDetailedStats['handling']['avg'])
+                                    <span>取り回し <span class="text-yellow-500">★</span>{{ number_format($reviewDetailedStats['handling']['avg'], 1) }}</span>
+                                @endif
+                                @if($reviewDetailedStats['fuel_economy']['avg'])
+                                    <span>燃費 <span class="text-yellow-500">★</span>{{ number_format($reviewDetailedStats['fuel_economy']['avg'], 1) }}</span>
+                                @endif
+                                @if($reviewDetailedStats['cost_performance']['avg'])
+                                    <span>コスパ <span class="text-yellow-500">★</span>{{ number_format($reviewDetailedStats['cost_performance']['avg'], 1) }}</span>
+                                @endif
+                            </div>
+                            @if($bikeModelForUrl->manufacturer && $bikeModelForUrl->slug)
+                            <a href="{{ route('bikes.model_detail', ['mfrSlug' => $bikeModelForUrl->manufacturer->slug, 'modelSlug' => $bikeModelForUrl->slug]) }}#community"
+                               class="text-xs font-bold text-blue-600 hover:underline inline-flex items-center gap-1">
+                                レビュー・評価の詳細を見る <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                            </a>
+                            @endif
+                        </div>
+                        @endif
 
                         <div class="space-y-4" id="review-list-container">
                             @forelse($reviews as $review)
@@ -1218,78 +1354,6 @@
                                 </div>
                                 @endif
                             </div>
-
-                            {{-- 相場分析テキスト --}}
-                            @if(isset($stats['avg']) && $stats['avg'] > 0 && is_numeric($listing->total_price) && ($stats['count'] ?? 0) > 1)
-                            @php
-                                $pMan = (float) $listing->total_price;
-                                $avg = $stats['avg'];
-                                $diffAbs = abs($stats['diff']);
-                                $diffPct = $avg > 0 ? (int) round($diffAbs / $avg * 100) : 0;
-                                $count = $stats['count'];
-                                $bikeName = $listing->name;
-                                $isCheaper = $stats['diff'] < 0;
-                            @endphp
-                            <div class="mb-4 rounded-2xl p-4 text-xs leading-relaxed font-bold {{ $isCheaper ? 'bg-blue-50 text-blue-800 border border-blue-100' : 'bg-gray-50 text-gray-700 border border-gray-200' }}">
-                                <div class="flex items-start gap-2">
-                                    <i data-lucide="{{ $isCheaper ? 'badge-check' : 'info' }}" class="w-4 h-4 mt-0.5 flex-shrink-0 {{ $isCheaper ? 'text-blue-500' : 'text-gray-400' }}"></i>
-                                    <p>
-                                        この{{ $bikeName }}は支払総額<strong>{{ $pMan }}万円</strong>で、同車種の相場平均<strong>{{ $avg }}万円</strong>より
-                                        @if($isCheaper)
-                                            約<strong>{{ $diffAbs }}万円（{{ $diffPct }}%）お得</strong>です。
-                                            @if($pricePercentile !== null && $pricePercentile <= 30)
-                                                現在流通中の{{ $count }}台中、価格の安さは<strong>上位{{ $pricePercentile > 0 ? $pricePercentile : 1 }}%</strong>に入ります。
-                                            @endif
-                                        @else
-                                            約<strong>{{ $diffAbs }}万円高め</strong>です。走行距離の少なさやコンディションを考慮すると妥当な価格帯です。
-                                        @endif
-                                    </p>
-                                </div>
-                            </div>
-                            @endif
-
-                            {{-- 市場ポジション分析 --}}
-                            @if(!empty($marketPosition) && !empty($marketPosition['items']))
-                            <div class="mb-4 rounded-2xl border border-gray-200 overflow-hidden">
-                                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                                    <div class="flex items-center justify-between">
-                                        <h4 class="text-xs font-black text-gray-800 flex items-center gap-1.5">
-                                            <i data-lucide="bar-chart-3" class="w-3.5 h-3.5 text-blue-500"></i>
-                                            市場ポジション
-                                        </h4>
-                                        <span class="text-[10px] font-bold text-gray-400">同車種{{ $marketPosition['count'] }}台と比較</span>
-                                    </div>
-                                </div>
-                                <div class="divide-y divide-gray-100">
-                                    @foreach($marketPosition['items'] as $mp)
-                                    <div class="flex items-center justify-between px-4 py-3 bg-white">
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-sm">{!! $mp['icon'] !!}</span>
-                                            <span class="text-xs font-bold text-gray-600">{{ $mp['title'] }}</span>
-                                        </div>
-                                        <div class="text-right">
-                                            <span class="text-xs font-black {{ $mp['rank'] === 'good' ? 'text-green-600' : ($mp['rank'] === 'caution' ? 'text-orange-500' : 'text-gray-700') }}">
-                                                {{ $mp['label'] }}
-                                            </span>
-                                            <div class="text-[10px] text-gray-400 font-bold">
-                                                {{ $mp['value'] }} / 平均{{ $mp['avg'] }}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    @endforeach
-                                </div>
-                                @php
-                                    $overallLabel = match($marketPosition['overall']) {
-                                        'excellent' => ['label' => 'とてもお買い得', 'color' => 'bg-green-50 text-green-700 border-green-200'],
-                                        'good' => ['label' => 'お買い得', 'color' => 'bg-blue-50 text-blue-700 border-blue-200'],
-                                        default => ['label' => '標準的', 'color' => 'bg-gray-50 text-gray-600 border-gray-200'],
-                                    };
-                                @endphp
-                                <div class="px-4 py-3 {{ $overallLabel['color'] }} border-t text-center">
-                                    <span class="text-xs font-black">総合評価: {{ $overallLabel['label'] }}</span>
-                                </div>
-                            </div>
-                            @endif
 
                             {{-- この車種の販売データ --}}
                             @if(!empty($rankingStats))
@@ -1719,9 +1783,10 @@
     </div>
 
     {{-- スマホ用固定フッターCV（お気に入り数連動） --}}
+    {{-- bottom-navの高さ(60px)の上に配置 --}}
     @if($listing->is_sold_out)
     {{-- 売り切れ時: 同車種の検索へ誘導 --}}
-    <div class="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 p-3 sm:p-4 lg:hidden z-50 safe-area-bottom shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+    <div class="fixed bottom-[60px] md:bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 p-3 sm:p-4 lg:hidden z-50 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
         <div class="flex gap-2 sm:gap-3 items-center">
             <div class="flex-1 min-w-0">
                 <p class="text-xs font-bold text-gray-500">この車両は販売終了しました</p>
@@ -1733,10 +1798,9 @@
             </a>
         </div>
     @else
-    <div class="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 p-3 sm:p-4 lg:hidden z-50 safe-area-bottom shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+    <div id="mobile-price-bar" class="fixed bottom-[60px] md:bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 p-3 sm:p-4 lg:hidden z-50 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
         <div class="flex gap-2 sm:gap-3 items-center">
 
-            {{-- ★修正: 中のアイコンとテキストをクリック無視にし、ボタン本体が確実にイベントを拾うように --}}
             <button class="wishlist-btn shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-xl border border-gray-200 flex flex-col items-center justify-center text-gray-400 bg-gray-50 shadow-sm transition-colors" data-id="{{ $listing->id }}">
                 <i data-lucide="heart" class="w-5 h-5 mb-0.5 pointer-events-none"></i>
                 <span class="text-[7px] sm:text-[8px] font-black leading-none tracking-tighter pointer-events-none">アラート</span>
@@ -1751,7 +1815,11 @@
                         </span>
                     @endif
                 </div>
+                @if($listing->total_price && is_numeric($listing->total_price))
                 <div class="text-lg sm:text-xl font-black text-red-500 leading-none truncate">{{ $listing->total_price }}<span class="text-[10px] sm:text-xs text-gray-500 ml-0.5">万円</span></div>
+                @elseif($listing->price && $listing->price !== '-')
+                <div class="text-lg sm:text-xl font-black text-red-500 leading-none truncate">{{ $listing->price }}<span class="text-[10px] sm:text-xs text-gray-500 ml-0.5">万円</span></div>
+                @endif
             </div>
 
             <a href="{{ $listing->url }}" target="_blank" class="w-36 sm:w-48 bg-red-600 text-white font-black flex flex-col items-center justify-center rounded-xl shadow-lg shadow-red-500/30 py-2 sm:py-2.5 active:scale-95 transition-transform shrink-0">
@@ -1824,6 +1892,34 @@
                                 @endfor
                             </div>
                         </div>
+                    </div>
+
+                    {{-- 項目別評価（任意） --}}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        @php
+                            $ratingItems = [
+                                'rating_design' => 'デザイン',
+                                'rating_engine' => 'エンジン性能',
+                                'rating_handling' => '取り回し',
+                                'rating_fuel_economy' => '燃費',
+                                'rating_cost_performance' => 'コスパ',
+                            ];
+                        @endphp
+                        @foreach($ratingItems as $fieldName => $fieldLabel)
+                        <div>
+                            <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{{ $fieldLabel }} <span class="text-gray-300">（任意）</span></label>
+                            <input type="hidden" name="{{ $fieldName }}" id="{{ $fieldName }}-value" value="">
+                            <div class="flex items-center gap-1">
+                                @for($s = 1; $s <= 5; $s++)
+                                <button type="button" class="detail-star-btn p-0.5 transition-transform hover:scale-110 focus:outline-none text-gray-200" data-field="{{ $fieldName }}" data-val="{{ $s }}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 transition-colors" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+                                    </svg>
+                                </button>
+                                @endfor
+                            </div>
+                        </div>
+                        @endforeach
                     </div>
 
                     <div>
