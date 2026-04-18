@@ -744,7 +744,12 @@ final class BikeController extends Controller
                     'body'       => $validated['body'] ?? '',
                     'rating'     => $validated['rating'] ?? 5,
                     'nickname'   => $validated['nickname'] ?? '匿名ユーザー',
-                    'created_at' => now()->format('Y年m月')
+                    'created_at' => now()->format('Y年m月'),
+                    'rating_design'           => $validated['rating_design'] ?? null,
+                    'rating_engine'           => $validated['rating_engine'] ?? null,
+                    'rating_handling'         => $validated['rating_handling'] ?? null,
+                    'rating_fuel_economy'     => $validated['rating_fuel_economy'] ?? null,
+                    'rating_cost_performance' => $validated['rating_cost_performance'] ?? null,
                 ]
             ]);
         }

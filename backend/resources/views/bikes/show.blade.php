@@ -1127,6 +1127,25 @@
                                     <p class="text-xs text-gray-600 leading-relaxed line-clamp-3 mb-3">
                                         {{ $review->body }}
                                     </p>
+                                    @php
+                                        $detailRatings = [
+                                            'デザイン' => $review->rating_design,
+                                            'エンジン' => $review->rating_engine,
+                                            '取り回し' => $review->rating_handling,
+                                            '燃費' => $review->rating_fuel_economy,
+                                            'コスパ' => $review->rating_cost_performance,
+                                        ];
+                                        $hasDetail = collect($detailRatings)->filter()->isNotEmpty();
+                                    @endphp
+                                    @if($hasDetail)
+                                    <div class="flex flex-wrap gap-x-3 gap-y-1 mb-3">
+                                        @foreach($detailRatings as $label => $val)
+                                            @if($val)
+                                            <span class="text-[10px] font-bold text-gray-500">{{ $label }}<span class="text-yellow-500 ml-0.5">{{ str_repeat('★', $val) }}</span></span>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                    @endif
                                     <div class="flex justify-between items-center text-[10px] text-gray-400 font-bold">
                                         <span class="flex items-center gap-1">
                                             <i data-lucide="user" class="w-3 h-3"></i> {{ $review->nickname ?? '匿名ユーザー' }}

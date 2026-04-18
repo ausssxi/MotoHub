@@ -48,6 +48,26 @@ function appendReviewToList(review) {
         starsHtml += `<i data-lucide="star" class="w-3.5 h-3.5 ${i <= review.rating ? 'fill-current' : 'text-gray-300'}"></i>`;
     }
 
+    // 項目別評価HTML生成
+    const detailLabels = {
+        rating_design: 'デザイン',
+        rating_engine: 'エンジン',
+        rating_handling: '取り回し',
+        rating_fuel_economy: '燃費',
+        rating_cost_performance: 'コスパ',
+    };
+    let detailHtml = '';
+    const detailItems = [];
+    for (const [key, label] of Object.entries(detailLabels)) {
+        const val = parseInt(review[key]);
+        if (val > 0) {
+            detailItems.push(`<span class="text-[10px] font-bold text-gray-500">${label}<span class="text-yellow-500 ml-0.5">${'★'.repeat(val)}</span></span>`);
+        }
+    }
+    if (detailItems.length > 0) {
+        detailHtml = `<div class="flex flex-wrap gap-x-3 gap-y-1 mb-3">${detailItems.join('')}</div>`;
+    }
+
     const html = `
         <div class="p-4 bg-yellow-50/80 border-yellow-200 rounded-2xl border transition-all animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
             <div class="flex justify-between items-start mb-2">
@@ -62,6 +82,7 @@ function appendReviewToList(review) {
             <p class="text-xs text-gray-700 leading-relaxed line-clamp-3 mb-3">
                 ${review.body}
             </p>
+            ${detailHtml}
             <div class="flex justify-between items-center text-[10px] text-gray-400 font-bold">
                 <span class="flex items-center gap-1">
                     <i data-lucide="user" class="w-3 h-3 text-gray-300"></i> ${review.nickname || '匿名ユーザー'}
@@ -242,6 +263,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (ratingInput) ratingInput.value = 5;
                         paintStars(5);
                         if (ratingLabel) ratingLabel.textContent = labels[5];
+                        // 項目別評価をリセット
+                        Object.keys(fieldValues).forEach(function(fld) {
+                            fieldValues[fld] = 0;
+                            var inp = document.getElementById(fld + '-value');
+                            if (inp) inp.value = '';
+                        });
+                        detailStars.forEach(function(s) {
+                            s.classList.remove('text-yellow-400');
+                            s.classList.add('text-gray-200');
+                            var svg = s.querySelector('svg');
+                            if (svg) svg.classList.remove('fill-current');
+                        });
                     }, 500);
                 }, 2000);
                 
