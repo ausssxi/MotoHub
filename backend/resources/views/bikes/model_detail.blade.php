@@ -46,75 +46,73 @@
                 }
             });
         </script>
-        {{-- pushSubscribe コンポーネントは push-manager.js で登録済み --}}
-        {{-- セクションナビ制御 --}}
+        {{-- タブ切り替え制御 --}}
         <script>
             (function() {
-                function initSectionNav() {
-                    var nav = document.getElementById('section-nav');
-                    var header = document.getElementById('model-header');
-                    if (!nav || !header) return;
+                function initTabs() {
+                    var tabNav = document.getElementById('tab-nav');
+                    var btns = tabNav ? tabNav.querySelectorAll('.tab-btn') : [];
+                    var panels = document.querySelectorAll('.tab-panel');
+                    if (!btns.length || !panels.length) return;
 
-                    var links = nav.querySelectorAll('.section-nav-link');
-                    var navHeight = 44;
-                    var navVisible = false;
-
-                    // セクション要素を取得
-                    var sections = [];
-                    links.forEach(function(l) {
-                        var el = document.getElementById(l.dataset.navTarget);
-                        if (el) sections.push(el);
-                    });
-
-                    // スクロールでナビ表示/非表示 + アクティブセクション更新
-                    function onScroll() {
-                        var headerBottom = header.getBoundingClientRect().bottom;
-                        var shouldShow = headerBottom < 0;
-
-                        if (shouldShow !== navVisible) {
-                            navVisible = shouldShow;
-                            nav.style.transform = shouldShow ? 'translateY(0)' : 'translateY(-100%)';
-                            nav.style.opacity = shouldShow ? '1' : '0';
+                    function switchTab(tabId) {
+                        btns.forEach(function(b) {
+                            var isActive = b.dataset.tab === tabId;
+                            b.classList.toggle('border-blue-600', isActive);
+                            b.classList.toggle('text-blue-600', isActive);
+                            b.classList.toggle('font-bold', isActive);
+                            b.classList.toggle('border-transparent', !isActive);
+                            b.classList.toggle('text-gray-500', !isActive);
+                        });
+                        panels.forEach(function(p) {
+                            p.style.display = p.id === 'tab-panel-' + tabId ? '' : 'none';
+                        });
+                        // Chart.js再描画
+                        if (tabId === 'market' && typeof Chart !== 'undefined') {
+                            var pc = Chart.getChart('priceChart');
+                            var hc = Chart.getChart('historyChart');
+                            if (pc) pc.resize();
+                            if (hc) hc.resize();
                         }
-
-                        // アクティブセクション判定
-                        if (shouldShow) {
-                            var currentId = '';
-                            for (var i = 0; i < sections.length; i++) {
-                                var rect = sections[i].getBoundingClientRect();
-                                if (rect.top <= navHeight + 60) {
-                                    currentId = sections[i].id;
-                                }
-                            }
-                            links.forEach(function(l) {
-                                var isActive = l.dataset.navTarget === currentId;
-                                l.classList.toggle('text-blue-600', isActive);
-                                l.classList.toggle('bg-blue-50', isActive);
-                                l.classList.toggle('text-gray-500', !isActive);
-                            });
+                        // lucide再描画（非表示パネル内のアイコン対策）
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
                         }
                     }
 
-                    window.addEventListener('scroll', onScroll, { passive: true });
-                    onScroll(); // 初回チェック
-
-                    // スムーズスクロール
-                    links.forEach(function(link) {
-                        link.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            var target = document.getElementById(this.dataset.navTarget);
-                            if (target) {
-                                var top = target.getBoundingClientRect().top + window.pageYOffset - navHeight - 8;
-                                window.scrollTo({ top: top, behavior: 'smooth' });
+                    btns.forEach(function(btn) {
+                        btn.addEventListener('click', function() {
+                            var tabId = this.dataset.tab;
+                            switchTab(tabId);
+                            history.replaceState(null, '', '#' + tabId);
+                            // タブナビ位置までスクロール
+                            var navRect = tabNav.getBoundingClientRect();
+                            if (navRect.top < 0) {
+                                tabNav.scrollIntoView({ behavior: 'smooth' });
                             }
                         });
                     });
+
+                    // URLハッシュ連動
+                    function handleHash() {
+                        var hash = location.hash.replace('#', '');
+                        var validTabs = [];
+                        btns.forEach(function(b) { validTabs.push(b.dataset.tab); });
+                        if (validTabs.indexOf(hash) !== -1) {
+                            switchTab(hash);
+                        } else {
+                            switchTab('overview');
+                        }
+                    }
+
+                    window.addEventListener('hashchange', handleHash);
+                    handleHash();
                 }
 
                 if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', initSectionNav);
+                    document.addEventListener('DOMContentLoaded', initTabs);
                 } else {
-                    initSectionNav();
+                    initTabs();
                 }
             })();
         </script>
@@ -200,34 +198,17 @@
         </div>
     </div>
 
-    {{-- セクションナビ（fixed：ヘッダーがスクロールアウトしたらトップに表示） --}}
-    <div id="section-nav" class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm transition-all duration-300" style="transform:translateY(-100%);opacity:0;will-change:transform,opacity;">
+    {{-- タブナビ --}}
+    <div id="tab-nav" class="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
         <div class="max-w-7xl mx-auto px-4">
-            <div class="flex items-center gap-1 overflow-x-auto scrollbar-hide py-2.5 -mx-1">
-                @php
-                    $sections = [
-                        ['id' => 'overview', 'label' => '概要'],
-                        ['id' => 'specs', 'label' => 'スペック'],
-                    ];
-                    if (!empty($news)) {
-                        $sections[] = ['id' => 'news', 'label' => 'ニュース'];
-                    }
-                    if (!empty($videos)) {
-                        $sections[] = ['id' => 'videos', 'label' => '動画'];
-                    }
-                    $sections = array_merge($sections, [
-                        ['id' => 'resale', 'label' => '買取相場'],
-                        ['id' => 'price-distribution', 'label' => '価格分布'],
-                        ['id' => 'price-trend', 'label' => '価格推移'],
-                        ['id' => 'reviews', 'label' => 'レビュー' . (isset($reviewStats) && $reviewStats->count > 0 ? '★' . $reviewStats->avg_rating : '')],
-                        ['id' => 'faq', 'label' => 'FAQ'],
-                    ]);
-                @endphp
-                @foreach($sections as $sec)
-                    <a href="#{{ $sec['id'] }}" data-nav-target="{{ $sec['id'] }}" class="section-nav-link whitespace-nowrap px-3 py-1.5 rounded-lg text-[11px] font-bold text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all shrink-0">
-                        {{ $sec['label'] }}
-                    </a>
-                @endforeach
+            <div class="flex overflow-x-auto scrollbar-hide -mb-px">
+                <button data-tab="overview" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-blue-600 text-blue-600 font-bold transition-colors hover:text-blue-600">概要</button>
+                <button data-tab="market" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">相場・価格</button>
+                <button data-tab="inventory" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">在庫・エリア</button>
+                @if(!empty($news) || !empty($videos))
+                <button data-tab="media" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">ニュース・動画</button>
+                @endif
+                <button data-tab="community" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">レビュー・FAQ</button>
             </div>
         </div>
     </div>
@@ -238,7 +219,10 @@
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-8">
                 
                 {{-- メインコンテンツ --}}
-                <div class="lg:col-span-8 space-y-8">
+                <div class="lg:col-span-8">
+
+                    {{-- ===== タブ1: 概要 ===== --}}
+                    <div id="tab-panel-overview" class="tab-panel space-y-8">
 
                     {{-- 車種紹介テキスト（SEOの要） --}}
                     <div id="overview" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
@@ -460,95 +444,10 @@
                         </div>
                     </div>
 
-                    {{-- 関連ニュース --}}
-                    @if(!empty($news))
-                    <div id="news" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
-                        <div class="flex items-center gap-2 mb-6">
-                            <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-                                <i data-lucide="newspaper" class="w-5 h-5"></i>
-                            </div>
-                            <h3 class="text-lg font-black text-gray-900">{{ $model->name }} のニュース</h3>
-                        </div>
-                        <div class="space-y-3">
-                            @foreach($news as $article)
-                            <a href="{{ $article['url'] }}" target="_blank" rel="noopener noreferrer" class="flex items-start gap-3 p-2 -mx-2 rounded-xl hover:bg-gray-50 transition-colors">
-                                @php $articleDomain = parse_url($article['url'], PHP_URL_HOST); @endphp
-                                <div class="w-20 h-[60px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                                    @if(!empty($article['image']))
-                                        <img src="{{ $article['image'] }}" alt="" class="w-full h-full object-cover" loading="lazy"
-                                             onerror="this.onerror=null;this.parentNode.innerHTML='<div class=\'w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100\'><img src=\'https://www.google.com/s2/favicons?domain={{ $articleDomain }}&sz=64\' class=\'w-5 h-5 rounded\' onerror=\'this.style.display=&quot;none&quot;\'></div>'">
-                                    @elseif($articleDomain)
-                                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-                                            <img src="https://www.google.com/s2/favicons?domain={{ $articleDomain }}&sz=64" alt="" class="w-5 h-5 rounded" loading="lazy" onerror="this.style.display='none'">
-                                        </div>
-                                    @else
-                                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50">
-                                            <span class="text-sm font-black text-indigo-200">M</span>
-                                        </div>
-                                    @endif
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="text-sm font-bold text-gray-800 leading-snug mb-1 line-clamp-2">{{ $article['title'] }}</div>
-                                    <div class="flex items-center gap-2 text-[11px] text-gray-400">
-                                        @if($article['source'])<span class="font-bold">{{ $article['source'] }}</span>@endif
-                                        <span>{{ $article['date'] }}</span>
-                                    </div>
-                                </div>
-                            </a>
-                            @endforeach
-                        </div>
-                    </div>
-                    @endif
+                    </div>{{-- /tab-panel-overview --}}
 
-                    {{-- YouTube動画 --}}
-                    @if(!empty($videos))
-                    <div id="videos" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
-                        <div class="flex items-center gap-2 mb-6">
-                            <div class="p-2 bg-red-50 rounded-lg text-red-600">
-                                <i data-lucide="play-circle" class="w-5 h-5"></i>
-                            </div>
-                            <h3 class="text-lg font-black text-gray-900">{{ $model->name }} の動画</h3>
-                        </div>
-
-                        {{-- 1件目: iframe埋め込み --}}
-                        <div class="relative w-full rounded-2xl overflow-hidden mb-4" style="padding-bottom:56.25%">
-                            <iframe
-                                src="https://www.youtube.com/embed/{{ $videos[0]['video_id'] }}"
-                                title="{{ $videos[0]['title'] }}"
-                                class="absolute inset-0 w-full h-full"
-                                frameborder="0"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowfullscreen
-                                loading="lazy"
-                            ></iframe>
-                        </div>
-                        <p class="text-xs font-bold text-gray-700 mb-1 line-clamp-2">{{ $videos[0]['title'] }}</p>
-                        <p class="text-[11px] text-gray-400 mb-4">{{ $videos[0]['channel'] }}</p>
-
-                        {{-- 2件目以降: サムネカード --}}
-                        @if(count($videos) > 1)
-                        <div class="space-y-3">
-                            @foreach(array_slice($videos, 1) as $video)
-                            <a href="https://www.youtube.com/watch?v={{ $video['video_id'] }}" target="_blank" rel="noopener noreferrer" class="flex items-start gap-3 p-2 -mx-2 rounded-xl hover:bg-gray-50 transition-colors">
-                                <div class="w-28 h-[64px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 relative">
-                                    <img src="{{ $video['thumbnail'] }}" alt="" class="w-full h-full object-cover" loading="lazy">
-                                    <div class="absolute inset-0 flex items-center justify-center">
-                                        <div class="bg-black/60 rounded-full p-1"><i data-lucide="play" class="w-3.5 h-3.5 text-white fill-white"></i></div>
-                                    </div>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="text-sm font-bold text-gray-800 leading-snug mb-1 line-clamp-2">{{ $video['title'] }}</div>
-                                    <div class="flex items-center gap-2 text-[11px] text-gray-400">
-                                        <span class="font-bold">{{ $video['channel'] }}</span>
-                                        @if($video['date'])<span>{{ $video['date'] }}</span>@endif
-                                    </div>
-                                </div>
-                            </a>
-                            @endforeach
-                        </div>
-                        @endif
-                    </div>
-                    @endif
+                    {{-- ===== タブ2: 相場・価格 ===== --}}
+                    <div id="tab-panel-market" class="tab-panel space-y-8" style="display:none">
 
                     {{-- 1. 買取相場・リセール情報 --}}
                     <div id="resale" class="bg-white rounded-3xl shadow-lg p-6 sm:p-8 border border-gray-100">
@@ -675,6 +574,172 @@
                         </div>
                         <p class="text-[10px] text-gray-400 mt-4 text-right">※MotoHub独自の過去データに基づく平均価格の推移です</p>
                     </div>
+
+                    </div>{{-- /tab-panel-market --}}
+
+                    {{-- ===== タブ3: 在庫・エリア ===== --}}
+                    <div id="tab-panel-inventory" class="tab-panel space-y-8" style="display:none">
+
+                    {{-- エリア別リンク --}}
+                    @if(isset($prefectureStocks) && $prefectureStocks->isNotEmpty())
+                    <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
+                        <h2 class="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
+                            <span class="bg-orange-100 text-orange-600 p-2 rounded-lg"><i data-lucide="map-pin" class="w-5 h-5"></i></span>
+                            {{ $model->name }}をエリアから探す
+                        </h2>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                            @foreach($prefectureStocks as $ps)
+                            <a href="{{ route('bikes.search', ['bike_model_id' => $model->id, 'prefecture' => $ps->prefecture]) }}"
+                               class="group flex items-center justify-between bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl px-4 py-3 transition-all duration-200">
+                                <span class="text-xs font-black text-gray-800 group-hover:text-blue-700 transition-colors">{{ $ps->prefecture }}</span>
+                                <span class="text-[10px] font-bold text-gray-400 group-hover:text-blue-500 bg-white px-2 py-0.5 rounded-full border border-gray-100">{{ $ps->stock_count }}台</span>
+                            </a>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- 販売中車両一覧（タブ内） --}}
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-xl font-black text-gray-900 flex items-center gap-2">
+                                <span class="bg-gray-100 text-gray-600 p-2 rounded-lg"><i data-lucide="bike" class="w-5 h-5"></i></span>
+                                {{ $model->name }} の販売中車両
+                            </h2>
+                            <a href="{{ route('bikes.search', ['bike_model_id' => $model->id]) }}" class="text-xs font-bold text-blue-600 hover:underline">すべて見る</a>
+                        </div>
+                        <div class="space-y-4">
+                            @forelse($listings as $bike)
+                                <a href="{{ route('bikes.show', $bike['id']) }}" class="flex gap-3 group p-2 -mx-2 rounded-xl hover:bg-gray-50 transition-colors">
+                                    <div class="w-24 h-20 shrink-0 rounded-lg overflow-hidden bg-gray-100 relative">
+                                        @if(!empty($bike['images'][0]))
+                                            <img src="{{ $bike['images'][0] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" decoding="async">
+                                        @else
+                                            <div class="w-full h-full flex items-center justify-center text-gray-300"><i data-lucide="bike"></i></div>
+                                        @endif
+                                    </div>
+                                    <div class="flex-1 min-w-0 py-1">
+                                        <h4 class="text-sm font-black text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors mb-1">{{ $bike['name'] }}</h4>
+                                        <div class="text-red-500 font-black text-lg">{{ $bike['total_price'] }}<span class="text-xs">万円</span></div>
+                                        <div class="text-[11px] text-gray-400 mt-0.5">{{ $bike['prefecture'] }}</div>
+                                    </div>
+                                </a>
+                            @empty
+                                <div class="text-center py-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                    <p class="text-sm text-gray-500 font-bold">現在、在庫はありません。</p>
+                                </div>
+                            @endforelse
+                        </div>
+                        @if(count($listings) > 0)
+                        <div class="mt-6 pt-6 border-t border-gray-100">
+                            <a href="{{ route('bikes.search', ['bike_model_id' => $model->id]) }}" class="block w-full bg-gray-900 hover:bg-gray-800 text-white font-bold text-sm text-center py-3 rounded-xl transition-colors">
+                                {{ $model->name }} の在庫をすべて見る（{{ number_format($activeCount) }}台）
+                            </a>
+                        </div>
+                        @endif
+                    </div>
+
+                    </div>{{-- /tab-panel-inventory --}}
+
+                    {{-- ===== タブ4: ニュース・動画 ===== --}}
+                    @if(!empty($news) || !empty($videos))
+                    <div id="tab-panel-media" class="tab-panel space-y-8" style="display:none">
+
+                    {{-- 関連ニュース --}}
+                    @if(!empty($news))
+                    <div id="news" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                                <i data-lucide="newspaper" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">{{ $model->name }} のニュース</h3>
+                        </div>
+                        <div class="space-y-3">
+                            @foreach($news as $article)
+                            <a href="{{ $article['url'] }}" target="_blank" rel="noopener noreferrer" class="flex items-start gap-3 p-2 -mx-2 rounded-xl hover:bg-gray-50 transition-colors">
+                                @php $articleDomain = parse_url($article['url'], PHP_URL_HOST); @endphp
+                                <div class="w-20 h-[60px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                    @if(!empty($article['image']))
+                                        <img src="{{ $article['image'] }}" alt="" class="w-full h-full object-cover" loading="lazy"
+                                             onerror="this.onerror=null;this.parentNode.innerHTML='<div class=\'w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100\'><img src=\'https://www.google.com/s2/favicons?domain={{ $articleDomain }}&sz=64\' class=\'w-5 h-5 rounded\' onerror=\'this.style.display=&quot;none&quot;\'></div>'">
+                                    @elseif($articleDomain)
+                                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+                                            <img src="https://www.google.com/s2/favicons?domain={{ $articleDomain }}&sz=64" alt="" class="w-5 h-5 rounded" loading="lazy" onerror="this.style.display='none'">
+                                        </div>
+                                    @else
+                                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50">
+                                            <span class="text-sm font-black text-indigo-200">M</span>
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-bold text-gray-800 leading-snug mb-1 line-clamp-2">{{ $article['title'] }}</div>
+                                    <div class="flex items-center gap-2 text-[11px] text-gray-400">
+                                        @if($article['source'])<span class="font-bold">{{ $article['source'] }}</span>@endif
+                                        <span>{{ $article['date'] }}</span>
+                                    </div>
+                                </div>
+                            </a>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- YouTube動画 --}}
+                    @if(!empty($videos))
+                    <div id="videos" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center gap-2 mb-6">
+                            <div class="p-2 bg-red-50 rounded-lg text-red-600">
+                                <i data-lucide="play-circle" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-gray-900">{{ $model->name }} の動画</h3>
+                        </div>
+
+                        {{-- 1件目: iframe埋め込み --}}
+                        <div class="relative w-full rounded-2xl overflow-hidden mb-4" style="padding-bottom:56.25%">
+                            <iframe
+                                src="https://www.youtube.com/embed/{{ $videos[0]['video_id'] }}"
+                                title="{{ $videos[0]['title'] }}"
+                                class="absolute inset-0 w-full h-full"
+                                frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen
+                                loading="lazy"
+                            ></iframe>
+                        </div>
+                        <p class="text-xs font-bold text-gray-700 mb-1 line-clamp-2">{{ $videos[0]['title'] }}</p>
+                        <p class="text-[11px] text-gray-400 mb-4">{{ $videos[0]['channel'] }}</p>
+
+                        {{-- 2件目以降: サムネカード --}}
+                        @if(count($videos) > 1)
+                        <div class="space-y-3">
+                            @foreach(array_slice($videos, 1) as $video)
+                            <a href="https://www.youtube.com/watch?v={{ $video['video_id'] }}" target="_blank" rel="noopener noreferrer" class="flex items-start gap-3 p-2 -mx-2 rounded-xl hover:bg-gray-50 transition-colors">
+                                <div class="w-28 h-[64px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 relative">
+                                    <img src="{{ $video['thumbnail'] }}" alt="" class="w-full h-full object-cover" loading="lazy">
+                                    <div class="absolute inset-0 flex items-center justify-center">
+                                        <div class="bg-black/60 rounded-full p-1"><i data-lucide="play" class="w-3.5 h-3.5 text-white fill-white"></i></div>
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-bold text-gray-800 leading-snug mb-1 line-clamp-2">{{ $video['title'] }}</div>
+                                    <div class="flex items-center gap-2 text-[11px] text-gray-400">
+                                        <span class="font-bold">{{ $video['channel'] }}</span>
+                                        @if($video['date'])<span>{{ $video['date'] }}</span>@endif
+                                    </div>
+                                </div>
+                            </a>
+                            @endforeach
+                        </div>
+                        @endif
+                    </div>
+                    @endif
+
+                    </div>{{-- /tab-panel-media --}}
+                    @endif
+
+                    {{-- ===== タブ5: レビュー・FAQ ===== --}}
+                    <div id="tab-panel-community" class="tab-panel space-y-8" style="display:none">
 
                     {{-- 3. ユーザーレビュー --}}
                     <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100" id="reviews">
@@ -977,6 +1042,11 @@
                     </div>
                     @endif
 
+                    </div>{{-- /tab-panel-community --}}
+
+                    {{-- ===== タブ外: 関連コンテンツ（全タブ共通表示） ===== --}}
+                    <div class="space-y-8 mt-8">
+
                     {{-- 関連車種: 同メーカー --}}
                     @if(isset($relatedModels) && $relatedModels->count() > 0)
                     <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
@@ -1062,25 +1132,6 @@
                                 @if($related->listings_count > 0)
                                 <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{{ $related->listings_count }}台</span>
                                 @endif
-                            </a>
-                            @endforeach
-                        </div>
-                    </div>
-                    @endif
-
-                    {{-- エリア別リンク --}}
-                    @if(isset($prefectureStocks) && $prefectureStocks->isNotEmpty())
-                    <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
-                        <h2 class="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
-                            <span class="bg-orange-100 text-orange-600 p-2 rounded-lg"><i data-lucide="map-pin" class="w-5 h-5"></i></span>
-                            {{ $model->name }}をエリアから探す
-                        </h2>
-                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                            @foreach($prefectureStocks as $ps)
-                            <a href="{{ route('bikes.search', ['bike_model_id' => $model->id, 'prefecture' => $ps->prefecture]) }}"
-                               class="group flex items-center justify-between bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl px-4 py-3 transition-all duration-200">
-                                <span class="text-xs font-black text-gray-800 group-hover:text-blue-700 transition-colors">{{ $ps->prefecture }}</span>
-                                <span class="text-[10px] font-bold text-gray-400 group-hover:text-blue-500 bg-white px-2 py-0.5 rounded-full border border-gray-100">{{ $ps->stock_count }}台</span>
                             </a>
                             @endforeach
                         </div>
@@ -1190,6 +1241,8 @@
 
                     {{-- 回遊リンク --}}
                     <x-cross-links :crossLinks="$crossLinks" />
+
+                    </div>{{-- /タブ外コンテンツ --}}
 
                 </div>
 
