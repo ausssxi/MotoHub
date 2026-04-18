@@ -284,6 +284,58 @@
     </div>
     @endif
 
+    {{-- 🎮 バイクゲーム --}}
+    <div class="bg-gray-50 pb-10 sm:pb-16">
+        <div class="max-w-7xl mx-auto px-4">
+            <section>
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            MotoHubのバイクゲーム
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Bike Games</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {{-- わらしべ長者 --}}
+                    <a href="{{ route('warashibe') }}"
+                       class="group relative overflow-hidden rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-amber-300 transition-all duration-300">
+                        <div class="overflow-hidden">
+                            <img src="{{ asset('images/warashibe/title_screen.png') }}" alt="バイクわらしべ長者"
+                                 class="w-full h-48 object-cover object-top rounded-t-xl group-hover:scale-105 transition-transform duration-500"
+                                 loading="lazy" decoding="async">
+                        </div>
+                        <div class="p-4 bg-white">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-lg">🔄</span>
+                                <h3 class="text-sm font-black text-gray-800 group-hover:text-amber-600 transition-colors">バイクわらしべ長者</h3>
+                            </div>
+                            <p class="text-xs text-gray-500 leading-relaxed">カブ50からスタート！ライダーとバイクを交換してハヤブサを目指す交換パズルゲーム</p>
+                        </div>
+                    </a>
+
+                    {{-- バイク4択クイズ --}}
+                    <a href="{{ route('quiz') }}"
+                       class="group relative overflow-hidden rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-blue-300 transition-all duration-300">
+                        <div class="h-48 bg-gray-900 rounded-t-xl overflow-hidden flex items-start justify-center">
+                            <img src="{{ asset('images/quiz/title_screen.png') }}" alt="バイク4択クイズ"
+                                 class="w-auto h-full object-contain"
+                                 loading="lazy" decoding="async">
+                        </div>
+                        <div class="p-4 bg-white">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-lg">❓</span>
+                                <h3 class="text-sm font-black text-gray-800 group-hover:text-blue-600 transition-colors">バイク4択クイズ</h3>
+                            </div>
+                            <p class="text-xs text-gray-500 leading-relaxed">実データを使ったバイククイズ！中古価格・売れ筋・売却スピードを当てよう</p>
+                        </div>
+                    </a>
+                </div>
+            </section>
+        </div>
+    </div>
+
     {{-- 最近見た車両（パーソナルコンテンツ / タブセクションの上に常時表示） --}}
     <section id="top-history-section" class="bg-gray-50 hidden">
         <div class="max-w-7xl mx-auto px-4 pt-10 sm:pt-16 pb-6">
