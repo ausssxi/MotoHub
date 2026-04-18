@@ -19,11 +19,10 @@ use App\Http\Resources\Bike\ListingResource;
 use App\Http\Requests\Bike\StoreReviewRequest;
 use App\Http\Requests\Bike\BikeSearchRequest;
 use App\Models\SeoFeature;
-use App\Services\Parts\PartsCodeExtractor;
+use App\Services\Bike\BikePartsService;
 use App\Services\Bike\BikeNewsService;
 use App\Services\Bike\BikeYouTubeService;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use App\Services\RankingService;
 
@@ -329,7 +328,7 @@ final class BikeController extends Controller
         ];
 
         $relatedParts = $listing->bikeModel
-            ? $this->fetchRelatedParts($listing->bikeModel)
+            ? app(BikePartsService::class)->fetchFlat($listing->bikeModel)
             : [];
 
         $makerName = $listing->bikeModel?->manufacturer?->name ?? '';
@@ -768,6 +767,41 @@ final class BikeController extends Controller
             ->where('bike_model_id', $id)
             ->selectRaw('ROUND(AVG(rating), 1) as avg_rating, COUNT(*) as count')
             ->first();
+
+        // 項目別レビュー統計（レーダーチャート用）
+        $ratingFields = ['rating_design', 'rating_engine', 'rating_handling', 'rating_fuel_economy', 'rating_cost_performance'];
+        $modelAvgs = DB::table('reviews')
+            ->where('bike_model_id', $id)
+            ->selectRaw(implode(', ', array_map(fn($f) => "ROUND(AVG($f), 1) as avg_$f, COUNT($f) as cnt_$f", $ratingFields)))
+            ->first();
+
+        $categoryAvgs = null;
+        if ($model->category_id) {
+            $categoryModelIds = \App\Models\BikeModel::where('category_id', $model->category_id)->pluck('id');
+            $categoryAvgs = DB::table('reviews')
+                ->whereIn('bike_model_id', $categoryModelIds)
+                ->selectRaw(implode(', ', array_map(fn($f) => "ROUND(AVG($f), 1) as avg_$f", $ratingFields)))
+                ->first();
+        }
+
+        $hasAnyRatingDetail = false;
+        $categoryReviewStats = [];
+        $fieldKeys = ['design', 'engine', 'handling', 'fuel_economy', 'cost_performance'];
+        foreach ($ratingFields as $i => $field) {
+            $avgKey = "avg_$field";
+            $cntKey = "cnt_$field";
+            $avg = $modelAvgs->$avgKey ?? null;
+            $cnt = $modelAvgs->$cntKey ?? 0;
+            if ($cnt > 0) $hasAnyRatingDetail = true;
+            $catAvg = $categoryAvgs ? ($categoryAvgs->$avgKey ?? null) : null;
+            $categoryReviewStats[$fieldKeys[$i]] = [
+                'avg' => $avg ? (float)$avg : null,
+                'category_avg' => $catAvg ? (float)$catAvg : null,
+            ];
+        }
+        if (!$hasAnyRatingDetail) {
+            $categoryReviewStats = [];
+        }
         
         $relatedModels = \App\Models\BikeModel::with('manufacturer')
             ->where('manufacturer_id', $model->manufacturer_id)
@@ -854,8 +888,8 @@ final class BikeController extends Controller
             ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'garage', 'description' => '愛車を登録・管理'],
         ];
 
-        // 楽天APIから関連パーツを取得（24時間キャッシュ）
-        $relatedParts = $this->fetchRelatedParts($model);
+        // 楽天APIからカテゴリ別関連パーツを取得（24時間キャッシュ）
+        $relatedParts = app(BikePartsService::class)->fetchForModel($model);
 
         try {
             $news = (new BikeNewsService())->fetch("{$model->manufacturer->name} {$model->name} バイク", 5);
@@ -874,69 +908,10 @@ final class BikeController extends Controller
 
         return view('bikes.model_detail', compact(
             'model', 'stats', 'history', 'resale', 'listings',
-            'reviewStats', 'relatedModels', 'similarDisplacementModels',
+            'reviewStats', 'categoryReviewStats', 'relatedModels', 'similarDisplacementModels',
             'sameCategoryModels', 'activeCount', 'owners', 'similarModels', 'crossLinks',
             'prefectureStocks', 'relatedParts', 'news', 'videos', 'rankingStats'
         ));
-    }
-
-    /**
-     * 楽天APIから車種に関連するパーツを取得
-     */
-    private function fetchRelatedParts($model): array
-    {
-        $appId = config('services.rakuten.app_id');
-        $accessKey = config('services.rakuten.access_key');
-
-        if (!$appId || !$accessKey) {
-            return [];
-        }
-
-        try {
-            return Cache::remember("parts:bike_model:{$model->id}", 86400, function () use ($model, $appId, $accessKey) {
-                $params = [
-                    'applicationId' => $appId,
-                    'accessKey'     => $accessKey,
-                    'keyword'       => 'バイク ' . $model->name,
-                    'hits'          => 6,
-                    'format'        => 'json',
-                ];
-
-                $affiliateId = config('services.rakuten.affiliate_id');
-                if ($affiliateId) {
-                    $params['affiliateId'] = $affiliateId;
-                }
-
-                $response = Http::withHeaders([
-                    'Origin'     => 'https://motohub.jp',
-                    'Referer'    => 'https://motohub.jp',
-                    'User-Agent' => 'MotoHub',
-                ])->timeout(5)->get('https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20220601', $params);
-
-                if ($response->failed()) {
-                    return [];
-                }
-
-                $data = $response->json();
-                return collect($data['Items'] ?? [])->map(function ($wrapper) {
-                    $item = $wrapper['Item'] ?? $wrapper;
-                    $codes = PartsCodeExtractor::extract(
-                        $item['itemName'] ?? '',
-                        $item['itemCaption'] ?? ''
-                    );
-                    return [
-                        'name'        => $item['itemName'] ?? '',
-                        'price'       => $item['itemPrice'] ?? 0,
-                        'image'       => $item['mediumImageUrls'][0]['imageUrl'] ?? '',
-                        'url'         => $item['itemUrl'] ?? '',
-                        'jan_code'    => $codes['jan'],
-                        'part_number' => $codes['partNumber'],
-                    ];
-                })->all();
-            });
-        } catch (\Throwable $e) {
-            return [];
-        }
     }
 
     /**

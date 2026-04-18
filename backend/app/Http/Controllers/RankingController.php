@@ -8,14 +8,12 @@ use App\Models\BikeModel;
 use App\Models\Listing;
 use App\Models\Manufacturer;
 use App\Models\Shop;
-use App\Services\Parts\PartsCodeExtractor;
+use App\Services\Bike\BikePartsService;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
-
 final class RankingController extends Controller
 {
     /**
@@ -128,7 +126,7 @@ final class RankingController extends Controller
             ->limit(4)
             ->get();
 
-        $relatedParts = $this->fetchRelatedParts($bikeModel);
+        $relatedParts = app(BikePartsService::class)->fetchFlat($bikeModel);
 
         return view('ranking.model', [
             'bikeModel' => $bikeModel,
@@ -491,59 +489,4 @@ final class RankingController extends Controller
         ];
     }
 
-    private function fetchRelatedParts(BikeModel $model, int $limit = 4): array
-    {
-        $appId = config('services.rakuten.app_id');
-        $accessKey = config('services.rakuten.access_key');
-
-        if (!$appId || !$accessKey) {
-            return [];
-        }
-
-        try {
-            return Cache::remember("parts:bike_model:{$model->id}", 86400, function () use ($model, $appId, $accessKey) {
-                $params = [
-                    'applicationId' => $appId,
-                    'accessKey'     => $accessKey,
-                    'keyword'       => 'バイク ' . $model->name,
-                    'hits'          => 6,
-                    'format'        => 'json',
-                ];
-
-                $affiliateId = config('services.rakuten.affiliate_id');
-                if ($affiliateId) {
-                    $params['affiliateId'] = $affiliateId;
-                }
-
-                $response = Http::withHeaders([
-                    'Origin'     => 'https://motohub.jp',
-                    'Referer'    => 'https://motohub.jp',
-                    'User-Agent' => 'MotoHub',
-                ])->timeout(5)->get('https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20220601', $params);
-
-                if ($response->failed()) {
-                    return [];
-                }
-
-                $data = $response->json();
-                return collect($data['Items'] ?? [])->map(function ($wrapper) {
-                    $item = $wrapper['Item'] ?? $wrapper;
-                    $codes = PartsCodeExtractor::extract(
-                        $item['itemName'] ?? '',
-                        $item['itemCaption'] ?? ''
-                    );
-                    return [
-                        'name'        => $item['itemName'] ?? '',
-                        'price'       => $item['itemPrice'] ?? 0,
-                        'image'       => $item['mediumImageUrls'][0]['imageUrl'] ?? '',
-                        'url'         => $item['itemUrl'] ?? '',
-                        'jan_code'    => $codes['jan'],
-                        'part_number' => $codes['partNumber'],
-                    ];
-                })->all();
-            });
-        } catch (\Throwable $e) {
-            return [];
-        }
-    }
 }

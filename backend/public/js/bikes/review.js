@@ -116,6 +116,52 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 項目別評価の星UI
+    var detailStars = document.querySelectorAll('.detail-star-btn');
+    var fieldValues = {};
+    detailStars.forEach(function(btn) {
+        var field = btn.dataset.field;
+        if (!(field in fieldValues)) {
+            var existing = document.getElementById(field + '-value');
+            fieldValues[field] = existing ? (parseInt(existing.value) || 0) : 0;
+        }
+        function paintDetailStars(fieldName, count) {
+            detailStars.forEach(function(s) {
+                if (s.dataset.field !== fieldName) return;
+                var svg = s.querySelector('svg');
+                if (parseInt(s.dataset.val) <= count) {
+                    s.classList.add('text-yellow-400');
+                    s.classList.remove('text-gray-200');
+                    svg.classList.add('fill-current');
+                } else {
+                    s.classList.remove('text-yellow-400');
+                    s.classList.add('text-gray-200');
+                    svg.classList.remove('fill-current');
+                }
+            });
+        }
+        btn.addEventListener('click', function() {
+            var val = parseInt(btn.dataset.val);
+            var fld = btn.dataset.field;
+            // Toggle off if clicking same value
+            if (fieldValues[fld] === val) {
+                fieldValues[fld] = 0;
+                document.getElementById(fld + '-value').value = '';
+                paintDetailStars(fld, 0);
+            } else {
+                fieldValues[fld] = val;
+                document.getElementById(fld + '-value').value = val;
+                paintDetailStars(fld, val);
+            }
+        });
+        btn.addEventListener('mouseenter', function() {
+            paintDetailStars(btn.dataset.field, parseInt(btn.dataset.val));
+        });
+        btn.addEventListener('mouseleave', function() {
+            paintDetailStars(btn.dataset.field, fieldValues[btn.dataset.field]);
+        });
+    });
+
     // レビューフォームのAjax送信
     const form = document.getElementById('review-form');
     if (form) {

@@ -26,6 +26,11 @@ final class StoreReviewRequest extends FormRequest
             'rating'   => ['required', 'integer', 'min:1', 'max:5'],
             'title'    => ['required', 'string', 'max:100'],
             'body'     => ['required', 'string', 'max:1000'],
+            'rating_design'           => ['nullable', 'integer', 'min:1', 'max:5'],
+            'rating_engine'           => ['nullable', 'integer', 'min:1', 'max:5'],
+            'rating_handling'         => ['nullable', 'integer', 'min:1', 'max:5'],
+            'rating_fuel_economy'     => ['nullable', 'integer', 'min:1', 'max:5'],
+            'rating_cost_performance' => ['nullable', 'integer', 'min:1', 'max:5'],
         ];
     }
 

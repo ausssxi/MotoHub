@@ -74,6 +74,10 @@
                             if (pc) pc.resize();
                             if (hc) hc.resize();
                         }
+                        if (tabId === 'community' && typeof Chart !== 'undefined') {
+                            var rc = Chart.getChart('reviewRadarChart');
+                            if (rc) rc.resize();
+                        }
                         // lucide再描画（非表示パネル内のアイコン対策）
                         if (typeof lucide !== 'undefined') {
                             lucide.createIcons();
@@ -115,6 +119,28 @@
                     initTabs();
                 }
             })();
+        </script>
+        {{-- パーツカテゴリサブタブ切り替え --}}
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                var partsBtns = document.querySelectorAll('.parts-tab-btn');
+                var partsPanels = document.querySelectorAll('.parts-panel');
+                if (!partsBtns.length) return;
+                partsBtns.forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var target = btn.dataset.partsTab;
+                        partsBtns.forEach(function(b) {
+                            b.classList.toggle('bg-blue-600', b.dataset.partsTab === target);
+                            b.classList.toggle('text-white', b.dataset.partsTab === target);
+                            b.classList.toggle('bg-gray-100', b.dataset.partsTab !== target);
+                            b.classList.toggle('text-gray-600', b.dataset.partsTab !== target);
+                        });
+                        partsPanels.forEach(function(p) {
+                            p.classList.toggle('hidden', p.dataset.partsPanel !== target);
+                        });
+                    });
+                });
+            });
         </script>
     </x-slot:scripts>
 
@@ -205,6 +231,9 @@
                 <button data-tab="overview" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-blue-600 text-blue-600 font-bold transition-colors hover:text-blue-600">概要</button>
                 <button data-tab="market" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">相場・価格</button>
                 <button data-tab="inventory" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">在庫・エリア</button>
+                @if(!empty($relatedParts))
+                <button data-tab="parts" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">パーツ</button>
+                @endif
                 @if(!empty($news) || !empty($videos))
                 <button data-tab="media" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">ニュース・動画</button>
                 @endif
@@ -641,7 +670,133 @@
 
                     </div>{{-- /tab-panel-inventory --}}
 
-                    {{-- ===== タブ4: ニュース・動画 ===== --}}
+                    {{-- ===== タブ4: パーツ ===== --}}
+                    @if(!empty($relatedParts))
+                    <div id="tab-panel-parts" class="tab-panel space-y-6" style="display:none">
+
+                    {{-- 消耗品チェックリスト --}}
+                    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+                        <h3 class="text-base font-black text-gray-900 mb-1 flex items-center gap-2">
+                            <i data-lucide="clipboard-check" class="w-5 h-5 text-amber-600"></i>
+                            {{ $model->name }}の消耗品チェックリスト
+                        </h3>
+                        <p class="text-xs text-gray-500 mb-3">定期交換が必要なパーツの目安</p>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                            <div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-amber-100">
+                                <span class="text-lg">🔋</span><span class="text-xs font-bold text-gray-700">バッテリー（2〜3年）</span>
+                            </div>
+                            <div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-amber-100">
+                                <span class="text-lg">⛽</span><span class="text-xs font-bold text-gray-700">エンジンオイル（3,000km）</span>
+                            </div>
+                            <div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-amber-100">
+                                <span class="text-lg">🔗</span><span class="text-xs font-bold text-gray-700">チェーン（15,000〜20,000km）</span>
+                            </div>
+                            <div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-amber-100">
+                                <span class="text-lg">🛞</span><span class="text-xs font-bold text-gray-700">タイヤ（10,000〜20,000km）</span>
+                            </div>
+                            <div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-amber-100">
+                                <span class="text-lg">🔧</span><span class="text-xs font-bold text-gray-700">ブレーキパッド（10,000km）</span>
+                            </div>
+                            <div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-amber-100">
+                                <span class="text-lg">⚡</span><span class="text-xs font-bold text-gray-700">プラグ（5,000〜10,000km）</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- カテゴリ別パーツ --}}
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+                        <h2 class="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                            <i data-lucide="wrench" class="w-5 h-5 text-blue-500"></i>
+                            {{ $model->name }} のパーツを探す
+                        </h2>
+
+                        {{-- カテゴリサブタブ --}}
+                        <div class="flex overflow-x-auto scrollbar-hide gap-2 mb-5 pb-1">
+                            @foreach($relatedParts as $catKey => $category)
+                            <button data-parts-tab="{{ $catKey }}"
+                                    class="parts-tab-btn px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors
+                                           {{ $loop->first ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
+                                {{ $category['name'] }}（{{ count($category['items']) }}）
+                            </button>
+                            @endforeach
+                        </div>
+
+                        {{-- カテゴリ別商品パネル --}}
+                        @foreach($relatedParts as $catKey => $category)
+                        <div class="parts-panel {{ $loop->first ? '' : 'hidden' }}" data-parts-panel="{{ $catKey }}">
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                @foreach($category['items'] as $part)
+                                @php
+                                    $hasCode = !empty($part['jan_code']) || !empty($part['part_number']);
+                                    $compareParams = [];
+                                    if (!empty($part['jan_code'])) $compareParams['jan'] = $part['jan_code'];
+                                    if (!empty($part['part_number'])) $compareParams['partnum'] = $part['part_number'];
+                                    $compareParams['keyword'] = \Illuminate\Support\Str::limit($part['name'], 100, '');
+                                    $compareUrl = route('parts.compare', $compareParams);
+                                @endphp
+                                <div class="bg-gray-50 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col border border-gray-100">
+                                    <div class="aspect-square bg-white flex items-center justify-center overflow-hidden">
+                                        @if($part['image'])
+                                            <img src="{{ str_replace('?_ex=128x128', '?_ex=300x300', $part['image']) }}"
+                                                alt="{{ $part['name'] }}" class="w-full h-full object-contain p-2" loading="lazy">
+                                        @else
+                                            <span class="text-gray-300 text-3xl">🔧</span>
+                                        @endif
+                                    </div>
+                                    <div class="p-2.5 flex flex-col flex-grow">
+                                        <h3 class="text-xs font-bold text-gray-800 line-clamp-2 mb-1">{{ $part['name'] }}</h3>
+                                        <div class="flex items-baseline gap-1.5 mb-1">
+                                            <span class="text-sm font-black text-red-600">&yen;{{ number_format($part['price']) }}</span>
+                                            @if($part['postageFlag'] == 1)
+                                                <span class="text-[10px] font-bold bg-green-100 text-green-700 px-1 py-0.5 rounded">送料無料</span>
+                                            @endif
+                                        </div>
+                                        <div class="text-[10px] text-gray-400 mb-2 space-y-0.5">
+                                            <div class="truncate">{{ $part['shopName'] }}</div>
+                                            @if($part['reviewCount'] > 0)
+                                                <div class="flex items-center gap-0.5">
+                                                    <span class="text-yellow-500">★</span>
+                                                    <span class="font-bold text-gray-600">{{ $part['reviewAverage'] }}</span>
+                                                    <span>（{{ $part['reviewCount'] }}件）</span>
+                                                </div>
+                                            @endif
+                                            @if($part['pointRate'] > 1)
+                                                <div class="text-orange-500 font-bold">ポイント{{ $part['pointRate'] }}倍</div>
+                                            @endif
+                                        </div>
+                                        <div class="mt-auto flex flex-col gap-1">
+                                            @if($hasCode)
+                                                <a href="{{ $compareUrl }}"
+                                                    class="block text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors bg-blue-600 hover:bg-blue-700 text-white">
+                                                    3社で価格比較
+                                                </a>
+                                            @else
+                                                <a href="{{ $part['url'] }}" target="_blank" rel="noopener noreferrer"
+                                                    class="block text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors bg-red-500 hover:bg-red-600 text-white">
+                                                    楽天で見る
+                                                </a>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endforeach
+
+                        <div class="mt-5 text-center">
+                            <a href="{{ route('parts.index', ['bike' => $model->name]) }}"
+                                class="inline-flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                                {{ $model->name }} のパーツをもっと見る
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                            </a>
+                        </div>
+                    </div>
+
+                    </div>{{-- /tab-panel-parts --}}
+                    @endif
+
+                    {{-- ===== タブ5: ニュース・動画 ===== --}}
                     @if(!empty($news) || !empty($videos))
                     <div id="tab-panel-media" class="tab-panel space-y-8" style="display:none">
 
@@ -738,8 +893,117 @@
                     </div>{{-- /tab-panel-media --}}
                     @endif
 
-                    {{-- ===== タブ5: レビュー・FAQ ===== --}}
+                    {{-- ===== タブ6: レビュー・FAQ ===== --}}
                     <div id="tab-panel-community" class="tab-panel space-y-8" style="display:none">
+
+                    {{-- レビューサマリー: レーダーチャート --}}
+                    @if(!empty($categoryReviewStats))
+                    <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
+                        <h2 class="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
+                            <span class="bg-yellow-100 text-yellow-600 p-2 rounded-lg"><i data-lucide="radar" class="w-5 h-5"></i></span>
+                            {{ $model->name }} 項目別評価
+                        </h2>
+                        <div class="flex flex-col sm:flex-row items-center gap-6">
+                            <div class="w-full sm:w-1/2 max-w-[300px]">
+                                <canvas id="reviewRadarChart"></canvas>
+                            </div>
+                            <div class="w-full sm:w-1/2">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="border-b border-gray-200">
+                                            <th class="text-left py-2 text-xs font-bold text-gray-500">項目</th>
+                                            <th class="text-center py-2 text-xs font-bold text-gray-500">平均</th>
+                                            <th class="text-center py-2 text-xs font-bold text-gray-500">カテゴリ平均</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @php
+                                            $statLabels = [
+                                                'design' => 'デザイン',
+                                                'engine' => 'エンジン性能',
+                                                'handling' => '取り回し',
+                                                'fuel_economy' => '燃費',
+                                                'cost_performance' => 'コスパ',
+                                            ];
+                                        @endphp
+                                        @foreach($statLabels as $key => $label)
+                                        <tr class="border-b border-gray-50">
+                                            <td class="py-2 text-xs font-bold text-gray-700">{{ $label }}</td>
+                                            <td class="py-2 text-center text-sm font-black text-gray-900">
+                                                {{ $categoryReviewStats[$key]['avg'] ?? '-' }}
+                                            </td>
+                                            <td class="py-2 text-center text-sm font-bold text-gray-400">
+                                                {{ $categoryReviewStats[$key]['category_avg'] ?? '-' }}
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        var ctx = document.getElementById('reviewRadarChart');
+                        if (!ctx) return;
+                        var stats = @json($categoryReviewStats);
+                        new Chart(ctx, {
+                            type: 'radar',
+                            data: {
+                                labels: ['デザイン', 'エンジン性能', '取り回し', '燃費', 'コスパ'],
+                                datasets: [
+                                    {
+                                        label: '{{ $model->name }}',
+                                        data: [
+                                            stats.design.avg || 0,
+                                            stats.engine.avg || 0,
+                                            stats.handling.avg || 0,
+                                            stats.fuel_economy.avg || 0,
+                                            stats.cost_performance.avg || 0
+                                        ],
+                                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                                        borderColor: 'rgba(59, 130, 246, 0.8)',
+                                        borderWidth: 2,
+                                        pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                                        pointRadius: 3
+                                    },
+                                    {
+                                        label: 'カテゴリ平均',
+                                        data: [
+                                            stats.design.category_avg || 0,
+                                            stats.engine.category_avg || 0,
+                                            stats.handling.category_avg || 0,
+                                            stats.fuel_economy.category_avg || 0,
+                                            stats.cost_performance.category_avg || 0
+                                        ],
+                                        backgroundColor: 'rgba(156, 163, 175, 0.1)',
+                                        borderColor: 'rgba(156, 163, 175, 0.5)',
+                                        borderWidth: 1,
+                                        borderDash: [4, 4],
+                                        pointBackgroundColor: 'rgba(156, 163, 175, 0.7)',
+                                        pointRadius: 2
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: true,
+                                scales: {
+                                    r: {
+                                        min: 0,
+                                        max: 5,
+                                        ticks: { stepSize: 1, display: false },
+                                        pointLabels: { font: { size: 11, weight: 'bold' } }
+                                    }
+                                },
+                                plugins: {
+                                    legend: { position: 'bottom', labels: { font: { size: 11 } } }
+                                }
+                            }
+                        });
+                    });
+                    </script>
+                    @endif
 
                     {{-- 3. ユーザーレビュー --}}
                     <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100" id="reviews">
@@ -770,6 +1034,15 @@
                                         </div>
                                         <span class="text-[10px] text-gray-400">{{ $review->created_at->format('Y/m/d') }}</span>
                                     </div>
+                                    @if($review->rating_design || $review->rating_engine || $review->rating_handling || $review->rating_fuel_economy || $review->rating_cost_performance)
+                                    <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500 mb-2">
+                                        @if($review->rating_design)<span>デザイン:<span class="text-yellow-500">★</span>{{ $review->rating_design }}</span>@endif
+                                        @if($review->rating_engine)<span>エンジン性能:<span class="text-yellow-500">★</span>{{ $review->rating_engine }}</span>@endif
+                                        @if($review->rating_handling)<span>取り回し:<span class="text-yellow-500">★</span>{{ $review->rating_handling }}</span>@endif
+                                        @if($review->rating_fuel_economy)<span>燃費:<span class="text-yellow-500">★</span>{{ $review->rating_fuel_economy }}</span>@endif
+                                        @if($review->rating_cost_performance)<span>コスパ:<span class="text-yellow-500">★</span>{{ $review->rating_cost_performance }}</span>@endif
+                                    </div>
+                                    @endif
                                     <p class="text-sm text-gray-600 leading-relaxed mb-2 whitespace-pre-wrap">{{ $review->body }}</p>
                                     <p class="text-xs text-gray-400 font-bold">by {{ $review->nickname }}</p>
                                 </div>
@@ -823,6 +1096,33 @@
                                             <span id="rating-label" class="ml-2 text-xs font-bold text-gray-400">{{ ['', '悪い', 'いまいち', '普通', '良い', '最高'][old('rating', 5)] }}</span>
                                         </div>
                                     </div>
+                                </div>
+                                {{-- 項目別評価 --}}
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                    @php
+                                        $ratingItems = [
+                                            'rating_design' => 'デザイン',
+                                            'rating_engine' => 'エンジン性能',
+                                            'rating_handling' => '取り回し',
+                                            'rating_fuel_economy' => '燃費',
+                                            'rating_cost_performance' => 'コスパ',
+                                        ];
+                                    @endphp
+                                    @foreach($ratingItems as $fieldName => $fieldLabel)
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-500 mb-1">{{ $fieldLabel }} <span class="text-gray-300">（任意）</span></label>
+                                        <input type="hidden" name="{{ $fieldName }}" id="{{ $fieldName }}-value" value="{{ old($fieldName, '') }}">
+                                        <div class="flex items-center gap-1">
+                                            @for($s = 1; $s <= 5; $s++)
+                                            <button type="button" class="detail-star-btn p-0.5 transition-transform hover:scale-110 focus:outline-none {{ $s <= old($fieldName, 0) ? 'text-yellow-400' : 'text-gray-200' }}" data-field="{{ $fieldName }}" data-val="{{ $s }}">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 transition-colors {{ $s <= old($fieldName, 0) ? 'fill-current' : '' }}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+                                                </svg>
+                                            </button>
+                                            @endfor
+                                        </div>
+                                    </div>
+                                    @endforeach
                                 </div>
                                 <div class="mb-4">
                                     <label class="block text-xs font-bold text-gray-500 mb-1">タイトル</label>
@@ -1152,78 +1452,6 @@
                                 <p class="text-xs text-blue-600 font-bold mt-1">{{ $similar->listings_count }}台販売中</p>
                             </a>
                             @endforeach
-                        </div>
-                    </div>
-                    @endif
-
-                    {{-- 関連パーツ --}}
-                    @if(!empty($relatedParts))
-                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
-                        <h2 class="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
-                            <i data-lucide="wrench" class="w-5 h-5 text-blue-500"></i>
-                            {{ $model->name }} のパーツを探す
-                        </h2>
-                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            @foreach($relatedParts as $part)
-                            @php
-                                $hasCode = !empty($part['jan_code']) || !empty($part['part_number']);
-                                $compareParams = [];
-                                if (!empty($part['jan_code'])) $compareParams['jan'] = $part['jan_code'];
-                                if (!empty($part['part_number'])) $compareParams['partnum'] = $part['part_number'];
-                                $compareParams['keyword'] = \Illuminate\Support\Str::limit($part['name'], 100, '');
-                                $compareUrl = route('parts.compare', $compareParams);
-                                $fallbackQuery = $part['part_number'] ?: \Illuminate\Support\Str::limit($part['name'], 60, '');
-                                $yahooUrl = 'https://shopping.yahoo.co.jp/search?p=' . urlencode($fallbackQuery);
-                                $amazonQuery = $part['jan_code'] ?: $part['part_number'] ?: \Illuminate\Support\Str::limit($part['name'], 60, '');
-                                $amazonUrl = 'https://www.amazon.co.jp/s?k=' . urlencode($amazonQuery);
-                                $amazonTag = config('services.amazon.associate_tag');
-                                if ($amazonTag) $amazonUrl .= '&tag=' . urlencode($amazonTag);
-                            @endphp
-                            <div class="bg-gray-50 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col">
-                                <div class="aspect-square bg-white flex items-center justify-center overflow-hidden">
-                                    @if($part['image'])
-                                        <img src="{{ str_replace('?_ex=128x128', '?_ex=300x300', $part['image']) }}"
-                                            alt="{{ $part['name'] }}" class="w-full h-full object-contain p-2" loading="lazy">
-                                    @else
-                                        <span class="text-gray-300 text-3xl">🔧</span>
-                                    @endif
-                                </div>
-                                <div class="p-2.5 flex flex-col flex-grow">
-                                    <h3 class="text-xs font-bold text-gray-800 line-clamp-2 mb-1">{{ $part['name'] }}</h3>
-                                    <p class="text-sm font-black text-red-600 mb-2">&yen;{{ number_format($part['price']) }}</p>
-                                    <div class="mt-auto flex flex-col gap-1">
-                                        @if($hasCode)
-                                            <a href="{{ $compareUrl }}"
-                                                class="block text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors bg-gray-800 hover:bg-gray-900 text-white">
-                                                価格を比較する
-                                            </a>
-                                        @else
-                                            <a href="{{ $part['url'] }}" target="_blank" rel="noopener noreferrer"
-                                                class="block text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors bg-red-500 hover:bg-red-600 text-white">
-                                                楽天市場で見る
-                                            </a>
-                                            <a href="{{ $yahooUrl }}" target="_blank" rel="noopener noreferrer"
-                                                class="block text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors bg-blue-500 hover:bg-blue-600 text-white"
-                                                style="background-color:#3b82f6;color:#fff">
-                                                Yahoo!で探す
-                                            </a>
-                                            <a href="{{ $amazonUrl }}" target="_blank" rel="noopener noreferrer"
-                                                class="block text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors bg-amber-500 hover:bg-amber-600 text-white"
-                                                style="background-color:#f59e0b;color:#fff">
-                                                Amazonで探す
-                                            </a>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                            @endforeach
-                        </div>
-                        <div class="mt-4 text-center">
-                            <a href="{{ route('parts.index', ['bike' => $model->name]) }}"
-                                class="inline-flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors">
-                                {{ $model->name }} のパーツをもっと見る
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
-                            </a>
                         </div>
                     </div>
                     @endif
