@@ -84,7 +84,7 @@ class BlogPostController extends Controller
 
         if (!empty($validated['tags'])) {
             $tagIds = collect($validated['tags'])->map(fn ($name) =>
-                BlogTag::firstOrCreate(['name' => $name], ['slug' => Str::slug($name)])->id
+                BlogTag::firstOrCreate(['slug' => Str::slug($name)], ['name' => $name])->id
             )->toArray();
             $post->tags()->sync($tagIds);
         }
@@ -150,7 +150,7 @@ class BlogPostController extends Controller
 
         $tagNames = $request->input('tags', []);
         $tagIds = collect($tagNames)->map(fn ($name) =>
-            BlogTag::firstOrCreate(['name' => $name], ['slug' => Str::slug($name)])->id
+            BlogTag::firstOrCreate(['slug' => Str::slug($name)], ['name' => $name])->id
         )->toArray();
         $post->tags()->sync($tagIds);
 
