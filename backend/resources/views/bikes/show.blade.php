@@ -44,7 +44,7 @@
     <x-slot:ogImage>{{ $listing->images[0] }}</x-slot:ogImage>
     @endif
 
-    <x-jsonld.product :listing="$listing" />
+    <x-jsonld.product :listing="$listing" :reviewStats="$reviewDetailedStats ?? null" />
     <x-jsonld.breadcrumb :listing="$listing" />
 
     <x-slot:scripts>
@@ -951,37 +951,6 @@
                             @endforeach
                         </div>
                     </div>
-                    {{-- Product JSON-LD 構造化データ --}}
-                    <script type="application/ld+json">
-                        @php
-                            $productSchema = [
-                                '@context' => 'https://schema.org',
-                                '@type' => 'Product',
-                                'name' => $listing->name,
-                                'image' => $listing->images ?? [],
-                                'description' => Str::limit(strip_tags($listing->description ?? ''), 200),
-                                'brand' => [
-                                    '@type' => 'Brand',
-                                    'name' => $listing->manufacturer->name ?? '',
-                                ],
-                            ];
-                            $price = $listing->total_price ?? $listing->price ?? null;
-                            if ($price) {
-                                $productSchema['offers'] = [
-                                    '@type' => 'Offer',
-                                    'price' => $price,
-                                    'priceCurrency' => 'JPY',
-                                    'availability' => $listing->is_sold_out ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
-                                    'url' => url()->current(),
-                                    'seller' => [
-                                        '@type' => 'Organization',
-                                        'name' => $listing->shop->name ?? '',
-                                    ],
-                                ];
-                            }
-                        @endphp
-                        {!! json_encode($productSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}
-                    </script>
                     {{-- FAQ JSON-LD 構造化データ --}}
                     <script type="application/ld+json">
                         {!! json_encode([

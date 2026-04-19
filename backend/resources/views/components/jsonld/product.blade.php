@@ -1,4 +1,4 @@
-@props(['listing'])
+@props(['listing', 'reviewStats' => null])
 
 @php
     // 1. 価格の解析と抽出
@@ -100,6 +100,22 @@
             // 警告は残りますが、順位には影響しません。
         ]
     ];
+
+    // 7. aggregateRating（レビューが1件以上ある場合のみ）
+    $rs = is_array($reviewStats) ? $reviewStats : null;
+    if ($rs && ($rs['total'] ?? 0) > 0) {
+        $cats = ['design', 'engine', 'handling', 'fuel_economy', 'cost_performance'];
+        $vals = array_filter(array_map(fn($k) => $rs[$k]['avg'] ?? null, $cats));
+        if (count($vals) > 0) {
+            $schema['aggregateRating'] = [
+                '@type' => 'AggregateRating',
+                'ratingValue' => number_format(array_sum($vals) / count($vals), 1),
+                'bestRating' => '5',
+                'worstRating' => '1',
+                'reviewCount' => (string)$rs['total'],
+            ];
+        }
+    }
 @endphp
 
 <script type="application/ld+json">
