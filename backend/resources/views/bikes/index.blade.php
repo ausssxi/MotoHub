@@ -297,7 +297,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {{-- わらしべ長者 --}}
                     <a href="{{ route('warashibe') }}"
                        class="group relative overflow-hidden rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-amber-300 transition-all duration-300">
@@ -329,6 +329,23 @@
                                 <h3 class="text-sm font-black text-gray-800 group-hover:text-blue-600 transition-colors">バイク4択クイズ</h3>
                             </div>
                             <p class="text-xs text-gray-500 leading-relaxed">実データを使ったバイククイズ！中古価格・売れ筋・売却スピードを当てよう</p>
+                        </div>
+                    </a>
+
+                    {{-- バイク2048パズル --}}
+                    <a href="{{ route('puzzle') }}"
+                       class="group relative overflow-hidden rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-orange-300 transition-all duration-300">
+                        <div class="overflow-hidden">
+                            <img src="{{ asset('images/puzzle/title_screen.png') }}" alt="バイク2048パズル"
+                                 class="w-full h-48 object-cover object-top rounded-t-xl group-hover:scale-105 transition-transform duration-500"
+                                 loading="lazy" decoding="async">
+                        </div>
+                        <div class="p-4 bg-white">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-lg">🧩</span>
+                                <h3 class="text-sm font-black text-gray-800 group-hover:text-orange-600 transition-colors">バイク2048パズル</h3>
+                            </div>
+                            <p class="text-xs text-gray-500 leading-relaxed">カブ50から合体！目指せゴールドウイング</p>
                         </div>
                     </a>
                 </div>

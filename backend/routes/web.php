@@ -239,6 +239,9 @@ Route::view('/quiz', 'quiz.index')->name('quiz');
 // バイクわらしべ長者
 Route::view('/warashibe', 'warashibe.index')->name('warashibe');
 
+// バイク2048パズル
+Route::view('/puzzle', 'puzzle.index')->name('puzzle');
+
 // 買取査定LP
 Route::get('/sell', [SellController::class, 'index'])->name('sell.index');
 Route::post('/api/sell/calculate', [SellController::class, 'calculate'])->name('sell.calculate');

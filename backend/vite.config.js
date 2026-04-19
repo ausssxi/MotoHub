@@ -10,6 +10,7 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/js/quiz-app.jsx',
                 'resources/js/warashibe-app.jsx',
+                'resources/js/puzzle-app.jsx',
             ],
             refresh: true,
         }),

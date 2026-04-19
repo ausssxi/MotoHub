@@ -105,6 +105,15 @@
                     <p class="text-[10px] text-gray-400">カブ50から隼を目指す交換ゲーム</p>
                 </div>
             </a>
+            <a href="{{ route('puzzle') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="puzzle" class="w-5 h-5 text-orange-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">パズル</p>
+                    <p class="text-[10px] text-gray-400">カブ50から合体！目指せゴールドウイング</p>
+                </div>
+            </a>
 
             {{-- 情報 --}}
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mt-3 mb-1">情報</p>

@@ -4,7 +4,7 @@
     "name": "client"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DGiRi9sO.css",
+    "file": "assets/app-BY1NUbKU.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -17,6 +17,15 @@
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true
+  },
+  "resources/js/puzzle-app.jsx": {
+    "file": "assets/puzzle-app-CTG1tKHp.js",
+    "name": "puzzle-app",
+    "src": "resources/js/puzzle-app.jsx",
+    "isEntry": true,
+    "imports": [
+      "_client-Ccx6zi3W.js"
+    ]
   },
   "resources/js/quiz-app.jsx": {
     "file": "assets/quiz-app-erMxXrVA.js",

@@ -156,6 +156,10 @@
                             <i data-lucide="gamepad-2" class="w-3.5 h-3.5"></i>
                             わらしべ
                         </a>
+                        <a href="{{ route('puzzle') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="puzzle" class="w-3.5 h-3.5"></i>
+                            パズル
+                        </a>
                     </div>
                 </div>
 
