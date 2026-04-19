@@ -1433,6 +1433,41 @@
                         <script type="application/ld+json">
                             {!! json_encode($faqSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) !!}
                         </script>
+                        {{-- Product JSON-LD 構造化データ --}}
+                        @php
+                            $firstImage = '';
+                            if (isset($listings) && $listings->first()?->image_urls) {
+                                $decoded = json_decode($listings->first()->image_urls, true);
+                                $firstImage = $decoded[0] ?? '';
+                            }
+                            $modelProductSchema = [
+                                '@context' => 'https://schema.org',
+                                '@type' => 'Product',
+                                'name' => ($model->manufacturer->name ?? '') . ' ' . $model->name,
+                                'image' => $firstImage,
+                                'brand' => [
+                                    '@type' => 'Brand',
+                                    'name' => $model->manufacturer->name ?? '',
+                                ],
+                                'description' => $model->enriched_content['introduction'] ?? $model->name . 'の中古バイク一覧',
+                            ];
+                            if (isset($listings) && $listings->count() > 0) {
+                                $low = $listings->min('total_price');
+                                $high = $listings->max('total_price');
+                                if ($low && $high) {
+                                    $modelProductSchema['offers'] = [
+                                        '@type' => 'AggregateOffer',
+                                        'lowPrice' => $low,
+                                        'highPrice' => $high,
+                                        'priceCurrency' => 'JPY',
+                                        'offerCount' => $listings->count(),
+                                    ];
+                                }
+                            }
+                        @endphp
+                        <script type="application/ld+json">
+                            {!! json_encode($modelProductSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}
+                        </script>
                     </div>
 
                     {{-- この車種のオーナー --}}
