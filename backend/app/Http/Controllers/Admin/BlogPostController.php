@@ -83,9 +83,15 @@ class BlogPostController extends Controller
         ]);
 
         if (!empty($validated['tags'])) {
-            $tagIds = collect($validated['tags'])->map(fn ($name) =>
-                BlogTag::firstOrCreate(['name' => trim($name)], ['slug' => Str::slug($name) ?: Str::random(10)])->id
-            )->toArray();
+            $tagIds = collect($validated['tags'])->map(function ($name) {
+                $name = trim($name);
+                $slug = Str::slug($name) ?: Str::random(10);
+                $tag = BlogTag::where('name', $name)->orWhere('slug', $slug)->first();
+                if (!$tag) {
+                    $tag = BlogTag::create(['name' => $name, 'slug' => $slug]);
+                }
+                return $tag->id;
+            })->toArray();
             $post->tags()->sync($tagIds);
         }
 
@@ -149,9 +155,15 @@ class BlogPostController extends Controller
         $post->update($validated);
 
         $tagNames = $request->input('tags', []);
-        $tagIds = collect($tagNames)->map(fn ($name) =>
-            BlogTag::firstOrCreate(['name' => trim($name)], ['slug' => Str::slug($name) ?: Str::random(10)])->id
-        )->toArray();
+        $tagIds = collect($tagNames)->map(function ($name) {
+            $name = trim($name);
+            $slug = Str::slug($name) ?: Str::random(10);
+            $tag = BlogTag::where('name', $name)->orWhere('slug', $slug)->first();
+            if (!$tag) {
+                $tag = BlogTag::create(['name' => $name, 'slug' => $slug]);
+            }
+            return $tag->id;
+        })->toArray();
         $post->tags()->sync($tagIds);
 
         return redirect()->route('admin.blog.posts.edit', $post->id)
