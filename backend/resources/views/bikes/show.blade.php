@@ -1,44 +1,51 @@
 <x-layout>
     @php
+        // title構築
         $titleParts = [$listing->name];
-        if ($listing->total_price) {
-            $titleParts[] = number_format((float)$listing->total_price * 10000) . '円';
-        }
         if ($listing->model_year) {
-            $titleParts[] = $listing->model_year . '年式';
+            $titleParts[0] .= ' ' . $listing->model_year . '年式';
         }
+        if ($listing->total_price && $listing->total_price !== '-') {
+            $priceMan = number_format((float)$listing->total_price, 1);
+            $titleParts[] = $priceMan . '万円';
+        }
+        // 相場比較をタイトルに追加
+        $mpPrice = $marketPosition['items'] ?? [];
+        $mpPriceItem = collect($mpPrice)->firstWhere('key', 'price');
+        if ($mpPriceItem) {
+            $titleParts[] = '相場' . $mpPriceItem['avg'] . 'の' . $mpPriceItem['label'] . '判定';
+        }
+
+        // description構築
         $rawMileage = preg_replace('/[^0-9]/', '', (string) ($listing->mileage ?? ''));
-        if ($rawMileage !== '' && $rawMileage !== '0') {
-            $m = (int) $rawMileage;
-            $titleParts[] = ($m < 5000 ? '低走行' : '') . number_format($m) . 'km';
-        }
+        $mileageStr = ($rawMileage !== '' && $rawMileage !== '0') ? number_format((int)$rawMileage) . 'km' : '';
 
-        $categoryMessages = [
-            'ネイキッド' => '街乗りからツーリングまで万能',
-            'スポーツ/レプリカ' => 'サーキットも公道も楽しめる',
-            'アメリカン' => 'ゆったりクルーズに最適',
-            'オフロード' => '林道もダートも走破',
-            'スクーター' => '通勤・通学の足に',
-            'ツアラー' => 'ロングツーリングの相棒',
-            'アドベンチャー' => 'オンもオフも自由自在',
-            'クラシック' => 'レトロな佇まいが魅力',
-            'ミニバイク' => '取り回し抜群のコンパクトサイズ',
-        ];
-        $catName = $listing->category ?? '';
-        $catMsg = $categoryMessages[$catName] ?? '';
-
-        $descParts = [$listing->name];
-        if ($listing->total_price) {
-            $descParts[] = '総額' . number_format((float)$listing->total_price * 10000) . '円';
+        $descParts = [$listing->name . 'の詳細'];
+        if (isset($priceMan)) {
+            $desc2 = '総額' . $priceMan . '万円';
+            if ($mpPriceItem) {
+                $pctMatch = [];
+                $diffPct = null;
+                $avgVal = (float) str_replace(['万円', ','], '', $mpPriceItem['avg']);
+                $myVal = (float) $listing->total_price;
+                if ($avgVal > 0) {
+                    $diffPct = round(abs(($myVal - $avgVal) / $avgVal) * 100);
+                    $desc2 .= '（相場平均' . $mpPriceItem['avg'] . 'より' . $diffPct . '%' . ($myVal <= $avgVal ? 'お得' : '高め') . '）';
+                }
+            }
+            $descParts[] = $desc2;
         }
-        if ($catMsg) {
-            $descParts[] = $catMsg;
+        if ($mileageStr) {
+            $descParts[] = '走行' . $mileageStr;
         }
         $descParts[] = ($listing->shop_name ?? '') . ($listing->prefecture ? '（' . $listing->prefecture . '）' : '');
+        if (isset($marketPosition['count']) && $marketPosition['count'] > 0) {
+            $descParts[] = '同車種' . $marketPosition['count'] . '台と価格比較できます';
+        }
     @endphp
-    <x-slot:title>{{ implode('｜', $titleParts) }} - MotoHub</x-slot:title>
+    <x-slot:title>{{ implode(' | ', $titleParts) }} - MotoHub</x-slot:title>
 
-    <x-slot:metaDescription>{{ implode('。', array_filter($descParts)) }}。MotoHubで価格相場と比較して、お買い得な中古バイクを見つけよう。</x-slot:metaDescription>
+    <x-slot:metaDescription>{{ implode('。', array_filter($descParts)) }}。</x-slot:metaDescription>
 
     @if(!empty($listing->images) && isset($listing->images[0]))
     <x-slot:ogImage>{{ $listing->images[0] }}</x-slot:ogImage>

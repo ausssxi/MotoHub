@@ -1,8 +1,7 @@
 <x-layout>
     {{-- 1. タイトルの設定 --}}
-    <x-slot:title>
-        運営者情報 - MotoHub
-    </x-slot:title>
+    <x-slot:title>MotoHubについて | 22万台のバイクデータで最適な1台を - MotoHub</x-slot:title>
+    <x-slot:metaDescription>MotoHubは全国の中古バイク22万台以上を一括検索できるポータルサイト。価格比較・AI相場分析・買取予想・駐車場検索など、バイク選びに必要な機能を無料で提供。</x-slot:metaDescription>
 
     {{-- 2. ナビゲーション --}}
     <x-slot:navigation>

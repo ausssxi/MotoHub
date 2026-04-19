@@ -2,31 +2,15 @@
 
 @php
     // 1. 価格の解析と抽出
+    // ListingResource経由の場合、total_priceは万円単位（例: "37.0" = 37万円）
     $price = null;
-    $rawPrice = null;
-
-    // ListingResource経由でもモデル経由でも対応できるように値を取得
     $totalPriceVal = $listing->total_price ?? null;
 
-    // 数値かどうかチェック
-    if (is_numeric($totalPriceVal) && $totalPriceVal > 0) {
-        $price = (int)$totalPriceVal;
-    } elseif (is_string($totalPriceVal)) {
-        // "45.8" や "458,000" などの文字列をクリーニング
-        $cleaned = str_replace(',', '', $totalPriceVal);
-        if (is_numeric($cleaned)) {
-            // もし万円単位(小数あり)なら円に変換、そうでなければそのまま
-            // MotoHubのDB仕様上、Listingモデルは「円」で持っているはずですが、
-            // Resource経由だと "45.8" (万円) になっている可能性があります。
-            // ここでは安全のため "1000以下なら万円とみなす" などのロジックを入れるか、
-            // 元の仕様に合わせて調整します。
-            // (以前のコードでは Resource で /10000 していたので、Bladeに来る値は "万円" の可能性があります)
-            
-            if ($cleaned < 10000) {
-                 $price = (int)($cleaned * 10000);
-            } else {
-                 $price = (int)$cleaned;
-            }
+    if ($totalPriceVal && $totalPriceVal !== '-') {
+        $cleaned = (float) str_replace(',', '', $totalPriceVal);
+        if ($cleaned > 0) {
+            // 万円単位 → 円単位に変換（ListingResourceが /10000 しているため）
+            $price = (int)($cleaned * 10000);
         }
     }
 

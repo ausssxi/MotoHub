@@ -1,6 +1,7 @@
 <x-layout>
-    <x-slot:title>バイク駐車場・駐輪場マップ | MotoHub</x-slot:title>
-    <x-slot:metaDescription>全国のバイク駐車場・駐輪場をマップで検索。料金や設備情報、ユーザーレビューも確認できます。</x-slot:metaDescription>
+    @php $parkingCount = \Illuminate\Support\Facades\Cache::remember('parking_total_count', 3600, fn() => \App\Models\BikeParking::active()->count()); @endphp
+    <x-slot:title>バイク駐車場マップ【全国{{ number_format($parkingCount) }}件】料金・空き状況 | MotoHub</x-slot:title>
+    <x-slot:metaDescription>全国{{ number_format($parkingCount) }}件のバイク駐車場・駐輪場をマップで検索。料金シミュレーター・ストリートビュー・ユーザーレビューで最適な駐車場が見つかる。</x-slot:metaDescription>
 
     <x-slot:styles>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>

@@ -1,6 +1,6 @@
 <x-layout>
-    <x-slot:title>バイク車種一覧・中古相場カタログ | MotoHub</x-slot:title>
-    <x-slot:metaDescription>全{{ number_format($totalModelsCount) }}車種のバイクカタログ。メーカー別にスペック・中古相場・リセールバリューを比較できます。気になる車種の価格推移やオーナーレビューもチェック。</x-slot:metaDescription>
+    <x-slot:title>【全{{ number_format($totalModelsCount) }}車種】バイク中古相場ランキング・価格比較 | MotoHub</x-slot:title>
+    <x-slot:metaDescription>国内全{{ number_format($totalModelsCount) }}車種の中古バイク相場を一覧比較。メーカー別・排気量別に価格帯・在庫数・人気ランキングをチェック。あなたにぴったりの1台が見つかる。</x-slot:metaDescription>
 
     <x-slot:scripts>
         <script src="{{ asset('js/bikes/models.js') }}?v={{ filemtime(public_path('js/bikes/models.js')) }}"></script>
