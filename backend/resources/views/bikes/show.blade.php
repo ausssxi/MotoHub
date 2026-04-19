@@ -958,7 +958,7 @@
                                 '@context' => 'https://schema.org',
                                 '@type' => 'Product',
                                 'name' => $listing->name,
-                                'image' => $listing->image_urls ? json_decode($listing->image_urls, true) : [],
+                                'image' => $listing->images ?? [],
                                 'description' => Str::limit(strip_tags($listing->description ?? ''), 200),
                                 'brand' => [
                                     '@type' => 'Brand',

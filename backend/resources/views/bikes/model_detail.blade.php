@@ -1436,9 +1436,8 @@
                         {{-- Product JSON-LD 構造化データ --}}
                         @php
                             $firstImage = '';
-                            if (isset($listings) && $listings->first()?->image_urls) {
-                                $decoded = json_decode($listings->first()->image_urls, true);
-                                $firstImage = $decoded[0] ?? '';
+                            if (isset($listings) && $listings->first()) {
+                                $firstImage = ($listings->first()->images ?? [])[0] ?? '';
                             }
                             $modelProductSchema = [
                                 '@context' => 'https://schema.org',
