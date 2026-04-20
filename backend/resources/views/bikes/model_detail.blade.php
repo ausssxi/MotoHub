@@ -104,12 +104,22 @@
                     // URLハッシュ連動
                     function handleHash() {
                         var hash = location.hash.replace('#', '');
+                        if (!hash) { switchTab('overview'); return; }
                         var validTabs = [];
                         btns.forEach(function(b) { validTabs.push(b.dataset.tab); });
                         if (validTabs.indexOf(hash) !== -1) {
                             switchTab(hash);
                         } else {
-                            switchTab('overview');
+                            // タブ内アンカー（#review-form等）の場合、親タブを維持する
+                            var target = document.getElementById(hash);
+                            if (target) {
+                                var parentPanel = target.closest('.tab-panel');
+                                if (parentPanel) {
+                                    var panelTab = parentPanel.id.replace('tab-panel-', '');
+                                    switchTab(panelTab);
+                                }
+                            }
+                            // どのタブにも属さないハッシュの場合は現在のタブを維持（切り替えない）
                         }
                     }
 
