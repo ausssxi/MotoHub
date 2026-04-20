@@ -2,6 +2,7 @@
     {{-- 1. タイトルの設定 --}}
     <x-slot:title>MotoHubについて | 22万台のバイクデータで最適な1台を - MotoHub</x-slot:title>
     <x-slot:metaDescription>MotoHubは全国の中古バイク22万台以上を一括検索できるポータルサイト。価格比較・AI相場分析・買取予想・駐車場検索など、バイク選びに必要な機能を無料で提供。</x-slot:metaDescription>
+    <x-slot:ogImage>https://motohub.jp/images/about-ogp.png</x-slot:ogImage>
 
     {{-- 2. ナビゲーション --}}
     <x-slot:navigation>
@@ -19,6 +20,10 @@
                     戻る
                 </a>
             </div>
+
+            {{-- ヒーロー画像 --}}
+            <img src="/images/about-hero.png" alt="MotoHub - 22万台のバイクデータで最適な1台を"
+                 class="w-full max-w-lg mx-auto rounded-xl shadow-lg mb-8" loading="lazy" decoding="async">
 
             {{-- ページヘッダー --}}
             <div class="mb-16">
