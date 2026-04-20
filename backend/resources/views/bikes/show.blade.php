@@ -1,31 +1,31 @@
 <x-layout>
     @php
+        // 共通データ準備
+        $yearRaw = rtrim((string)($listing->model_year ?? ''), '年');
+        $yearStr = $yearRaw ? $yearRaw . '年式' : '';
+        $priceMan = ($listing->total_price && $listing->total_price !== '-')
+            ? number_format((float)$listing->total_price, 1) : '';
+        $rawMileage = preg_replace('/[^0-9]/', '', (string)($listing->mileage ?? ''));
+        $mileageStr = ($rawMileage !== '' && $rawMileage !== '0') ? number_format((int)$rawMileage) . 'km' : '';
+
+        // 相場データ
+        $mpPriceItem = collect($marketPosition['items'] ?? [])->firstWhere('key', 'price');
+
         // title構築
         $titleParts = [$listing->name];
-        if ($listing->model_year) {
-            $titleParts[0] .= ' ' . $listing->model_year . '年式';
-        }
-        if ($listing->total_price && $listing->total_price !== '-') {
-            $priceMan = number_format((float)$listing->total_price, 1);
-            $titleParts[] = $priceMan . '万円';
-        }
-        // 相場比較をタイトルに追加
-        $mpPrice = $marketPosition['items'] ?? [];
-        $mpPriceItem = collect($mpPrice)->firstWhere('key', 'price');
+        if ($priceMan) $titleParts[] = $priceMan . '万円';
         if ($mpPriceItem) {
             $titleParts[] = '相場' . $mpPriceItem['avg'] . 'の' . $mpPriceItem['label'] . '判定';
+        } else {
+            if ($yearStr) $titleParts[] = $yearStr;
+            if ($mileageStr) $titleParts[] = $mileageStr;
         }
 
         // description構築
-        $rawMileage = preg_replace('/[^0-9]/', '', (string) ($listing->mileage ?? ''));
-        $mileageStr = ($rawMileage !== '' && $rawMileage !== '0') ? number_format((int)$rawMileage) . 'km' : '';
-
         $descParts = [$listing->name . 'の詳細'];
-        if (isset($priceMan)) {
+        if ($priceMan) {
             $desc2 = '総額' . $priceMan . '万円';
             if ($mpPriceItem) {
-                $pctMatch = [];
-                $diffPct = null;
                 $avgVal = (float) str_replace(['万円', ','], '', $mpPriceItem['avg']);
                 $myVal = (float) $listing->total_price;
                 if ($avgVal > 0) {
@@ -35,9 +35,7 @@
             }
             $descParts[] = $desc2;
         }
-        if ($mileageStr) {
-            $descParts[] = '走行' . $mileageStr;
-        }
+        if ($mileageStr) $descParts[] = '走行' . $mileageStr;
         $descParts[] = ($listing->shop_name ?? '') . ($listing->prefecture ? '（' . $listing->prefecture . '）' : '');
         if (isset($marketPosition['count']) && $marketPosition['count'] > 0) {
             $descParts[] = '同車種' . $marketPosition['count'] . '台と価格比較できます';

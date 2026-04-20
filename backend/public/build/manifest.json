@@ -4,7 +4,7 @@
     "name": "client"
   },
   "resources/css/app.css": {
-    "file": "assets/app-D3ufI-Ti.css",
+    "file": "assets/app-BY1NUbKU.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -19,7 +19,7 @@
     "isEntry": true
   },
   "resources/js/puzzle-app.jsx": {
-    "file": "assets/puzzle-app-CTG1tKHp.js",
+    "file": "assets/puzzle-app-MSpASl53.js",
     "name": "puzzle-app",
     "src": "resources/js/puzzle-app.jsx",
     "isEntry": true,

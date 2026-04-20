@@ -607,6 +607,9 @@ export default function BikePuzzle() {
           </button>
         </div>
 
+        {/* How to play */}
+        <HowToPlay />
+
         {/* Grid */}
         <div className="bp-container" ref={gridRef} style={{ fontSize: 'clamp(12px, 3.5vw, 16px)' }}>
           <div className="bp-grid-bg">
@@ -671,6 +674,51 @@ export default function BikePuzzle() {
 }
 
 // ── Sub-components ─────────────────────────────────────────
+const HOW_TO_PLAY_KEY = 'motohub_puzzle_howto_seen';
+
+function HowToPlay() {
+  const [seen, setSeen] = useState(() => {
+    try { return localStorage.getItem(HOW_TO_PLAY_KEY) === '1'; } catch { return false; }
+  });
+  const [open, setOpen] = useState(false);
+
+  if (seen) return null;
+
+  const dismiss = () => {
+    try { localStorage.setItem(HOW_TO_PLAY_KEY, '1'); } catch {}
+    setSeen(true);
+  };
+
+  return (
+    <div style={{
+      backgroundColor: '#eff6ff', borderRadius: '10px', padding: '8px 12px',
+      marginBottom: '10px', fontSize: '13px', color: '#4b5563',
+    }}>
+      <button onClick={() => setOpen(o => !o)} style={{
+        background: 'none', border: 'none', cursor: 'pointer', width: '100%',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        fontSize: '13px', fontWeight: 'bold', color: '#4b5563', padding: 0,
+        WebkitTapHighlightColor: 'transparent',
+      }}>
+        <span>遊び方</span>
+        <span style={{ fontSize: '10px' }}>{open ? '\u25B2' : '\u25BC'}</span>
+      </button>
+      {open && (
+        <div style={{ marginTop: '6px', lineHeight: 1.7 }}>
+          <p>・上下左右にスワイプ（PCは矢印キー）でタイルを移動</p>
+          <p>・同じバイクがぶつかると合体してグレードアップ！</p>
+          <p>・カブ50 → モンキー125 → PCX → ... → ゴールドウイングを目指そう</p>
+          <p>・動かせなくなったらゲームオーバー</p>
+          <button onClick={(e) => { e.stopPropagation(); dismiss(); setOpen(false); }} style={{
+            marginTop: '6px', background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: '11px', color: '#9ca3af', textDecoration: 'underline', padding: 0,
+          }}>閉じて次回から非表示</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ControlHint() {
   const isTouch = useMemo(() => {
     try { return window.matchMedia('(pointer: coarse)').matches; } catch { return false; }
