@@ -19,6 +19,7 @@ use App\Http\Controllers\Shindan\ShindanController;
 use App\Http\Controllers\Feature\FeatureController;
 use App\Http\Controllers\Parking\ParkingController;
 use App\Http\Controllers\Parking\ParkingAreaController;
+use App\Http\Controllers\Parking\StationParkingController;
 use App\Http\Controllers\Ar\ArController;
 use App\Http\Controllers\Bike\BikeIdentifierController;
 use App\Http\Controllers\Parts\PartsController;
@@ -155,6 +156,12 @@ Route::prefix('parking')->name('parking.')->controller(ParkingController::class)
     Route::get('/{bikeParking}', 'show')->name('show')->where('bikeParking', '[0-9]+');
     Route::post('/{bikeParking}/review', 'storeReview')->name('review')->where('bikeParking', '[0-9]+')->middleware('throttle:3,1');
     Route::post('/{bikeParking}/used', 'incrementUsed')->name('used')->where('bikeParking', '[0-9]+')->middleware('throttle:10,1');
+});
+
+// 駅別駐車場ページ
+Route::prefix('parking/station')->name('parking.station.')->controller(StationParkingController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/{station}', 'show')->name('show');
 });
 
 // 駐車場エリア別ページ

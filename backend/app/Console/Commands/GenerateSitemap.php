@@ -512,6 +512,38 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
+        // 4.7. 駅別駐車場ページ (sitemap-parking-station.xml)
+        // =========================================================
+        $this->info("駅別駐車場サイトマップを生成中...");
+        $stationFileName = 'sitemap-parking-station.xml';
+        $handle = $this->openSitemap($stationFileName);
+        $sitemapFiles[] = $stationFileName;
+        $stationCount = 0;
+
+        // 駅一覧インデックス
+        $this->writeUrl($handle, route('parking.station.index'), date('Y-m-d'), 'weekly', '0.7');
+        $stationCount++;
+
+        // 主要駅の個別ページ
+        $stationService = app(\App\Services\Parking\StationParkingService::class);
+        $majorSlugs = $stationService->getMajorStationSlugs();
+
+        foreach ($majorSlugs as $slug) {
+            $this->writeUrl(
+                $handle,
+                route('parking.station.show', $slug),
+                date('Y-m-d'),
+                'weekly',
+                '0.6'
+            );
+            $stationCount++;
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$stationCount} URL (Parking Station)");
+
+
+        // =========================================================
         // 5. 車種別カタログページ (sitemap-models.xml)
         // =========================================================
         $this->info("車種別カタログサイトマップを生成中...");

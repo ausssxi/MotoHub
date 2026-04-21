@@ -31,3 +31,7 @@ __pycache__/
 
 
 backend/public/sitemap*.xml
+
+# 国交省データ（KSJ）
+backend/storage/app/N02-24_Station.geojson
+backend/storage/app/N02-*_Station.geojson

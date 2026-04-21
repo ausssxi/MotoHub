@@ -48,6 +48,7 @@ final class BikeParking extends Model
         'used_count',
         'is_verified',
         'is_active',
+        'station_id',
     ];
 
     protected $casts = [
@@ -73,6 +74,11 @@ final class BikeParking extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function station(): BelongsTo
+    {
+        return $this->belongsTo(Station::class);
     }
 
     public function reviews(): HasMany

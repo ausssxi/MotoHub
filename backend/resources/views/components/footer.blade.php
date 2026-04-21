@@ -77,6 +77,9 @@
                         <a href="{{ route('parking.area.index') }}" class="footer-link">エリアから駐車場を探す</a>
                     </li>
                     <li>
+                        <a href="{{ route('parking.station.index') }}" class="footer-link">駅から駐車場を探す</a>
+                    </li>
+                    <li>
                         <a href="{{ route('parts.index') }}" class="footer-link">バイクパーツ検索</a>
                     </li>
                     <li>
@@ -88,8 +91,13 @@
                 </ul>
             </nav>
 
+            <!-- データ出典 -->
+            <div class="pt-6 border-t border-gray-200/50 w-full">
+                <p class="text-[10px] text-gray-400 leading-relaxed">駅データ: 国土数値情報（鉄道データ）国土交通省</p>
+            </div>
+
             <!-- コピーライト -->
-            <div class="pt-8 border-t border-gray-200/50 w-full">
+            <div class="pt-4 w-full">
                 <p class="text-[10px] text-gray-300 font-bold tracking-widest uppercase">
                     &copy; {{ date('Y') }} MotoHub Project - All Rights Reserved.
                 </p>
