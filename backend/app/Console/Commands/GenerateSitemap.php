@@ -524,17 +524,20 @@ class GenerateSitemap extends Command
         $this->writeUrl($handle, route('parking.station.index'), date('Y-m-d'), 'weekly', '0.7');
         $stationCount++;
 
-        // 主要駅の個別ページ
+        // 主要駅 + 駐車場5件以上の駅
         $stationService = app(\App\Services\Parking\StationParkingService::class);
-        $majorSlugs = $stationService->getMajorStationSlugs();
+        $sitemapStations = $stationService->getSitemapStations(5);
 
-        foreach ($majorSlugs as $slug) {
+        foreach ($sitemapStations as $station) {
+            $lastmod = $station->updated_at?->format('Y-m-d') ?? date('Y-m-d');
+            $priority = $station->is_major ? '0.6' : '0.5';
+
             $this->writeUrl(
                 $handle,
-                route('parking.station.show', $slug),
-                date('Y-m-d'),
+                route('parking.station.show', $station->slug),
+                $lastmod,
                 'weekly',
-                '0.6'
+                $priority
             );
             $stationCount++;
         }

@@ -16,13 +16,11 @@ final class StationParkingController extends Controller
     ) {}
 
     /**
-     * 駅別駐車場一覧（主要駅インデックス）
+     * 駅別駐車場一覧（主要駅 + その他の充実駅）
      */
     public function index(): View
     {
-        $data = $this->service->getStationIndex();
-
-        return view('parking.station-index', $data);
+        return view('parking.station-index', $this->service->getStationIndex());
     }
 
     /**
