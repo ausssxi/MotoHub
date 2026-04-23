@@ -46,29 +46,40 @@ document.addEventListener('DOMContentLoaded', () => {
             const iconBtn = btn.querySelector('.compare-icon');
             const label = btn.querySelector('.compare-label');
             const sub = btn.querySelector('.compare-sub');
+            const isCompact = !iconBtn; // カード上のコンパクトボタン
 
             if (ids.includes(id)) {
-                // --- 選択中: 青系カード ---
-                btn.classList.add('bg-blue-50', 'border-blue-200');
-                btn.classList.remove('bg-gray-50', 'border-gray-200');
-                if (iconBtn) {
+                if (isCompact) {
+                    // --- コンパクトボタン（検索カード等）: 選択中 ---
+                    btn.classList.remove('bg-white/90', 'text-gray-400', 'border-gray-100', 'border');
+                    btn.classList.add('bg-blue-500', 'text-white', 'border-2', 'border-blue-500', 'ring-2', 'ring-blue-300');
+                    btn.innerHTML = '<i data-lucide="check" class="w-5 h-5"></i>';
+                } else {
+                    // --- リッチボタン（詳細ページ）: 選択中 ---
+                    btn.classList.add('bg-blue-50', 'border-blue-200');
+                    btn.classList.remove('bg-gray-50', 'border-gray-200');
                     iconBtn.classList.add('border-blue-300', 'bg-blue-50', 'text-blue-600');
                     iconBtn.classList.remove('border-gray-200', 'bg-white', 'text-gray-400');
                     iconBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i>';
+                    if (label) { label.textContent = '比較中'; label.classList.add('text-blue-700'); label.classList.remove('text-gray-900'); }
+                    if (sub) { sub.textContent = 'タップで解除'; sub.classList.add('text-blue-500'); sub.classList.remove('text-gray-500'); }
                 }
-                if (label) { label.textContent = '比較中'; label.classList.add('text-blue-700'); label.classList.remove('text-gray-900'); }
-                if (sub) { sub.textContent = 'タップで解除'; sub.classList.add('text-blue-500'); sub.classList.remove('text-gray-500'); }
             } else {
-                // --- 未選択: グレー系カード ---
-                btn.classList.remove('bg-blue-50', 'border-blue-200');
-                btn.classList.add('bg-gray-50', 'border-gray-200');
-                if (iconBtn) {
+                if (isCompact) {
+                    // --- コンパクトボタン（検索カード等）: 未選択 ---
+                    btn.classList.remove('bg-blue-500', 'text-white', 'border-2', 'border-blue-500', 'ring-2', 'ring-blue-300');
+                    btn.classList.add('bg-white/90', 'text-gray-400', 'border', 'border-gray-100');
+                    btn.innerHTML = '<i data-lucide="layers" class="w-5 h-5"></i>';
+                } else {
+                    // --- リッチボタン（詳細ページ）: 未選択 ---
+                    btn.classList.remove('bg-blue-50', 'border-blue-200');
+                    btn.classList.add('bg-gray-50', 'border-gray-200');
                     iconBtn.classList.remove('border-blue-300', 'bg-blue-50', 'text-blue-600');
                     iconBtn.classList.add('border-gray-200', 'bg-white', 'text-gray-400');
                     iconBtn.innerHTML = '<i data-lucide="layers" class="w-4 h-4"></i>';
+                    if (label) { label.textContent = '比較'; label.classList.remove('text-blue-700'); label.classList.add('text-gray-900'); }
+                    if (sub) { sub.textContent = 'リストに追加'; sub.classList.remove('text-blue-500'); sub.classList.add('text-gray-500'); }
                 }
-                if (label) { label.textContent = '比較'; label.classList.remove('text-blue-700'); label.classList.add('text-gray-900'); }
-                if (sub) { sub.textContent = 'リストに追加'; sub.classList.remove('text-blue-500'); sub.classList.add('text-gray-500'); }
             }
         });
 
