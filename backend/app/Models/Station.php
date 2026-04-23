@@ -13,6 +13,7 @@ final class Station extends Model
     protected $fillable = [
         'name',
         'slug',
+        'old_slug',
         'kana',
         'prefecture',
         'city',

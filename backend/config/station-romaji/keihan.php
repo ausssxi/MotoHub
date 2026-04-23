@@ -1,0 +1,90 @@
+<?php
+// 京阪電気鉄道 ローマ字辞書
+return [
+    // 京阪本線（淀屋橋〜三条）
+    '淀屋橋' => 'yodoyabashi',
+    '北浜' => 'kitahama',
+    '天満橋' => 'temmabashi',
+    '京橋' => 'kyobashi',
+    '野江' => 'noe',
+    '関目' => 'sekime',
+    '森小路' => 'morishoji',
+    '千林' => 'senbayashi',
+    '滝井' => 'takii',
+    '土居' => 'doi',
+    '守口市' => 'moriguchishi',
+    '西三荘' => 'nishi-sanso',
+    '門真市' => 'kadomashi',
+    '古川橋' => 'furukawabashi',
+    '大和田' => 'owada',
+    '萱島' => 'kayashima',
+    '寝屋川市' => 'neyagawashi',
+    '香里園' => 'korien',
+    '光善寺' => 'kozenji',
+    '枚方公園' => 'hirakata-koen',
+    '枚方市' => 'hirakatashi',
+    '御殿山' => 'gotenyama',
+    '牧野' => 'makino',
+    '樟葉' => 'kuzuha',
+    '橋本' => 'hashimoto',
+    '石清水八幡宮' => 'iwashimizu-hachimangu',
+    '淀' => 'yodo',
+    '中書島' => 'chushojima',
+    '伏見桃山' => 'fushimi-momoyama',
+    '丹波橋' => 'tambabashi',
+    '墨染' => 'sumizome',
+    '藤森' => 'fujinomori',
+    '龍谷大前深草' => 'ryukokudaimae-fukakusa',
+    '伏見稲荷' => 'fushimi-inari',
+    '鳥羽街道' => 'toba-kaido',
+    '東福寺' => 'tofukuji',
+    '七条' => 'shichijo',
+    '清水五条' => 'kiyomizu-gojo',
+    '祇園四条' => 'gion-shijo',
+    '三条' => 'sanjo',
+
+    // 鴨東線（三条〜出町柳）
+    '神宮丸太町' => 'jingu-marutamachi',
+    '出町柳' => 'demachiyanagi',
+
+    // 中之島線（中之島〜天満橋）
+    '中之島' => 'nakanoshima',
+    '渡辺橋' => 'watanabebashi',
+    '大江橋' => 'oebashi',
+    'なにわ橋' => 'naniwabashi',
+
+    // 交野線（枚方市〜私市）
+    '宮之阪' => 'miyanosaka-hirakata',
+    '星ヶ丘' => 'hoshigaoka',
+    '村野' => 'murano',
+    '郡津' => 'kozu',
+    '交野市' => 'katanoshi',
+    '河内森' => 'kawachi-mori',
+    '私市' => 'kisaichi',
+
+    // 宇治線（中書島〜宇治）
+    '観月橋' => 'kangetsubashi',
+    '桃山南口' => 'momoyama-minamiguchi',
+    '六地蔵' => 'rokujizo',
+    '木幡' => 'kobata',
+    '黄檗' => 'obaku',
+    '三室戸' => 'mimurodo',
+    '宇治' => 'uji',
+
+    // 石山坂本線（石山寺〜坂本比叡山口）
+    '石山寺' => 'ishiyamadera',
+    '京阪石山' => 'keihan-ishiyama',
+    '京阪膳所' => 'keihan-zeze',
+    'びわ湖浜大津' => 'biwako-hamaotsu',
+    '京阪大津京' => 'keihan-otsukyo',
+    '近江神宮前' => 'omi-jingumae',
+    '坂本比叡山口' => 'sakamoto-hieizanguchi',
+
+    // 京津線（びわ湖浜大津〜御陵）
+    '上栄町' => 'kami-sakaemachi',
+    '大谷' => 'otani',
+    '追分' => 'oiwake',
+    '四宮' => 'shinomiya',
+    '京阪山科' => 'keihan-yamashina',
+    '御陵' => 'misasagi',
+];

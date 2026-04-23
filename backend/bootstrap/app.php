@@ -17,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
+        $middleware->prependToGroup('web', [
+            \App\Http\Middleware\RedirectOldStationSlugs::class,
+        ]);
         $middleware->alias([
             'blog.cache' => \App\Http\Middleware\BlogCacheHeaders::class,
         ]);
