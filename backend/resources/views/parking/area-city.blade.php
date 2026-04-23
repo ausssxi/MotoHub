@@ -193,6 +193,31 @@
                 </div>
             </section>
 
+            {{-- 駅から探す --}}
+            @if($stations->isNotEmpty())
+            <section class="mb-8">
+                <h2 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="train-front" class="w-5 h-5 text-green-500"></i>
+                    {{ $city }}の駅から探す
+                </h2>
+                <p class="text-xs text-gray-400 mb-3">{{ $city }}には{{ $stations->count() }}駅の駐車場情報があります。</p>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    @foreach($stations as $station)
+                    <a href="{{ route('parking.area.station', [$prefecture, $city, $station->name . '駅']) }}"
+                       class="group bg-white rounded-xl border border-gray-100 p-3 hover:bg-green-50 hover:border-green-200 transition-all">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i data-lucide="train-front" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>
+                            <span class="text-sm font-black text-gray-800 group-hover:text-green-700 transition-colors">{{ $station->name }}駅</span>
+                        </div>
+                        @if($station->bike_parkings_count > 0)
+                        <p class="text-[10px] text-gray-400 ml-5.5">駐車場 {{ $station->bike_parkings_count }}件</p>
+                        @endif
+                    </a>
+                    @endforeach
+                </div>
+            </section>
+            @endif
+
             {{-- FAQ --}}
             @php
                 $faqs = [];

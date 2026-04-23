@@ -169,6 +169,7 @@ Route::prefix('parking/area')->name('parking.area.')->controller(ParkingAreaCont
     Route::get('/', 'index')->name('index');
     Route::get('/{prefecture}', 'prefecture')->name('prefecture');
     Route::get('/{prefecture}/{city}', 'city')->name('city');
+    Route::get('/{prefecture}/{city}/{stationName}', 'stationInArea')->name('station');
 });
 
 // 駐車場マップ（要ログイン）

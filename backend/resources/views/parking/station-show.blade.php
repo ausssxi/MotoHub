@@ -2,6 +2,10 @@
     <x-slot:title>{{ $station->name }}駅周辺のバイク駐車場・駐輪場（{{ $totalCount }}件） | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $station->name }}駅（{{ $station->prefecture }}）周辺のバイク駐車場・駐輪場を{{ $totalCount }}件掲載。@if($priceStats['avg_per_hour'])時間料金の相場は平均{{ $priceStats['avg_per_hour'] }}円/時。@endif{{ $station->line_names ? $station->line_names . '沿線。' : '' }}料金・設備・レビューで比較できます。</x-slot:metaDescription>
 
+    @if(isset($canonicalUrl))
+    <x-slot:canonical>{{ $canonicalUrl }}</x-slot:canonical>
+    @endif
+
     <x-slot:styles>
         <x-jsonld.breadcrumb-station :station="$station" />
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -79,13 +83,26 @@
             {{-- パンくず --}}
             <nav class="overflow-x-auto text-xs font-bold text-gray-400 mb-6 scrollbar-hide" aria-label="Breadcrumb">
                 <ol class="flex items-center space-x-2 whitespace-nowrap">
-                    <li><a href="/" class="hover:text-gray-600 transition-colors">HOME</a></li>
-                    <li><span class="text-gray-300">＞</span></li>
-                    <li><a href="{{ route('parking.index') }}" class="hover:text-gray-600 transition-colors">駐車場マップ</a></li>
-                    <li><span class="text-gray-300">＞</span></li>
-                    <li><a href="{{ route('parking.station.index') }}" class="hover:text-gray-600 transition-colors">駅から探す</a></li>
-                    <li><span class="text-gray-300">＞</span></li>
-                    <li><span class="text-gray-800">{{ $station->name }}駅</span></li>
+                    @if(isset($breadcrumb))
+                        @foreach($breadcrumb as $crumb)
+                            @if(!$loop->first)
+                            <li><span class="text-gray-300">＞</span></li>
+                            @endif
+                            @if($crumb['url'])
+                            <li><a href="{{ $crumb['url'] }}" class="hover:text-gray-600 transition-colors">{{ $crumb['label'] }}</a></li>
+                            @else
+                            <li><span class="text-gray-800">{{ $crumb['label'] }}</span></li>
+                            @endif
+                        @endforeach
+                    @else
+                        <li><a href="/" class="hover:text-gray-600 transition-colors">HOME</a></li>
+                        <li><span class="text-gray-300">＞</span></li>
+                        <li><a href="{{ route('parking.index') }}" class="hover:text-gray-600 transition-colors">駐車場マップ</a></li>
+                        <li><span class="text-gray-300">＞</span></li>
+                        <li><a href="{{ route('parking.station.index') }}" class="hover:text-gray-600 transition-colors">駅から探す</a></li>
+                        <li><span class="text-gray-300">＞</span></li>
+                        <li><span class="text-gray-800">{{ $station->name }}駅</span></li>
+                    @endif
                 </ol>
             </nav>
 
