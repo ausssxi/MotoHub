@@ -81,7 +81,7 @@ final class AddressParser
             $cityRest = $rest;
         }
 
-        // 市区町村を抽出（優先順位付き）
+        // 市区町村を抽出（優先順位付き、バリデーション失敗時は次パターンへフォールスルー）
         // 注: standalone 町/村 は町名（本町, 三宮町等）と区別できないため対象外
         //     郡+町/村 は郡パターンで処理
         $city = '';
@@ -96,27 +96,37 @@ final class AddressParser
         }
 
         if ($city === '') {
+            // 候補を優先順位順に収集（先にマッチしたものが高優先）
+            $candidates = [];
+
+            // 1. 政令指定都市: ○○市○○区
             if (preg_match('/^(.+?市.+?区)/u', $cityRest, $m)) {
-                // 1. 政令指定都市: ○○市○○区
-                $city = $m[1];
-            } elseif (preg_match('/^(.+?郡.+?[町村])/u', $cityRest, $m)
-                // 「大和郡山市」のように市名に郡を含むケースを除外:
-                // 郡マッチ内に「市」があるが「郡市」(郡直後に市)でない場合は偽マッチ
+                $candidates[] = $m[1];
+            }
+            // 2. 郡+町村: ○○郡○○町/村（「神崎郡市川町」等を正しく処理）
+            if (preg_match('/^(.+?郡.+?[町村])/u', $cityRest, $m)
                 && (!str_contains($m[1], '市') || str_contains($m[1], '郡市'))
             ) {
-                // 2. 郡+町村: ○○郡○○町/村（市パターンより先に判定し「神崎郡市川町」等を正しく処理）
-                $city = $m[1];
-            } elseif (preg_match('/^(.+?市)/u', $cityRest, $m)) {
-                // 3. 一般市（ホワイトリストで特殊ケース処理済みのため lookahead 不要）
-                $city = $m[1];
-            } elseif (preg_match('/^(.+?区)/u', $cityRest, $m)) {
-                // 4. 東京特別区
-                $city = $m[1];
+                $candidates[] = $m[1];
+            }
+            // 3. 一般市
+            if (preg_match('/^(.+?市)/u', $cityRest, $m)) {
+                $candidates[] = $m[1];
+            }
+            // 4. 東京特別区
+            if (preg_match('/^(.+?区)/u', $cityRest, $m)) {
+                $candidates[] = $m[1];
+            }
+
+            // 最初にバリデーションを通過する候補を採用
+            foreach ($candidates as $candidate) {
+                $validated = self::validateCity($candidate);
+                if ($validated !== '') {
+                    $city = $validated;
+                    break;
+                }
             }
         }
-
-        // バリデーション: 不正なcityを排除
-        $city = self::validateCity($city);
 
         // 市名から都道府県を推定・矯正（政令指定都市マップ）
         foreach (self::CITY_TO_PREFECTURE as $cityName => $correctPref) {
