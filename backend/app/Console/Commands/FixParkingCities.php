@@ -41,45 +41,56 @@ class FixParkingCities extends Command
             $query->where('prefecture', $prefFilter);
         }
 
-        $rows = $query->get();
+        $total = (clone $query)->count();
+        $this->info("対象レコード: {$total}件");
+
         $fixed = 0;
         $skipped = 0;
+        $bar = $this->output->createProgressBar($total);
+        $bar->start();
 
-        foreach ($rows as $row) {
-            $parsed = $parser->parse($row->address);
+        $query->chunk(500, function ($rows) use ($parser, $dryRun, &$fixed, &$skipped, $bar) {
+            foreach ($rows as $row) {
+                $bar->advance();
 
-            $newPref = $parsed['prefecture'] ?: $row->prefecture;
-            $newCity = $parsed['city'];
+                $parsed = $parser->parse($row->address);
 
-            // パーサー出力もバリデーション（旧パーサーの不正出力対策）
-            if ($newCity !== '' && !self::isCleanCity($newCity)) {
-                $newCity = '';
-            }
+                $newPref = $parsed['prefecture'] ?: $row->prefecture;
+                $newCity = $parsed['city'];
 
-            // パーサーが空cityの場合のフォールバック
-            if ($newCity === '' && $row->city !== '') {
-                if (self::isCleanCity($row->city)) {
-                    // 既存cityが正常なら維持
-                    $newCity = $row->city;
-                } else {
-                    // 不正な既存city → prefecture prefix除去を試みる
-                    $newCity = self::stripPrefectureFromCity($row->city);
+                // パーサー出力もバリデーション（旧パーサーの不正出力対策）
+                if ($newCity !== '' && !self::isCleanCity($newCity)) {
+                    $newCity = '';
                 }
-            }
 
-            if ($row->prefecture === $newPref && $row->city === $newCity) {
-                $skipped++;
-                continue;
-            }
+                // パーサーが空cityの場合のフォールバック
+                if ($newCity === '' && $row->city !== '') {
+                    if (self::isCleanCity($row->city)) {
+                        // 既存cityが正常なら維持
+                        $newCity = $row->city;
+                    } else {
+                        // 不正な既存city → prefecture prefix除去を試みる
+                        $newCity = self::stripPrefectureFromCity($row->city);
+                    }
+                }
 
-            if ($dryRun) {
-                $this->line("ID:{$row->id} [{$row->prefecture}|{$row->city}] → [{$newPref}|{$newCity}]");
-            } else {
-                $row->update(['prefecture' => $newPref, 'city' => $newCity]);
-            }
-            $fixed++;
-        }
+                if ($row->prefecture === $newPref && $row->city === $newCity) {
+                    $skipped++;
+                    continue;
+                }
 
+                if ($dryRun) {
+                    $this->newLine();
+                    $this->line("ID:{$row->id} [{$row->prefecture}|{$row->city}] → [{$newPref}|{$newCity}]");
+                } else {
+                    $row->update(['prefecture' => $newPref, 'city' => $newCity]);
+                }
+                $fixed++;
+            }
+        });
+
+        $bar->finish();
+        $this->newLine(2);
         $this->info("完了: 修正={$fixed}, スキップ={$skipped}");
     }
 

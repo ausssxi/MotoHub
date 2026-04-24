@@ -39,18 +39,27 @@ class FixStationCities extends Command
             $this->info('[DRY RUN] データは保存されません。');
         }
 
-        // 対象: cityがNULL/空/不正の全駅
-        $stations = Station::get();
-        $targets = $stations->filter(fn (Station $s) => !$this->isValidCity($s->city));
+        // 対象: cityがNULL/空/不正の全駅（chunkでメモリ節約）
+        $totalStations = Station::count();
+        $targetCount = Station::where(function ($q) {
+            $q->whereNull('city')
+                ->orWhere('city', '')
+                ->orWhereRaw('CHAR_LENGTH(city) < 2');
+        })->count();
 
-        $this->info("対象駅: {$targets->count()} / 全駅: {$stations->count()}");
+        $this->info("対象駅: {$targetCount} / 全駅: {$totalStations}");
 
         $fixed = 0;
         $skipped = 0;
-        $bar = $this->output->createProgressBar($targets->count());
+        $bar = $this->output->createProgressBar($targetCount);
         $bar->start();
 
-        foreach ($targets as $station) {
+        Station::where(function ($q) {
+            $q->whereNull('city')
+                ->orWhere('city', '')
+                ->orWhereRaw('CHAR_LENGTH(city) < 2');
+        })->chunk(500, function ($stations) use ($parser, $dryRun, &$fixed, &$skipped, $bar) {
+            foreach ($stations as $station) {
             $result = $this->inferCity($station, $parser);
             $bar->advance();
 
@@ -83,6 +92,7 @@ class FixStationCities extends Command
             }
             $fixed++;
         }
+        });
 
         $bar->finish();
         $this->newLine(2);
