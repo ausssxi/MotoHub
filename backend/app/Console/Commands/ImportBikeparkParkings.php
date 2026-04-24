@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\BikeParking;
+use App\Services\Parking\AddressParser;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 
@@ -27,6 +28,12 @@ class ImportBikeparkParkings extends Command
     private int $duplicated = 0;
     private int $failed = 0;
     private int $notFound = 0;
+
+    public function __construct(
+        private readonly AddressParser $addressParser,
+    ) {
+        parent::__construct();
+    }
 
     public function handle(): void
     {
@@ -189,8 +196,9 @@ class ImportBikeparkParkings extends Command
         $notes = $this->extractField($html, '備考');
 
         // 都道府県と市区町村
-        $prefecture = $this->extractPrefecture($address);
-        $city = $this->extractCity($address);
+        $parsed = $this->addressParser->parse($address);
+        $prefecture = $parsed['prefecture'];
+        $city = $parsed['city'];
 
         $data = [
             'name' => $name,
@@ -293,24 +301,6 @@ class ImportBikeparkParkings extends Command
         $name = str_replace(['（', '）', '【', '】'], ['(', ')', '(', ')'], $name);
 
         return mb_strtolower($name);
-    }
-
-    private function extractPrefecture(string $address): string
-    {
-        if (preg_match('/^(北海道|東京都|大阪府|京都府|.{2,3}県)/u', $address, $m)) {
-            return $m[1];
-        }
-
-        return '';
-    }
-
-    private function extractCity(string $address): string
-    {
-        if (preg_match('/([\p{Han}\p{Hiragana}\p{Katakana}]+?[市区町村郡])/u', $address, $m)) {
-            return $m[1];
-        }
-
-        return '';
     }
 
     private function parseFee(string $fee, array &$data): void

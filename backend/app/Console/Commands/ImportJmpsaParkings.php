@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\BikeParking;
+use App\Services\Parking\AddressParser;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Symfony\Component\DomCrawler\Crawler;
@@ -42,6 +43,12 @@ class ImportJmpsaParkings extends Command
     private int $created = 0;
     private int $skipped = 0;
     private int $failed = 0;
+
+    public function __construct(
+        private readonly AddressParser $addressParser,
+    ) {
+        parent::__construct();
+    }
 
     public function handle(): void
     {
@@ -250,7 +257,7 @@ class ImportJmpsaParkings extends Command
             'name' => $item['name'],
             'address' => $address,
             'prefecture' => $prefName,
-            'city' => $this->extractCity($item['address']),
+            'city' => $this->addressParser->parse($item['address'])['city'],
             'parking_type' => 'bike_only',
             'source_url' => $item['source_url'],
             'is_active' => true,
@@ -330,16 +337,4 @@ class ImportJmpsaParkings extends Command
         }
     }
 
-    /**
-     * 住所から市区町村名を抽出
-     */
-    private function extractCity(string $address): string
-    {
-        // 「○○市」「○○区」「○○町」「○○村」「○○郡」
-        if (preg_match('/([\p{Han}\p{Hiragana}\p{Katakana}]+?[市区町村郡])/u', $address, $m)) {
-            return $m[1];
-        }
-
-        return '';
-    }
 }
