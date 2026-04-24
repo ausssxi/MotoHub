@@ -16,8 +16,13 @@ final class AddressParser
         '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
     ];
 
-    /** 市名に「市」を含む市（一般市パターンで誤マッチするためホワイトリスト処理） */
-    private const SPECIAL_SHI_CITIES = ['四日市市', '廿日市市', '市川市', '市原市', '野々市市'];
+    /** 正規表現パターンで誤マッチする市名のホワイトリスト（先頭一致で優先判定） */
+    private const SPECIAL_CITIES = [
+        // 市名に「市」を含む（一般市パターンで誤マッチ）
+        '四日市市', '廿日市市', '市川市', '市原市', '野々市市',
+        // 市名に「郡」を含む（郡パターンで誤マッチ）
+        '蒲郡市',
+    ];
 
     /** 政令指定都市 + 既知の問題ケースの市→県マッピング */
     private const CITY_TO_PREFECTURE = [
@@ -73,7 +78,8 @@ final class AddressParser
         }
 
         // 都道府県除去後のtrim（「東京都 町田市…」のようなスペース混入対策）
-        $rest = ltrim($rest, " \t　");
+        // 注: ltrimは全角スペースでバイト破壊するためpreg_replaceを使用
+        $rest = preg_replace('/^[\s　]+/u', '', $rest);
 
         // 市区町村抽出用: 番地部分（数字以降）を除去して誤マッチ防止
         $cityRest = preg_replace('/[0-9０-９].*/u', '', $rest);
@@ -88,7 +94,7 @@ final class AddressParser
 
         // 0. 「市」を含む市名のホワイトリスト（四日市市, 市川市等）
         //    一般市パターンで誤マッチするため先に処理
-        foreach (self::SPECIAL_SHI_CITIES as $sc) {
+        foreach (self::SPECIAL_CITIES as $sc) {
             if (str_starts_with($rest, $sc)) {
                 $city = $sc;
                 break;
