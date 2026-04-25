@@ -274,16 +274,58 @@
                     'a' => "{$station->name}駅（{$station->prefecture}）周辺500m以内に{$totalCount}件のバイク駐車場・駐輪場があります。" .
                            ($freeCount > 0 ? "うち{$freeCount}件は無料で利用できます。" : ''),
                 ];
-                if ($priceStats['avg_per_month']) {
+                if ($priceStats['monthly_count'] > 0) {
+                    $monthlyAnswer = "{$station->name}駅周辺の月極バイク駐車場は{$priceStats['monthly_count']}件あり、月額" . number_format($priceStats['min_per_month']) . "円〜" . number_format($priceStats['max_per_month']) . "円です。";
+                    $monthlyNames = collect($priceStats['monthly_parkings'] ?? []);
+                    if ($monthlyNames->isNotEmpty()) {
+                        $monthlyAnswer .= '（例：' . $monthlyNames->map(fn ($p) => $p['name'] . ' ' . number_format($p['price']) . '円/月')->implode('、') . '）';
+                    }
                     $faqs[] = [
                         'q' => "{$station->name}駅周辺でバイクの月極駐車場はある？",
-                        'a' => "はい、{$station->name}駅周辺には月極契約が可能なバイク駐車場があります。平均月額は" . number_format($priceStats['avg_per_month']) . "円です。",
+                        'a' => $monthlyAnswer,
                     ];
                 }
                 if ($station->line_names) {
                     $faqs[] = [
                         'q' => "{$station->name}駅は何線が通っている？",
                         'a' => "{$station->name}駅には{$station->line_names}が乗り入れています。",
+                    ];
+                }
+                // 大型バイク対応
+                if ($largeBikeCount > 0) {
+                    $faqs[] = [
+                        'q' => "{$station->name}駅周辺に大型バイク(400cc以上)が停められる駐輪場はありますか？",
+                        'a' => "はい、{$station->name}駅周辺には大型バイク(400cc以上)に対応した駐車場が{$largeBikeCount}件あります。車両制限の詳細は各駐車場の情報をご確認ください。",
+                    ];
+                } else {
+                    $faqs[] = [
+                        'q' => "{$station->name}駅周辺に大型バイク(400cc以上)が停められる駐輪場はありますか？",
+                        'a' => "{$station->name}駅周辺で大型バイク(400cc以上)に対応した駐車場の情報は現在確認が必要です。各駐車場に直接お問い合わせください。",
+                    ];
+                }
+                // 125cc〜250cc対応
+                if ($bikeOnlyCount + $bicycleSharedCount > 0) {
+                    $midAnswer = "バイク専用の駐車場が{$bikeOnlyCount}件あり、概ね250ccまで対応しています。";
+                    if ($bicycleSharedCount > 0) {
+                        $midAnswer .= "自転車共用{$bicycleSharedCount}件は原付のみの場合があるため、事前にご確認ください。";
+                    }
+                    $faqs[] = [
+                        'q' => "{$station->name}駅周辺に125cc〜250ccのバイクが停められる駐輪場はありますか？",
+                        'a' => $midAnswer,
+                    ];
+                }
+                // 24時間利用
+                if ($available24hCount > 0) {
+                    $faqs[] = [
+                        'q' => "{$station->name}駅周辺に24時間利用できるバイク駐輪場はありますか？",
+                        'a' => "はい、{$station->name}駅周辺には24時間利用可能なバイク駐車場が{$available24hCount}件あります。",
+                    ];
+                }
+                // 屋根付き
+                if ($coveredCount > 0) {
+                    $faqs[] = [
+                        'q' => "{$station->name}駅周辺に屋根付きのバイク駐輪場はありますか？",
+                        'a' => "はい、{$station->name}駅周辺には屋根付き（雨天対応）のバイク駐車場が{$coveredCount}件あります。",
                     ];
                 }
             @endphp

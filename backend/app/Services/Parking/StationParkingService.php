@@ -16,23 +16,49 @@ final class StationParkingService
      */
     public function getStationDetail(Station $station): array
     {
-        $cacheKey = "station_parking_detail_{$station->id}";
+        $cacheKey = "station_parking_detail_v2_{$station->id}";
 
         return Cache::remember($cacheKey, 86400, function () use ($station) {
             $parkings = $station->nearbyParkings(0.5)->get();
 
             $totalCount = $parkings->count();
             $freeCount = $parkings->where('is_free', true)->count();
+            $coveredCount = $parkings->where('is_covered', true)->count();
+            $available24hCount = $parkings->where('available_24h', true)->count();
+            $bikeOnlyCount = $parkings->where('parking_type', 'bike_only')->count();
+            $bicycleSharedCount = $parkings->where('parking_type', 'bicycle_shared')->count();
+
+            // 大型バイク対応の判定
+            $largeBikeKeywords = ['大型', '400', '750', '制限なし', '排気量制限なし'];
+            $largeBikeCount = $parkings->filter(function ($p) use ($largeBikeKeywords) {
+                if (!$p->vehicle_restriction) {
+                    return false;
+                }
+                foreach ($largeBikeKeywords as $kw) {
+                    if (mb_strpos($p->vehicle_restriction, $kw) !== false) {
+                        return true;
+                    }
+                }
+                return false;
+            })->count();
 
             // 料金統計
             $hourlyPrices = $parkings->pluck('price_per_hour')->filter()->values();
             $monthlyPrices = $parkings->pluck('price_per_month')->filter()->values();
+            $monthlyParkings = $parkings->filter(fn ($p) => $p->price_per_month > 0)->values();
 
             $priceStats = [
                 'avg_per_hour' => $hourlyPrices->isNotEmpty() ? (int) round($hourlyPrices->avg()) : null,
                 'min_per_hour' => $hourlyPrices->isNotEmpty() ? (int) $hourlyPrices->min() : null,
                 'max_per_hour' => $hourlyPrices->isNotEmpty() ? (int) $hourlyPrices->max() : null,
                 'avg_per_month' => $monthlyPrices->isNotEmpty() ? (int) round($monthlyPrices->avg()) : null,
+                'min_per_month' => $monthlyPrices->isNotEmpty() ? (int) $monthlyPrices->min() : null,
+                'max_per_month' => $monthlyPrices->isNotEmpty() ? (int) $monthlyPrices->max() : null,
+                'monthly_count' => $monthlyParkings->count(),
+                'monthly_parkings' => $monthlyParkings->take(3)->map(fn ($p) => [
+                    'name' => $p->name,
+                    'price' => $p->price_per_month,
+                ])->values()->toArray(),
             ];
 
             // 近隣のバイク在庫（prefectureはshopsテーブル）
@@ -59,6 +85,11 @@ final class StationParkingService
                 'parkings' => $parkings,
                 'totalCount' => $totalCount,
                 'freeCount' => $freeCount,
+                'coveredCount' => $coveredCount,
+                'available24hCount' => $available24hCount,
+                'largeBikeCount' => $largeBikeCount,
+                'bikeOnlyCount' => $bikeOnlyCount,
+                'bicycleSharedCount' => $bicycleSharedCount,
                 'priceStats' => $priceStats,
                 'nearbyListings' => $nearbyListings,
                 'siblingStations' => $siblingStations,
