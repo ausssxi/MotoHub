@@ -5,63 +5,72 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Models\Listing;
+use App\Services\Twitter\NewStockChartService;
 use Abraham\TwitterOAuth\TwitterOAuth;
 use Illuminate\Support\Facades\Log;
 
 class TweetNewStock extends Command
 {
-    protected $signature = 'bikes:tweet-new-stock {--dry-run : ツイートせずにテキストだけ表示}';
+    protected $signature = 'bikes:tweet-new-stock {--dry-run : ツイートせずにテキストと画像を確認}';
     protected $description = '新着入荷まとめをX(Twitter)に投稿します';
+
+    public function __construct(
+        private readonly NewStockChartService $chartService,
+    ) {
+        parent::__construct();
+    }
 
     public function handle(): void
     {
+        $dryRun = (bool) $this->option('dry-run');
+
+        if ($dryRun) {
+            $this->warn('[DRY-RUN] Twitter APIは呼びません。');
+        }
+
         $this->info('新着入荷まとめの集計を開始します...');
 
-        $yesterday = now()->subDay()->startOfDay();
-        $todayStart = now()->startOfDay();
-
-        // 前日作成のアクティブなリスティングをメーカー別に集計
-        $listings = Listing::with('bikeModel.manufacturer')
-            ->where('is_sold_out', false)
-            ->whereBetween('created_at', [$yesterday, $todayStart])
-            ->get();
-
-        $total = $listings->count();
+        $total = $this->chartService->getTotalCount();
 
         if ($total === 0) {
-            $this->info('昨日の新着入荷はありませんでした。');
+            $this->info('直近24時間の新着入荷はありませんでした。');
             return;
         }
 
-        // メーカー別の集計
-        $makerCounts = $listings->groupBy(function ($listing) {
-            return $listing->bikeModel?->manufacturer?->name ?? '不明';
-        })->map->count()->sortDesc();
+        // --- テキスト ---
+        $text = "📦 本日の新着入荷！\n\n";
+        $text .= "🏍 {$total}台が新しく登録されました\n\n";
+        $text .= "https://www.motohub.jp/bikes?sort=newest\n\n";
+        $text .= "#中古バイク #MotoHub #新着入荷";
 
-        // ツイート文面
-        $text = "📦 昨日の新着入荷まとめ！\n\n";
-        $text .= "合計 {$total}台 が新たに登場！\n\n";
-        $text .= "🔥 人気メーカー\n";
+        // --- 画像生成 ---
+        $png = $this->chartService->generateDashboardImage();
 
-        $count = 0;
-        foreach ($makerCounts as $maker => $num) {
-            if ($count >= 5) break;
-            $text .= "・{$maker}: {$num}台\n";
-            $count++;
-        }
-
-        $text .= "\n最新の在庫をチェック👇\n";
-        $text .= "https://www.motohub.jp/bikes/search\n\n";
-        $text .= "#MotoHub #バイク #中古バイク #新着入荷";
-
-        if ($this->option('dry-run')) {
-            $this->info("--- Dry Run ---");
+        if ($dryRun) {
+            $this->newLine();
+            $this->line('========================================');
+            $this->info("新着入荷: {$total}台");
+            $this->line('--- テキスト ---');
             $this->line($text);
+
+            if ($png) {
+                $dir = storage_path('app/temp');
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0755, true);
+                }
+                $imagePath = $dir . '/new_stock_dashboard.png';
+                file_put_contents($imagePath, $png);
+                $this->line('--- 画像 ---');
+                $this->info("保存先: {$imagePath}");
+            } else {
+                $this->warn('画像生成に失敗しました');
+            }
+
+            $this->line('========================================');
             return;
         }
 
-        // Twitter接続
+        // --- Twitter接続 ---
         try {
             $connection = new TwitterOAuth(
                 config('services.twitter.consumer_key'),
@@ -75,14 +84,41 @@ class TweetNewStock extends Command
             return;
         }
 
-        // テキストのみ（画像なし）
-        $result = $connection->post('tweets', ['text' => $text]);
+        // --- 画像アップロード ---
+        $mediaIds = [];
+        if ($png) {
+            $tempPath = storage_path('app/public/temp_newstock_' . uniqid() . '.png');
+            file_put_contents($tempPath, $png);
+
+            try {
+                $connection->setApiVersion('1.1');
+                $media = $connection->upload('media/upload', ['media' => $tempPath]);
+                if (isset($media->media_id_string)) {
+                    $mediaIds[] = $media->media_id_string;
+                }
+            } catch (\Exception $e) {
+                $this->error("Image upload failed: " . $e->getMessage());
+            } finally {
+                $connection->setApiVersion('2');
+                if (file_exists($tempPath)) {
+                    unlink($tempPath);
+                }
+            }
+        }
+
+        // --- ツイート投稿 ---
+        $payload = ['text' => $text];
+        if (!empty($mediaIds)) {
+            $payload['media'] = ['media_ids' => $mediaIds];
+        }
+
+        $result = $connection->post('tweets', $payload);
 
         if ($connection->getLastHttpCode() == 201) {
             $this->info("新着入荷まとめをツイートしました（{$total}台）");
         } else {
             $this->error("Tweet failed code: " . $connection->getLastHttpCode());
-            Log::error("Twitter API Error (NewStock)", (array)$result);
+            Log::error("Twitter API Error (NewStock)", (array) $result);
         }
     }
 }
