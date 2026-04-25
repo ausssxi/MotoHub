@@ -15,8 +15,8 @@ final class ReviewChartService
     private const WIDTH = 1200;
     private const HEIGHT = 630;
     private const BG_COLOR = '#0f172a';
-    private const RADAR_W = 660;
-    private const RADAR_H = 630;
+    private const RADAR_W = 600;
+    private const RADAR_H = 450;
 
     public function generateReviewCard(Review $review): ?string
     {
@@ -28,12 +28,12 @@ final class ReviewChartService
         $manager = new ImageManager(new Driver());
         $canvas = $manager->create(self::WIDTH, self::HEIGHT)->fill(self::BG_COLOR);
 
+        $this->drawTextInfo($canvas, $review);
+
         if ($radarPng) {
             $radarImage = $manager->read($radarPng);
-            $canvas->place($radarImage, 'top-left', 0, 0);
+            $canvas->place($radarImage, 'top-left', 300, 140);
         }
-
-        $this->drawTextInfo($canvas, $review);
 
         return (string) $canvas->toPng();
     }
@@ -123,7 +123,7 @@ final class ReviewChartService
     }
 
     // =====================================================================
-    // 右側テキスト描画
+    // テキスト描画（縦並び中央揃え）
     // =====================================================================
 
     private function drawTextInfo(mixed $canvas, Review $review): void
@@ -133,36 +133,42 @@ final class ReviewChartService
             $fontPath = public_path('fonts/font.ttf');
         }
 
-        $rightX = 700;
+        $centerX = self::WIDTH / 2;
         $bikeName = $review->bikeModel?->name ?? '車種不明';
         $makerName = $review->bikeModel?->manufacturer?->name ?? '';
 
-        // --- 車種名（大きく、白文字、中央寄り）---
+        // --- 車種名（y=40、36px、白、中央揃え）---
         $displayName = $makerName ? "{$makerName} {$bikeName}" : $bikeName;
-        if (mb_strlen($displayName) > 16) {
-            $displayName = mb_substr($displayName, 0, 15) . '…';
+        if (mb_strlen($displayName) > 20) {
+            $displayName = mb_substr($displayName, 0, 19) . '…';
         }
-        $canvas->text($displayName, $rightX, 270, function (FontFactory $font) use ($fontPath) {
+        $canvas->text($displayName, (int) $centerX, 40, function (FontFactory $font) use ($fontPath) {
             $font->filename($fontPath);
             $font->size(36);
             $font->color('#ffffff');
+            $font->align('center');
+            $font->valign('top');
         });
 
-        // --- 総合評価（黄色の★）---
+        // --- 総合評価（y=100、32px、黄色、中央揃え）---
         $rating = $review->rating;
         $stars = str_repeat('★', $rating) . str_repeat('☆', 5 - $rating);
         $avg = number_format($this->calcAvgRating($review), 1);
-        $canvas->text("{$stars} {$avg}", $rightX, 340, function (FontFactory $font) use ($fontPath) {
+        $canvas->text("{$stars} {$avg}", (int) $centerX, 100, function (FontFactory $font) use ($fontPath) {
             $font->filename($fontPath);
             $font->size(32);
             $font->color('#FBBF24');
+            $font->align('center');
+            $font->valign('top');
         });
 
         // --- MotoHub ブランディング（右下）---
-        $canvas->text('MotoHub', 1080, 590, function (FontFactory $font) use ($fontPath) {
+        $canvas->text('MotoHub', 1150, 600, function (FontFactory $font) use ($fontPath) {
             $font->filename($fontPath);
-            $font->size(18);
+            $font->size(16);
             $font->color('rgba(255, 255, 255, 0.3)');
+            $font->align('right');
+            $font->valign('bottom');
         });
     }
 
