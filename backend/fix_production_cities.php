@@ -1,6 +1,20 @@
 <?php
 /**
- * 本番用: 不正city一括調査＋修正スクリプト
+ * 本番用: 不正city一括調査＋修正スクリプト v4
+ *
+ * 検出パターン:
+ *   A. 重複サフィックス（区市、町市、市市等）
+ *   B. 重複文字（川川、高高等）
+ *   C. 都道府県フル混入（神奈川県横浜市→横浜市）
+ *   D. 都道府県部分混入（神奈川横浜市→横浜市、県なし）
+ *   E. 住所混入（丁目、番地、地区）
+ *   F. 長すぎ（10文字超）
+ *   G. 短すぎ（2文字以下、市/区で終わらない）
+ *   H. 政令指定都市の区欠落（横浜市→横浜市中区）
+ *   I. 区のみ・市なし（多摩区→川崎市多摩区）※東京都除外
+ *   J. 町のみ・郡なし（湯河原町→足柄下郡湯河原町）
+ *   K. スペース/数字混入
+ *   L. 都道府県不一致（横浜市なのに東京都等）
  *
  * 使い方:
  *   docker compose exec app php /var/www/fix_production_cities.php          # 調査のみ
@@ -22,8 +36,79 @@ $totalFixed = 0;
 
 echo $fix ? "=== 修正モード ===\n\n" : "=== 調査モード（--fix で修正実行）===\n\n";
 
-// 全47都道府県のREGEXP用パターン
-$prefRegexp = '(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)';
+// ── 定数 ──────────────────────────────────────────
+
+$prefectures = [
+    '北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県',
+    '茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県',
+    '新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県',
+    '静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県',
+    '奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県',
+    '徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県',
+    '熊本県','大分県','宮崎県','鹿児島県','沖縄県',
+];
+$prefRegexp = '(' . implode('|', $prefectures) . ')';
+
+// 都道府県ベース（サフィックスなし）— city先頭に残存する部分プレフィックス検出用
+// 3文字: 安全に検出可能。2文字: 市名と重複するため個別条件付き
+$partialPrefBases = [
+    '神奈川' => '神奈川県',
+    '鹿児島' => '鹿児島県',
+    '和歌山' => '和歌山県',
+    '北海' => '北海道',
+];
+
+$designatedCities = [
+    'さいたま市','横浜市','川崎市','相模原市','名古屋市','京都市',
+    '大阪市','神戸市','福岡市','北九州市','札幌市','仙台市',
+    '千葉市','新潟市','静岡市','浜松市','岡山市','広島市','熊本市','堺市',
+];
+$designatedCityList = "'" . implode("','", $designatedCities) . "'";
+
+$cityToPref = [
+    '札幌市' => '北海道', '仙台市' => '宮城県', 'さいたま市' => '埼玉県',
+    '千葉市' => '千葉県', '横浜市' => '神奈川県', '川崎市' => '神奈川県',
+    '相模原市' => '神奈川県', '新潟市' => '新潟県', '静岡市' => '静岡県',
+    '浜松市' => '静岡県', '名古屋市' => '愛知県', '京都市' => '京都府',
+    '大阪市' => '大阪府', '堺市' => '大阪府', '神戸市' => '兵庫県',
+    '岡山市' => '岡山県', '広島市' => '広島県', '北九州市' => '福岡県',
+    '福岡市' => '福岡県', '熊本市' => '熊本県',
+];
+
+// ── バリデーション関数 ─────────────────────────────
+
+function isValidCity(string $city, array $prefectures): bool
+{
+    if ($city === '' || mb_strlen($city) < 2) return false;
+    if (mb_strlen($city) > 15) return false;
+    if (preg_match('/[\d０-９]|丁目|番地|号|先/u', $city)) return false;
+    if (preg_match('/[（）()]/u', $city)) return false;
+    if (!preg_match('/[市区町村郡]$/u', $city)) return false;
+    // 重複サフィックス
+    if (preg_match('/(区市|町市)$/u', $city)) return false;
+    if (preg_match('/市市$/u', $city) && !in_array($city, ['四日市市', '廿日市市'])) return false;
+    // 都道府県名が先頭に混入
+    foreach ($prefectures as $p) {
+        if (str_starts_with($city, $p) && mb_strlen($city) > mb_strlen($p)) return false;
+    }
+    return true;
+}
+
+// ── DB更新ヘルパー ─────────────────────────────────
+
+function applyFix(object $row, string $newPref, string $newCity, string $method, bool $fix, int &$fixCount): void
+{
+    echo "  FIX [{$method}] ID:{$row->id} [{$row->prefecture}|{$row->city}] → [{$newPref}|{$newCity}]\n";
+    if ($fix) {
+        $updates = [];
+        if ($newCity !== $row->city) $updates['city'] = $newCity;
+        if ($newPref !== $row->prefecture) $updates['prefecture'] = $newPref;
+        if ($updates) {
+            DB::table('bike_parkings')->where('id', $row->id)->update($updates);
+            $fixCount++;
+        }
+    }
+}
 
 // ============================================================
 // Part 1: 個別の既知問題を修正
@@ -53,34 +138,56 @@ foreach ($manualFixes as [$desc, $finder, $updater]) {
 }
 
 // ============================================================
-// Part 2: パターンベースの一括検出＋修正
+// Part 2: 全パターン検出＋カスケード修正
 // ============================================================
 echo "\n========================================\n";
-echo "Part 2: パターンベース一括修正\n";
+echo "Part 2: 全パターン検出＋修正\n";
 echo "========================================\n\n";
 
 $badRows = DB::select("
     SELECT id, address, prefecture, city
     FROM bike_parkings
-    WHERE city IS NOT NULL AND city != ''
-      AND address IS NOT NULL AND address != ''
+    WHERE city IS NOT NULL AND city <> ''
+      AND address IS NOT NULL AND address <> ''
       AND (
-        -- 1. 重複サフィックス（末尾が「区市」「町市」「村市」「川川」「区区」）
-        city REGEXP '(区市|町市|川川|区区)$'
-        -- 村市は末尾のみ（羽村市/東村山市/武蔵村山市を除外）
-        OR (city REGEXP '村市$' AND city NOT REGEXP '^(羽村市|東村山市|武蔵村山市|中村市|田村市|志村市)$')
-        -- 市市は四日市市/廿日市市を除外
+        -- A. 重複サフィックス
+        city REGEXP '(区市|町市)$'
         OR (city REGEXP '市市' AND city NOT IN ('四日市市','廿日市市'))
-        -- 2. 住所混入（丁目,番地,地区 等の語）
-        OR city REGEXP '(丁目|番地|地区|南部.*地区)'
-        -- 3. 長すぎ（10文字超）
-        OR CHAR_LENGTH(city) > 10
-        -- 4. 都道府県名が先頭に混入（47都道府県名で始まり、その後に文字が続く）
+
+        -- B. 重複文字（隣接する同一漢字）
+        OR city REGEXP '(川川|高高|田田|島島|山山|崎崎|橋橋|浜浜|宮宮|井井|木木|野野|原原|谷谷|口口|西西|東東|南南|北北)'
+
+        -- C. 都道府県フル混入
         OR city REGEXP '^{$prefRegexp}.+'
-        -- 5. 2文字以下で市/区で終わらない（東村,蒲郡,中郡 等の不完全名）
+
+        -- D. 都道府県部分混入（県/都/府/道なしの先頭残存）
+        OR (city LIKE '神奈川%' AND city NOT LIKE '神奈川県%')
+        OR (city LIKE '鹿児島%' AND city NOT LIKE '鹿児島市%' AND city NOT LIKE '鹿児島県%')
+        OR (city LIKE '和歌山%' AND city NOT LIKE '和歌山市%' AND city NOT LIKE '和歌山県%')
+
+        -- E. 住所混入
+        OR city REGEXP '(丁目|番地|地区)'
+
+        -- F. 長すぎ
+        OR CHAR_LENGTH(city) > 10
+
+        -- G. 短すぎ（2文字以下で市/区で終わらない）
         OR (CHAR_LENGTH(city) <= 2 AND city NOT REGEXP '[市区]$')
-        -- 6. 政令指定都市で区が欠落（○○市だけで○○区がない）
-        OR city IN ('さいたま市','横浜市','川崎市','相模原市','名古屋市','京都市','大阪市','神戸市','福岡市','北九州市','札幌市','仙台市','千葉市','新潟市','静岡市','浜松市','岡山市','広島市','熊本市','堺市')
+
+        -- H. 政令指定都市で区が欠落
+        OR city IN ({$designatedCityList})
+
+        -- I. 区のみ・市なし（東京都の特別区は除外）
+        OR (city REGEXP '区$' AND city NOT REGEXP '市' AND prefecture <> '東京都')
+
+        -- J. 町のみ・郡なし（3～5文字の町名）
+        OR (city REGEXP '町$' AND city NOT REGEXP '郡' AND CHAR_LENGTH(city) >= 3 AND CHAR_LENGTH(city) <= 5)
+
+        -- K. スペース混入
+        OR city LIKE '% %' OR city LIKE '%　%'
+
+        -- L. 数字混入
+        OR city REGEXP '[0-9０-９]'
       )
     ORDER BY city, id
 ");
@@ -91,24 +198,32 @@ echo "検出: " . count($badRows) . "件\n\n";
 $groups = [];
 foreach ($badRows as $r) { $groups[$r->city] = ($groups[$r->city] ?? 0) + 1; }
 arsort($groups);
-echo "--- 不正city別集計 ---\n";
-foreach ($groups as $city => $cnt) { echo "  [{$city}] x{$cnt}\n"; }
+echo "--- 不正city別集計 (上位40) ---\n";
+$i = 0;
+foreach ($groups as $city => $cnt) {
+    echo "  [{$city}] x{$cnt}\n";
+    if (++$i >= 40) break;
+}
 echo "\n";
 
-// 手動マッピング（パーサーで処理できないパターン）
+// 手動マッピング（パーサーでも対応できないパターン）
 $manualMap = [
     '新宿区市' => ['city' => '新宿区'],
     '市川川市' => ['city' => '市川市'],
+    '川崎市高高津区' => ['city' => '川崎市高津区'],
 ];
 
-$fixed2 = 0; $skipped2 = 0; $unresolved2 = 0;
+$stats = ['fixed' => 0, 'skipped' => 0, 'unresolved' => 0];
+$unresolvedList = [];
 
 foreach ($badRows as $row) {
     $newPref = $row->prefecture;
     $newCity = $row->city;
     $method = '';
 
-    // 手動マッピング
+    // ── カスケード修正 ──
+
+    // 1. 手動マッピング
     if (isset($manualMap[$row->city])) {
         $m = $manualMap[$row->city];
         $newCity = $m['city'] ?? $newCity;
@@ -116,105 +231,265 @@ foreach ($badRows as $row) {
         $method = 'manual';
     }
 
-    // AddressParserで再パース
+    // 2. 重複文字除去（川川→川、高高→高等）
+    if ($method === '' && preg_match('/([\p{Han}])\1/u', $row->city)) {
+        $deduped = preg_replace('/([\p{Han}])\1/u', '$1', $row->city);
+        if ($deduped !== $row->city && isValidCity($deduped, $prefectures)) {
+            $newCity = $deduped;
+            $method = 'dedup';
+        }
+    }
+
+    // 3. AddressParser再パース（最も信頼性が高い）
     if ($method === '') {
         $parsed = $parser->parse($row->address);
-        if ($parsed['city'] !== '' && $parsed['city'] !== $row->city) {
+        if ($parsed['city'] !== '' && $parsed['city'] !== $row->city
+            && isValidCity($parsed['city'], $prefectures)) {
             $newCity = $parsed['city'];
             $newPref = $parsed['prefecture'] ?: $newPref;
             $method = 'reparse';
         }
     }
 
-    // 都道府県prefix除去（パーサーでも解決しない場合）
+    // 4. 都道府県フルプレフィックス除去
     if ($method === '') {
-        $prefectures = [
-            '北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県',
-            '茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県',
-            '新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県',
-            '静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県',
-            '奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県',
-            '徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県',
-            '熊本県','大分県','宮崎県','鹿児島県','沖縄県',
-        ];
         foreach ($prefectures as $p) {
             if (str_starts_with($row->city, $p) && mb_strlen($row->city) > mb_strlen($p)) {
                 $stripped = mb_substr($row->city, mb_strlen($p));
-                if (preg_match('/[市区町村]$/u', $stripped) && mb_strlen($stripped) >= 2) {
+                if (isValidCity($stripped, $prefectures)) {
                     $newPref = $p;
                     $newCity = $stripped;
-                    $method = 'strip-pref';
+                    $method = 'strip-pref-full';
                 }
                 break;
             }
         }
     }
 
-    // 住所混入: cityから市/区で切る
+    // 5. 都道府県部分プレフィックス除去（県/都/府/道なし: 神奈川→神奈川県）
+    if ($method === '') {
+        foreach ($partialPrefBases as $base => $fullPref) {
+            if (str_starts_with($row->city, $base) && mb_strlen($row->city) > mb_strlen($base)) {
+                $stripped = mb_substr($row->city, mb_strlen($base));
+                if (isValidCity($stripped, $prefectures)) {
+                    $newPref = $fullPref;
+                    $newCity = $stripped;
+                    $method = 'strip-pref-partial';
+                }
+                break;
+            }
+        }
+    }
+
+    // 6. 住所切り詰め（cityが長すぎて住所が混入したケース）
     if ($method === '' && mb_strlen($row->city) > 5) {
-        if (preg_match('/^(.+?[市区])/u', $row->city, $m) && mb_strlen($m[1]) >= 2) {
+        // 政令指定都市+区パターン
+        if (preg_match('/^(.+?市.+?区)/u', $row->city, $m)
+            && isValidCity($m[1], $prefectures)) {
+            $newCity = $m[1];
+            $method = 'truncate';
+        }
+        // 一般市パターン
+        elseif (preg_match('/^(.+?市)/u', $row->city, $m)
+            && mb_strlen($m[1]) >= 2 && isValidCity($m[1], $prefectures)) {
+            $newCity = $m[1];
+            $method = 'truncate';
+        }
+        // 区パターン
+        elseif (preg_match('/^(.+?区)/u', $row->city, $m)
+            && mb_strlen($m[1]) >= 2 && isValidCity($m[1], $prefectures)) {
             $newCity = $m[1];
             $method = 'truncate';
         }
     }
 
-    // 政令指定都市の区補完: パーサーでより詳細な結果が得られるか
-    if ($method === '' && preg_match('/^(さいたま市|横浜市|川崎市|相模原市|名古屋市|京都市|大阪市|神戸市|福岡市|北九州市|札幌市|仙台市|千葉市|新潟市|静岡市|浜松市|岡山市|広島市|熊本市|堺市)$/u', $row->city)) {
+    // 7. 政令指定都市の区補完
+    if ($method === '' && in_array($row->city, $designatedCities)) {
         $parsed = $parser->parse($row->address);
         if ($parsed['city'] !== '' && mb_strlen($parsed['city']) > mb_strlen($row->city)) {
             $newCity = $parsed['city'];
             $newPref = $parsed['prefecture'] ?: $newPref;
             $method = 'add-ku';
         } else {
-            $skipped2++;
+            $stats['skipped']++;
             continue;
         }
     }
 
-    // 結果判定
+    // 8. 区のみ → 市+区に補完（addressから市を取得）
+    if ($method === '' && preg_match('/区$/u', $row->city) && !str_contains($row->city, '市')) {
+        $parsed = $parser->parse($row->address);
+        if ($parsed['city'] !== '' && str_contains($parsed['city'], '市')) {
+            $newCity = $parsed['city'];
+            $newPref = $parsed['prefecture'] ?: $newPref;
+            $method = 'add-shi-to-ku';
+        }
+    }
+
+    // 9. 町のみ → 郡+町に補完（addressから郡を取得）
+    if ($method === '' && preg_match('/町$/u', $row->city) && !str_contains($row->city, '郡')
+        && mb_strlen($row->city) >= 3 && mb_strlen($row->city) <= 5) {
+        $parsed = $parser->parse($row->address);
+        if ($parsed['city'] !== '' && str_contains($parsed['city'], '郡')) {
+            $newCity = $parsed['city'];
+            $newPref = $parsed['prefecture'] ?: $newPref;
+            $method = 'add-gun-to-machi';
+        } else {
+            // 郡補完できない → standalone町として許容
+            $stats['skipped']++;
+            continue;
+        }
+    }
+
+    // 10. 区のみ + 都道府県から政令市を推定（大阪府+中央区 → 大阪市中央区等）
+    if ($method === '' && preg_match('/区$/u', $newCity) && !str_contains($newCity, '市')
+        && $newPref !== '' && $newPref !== '東京都') {
+        $prefDesignated = [];
+        foreach ($cityToPref as $c => $p) {
+            if ($p === $newPref) $prefDesignated[] = $c;
+        }
+        if (count($prefDesignated) === 1) {
+            // 都道府県内に政令指定都市が1つだけ → その市と確定
+            $newCity = $prefDesignated[0] . $newCity;
+            $method = 'infer-shi-from-pref';
+        } elseif (count($prefDesignated) > 1) {
+            // 複数の政令指定都市 → DB内の既存データで検証
+            foreach ($prefDesignated as $dc) {
+                $candidate = $dc . $newCity;
+                $exists = DB::selectOne(
+                    "SELECT 1 FROM bike_parkings WHERE city = ? AND prefecture = ? LIMIT 1",
+                    [$candidate, $newPref]
+                );
+                if ($exists) {
+                    $newCity = $candidate;
+                    $method = 'infer-shi-from-pref-db';
+                    break;
+                }
+            }
+        }
+    }
+
+    // 11. 空prefの東京特別区推定
+    //     品川区等の一意な区名 + pref空 → 東京都と推定
+    if ($method === '' && $newPref === '' && preg_match('/区$/u', $newCity)) {
+        // 他の政令指定都市と重複しない東京23区のみ（北区/中央区/港区等は除外）
+        $uniqueTokyo23ku = [
+            '千代田区','新宿区','文京区','台東区','墨田区','江東区',
+            '品川区','目黒区','大田区','世田谷区','渋谷区','中野区',
+            '杉並区','豊島区','荒川区','板橋区','練馬区','足立区',
+            '葛飾区','江戸川区',
+        ];
+        if (in_array($newCity, $uniqueTokyo23ku)) {
+            $newPref = '東京都';
+            $method = 'infer-tokyo';
+        }
+    }
+
+    // ── 都道府県の矯正（CITY_TO_PREF） ──
+    foreach ($cityToPref as $cityName => $correctPref) {
+        if ($newCity !== '' && str_starts_with($newCity, $cityName)) {
+            $newPref = $correctPref;
+            break;
+        }
+    }
+
+    // ── 結果判定 ──
     if ($newPref === $row->prefecture && $newCity === $row->city) {
-        echo "  UNRESOLVED ID:{$row->id} [{$row->prefecture}|{$row->city}] addr={$row->address}\n";
-        $unresolved2++;
+        $unresolvedList[] = $row;
+        $stats['unresolved']++;
         continue;
     }
 
-    echo "  FIX [{$method}] ID:{$row->id} [{$row->prefecture}|{$row->city}] → [{$newPref}|{$newCity}]\n";
+    applyFix($row, $newPref, $newCity, $method, $fix, $stats['fixed']);
+}
 
-    if ($fix) {
-        $updates = [];
-        if ($newCity !== $row->city) { $updates['city'] = $newCity; }
-        if ($newPref !== $row->prefecture) { $updates['prefecture'] = $newPref; }
-        if ($updates) {
-            DB::table('bike_parkings')->where('id', $row->id)->update($updates);
-            $fixed2++;
-        }
+// 未解決リスト
+if (!empty($unresolvedList)) {
+    echo "\n--- 未解決 ({$stats['unresolved']}件) ---\n";
+    foreach ($unresolvedList as $u) {
+        echo "  ID:{$u->id} [{$u->prefecture}|{$u->city}] addr={$u->address}\n";
     }
 }
 
-$fixable = count($badRows) - $skipped2 - $unresolved2;
-echo "\nPart 2 結果: 修正可能={$fixable}, スキップ(区なし政令市)={$skipped2}, 未解決={$unresolved2}\n";
-$totalFixed += ($fix ? $fixed2 : 0);
+$fixable = count($badRows) - $stats['skipped'] - $stats['unresolved'];
+echo "\nPart 2 結果: 検出=" . count($badRows) . ", 修正可能={$fixable}, スキップ={$stats['skipped']}, 未解決={$stats['unresolved']}\n";
+$totalFixed += ($fix ? $stats['fixed'] : 0);
 
 // ============================================================
-// Part 3: 全国スキャン（残存チェック）
+// Part 3: 都道府県不一致の修正
 // ============================================================
 echo "\n========================================\n";
-echo "Part 3: 全国スキャン（残存不正city）\n";
+echo "Part 3: 都道府県不一致チェック\n";
+echo "========================================\n\n";
+
+$prefMismatchFixed = 0;
+$prefMismatchConditions = [];
+foreach ($cityToPref as $cityName => $correctPref) {
+    $prefMismatchConditions[] = "(city LIKE '{$cityName}%' AND prefecture <> '{$correctPref}')";
+}
+$prefMismatchWhere = implode("\n        OR ", $prefMismatchConditions);
+
+$mismatchRows = DB::select("
+    SELECT id, address, prefecture, city
+    FROM bike_parkings
+    WHERE {$prefMismatchWhere}
+    ORDER BY city, id
+");
+
+if (empty($mismatchRows)) {
+    echo "都道府県不一致なし\n";
+} else {
+    echo "検出: " . count($mismatchRows) . "件\n\n";
+    foreach ($mismatchRows as $row) {
+        $correctPref = null;
+        foreach ($cityToPref as $cityName => $pref) {
+            if (str_starts_with($row->city, $cityName)) {
+                $correctPref = $pref;
+                break;
+            }
+        }
+        if ($correctPref && $correctPref !== $row->prefecture) {
+            echo "  FIX ID:{$row->id} [{$row->prefecture}|{$row->city}] → pref={$correctPref}\n";
+            if ($fix) {
+                DB::table('bike_parkings')->where('id', $row->id)->update(['prefecture' => $correctPref]);
+                $prefMismatchFixed++;
+            }
+        }
+    }
+    echo "\nPart 3 結果: 修正=" . ($fix ? $prefMismatchFixed : count($mismatchRows)) . "件\n";
+    $totalFixed += ($fix ? $prefMismatchFixed : 0);
+}
+
+// ============================================================
+// Part 4: 全国スキャン（残存不正city）
+// ============================================================
+echo "\n========================================\n";
+echo "Part 4: 全国スキャン（残存不正city）\n";
 echo "========================================\n\n";
 
 $remaining = DB::select("
     SELECT city, prefecture, COUNT(*) as cnt
     FROM bike_parkings
-    WHERE city IS NOT NULL AND city != ''
+    WHERE city IS NOT NULL AND city <> ''
       AND (
-        city REGEXP '(区市|町市|川川|区区)$'
-        OR (city REGEXP '村市$' AND city NOT REGEXP '^(羽村市|東村山市|武蔵村山市|中村市|田村市|志村市)$')
+        -- 重複サフィックス/文字
+        city REGEXP '(区市|町市)$'
         OR (city REGEXP '市市' AND city NOT IN ('四日市市','廿日市市'))
-        OR city REGEXP '(丁目|番地|地区)'
-        OR CHAR_LENGTH(city) > 10
+        OR city REGEXP '(川川|高高|田田|島島|山山|崎崎)'
+
+        -- 都道府県混入
         OR city REGEXP '^{$prefRegexp}.+'
+        OR (city LIKE '神奈川%' AND city NOT LIKE '神奈川県%')
+
+        -- 住所混入
+        OR city REGEXP '(丁目|番地|地区)'
+
+        -- 長さ異常
+        OR CHAR_LENGTH(city) > 10
         OR (CHAR_LENGTH(city) <= 2 AND city NOT REGEXP '[市区]$')
-        OR city LIKE '% %'
+
+        -- スペース/数字
+        OR city LIKE '% %' OR city LIKE '%　%'
         OR city REGEXP '[0-9０-９]'
       )
     GROUP BY city, prefecture
@@ -223,7 +498,7 @@ $remaining = DB::select("
 ");
 
 if (empty($remaining)) {
-    echo "不正city候補なし（クリーン）\n";
+    echo "重大な不正city候補なし（クリーン）\n";
 } else {
     echo "残存する不正city候補:\n";
     foreach ($remaining as $s) {
@@ -232,10 +507,10 @@ if (empty($remaining)) {
 }
 
 // ============================================================
-// Part 4: 駅データ修正
+// Part 5: 駅データ修正
 // ============================================================
 echo "\n========================================\n";
-echo "Part 4: 駅データ\n";
+echo "Part 5: 駅データ\n";
 echo "========================================\n\n";
 
 $stationFixes = [
