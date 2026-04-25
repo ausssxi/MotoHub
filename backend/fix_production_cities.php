@@ -174,8 +174,7 @@ $badRows = DB::select("
         -- G. 短すぎ（2文字以下で市/区で終わらない）
         OR (CHAR_LENGTH(city) <= 2 AND city NOT REGEXP '[市区]$')
 
-        -- H. 政令指定都市で区が欠落
-        OR city IN ({$designatedCityList})
+        -- H. (政令指定都市の区欠落 → Part 2Aで専用処理)
 
         -- I. 区のみ・市なし（東京都の特別区は除外）
         OR (city REGEXP '区$' AND city NOT REGEXP '市' AND prefecture <> '東京都')
@@ -303,18 +302,7 @@ foreach ($badRows as $row) {
         }
     }
 
-    // 7. 政令指定都市の区補完
-    if ($method === '' && in_array($row->city, $designatedCities)) {
-        $parsed = $parser->parse($row->address);
-        if ($parsed['city'] !== '' && mb_strlen($parsed['city']) > mb_strlen($row->city)) {
-            $newCity = $parsed['city'];
-            $newPref = $parsed['prefecture'] ?: $newPref;
-            $method = 'add-ku';
-        } else {
-            $stats['skipped']++;
-            continue;
-        }
-    }
+    // 7. (政令指定都市の区補完 → Part 2Aで専用処理)
 
     // 8. 区のみ → 市+区に補完（addressから市を取得）
     if ($method === '' && preg_match('/区$/u', $row->city) && !str_contains($row->city, '市')) {
@@ -414,6 +402,174 @@ if (!empty($unresolvedList)) {
 $fixable = count($badRows) - $stats['skipped'] - $stats['unresolved'];
 echo "\nPart 2 結果: 検出=" . count($badRows) . ", 修正可能={$fixable}, スキップ={$stats['skipped']}, 未解決={$stats['unresolved']}\n";
 $totalFixed += ($fix ? $stats['fixed'] : 0);
+
+// ============================================================
+// Part 2A: 政令指定都市の区補完（専用パス）
+// ============================================================
+echo "\n========================================\n";
+echo "Part 2A: 政令指定都市の区補完\n";
+echo "========================================\n\n";
+
+$dcRows = DB::select("
+    SELECT id, address, prefecture, city
+    FROM bike_parkings
+    WHERE city IN ({$designatedCityList})
+      AND address IS NOT NULL AND address <> ''
+    ORDER BY city, id
+");
+
+echo "検出: " . count($dcRows) . "件\n\n";
+
+// 集計
+$dcGroups = [];
+foreach ($dcRows as $r) { $dcGroups[$r->city] = ($dcGroups[$r->city] ?? 0) + 1; }
+arsort($dcGroups);
+foreach ($dcGroups as $city => $cnt) { echo "  [{$city}] x{$cnt}\n"; }
+echo "\n";
+
+$dcFixed = 0;
+$dcSkipped = 0;
+
+foreach ($dcRows as $row) {
+    $newCity = null;
+    $newPref = $row->prefecture;
+    $method = '';
+
+    // 前処理（AddressParserと同じ）
+    $addr = trim($row->address);
+    if (class_exists(\Normalizer::class)) {
+        $addr = \Normalizer::normalize($addr, \Normalizer::FORM_KC);
+    }
+    $addr = preg_replace('/[（(][^）)]*[）)]/u', '', $addr);
+
+    // Try 1: AddressParser再パース
+    $parsed = $parser->parse($row->address);
+    if ($parsed['city'] !== '' && mb_strlen($parsed['city']) > mb_strlen($row->city)
+        && str_starts_with($parsed['city'], $row->city)) {
+        $newCity = $parsed['city'];
+        $newPref = $parsed['prefecture'] ?: $newPref;
+        $method = 'parser';
+    }
+
+    // Try 2: addressから直接「○○市○○区」を正規表現で抽出
+    if ($newCity === null) {
+        $cityPattern = preg_quote($row->city, '/');
+        // 市名の直後に1～5文字（漢字/ひらがな）+区
+        if (preg_match('/' . $cityPattern . '\s*([\p{Han}\p{Hiragana}]{1,5}区)/u', $addr, $m)) {
+            $candidate = $row->city . $m[1];
+            if (isValidCity($candidate, $prefectures)) {
+                $newCity = $candidate;
+                $method = 'regex';
+            }
+        }
+    }
+
+    // Try 3: 都道府県を除去してから再トライ
+    if ($newCity === null) {
+        $addrNoPref = $addr;
+        foreach ($prefectures as $p) {
+            if (str_starts_with($addr, $p)) {
+                $addrNoPref = preg_replace('/^[\s　]+/u', '', mb_substr($addr, mb_strlen($p)));
+                break;
+            }
+        }
+        $cityPattern = preg_quote($row->city, '/');
+        if (preg_match('/' . $cityPattern . '\s*([\p{Han}\p{Hiragana}]{1,5}区)/u', $addrNoPref, $m)) {
+            $candidate = $row->city . $m[1];
+            if (isValidCity($candidate, $prefectures)) {
+                $newCity = $candidate;
+                $method = 'regex-nopref';
+            }
+        }
+    }
+
+    if ($newCity === null) {
+        echo "  SKIP ID:{$row->id} [{$row->prefecture}|{$row->city}] addr={$row->address}\n";
+        $dcSkipped++;
+        continue;
+    }
+
+    // CITY_TO_PREF矯正
+    foreach ($cityToPref as $cityName => $correctPref) {
+        if (str_starts_with($newCity, $cityName)) {
+            $newPref = $correctPref;
+            break;
+        }
+    }
+
+    echo "  FIX [{$method}] ID:{$row->id} [{$row->prefecture}|{$row->city}] → [{$newPref}|{$newCity}]\n";
+    if ($fix) {
+        $updates = ['city' => $newCity];
+        if ($newPref !== $row->prefecture) $updates['prefecture'] = $newPref;
+        DB::table('bike_parkings')->where('id', $row->id)->update($updates);
+        $dcFixed++;
+    }
+}
+
+echo "\nPart 2A 結果: 修正可能=" . (count($dcRows) - $dcSkipped) . ", スキップ(addressに区なし)={$dcSkipped}\n";
+$totalFixed += ($fix ? $dcFixed : 0);
+
+// ============================================================
+// Part 2B: 町→郡町 統一（エリアページの重複防止）
+// ============================================================
+echo "\n========================================\n";
+echo "Part 2B: 町→郡町 統一\n";
+echo "========================================\n\n";
+
+// 既知の町→郡町マッピング
+$machiToGunMachi = [
+    '湯河原町' => '足柄下郡湯河原町',
+    '葉山町' => '三浦郡葉山町',
+];
+
+// DB内の bare町/村 を自動検出して郡+町/村 form が存在すれば追加
+$bareMachiCities = DB::select("
+    SELECT DISTINCT city
+    FROM bike_parkings
+    WHERE city REGEXP '[町村]$' AND city NOT REGEXP '郡'
+      AND CHAR_LENGTH(city) >= 3 AND CHAR_LENGTH(city) <= 5
+");
+
+foreach ($bareMachiCities as $bm) {
+    if (isset($machiToGunMachi[$bm->city])) continue;
+
+    // 同じ町/村名を含む郡+町/村 form がDB内に存在するか
+    $gunForm = DB::selectOne(
+        "SELECT DISTINCT city FROM bike_parkings WHERE city LIKE ? AND city REGEXP '郡' LIMIT 1",
+        ['%' . $bm->city]
+    );
+    if ($gunForm) {
+        $machiToGunMachi[$bm->city] = $gunForm->city;
+    }
+}
+
+$bmFixed = 0;
+$bmTotal = 0;
+foreach ($machiToGunMachi as $bare => $canonical) {
+    $cnt = DB::selectOne("SELECT COUNT(*) as c FROM bike_parkings WHERE city = ?", [$bare])->c;
+    if ($cnt === 0) continue;
+    $bmTotal += $cnt;
+
+    // 正規form が実際に存在するか確認
+    $canonicalExists = DB::selectOne("SELECT COUNT(*) as c FROM bike_parkings WHERE city = ?", [$canonical])->c;
+
+    echo "  {$bare} → {$canonical} ({$cnt}件";
+    if ($canonicalExists > 0) {
+        echo ", 正規form既存={$canonicalExists}件";
+    }
+    echo ")\n";
+
+    if ($fix) {
+        DB::table('bike_parkings')->where('city', $bare)->update(['city' => $canonical]);
+        $bmFixed += $cnt;
+    }
+}
+
+if ($bmTotal === 0) {
+    echo "統一対象なし\n";
+}
+echo "\nPart 2B 結果: 統一={$bmTotal}件\n";
+$totalFixed += ($fix ? $bmFixed : 0);
 
 // ============================================================
 // Part 3: 都道府県不一致の修正
