@@ -83,7 +83,8 @@ class TweetBargains extends Command
             if ($listing->total_price < ($averagePrice * $discountRate)) {
                 $percentOff = (int) round((($averagePrice - $listing->total_price) / $averagePrice) * 100);
                 $priceInMan = number_format($listing->total_price / 10000, 1);
-                $displayName = $listing->title ?? $listing->bikeModel?->name ?? '車種名不明';
+                $rawName = $listing->title ?? $listing->bikeModel?->name ?? '車種名不明';
+                $displayName = preg_replace('#[/／].*$#u', '', $rawName);
                 $makerName = $listing->bikeModel?->manufacturer?->name ?? '';
                 $makerSlug = $listing->bikeModel?->manufacturer?->slug ?? '';
 
