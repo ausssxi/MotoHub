@@ -36,7 +36,7 @@ final class ReviewChartService
 
         if ($radarPng) {
             $radarImage = $manager->read($radarPng);
-            $canvas->place($radarImage, 'top-left', 630, 140);
+            $canvas->place($radarImage, 'top-left', 10, 140);
         }
 
         $this->drawBranding($canvas);
@@ -252,30 +252,30 @@ final class ReviewChartService
     {
         $fontPath = $this->fontPath();
 
-        // 2x2 グリッド: 左半分 (x=0〜600) の y=140〜600
-        // 各セル: 300x230
+        // 2x2 グリッド: 右半分 (x=620〜1180) の y=140〜600
+        // 各セル: 280x220、中央x: 760, 1040
         $cells = [
             // [label, value, color, x, y]
-            ['先月販売台数', number_format($kpi['monthly_sold']) . '台', '#ffffff', 150, 200],
-            ['全車種順位', "{$kpi['rank']}位/" . number_format($kpi['total_models']) . '種', '#FBBF24', 450, 200],
-            ['1日平均', "{$kpi['daily_avg']}台", '#ffffff', 150, 400],
-            ['平均在庫日数', (int) $kpi['avg_days'] . '日', '#ffffff', 450, 400],
+            ['先月販売台数', number_format($kpi['monthly_sold']) . '台', '#ffffff', 760, 210],
+            ['全車種順位', "{$kpi['rank']}位/" . number_format($kpi['total_models']) . '種', '#FFD700', 1040, 210],
+            ['1日平均', "{$kpi['daily_avg']}台", '#ffffff', 760, 430],
+            ['平均在庫日数', (int) $kpi['avg_days'] . '日', '#ffffff', 1040, 430],
         ];
 
         foreach ($cells as [$label, $value, $color, $x, $y]) {
-            // ラベル（小さく、グレー）
-            $canvas->text($label, $x, $y - 40, function (FontFactory $font) use ($fontPath) {
+            // ラベル（白70%、18px）
+            $canvas->text($label, $x, $y - 50, function (FontFactory $font) use ($fontPath) {
                 $font->filename($fontPath);
-                $font->size(14);
-                $font->color('rgba(255, 255, 255, 0.5)');
+                $font->size(18);
+                $font->color('rgba(255, 255, 255, 0.7)');
                 $font->align('center');
                 $font->valign('top');
             });
 
-            // 値（大きく）
+            // 値（42px）
             $canvas->text($value, $x, $y, function (FontFactory $font) use ($fontPath, $color) {
                 $font->filename($fontPath);
-                $font->size(36);
+                $font->size(42);
                 $font->color($color);
                 $font->align('center');
                 $font->valign('top');
