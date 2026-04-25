@@ -34,6 +34,11 @@ class TweetReviews extends Command
         $review = Review::with(['bikeModel.manufacturer'])
             ->where('is_approved', true)
             ->whereNull('tweeted_at')
+            ->whereNotNull('rating_design')
+            ->whereNotNull('rating_engine')
+            ->whereNotNull('rating_handling')
+            ->whereNotNull('rating_fuel_economy')
+            ->whereNotNull('rating_cost_performance')
             ->orderBy('created_at', 'asc')
             ->first();
 
