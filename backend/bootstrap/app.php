@@ -169,10 +169,17 @@ return Application::configure(basePath: dirname(__DIR__))
          * --- 4. Twitter Bot (自動投稿) ---
          */
         
-        // お買い得車両 (9:00 〜 23:00 の間、1時間に1回)
+        // お買い得車両 (1日3回: 8:00, 12:00, 20:00)
         $schedule->command('bikes:tweet-bargains')
-                 ->hourly()
-                 ->between('9:00', '23:00')
+                 ->dailyAt('08:00')
+                 ->withoutOverlapping()
+                 ->appendOutputTo($bargainLog);
+        $schedule->command('bikes:tweet-bargains')
+                 ->dailyAt('12:00')
+                 ->withoutOverlapping()
+                 ->appendOutputTo($bargainLog);
+        $schedule->command('bikes:tweet-bargains')
+                 ->dailyAt('20:00')
                  ->withoutOverlapping()
                  ->appendOutputTo($bargainLog);
 

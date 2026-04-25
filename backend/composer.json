@@ -22,6 +22,7 @@
         "minishlink/web-push": "^10.0",
         "resend/resend-laravel": "^1.3",
         "socialiteproviders/line": "^4.1",
+        "spatie/browsershot": "*",
         "spatie/laravel-sitemap": "^7.3",
         "symfony/css-selector": "^7.4",
         "symfony/dom-crawler": "^7.4"

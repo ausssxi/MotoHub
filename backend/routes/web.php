@@ -25,6 +25,7 @@ use App\Http\Controllers\Bike\BikeIdentifierController;
 use App\Http\Controllers\Parts\PartsController;
 use App\Http\Controllers\NewsController;
 use App\Http\Controllers\RankingController;
+use App\Http\Controllers\DealOgpController;
 
 /**
  * MotoHub Route Definitions
@@ -116,7 +117,10 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
         ->middleware('throttle:3,1');
 
     // 詳細ページ (ID指定) - 他の固定ルートより後に書く
-    Route::get('/{id}', 'show')->name('show')->where('id', '[0-9]+'); 
+    Route::get('/{id}', 'show')->name('show')->where('id', '[0-9]+');
+
+    // お買い得OGP画像
+    Route::get('/{listing}/ogp.png', [DealOgpController::class, 'show'])->name('deal_ogp')->where('listing', '[0-9]+');
 });
 
 // メーカー×排気量カテゴリページ (例: /bikes/honda/250cc)
