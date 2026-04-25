@@ -15,8 +15,8 @@ final class ReviewChartService
     private const WIDTH = 1200;
     private const HEIGHT = 630;
     private const BG_COLOR = '#0f172a';
-    private const RADAR_W = 580;
-    private const RADAR_H = 580;
+    private const RADAR_W = 660;
+    private const RADAR_H = 630;
 
     public function generateReviewCard(Review $review): ?string
     {
@@ -30,7 +30,7 @@ final class ReviewChartService
 
         if ($radarPng) {
             $radarImage = $manager->read($radarPng);
-            $canvas->place($radarImage, 'top-left', 10, 25);
+            $canvas->place($radarImage, 'top-left', 0, 0);
         }
 
         $this->drawTextInfo($canvas, $review);
@@ -44,13 +44,20 @@ final class ReviewChartService
 
     private function getRadarData(Review $review): array
     {
-        return [
-            'デザイン' => $review->rating_design ?? $review->rating,
-            'エンジン性能' => $review->rating_engine ?? $review->rating,
-            '取り回し' => $review->rating_handling ?? $review->rating,
-            '燃費' => $review->rating_fuel_economy ?? $review->rating,
-            'コスパ' => $review->rating_cost_performance ?? $review->rating,
+        $items = [
+            'デザイン' => $review->rating_design,
+            'エンジン性能' => $review->rating_engine,
+            '取り回し' => $review->rating_handling,
+            '燃費' => $review->rating_fuel_economy,
+            'コスパ' => $review->rating_cost_performance,
         ];
+
+        $labeled = [];
+        foreach ($items as $name => $score) {
+            $labeled["{$name} {$score}.0"] = $score;
+        }
+
+        return $labeled;
     }
 
     private function fetchRadarChart(array $data): ?string
@@ -126,18 +133,18 @@ final class ReviewChartService
             $fontPath = public_path('fonts/font.ttf');
         }
 
-        $rightX = 620;
+        $rightX = 700;
         $bikeName = $review->bikeModel?->name ?? '車種不明';
         $makerName = $review->bikeModel?->manufacturer?->name ?? '';
 
-        // --- 車種名（大きく、白文字）---
+        // --- 車種名（大きく、白文字、中央寄り）---
         $displayName = $makerName ? "{$makerName} {$bikeName}" : $bikeName;
-        if (mb_strlen($displayName) > 18) {
-            $displayName = mb_substr($displayName, 0, 17) . '…';
+        if (mb_strlen($displayName) > 16) {
+            $displayName = mb_substr($displayName, 0, 15) . '…';
         }
-        $canvas->text($displayName, $rightX, 80, function (FontFactory $font) use ($fontPath) {
+        $canvas->text($displayName, $rightX, 270, function (FontFactory $font) use ($fontPath) {
             $font->filename($fontPath);
-            $font->size(32);
+            $font->size(36);
             $font->color('#ffffff');
         });
 
@@ -145,46 +152,10 @@ final class ReviewChartService
         $rating = $review->rating;
         $stars = str_repeat('★', $rating) . str_repeat('☆', 5 - $rating);
         $avg = number_format($this->calcAvgRating($review), 1);
-        $canvas->text("{$stars} {$avg}", $rightX, 140, function (FontFactory $font) use ($fontPath) {
+        $canvas->text("{$stars} {$avg}", $rightX, 340, function (FontFactory $font) use ($fontPath) {
             $font->filename($fontPath);
-            $font->size(28);
+            $font->size(32);
             $font->color('#FBBF24');
-        });
-
-        // --- レビュータイトル ---
-        $title = $review->title;
-        if (mb_strlen($title) > 20) {
-            $title = mb_substr($title, 0, 19) . '…';
-        }
-        $canvas->text("「{$title}」", $rightX, 210, function (FontFactory $font) use ($fontPath) {
-            $font->filename($fontPath);
-            $font->size(22);
-            $font->color('rgba(255, 255, 255, 0.9)');
-        });
-
-        // --- レビュー本文抜粋（グレー、折り返し）---
-        $excerpt = mb_substr($review->body, 0, 100);
-        if (mb_strlen($review->body) > 100) {
-            $excerpt .= '…';
-        }
-
-        $lines = $this->wrapText($excerpt, 22);
-        $y = 270;
-        foreach ($lines as $line) {
-            $canvas->text($line, $rightX, $y, function (FontFactory $font) use ($fontPath) {
-                $font->filename($fontPath);
-                $font->size(16);
-                $font->color('rgba(255, 255, 255, 0.55)');
-            });
-            $y += 28;
-        }
-
-        // --- レビュワー名（小さく）---
-        $nickname = $review->nickname ?: '名無しライダー';
-        $canvas->text("— {$nickname}", $rightX, 520, function (FontFactory $font) use ($fontPath) {
-            $font->filename($fontPath);
-            $font->size(14);
-            $font->color('rgba(255, 255, 255, 0.4)');
         });
 
         // --- MotoHub ブランディング（右下）---
@@ -210,23 +181,5 @@ final class ReviewChartService
         }
 
         return array_sum($ratings) / count($ratings);
-    }
-
-    private function wrapText(string $text, int $charsPerLine): array
-    {
-        $lines = [];
-        $remaining = $text;
-        $maxLines = 8;
-
-        while (mb_strlen($remaining) > 0 && count($lines) < $maxLines) {
-            if (mb_strlen($remaining) <= $charsPerLine) {
-                $lines[] = $remaining;
-                break;
-            }
-            $lines[] = mb_substr($remaining, 0, $charsPerLine);
-            $remaining = mb_substr($remaining, $charsPerLine);
-        }
-
-        return $lines;
     }
 }
