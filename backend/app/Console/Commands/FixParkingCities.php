@@ -96,11 +96,20 @@ class FixParkingCities extends Command
                     }
                 }
 
-                // Step 4: 政令指定都市の区補完（addressから直接抽出）
+                // Step 4: 政令指定都市の区補完
                 if (in_array($newCity, self::DESIGNATED_CITIES)) {
+                    // 4A: addressから直接抽出
                     $enhanced = self::extractWardFromAddress($newCity, $row->address);
                     if ($enhanced !== null) {
                         $newCity = $enhanced;
+                    } elseif ($row->latitude && $row->longitude) {
+                        // 4B: 座標最近傍で区を推定
+                        $enhanced = self::inferWardFromNearestNeighbor(
+                            $newCity, $row->latitude, $row->longitude
+                        );
+                        if ($enhanced !== null) {
+                            $newCity = $enhanced;
+                        }
                     }
                 }
 
@@ -276,5 +285,31 @@ class FixParkingCities extends Command
         }
 
         return null;
+    }
+
+    /**
+     * 同じ政令指定都市内で区が判明しているレコードの座標から、最寄りの区を推定
+     */
+    private static function inferWardFromNearestNeighbor(
+        string $designatedCity, float $lat, float $lng
+    ): ?string {
+        // 同市で区付きのレコードを座標距離順に取得
+        $nearest = BikeParking::where('city', 'LIKE', $designatedCity . '%')
+            ->where('city', '!=', $designatedCity)
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->where('latitude', '!=', 0)
+            ->where('longitude', '!=', 0)
+            // バウンディングボックスで絞り込み（±0.1度 ≈ 約11km）
+            ->whereBetween('latitude', [$lat - 0.1, $lat + 0.1])
+            ->whereBetween('longitude', [$lng - 0.1, $lng + 0.1])
+            ->orderByRaw('POW(latitude - ?, 2) + POW(longitude - ?, 2)', [$lat, $lng])
+            ->first();
+
+        if ($nearest === null) {
+            return null;
+        }
+
+        return $nearest->city;
     }
 }
