@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Twitter;
 
 use App\Models\Review;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
@@ -15,7 +17,7 @@ final class ReviewChartService
     private const WIDTH = 1200;
     private const HEIGHT = 630;
     private const BG_COLOR = '#0f172a';
-    private const RADAR_W = 600;
+    private const RADAR_W = 550;
     private const RADAR_H = 450;
 
     public function generateReviewCard(Review $review): ?string
@@ -24,16 +26,20 @@ final class ReviewChartService
 
         $radarData = $this->getRadarData($review);
         $radarPng = $this->fetchRadarChart($radarData);
+        $salesKpi = $this->getSalesKpi($review->bike_model_id);
 
         $manager = new ImageManager(new Driver());
         $canvas = $manager->create(self::WIDTH, self::HEIGHT)->fill(self::BG_COLOR);
 
-        $this->drawTextInfo($canvas, $review);
+        $this->drawHeader($canvas, $review);
+        $this->drawKpiGrid($canvas, $salesKpi);
 
         if ($radarPng) {
             $radarImage = $manager->read($radarPng);
-            $canvas->place($radarImage, 'top-left', 300, 140);
+            $canvas->place($radarImage, 'top-left', 630, 140);
         }
+
+        $this->drawBranding($canvas);
 
         return (string) $canvas->toPng();
     }
@@ -91,7 +97,7 @@ final class ReviewChartService
                     ],
                     'pointLabels' => [
                         'fontColor' => '#ffffff',
-                        'fontSize' => 16,
+                        'fontSize' => 14,
                         'fontStyle' => 'bold',
                     ],
                     'gridLines' => [
@@ -123,46 +129,164 @@ final class ReviewChartService
     }
 
     // =====================================================================
-    // テキスト描画（縦並び中央揃え）
+    // 販売 KPI データ取得
     // =====================================================================
 
-    private function drawTextInfo(mixed $canvas, Review $review): void
+    /**
+     * @return array{monthly_sold: int, rank: int, total_models: int, daily_avg: float, avg_days: float}
+     */
+    private function getSalesKpi(int $bikeModelId): array
     {
-        $fontPath = public_path('fonts/NotoSansJP-VariableFont_wght.ttf');
-        if (!file_exists($fontPath)) {
-            $fontPath = public_path('fonts/font.ttf');
+        $lastMonthStart = now()->subMonthNoOverflow()->startOfMonth();
+        $lastMonthEnd = now()->subMonthNoOverflow()->endOfMonth();
+        $daysInMonth = (int) $lastMonthStart->daysInMonth;
+
+        $monthlySold = DB::table('listings')
+            ->where('bike_model_id', $bikeModelId)
+            ->where('is_sold_out', true)
+            ->whereBetween('updated_at', [$lastMonthStart, $lastMonthEnd])
+            ->count();
+
+        [$rank, $totalModels] = $this->getModelRank($bikeModelId, $lastMonthStart, $lastMonthEnd);
+
+        $dailyAvg = $daysInMonth > 0 ? $monthlySold / $daysInMonth : 0;
+
+        $avgDays = (float) DB::table('listings')
+            ->where('bike_model_id', $bikeModelId)
+            ->where('is_sold_out', true)
+            ->whereBetween('updated_at', [$lastMonthStart, $lastMonthEnd])
+            ->selectRaw('AVG(DATEDIFF(updated_at, created_at)) as avg_days')
+            ->value('avg_days') ?: 0;
+
+        return [
+            'monthly_sold' => $monthlySold,
+            'rank' => $rank,
+            'total_models' => $totalModels,
+            'daily_avg' => round($dailyAvg, 1),
+            'avg_days' => round($avgDays),
+        ];
+    }
+
+    /**
+     * @return array{0: int, 1: int} [rank, totalModels]
+     */
+    private function getModelRank(int $bikeModelId, mixed $start, mixed $end): array
+    {
+        $cacheKey = "review_card_rank_{$start->format('Y-m')}";
+
+        $rankings = Cache::remember($cacheKey, 3600, function () use ($start, $end) {
+            return DB::table('listings')
+                ->select('bike_model_id', DB::raw('COUNT(*) as sold_count'))
+                ->where('is_sold_out', true)
+                ->whereBetween('updated_at', [$start, $end])
+                ->whereNotNull('bike_model_id')
+                ->groupBy('bike_model_id')
+                ->orderByDesc('sold_count')
+                ->pluck('sold_count', 'bike_model_id');
+        });
+
+        $totalModels = $rankings->count();
+        $rank = 0;
+        $position = 0;
+        foreach ($rankings as $modelId => $count) {
+            $position++;
+            if ($modelId === $bikeModelId) {
+                $rank = $position;
+                break;
+            }
         }
 
-        $centerX = self::WIDTH / 2;
+        if ($rank === 0) {
+            $rank = $totalModels + 1;
+            $totalModels++;
+        }
+
+        return [$rank, $totalModels];
+    }
+
+    // =====================================================================
+    // 描画
+    // =====================================================================
+
+    private function fontPath(): string
+    {
+        $noto = public_path('fonts/NotoSansJP-VariableFont_wght.ttf');
+
+        return file_exists($noto) ? $noto : public_path('fonts/font.ttf');
+    }
+
+    private function drawHeader(mixed $canvas, Review $review): void
+    {
+        $fontPath = $this->fontPath();
+        $centerX = (int) (self::WIDTH / 2);
         $bikeName = $review->bikeModel?->name ?? '車種不明';
         $makerName = $review->bikeModel?->manufacturer?->name ?? '';
 
-        // --- 車種名（y=40、36px、白、中央揃え）---
+        // --- 車種名（y=30、32px、白、中央揃え）---
         $displayName = $makerName ? "{$makerName} {$bikeName}" : $bikeName;
-        if (mb_strlen($displayName) > 20) {
-            $displayName = mb_substr($displayName, 0, 19) . '…';
+        if (mb_strlen($displayName) > 24) {
+            $displayName = mb_substr($displayName, 0, 23) . '…';
         }
-        $canvas->text($displayName, (int) $centerX, 40, function (FontFactory $font) use ($fontPath) {
+        $canvas->text($displayName, $centerX, 30, function (FontFactory $font) use ($fontPath) {
             $font->filename($fontPath);
-            $font->size(36);
+            $font->size(32);
             $font->color('#ffffff');
             $font->align('center');
             $font->valign('top');
         });
 
-        // --- 総合評価（y=100、32px、黄色、中央揃え）---
+        // --- 総合評価（y=80、28px、黄色、中央揃え）---
         $rating = $review->rating;
         $stars = str_repeat('★', $rating) . str_repeat('☆', 5 - $rating);
         $avg = number_format($this->calcAvgRating($review), 1);
-        $canvas->text("{$stars} {$avg}", (int) $centerX, 100, function (FontFactory $font) use ($fontPath) {
+        $canvas->text("{$stars} {$avg}", $centerX, 80, function (FontFactory $font) use ($fontPath) {
             $font->filename($fontPath);
-            $font->size(32);
+            $font->size(28);
             $font->color('#FBBF24');
             $font->align('center');
             $font->valign('top');
         });
+    }
 
-        // --- MotoHub ブランディング（右下）---
+    private function drawKpiGrid(mixed $canvas, array $kpi): void
+    {
+        $fontPath = $this->fontPath();
+
+        // 2x2 グリッド: 左半分 (x=0〜600) の y=140〜600
+        // 各セル: 300x230
+        $cells = [
+            // [label, value, color, x, y]
+            ['先月販売台数', number_format($kpi['monthly_sold']) . '台', '#ffffff', 150, 200],
+            ['全車種順位', "{$kpi['rank']}位/" . number_format($kpi['total_models']) . '種', '#FBBF24', 450, 200],
+            ['1日平均', "{$kpi['daily_avg']}台", '#ffffff', 150, 400],
+            ['平均在庫日数', (int) $kpi['avg_days'] . '日', '#ffffff', 450, 400],
+        ];
+
+        foreach ($cells as [$label, $value, $color, $x, $y]) {
+            // ラベル（小さく、グレー）
+            $canvas->text($label, $x, $y - 40, function (FontFactory $font) use ($fontPath) {
+                $font->filename($fontPath);
+                $font->size(14);
+                $font->color('rgba(255, 255, 255, 0.5)');
+                $font->align('center');
+                $font->valign('top');
+            });
+
+            // 値（大きく）
+            $canvas->text($value, $x, $y, function (FontFactory $font) use ($fontPath, $color) {
+                $font->filename($fontPath);
+                $font->size(36);
+                $font->color($color);
+                $font->align('center');
+                $font->valign('top');
+            });
+        }
+    }
+
+    private function drawBranding(mixed $canvas): void
+    {
+        $fontPath = $this->fontPath();
+
         $canvas->text('MotoHub', 1150, 600, function (FontFactory $font) use ($fontPath) {
             $font->filename($fontPath);
             $font->size(16);
@@ -171,6 +295,10 @@ final class ReviewChartService
             $font->valign('bottom');
         });
     }
+
+    // =====================================================================
+    // ユーティリティ
+    // =====================================================================
 
     private function calcAvgRating(Review $review): float
     {
