@@ -167,9 +167,16 @@ return Application::configure(basePath: dirname(__DIR__))
 
         /**
          * --- 4. Twitter Bot (自動投稿) ---
+         *
+         * 08:00  お買い得車両 (ダッシュボードグラフ付き)
+         * 10:00  新着入荷まとめ
+         * 12:00  お買い得車両 (2回目)
+         * 14:00  新着レビュー紹介
+         * 20:00  お買い得車両 (3回目)
+         * 日曜11:00  週間トレンド
          */
-        
-        // お買い得車両 (1日3回: 8:00, 12:00, 20:00)
+
+        // お買い得車両 (1日3回)
         $schedule->command('bikes:tweet-bargains')
                  ->dailyAt('08:00')
                  ->withoutOverlapping()
@@ -183,23 +190,17 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->withoutOverlapping()
                  ->appendOutputTo($bargainLog);
 
-        // 新着レビューの紹介 (12:15 と 20:00)
-        $schedule->command('bikes:tweet-reviews')
-                 ->twiceDaily(12, 20)
-                 ->withoutOverlapping()
-                 ->appendOutputTo(storage_path('logs/review_tweets.log'));
-
-        // 新着入荷まとめ (08:00)
+        // 新着入荷まとめ (10:00)
         $schedule->command('bikes:tweet-new-stock')
-                 ->dailyAt('08:00')
+                 ->dailyAt('10:00')
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/new_stock_tweets.log'));
 
-        // 値下げ速報 (10:00)
-        $schedule->command('bikes:tweet-price-drop')
-                 ->dailyAt('10:00')
+        // 新着レビュー紹介 (14:00・1日1回)
+        $schedule->command('bikes:tweet-reviews')
+                 ->dailyAt('14:00')
                  ->withoutOverlapping()
-                 ->appendOutputTo(storage_path('logs/price_drop_tweets.log'));
+                 ->appendOutputTo(storage_path('logs/review_tweets.log'));
 
         // 週間トレンド (日曜 11:00)
         $schedule->command('bikes:tweet-trending')
