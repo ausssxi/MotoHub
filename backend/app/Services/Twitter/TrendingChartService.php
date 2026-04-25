@@ -147,12 +147,12 @@ final class TrendingChartService
                 'scales' => [
                     'xAxes' => [[
                         'gridLines' => [
-                            'color' => 'rgba(255, 255, 255, 0.06)',
-                            'zeroLineColor' => 'rgba(255, 255, 255, 0.06)',
+                            'color' => 'rgba(255, 255, 255, 0.15)',
+                            'zeroLineColor' => 'rgba(255, 255, 255, 0.15)',
                         ],
                         'ticks' => [
-                            'fontColor' => 'rgba(255, 255, 255, 0.5)',
-                            'fontSize' => 12,
+                            'fontColor' => 'rgba(255, 255, 255, 0.9)',
+                            'fontSize' => 16,
                             'beginAtZero' => true,
                             'callback' => '__TICK_CB__',
                         ],
@@ -164,7 +164,7 @@ final class TrendingChartService
                         ],
                         'ticks' => [
                             'fontColor' => 'rgba(255, 255, 255, 0.85)',
-                            'fontSize' => 14,
+                            'fontSize' => 16,
                             'fontStyle' => 'bold',
                         ],
                     ]],
