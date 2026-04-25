@@ -5,55 +5,77 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Models\Listing;
+use App\Services\Twitter\TrendingChartService;
 use Abraham\TwitterOAuth\TwitterOAuth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class TweetTrending extends Command
 {
-    protected $signature = 'bikes:tweet-trending {--dry-run : ツイートせずにテキストだけ表示}';
-    protected $description = '週間トレンド車種をX(Twitter)に投稿します';
+    protected $signature = 'bikes:tweet-trending {--dry-run : ツイートせずにテキストと画像を確認}';
+    protected $description = '週間売れ筋ランキングをX(Twitter)に投稿します';
+
+    public function __construct(
+        private readonly TrendingChartService $chartService,
+    ) {
+        parent::__construct();
+    }
 
     public function handle(): void
     {
-        $this->info('トレンド車種の集計を開始します...');
+        $dryRun = (bool) $this->option('dry-run');
 
-        // bike_model_id ごとに view_count_total を合計し上位3車種を取得
-        $trending = Listing::select('bike_model_id', DB::raw('SUM(view_count_total) as total_views'))
-            ->where('is_sold_out', false)
-            ->whereNotNull('bike_model_id')
-            ->groupBy('bike_model_id')
-            ->orderByDesc('total_views')
-            ->limit(3)
-            ->with('bikeModel.manufacturer')
-            ->get();
+        if ($dryRun) {
+            $this->warn('[DRY-RUN] Twitter APIは呼びません。');
+        }
 
-        if ($trending->isEmpty()) {
-            $this->info('トレンドデータが見つかりませんでした。');
+        $this->info('売れ筋ランキングの集計を開始します...');
+
+        $ranking = $this->chartService->getWeeklyRanking();
+
+        if ($ranking->isEmpty()) {
+            $this->info('今週の販売データが見つかりませんでした。');
             return;
         }
 
-        $medals = ['🥇', '🥈', '🥉'];
-        $text = "🔥 今週の注目バイクTOP3！\n\n";
+        // --- テキスト ---
+        $medals = ['🥇', '🥈', '🥉', '4⃣', '5⃣'];
+        $text = "🔥 今週の売れ筋ランキング TOP5！\n\n";
 
-        foreach ($trending as $i => $item) {
-            $bikeName = $item->bikeModel?->name ?? '不明';
+        foreach ($ranking as $i => $item) {
             $medal = $medals[$i] ?? '';
-            $text .= "{$medal} {$bikeName}\n";
+            $text .= "{$medal} {$item->bike_name} {$item->sold_count}台\n";
         }
 
-        $text .= "\nみんなが気になってるバイクをチェック👇\n";
-        $text .= "https://www.motohub.jp/bikes/search\n\n";
-        $text .= "#MotoHub #バイク #中古バイク #トレンド";
+        $text .= "\nhttps://motohub.jp/ranking\n\n";
+        $text .= '#中古バイク #MotoHub #売れ筋ランキング';
 
-        if ($this->option('dry-run')) {
-            $this->info("--- Dry Run ---");
+        // --- 画像生成 ---
+        $png = $this->chartService->generateDashboardImage($ranking);
+
+        if ($dryRun) {
+            $this->newLine();
+            $this->line('========================================');
+            $this->line('--- テキスト ---');
             $this->line($text);
+
+            if ($png) {
+                $dir = storage_path('app/temp');
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0755, true);
+                }
+                $imagePath = $dir . '/trending_dashboard.png';
+                file_put_contents($imagePath, $png);
+                $this->line('--- 画像 ---');
+                $this->info("保存先: {$imagePath}");
+            } else {
+                $this->warn('画像生成に失敗しました');
+            }
+
+            $this->line('========================================');
             return;
         }
 
-        // Twitter接続
+        // --- Twitter接続 ---
         try {
             $connection = new TwitterOAuth(
                 config('services.twitter.consumer_key'),
@@ -67,14 +89,41 @@ class TweetTrending extends Command
             return;
         }
 
-        // テキストのみ
-        $result = $connection->post('tweets', ['text' => $text]);
+        // --- 画像アップロード ---
+        $mediaIds = [];
+        if ($png) {
+            $tempPath = storage_path('app/public/temp_trending_' . uniqid() . '.png');
+            file_put_contents($tempPath, $png);
+
+            try {
+                $connection->setApiVersion('1.1');
+                $media = $connection->upload('media/upload', ['media' => $tempPath]);
+                if (isset($media->media_id_string)) {
+                    $mediaIds[] = $media->media_id_string;
+                }
+            } catch (\Exception $e) {
+                $this->error("Image upload failed: " . $e->getMessage());
+            } finally {
+                $connection->setApiVersion('2');
+                if (file_exists($tempPath)) {
+                    unlink($tempPath);
+                }
+            }
+        }
+
+        // --- ツイート投稿 ---
+        $payload = ['text' => $text];
+        if (!empty($mediaIds)) {
+            $payload['media'] = ['media_ids' => $mediaIds];
+        }
+
+        $result = $connection->post('tweets', $payload);
 
         if ($connection->getLastHttpCode() == 201) {
-            $this->info("トレンド車種をツイートしました");
+            $this->info('売れ筋ランキングをツイートしました');
         } else {
             $this->error("Tweet failed code: " . $connection->getLastHttpCode());
-            Log::error("Twitter API Error (Trending)", (array)$result);
+            Log::error("Twitter API Error (Trending)", (array) $result);
         }
     }
 }
