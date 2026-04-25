@@ -195,7 +195,7 @@ final class DealChartService
             return null;
         }
 
-        return Cache::remember(
+        return (float) Cache::remember(
             "deal_chart_avg_{$listing->bike_model_id}",
             3600,
             fn () => (float) Listing::where('bike_model_id', $listing->bike_model_id)
