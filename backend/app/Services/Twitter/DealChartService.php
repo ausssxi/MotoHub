@@ -5,17 +5,23 @@ declare(strict_types=1);
 namespace App\Services\Twitter;
 
 use App\Models\Listing;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
 
 final class DealChartService
 {
     private const WIDTH = 1200;
     private const HEIGHT = 630;
+    private const MINI_W = 570;
+    private const MINI_H = 295;
+    private const BG_COLOR = '#0f172a';
 
     /**
-     * Listing から相場推移チャートの PNG バイナリを生成して返す
+     * OGP 用: 単一の相場推移チャート (1200x630)
      */
     public function generateChartImage(Listing $listing): ?string
     {
@@ -40,13 +46,86 @@ final class DealChartService
         $prices = $monthly->pluck('avg_price')->map(fn ($v) => round((float) $v / 10000, 1))->toArray();
         $listingPriceMan = round($listingPrice / 10000, 1);
 
-        return $this->fetchChartImage($labels, $prices, $listingPriceMan, $modelName);
+        return $this->fetchChart($this->buildTrendChartConfig(
+            $labels, $prices, $listingPriceMan, "{$modelName} 相場推移", 24,
+        ), self::WIDTH, self::HEIGHT);
     }
 
-    private function fetchChartImage(array $labels, array $prices, float $listingPriceMan, string $modelName): ?string
+    /**
+     * Tweet 用: 4 グラフダッシュボード (1200x630)
+     */
+    public function generateDashboardImage(Listing $listing): ?string
     {
-        $title = "{$modelName} 相場推移";
+        $listing->loadMissing(['bikeModel.manufacturer', 'shop']);
 
+        $bikeModelId = $listing->bike_model_id;
+        if (!$bikeModelId) {
+            return null;
+        }
+
+        $listingPrice = (float) ($listing->total_price ?: $listing->price);
+        $listingPriceMan = round($listingPrice / 10000, 1);
+        $listingPrefecture = $listing->shop?->prefecture;
+        $listingYear = $listing->model_year;
+
+        // --- データ取得 ---
+        $monthly = $this->getMonthlyAveragePrices($bikeModelId);
+        if ($monthly->count() < 6) {
+            $avgPrice = $this->getAveragePrice($listing) ?: $listingPrice;
+            if (!$avgPrice) {
+                return null;
+            }
+            $monthly = $this->generateDummyMonthlyData($avgPrice);
+        }
+
+        $priceDist = $this->getPriceDistribution($bikeModelId);
+        $regional = $this->getRegionalPopularity($bikeModelId);
+        $yearDist = $this->getYearDistribution($bikeModelId);
+
+        // --- 4 チャート生成 ---
+        $trendLabels = $monthly->pluck('month_label')->toArray();
+        $trendPrices = $monthly->pluck('avg_price')->map(fn ($v) => round((float) $v / 10000, 1))->toArray();
+
+        $charts = [
+            $this->fetchChart($this->buildTrendChartConfig($trendLabels, $trendPrices, $listingPriceMan, '相場推移', 14), self::MINI_W, self::MINI_H, 1),
+            $this->fetchChart($this->buildPriceDistConfig($priceDist, $listingPrice), self::MINI_W, self::MINI_H, 1),
+            $this->fetchChart($this->buildRegionalConfig($regional, $listingPrefecture), self::MINI_W, self::MINI_H, 1),
+            $this->fetchChart($this->buildYearDistConfig($yearDist, $listingYear), self::MINI_W, self::MINI_H, 1),
+        ];
+
+        // 全チャート生成成功チェック（最低限トレンドチャートは必須）
+        if (!$charts[0]) {
+            return null;
+        }
+
+        // --- Intervention Image で合成 ---
+        $manager = new ImageManager(new Driver());
+        $canvas = $manager->create(self::WIDTH, self::HEIGHT)->fill(self::BG_COLOR);
+
+        $positions = [
+            [10, 10],    // 左上
+            [620, 10],   // 右上
+            [10, 325],   // 左下
+            [620, 325],  // 右下
+        ];
+
+        foreach ($charts as $i => $png) {
+            if (!$png) {
+                continue;
+            }
+            $mini = $manager->read($png);
+            $canvas->place($mini, 'top-left', $positions[$i][0], $positions[$i][1]);
+        }
+
+        return (string) $canvas->toPng();
+    }
+
+    // =====================================================================
+    // チャート設定ビルダー
+    // =====================================================================
+
+    private function buildTrendChartConfig(array $labels, array $prices, float $listingPriceMan, string $title, int $titleSize): array
+    {
         $avgOfPrices = count($prices) > 0 ? array_sum($prices) / count($prices) : 0;
         $labelPosition = $listingPriceMan >= $avgOfPrices ? 'bottom' : 'top';
 
@@ -58,25 +137,25 @@ final class DealChartService
                 'scaleID' => 'y-axis-0',
                 'value' => $listingPriceMan,
                 'borderColor' => 'rgba(239, 68, 68, 0.85)',
-                'borderWidth' => 3,
-                'borderDash' => [10, 5],
+                'borderWidth' => 2,
+                'borderDash' => [8, 4],
                 'label' => [
                     'enabled' => true,
                     'content' => "この車両 {$listingPriceMan}万円",
                     'position' => 'left',
-                    'yAdjust' => $labelPosition === 'bottom' ? 16 : -16,
+                    'yAdjust' => $labelPosition === 'bottom' ? 14 : -14,
                     'backgroundColor' => 'rgba(239, 68, 68, 0.92)',
                     'fontColor' => '#ffffff',
-                    'fontSize' => 16,
+                    'fontSize' => 11,
                     'fontStyle' => 'bold',
-                    'cornerRadius' => 4,
-                    'xPadding' => 10,
-                    'yPadding' => 6,
+                    'cornerRadius' => 3,
+                    'xPadding' => 6,
+                    'yPadding' => 4,
                 ],
             ];
         }
 
-        $chart = [
+        $config = [
             'type' => 'line',
             'data' => [
                 'labels' => $labels,
@@ -87,69 +166,323 @@ final class DealChartService
                     'backgroundColor' => 'rgba(59, 130, 246, 0.15)',
                     'fill' => true,
                     'lineTension' => 0.35,
-                    'pointRadius' => 7,
+                    'pointRadius' => 5,
                     'pointBackgroundColor' => '#3B82F6',
-                    'pointBorderColor' => '#0f172a',
-                    'pointBorderWidth' => 3,
-                    'borderWidth' => 4,
+                    'pointBorderColor' => self::BG_COLOR,
+                    'pointBorderWidth' => 2,
+                    'borderWidth' => 3,
                 ]],
             ],
             'options' => [
                 'legend' => ['display' => false],
-                'title' => [
-                    'display' => true,
-                    'text' => $title,
-                    'fontColor' => 'rgba(255, 255, 255, 0.8)',
-                    'fontSize' => 24,
-                    'fontStyle' => 'bold',
-                    'padding' => 20,
-                ],
-                'annotation' => [
-                    'annotations' => $annotations,
-                ],
+                'title' => $this->miniTitle($title, $titleSize),
+                'annotation' => ['annotations' => $annotations],
                 'scales' => [
-                    'xAxes' => [[
-                        'gridLines' => [
-                            'color' => 'rgba(255, 255, 255, 0.06)',
-                            'zeroLineColor' => 'rgba(255, 255, 255, 0.06)',
-                        ],
-                        'ticks' => [
-                            'fontColor' => 'rgba(255, 255, 255, 0.65)',
-                            'fontSize' => 16,
-                            'fontStyle' => 'bold',
-                        ],
-                    ]],
+                    'xAxes' => [$this->miniXAxis()],
                     'yAxes' => [[
-                        'gridLines' => [
-                            'color' => 'rgba(255, 255, 255, 0.06)',
-                            'zeroLineColor' => 'rgba(255, 255, 255, 0.06)',
-                        ],
-                        'ticks' => [
-                            'fontColor' => 'rgba(255, 255, 255, 0.5)',
-                            'fontSize' => 14,
-                            'maxTicksLimit' => 6,
-                            'callback' => '__TICK_CALLBACK__',
-                        ],
+                        'gridLines' => $this->gridLines(),
+                        'ticks' => array_merge($this->miniYTicks(), [
+                            'callback' => '__TICK_CALLBACK_MAN__',
+                        ]),
                     ]],
                 ],
-                'layout' => [
-                    'padding' => ['top' => 8, 'right' => 36, 'bottom' => 8, 'left' => 8],
-                ],
+                'layout' => ['padding' => ['top' => 4, 'right' => 16, 'bottom' => 4, 'left' => 4]],
             ],
         ];
 
-        $chartJson = json_encode($chart, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $chartJson = str_replace(
-            '"__TICK_CALLBACK__"',
-            "function(v) { return v % 1 === 0 ? v + '万' : v.toFixed(1) + '万'; }",
-            $chartJson,
-        );
+        return ['config' => $config, 'callbacks' => [
+            '"__TICK_CALLBACK_MAN__"' => "function(v){return v%1===0?v+'万':v.toFixed(1)+'万';}",
+        ]];
+    }
+
+    private function buildPriceDistConfig(Collection $data, float $listingPrice = 0): array
+    {
+        $bands = [200000, 400000, 600000, 800000];
+        $highlightIndex = $listingPrice > 0 ? match (true) {
+            $listingPrice < $bands[0] => 0,
+            $listingPrice < $bands[1] => 1,
+            $listingPrice < $bands[2] => 2,
+            $listingPrice < $bands[3] => 3,
+            default => 4,
+        } : -1;
+
+        $green = 'rgba(34, 197, 94, 0.7)';
+        $red = 'rgba(239, 68, 68, 0.85)';
+        $bgColors = [];
+        $borderColors = [];
+        $borderWidths = [];
+        $datalabels = [];
+        foreach ($data as $i => $row) {
+            $hit = ($i === $highlightIndex);
+            $bgColors[] = $hit ? $red : $green;
+            $borderColors[] = $hit ? '#ffffff' : 'rgba(34, 197, 94, 1)';
+            $borderWidths[] = $hit ? 2 : 1;
+            $datalabels[] = $hit ? 'この車両' : '';
+        }
+
+        $config = [
+            'type' => 'horizontalBar',
+            'data' => [
+                'labels' => $data->pluck('label')->toArray(),
+                'datasets' => [[
+                    'data' => $data->pluck('count')->toArray(),
+                    'backgroundColor' => $bgColors,
+                    'borderColor' => $borderColors,
+                    'borderWidth' => $borderWidths,
+                    'datalabels' => ['labels' => ['value' => ['color' => '#ffffff']]],
+                ]],
+            ],
+            'options' => [
+                'legend' => ['display' => false],
+                'title' => $this->miniTitle('価格帯分布'),
+                'plugins' => ['datalabels' => [
+                    'display' => '__DATALABEL_DISPLAY_PRICE__',
+                    'color' => '#ffffff',
+                    'font' => ['size' => 11, 'weight' => 'bold'],
+                    'anchor' => 'end',
+                    'align' => 'left',
+                    'formatter' => '__DATALABEL_FMT_PRICE__',
+                ]],
+                'scales' => [
+                    'xAxes' => [[
+                        'gridLines' => $this->gridLines(),
+                        'ticks' => array_merge($this->miniYTicks(), [
+                            'beginAtZero' => true,
+                            'callback' => '__TICK_CALLBACK_COUNT__',
+                        ]),
+                    ]],
+                    'yAxes' => [[
+                        'gridLines' => $this->gridLines(),
+                        'ticks' => $this->miniXTicks(),
+                    ]],
+                ],
+                'layout' => ['padding' => ['top' => 4, 'right' => 16, 'bottom' => 4, 'left' => 4]],
+            ],
+        ];
+
+        return ['config' => $config, 'callbacks' => [
+            '"__TICK_CALLBACK_COUNT__"' => "function(v){return Number.isInteger(v)?v+'台':'';}",
+            '"__DATALABEL_DISPLAY_PRICE__"' => "function(ctx){return ctx.dataIndex==={$highlightIndex};}",
+            '"__DATALABEL_FMT_PRICE__"' => "function(){return '◀ この車両';}",
+        ]];
+    }
+
+    private function buildRegionalConfig(Collection $data, ?string $listingPrefecture = null): array
+    {
+        $orange = 'rgba(251, 146, 60, 0.7)';
+        $red = 'rgba(239, 68, 68, 0.85)';
+
+        // この車両の都道府県がTOP5に入っていなければ追加
+        $prefectures = $data->pluck('prefecture')->toArray();
+        if ($listingPrefecture && !in_array($listingPrefecture, $prefectures)) {
+            $data->push((object) [
+                'prefecture' => $listingPrefecture,
+                'count' => 1,
+            ]);
+        }
+
+        $highlightIndex = -1;
+        $bgColors = [];
+        $borderColors = [];
+        $borderWidths = [];
+        foreach ($data->values() as $i => $row) {
+            $isListing = $listingPrefecture && $row->prefecture === $listingPrefecture;
+            if ($isListing) {
+                $highlightIndex = $i;
+            }
+            $bgColors[] = $isListing ? $red : $orange;
+            $borderColors[] = $isListing ? '#ffffff' : 'rgba(251, 146, 60, 1)';
+            $borderWidths[] = $isListing ? 2 : 1;
+        }
+
+        $config = [
+            'type' => 'horizontalBar',
+            'data' => [
+                'labels' => $data->pluck('prefecture')->toArray(),
+                'datasets' => [[
+                    'data' => $data->pluck('count')->toArray(),
+                    'backgroundColor' => $bgColors,
+                    'borderColor' => $borderColors,
+                    'borderWidth' => $borderWidths,
+                ]],
+            ],
+            'options' => [
+                'legend' => ['display' => false],
+                'title' => $this->miniTitle('地域別 在庫数 TOP5'),
+                'plugins' => ['datalabels' => [
+                    'display' => '__DATALABEL_DISPLAY_REGION__',
+                    'color' => '#ffffff',
+                    'font' => ['size' => 11, 'weight' => 'bold'],
+                    'anchor' => 'start',
+                    'align' => 'right',
+                    'formatter' => '__DATALABEL_FMT_REGION__',
+                ]],
+                'scales' => [
+                    'xAxes' => [[
+                        'gridLines' => $this->gridLines(),
+                        'ticks' => array_merge($this->miniYTicks(), [
+                            'beginAtZero' => true,
+                            'callback' => '__TICK_CALLBACK_COUNT2__',
+                        ]),
+                    ]],
+                    'yAxes' => [[
+                        'gridLines' => $this->gridLines(),
+                        'ticks' => $this->miniXTicks(),
+                    ]],
+                ],
+                'layout' => ['padding' => ['top' => 4, 'right' => 16, 'bottom' => 4, 'left' => 4]],
+            ],
+        ];
+
+        return ['config' => $config, 'callbacks' => [
+            '"__TICK_CALLBACK_COUNT2__"' => "function(v){return Number.isInteger(v)?v+'台':'';}",
+            '"__DATALABEL_DISPLAY_REGION__"' => "function(ctx){return ctx.dataIndex==={$highlightIndex};}",
+            '"__DATALABEL_FMT_REGION__"' => "function(){return 'この車両 ▶';}",
+        ]];
+    }
+
+    private function buildYearDistConfig(Collection $data, ?int $listingYear = null): array
+    {
+        $purple = 'rgba(168, 85, 247, 0.7)';
+        $red = 'rgba(239, 68, 68, 0.85)';
+
+        // この車両の年式がなければ追加
+        if ($listingYear && $listingYear > 0) {
+            $existingYears = $data->pluck('model_year')->map(fn ($v) => (int) $v)->toArray();
+            if (!in_array($listingYear, $existingYears)) {
+                $data->push((object) [
+                    'model_year' => $listingYear,
+                    'year_label' => "{$listingYear}年",
+                    'count' => 1,
+                ]);
+                $data = $data->sortBy('model_year')->values();
+            }
+        }
+
+        $highlightIndex = -1;
+        $bgColors = [];
+        $borderColors = [];
+        $borderWidths = [];
+        foreach ($data->values() as $i => $row) {
+            $isListing = $listingYear && (int) $row->model_year === $listingYear;
+            if ($isListing) {
+                $highlightIndex = $i;
+            }
+            $bgColors[] = $isListing ? $red : $purple;
+            $borderColors[] = $isListing ? '#ffffff' : 'rgba(168, 85, 247, 1)';
+            $borderWidths[] = $isListing ? 2 : 1;
+        }
+
+        $config = [
+            'type' => 'bar',
+            'data' => [
+                'labels' => $data->pluck('year_label')->toArray(),
+                'datasets' => [[
+                    'data' => $data->pluck('count')->toArray(),
+                    'backgroundColor' => $bgColors,
+                    'borderColor' => $borderColors,
+                    'borderWidth' => $borderWidths,
+                ]],
+            ],
+            'options' => [
+                'legend' => ['display' => false],
+                'title' => $this->miniTitle('年式分布'),
+                'plugins' => ['datalabels' => [
+                    'display' => '__DATALABEL_DISPLAY_YEAR__',
+                    'color' => '#ffffff',
+                    'font' => ['size' => 10, 'weight' => 'bold'],
+                    'anchor' => 'end',
+                    'align' => 'top',
+                    'formatter' => '__DATALABEL_FMT_YEAR__',
+                ]],
+                'scales' => [
+                    'xAxes' => [$this->miniXAxis()],
+                    'yAxes' => [[
+                        'gridLines' => $this->gridLines(),
+                        'ticks' => array_merge($this->miniYTicks(), [
+                            'beginAtZero' => true,
+                            'callback' => '__TICK_CALLBACK_COUNT3__',
+                        ]),
+                    ]],
+                ],
+                'layout' => ['padding' => ['top' => 16, 'right' => 16, 'bottom' => 4, 'left' => 4]],
+            ],
+        ];
+
+        return ['config' => $config, 'callbacks' => [
+            '"__TICK_CALLBACK_COUNT3__"' => "function(v){return Number.isInteger(v)?v+'台':'';}",
+            '"__DATALABEL_DISPLAY_YEAR__"' => "function(ctx){return ctx.dataIndex==={$highlightIndex};}",
+            '"__DATALABEL_FMT_YEAR__"' => "function(){return '▼この車両';}",
+        ]];
+    }
+
+    // =====================================================================
+    // 共通スタイルヘルパー
+    // =====================================================================
+
+    private function miniTitle(string $text, int $size = 14): array
+    {
+        return [
+            'display' => true,
+            'text' => $text,
+            'fontColor' => 'rgba(255, 255, 255, 0.8)',
+            'fontSize' => $size,
+            'fontStyle' => 'bold',
+            'padding' => 12,
+        ];
+    }
+
+    private function gridLines(): array
+    {
+        return [
+            'color' => 'rgba(255, 255, 255, 0.06)',
+            'zeroLineColor' => 'rgba(255, 255, 255, 0.06)',
+        ];
+    }
+
+    private function miniXAxis(): array
+    {
+        return [
+            'gridLines' => $this->gridLines(),
+            'ticks' => $this->miniXTicks(),
+        ];
+    }
+
+    private function miniXTicks(): array
+    {
+        return [
+            'fontColor' => 'rgba(255, 255, 255, 0.6)',
+            'fontSize' => 12,
+            'fontStyle' => 'bold',
+        ];
+    }
+
+    private function miniYTicks(): array
+    {
+        return [
+            'fontColor' => 'rgba(255, 255, 255, 0.5)',
+            'fontSize' => 11,
+            'maxTicksLimit' => 6,
+        ];
+    }
+
+    // =====================================================================
+    // QuickChart API
+    // =====================================================================
+
+    private function fetchChart(array $spec, int $width, int $height, int $dpr = 2): ?string
+    {
+        $chartJson = json_encode($spec['config'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        foreach ($spec['callbacks'] ?? [] as $placeholder => $jsFunc) {
+            $chartJson = str_replace($placeholder, $jsFunc, $chartJson);
+        }
 
         $body = json_encode([
-            'backgroundColor' => '#0f172a',
-            'width' => self::WIDTH,
-            'height' => self::HEIGHT,
-            'devicePixelRatio' => 2,
+            'backgroundColor' => self::BG_COLOR,
+            'width' => $width,
+            'height' => $height,
+            'devicePixelRatio' => $dpr,
             'chart' => $chartJson,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
@@ -160,7 +493,86 @@ final class DealChartService
         return $response->successful() ? $response->body() : null;
     }
 
-    private function generateDummyMonthlyData(float $avgPrice): \Illuminate\Support\Collection
+    // =====================================================================
+    // データ取得
+    // =====================================================================
+
+    private function getMonthlyAveragePrices(int $bikeModelId): Collection
+    {
+        return DB::table('listings')
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, AVG(total_price) as avg_price, DATE_FORMAT(created_at, '%m月') as month_label")
+            ->where('bike_model_id', $bikeModelId)
+            ->where('is_sold_out', false)
+            ->where('total_price', '>', 0)
+            ->where('created_at', '>=', now()->subMonths(6))
+            ->groupByRaw("DATE_FORMAT(created_at, '%Y-%m'), DATE_FORMAT(created_at, '%m月')")
+            ->orderBy('month')
+            ->get();
+    }
+
+    private function getPriceDistribution(int $bikeModelId): Collection
+    {
+        $bands = [
+            ['max' => 200000, 'label' => '〜20万'],
+            ['min' => 200000, 'max' => 400000, 'label' => '20〜40万'],
+            ['min' => 400000, 'max' => 600000, 'label' => '40〜60万'],
+            ['min' => 600000, 'max' => 800000, 'label' => '60〜80万'],
+            ['min' => 800000, 'label' => '80万〜'],
+        ];
+
+        $results = [];
+        foreach ($bands as $band) {
+            $query = DB::table('listings')
+                ->where('bike_model_id', $bikeModelId)
+                ->where('is_sold_out', false)
+                ->where('total_price', '>', 0);
+
+            if (isset($band['min'])) {
+                $query->where('total_price', '>=', $band['min']);
+            }
+            if (isset($band['max'])) {
+                $query->where('total_price', '<', $band['max']);
+            }
+
+            $results[] = (object) [
+                'label' => $band['label'],
+                'count' => $query->count(),
+            ];
+        }
+
+        return collect($results);
+    }
+
+    private function getRegionalPopularity(int $bikeModelId): Collection
+    {
+        return DB::table('listings')
+            ->join('shops', 'listings.shop_id', '=', 'shops.id')
+            ->selectRaw('shops.prefecture, COUNT(*) as count')
+            ->where('listings.bike_model_id', $bikeModelId)
+            ->where('listings.is_sold_out', false)
+            ->where('listings.total_price', '>', 0)
+            ->whereNotNull('shops.prefecture')
+            ->groupBy('shops.prefecture')
+            ->orderByDesc('count')
+            ->limit(5)
+            ->get();
+    }
+
+    private function getYearDistribution(int $bikeModelId): Collection
+    {
+        return DB::table('listings')
+            ->selectRaw("model_year, CONCAT(model_year, '年') as year_label, COUNT(*) as count")
+            ->where('bike_model_id', $bikeModelId)
+            ->where('is_sold_out', false)
+            ->where('total_price', '>', 0)
+            ->whereNotNull('model_year')
+            ->where('model_year', '>', 0)
+            ->groupBy('model_year')
+            ->orderBy('model_year')
+            ->get();
+    }
+
+    private function generateDummyMonthlyData(float $avgPrice): Collection
     {
         $rows = [];
         for ($i = 5; $i >= 0; $i--) {
@@ -174,19 +586,6 @@ final class DealChartService
         }
 
         return collect($rows);
-    }
-
-    private function getMonthlyAveragePrices(int $bikeModelId): \Illuminate\Support\Collection
-    {
-        return DB::table('listings')
-            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, AVG(total_price) as avg_price, DATE_FORMAT(created_at, '%m月') as month_label")
-            ->where('bike_model_id', $bikeModelId)
-            ->where('is_sold_out', false)
-            ->where('total_price', '>', 0)
-            ->where('created_at', '>=', now()->subMonths(6))
-            ->groupByRaw("DATE_FORMAT(created_at, '%Y-%m'), DATE_FORMAT(created_at, '%m月')")
-            ->orderBy('month')
-            ->get();
     }
 
     private function getAveragePrice(Listing $listing): ?float
