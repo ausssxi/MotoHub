@@ -38,9 +38,14 @@ class TweetNewStock extends Command
         }
 
         // --- テキスト ---
-        $text = "📦 本日の新着入荷！\n\n";
-        $text .= "🏍 {$total}台が新しく登録されました\n\n";
-        $text .= "https://www.motohub.jp/bikes?sort=newest\n\n";
+        $formattedTotal = number_format($total);
+        $topModels = $this->chartService->getTopModels();
+
+        $text = "📦 本日の新着入荷 {$formattedTotal}台！\n\n";
+        foreach ($topModels as $model) {
+            $text .= "🏍 {$model->name} {$model->count}台\n";
+        }
+        $text .= "\nhttps://motohub.jp/bikes?sort=newest\n\n";
         $text .= "#中古バイク #MotoHub #新着入荷";
 
         // --- 画像生成 ---

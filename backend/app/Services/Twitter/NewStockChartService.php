@@ -24,13 +24,13 @@ final class NewStockChartService
 
         $byMaker = $this->getByMaker($since);
         $byPrice = $this->getByPrice($since);
-        $byDisplacement = $this->getByDisplacement($since);
+        $byModel = $this->getByModel($since);
         $daily = $this->getDailyTrend();
 
         $charts = [
             $this->fetchChart($this->buildMakerConfig($byMaker)),
             $this->fetchChart($this->buildPriceConfig($byPrice)),
-            $this->fetchChart($this->buildDisplacementConfig($byDisplacement)),
+            $this->fetchChart($this->buildModelConfig($byModel)),
             $this->fetchChart($this->buildDailyTrendConfig($daily)),
         ];
 
@@ -127,12 +127,12 @@ final class NewStockChartService
         ]];
     }
 
-    private function buildDisplacementConfig(Collection $data): array
+    private function buildModelConfig(Collection $data): array
     {
         $config = [
             'type' => 'horizontalBar',
             'data' => [
-                'labels' => $data->pluck('label')->toArray(),
+                'labels' => $data->pluck('name')->toArray(),
                 'datasets' => [[
                     'data' => $data->pluck('count')->toArray(),
                     'backgroundColor' => 'rgba(59, 130, 246, 0.7)',
@@ -140,7 +140,7 @@ final class NewStockChartService
                     'borderWidth' => 1,
                 ]],
             ],
-            'options' => $this->chartOptions('排気量別 新着', '__TICK_CB_3__'),
+            'options' => $this->chartOptions('車種別 新着TOP5', '__TICK_CB_3__'),
         ];
 
         return ['config' => $config, 'callbacks' => [
@@ -344,37 +344,23 @@ final class NewStockChartService
         return collect($results);
     }
 
-    private function getByDisplacement(\Carbon\Carbon $since): Collection
+    private function getByModel(\Carbon\Carbon $since): Collection
     {
-        $bands = [
-            ['max' => 125, 'label' => '〜125cc'],
-            ['min' => 126, 'max' => 250, 'label' => '126〜250cc'],
-            ['min' => 251, 'max' => 400, 'label' => '251〜400cc'],
-            ['min' => 401, 'max' => 750, 'label' => '401〜750cc'],
-            ['min' => 751, 'label' => '751cc〜'],
-        ];
+        return DB::table('listings')
+            ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
+            ->selectRaw('bike_models.name, COUNT(*) as count')
+            ->where('listings.is_sold_out', false)
+            ->where('listings.created_at', '>=', $since)
+            ->whereNotNull('listings.bike_model_id')
+            ->groupBy('bike_models.name')
+            ->orderByDesc('count')
+            ->limit(5)
+            ->get();
+    }
 
-        $results = [];
-        foreach ($bands as $band) {
-            $query = DB::table('listings')
-                ->where('is_sold_out', false)
-                ->where('created_at', '>=', $since)
-                ->where('displacement', '>', 0);
-
-            if (isset($band['min'])) {
-                $query->where('displacement', '>=', $band['min']);
-            }
-            if (isset($band['max'])) {
-                $query->where('displacement', '<=', $band['max']);
-            }
-
-            $results[] = (object) [
-                'label' => $band['label'],
-                'count' => $query->count(),
-            ];
-        }
-
-        return collect($results);
+    public function getTopModels(): Collection
+    {
+        return $this->getByModel(now()->subDay());
     }
 
     private function getDailyTrend(): Collection
