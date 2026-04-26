@@ -401,73 +401,73 @@ final class BikeService
                 [
                     'id' => 'commute_scooter', 'title' => '🔥 通勤・通学を快適に！原付二種スクーター', 'icon' => 'zap',
                     'color' => 'bg-gradient-to-br from-blue-400 to-cyan-500',
-                    'url' => route('bikes.search', ['max_displacement' => 125, 'keyword' => 'スクーター'], false), // ★修正: 相対パス
+                    'url' => '/features/commute-scooter',
                     'base_score' => 50, 'boost_timing' => ['morning', 'weekday'],
                 ],
                 [
                     'id' => 'commute_cub', 'title' => '🛵 燃費最強！お財布に優しいカブ系特集', 'icon' => 'leaf',
                     'color' => 'bg-gradient-to-br from-green-500 to-emerald-600',
-                    'url' => route('bikes.search', ['keyword' => 'カブ'], false), // ★修正: 相対パス
+                    'url' => '/features/commute-cub',
                     'base_score' => 45, 'boost_timing' => ['morning', 'daytime', 'weekday'],
                 ],
                 [
                     'id' => 'cost_under30', 'title' => '💰 初めての相棒に！支払総額30万円以下', 'icon' => 'coins',
                     'color' => 'bg-gradient-to-br from-amber-400 to-yellow-600',
-                    'url' => route('bikes.search', ['max_price' => 30], false), // ★修正: 相対パス
+                    'url' => '/features/budget-under-30man',
                     'base_score' => 50, 'boost_timing' => ['daytime', 'weekday'],
                 ],
                 [
                     'id' => 'touring_etc', 'title' => '🛣️ 週末はどこへ行く？ETC搭載の大型バイク', 'icon' => 'map',
                     'color' => 'bg-gradient-to-br from-indigo-500 to-blue-700',
-                    'url' => route('bikes.search', ['min_displacement' => 401, 'tag' => 'ETC'], false), // ★修正: 相対パス
+                    'url' => '/features/etc-equipped',
                     'base_score' => 45, 'boost_timing' => ['evening', 'night', 'weekend'],
                 ],
                 [
                     'id' => 'adventure', 'title' => '🏕️ 荷物を積んでキャンプへ！アドベンチャー', 'icon' => 'mountain',
                     'color' => 'bg-gradient-to-br from-stone-500 to-stone-700',
-                    'url' => route('bikes.search', ['keyword' => 'アドベンチャー'], false), // ★修正: 相対パス
+                    'url' => '/features/camp-adventure',
                     'base_score' => 40, 'boost_timing' => ['evening', 'weekend'],
                 ],
                 [
                     'id' => 'supersport', 'title' => '🏁 圧倒的な所有感。スーパースポーツ大集合', 'icon' => 'flag',
                     'color' => 'bg-gradient-to-br from-red-600 to-rose-800',
-                    'url' => route('bikes.search', ['keyword' => 'スーパースポーツ'], false), // ★修正: 相対パス
+                    'url' => '/features/supersport',
                     'base_score' => 40, 'boost_timing' => ['night', 'weekend'],
                 ],
                 [
                     'id' => 'classic', 'title' => '☕ 夜の街に映える。ネオクラシック特集', 'icon' => 'coffee',
                     'color' => 'bg-gradient-to-br from-orange-800 to-amber-900',
-                    'url' => route('bikes.search', ['keyword' => 'クラシック'], false), // ★修正: 相対パス
+                    'url' => '/features/neo-classic',
                     'base_score' => 40, 'boost_timing' => ['night', 'midnight'],
                 ],
                 [
                     'id' => 'vintage', 'title' => '🕰️ 時代を超える名車。絶版・旧車特集', 'icon' => 'history',
                     'color' => 'bg-gradient-to-br from-gray-700 to-black',
-                    'url' => route('bikes.search', ['max_year' => 2000], false), // ★修正: 相対パス
+                    'url' => '/features/vintage-bike',
                     'base_score' => 35, 'boost_timing' => ['midnight'],
                 ],
                 [
                     'id' => 'one_owner', 'title' => '👑 大切に乗られた証。ワンオーナー車特集', 'icon' => 'crown',
                     'color' => 'bg-gradient-to-br from-purple-400 to-pink-500',
-                    'url' => route('bikes.search', ['tag' => 'ワンオーナー'], false), // ★修正: 相対パス
+                    'url' => '/features/one-owner',
                     'base_score' => 55, 'boost_timing' => ['daytime', 'evening'],
                 ],
                 [
                     'id' => 'low_mileage', 'title' => '💎 まるで新車！走行距離5,000km以下の極上車', 'icon' => 'gem',
                     'color' => 'bg-gradient-to-br from-rose-400 to-red-500',
-                    'url' => route('bikes.search', ['max_mileage' => 5000, 'tag' => '美車'], false), // ★修正: 相対パス
+                    'url' => '/features/low-mileage',
                     'base_score' => 55, 'boost_timing' => ['daytime', 'evening'],
                 ],
                 [
                     'id' => 'middle_class', 'title' => '✨ 車検不要で維持費がお得！250ccモデル', 'icon' => 'sparkles',
                     'color' => 'bg-gradient-to-br from-yellow-400 to-orange-500',
-                    'url' => route('bikes.search', ['min_displacement' => 126, 'max_displacement' => 250], false), // ★修正: 相対パス
+                    'url' => '/features/250cc-no-inspection',
                     'base_score' => 60, 'boost_timing' => ['all'],
                 ],
                 [
                     'id' => 'bargain', 'title' => '📉 掘り出し物！AIが選ぶお買い得車両', 'icon' => 'trending-down',
                     'color' => 'bg-gradient-to-br from-teal-400 to-green-600',
-                    'url' => route('bikes.search', ['sort' => 'bargain_desc'], false), // ★修正: 相対パス
+                    'url' => '/features/bargain-pick',
                     'base_score' => 55, 'boost_timing' => ['all'],
                 ],
             ];
