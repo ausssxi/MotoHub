@@ -68,15 +68,15 @@
                     </div>
                     <div class="bg-gray-50 rounded-2xl p-4 text-center">
                         <div class="text-xs font-bold text-gray-400 mb-1">平均価格</div>
-                        <div class="text-2xl font-black text-blue-600">{{ $stats['avg'] ?? '-' }}<span class="text-sm font-bold text-gray-400 ml-1">万円</span></div>
+                        <div class="text-2xl font-black text-blue-600">{{ $featureKpi['avg_price'] ?? '-' }}<span class="text-sm font-bold text-gray-400 ml-1">万円</span></div>
                     </div>
                     <div class="bg-gray-50 rounded-2xl p-4 text-center">
                         <div class="text-xs font-bold text-gray-400 mb-1">最安値</div>
-                        <div class="text-2xl font-black text-green-600">{{ $stats['min'] ?? '-' }}<span class="text-sm font-bold text-gray-400 ml-1">万円</span></div>
+                        <div class="text-2xl font-black text-green-600">{{ $featureKpi['min_price'] ?? '-' }}<span class="text-sm font-bold text-gray-400 ml-1">万円</span></div>
                     </div>
                     <div class="bg-gray-50 rounded-2xl p-4 text-center">
                         <div class="text-xs font-bold text-gray-400 mb-1">人気No.1</div>
-                        <div class="text-lg font-black text-gray-900 truncate">{{ !empty($topModels) ? $topModels[0]['name'] : '-' }}</div>
+                        <div class="text-lg font-black text-gray-900 truncate">{{ $featureKpi['top_model'] ?? '-' }}</div>
                     </div>
                 </div>
             </div>
@@ -84,7 +84,7 @@
         @endif
 
         {{-- データインサイトブロック（TOP3車種） --}}
-        @if(!empty($topModels))
+        @if(!empty($featureKpi['top_models']))
         <div class="bg-white border-b border-gray-100">
             <div class="max-w-7xl mx-auto px-4 py-6">
                 <h2 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
@@ -92,7 +92,7 @@
                     この特集で人気の車種 TOP3
                 </h2>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    @foreach($topModels as $i => $model)
+                    @foreach($featureKpi['top_models'] as $i => $model)
                     <div class="flex items-center gap-4 bg-gray-50 rounded-2xl p-4">
                         <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-black text-white {{ $i === 0 ? 'bg-yellow-500' : ($i === 1 ? 'bg-gray-400' : 'bg-amber-700') }}">
                             {{ $i + 1 }}
