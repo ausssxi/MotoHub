@@ -119,13 +119,22 @@ final class BikeController extends Controller
     public function prefectures(): View
     {
         $regions = $this->bikeService->getRegions();
-        $totalListings = \App\Models\Listing::where('status', 'active')->count();
-        $prefCounts = \Illuminate\Support\Facades\Cache::remember('pref_listing_counts', 3600, function () {
-            return \App\Models\Listing::where('status', 'active')
-                ->selectRaw('prefecture, COUNT(*) as cnt')
-                ->groupBy('prefecture')
-                ->pluck('cnt', 'prefecture')
+        $totalListings = \App\Models\Listing::where('is_sold_out', false)->count();
+        $prefCounts = \Illuminate\Support\Facades\Cache::remember('pref_listing_counts_v2', 3600, function () {
+            $raw = \App\Models\Listing::where('listings.is_sold_out', false)
+                ->join('shops', 'listings.shop_id', '=', 'shops.id')
+                ->selectRaw('shops.prefecture, COUNT(*) as cnt')
+                ->whereNotNull('shops.prefecture')
+                ->groupBy('shops.prefecture')
+                ->pluck('cnt', 'shops.prefecture')
                 ->all();
+            $mapped = [];
+            foreach ($raw as $pref => $cnt) {
+                $short = str_replace(['都', '道', '府', '県'], '', $pref);
+                if ($short === '北海') $short = '北海道';
+                $mapped[$short] = ($mapped[$short] ?? 0) + $cnt;
+            }
+            return $mapped;
         });
         return view('bikes.prefectures', compact('regions', 'totalListings', 'prefCounts'));
     }
