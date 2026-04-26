@@ -710,19 +710,15 @@ class GenerateSitemap extends Command
             $rankingCount++;
         }
 
-        // 車種別データ分析ページ（販売実績のある人気車種Top100）
-        $rankingModels = DB::table('listings')
-            ->where('is_sold_out', true)
-            ->where('updated_at', '>=', now()->subMonths(3))
+        // 車種別ランキングページ（在庫がある全bike_model_id）
+        $rankingModelIds = DB::table('listings')
+            ->where('is_sold_out', false)
             ->whereNotNull('bike_model_id')
-            ->select('bike_model_id', DB::raw('COUNT(*) as cnt'))
-            ->groupBy('bike_model_id')
-            ->orderByDesc('cnt')
-            ->limit(100)
+            ->distinct()
             ->pluck('bike_model_id');
 
-        foreach ($rankingModels as $modelId) {
-            $this->writeUrl($handle, route('ranking.model_stats', $modelId), date('Y-m-d'), 'weekly', '0.6');
+        foreach ($rankingModelIds as $modelId) {
+            $this->writeUrl($handle, route('ranking.model_stats', $modelId), date('Y-m-d'), 'weekly', '0.5');
             $rankingCount++;
         }
 
