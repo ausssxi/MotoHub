@@ -37,6 +37,21 @@
                 </div>
             </div>
 
+            @if($mainShopStock > 0)
+            <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 mt-6">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div>
+                        <p class="text-sm font-bold text-blue-900">{{ $chain['name'] }}の在庫は一括管理されています</p>
+                        <p class="text-xs text-blue-600 mt-1">現在 {{ number_format($mainShopStock) }}台 の在庫があります。各店舗への取り寄せについてはお問い合わせください。</p>
+                    </div>
+                    <a href="{{ route('shops.show', $mainShop->id) }}" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-colors shrink-0">
+                        <i data-lucide="bike" class="w-4 h-4"></i>
+                        在庫を見る
+                    </a>
+                </div>
+            </div>
+            @endif
+
             {{-- 都道府県別グループ --}}
             @php
                 $grouped = $shops->groupBy('prefecture')->sortKeys();
@@ -67,10 +82,12 @@
                             <p class="text-sm font-black text-gray-900 group-hover:text-blue-700 transition-colors line-clamp-1">{{ $shop->name }}</p>
                             <p class="text-xs text-gray-400 mt-1 line-clamp-1">{{ $shop->address }}</p>
                             <div class="flex items-center gap-1 mt-2">
+                                @if($shop->listings_count > 0)
                                 <span class="inline-flex items-center gap-1 bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-100">
                                     <i data-lucide="bike" class="w-3 h-3"></i>
                                     {{ number_format($shop->listings_count) }}台
                                 </span>
+                                @endif
                             </div>
                         </div>
 

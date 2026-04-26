@@ -33,6 +33,27 @@ class ShopController extends Controller
         // 販売実績データ
         $data['salesStats'] = $this->getShopSalesStats($id);
 
+        // チェーン店判定（在庫一括管理の案内用）
+        $data['chainInfo'] = null;
+        $shop = $data['shop'];
+        foreach (config('bike.chains', []) as $slug => $chain) {
+            if (str_contains($shop->name, $chain['pattern'])) {
+                $mainShop = \App\Models\Shop::where('name', 'like', "%{$chain['pattern']}%")
+                    ->withCount(['listings' => fn ($q) => $q->where('is_sold_out', 0)])
+                    ->orderByDesc('listings_count')
+                    ->first();
+                if ($mainShop && $mainShop->id !== $shop->id && $mainShop->listings_count > 0) {
+                    $data['chainInfo'] = [
+                        'name' => $chain['name'],
+                        'slug' => $slug,
+                        'main_shop_id' => $mainShop->id,
+                        'stock' => $mainShop->listings_count,
+                    ];
+                }
+                break;
+            }
+        }
+
         return view('shops.show', $data);
     }
 
@@ -142,13 +163,16 @@ class ShopController extends Controller
 
         $totalStock = $shops->sum('listings_count');
 
+        $mainShop = $shops->sortByDesc('listings_count')->first();
+        $mainShopStock = $mainShop?->listings_count ?? 0;
+
         $crossLinks = [
             ['label' => '中古バイク検索', 'url' => route('bikes.search'), 'icon' => 'search', 'description' => '全国の在庫を検索'],
             ['label' => '車種カタログ', 'url' => route('bikes.models'), 'icon' => 'book-open', 'description' => '車種の相場を確認'],
             ['label' => 'ショップマップ', 'url' => route('shops.map'), 'icon' => 'store', 'description' => 'バイクショップを探す'],
         ];
 
-        return view('shops.chain', compact('chain', 'chainSlug', 'shops', 'totalStock', 'crossLinks'));
+        return view('shops.chain', compact('chain', 'chainSlug', 'shops', 'totalStock', 'mainShop', 'mainShopStock', 'crossLinks'));
     }
 
     /**

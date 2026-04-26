@@ -268,8 +268,18 @@
                             {{-- これにより、カードのデザイン変更が1箇所で済み、最初の4枚高速読み込みも自動適用されます --}}
                             @include('bikes.partials.bike_card', ['listing' => $listing, 'isFirstView' => $loop->index < 4])
                         @empty
-                            <div class="col-span-full py-16 text-center text-gray-400 font-bold text-sm bg-white rounded-2xl border border-dashed border-gray-200">
-                                現在、在庫はありません。
+                            <div class="col-span-full py-16 text-center bg-white rounded-2xl border border-dashed border-gray-200">
+                                <p class="text-gray-400 font-bold text-sm">現在、在庫はありません。</p>
+                                @if(!empty($chainInfo))
+                                <div class="mt-6 mx-auto max-w-md bg-blue-50 border border-blue-100 rounded-xl p-4">
+                                    <p class="text-sm font-bold text-blue-900">{{ $chainInfo['name'] }}の在庫は一括管理されています</p>
+                                    <p class="text-xs text-blue-600 mt-1">現在 {{ number_format($chainInfo['stock']) }}台 の在庫があります</p>
+                                    <a href="{{ route('shops.show', $chainInfo['main_shop_id']) }}" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg mt-3 transition-colors">
+                                        <i data-lucide="bike" class="w-3 h-3"></i>
+                                        在庫を見る
+                                    </a>
+                                </div>
+                                @endif
                             </div>
                         @endforelse
                     </div>
