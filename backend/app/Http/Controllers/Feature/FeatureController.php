@@ -116,6 +116,23 @@ final class FeatureController extends Controller
             if (!empty($conditions['bike_model_ids'])) {
                 $query->whereIn('bike_model_id', array_map('intval', $conditions['bike_model_ids']));
             }
+
+            // 走行距離フィルタ
+            if (!empty($conditions['max_mileage'])) {
+                $query->where('mileage', '<=', (int) $conditions['max_mileage']);
+            }
+            if (!empty($conditions['min_mileage'])) {
+                $query->where('mileage', '>=', (int) $conditions['min_mileage']);
+            }
+
+            // 年式フィルタ
+            if (!empty($conditions['min_model_year'])) {
+                $query->where('model_year', '>=', (int) $conditions['min_model_year']);
+            }
+            if (!empty($conditions['max_model_year'])) {
+                $query->where('model_year', '<=', (int) $conditions['max_model_year']);
+            }
+
             // キーワードフィルタ（LIKEで近似）
             if ($feature->keyword) {
                 $kw = $feature->keyword;
