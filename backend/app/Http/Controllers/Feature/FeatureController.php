@@ -44,6 +44,9 @@ final class FeatureController extends Controller
             $feature->search_conditions ?? [],
         );
 
+        // TOP3車種の集計
+        $topModels = $this->computeTopModels($result['items']);
+
         $relatedFeatures = SeoFeature::active()
             ->where('id', '!=', $feature->id)
             ->ordered()
@@ -53,7 +56,36 @@ final class FeatureController extends Controller
         return view('features.show', array_merge($result, [
             'feature' => $feature,
             'sort' => $sort,
+            'topModels' => $topModels,
             'relatedFeatures' => $relatedFeatures,
         ]));
+    }
+
+    /**
+     * 検索結果からTOP3車種を集計
+     */
+    private function computeTopModels(array $items): array
+    {
+        $grouped = collect($items)
+            ->filter(fn ($item) => !empty($item['bike_model_id']) && !empty($item['bike_model_name']))
+            ->groupBy('bike_model_id');
+
+        if ($grouped->isEmpty()) {
+            return [];
+        }
+
+        return $grouped->map(function ($listings, $modelId) {
+            $prices = collect($listings)->pluck('total_price')->filter(fn ($p) => $p > 0);
+
+            return [
+                'name' => $listings->first()['bike_model_name'],
+                'count' => $listings->count(),
+                'avg_price' => $prices->isNotEmpty() ? number_format($prices->avg() / 10000, 1) : null,
+            ];
+        })
+            ->sortByDesc('count')
+            ->take(3)
+            ->values()
+            ->toArray();
     }
 }

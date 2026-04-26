@@ -57,6 +57,77 @@
             </div>
         </div>
 
+        {{-- KPIブロック --}}
+        @if($pagination['total'] > 0)
+        <div class="bg-white border-b border-gray-100">
+            <div class="max-w-7xl mx-auto px-4 py-6">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-gray-50 rounded-2xl p-4 text-center">
+                        <div class="text-xs font-bold text-gray-400 mb-1">掲載台数</div>
+                        <div class="text-2xl font-black text-gray-900">{{ number_format($pagination['total']) }}<span class="text-sm font-bold text-gray-400 ml-1">台</span></div>
+                    </div>
+                    <div class="bg-gray-50 rounded-2xl p-4 text-center">
+                        <div class="text-xs font-bold text-gray-400 mb-1">平均価格</div>
+                        <div class="text-2xl font-black text-blue-600">{{ $stats['avg'] ?? '-' }}<span class="text-sm font-bold text-gray-400 ml-1">万円</span></div>
+                    </div>
+                    <div class="bg-gray-50 rounded-2xl p-4 text-center">
+                        <div class="text-xs font-bold text-gray-400 mb-1">最安値</div>
+                        <div class="text-2xl font-black text-green-600">{{ $stats['min'] ?? '-' }}<span class="text-sm font-bold text-gray-400 ml-1">万円</span></div>
+                    </div>
+                    <div class="bg-gray-50 rounded-2xl p-4 text-center">
+                        <div class="text-xs font-bold text-gray-400 mb-1">人気No.1</div>
+                        <div class="text-lg font-black text-gray-900 truncate">{{ !empty($topModels) ? $topModels[0]['name'] : '-' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
+
+        {{-- データインサイトブロック（TOP3車種） --}}
+        @if(!empty($topModels))
+        <div class="bg-white border-b border-gray-100">
+            <div class="max-w-7xl mx-auto px-4 py-6">
+                <h2 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="trophy" class="w-5 h-5 text-yellow-500"></i>
+                    この特集で人気の車種 TOP3
+                </h2>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    @foreach($topModels as $i => $model)
+                    <div class="flex items-center gap-4 bg-gray-50 rounded-2xl p-4">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-black text-white {{ $i === 0 ? 'bg-yellow-500' : ($i === 1 ? 'bg-gray-400' : 'bg-amber-700') }}">
+                            {{ $i + 1 }}
+                        </div>
+                        <div class="min-w-0">
+                            <div class="font-black text-gray-900 text-sm truncate">{{ $model['name'] }}</div>
+                            <div class="text-xs text-gray-500 font-bold">
+                                {{ $model['count'] }}台掲載
+                                @if($model['avg_price'])
+                                    / 平均{{ $model['avg_price'] }}万円
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+        @endif
+
+        {{-- 選び方ガイドブロック --}}
+        @if($feature->guide_content)
+        <div class="bg-blue-50 border-b border-blue-100">
+            <div class="max-w-7xl mx-auto px-4 py-8">
+                <h2 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="book-open" class="w-5 h-5 text-blue-500"></i>
+                    選び方ガイド
+                </h2>
+                <div class="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+                    {!! nl2br(e($feature->guide_content)) !!}
+                </div>
+            </div>
+        </div>
+        @endif
+
         {{-- メインコンテンツ --}}
         <div class="py-8">
             <div class="max-w-7xl mx-auto px-4">
@@ -131,10 +202,10 @@
                 {{-- 関連する特集ページ (SEO内部リンク) --}}
                 @if($relatedFeatures->isNotEmpty())
                 <div class="mt-20 pt-10 border-t border-gray-200">
-                    <h3 class="text-lg font-black text-gray-900 mb-6 flex items-center gap-2">
+                    <h2 class="text-lg font-black text-gray-900 mb-6 flex items-center gap-2">
                         <i data-lucide="bookmark" class="w-5 h-5 text-blue-500"></i>
                         その他の特集ページ
-                    </h3>
+                    </h2>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         @foreach($relatedFeatures as $related)
                             <a href="{{ $related->url }}" class="group bg-white rounded-2xl p-5 border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300">
@@ -144,7 +215,12 @@
                                         <i data-lucide="{{ $related->icon }}" class="w-5 h-5 text-white"></i>
                                     </div>
                                     @endif
-                                    <h4 class="text-sm font-black text-gray-800 group-hover:text-blue-600 transition-colors leading-snug">{{ $related->title }}</h4>
+                                    <div class="min-w-0">
+                                        <h3 class="text-sm font-black text-gray-800 group-hover:text-blue-600 transition-colors leading-snug">{{ $related->title }}</h3>
+                                        @if($related->meta_description)
+                                        <p class="text-xs text-gray-400 font-bold mt-1 line-clamp-1">{{ $related->meta_description }}</p>
+                                        @endif
+                                    </div>
                                 </div>
                             </a>
                         @endforeach
