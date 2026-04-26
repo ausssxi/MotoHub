@@ -97,6 +97,14 @@ final class ListingRepository
             $filterStrings[] = "(prefecture = '{$short}' OR prefecture = '{$short}都' OR prefecture = '{$short}道' OR prefecture = '{$short}府' OR prefecture = '{$short}県')";
         }
         // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+        if (!empty($filters['bike_model_ids'])) {
+            $ids = array_map('intval', $filters['bike_model_ids']);
+            $filterStrings[] = "bike_model_id IN [" . implode(', ', $ids) . "]";
+        } elseif (!empty($filters['bike_model_id'])) {
+            $filterStrings[] = "bike_model_id = " . (int)$filters['bike_model_id'];
+        } elseif (!empty($filters['manufacturer_id'])) {
+            $filterStrings[] = "manufacturer_id = " . (int)$filters['manufacturer_id'];
+        }
 
         if (!empty($filters['bike_model_id'])) {
             $filterStrings[] = "bike_model_id = " . (int)$filters['bike_model_id'];
