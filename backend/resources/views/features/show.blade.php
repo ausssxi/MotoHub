@@ -51,20 +51,20 @@
                 {{-- 件数バッジ --}}
                 <div class="mt-6 inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
                     <i data-lucide="search" class="w-4 h-4"></i>
-                    <span class="font-black text-lg">{{ number_format($pagination['total']) }}</span>
+                    <span class="font-black text-lg">{{ number_format($featureKpi['total_count'] ?? $pagination['total']) }}</span>
                     <span class="text-sm font-bold text-gray-300">台がヒット</span>
                 </div>
             </div>
         </div>
 
         {{-- KPIブロック --}}
-        @if($pagination['total'] > 0)
+        @if($featureKpi['total_count'] ?? $pagination['total'] > 0)
         <div class="bg-white border-b border-gray-100">
             <div class="max-w-7xl mx-auto px-4 py-6">
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <div class="bg-gray-50 rounded-2xl p-4 text-center">
                         <div class="text-xs font-bold text-gray-400 mb-1">掲載台数</div>
-                        <div class="text-2xl font-black text-gray-900">{{ number_format($pagination['total']) }}<span class="text-sm font-bold text-gray-400 ml-1">台</span></div>
+                        <div class="text-2xl font-black text-gray-900">{{ number_format($featureKpi['total_count'] ?? $pagination['total']) }}<span class="text-sm font-bold text-gray-400 ml-1">台</span></div>
                     </div>
                     <div class="bg-gray-50 rounded-2xl p-4 text-center">
                         <div class="text-xs font-bold text-gray-400 mb-1">平均価格</div>
@@ -135,7 +135,7 @@
                 {{-- ソート & 件数 --}}
                 <div class="flex items-center justify-between mb-6">
                     <div class="flex items-baseline gap-2">
-                        <span class="text-2xl font-black text-black">{{ number_format($pagination['total']) }}</span>
+                        <span class="text-2xl font-black text-black">{{ number_format($featureKpi['total_count'] ?? $pagination['total']) }}</span>
                         <span class="text-sm font-bold text-gray-500">台の車両がヒットしました</span>
                     </div>
 

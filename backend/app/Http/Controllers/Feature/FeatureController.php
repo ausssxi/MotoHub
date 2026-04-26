@@ -105,6 +105,13 @@ final class FeatureController extends Controller
                 $query->whereHas('bikeModel', fn ($q) => $q->where('category_id', (int) $conditions['category_id']));
             }
 
+            // タグフィルタ
+            if (!empty($conditions['tag'])) {
+                $tagName = $conditions['tag'];
+                $query->whereHas('tags', function ($q) use ($tagName) {
+                    $q->where('name', $tagName);
+                });
+            }
             // キーワードフィルタ（LIKEで近似）
             if ($feature->keyword) {
                 $kw = $feature->keyword;
@@ -147,7 +154,10 @@ final class FeatureController extends Controller
                     : null,
             ])->toArray();
 
+            $totalCount = (clone $query)->count();
+
             return [
+                'total_count' => $totalCount,
                 'avg_price' => $priceStats->avg_price > 0 ? number_format((float) ($priceStats->avg_price / 10000), 1) : null,
                 'min_price' => $priceStats->min_price > 0 ? number_format((float) ($priceStats->min_price / 10000), 1) : null,
                 'top_model' => $topModelsFormatted[0]['name'] ?? null,
