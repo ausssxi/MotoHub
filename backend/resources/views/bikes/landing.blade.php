@@ -52,13 +52,95 @@
                         {{ $pageInfo['description'] }}
                     </p>
                     <p class="text-xs">
-                        現在、{{ $prefecture }}エリアにて <strong class="text-blue-600">{{ number_format($pagination['total']) }}台</strong> の {{ $pageInfo['target_name'] }} が掲載されています。
+                        現在、{{ $prefecture }}エリアにて <strong class="text-blue-600">{{ number_format($landingKpi['total_count'] ?? $pagination['total']) }}台</strong> の {{ $pageInfo['target_name'] }} が掲載されています。
                         最新の在庫状況や価格相場、年式・走行距離などの詳細スペックを比較して、あなたにピッタリの1台を見つけましょう。
                         条件をさらに絞り込んで、お得な車両を検索することも可能です。
                     </p>
                 </div>
             </div>
         </div>
+
+        {{-- KPIブロック --}}
+        @if(($landingKpi['total_count'] ?? 0) > 0)
+        <div class="bg-white border-b border-gray-100">
+            <div class="max-w-7xl mx-auto px-4 py-6">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-gray-50 rounded-2xl p-4 text-center">
+                        <div class="text-xs font-bold text-gray-400 mb-1">掲載台数</div>
+                        <div class="text-2xl font-black text-gray-900">{{ number_format($landingKpi['total_count']) }}<span class="text-sm font-bold text-gray-400 ml-1">台</span></div>
+                    </div>
+                    <div class="bg-gray-50 rounded-2xl p-4 text-center">
+                        <div class="text-xs font-bold text-gray-400 mb-1">平均価格</div>
+                        <div class="text-2xl font-black text-blue-600">{{ $landingKpi['avg_price'] ?? '-' }}<span class="text-sm font-bold text-gray-400 ml-1">万円</span></div>
+                    </div>
+                    <div class="bg-gray-50 rounded-2xl p-4 text-center">
+                        <div class="text-xs font-bold text-gray-400 mb-1">最安値</div>
+                        <div class="text-2xl font-black text-green-600">{{ $landingKpi['min_price'] ?? '-' }}<span class="text-sm font-bold text-gray-400 ml-1">万円</span></div>
+                    </div>
+                    <div class="bg-gray-50 rounded-2xl p-4 text-center">
+                        <div class="text-xs font-bold text-gray-400 mb-1">{{ ($landingKpi['kpi_mode'] ?? '') === 'model_year' ? '最多年式' : '人気No.1' }}</div>
+                        <div class="text-lg font-black text-gray-900 truncate">{{ $landingKpi['top_model'] ?? '-' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
+
+        {{-- TOP3ブロック（車種ページ=年式別、それ以外=車種別） --}}
+        @if(!empty($landingKpi['top_models']))
+        <div class="bg-white border-b border-gray-100">
+            <div class="max-w-7xl mx-auto px-4 py-6">
+                <h2 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="trophy" class="w-5 h-5 text-yellow-500"></i>
+                    @if(($landingKpi['kpi_mode'] ?? '') === 'model_year')
+                        {{ $prefecture }}の{{ $pageInfo['target_name'] }} 年式別 TOP3
+                    @else
+                        {{ $prefecture }}の{{ $pageInfo['target_name'] }} 人気車種 TOP3
+                    @endif
+                </h2>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    @foreach($landingKpi['top_models'] as $i => $model)
+                    <div class="flex items-center gap-4 bg-gray-50 rounded-2xl p-4">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-black text-white {{ $i === 0 ? 'bg-yellow-500' : ($i === 1 ? 'bg-gray-400' : 'bg-amber-700') }}">
+                            {{ $i + 1 }}
+                        </div>
+                        <div class="min-w-0">
+                            <div class="font-black text-gray-900 text-sm truncate">{{ $model['name'] }}</div>
+                            <div class="text-xs text-gray-500 font-bold">
+                                {{ $model['count'] }}台掲載
+                                @if($model['avg_price'])
+                                    / 平均{{ $model['avg_price'] }}万円
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+        @endif
+
+        {{-- 価格帯分布ブロック --}}
+        @if(!empty($landingKpi['price_distribution']))
+        <div class="bg-white border-b border-gray-100">
+            <div class="max-w-7xl mx-auto px-4 py-6">
+                <div class="bg-gray-50 rounded-2xl p-6">
+                    <h2 class="text-base font-black text-gray-900 mb-4">💰 価格帯分布</h2>
+                    <div class="space-y-3">
+                        @foreach($landingKpi['price_distribution'] as $band)
+                        <div class="flex items-center gap-3">
+                            <div class="w-24 text-xs font-bold text-gray-600 text-right flex-shrink-0">{{ $band['label'] }}</div>
+                            <div class="flex-1 bg-gray-200 rounded-full h-5 overflow-hidden">
+                                <div class="h-full rounded-full {{ $band['is_max'] ? 'bg-blue-600' : 'bg-blue-500' }}" style="width: {{ $band['bar_width'] }}%"></div>
+                            </div>
+                            <div class="w-16 text-xs font-bold text-gray-500 flex-shrink-0">{{ number_format($band['count']) }}台</div>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
 
         <div class="py-8">
             <div class="max-w-7xl mx-auto px-4 flex flex-col lg:flex-row gap-8">
@@ -69,10 +151,16 @@
                         <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">エリアを変更する</h3>
                         <div class="grid grid-cols-2 gap-2">
                             @foreach(['東京', '神奈川', '埼玉', '千葉', '大阪', '愛知', '福岡', '北海道'] as $pref)
-                                <a href="{{ route('bikes.landing', ['prefecture' => $pref, 'slug' => request()->slug]) }}" 
-                                   class="text-xs font-bold text-center py-2.5 rounded-lg border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-600 hover:text-blue-600 transition {{ $prefecture == $pref ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:text-white pointer-events-none shadow-md' : '' }}">
-                                    {{ $pref }}
-                                </a>
+                                @if($prefecture == $pref)
+                                    <span class="text-xs font-bold text-center py-2.5 rounded-lg border border-blue-200 bg-blue-100 text-blue-700 shadow-sm cursor-default">
+                                        {{ $pref }}
+                                    </span>
+                                @else
+                                    <a href="{{ route('bikes.landing', ['prefecture' => $pref, 'slug' => request()->slug]) }}"
+                                       class="text-xs font-bold text-center py-2.5 rounded-lg border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-600 hover:text-blue-600 transition">
+                                        {{ $pref }}
+                                    </a>
+                                @endif
                             @endforeach
                         </div>
                         <div class="mt-4 pt-4 border-t border-gray-100 text-center">
@@ -87,7 +175,7 @@
                 <div class="flex-1">
                     {{-- 結果件数 --}}
                     <div class="mb-6 flex items-baseline gap-2">
-                        <span class="text-2xl font-black text-black">{{ number_format($pagination['total']) }}</span>
+                        <span class="text-2xl font-black text-black">{{ number_format($landingKpi['total_count'] ?? $pagination['total']) }}</span>
                         <span class="text-sm font-bold text-gray-500">台の車両がヒットしました</span>
                     </div>
 
@@ -139,37 +227,51 @@
                     </div>
                     @endif
 
-                    {{-- ★追加: SEOクローラー用・回遊率UPの巨大リンクブロック --}}
+                    {{-- 関連リンクブロック（動的生成） --}}
+                    @if(!empty($relatedLinks['same_area']) || !empty($relatedLinks['other_areas']))
                     <div class="mt-20 pt-10 border-t border-gray-200">
                         <h3 class="text-lg font-black text-gray-900 mb-6 flex items-center gap-2">
                             <i data-lucide="link-2" class="w-5 h-5 text-blue-500"></i>
                             関連する条件から探す
                         </h3>
-                        
+
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {{-- ブロック1: この地域の別のバイク --}}
+                            {{-- ブロック1: 同地域の他メーカー/カテゴリ --}}
+                            @if(!empty($relatedLinks['same_area']))
                             <div>
                                 <h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 border-b border-gray-100 pb-2">{{ $prefecture }} のその他のバイク</h4>
                                 <ul class="space-y-2">
-                                    <li><a href="{{ route('bikes.search', ['prefecture' => $prefecture, 'category_id' => 1]) }}" class="text-sm font-bold text-gray-600 hover:text-blue-600 hover:underline">▶︎ {{ $prefecture }} × ネイキッド</a></li>
-                                    <li><a href="{{ route('bikes.search', ['prefecture' => $prefecture, 'category_id' => 2]) }}" class="text-sm font-bold text-gray-600 hover:text-blue-600 hover:underline">▶︎ {{ $prefecture }} × スーパースポーツ</a></li>
-                                    <li><a href="{{ route('bikes.search', ['prefecture' => $prefecture, 'category_id' => 3]) }}" class="text-sm font-bold text-gray-600 hover:text-blue-600 hover:underline">▶︎ {{ $prefecture }} × アメリカン/クルーザー</a></li>
-                                    <li><a href="{{ route('bikes.search', ['prefecture' => $prefecture, 'category_id' => 4]) }}" class="text-sm font-bold text-gray-600 hover:text-blue-600 hover:underline">▶︎ {{ $prefecture }} × オフロード</a></li>
+                                    @foreach($relatedLinks['same_area'] as $link)
+                                    <li>
+                                        <a href="{{ $link['url'] }}" class="text-sm font-bold text-gray-600 hover:text-blue-600 hover:underline flex items-center gap-2">
+                                            ▶︎ {{ $link['label'] }}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-500">{{ number_format($link['count']) }}台</span>
+                                        </a>
+                                    </li>
+                                    @endforeach
                                 </ul>
                             </div>
-                            
-                            {{-- ブロック2: 排気量別 --}}
+                            @endif
+
+                            {{-- ブロック2: 同ターゲットの他地域 --}}
+                            @if(!empty($relatedLinks['other_areas']))
                             <div>
-                                <h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 border-b border-gray-100 pb-2">{{ $prefecture }} の排気量別</h4>
+                                <h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 border-b border-gray-100 pb-2">他の地域で探す</h4>
                                 <ul class="space-y-2">
-                                    <li><a href="{{ route('bikes.search', ['prefecture' => $prefecture, 'max_displacement' => 50]) }}" class="text-sm font-bold text-gray-600 hover:text-blue-600 hover:underline">▶︎ {{ $prefecture }} × 50cc以下（原付）</a></li>
-                                    <li><a href="{{ route('bikes.search', ['prefecture' => $prefecture, 'min_displacement' => 51, 'max_displacement' => 125]) }}" class="text-sm font-bold text-gray-600 hover:text-blue-600 hover:underline">▶︎ {{ $prefecture }} × 51cc〜125cc（小型）</a></li>
-                                    <li><a href="{{ route('bikes.search', ['prefecture' => $prefecture, 'min_displacement' => 126, 'max_displacement' => 400]) }}" class="text-sm font-bold text-gray-600 hover:text-blue-600 hover:underline">▶︎ {{ $prefecture }} × 126cc〜400cc（中型）</a></li>
-                                    <li><a href="{{ route('bikes.search', ['prefecture' => $prefecture, 'min_displacement' => 401]) }}" class="text-sm font-bold text-gray-600 hover:text-blue-600 hover:underline">▶︎ {{ $prefecture }} × 401cc以上（大型）</a></li>
+                                    @foreach($relatedLinks['other_areas'] as $link)
+                                    <li>
+                                        <a href="{{ $link['url'] }}" class="text-sm font-bold text-gray-600 hover:text-blue-600 hover:underline flex items-center gap-2">
+                                            ▶︎ {{ $link['label'] }}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-500">{{ number_format($link['count']) }}台</span>
+                                        </a>
+                                    </li>
+                                    @endforeach
                                 </ul>
                             </div>
+                            @endif
                         </div>
                     </div>
+                    @endif
 
                 </div>
             </div>

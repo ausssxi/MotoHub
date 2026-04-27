@@ -715,11 +715,22 @@ final class BikeController extends Controller
             abort(404);
         }
 
+        $landingKpi = $this->seoLandingService->computeLandingKpi($prefecture, $pageInfo['filters'], $pageInfo['meta']['type']);
+        $relatedLinks = $this->seoLandingService->computeRelatedLinks(
+            $prefecture,
+            $pageInfo['filters'],
+            $pageInfo['meta']['type'],
+            $pageInfo['meta']['target_name'],
+            $slug,
+        );
+
         return view('bikes.landing', array_merge($result, [
             'pageInfo' => $pageInfo['meta'],
             'keyword' => '',
             'prefecture' => $prefecture,
             'sort' => 'latest',
+            'landingKpi' => $landingKpi,
+            'relatedLinks' => $relatedLinks,
         ]));
     }
 
