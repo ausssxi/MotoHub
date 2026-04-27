@@ -16,9 +16,9 @@ final class StationParkingService
      */
     public function getStationDetail(Station $station): array
     {
-        $cacheKey = "station_parking_detail_v2_{$station->id}";
+        $cacheKey = "station_parking_detail_v3_{$station->id}";
 
-        return Cache::remember($cacheKey, 86400, function () use ($station) {
+        return Cache::remember($cacheKey, 3600, function () use ($station) {
             $parkings = $station->nearbyParkings(0.5)->get();
 
             $totalCount = $parkings->count();
@@ -80,6 +80,23 @@ final class StationParkingService
                 ->limit(10)
                 ->get();
 
+            // 比較表データ（時間料金安い順にソート）
+            $comparisonTable = $parkings->map(fn ($p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'price_per_hour' => $p->price_per_hour,
+                'price_per_day' => $p->price_per_day,
+                'price_per_month' => $p->price_per_month,
+                'available_24h' => $p->available_24h,
+                'is_covered' => $p->is_covered,
+                'distance_m' => isset($p->distance) ? (int) round($p->distance * 1000) : null,
+                'capacity' => $p->capacity,
+                'is_free' => $p->is_free,
+            ])->sortBy(function ($p) {
+                if ($p['is_free']) return 0;
+                return $p['price_per_hour'] ?? PHP_INT_MAX;
+            })->values()->toArray();
+
             return [
                 'station' => $station,
                 'parkings' => $parkings,
@@ -91,6 +108,7 @@ final class StationParkingService
                 'bikeOnlyCount' => $bikeOnlyCount,
                 'bicycleSharedCount' => $bicycleSharedCount,
                 'priceStats' => $priceStats,
+                'comparisonTable' => $comparisonTable,
                 'nearbyListings' => $nearbyListings,
                 'siblingStations' => $siblingStations,
             ];

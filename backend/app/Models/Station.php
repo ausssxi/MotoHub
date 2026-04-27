@@ -23,6 +23,7 @@ final class Station extends Model
         'company_names',
         'passengers_per_day',
         'description',
+        'ai_parking_content',
         'is_major',
     ];
 

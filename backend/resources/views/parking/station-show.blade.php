@@ -178,6 +178,120 @@
             </div>
             @endif
 
+            {{-- AI生成テキスト --}}
+            @if($station->ai_parking_content)
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-8">
+                <h2 class="text-base font-black text-gray-900 mb-3 flex items-center gap-2">
+                    <i data-lucide="file-text" class="w-5 h-5 text-green-500"></i>
+                    {{ $station->name }}駅のバイク駐車場事情
+                </h2>
+                <p class="text-sm text-gray-700 leading-relaxed">{{ $station->ai_parking_content }}</p>
+            </div>
+            @endif
+
+            {{-- 駐車場比較表 --}}
+            @if(count($comparisonTable) >= 2)
+            @php $showMore = count($comparisonTable) > 5; $extraCount = count($comparisonTable) - 5; @endphp
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-8" x-data="{ expanded: false }">
+                <h2 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="table" class="w-5 h-5 text-green-500"></i>
+                    駐車場比較表
+                </h2>
+
+                {{-- デスクトップ: テーブル --}}
+                <div class="hidden sm:block overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead>
+                            <tr class="border-b-2 border-gray-100">
+                                <th class="text-left font-black text-gray-500 py-2 pr-3">駐車場名</th>
+                                <th class="text-right font-black text-gray-500 py-2 px-2">時間料金</th>
+                                <th class="text-right font-black text-gray-500 py-2 px-2">日額</th>
+                                <th class="text-right font-black text-gray-500 py-2 px-2">月極</th>
+                                <th class="text-center font-black text-gray-500 py-2 px-2">24h</th>
+                                <th class="text-center font-black text-gray-500 py-2 px-2">屋根</th>
+                                <th class="text-right font-black text-gray-500 py-2 px-2">距離</th>
+                                <th class="text-right font-black text-gray-500 py-2 pl-2">台数</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50">
+                            @foreach($comparisonTable as $row)
+                            <tr class="hover:bg-gray-50 transition-colors" {!! $loop->index >= 5 && $showMore ? 'x-show="expanded" x-transition' : '' !!}>
+                                <td class="py-2.5 pr-3">
+                                    <a href="{{ route('parking.show', $row['id']) }}" class="font-bold text-green-700 hover:underline">{{ \Illuminate\Support\Str::limit($row['name'], 20) }}</a>
+                                </td>
+                                <td class="text-right py-2.5 px-2 font-bold {{ $row['is_free'] ? 'text-green-600' : 'text-gray-800' }}">
+                                    {{ $row['is_free'] ? '無料' : ($row['price_per_hour'] ? number_format($row['price_per_hour']) . '円' : '-') }}
+                                </td>
+                                <td class="text-right py-2.5 px-2 text-gray-600">{{ $row['price_per_day'] ? number_format($row['price_per_day']) . '円' : '-' }}</td>
+                                <td class="text-right py-2.5 px-2 text-gray-600">{{ $row['price_per_month'] ? number_format($row['price_per_month']) . '円' : '-' }}</td>
+                                <td class="text-center py-2.5 px-2">{{ $row['available_24h'] ? '✅' : '❌' }}</td>
+                                <td class="text-center py-2.5 px-2">{{ $row['is_covered'] ? '✅' : '❌' }}</td>
+                                <td class="text-right py-2.5 px-2 text-gray-600">{{ $row['distance_m'] !== null ? $row['distance_m'] . 'm' : '-' }}</td>
+                                <td class="text-right py-2.5 pl-2 text-gray-600">{{ $row['capacity'] ? $row['capacity'] . '台' : '-' }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                {{-- モバイル: カード --}}
+                <div class="sm:hidden space-y-3">
+                    @foreach($comparisonTable as $row)
+                    <a href="{{ route('parking.show', $row['id']) }}"
+                       class="block bg-gray-50 rounded-xl p-4 hover:bg-green-50 transition-colors"
+                       {!! $loop->index >= 5 && $showMore ? 'x-show="expanded" x-transition' : '' !!}>
+                        <div class="font-bold text-sm text-green-700 mb-2">{{ $row['name'] }}</div>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                            <div class="text-gray-500">時間料金</div>
+                            <div class="text-right font-bold {{ $row['is_free'] ? 'text-green-600' : 'text-gray-800' }}">
+                                {{ $row['is_free'] ? '無料' : ($row['price_per_hour'] ? number_format($row['price_per_hour']) . '円/時' : '-') }}
+                            </div>
+                            @if($row['price_per_day'])
+                            <div class="text-gray-500">日額</div>
+                            <div class="text-right text-gray-700">{{ number_format($row['price_per_day']) }}円</div>
+                            @endif
+                            @if($row['price_per_month'])
+                            <div class="text-gray-500">月極</div>
+                            <div class="text-right text-gray-700">{{ number_format($row['price_per_month']) }}円</div>
+                            @endif
+                            <div class="text-gray-500">24h / 屋根</div>
+                            <div class="text-right">{{ $row['available_24h'] ? '✅' : '❌' }} / {{ $row['is_covered'] ? '✅' : '❌' }}</div>
+                            @if($row['distance_m'] !== null)
+                            <div class="text-gray-500">駅からの距離</div>
+                            <div class="text-right text-gray-700">{{ $row['distance_m'] }}m</div>
+                            @endif
+                            @if($row['capacity'])
+                            <div class="text-gray-500">収容台数</div>
+                            <div class="text-right text-gray-700">{{ $row['capacity'] }}台</div>
+                            @endif
+                        </div>
+                    </a>
+                    @endforeach
+                </div>
+
+                {{-- もっと見る / 閉じる ボタン --}}
+                @if($showMore)
+                <div class="mt-4 text-center">
+                    <button @click="expanded = !expanded" type="button"
+                            class="inline-flex items-center gap-1.5 text-xs font-bold text-green-600 hover:text-green-700 transition-colors px-4 py-2 rounded-lg hover:bg-green-50">
+                        <template x-if="!expanded">
+                            <span class="inline-flex items-center gap-1.5">
+                                <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                                もっと見る（残り{{ $extraCount }}件）
+                            </span>
+                        </template>
+                        <template x-if="expanded">
+                            <span class="inline-flex items-center gap-1.5">
+                                <i data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
+                                閉じる
+                            </span>
+                        </template>
+                    </button>
+                </div>
+                @endif
+            </div>
+            @endif
+
             {{-- マップ --}}
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-8">
                 <h2 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
