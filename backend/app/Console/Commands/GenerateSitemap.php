@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Models\Listing;
 use App\Models\BikeModel;
 use App\Models\Shop;
 use App\Models\Manufacturer;
@@ -13,7 +12,6 @@ use App\Models\Category;
 use App\Models\Tag;
 use App\Models\SeoFeature;
 use App\Models\BikeParking;
-use App\Models\BikeNews;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
@@ -575,54 +573,7 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
-        // 6. 車両詳細ページ (10,000件ごとにファイルを分割)
-        // =========================================================
-        $this->info("車両詳細サイトマップを生成中...");
-        
-        $listingQuery = Listing::where('is_sold_out', false)
-            ->select('id', 'updated_at')
-            ->orderBy('updated_at', 'desc');
-
-        $fileIndex = 1;
-        $currentUrlCount = 0;
-        $totalListingsCount = 0;
-        
-        $currentFileName = "sitemap-listings-{$fileIndex}.xml";
-        $handle = $this->openSitemap($currentFileName);
-        $sitemapFiles[] = $currentFileName;
-
-        $listingQuery->chunk(1000, function ($listings) use (&$handle, &$currentUrlCount, &$fileIndex, &$sitemapFiles, &$totalListingsCount) {
-            foreach ($listings as $listing) {
-                if ($currentUrlCount >= self::MAX_URLS_PER_FILE) {
-                    $this->closeSitemap($handle);
-                    $this->info("  -> 分割: sitemap-listings-{$fileIndex}.xml 完了");
-
-                    $fileIndex++;
-                    $currentUrlCount = 0;
-                    
-                    $nextFileName = "sitemap-listings-{$fileIndex}.xml";
-                    $handle = $this->openSitemap($nextFileName);
-                    $sitemapFiles[] = $nextFileName;
-                }
-
-                $this->writeUrl(
-                    $handle,
-                    route('bikes.show', $listing->id),
-                    $listing->updated_at->format('Y-m-d'),
-                    'weekly',
-                    '0.6'
-                );
-                $currentUrlCount++;
-                $totalListingsCount++;
-            }
-        });
-
-        $this->closeSitemap($handle);
-        $this->info(" -> {$totalListingsCount} URL (Listings)");
-
-
-        // =========================================================
-        // 6.5. パーツカテゴリページ (sitemap-parts.xml)
+        // 6. パーツカテゴリページ (sitemap-parts.xml)
         // =========================================================
         $this->info("パーツカテゴリサイトマップを生成中...");
         $partsFileName = 'sitemap-parts.xml';
@@ -643,50 +594,6 @@ class GenerateSitemap extends Command
 
         $this->closeSitemap($handle);
         $this->info(" -> {$partsCount} URL (Parts Category)");
-
-
-        // =========================================================
-        // 6.6. ニュースサイトマップ (sitemap-news.xml)
-        // =========================================================
-        $this->info("ニュースサイトマップを生成中...");
-        $newsFileName = 'sitemap-news.xml';
-        $handle = $this->openSitemap($newsFileName);
-        $sitemapFiles[] = $newsFileName;
-        $newsCount = 0;
-
-        // ニュース一覧ページ
-        $this->writeUrl($handle, route('news.index'), date('Y-m-d'), 'daily', '0.7');
-        $newsCount++;
-
-        // 車種別ニュースページ（在庫のある人気車種）
-        $newsModels = BikeModel::withCount('listings')
-            ->having('listings_count', '>', 0)
-            ->orderByDesc('listings_count')
-            ->limit(100)
-            ->get();
-        foreach ($newsModels as $model) {
-            $this->writeUrl($handle, route('news.model', $model->id), date('Y-m-d'), 'daily', '0.6');
-            $newsCount++;
-        }
-
-        // 個別ニュース詳細ページ
-        BikeNews::select('id', 'published_at', 'updated_at')
-            ->orderByDesc('published_at')
-            ->chunk(1000, function ($news) use ($handle, &$newsCount) {
-                foreach ($news as $article) {
-                    $this->writeUrl(
-                        $handle,
-                        route('news.show', $article->id),
-                        ($article->updated_at ?? $article->published_at)->format('Y-m-d'),
-                        'weekly',
-                        '0.6'
-                    );
-                    $newsCount++;
-                }
-            });
-
-        $this->closeSitemap($handle);
-        $this->info(" -> {$newsCount} URL (News)");
 
 
         // =========================================================
