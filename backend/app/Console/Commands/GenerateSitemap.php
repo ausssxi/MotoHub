@@ -249,12 +249,14 @@ class GenerateSitemap extends Command
             ->pluck('combo')
             ->flip(); // flip で O(1) ルックアップ
 
-        // 都道府県×車種(bike_model_id)の有効な組み合わせを事前取得
+        // 都道府県×車種(bike_model_id)の有効な組み合わせを事前取得（在庫5台以上のみ）
         $activeModelPrefSet = DB::table('listings')
             ->join('shops', 'listings.shop_id', '=', 'shops.id')
             ->where('listings.is_sold_out', false)
             ->whereNotNull('listings.bike_model_id')
-            ->select(DB::raw('DISTINCT CONCAT(shops.prefecture, "-", listings.bike_model_id) as combo'))
+            ->select(DB::raw('CONCAT(shops.prefecture, "-", listings.bike_model_id) as combo'))
+            ->groupBy('combo')
+            ->havingRaw('COUNT(*) >= 5')
             ->pluck('combo')
             ->flip();
 
