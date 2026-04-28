@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\Typography\FontFactory;
 
 final class DealChartService
 {
@@ -116,6 +117,131 @@ final class DealChartService
             $mini = $manager->read($png);
             $canvas->place($mini, 'top-left', $positions[$i][0], $positions[$i][1]);
         }
+
+        return (string) $canvas->toPng();
+    }
+
+    /**
+     * Tweet 用: 左右分割レイアウト (1200x630)
+     * 左: テキスト情報 / 右: 相場推移グラフ
+     */
+    public function generateCombinedImage(Listing $listing, int $percentOff): ?string
+    {
+        $listing->loadMissing(['bikeModel.manufacturer']);
+
+        $bikeModelId = $listing->bike_model_id;
+        if (!$bikeModelId) {
+            return null;
+        }
+
+        $modelName = $listing->bikeModel?->name ?? $listing->title ?? '車種名不明';
+        $makerName = $listing->bikeModel?->manufacturer?->name ?? '';
+        $listingPrice = (float) ($listing->total_price ?: $listing->price);
+        $listingPriceMan = round($listingPrice / 10000, 1);
+
+        // --- 相場推移データ ---
+        $monthly = $this->getMonthlyAveragePrices($bikeModelId);
+        if ($monthly->count() < 6) {
+            $avgPrice = $this->getAveragePrice($listing) ?: $listingPrice;
+            if (!$avgPrice) {
+                return null;
+            }
+            $monthly = $this->generateDummyMonthlyData($avgPrice);
+        }
+
+        $trendLabels = $monthly->pluck('month_label')->toArray();
+        $trendPrices = $monthly->pluck('avg_price')->map(fn ($v) => round((float) $v / 10000, 1))->toArray();
+
+        // --- 右側: 相場推移グラフ (560x490, DPR=1) ---
+        $chartPng = $this->fetchChart(
+            $this->buildTrendChartConfig($trendLabels, $trendPrices, $listingPriceMan, '', 14),
+            560, 490, 1,
+        );
+
+        if (!$chartPng) {
+            return null;
+        }
+
+        // --- Intervention Image で合成 ---
+        $manager = new ImageManager(new Driver());
+        $canvas = $manager->create(self::WIDTH, self::HEIGHT)->fill(self::BG_COLOR);
+
+        $fontBold = storage_path('app/fonts/NotoSansJP-Bold.ttf');
+        $fontRegular = storage_path('app/fonts/NotoSansJP-Regular.ttf');
+
+        // 左側テキスト描画
+        $leftCenter = 300; // 左半分の中央X
+
+        // 車種名（上部）
+        $nameSize = mb_strlen($modelName) > 12 ? 28 : 34;
+        $canvas->text($modelName, $leftCenter, 140, function (FontFactory $f) use ($fontBold, $nameSize) {
+            $f->filename($fontBold);
+            $f->size($nameSize);
+            $f->color('#ffffff');
+            $f->align('center');
+            $f->valign('middle');
+        });
+
+        // メーカー名
+        if ($makerName) {
+            $canvas->text($makerName, $leftCenter, 185, function (FontFactory $f) use ($fontRegular) {
+                $f->filename($fontRegular);
+                $f->size(18);
+                $f->color('#94a3b8');
+                $f->align('center');
+                $f->valign('middle');
+            });
+        }
+
+        // 価格（超大きい）
+        $priceText = number_format($listingPriceMan, 1) . '万円';
+        $canvas->text($priceText, $leftCenter, 300, function (FontFactory $f) use ($fontBold) {
+            $f->filename($fontBold);
+            $f->size(64);
+            $f->color('#ffffff');
+            $f->align('center');
+            $f->valign('middle');
+        });
+
+        // 割引率
+        $discountText = "相場より{$percentOff}%安い！";
+        $canvas->text($discountText, $leftCenter, 380, function (FontFactory $f) use ($fontBold) {
+            $f->filename($fontBold);
+            $f->size(26);
+            $f->color('#22c55e');
+            $f->align('center');
+            $f->valign('middle');
+        });
+
+        // MotoHub ロゴテキスト（下部）
+        $canvas->text('MotoHub', $leftCenter, 540, function (FontFactory $f) use ($fontBold) {
+            $f->filename($fontBold);
+            $f->size(20);
+            $f->color('#475569');
+            $f->align('center');
+            $f->valign('middle');
+        });
+
+        $canvas->text('motohub.jp', $leftCenter, 570, function (FontFactory $f) use ($fontRegular) {
+            $f->filename($fontRegular);
+            $f->size(14);
+            $f->color('#334155');
+            $f->align('center');
+            $f->valign('middle');
+        });
+
+        // 右上: 「相場推移」ラベル
+        $canvas->text('相場推移（6ヶ月）', 900, 40, function (FontFactory $f) use ($fontBold) {
+            $f->filename($fontBold);
+            $f->size(16);
+            $f->color('#94a3b8');
+            $f->align('center');
+            $f->valign('middle');
+        });
+
+        // 右側: グラフ配置
+        $chartImg = $manager->read($chartPng);
+        $canvas->place($chartImg, 'top-left', 620, 65);
 
         return (string) $canvas->toPng();
     }

@@ -109,7 +109,7 @@ class TweetBargains extends Command
                 $text .= "#中古バイク #MotoHub{$makerTag}";
 
                 // --- 画像生成 ---
-                $png = $this->chartService->generateDashboardImage($listing);
+                $png = $this->chartService->generateCombinedImage($listing, $percentOff);
 
                 if ($dryRun) {
                     $this->newLine();
