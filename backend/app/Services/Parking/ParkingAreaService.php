@@ -117,6 +117,9 @@ final class ParkingAreaService
      */
     public function getCityDetail(string $prefecture, string $city): ?array
     {
+        $cacheKey = 'parking_area_city_v1_' . md5($prefecture . $city);
+
+        return Cache::remember($cacheKey, 3600, function () use ($prefecture, $city) {
         // "相模原市" → city="相模原市" OR city="神奈川県相模原市" の両方にマッチ
         $prefixedCity = $prefecture . $city;
         $parkings = BikeParking::active()
@@ -142,6 +145,30 @@ final class ParkingAreaService
             'max_per_hour' => $paidHourly->isNotEmpty() ? (int) $paidHourly->max('price_per_hour') : null,
             'avg_per_month' => $paidMonthly->isNotEmpty() ? (int) round($paidMonthly->avg('price_per_month')) : null,
         ];
+
+        // 料金安い順TOP10（時間料金→日額の優先順でソート）
+        $cheapTop10 = $parkings
+            ->filter(fn ($p) => !$p->is_free && ($p->price_per_hour > 0 || $p->price_per_day > 0))
+            ->sortBy(function ($p) {
+                if ($p->price_per_hour > 0) {
+                    return $p->price_per_hour;
+                }
+                // 日額があれば時間料金の後にソート（大きい数値で後ろへ）
+                return 100000 + ($p->price_per_day ?? 0);
+            })
+            ->take(10)
+            ->map(fn ($p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'price_per_hour' => $p->price_per_hour,
+                'price_per_day' => $p->price_per_day,
+                'price_per_month' => $p->price_per_month,
+                'available_24h' => $p->available_24h,
+                'is_covered' => $p->is_covered,
+                'capacity' => $p->capacity,
+            ])
+            ->values()
+            ->toArray();
 
         // 同県内の他の市区町村（周辺エリア）- プレフィックス除去+マージ
         $siblingCities = BikeParking::active()
@@ -176,10 +203,12 @@ final class ParkingAreaService
             'freeCount' => $parkings->where('is_free', true)->count(),
             'priceStats' => $priceStats,
             'siblingCities' => $siblingCities,
+            'cheapTop10' => $cheapTop10,
             'avgLat' => $parkings->avg('latitude'),
             'avgLng' => $parkings->avg('longitude'),
             'nearbyListings' => $nearbyListings,
         ];
+        });
     }
 
     /**

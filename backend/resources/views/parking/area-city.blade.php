@@ -131,6 +131,84 @@
             </div>
             @endif
 
+            {{-- 料金安い順TOP10 比較表 --}}
+            @if(!empty($cheapTop10))
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-8">
+                <h2 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <span class="text-lg">💰</span>
+                    {{ $city }}の安い駐車場 TOP{{ count($cheapTop10) }}
+                </h2>
+
+                {{-- デスクトップ: テーブル --}}
+                <div class="hidden sm:block overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead>
+                            <tr class="border-b-2 border-gray-100">
+                                <th class="text-left font-black text-gray-500 py-2 pr-3">駐車場名</th>
+                                <th class="text-right font-black text-gray-500 py-2 px-2">時間料金</th>
+                                <th class="text-right font-black text-gray-500 py-2 px-2">日額</th>
+                                <th class="text-right font-black text-gray-500 py-2 px-2">月極</th>
+                                <th class="text-center font-black text-gray-500 py-2 px-2">24h</th>
+                                <th class="text-center font-black text-gray-500 py-2 px-2">屋根</th>
+                                <th class="text-right font-black text-gray-500 py-2 pl-2">台数</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50">
+                            @foreach($cheapTop10 as $i => $row)
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="py-2.5 pr-3">
+                                    <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black mr-1.5 {{ $i === 0 ? 'bg-yellow-100 text-yellow-700' : ($i === 1 ? 'bg-gray-200 text-gray-600' : ($i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-gray-50 text-gray-400')) }}">{{ $i + 1 }}</span>
+                                    <a href="{{ route('parking.show', $row['id']) }}" class="font-bold text-green-700 hover:underline">{{ \Illuminate\Support\Str::limit($row['name'], 20) }}</a>
+                                </td>
+                                <td class="text-right py-2.5 px-2 font-bold text-gray-800">
+                                    {{ $row['price_per_hour'] ? number_format($row['price_per_hour']) . '円' : '-' }}
+                                </td>
+                                <td class="text-right py-2.5 px-2 text-gray-600">{{ $row['price_per_day'] ? number_format($row['price_per_day']) . '円' : '-' }}</td>
+                                <td class="text-right py-2.5 px-2 text-gray-600">{{ $row['price_per_month'] ? number_format($row['price_per_month']) . '円' : '-' }}</td>
+                                <td class="text-center py-2.5 px-2">{{ $row['available_24h'] ? '✅' : '❌' }}</td>
+                                <td class="text-center py-2.5 px-2">{{ $row['is_covered'] ? '✅' : '❌' }}</td>
+                                <td class="text-right py-2.5 pl-2 text-gray-600">{{ $row['capacity'] ? $row['capacity'] . '台' : '-' }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                {{-- モバイル: カード --}}
+                <div class="sm:hidden space-y-3">
+                    @foreach($cheapTop10 as $i => $row)
+                    <a href="{{ route('parking.show', $row['id']) }}"
+                       class="block bg-gray-50 rounded-xl p-4 hover:bg-green-50 transition-colors">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black {{ $i === 0 ? 'bg-yellow-100 text-yellow-700' : ($i === 1 ? 'bg-gray-200 text-gray-600' : ($i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-gray-50 text-gray-400')) }}">{{ $i + 1 }}</span>
+                            <span class="font-bold text-sm text-green-700">{{ $row['name'] }}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                            <div class="text-gray-500">時間料金</div>
+                            <div class="text-right font-bold text-gray-800">
+                                {{ $row['price_per_hour'] ? number_format($row['price_per_hour']) . '円/時' : '-' }}
+                            </div>
+                            @if($row['price_per_day'])
+                            <div class="text-gray-500">日額</div>
+                            <div class="text-right text-gray-700">{{ number_format($row['price_per_day']) }}円</div>
+                            @endif
+                            @if($row['price_per_month'])
+                            <div class="text-gray-500">月極</div>
+                            <div class="text-right text-gray-700">{{ number_format($row['price_per_month']) }}円</div>
+                            @endif
+                            <div class="text-gray-500">24h / 屋根</div>
+                            <div class="text-right">{{ $row['available_24h'] ? '✅' : '❌' }} / {{ $row['is_covered'] ? '✅' : '❌' }}</div>
+                            @if($row['capacity'])
+                            <div class="text-gray-500">収容台数</div>
+                            <div class="text-right text-gray-700">{{ $row['capacity'] }}台</div>
+                            @endif
+                        </div>
+                    </a>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
             {{-- マップ --}}
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-8">
                 <h2 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
