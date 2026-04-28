@@ -271,21 +271,17 @@
 
                 {{-- もっと見る / 閉じる ボタン --}}
                 @if($showMore)
-                <div class="mt-4 text-center">
+                <div class="mt-4 flex justify-center">
                     <button @click="expanded = !expanded" type="button"
-                            class="inline-flex items-center gap-1.5 text-xs font-bold text-green-600 hover:text-green-700 transition-colors px-4 py-2 rounded-lg hover:bg-green-50">
-                        <template x-if="!expanded">
-                            <span class="inline-flex items-center gap-1.5">
-                                <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
-                                もっと見る（残り{{ $extraCount }}件）
-                            </span>
-                        </template>
-                        <template x-if="expanded">
-                            <span class="inline-flex items-center gap-1.5">
-                                <i data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
-                                閉じる
-                            </span>
-                        </template>
+                            class="inline-flex items-center justify-center text-center gap-1.5 text-xs font-bold text-green-600 hover:text-green-700 transition-colors px-4 py-2 rounded-lg hover:bg-green-50">
+                        <span x-show="!expanded" class="inline-flex items-center gap-1.5">
+                            <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                            もっと見る（残り{{ $extraCount }}件）
+                        </span>
+                        <span x-show="expanded" x-cloak class="inline-flex items-center gap-1.5">
+                            <i data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
+                            閉じる
+                        </span>
                     </button>
                 </div>
                 @endif
