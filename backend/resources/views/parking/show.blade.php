@@ -34,7 +34,7 @@
 
                 document.querySelectorAll('.rating-star').forEach(btn => {
                     const r = parseInt(btn.dataset.rating);
-                    btn.textContent = r <= rating ? '★' : '☆';
+                    btn.textContent = r <= rating ? '\u2605' : '\u2606';
                     btn.classList.toggle('bg-yellow-100', r <= rating);
                     btn.classList.toggle('text-yellow-500', r <= rating);
                     btn.classList.toggle('bg-gray-100', r > rating);
@@ -56,13 +56,13 @@
                 .then(r => r.json())
                 .then(data => {
                     document.getElementById('used-count').textContent = data.used_count;
-                    btn.innerHTML = '✓ 回答済み';
+                    btn.innerHTML = '\u2713 \u56DE\u7B54\u6E08\u307F';
                     btn.classList.remove('bg-gray-100', 'hover:bg-green-100', 'text-gray-600');
                     btn.classList.add('bg-green-100', 'text-green-700');
                 })
                 .catch(() => {
                     btn.disabled = false;
-                    btn.innerHTML = '<i data-lucide="check-circle" class="w-4 h-4"></i> 使った！';
+                    btn.innerHTML = '<i data-lucide="check-circle" class="w-4 h-4"></i> \u4F7F\u3063\u305F\uFF01';
                 });
             }
         </script>
@@ -75,30 +75,34 @@
     <div class="bg-gray-50 min-h-screen py-8">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 
-            {{-- パンくず --}}
+            {{-- ===== 13. パンくずリスト改善（都道府県→市区町村→駅→駐車場名） ===== --}}
             <nav class="overflow-x-auto text-xs font-bold text-gray-400 mb-6 scrollbar-hide" aria-label="Breadcrumb">
                 <ol class="flex items-center space-x-2 whitespace-nowrap">
                     <li><a href="/" class="hover:text-gray-600 transition-colors">HOME</a></li>
-                    <li><span class="text-gray-300">＞</span></li>
+                    <li><span class="text-gray-300">></span></li>
                     <li><a href="{{ route('parking.index') }}" class="hover:text-gray-600 transition-colors">駐車場マップ</a></li>
                     @if($parking->prefecture)
-                    <li><span class="text-gray-300">＞</span></li>
+                    <li><span class="text-gray-300">></span></li>
                     <li><a href="{{ route('parking.area.prefecture', $parking->prefecture) }}" class="hover:text-gray-600 transition-colors">{{ $parking->prefecture }}</a></li>
                     @endif
                     @if($parking->city)
-                    <li><span class="text-gray-300">＞</span></li>
+                    <li><span class="text-gray-300">></span></li>
                     <li><a href="{{ route('parking.area.city', [$parking->prefecture, $parking->city]) }}" class="hover:text-gray-600 transition-colors">{{ $parking->city }}</a></li>
                     @endif
-                    <li><span class="text-gray-300">＞</span></li>
+                    @if($parking->station)
+                    <li><span class="text-gray-300">></span></li>
+                    <li><a href="{{ route('parking.station.show', $parking->station->slug) }}" class="hover:text-gray-600 transition-colors">{{ $parking->station->name }}駅</a></li>
+                    @endif
+                    <li><span class="text-gray-300">></span></li>
                     <li><span class="text-gray-800">{{ $parking->name }}</span></li>
                 </ol>
             </nav>
 
-            {{-- 基本情報カード --}}
+            {{-- ===== 1. 料金ヒーロー表示 ===== --}}
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6">
                 <div class="flex items-start justify-between mb-4">
-                    <div>
-                        <div class="flex items-center gap-3 mb-2">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-3 mb-2 flex-wrap">
                             <h1 class="text-xl sm:text-2xl font-black text-gray-900">{{ $parking->name }}</h1>
                             @auth
                             @if(auth()->user()->is_admin || $parking->user_id === auth()->id())
@@ -109,52 +113,129 @@
                             @endif
                             @endauth
                         </div>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[11px] font-bold px-3 py-1 rounded-full">
-                                <i data-lucide="square-parking" class="w-3 h-3"></i>
-                                {{ $parking->getParkingTypeLabel() }}
-                            </span>
-                            @if($parking->is_verified)
-                            <span class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 text-[10px] font-bold px-2.5 py-1 rounded-full">
-                                <i data-lucide="badge-check" class="w-3 h-3"></i>
-                                確認済み
-                            </span>
-                            @endif
-                            @if($parking->is_free)
-                            <span class="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 text-[10px] font-bold px-2.5 py-1 rounded-full">
-                                無料
-                            </span>
-                            @endif
-                        </div>
+                        @if($parking->address)
+                        <p class="text-sm text-gray-500 flex items-center gap-1.5 mb-3">
+                            <i data-lucide="map-pin" class="w-3.5 h-3.5 text-gray-400 shrink-0"></i>
+                            {{ $parking->address }}
+                        </p>
+                        @endif
                     </div>
                     @if($parking->avg_rating > 0)
-                    <div class="text-center">
+                    <div class="text-center shrink-0 ml-4">
                         <div class="text-2xl font-black text-yellow-500">{{ number_format($parking->avg_rating, 1) }}</div>
                         <div class="text-[10px] text-gray-400 font-bold">{{ $parking->reviews_count }}件</div>
                     </div>
                     @endif
                 </div>
 
-                {{-- 基本情報テーブル --}}
-                <div class="space-y-3 mb-6">
-                    <div class="flex items-start gap-3">
-                        <i data-lucide="map-pin" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
-                        <span class="text-sm text-gray-700">{{ $parking->address }}</span>
+                {{-- 料金ヒーローカード --}}
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-5">
+                    @if($parking->is_free)
+                    <div>
+                        <div class="text-sm text-gray-500 mb-1">料金</div>
+                        <span class="text-3xl font-bold text-green-600">無料</span>
                     </div>
+                    @else
+                    @php
+                        $hasHour = (bool) $parking->price_per_hour;
+                        $subPrices = array_filter([
+                            $parking->price_per_day ? ['label' => '日額', 'price' => $parking->price_per_day, 'unit' => '/日'] : null,
+                            $parking->price_per_month ? ['label' => '月極', 'price' => $parking->price_per_month, 'unit' => '/月'] : null,
+                        ]);
+                    @endphp
+                    <div class="flex items-stretch">
+                        {{-- メイン料金（時間貸し or 最初に見つかった料金） --}}
+                        @if($hasHour)
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm text-gray-500 mb-1">時間貸し料金</div>
+                            <div class="flex items-baseline gap-1">
+                                <span class="text-3xl font-bold text-gray-900">¥{{ number_format($parking->price_per_hour) }}</span>
+                                <span class="text-sm text-gray-500">/1時間</span>
+                                @if($parking->available_hours)
+                                <span class="text-xs text-gray-400 ml-1">{{ $parking->available_hours }}</span>
+                                @endif
+                            </div>
+                        </div>
+                        @elseif(!empty($subPrices))
+                        @php $main = array_shift($subPrices); @endphp
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm text-gray-500 mb-1">{{ $main['label'] }}料金</div>
+                            <div class="flex items-baseline gap-1">
+                                <span class="text-3xl font-bold text-gray-900">¥{{ number_format($main['price']) }}</span>
+                                <span class="text-sm text-gray-500">{{ $main['unit'] }}</span>
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- サブ料金（border-l区切りで横並び） --}}
+                        @if(!empty($subPrices))
+                        @foreach($subPrices as $sub)
+                        <div class="border-l border-gray-200 pl-5 ml-5 flex-shrink-0">
+                            <div class="text-xs text-gray-400 mb-1">{{ $sub['label'] }}</div>
+                            <div class="flex items-baseline gap-1">
+                                <span class="text-xl font-bold text-gray-700">¥{{ number_format($sub['price']) }}</span>
+                                <span class="text-xs text-gray-400">{{ $sub['unit'] }}</span>
+                            </div>
+                        </div>
+                        @endforeach
+                        @endif
+                    </div>
+                    @endif
+
+                    {{-- バッジ --}}
+                    <div class="flex flex-wrap gap-1.5 mt-3">
+                        <span class="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                            <i data-lucide="square-parking" class="w-3 h-3"></i>
+                            {{ $parking->getParkingTypeLabel() }}
+                        </span>
+                        @if($parking->available_24h)
+                        <span class="inline-flex items-center gap-1 bg-indigo-100 text-indigo-700 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                            <i data-lucide="clock" class="w-3 h-3"></i> 24h利用可
+                        </span>
+                        @endif
+                        @if($parking->is_covered)
+                        <span class="inline-flex items-center gap-1 bg-cyan-100 text-cyan-700 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                            <i data-lucide="umbrella" class="w-3 h-3"></i> 屋根あり
+                        </span>
+                        @endif
+                        @if($parking->is_locked)
+                        <span class="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                            <i data-lucide="lock" class="w-3 h-3"></i> 施錠可能
+                        </span>
+                        @endif
+                        @if($parking->has_security_camera)
+                        <span class="inline-flex items-center gap-1 bg-slate-100 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                            <i data-lucide="cctv" class="w-3 h-3"></i> 防犯カメラ
+                        </span>
+                        @endif
+                        @if($parking->is_free)
+                        <span class="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                            無料
+                        </span>
+                        @endif
+                        @if($parking->is_verified)
+                        <span class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                            <i data-lucide="badge-check" class="w-3 h-3"></i> 確認済み
+                        </span>
+                        @endif
+                        @if(!empty($displacementLimit['label']))
+                        <span class="inline-flex items-center gap-1 bg-red-100 text-red-700 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                            <i data-lucide="alert-triangle" class="w-3 h-3"></i> {{ $displacementLimit['label'] }}
+                        </span>
+                        @endif
+                    </div>
+
+                    @if($parking->notes || $parking->price_detail)
+                    <p class="text-sm text-gray-500 mt-2">※{{ $parking->notes ?: $parking->price_detail }}</p>
+                    @endif
+                </div>
+
+                {{-- 基本情報テーブル --}}
+                <div class="space-y-3 mb-5">
                     @if($parking->tel)
                     <div class="flex items-start gap-3">
                         <i data-lucide="phone" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
                         <a href="tel:{{ $parking->tel }}" class="text-sm text-blue-600 hover:underline">{{ $parking->tel }}</a>
-                    </div>
-                    @endif
-                    <div class="flex items-start gap-3">
-                        <i data-lucide="coins" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
-                        <span class="text-sm text-gray-700">{{ $parking->getPriceDisplay() }}</span>
-                    </div>
-                    @if($parking->price_detail)
-                    <div class="flex items-start gap-3">
-                        <i data-lucide="file-text" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
-                        <span class="text-sm text-gray-600 whitespace-pre-line">📝 料金の補足: {{ $parking->price_detail }}</span>
                     </div>
                     @endif
                     @if($parking->capacity)
@@ -189,35 +270,10 @@
                     @endif
                 </div>
 
-                {{-- 設備アイコン --}}
-                <div class="flex flex-wrap gap-3 mb-6">
-                    @if($parking->is_covered)
-                    <span class="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg">
-                        <i data-lucide="umbrella" class="w-3.5 h-3.5"></i> 屋根あり
-                    </span>
-                    @endif
-                    @if($parking->is_locked)
-                    <span class="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg">
-                        <i data-lucide="lock" class="w-3.5 h-3.5"></i> 施錠可能
-                    </span>
-                    @endif
-                    @if($parking->has_security_camera)
-                    <span class="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg">
-                        <i data-lucide="cctv" class="w-3.5 h-3.5"></i> 防犯カメラ
-                    </span>
-                    @endif
-                    @if($parking->available_24h)
-                    <span class="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg">
-                        <i data-lucide="clock" class="w-3.5 h-3.5"></i> 24時間利用可
-                    </span>
-                    @endif
-                </div>
-
-                {{-- 備考 --}}
-                @if($parking->notes || $parking->description)
-                <div class="bg-gray-50 rounded-xl p-4 mb-6">
-                    <p class="text-xs font-bold text-gray-500 mb-1">備考</p>
-                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ $parking->notes ?: $parking->description }}</p>
+                {{-- description（notesと別の補足情報がある場合のみ表示） --}}
+                @if($parking->description && $parking->description !== $parking->notes)
+                <div class="bg-gray-50 rounded-xl p-4 mb-5">
+                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ $parking->description }}</p>
                 </div>
                 @endif
 
@@ -235,41 +291,49 @@
                 </div>
             </div>
 
-            {{-- 地図 --}}
-            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
-                <h2 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
-                    <i data-lucide="map" class="w-4 h-4 text-green-600"></i> 位置情報
-                </h2>
-                <div id="detail-map" class="w-full"></div>
-                <div class="mt-3 flex flex-col sm:flex-row items-center justify-center gap-2">
-                    <a href="https://www.google.com/maps/dir/?api=1&destination={{ $parking->latitude }},{{ $parking->longitude }}" target="_blank" rel="noopener noreferrer"
-                       class="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 px-5 rounded-xl transition-colors shadow-sm">
-                        <i data-lucide="navigation" class="w-4 h-4"></i>
-                        Google Maps でルートを表示
-                    </a>
-                    <a href="{{ route('parking.index', ['lat' => $parking->latitude, 'lng' => $parking->longitude]) }}" class="text-xs font-bold text-green-600 hover:text-green-700 transition">
-                        周辺の駐車場を探す →
-                    </a>
-                </div>
-            </div>
-
-            {{-- 投稿写真 --}}
+            {{-- ===== 3. 写真ギャラリー（カルーセル表示） ===== --}}
             @if($parking->images->isNotEmpty())
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
                 <h2 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
-                    <i data-lucide="images" class="w-4 h-4 text-green-600"></i> 投稿写真 ({{ $parking->images->count() }}枚)
+                    <i data-lucide="images" class="w-4 h-4 text-green-600"></i> 写真 ({{ $parking->images->count() }}枚)
                 </h2>
-                <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                    @foreach($parking->images as $idx => $image)
-                    <button type="button" onclick="openLightbox({{ $idx }})"
-                            class="shrink-0 w-40 h-32 rounded-xl overflow-hidden border border-gray-100 hover:border-green-300 transition-colors cursor-pointer">
-                        <img src="{{ asset('storage/' . $image->image_path) }}"
+                {{-- メイン画像 --}}
+                <div x-data="{ current: 0, total: {{ $parking->images->count() }} }" class="relative">
+                    <div class="aspect-[16/9] rounded-xl overflow-hidden bg-gray-100 mb-3">
+                        @foreach($parking->images as $idx => $image)
+                        <img x-show="current === {{ $idx }}"
+                             x-transition:enter="transition ease-out duration-300"
+                             x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                             src="{{ asset('storage/' . $image->image_path) }}"
                              alt="{{ $parking->name }} 写真{{ $idx + 1 }}"
-                             class="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                             loading="lazy">
+                             class="w-full h-full object-cover cursor-pointer"
+                             loading="{{ $idx === 0 ? 'eager' : 'lazy' }}"
+                             @click="$dispatch('open-lightbox', { index: {{ $idx }} })">
+                        @endforeach
+                    </div>
+                    @if($parking->images->count() > 1)
+                    <button @click="current = (current - 1 + total) % total" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full w-8 h-8 flex items-center justify-center transition">
+                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                    </button>
+                    <button @click="current = (current + 1) % total" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full w-8 h-8 flex items-center justify-center transition">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </button>
+                    <div class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs font-bold px-3 py-1 rounded-full">
+                        <span x-text="current + 1"></span> / {{ $parking->images->count() }}
+                    </div>
+                    @endif
+                </div>
+                {{-- サムネイル --}}
+                @if($parking->images->count() > 1)
+                <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide" x-ref="thumbs">
+                    @foreach($parking->images as $idx => $image)
+                    <button @click="current = {{ $idx }}" class="shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 transition-colors"
+                            :class="current === {{ $idx }} ? 'border-green-500' : 'border-transparent hover:border-gray-300'">
+                        <img src="{{ asset('storage/' . $image->image_path) }}" alt="" class="w-full h-full object-cover" loading="lazy">
                     </button>
                     @endforeach
                 </div>
+                @endif
             </div>
 
             {{-- ライトボックスモーダル --}}
@@ -319,9 +383,114 @@
                     if (e.key === 'ArrowLeft') lbNav(-1);
                     if (e.key === 'ArrowRight') lbNav(1);
                 });
+                window.addEventListener('open-lightbox', function(e) { openLightbox(e.detail.index); });
             })();
             </script>
             @endif
+
+            {{-- ===== 4. 入庫可能バイク例 + 6. バイクサイズチェッカー ===== --}}
+            @if(!empty($bikeCompatibility))
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6" x-data="bikeChecker()">
+                <h2 class="text-sm font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="bike" class="w-4 h-4 text-green-600"></i> 入庫可能バイク判定
+                </h2>
+
+                {{-- サンプルバイク一覧 --}}
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
+                    @foreach($bikeCompatibility as $bike)
+                    @php
+                        $ok = true;
+                        if (!empty($displacementLimit['min']) && $bike['displacement'] < $displacementLimit['min']) $ok = false;
+                        if (!empty($displacementLimit['max']) && $bike['displacement'] > $displacementLimit['max']) $ok = false;
+                    @endphp
+                    <div class="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                        <span class="text-base">{{ $ok ? '✅' : '❌' }}</span>
+                        <div class="min-w-0">
+                            <div class="text-xs font-bold text-gray-800 truncate">{{ $bike['name'] }}</div>
+                            <div class="text-[10px] text-gray-400">{{ $bike['displacement'] }}cc</div>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+
+                {{-- インタラクティブチェッカー --}}
+                <div class="bg-blue-50 rounded-xl p-4">
+                    <p class="text-xs font-bold text-gray-600 mb-2">あなたのバイクは停められる？</p>
+                    <div class="flex gap-2">
+                        <input type="number" x-model="inputCc" placeholder="排気量を入力（例: 250）"
+                               class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent transition bg-white"
+                               min="0" max="2000" @keyup.enter="checkBike()">
+                        <span class="text-sm text-gray-400 self-center">cc</span>
+                        <button @click="checkBike()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition-colors">
+                            判定
+                        </button>
+                    </div>
+                    <div x-show="result !== null" x-transition class="mt-3 text-sm font-bold text-center" :class="result ? 'text-green-600' : 'text-red-600'">
+                        <span x-text="result ? '✅ ' + inputCc + 'ccのバイクは駐車可能です' : '❌ ' + inputCc + 'ccのバイクは制限により駐車できない可能性があります'"></span>
+                    </div>
+                </div>
+            </div>
+            <script>
+            function bikeChecker() {
+                return {
+                    inputCc: '',
+                    result: null,
+                    minCc: {{ $displacementLimit['min'] ?? 'null' }},
+                    maxCc: {{ $displacementLimit['max'] ?? 'null' }},
+                    checkBike() {
+                        const cc = parseInt(this.inputCc);
+                        if (!cc || cc <= 0) { this.result = null; return; }
+                        let ok = true;
+                        if (this.minCc !== null && cc < this.minCc) ok = false;
+                        if (this.maxCc !== null && cc > this.maxCc) ok = false;
+                        this.result = ok;
+                    }
+                };
+            }
+            </script>
+            @endif
+
+            {{-- 地図 + 12. Google Mapsルート案内 --}}
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
+                <h2 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
+                    <i data-lucide="map" class="w-4 h-4 text-green-600"></i> 位置情報
+                </h2>
+                <div id="detail-map" class="w-full"></div>
+                <div class="mt-3 flex flex-col sm:flex-row items-center justify-center gap-2">
+                    <a href="https://www.google.com/maps/dir/?api=1&destination={{ $parking->latitude }},{{ $parking->longitude }}" target="_blank" rel="noopener noreferrer"
+                       class="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 px-5 rounded-xl transition-colors shadow-sm">
+                        <i data-lucide="navigation" class="w-4 h-4"></i>
+                        Google Maps でルートを表示
+                    </a>
+                    <a href="{{ route('parking.index', ['lat' => $parking->latitude, 'lng' => $parking->longitude]) }}" class="text-xs font-bold text-green-600 hover:text-green-700 transition">
+                        周辺の駐車場を探す →
+                    </a>
+                </div>
+
+                {{-- ===== 8. 近隣施設情報 ===== --}}
+                @if($parking->station)
+                @php
+                    $stationDist = null;
+                    if ($parking->station->latitude && $parking->station->longitude) {
+                        $r = 6371000;
+                        $dLat = deg2rad($parking->station->latitude - $parking->latitude);
+                        $dLng = deg2rad($parking->station->longitude - $parking->longitude);
+                        $a2 = sin($dLat/2)**2 + cos(deg2rad($parking->latitude)) * cos(deg2rad($parking->station->latitude)) * sin($dLng/2)**2;
+                        $stationDist = (int) round($r * 2 * atan2(sqrt($a2), sqrt(1 - $a2)));
+                    }
+                @endphp
+                <div class="mt-4 pt-4 border-t border-gray-100">
+                    <p class="text-xs font-bold text-gray-500 mb-2">最寄り駅</p>
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="train-front" class="w-4 h-4 text-blue-500"></i>
+                        <a href="{{ route('parking.station.show', $parking->station->slug) }}" class="text-sm font-bold text-blue-600 hover:underline">{{ $parking->station->name }}駅</a>
+                        @if($stationDist)
+                        <span class="text-xs text-gray-400 font-bold">（約{{ $stationDist < 1000 ? $stationDist . 'm' : number_format($stationDist / 1000, 1) . 'km' }}）</span>
+                        @endif
+                    </div>
+                </div>
+                @endif
+            </div>
 
             {{-- ストリートビュー --}}
             @if($parking->latitude && $parking->longitude && config('services.google_maps.api_key'))
@@ -338,6 +507,51 @@
             </div>
             @endif
 
+            {{-- ===== 9. 料金比較テーブル ===== --}}
+            @if(!empty($priceComparison))
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
+                <h2 class="text-sm font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="scale" class="w-4 h-4 text-amber-500"></i> 周辺駐車場との料金比較（1km以内）
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b-2 border-gray-200">
+                                <th class="text-left py-2 px-3 font-bold text-gray-500">駐車場名</th>
+                                <th class="text-center py-2 px-3 font-bold text-gray-500">距離</th>
+                                <th class="text-center py-2 px-3 font-bold text-gray-500">時間</th>
+                                <th class="text-center py-2 px-3 font-bold text-gray-500">月極</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            {{-- 自分自身 --}}
+                            <tr class="bg-blue-50">
+                                <td class="py-2 px-3 font-black text-blue-700 text-xs truncate max-w-[150px]">{{ $parking->name }}</td>
+                                <td class="py-2 px-3 text-center text-xs text-gray-400">-</td>
+                                <td class="py-2 px-3 text-center font-bold text-blue-600">{{ $parking->price_per_hour ? number_format($parking->price_per_hour) . '円' : '-' }}</td>
+                                <td class="py-2 px-3 text-center font-bold text-blue-600">{{ $parking->price_per_month ? number_format($parking->price_per_month) . '円' : '-' }}</td>
+                            </tr>
+                            @foreach($priceComparison as $comp)
+                            <tr>
+                                <td class="py-2 px-3 text-xs truncate max-w-[150px]">
+                                    <a href="{{ route('parking.show', $comp['id']) }}" class="text-gray-700 hover:text-blue-600 font-bold">{{ $comp['name'] }}</a>
+                                </td>
+                                <td class="py-2 px-3 text-center text-xs text-gray-400">{{ $comp['distance_m'] }}m</td>
+                                <td class="py-2 px-3 text-center text-xs font-bold {{ ($comp['price_per_hour'] ?? 0) > 0 && $comp['price_per_hour'] < ($parking->price_per_hour ?? PHP_INT_MAX) ? 'text-green-600' : 'text-gray-600' }}">
+                                    {{ $comp['price_per_hour'] ? number_format($comp['price_per_hour']) . '円' : ($comp['is_free'] ? '無料' : '-') }}
+                                </td>
+                                <td class="py-2 px-3 text-center text-xs font-bold {{ ($comp['price_per_month'] ?? 0) > 0 && $comp['price_per_month'] < ($parking->price_per_month ?? PHP_INT_MAX) ? 'text-green-600' : 'text-gray-600' }}">
+                                    {{ $comp['price_per_month'] ? number_format($comp['price_per_month']) . '円' : '-' }}
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-[10px] text-gray-400 mt-2">※ 安い料金は緑色で表示されます</p>
+            </div>
+            @endif
+
             {{-- 料金シミュレーター --}}
             @if($parking->price_per_hour || $parking->price_per_day)
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -345,7 +559,6 @@
                     <i data-lucide="calculator" class="w-4 h-4 text-blue-600"></i> 料金シミュレーター
                 </h2>
 
-                {{-- 結果エリア（常に表示） --}}
                 <div id="parking-fee-result" class="bg-gradient-to-br from-blue-50 to-slate-50 rounded-2xl p-5 mb-4 border border-blue-100">
                     <p id="pf-duration" class="text-xs font-bold text-blue-500 text-center mb-1">3時間の駐車</p>
                     <div id="pf-cards" class="flex justify-center gap-3"></div>
@@ -354,13 +567,9 @@
                         <span class="text-sm font-black text-gray-700 ml-1">月{{ number_format($parking->price_per_month ?? 0) }}円</span>
                     </div>
                     <p id="pf-error" class="text-sm text-red-500 font-bold text-center hidden"></p>
-                    @if($parking->price_detail)
-                    <p class="text-xs text-gray-500 text-center mt-3 pt-2 border-t border-blue-100">📝 {{ $parking->price_detail }}</p>
-                    @endif
                     <p class="text-[10px] text-gray-400 text-center mt-2">※実際の料金体系と異なる場合があります。詳しくは現地の看板をご確認ください。</p>
                 </div>
 
-                {{-- 日時入力 --}}
                 <div class="space-y-3 mb-3">
                     <div>
                         <label class="text-[11px] font-bold text-gray-400 mb-1 block uppercase tracking-wider">入庫</label>
@@ -443,7 +652,6 @@
                     var hours = Math.ceil(totalMin / 60);
                     var days = Math.ceil(totalMin / (60 * 24));
 
-                    // 駐車時間ラベル
                     var dur;
                     if (totalMin < 60) {
                         dur = totalMin + '分';
@@ -465,7 +673,6 @@
                     options.sort(function(a, b) { return a.fee - b.fee; });
 
                     if (options.length === 2) {
-                        // 2カード比較表示
                         var best = options[0];
                         var other = options[1];
                         cardsEl.innerHTML =
@@ -481,7 +688,6 @@
                                 '<p class="text-[10px] text-gray-300 mt-0.5">' + other.detail + '</p>' +
                             '</div>';
                     } else {
-                        // 1カード表示
                         var o = options[0];
                         cardsEl.innerHTML =
                             '<div class="bg-white rounded-xl p-4 border border-blue-200 shadow-sm text-center min-w-[180px]">' +
@@ -494,7 +700,6 @@
                     if (hasMonthly) monthlyEl.classList.remove('hidden');
                 }
 
-                // デフォルト値セット & 自動計算
                 var now = new Date();
                 var mins = [0, 15, 30, 45];
                 var nearMin = mins.reduce(function(a, b) { return Math.abs(b - now.getMinutes()) < Math.abs(a - now.getMinutes()) ? b : a; });
@@ -512,8 +717,6 @@
                 calcFee();
 
                 document.getElementById('calc-parking-fee').addEventListener('click', calcFee);
-
-                // 入力変更時も自動再計算
                 ['ps-date','ps-hour','ps-min','pe-date','pe-hour','pe-min'].forEach(function(id) {
                     document.getElementById(id).addEventListener('change', calcFee);
                 });
@@ -530,7 +733,6 @@
             @endphp
             <div class="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-6">
                 <p class="text-sm text-gray-700 leading-relaxed">
-                    💡
                     月20日・1日8時間利用する場合、時間料金だと月{{ number_format($hourlyMonthly) }}円。
                     @if($monthly < $hourlyMonthly)
                         月極契約なら月{{ number_format($monthly) }}円で、<span class="font-bold text-amber-700">月極の方が{{ number_format($diff) }}円お得</span>です。
@@ -590,8 +792,8 @@
                 </button>
             </div>
 
-            {{-- レビュー投稿フォーム（ログイン不要・ワンタップ評価） --}}
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            {{-- レビュー投稿フォーム --}}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
                 <h2 class="text-lg font-black text-gray-900 mb-4">この駐車場を使ったことがありますか？</h2>
 
                 @if(session('review_success'))
@@ -640,11 +842,11 @@
                 </div>
             </div>
 
-            {{-- このエリアで売っているバイク --}}
+            {{-- ===== 7. 近隣の中古バイク在庫 ===== --}}
             @if($nearbyListings->isNotEmpty())
-            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6 mt-6">
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6">
                 <h2 class="text-sm font-black text-gray-900 mb-4 flex items-center gap-2">
-                    <i data-lucide="bike" class="w-4 h-4 text-green-600"></i> {{ $parking->prefecture }}で売っているバイク
+                    <i data-lucide="bike" class="w-4 h-4 text-green-600"></i> {{ $parking->city ?: $parking->prefecture }}で売っているバイク
                 </h2>
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     @foreach($nearbyListings as $nl)
@@ -716,7 +918,7 @@
             @endphp
 
             @if(count($faqs) >= 2)
-            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6 mt-6" x-data="{ open: null }">
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6" x-data="{ open: null }">
                 <h2 class="text-sm font-black text-gray-900 mb-4 flex items-center gap-2">
                     <i data-lucide="help-circle" class="w-4 h-4 text-green-600"></i> よくある質問
                 </h2>
@@ -764,6 +966,39 @@
             <div class="mt-6 space-y-6">
                 <x-nearby-parkings :nearbyParkings="$nearbyParkings" :latitude="$parking->latitude" :longitude="$parking->longitude" :prefecture="$parking->prefecture" />
                 <x-nearby-shops :nearbyShops="$nearbyShops" :latitude="$parking->latitude" :longitude="$parking->longitude" />
+
+                {{-- ===== 10. 周辺ツーリングスポット ===== --}}
+                @if($parking->prefecture)
+                @php
+                    $touringSpots = [
+                        '北海道' => ['美瑛のパッチワークの路', '宗谷岬', 'ニセコパノラマライン'],
+                        '東京都' => ['奥多摩周遊道路', 'お台場海浜公園', '秋川渓谷'],
+                        '神奈川県' => ['箱根ターンパイク', 'ヤビツ峠', '湘南海岸'],
+                        '千葉県' => ['房総フラワーライン', '鹿野山', '九十九里浜'],
+                        '埼玉県' => ['秩父ミューズパーク', '定峰峠', '名栗湖'],
+                        '大阪府' => ['阪奈道路', '箕面の滝', '泉北ニュータウン周遊'],
+                        '京都府' => ['嵐山', '周山街道', '天橋立'],
+                        '愛知県' => ['茶臼山高原道路', '渥美半島', '三ヶ根山スカイライン'],
+                        '静岡県' => ['伊豆スカイライン', '西伊豆スカイライン', '日本平'],
+                        '福岡県' => ['志賀島', '糸島半島', '耳納連山'],
+                    ];
+                    $spots = $touringSpots[$parking->prefecture] ?? null;
+                @endphp
+                @if($spots)
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+                    <h2 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
+                        <i data-lucide="mountain" class="w-4 h-4 text-emerald-500"></i> {{ $parking->prefecture }}のおすすめツーリングスポット
+                    </h2>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach($spots as $spot)
+                        <span class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-lg">
+                            <i data-lucide="map-pin" class="w-3 h-3"></i> {{ $spot }}
+                        </span>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+                @endif
 
                 {{-- 都道府県エリアリンク --}}
                 @if($parking->prefecture)
