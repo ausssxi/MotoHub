@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>バイクわらしべ長者 — カブ50から始まる交換の旅</title>
+<meta name="description" content="スーパーカブ50から始めて、バイクを交換しながら伝説の隼を目指すアドベンチャーゲーム">
+<meta property="og:title" content="バイクわらしべ長者">
+<meta property="og:description" content="カブ50から始まる交換の旅">
+<meta property="og:image" content="images/warashibe/ogp.png">
+<link rel="icon" href="images/warashibe/bike_cub50.png">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e}
+body{font-family:'Noto Sans JP',sans-serif;color:#e0e0e0;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none}
+button,input,select,textarea{color:inherit;font:inherit}
+#app{width:100%;height:100%;position:relative;overflow:hidden;display:flex;flex-direction:column}
+
+@keyframes ws-fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ws-popIn{0%{transform:scale(0)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+@keyframes ws-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+@keyframes ws-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes ws-fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ws-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes ws-slideIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes ws-glow{0%{box-shadow:0 0 0 rgba(255,215,0,0)}50%{box-shadow:0 0 40px rgba(255,215,0,.6)}100%{box-shadow:0 0 0 rgba(255,215,0,0)}}
+
+input[type=range].ws-vol{-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:rgba(255,255,255,.25);outline:none}
+input[type=range].ws-vol::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#e94560;cursor:pointer}
+input[type=range].ws-vol::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#e94560;cursor:pointer;border:none}
+
+.ws-btn{border:none;border-radius:8px;padding:12px 24px;font-size:16px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:transform .1s;color:#fff;line-height:1.4}
+.ws-btn:active{transform:scale(.95)}
+.ws-btn-accent{background:#e94560}
+.ws-btn-card{background:#16213e;border:1px solid rgba(255,255,255,.15)}
+.ws-btn-success{background:#4caf50}
+.ws-btn-gold{background:#ffd700;color:#1a1a2e}
+.ws-card{background:#16213e;border-radius:12px;padding:16px;margin:8px 0;color:#e0e0e0}
+
+.ws-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+.ws-overlay{position:absolute;inset:0;z-index:0}
+.ws-content{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;min-height:0}
+
+.ws-npc-img{width:180px;height:180px;object-fit:contain;filter:drop-shadow(0 4px 16px rgba(0,0,0,.6))}
+@media(max-width:768px){
+  .ws-npc-img{max-height:25vh!important;width:auto!important}
+}
+
+[x-cloak]{display:none!important}
+
+/* Scrollable container */
+.ws-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 16px}
+.ws-bottom-pad{padding:8px 16px 16px;flex-shrink:0}
+.ws-scene-col{flex:1;display:flex;flex-direction:column;overflow:hidden;max-width:480px;margin:0 auto;width:100%}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════
+   Constants & Data
+   ═══════════════════════════════════════════ */
+const IMG = 'images/warashibe/';
+const SND = 'audio/warashibe/';
+const SAVE_KEY = 'warashibe_save';
+const AUDIO_KEY = 'warashibe_audio';
+const C = { bg:'#1a1a2e', card:'#16213e', text:'#e0e0e0', accent:'#e94560', success:'#4caf50', gold:'#ffd700' };
+
+/* ─── パーツ ─── */
+const PARTS = {
+  old_helmet:          { id:'old_helmet',          name:'古いヘルメット',       desc:'リターンライダーの思い出の品' },
+  stock_muffler:       { id:'stock_muffler',       name:'純正マフラー',         desc:'MT-07の純正マフラー' },
+  aftermarket_muffler: { id:'aftermarket_muffler', name:'社外マフラー',         desc:'ヨシムラ管。いい音がする' },
+  pannier_case:        { id:'pannier_case',        name:'パニアケース',         desc:'ロングツーリングに最適' },
+  sponsor_sticker:     { id:'sponsor_sticker',     name:'スポンサーステッカー', desc:'有名チームのロゴ入り' },
+  racing_cowl:         { id:'racing_cowl',         name:'レーシングカウル',     desc:'軽量レース用カウル' },
+  travel_diary:        { id:'travel_diary',        name:'旅日記',               desc:'世界一周の記録' },
+  turbo_kit:           { id:'turbo_kit',           name:'ターボキット',         desc:'伝説のメカニックの技術の結晶' },
+};
+
+/* ─── バイク ─── */
+const BIKES = {
+  cub50:    { id:'cub50',    name:'スーパーカブ50',          cc:'50cc',   ccNum:50,   category:'実用',           price:'10-20万',  icon:IMG+'bike_cub50.png' },
+  pcx:      { id:'pcx',      name:'PCX125',                 cc:'125cc',  ccNum:125,  category:'スクーター',     price:'20-35万',  icon:IMG+'bike_pcx.png' },
+  address:  { id:'address',  name:'アドレス110',             cc:'110cc',  ccNum:110,  category:'スクーター',     price:'10-20万',  icon:IMG+'bike_address.png' },
+  ct125:    { id:'ct125',    name:'CT125 ハンターカブ',       cc:'125cc',  ccNum:125,  category:'アウトドア',     price:'30-45万',  icon:IMG+'bike_ct125.png' },
+  crf:      { id:'crf',      name:'CRF250L',                cc:'250cc',  ccNum:250,  category:'オフロード',     price:'40-55万',  icon:IMG+'bike_crf.png' },
+  gb350:    { id:'gb350',    name:'GB350',                  cc:'350cc',  ccNum:350,  category:'ネオクラシック', price:'45-60万',  icon:IMG+'bike_gb350.png' },
+  ninja250: { id:'ninja250', name:'Ninja250',               cc:'250cc',  ccNum:250,  category:'スポーツ',       price:'35-50万',  icon:IMG+'bike_ninja250.png' },
+  cb400:    { id:'cb400',    name:'CB400SF',                cc:'400cc',  ccNum:400,  category:'ネイキッド',     price:'50-80万',  icon:IMG+'bike_cb400.png' },
+  yzfr3:    { id:'yzfr3',    name:'YZF-R3',                 cc:'320cc',  ccNum:320,  category:'SS',             price:'45-60万',  icon:IMG+'bike_yzfr3.png' },
+  mt07:     { id:'mt07',     name:'MT-07',                  cc:'690cc',  ccNum:690,  category:'ストリート',     price:'55-75万',  icon:IMG+'bike_mt07.png' },
+  z900:     { id:'z900',     name:'Z900',                   cc:'950cc',  ccNum:950,  category:'ストファイ',     price:'75-100万', icon:IMG+'bike_z900.png' },
+  rebel1100:{ id:'rebel1100',name:'レブル1100',              cc:'1100cc', ccNum:1100, category:'クルーザー',     price:'85-110万', icon:IMG+'bike_rebel1100.png' },
+  vstrom:   { id:'vstrom',   name:'Vストローム650',          cc:'650cc',  ccNum:650,  category:'アドベンチャー', price:'55-80万',  icon:IMG+'bike_vstrom.png' },
+  mt09:     { id:'mt09',     name:'MT-09',                  cc:'890cc',  ccNum:890,  category:'ストリート',     price:'80-100万', icon:IMG+'bike_mt09.png' },
+  cbr600:   { id:'cbr600',   name:'CBR600RR',               cc:'600cc',  ccNum:600,  category:'SS',             price:'90-130万', icon:IMG+'bike_cbr600.png' },
+  zx10r:    { id:'zx10r',    name:'ZX-10R',                 cc:'1000cc', ccNum:1000, category:'SS',             price:'120-180万',icon:IMG+'bike_zx10r.png' },
+  hayabusa: { id:'hayabusa', name:'隼（Hayabusa）',          cc:'1340cc', ccNum:1340, category:'メガスポーツ',   price:'130-200万',icon:IMG+'bike_hayabusa.png' },
+  yzfr3c:   { id:'yzfr3c',   name:'YZF-R3 カスタム',         cc:'320cc',  ccNum:320,  category:'SS',             price:'50-70万',  icon:IMG+'bike_yzfr3c.png',  isCustom:true },
+  z900t:    { id:'z900t',    name:'Z900 ツアラー仕様',       cc:'950cc',  ccNum:950,  category:'ストファイ',     price:'80-110万', icon:IMG+'bike_z900t.png',   isCustom:true },
+  cbr600r:  { id:'cbr600r',  name:'CBR600RR レーサー仕様',   cc:'600cc',  ccNum:600,  category:'SS',             price:'100-140万',icon:IMG+'bike_cbr600r.png', isCustom:true },
+  zx10rf:   { id:'zx10rf',   name:'ZX-10R フルチューン',     cc:'1000cc', ccNum:1000, category:'SS',             price:'150-200万',icon:IMG+'bike_zx10rf.png', isCustom:true },
+};
+
+/* ─── 合成レシピ ─── */
+const SYNTHESIS = [
+  { id:'yzfr3c',  bike:'yzfr3',  part:'aftermarket_muffler', result:'yzfr3c'  },
+  { id:'z900t',   bike:'z900',   part:'pannier_case',        result:'z900t'   },
+  { id:'cbr600r', bike:'cbr600', part:'racing_cowl',         result:'cbr600r' },
+  { id:'zx10rf',  bike:'zx10r',  part:'turbo_kit',           result:'zx10rf'  },
+];
+
+/* ─── NPC ─── */
+const NPCS = {
+  soba_shop:{id:'soba_shop',name:'蕎麦屋のおやじ（ゲンさん）',area:'street',wants:null,gives:'cub50',image:IMG+'npc_soba_shop.png',isShop:true,idle:'もう引退だからなぁ…カブが余っちまって…',greeting:['おう、若いの。バイク乗りかい。','ウチは来月で店じまいなんだ。','出前用のカブが何台も余っちまってよ。','欲しけりゃ持っていきな。タダでいいよ'],alreadyOwned:'もうカブ持ってるじゃねぇか！ また必要になったら来な'},
+  commuter:{id:'commuter',name:'通勤おじさん（田中さん）',area:'street',wants:'cub50',gives:'pcx',image:IMG+'npc_commuter.png',idle:'はぁ…ガソリン代が…今月もう3回も給油したよ…',greeting:['ん？ キミ、バイク乗りかい？','いやね、ウチのPCXも悪くないんだけど、','もっと燃費のいいバイクがないかなぁって…'],correct:['こっ…これは！ スーパーカブ！！','リッター60km…いや、70km走るって聞いたことある…！','これだよ、これが欲しかったんだ！'],correctAfter:['大事にしてくれよ、PCX。','まぁ俺にはもうカブがあるからいいんだけどね…ふふ…'],wrong:{ct125:'ハンターカブ？ いいねぇ…でも若い子向けでしょ？ おじさんが乗ったら似合わないよ…',gb350:'クラシックか…味はあるけど、燃費で選ぶ俺には贅沢だなぁ',crf:'泥がつくやつはちょっと… 奥さんに怒られる未来が見える',address:'アドレス…通勤にはいいけど、もっと燃費が…もっと…',pcx:'それ俺が今乗ってるやつなんだけど…？',ninja250:'速そうだねぇ…でも会社の駐輪場に停めたら目立ちすぎるんだよ',z900:'うわっ…でかい…！ 維持費考えただけで胃が痛くなってきた…',hayabusa:'うわっ…でかい…！ ガソリン何リッター入るの…？ 遠慮するよ',rebel1100:'アメリカンか…かっこいいけど、通勤には大げさだよね',_default:'うーん…もっと燃費のいいやつが…'}},
+  college_girl:{id:'college_girl',name:'女子大生（ミサキ）',area:'street',wants:'pcx',gives:'ct125',image:IMG+'npc_college_girl.png',idle:'もっとオシャレなバイクでカフェ巡りしたいなぁ…',greeting:['あ、こんにちは！','私、去年ハンターカブ買ったんだけど、','結局キャンプ1回しか行ってなくて…','街乗りでオシャレなバイクに乗り換えたいなって'],correct:['えっ、PCX!? めっちゃいいじゃん！','メットインに荷物入るし、スカートでも乗れるし…','CT125…正直ちょっと持て余してたの。交換してくれる？'],correctAfter:['ハンターカブ、すっごくいいバイクだよ！','…私が使いこなせなかっただけで'],wrong:{cub50:'カブ…？ おばあちゃんが乗ってるイメージ… いや、レトロ可愛いのはわかるよ？ でもちょっと…',address:'アドレス…配達の人が乗ってるイメージ… おしゃれじゃないかも…',ct125:'え、それ私が今乗ってるやつなんだけど…？',crf:'泥だらけのバイクでスタバ行けないでしょ…',gb350:'GB350！ 可愛いけど…メットインがないのはちょっと…',ninja250:'えー、かっこいいけど…前傾姿勢でしょ？ ネイルしたまま乗りたいんだけど',z900:'え、無理無理無理！ 重すぎ！ 私が求めてるのは"映え"であって"筋肉"じゃないから！',hayabusa:'え、無理無理無理！ 重すぎ！ これ停めるだけで筋トレじゃん…',_default:'うーん、それはちょっと私には合わないかも…'}},
+  delivery:{id:'delivery',name:'出前バイトくん（ユウキ）',area:'street',wants:'cub50',gives:'address',image:IMG+'npc_delivery.png',idle:'あーーー、今日も配達30件…ケツ痛い…',greeting:['あ、先輩ライダーっすか？','俺、今アドレスで配達してんすけど、','正直キツくて。もっと頑丈で燃費いいのないっすかね'],correct:['うおっ！ カブじゃん！！','配達の先輩がみんな「最終的にカブに戻る」って言ってたんすよ！','これが配達の最終兵器…！'],correctAfter:['アドレスもいいバイクっすよ。','…ただ、カブの前ではすべてが霞むんすわ'],wrong:{pcx:'PCXか…悪くないけど、カブほどの耐久性はないんすよね',ct125:'ハンターカブ…かっこいいっすけど、配達にはちょいオーバースペックっす',gb350:'オシャレっすね…でも汁こぼしてシート汚したら泣くじゃないっすか',crf:'オフ車で配達…？ 段差には強そうだけど箱が積めないっす',z900:'えっ…こんなの配達に使えないっすよ…駐禁切られまくるっす',hayabusa:'えっ…こんなの配達に使えないっすよ…',_default:'えっ…それ配達に使えないっすよ…'}},
+  camper:{id:'camper',name:'キャンプライダー（タケシ）',area:'suburb',wants:'ct125',gives:'crf',image:IMG+'npc_camper.png',idle:'テント、寝袋、焚き火台…全部積みたい…',greeting:['よう！ いいバイク乗ってるな。','俺、CRFでキャンプ行ってるんだけどさ、','荷物が積めなくてパンパンなんだよ。','もっと積載できるバイクに乗り換えたいんだわ'],correct:['ハンターカブ！！ これだよこれ！！','リアキャリアにホムセン箱つけたら最強じゃん！','キャンプツーリングの最適解はこれだったんだ…！'],correctAfter:['CRFはいいバイクだぞ。林道はガチで楽しい。','…荷物さえ積めればな'],wrong:{cub50:'カブ50…積載はいいけど高速乗れないからキャンプ場まで辿り着けないんだわ',pcx:'スクーターでキャンプ？ メットインに焚き火台は入らないだろ',gb350:'クラシックか…見た目はいいが積載が不安だな',address:'アドレスでキャンプ…？ さすがに荷物が乗らないだろ',rebel1100:'アメリカン…ロマンはわかる。でも砂利道で立ちゴケする未来しか見えない',_default:'うーん、それだとキャンプ道具が積めないなぁ…'}},
+  bike_girl:{id:'bike_girl',name:'バイク女子（アヤカ）',area:'suburb',wants:'ct125',gives:'gb350',image:IMG+'npc_bike_girl.png',idle:'ハンターカブ可愛すぎて気になる…',greeting:['あ、ちょっとそのバイク見せてもらっていい？','私、GB350に乗ってるんだけど、','最近カブ系の丸っこいフォルムにハマっちゃって…','乗り換えようか迷ってるの'],correct:['やっぱりハンターカブ最高に可愛い！！','サムネ映えするし、女子ウケもいいし…','GB350より動画のネタにもなりそう！'],correctAfter:['GB350大事にしてね。鼓動感、最高だから。','…私の動画のコメント欄が荒れなきゃいいけど'],wrong:{cub50:'カブ50！ かわいい！ …けど50ccだと高速乗れないからツーリング動画が撮れない…',pcx:'PCXは便利だけど、動画映えしないんだよね…',crf:'オフ車はね…汚れるの… 洗車動画ばっかりになっちゃう',address:'アドレスは…さすがにYouTuber的に厳しいかな…',ninja250:'Ninja系は色がちょっと…私の世界観と合わなくて',z900:'うーん…私のチャンネル的にはデカすぎるかな',_default:'うーん…私のチャンネル的にはちょっと違うかな'}},
+  returner:{id:'returner',name:'リターンライダー（ヤマモトさん）',area:'suburb',wants:'gb350',gives:'cb400',bonusPart:'old_helmet',image:IMG+'npc_returner.png',idle:'昔はよく走ったなぁ…CB400SF…\nでも今の俺には、もう少し落ち着いたバイクが似合うかな',greeting:['おう、若いの。いいバイクに乗ってるな。','俺、20年ぶりにバイクに復帰したんだけどさ、','CB400SFで飛ばす歳でもないんだよな。','もっとゆったり走れるクラシックなバイクがいいなぁって'],correct:['おお…GB350…！','このエンジンの単気筒の鼓動…昔のGBを思い出すなぁ…','これだよ、俺が求めてたのは。速さじゃない、味わいなんだ。','CB400SFはお前さんにやるよ。大事に乗ってくれ'],correctAfter:['あ、そうだ。昔使ってたヘルメットも持っていきな。','もう俺のデカい頭には合わないんだ。はっはっは'],wrong:{zx10r:'おいおい、俺を殺す気か…？ 20年ブランクの爺さんにリッターSSは自殺行為だぞ',hayabusa:'おいおい、俺を殺す気か…？ 20年ブランクにこれは…',z900:'おいおい、大型ネイキッドか…反射神経が昔の半分もないんだから',cbr600:'おいおい、俺を殺す気か…？ SSは自殺行為だぞ',cub50:'カブか…。実用的なのはわかるが、リターンライダーの夢が萎むわ',crf:'オフロード…。腰を壊す未来が見える',mt07:'MT-07か…いいバイクだけど、見た目が新しすぎるんだよな。俺が求めてるのは"懐かしさ"なんだ',cb400:'それ俺が今乗ってるやつなんだけど…？',_default:'うーん、もう少し落ち着いた雰囲気のバイクがいいんだが…'}},
+  offroad:{id:'offroad',name:'林道ライダー（コバヤシ）',area:'suburb',wants:'crf',gives:'ninja250',image:IMG+'npc_offroad.png',idle:'Ninjaでダート走ったら転びまくった…\nやっぱりオフ車買わないとダメか…',greeting:['お、CRF乗り？ いいなぁ…','俺、Ninja250でずっとサーキット通ってたんだけど、','最近林道にハマっちゃって。ロードタイヤじゃ話にならないんだよ。','ちゃんとしたオフ車が欲しいんだわ'],correct:['CRF250L！ これよこれ！','21インチのフロントタイヤ…ロンスイの安定感…','もうNinjaで砂利道ビビりながら走るのは終わりだ！'],correctAfter:['Ninjaは峠で最高のバイクだぞ。','…林道には持っていくなよ。俺みたいになる'],wrong:{z900:'林道にリッターバイク…？ 倒したら一人で起こせないぞ',hayabusa:'林道にリッターバイク…？ 命知らずだぞ',zx10r:'林道にリッターバイク…？ 倒したら一人で起こせないし、命知らずだぞ',pcx:'スクーターで林道…？ 10分で動けなくなるぞ。マジで',address:'スクーターで林道…？ 10分で動けなくなるぞ',rebel1100:'アメリカンで林道は…ステップ擦って火花散らすのが趣味なら止めないけど',ninja250:'それ俺が今乗ってるやつなんだけど…？',_default:'うーん、それだと林道は厳しいな…オフ車が欲しいんだ'}},
+  touge:{id:'touge',name:'峠の走り屋（リュウジ）',area:'pass',wants:'ninja250',gives:'yzfr3',image:IMG+'npc_touge.png',idle:'R3、パワーはいいんだけど…\nもう少し軽いバイクでコーナー攻めたいな…',greeting:['よう。この峠、攻めに来たのか？','俺はR3で走ってるんだけどさ、最近もっと軽いバイクで','切り返しをキレキレにしたいと思ってるんだよ。','250ccクラスのスポーツ、興味あるんだよな'],correct:['Ninja250！！ 車重166kg…これだよ！','R3より20kg近く軽い…コーナーの切り返しが全然違うはず！','パワーじゃない、軽さが武器なんだ！','R3はお前にやる。直線は速いぞ'],correctAfter:['R3の倒立フォーク、峠で信頼できるから。','…俺はもう軽さの世界に行く'],wrong:{hayabusa:'重い！ 重すぎる！！ リッターバイクで峠のヘアピン攻めるのは腕力トレーニングだぞ',zx10r:'重い！ 重すぎる！！ "曲がる楽しさ"がわからんのか',z900:'重い…峠のヘアピン攻めるのは腕力トレーニングだぞ',cub50:'…お前、俺をナメてんのか？ いや、カブで峠攻める動画は見たことあるけど…',pcx:'…お前、俺をナメてんのか？',address:'…お前、俺をナメてんのか？',rebel1100:'アメリカンで峠…？ バンク角3度くらいで接地するだろ',gb350:'クラシック系か…味はあるけど、峠でタイムを出すバイクじゃないんだよなぁ',yzfr3:'それ俺が今乗ってるやつなんだけど…？',_default:'うーん、それだとコーナー攻めには向かないな…'}},
+  newbie:{id:'newbie',name:'教習所帰りくん（ソウタ）',area:'pass',wants:'cb400',gives:'mt07',bonusPart:'stock_muffler',image:IMG+'npc_newbie.png',idle:'MT-07…パワーありすぎ…怖い…\n教習所のバイクが懐かしい…',greeting:['あ、あの…先輩ですか？','僕、先月大型免許取ったばっかりで、MT-07買ったんですけど…','パワーがありすぎて怖くて…','教習車と同じCB400SFなら安心できるかなって…'],correct:['CB400SF！！ これ教習所で乗ってたやつ！','このクラッチの感覚…このポジション…安心する…！','MT-07は600ccの力があるんで、僕にはまだ早かったんです…'],correctAfter:['MT-07、マフラー純正のままなんで、余ったやつも持っていってください。','社外マフラーに替えようと思って買ってたんですけど…'],wrong:{hayabusa:'ひぃぃ！ こ、これ何馬力あるんですか…！？ 僕にリッターSSは…死にます…',zx10r:'ひぃぃ！ こ、これ何馬力あるんですか…！？ 死にます…',z900:'ひぃぃ！ パワーありすぎます…MT-07で怖がってる僕に…',cub50:'カブ…。正直ちょっと惹かれます… でもせっかく大型免許取ったのに…',ninja250:'250cc…。いいなぁ、扱いやすそう… でも大型免許取った意味がなくなっちゃう…',rebel1100:'アメリカンは…格好いいですけど、ニーグリップできないバイクはまだ怖い…',cb400:'それ俺…いや僕が欲しいやつです…？ あ、でもそれ僕のじゃないですよね？',_default:'うーん…教習車と同じCB400SFが安心なんです…'}},
+  parts_shop:{id:'parts_shop',name:'パーツ屋のオヤジ',area:'pass',isPartsShop:true,wantsPart:'stock_muffler',givesPart:'aftermarket_muffler',image:IMG+'npc_parts_shop.png',idle:'純正マフラーの在庫が切れちまった…\n誰か余ってるやつ持ってないかな',greeting:['おう、兄ちゃん！ ウチはマフラー専門店だ。','今、純正マフラーの買い取り強化中なんだ。','純正マフラー持ってたら、社外品と交換するぜ！'],correct:['おっ！ これ状態いいじゃねぇか！','よし、約束通り社外マフラーと交換だ。','ヨシムラ管…いい音するぞ。峠で目立つこと間違いなし！'],noPartMessage:'純正マフラーを持ってないのか？ 手に入ったらまた来てくれよ'},
+  ex_racer:{id:'ex_racer',name:'元レーサー（カズマ師匠）',area:'pass',wants:'yzfr3c',gives:'z900',image:IMG+'npc_ex_racer.png',idle:'弟子に練習させるバイクが必要なんだが…\nZ900じゃ初心者には荷が重すぎる',greeting:['おう。お前、いい目をしてるな。','俺は昔レースをやってた。今は若いのを育ててる。','弟子に乗せる練習用バイクを探してるんだ。','適度なパワーで、ちゃんとチューンされたやつがいい'],correct:['ほう…R3にアフターマフラー…。','排気効率が上がって中回転域のトルクが出てるな。','これなら弟子にサーキットの基本を教えるのにちょうどいい。','代わりにZ900をやろう。俺にはもうパワーは要らん'],correctAfter:['Z900、素直な特性のいいバイクだ。','お前ならうまく乗りこなせるだろう'],wrong:{yzfr3:'R3か…悪くない。だがノーマルのままでは物足りん。もう少し手を入れたやつはないのか？ 吸排気が変わるだけで別のバイクになるんだがな',cub50:'…お前、俺をからかってるのか？ カブのレースもあるにはあるが…俺が育てたいのはロードレーサーだ',hayabusa:'隼で練習…？ 初心者に300馬力は殺しにかかってるぞ',z900:'それ俺が今乗ってるやつなんだけど…？',_default:'うーん、弟子の練習用にはちょっと違うな…'}},
+  seaside:{id:'seaside',name:'海沿いマスター（ゴロウさん）',area:'coast',wants:['gb350','cb400'],gives:'rebel1100',image:IMG+'npc_seaside.png',idle:'腰がなぁ…レブル1100でも腰に来るようになっちまった…',greeting:['よぉ、若いの。海沿い走るのは気持ちいいだろ？','俺ぁ長いことアメリカンに乗ってきたんだが、','腰がもう限界でな…。もう少しコンパクトで、','エンジンの味わいがあるバイクに乗り換えたいんだ'],correctMap:{gb350:['おお…GB350…。この単気筒の鼓動…','ドコドコ感がたまらんな…。これなら軽いし、','海沿いをのんびり流すにはちょうどいい。','レブル1100はお前さんにやるよ。まだまだ走れるバイクだ'],cb400:['CB400SF…懐かしいな。昔、教習所でコイツに乗ったっけ。','4気筒の滑らかさ…年寄りには優しいエンジンだ。','レブル1100と交換してやるよ。大事に乗ってくれ']},correctAfter:['海沿いをのんびり走るのが一番だ。','若いうちに色んな道を走っておけよ'],wrong:{z900:'前傾姿勢…？ 腰が…腰が…！ 今これに乗ったら整体通いだぞ',zx10r:'前傾姿勢…？ 腰が…腰が…！',cbr600:'前傾姿勢…？ 腰が…腰が…！',hayabusa:'前傾姿勢…？ 腰が…腰が…！ 若い頃ならともかく…',crf:'砂浜走れって？ 腰への衝撃でぎっくり腰確定だわ',cub50:'カブか…。味はあるがな、ハーレーからカブは…落差がすごすぎる',rebel1100:'それ俺が今乗ってるやつなんだけど…？',_default:'うーん、もう少しコンパクトで味わいのあるバイクがいいんだが…'}},
+  gear_shop:{id:'gear_shop',name:'用品店の店員',area:'coast',isPartsShop:true,wantsPart:'old_helmet',givesPart:'pannier_case',image:IMG+'npc_gear_shop.png',idle:'ヴィンテージヘルメットのコレクションを増やしたいんだよなぁ…',greeting:['いらっしゃい！ 当店はバイク用品専門店です。','実は店長の趣味でヴィンテージヘルメットを集めてまして…','古いヘルメットをお持ちでしたら、パニアケースと交換しますよ！'],correct:['おおっ！ このヘルメット、年代物じゃないですか！','状態も悪くない…コレクションに加えさせてもらいます！','約束通り、パニアケースをどうぞ。ロングツーリングに最適ですよ'],noPartMessage:'古いヘルメットをお持ちでないですか…？ 手に入ったらまたお越しください'},
+  world_rider:{id:'world_rider',name:'世界一周ライダー（マコト）',area:'coast',wants:'z900t',gives:'vstrom',bonusPart:'travel_diary',image:IMG+'npc_world_rider.png',idle:'Vストロームで世界一周してきたけど…\n日本の高速はもっとパワーがあるバイクで走りたいな',greeting:['おう、旅人か？ 俺は去年、Vストロームで世界一周してきた。','次は日本一周するんだが、高速メインで走りたいんだ。','パニアケース付きで高速が楽なバイクがあれば最高なんだが'],correct:['Z900にパニアケース付き…！ これは理想的だ！','高速で余裕のあるパワーに、荷物も積める…','Vストロームは最高の相棒だったが、次のステージに進む時だ'],correctAfter:['この旅日記、世界一周で書いたやつだ。持っていってくれ。','バイク乗りなら、きっと何か感じるものがあるはずだ'],wrong:{z900:'Z900…パワーは申し分ないんだが、荷物をどこに積むんだ？ 旅にはパニアが必須だぞ。どこかでパニアケースを手に入れて付けてくれないか',cub50:'カブで世界一周したやつは知ってるぞ。すごい話だが…俺は高速で120km/h出したいんだ',vstrom:'それ俺が今乗ってるやつなんだけど…？',_default:'うーん、高速が楽でパニアが付くバイクがいいんだが…'}},
+  streetfighter:{id:'streetfighter',name:'ストファイ兄さん（テツヤ）',area:'circuit',wants:'z900',gives:'mt09',image:IMG+'npc_streetfighter.png',idle:'ヤマハもいいけど…やっぱカワサキだよな…\nあのライムグリーン…漢のバイク…',greeting:['おう！ いいバイク持ってんじゃん！','俺、MT-09でずっとストリート走ってたんだけどさ、','最近カワサキに惚れちまってよ。','Z系のストファイに乗り換えたいんだわ'],correct:['Z900…！ このスガタミヤのシャープなライン…！','漢カワサキの血統…！ 俺が求めてたのはコレだ！','MT-09をやるよ。ヤマハも最高のバイクだ。','…でも俺の心はもうカワサキに決まったんだ'],correctAfter:['MT-09、クロスプレーンエンジンは最高だぞ。','…カワサキの漢として言うのも変だけどな'],wrong:{ninja250:'250cc…？ 俺が欲しいのは"圧"なんだよ。信号待ちで隣に並んだ時の"圧"',yzfr3:'250cc…？ 俺が欲しいのは"圧"なんだよ',rebel1100:'アメリカンか…嫌いじゃないけど、ストファイの"攻めてる感"がないんだよな',cub50:'…これはこれで、ある種の漢気を感じるが…俺が欲しいのはそういう方向じゃない',mt09:'それ俺が今乗ってるやつなんだけど…？',_default:'うーん、カワサキのZ系が欲しいんだわ…'}},
+  trackday:{id:'trackday',name:'走行会常連（ナオキ）',area:'circuit',wants:'mt09',gives:'cbr600',bonusPart:'sponsor_sticker',image:IMG+'npc_trackday.png',idle:'サーキット用はCBR600RRがあるから…\n街乗り用のバイクが欲しいんだよな…',greeting:['お、サーキットに興味あるのか？','俺、CBR600RRでずっと走行会出てるんだけどさ、','街乗り用のバイクがなくて困ってるんだよ。','トルクがあってストリートで楽しいバイクがないかな'],correct:['MT-09！ クロスプレーンエンジンのトルク感…！','街乗りで使うにはこれ以上ないだろ。','CBR600RRはサーキット専用にしてたから、','お前に譲るよ。大事に乗ってくれ'],correctAfter:['あ、そうだ。去年のスポンサーステッカー、もう使わないから持ってけ。','サーキットのピットクルーが欲しがってた気がする'],wrong:{ninja250:'250か…。街乗りには十分だけど、高速の合流でもう少し余裕が欲しいんだよな',yzfr3:'250か…。600以上のトルク感を知っちゃうと戻れない',hayabusa:'隼で街乗り…？ 近所のコンビニに300馬力で行くのか…？',cbr600:'それ俺が今乗ってるやつなんだけど…？',_default:'うーん、もっとトルクがあってストリートで楽しいやつがいいな…'}},
+  pitcrew:{id:'pitcrew',name:'ピットクルー',area:'circuit',isPartsShop:true,wantsPart:'sponsor_sticker',givesPart:'racing_cowl',image:IMG+'npc_pitcrew.png',idle:'チームのスポンサーロゴ、新しいの探さないとなぁ…',greeting:['お、ライダーさん！ ウチのチーム、来シーズン用のカウルが余ってるんだ。','スポンサーステッカーと交換してくれない？','チームのPRに使いたいんだよ'],correct:['おお、これ去年の有名チームのステッカーじゃん！','これは価値がある！ レーシングカウル、持っていってくれ！','CBRに付けたら一気にレーサー仕様になるぞ'],noPartMessage:'スポンサーステッカーを持ってないのか？ 走行会常連に聞いてみな'},
+  retired_racer:{id:'retired_racer',name:'引退レーサー（ケンジ）',area:'circuit',wants:'cbr600r',gives:'zx10r',image:IMG+'npc_retired_racer.png',idle:'後輩に渡すレース用バイクがないんだよなぁ…\nZX-10Rじゃ初心者レーサーには危険すぎる',greeting:['おう、いい走りしてたな。見てたぞ。','俺は昔、全日本を走ってた。今は後輩を育ててる。','600ccのレーサーが欲しいんだ。','若いやつに最初からリッターは危険だからな'],correct:['CBR600RRにレーシングカウル…完璧だ。','600ccのレーサーは基本を学ぶのに最適なんだ。','コイツなら後輩も安全にレースの世界に入れる。','ZX-10R、お前に託す。リッターの世界へようこそ'],correctAfter:['ZX-10R、リッターの力を知れ。','お前ならうまく使いこなせるはずだ'],wrong:{cbr600:'CBR600RR…いいマシンだが、ノーマルのままか。レースに出すならレーシングカウルが要るんだ。保安部品を外して、軽量カウルを付けないとな',ninja250:'250で全日本…？ 俺が育てたいのはST600クラスのライダーだ',yzfr3:'300ccクラスか…悪くないが、俺が育てたいのはST600クラスだ',hayabusa:'隼…速いマシンだが、サーキットのレギュレーションに合わない',zx10r:'それ俺が今乗ってるやつなんだけど…？',_default:'うーん、600ccのレーサー仕様じゃないと…'}},
+  mechanic:{id:'mechanic',name:'伝説のメカニック',area:'circuit',isPartsShop:true,wantsPart:'travel_diary',givesPart:'turbo_kit',visibleIfBikeEverOwned:'vstrom',image:IMG+'npc_mechanic.png',idle:'バイクの魂を理解するやつにしか、俺の技術は渡さない…',greeting:['…お前、ただの走り屋じゃないな。','俺は50年バイクをいじってきた。','今まで誰にもターボキットを渡したことはない。','だが…バイクで世界を見てきた人間の言葉には興味がある。','旅の記録…そういうものを持っていたら見せてくれないか'],correct:['…………。','世界一周か。砂漠も、山岳も、豪雨の中も走ったのか。','バイクは機械だが、乗る人間の魂が宿る。','…よし。ターボキットを受け取れ。お前になら渡せる'],noPartMessage:'…手ぶらか。俺の技術はタダじゃない。バイクで世界を見た人間の記録を持ってこい'},
+  legend:{id:'legend',name:'伝説のライダー（タツヤ）',area:'circuit',wants:'zx10rf',gives:'hayabusa',image:IMG+'npc_legend.png',idle:'速さの先に何があるか…俺はもう見つけた。\nだが、まだ夢を追うやつがいるなら…',greeting:['…お前、ここまで来たか。','カブ一台から始めて、ここまでたどり着いたのか。','…面白いやつだ。','俺が持っているのは隼。最速の名を持つバイクだ。','だが、ただの速さでは俺の心は動かない。','限界までチューンされたマシンを見せてみろ'],correct:['…ZX-10R、フルチューン仕様。','エンジン、足回り、空力…すべてが究極を目指している。','このマシンには、お前がここまで歩んできた道のりが詰まっている。','いいだろう。隼を受け取れ。','俺はもう速さの先にあるものを見つけた。','お前もいつか、わかる時が来る。','…カブから隼まで。大した旅だったな'],correctAfter:['隼を手にした者よ…','どのバイクに乗っても、お前はライダーだ'],wrong:{zx10r:'ZX-10R…いいマシンだ。だが、ノーマルか。限界はまだ先にある。このマシンのポテンシャルを全て引き出してから来い',cub50:'……カブか。\n……ふっ。\n面白いやつだな。だが、まだ早い。お前の旅はまだ始まったばかりだ',hayabusa:'それ…俺が持っているやつだ。二台は要らんだろう？',_default:'…まだだな。準備が足りないだけだ。また来い'},hiddenEvent:['…お前、隼を手に入れた後にカブで来たのか。','……はっはっは！！','お前…わかってるじゃないか。','速さの先にあるもの…それは"原点"だ。','1340ccも50ccも、走る喜びは同じなんだ。','お前に教えることはもう何もない。','どのバイクに乗っても、お前はライダーだ']},
+};
+
+/* ─── エリア ─── */
+const AREAS = {
+  street:{id:'street',name:'街',emoji:'🏙️',bg:IMG+'bg_street.png',npcs:['soba_shop','commuter','college_girl','delivery']},
+  suburb:{id:'suburb',name:'郊外',emoji:'🌲',bg:IMG+'bg_suburb.png',npcs:['camper','bike_girl','returner','offroad']},
+  pass:{id:'pass',name:'峠',emoji:'⛰️',bg:IMG+'bg_pass.png',npcs:['touge','newbie','parts_shop','ex_racer']},
+  coast:{id:'coast',name:'海岸通り',emoji:'🌊',bg:IMG+'bg_coast.png',npcs:['seaside','gear_shop','world_rider']},
+  circuit:{id:'circuit',name:'サーキット',emoji:'🏁',bg:IMG+'bg_circuit.png',npcs:['streetfighter','trackday','pitcrew','retired_racer','mechanic','legend']},
+};
+
+/* ─── プロローグ ─── */
+const PROLOGUE = [
+  'ある日のこと——',
+  '蕎麦屋のゲンさんが引退することになった。',
+  '『出前用のカブ、余っちまったからよ。持ってきな。』',
+  'こうして手に入れた、一台のスーパーカブ50。',
+  'いつか、あの伝説のバイクに乗りたい——',
+  'カブ一台から始まる、交換の旅。',
+];
+
+/* ═══════════════════════════════════════════
+   Audio Manager
+   ═══════════════════════════════════════════ */
+class AudioMgr {
+  constructor() {
+    this._bgm = null; this._bgmKey = null; this._bgmPlaying = false;
+    this._vol = 0.5; this._muted = false; this._unlocked = false;
+    try { const s = JSON.parse(localStorage.getItem(AUDIO_KEY)); if (s) { this._vol = s.vol ?? 0.5; this._muted = s.muted ?? false; } } catch {}
+  }
+  _persist() { try { localStorage.setItem(AUDIO_KEY, JSON.stringify({ vol: this._vol, muted: this._muted })); } catch {} }
+  unlock() {
+    if (this._unlocked) return; this._unlocked = true;
+    try { const Ctx = window.AudioContext || window.webkitAudioContext; if (Ctx) { const ctx = new Ctx(); ctx.resume().then(() => ctx.close()).catch(() => {}); } } catch {}
+  }
+  playBgm(key) {
+    if (this._bgmKey === key && this._bgmPlaying) return;
+    if (this._bgm) { this._bgm.pause(); this._bgm = null; }
+    this._bgmKey = key; this._bgmPlaying = false;
+    const url = SND + 'bgm_' + key + '.mp3';
+    try {
+      const a = new Audio(url); a.loop = true; a.volume = this._muted ? 0 : this._vol;
+      a.onerror = () => { this._bgm = null; this._bgmPlaying = false; };
+      const p = a.play();
+      if (p && p.then) p.then(() => { this._bgmPlaying = true; }).catch(() => { this._bgmPlaying = false; });
+      this._bgm = a;
+    } catch { this._bgm = null; this._bgmPlaying = false; }
+  }
+  stopBgm() { if (this._bgm) { this._bgm.pause(); this._bgm = null; this._bgmKey = null; this._bgmPlaying = false; } }
+  playSe(key) {
+    const url = SND + 'se_' + key + '.mp3';
+    try { const a = new Audio(url); a.volume = this._muted ? 0 : this._vol; a.play().catch(() => {}); } catch {}
+  }
+  setVol(v) { this._vol = v; if (this._bgm) this._bgm.volume = this._muted ? 0 : v; this._persist(); }
+  toggleMute() { this._muted = !this._muted; if (this._bgm) this._bgm.volume = this._muted ? 0 : this._vol; this._persist(); return this._muted; }
+  get vol() { return this._vol; }
+  get muted() { return this._muted; }
+}
+const audio = new AudioMgr();
+
+/* ═══════════════════════════════════════════
+   Save / Load
+   ═══════════════════════════════════════════ */
+function saveGame(st) {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v:1, currentArea:st.currentArea, bikes:st.bikes, parts:st.parts, unlockedAreas:st.unlockedAreas, bikesEverOwned:st.bikesEverOwned, gameClear:st.gameClear })); } catch {}
+}
+function loadGame() { try { const r = localStorage.getItem(SAVE_KEY); return r ? JSON.parse(r) : null; } catch { return null; } }
+function deleteSave() { try { localStorage.removeItem(SAVE_KEY); } catch {} }
+
+/* ═══════════════════════════════════════════
+   Helpers
+   ═══════════════════════════════════════════ */
+function getVisibleNpcs(areaId, state) {
+  const area = AREAS[areaId]; if (!area) return [];
+  return area.npcs.filter(id => { const npc = NPCS[id]; if (npc.visibleIfBikeEverOwned) return state.bikesEverOwned.includes(npc.visibleIfBikeEverOwned); return true; });
+}
+
+function checkNewAreaUnlocks(bikes, currentUnlocked) {
+  const unlocked = [...currentUnlocked]; const msgs = [];
+  const maxCc = Math.max(0, ...bikes.map(b => BIKES[b]?.ccNum || 0));
+  const has = id => bikes.includes(id);
+  if (!unlocked.includes('suburb') && has('ct125')) { unlocked.push('suburb'); msgs.push('新エリア「郊外」が開放された！'); }
+  if (!unlocked.includes('pass') && maxCc >= 250) { unlocked.push('pass'); msgs.push('新エリア「峠」が開放された！'); }
+  if (!unlocked.includes('coast') && maxCc >= 400) { unlocked.push('coast'); msgs.push('新エリア「海岸通り」が開放された！'); }
+  if (!unlocked.includes('circuit') && (maxCc >= 600 || has('z900'))) { unlocked.push('circuit'); msgs.push('新エリア「サーキット」が開放された！'); }
+  return { unlocked, msgs };
+}
+
+function preloadAllImages() {
+  Object.values(NPCS).forEach(n => { if (n.image) new Image().src = n.image; });
+  Object.values(BIKES).forEach(b => { if (b.icon) new Image().src = b.icon; });
+  Object.values(AREAS).forEach(a => { if (a.bg) new Image().src = a.bg; });
+  new Image().src = IMG + 'title_screen.png';
+}
+
+/* ═══════════════════════════════════════════
+   State & Reducer
+   ═══════════════════════════════════════════ */
+const initialState = {
+  phase:'title', currentArea:'street', npcIndex:0, scene:'explore',
+  bikes:[], parts:[], selectedBike:null, unlockedAreas:['street'],
+  bikesEverOwned:[], gameClear:false,
+  activeNpc:null, dialogLines:[], dialogIndex:0, dialogPhase:'idle', synthResult:null,
+};
+
+let state = JSON.parse(JSON.stringify(initialState));
+let prevDialogPhase = 'idle';
+let prevAreasLen = 1;
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'START': return { ...state, phase:'prologue' };
+    case 'CONTINUE': {
+      const s = loadGame();
+      if (!s) return { ...state, phase:'prologue' };
+      return { ...initialState, phase:'playing', scene:'explore', currentArea:s.currentArea||'street',
+        bikes:s.bikes||[], parts:s.parts||[], unlockedAreas:s.unlockedAreas||['street'],
+        bikesEverOwned:s.bikesEverOwned||[], gameClear:s.gameClear||false };
+    }
+    case 'PROLOGUE_END': return { ...state, phase:'playing', scene:'explore', bikes:[], npcIndex:0 };
+    case 'NAV': {
+      const vis = getVisibleNpcs(state.currentArea, state);
+      if (vis.length <= 1) return state;
+      return { ...state, npcIndex:(state.npcIndex + action.dir + vis.length) % vis.length };
+    }
+    case 'TALK': {
+      const vis = getVisibleNpcs(state.currentArea, state);
+      const npcId = vis[state.npcIndex]; const npc = NPCS[npcId]; if (!npc) return state;
+      if (npc.isShop) {
+        if (state.bikes.includes('cub50'))
+          return { ...state, scene:'dialog', activeNpc:npcId, dialogLines:[npc.alreadyOwned], dialogIndex:0, dialogPhase:'shopRefuse' };
+        return { ...state, scene:'dialog', activeNpc:npcId, dialogLines:npc.greeting, dialogIndex:0, dialogPhase:'shopGreeting' };
+      }
+      if (npc.isPartsShop) {
+        if (state.parts.includes(npc.wantsPart))
+          return { ...state, scene:'dialog', activeNpc:npcId, dialogLines:npc.greeting, dialogIndex:0, dialogPhase:'partsShopGreeting' };
+        return { ...state, scene:'dialog', activeNpc:npcId, dialogLines:[...npc.greeting, npc.noPartMessage], dialogIndex:0, dialogPhase:'partsShopRefuse' };
+      }
+      return { ...state, scene:'dialog', activeNpc:npcId, dialogLines:npc.greeting, dialogIndex:0, dialogPhase:'greeting' };
+    }
+    case 'NEXT_LINE': {
+      if (state.dialogIndex < state.dialogLines.length - 1) return { ...state, dialogIndex:state.dialogIndex+1 };
+      const dp = state.dialogPhase;
+      if (dp === 'shopGreeting') {
+        const nb = [...state.bikes, 'cub50'];
+        return { ...state, bikes:nb, bikesEverOwned:[...new Set([...state.bikesEverOwned,'cub50'])], dialogLines:['スーパーカブ50 を手に入れた！'], dialogIndex:0, dialogPhase:'done' };
+      }
+      if (dp === 'shopRefuse' || dp === 'afterChat' || dp === 'partsShopRefuse')
+        return { ...state, scene:'explore', activeNpc:null, dialogPhase:'idle', dialogLines:[], dialogIndex:0 };
+      if (dp === 'partsShopGreeting') return { ...state, dialogPhase:'partsShopChoice' };
+      if (dp === 'partsExchangeDone') return { ...state, scene:'explore', activeNpc:null, dialogPhase:'idle', dialogLines:[], dialogIndex:0 };
+      if (dp === 'greeting') return { ...state, dialogPhase:'choice' };
+      if (dp === 'correct') return { ...state, dialogPhase:'exchangeReady' };
+      if (dp === 'correctAfter' || dp === 'done' || dp === 'hiddenEvent')
+        return { ...state, scene:'explore', activeNpc:null, dialogPhase:'idle', dialogLines:[], dialogIndex:0 };
+      if (dp === 'wrong') return { ...state, dialogPhase:'choice' };
+      if (dp === 'gameClearAfter') return state;
+      return state;
+    }
+    case 'PICK_BIKE': return { ...state, scene:'bikeSelect' };
+    case 'SHOW': {
+      const npc = NPCS[state.activeNpc]; const bid = action.bikeId;
+      if (state.gameClear && state.activeNpc === 'legend' && bid === 'cub50' && npc.hiddenEvent)
+        return { ...state, scene:'dialog', selectedBike:bid, dialogLines:npc.hiddenEvent, dialogIndex:0, dialogPhase:'hiddenEvent' };
+      const ok = Array.isArray(npc.wants) ? npc.wants.includes(bid) : bid === npc.wants;
+      if (ok) {
+        const cl = npc.correctMap ? npc.correctMap[bid] : npc.correct;
+        return { ...state, scene:'dialog', selectedBike:bid, dialogLines:cl, dialogIndex:0, dialogPhase:'correct' };
+      }
+      const wm = (npc.wrong && (npc.wrong[bid] || npc.wrong._default)) || 'うーん、それじゃないかな…';
+      return { ...state, scene:'dialog', selectedBike:bid, dialogLines:[wm], dialogIndex:0, dialogPhase:'wrong' };
+    }
+    case 'EXCHANGE': {
+      const npc = NPCS[state.activeNpc];
+      const nb = state.bikes.filter(b => b !== state.selectedBike); nb.push(npc.gives);
+      const np = [...state.parts]; const ne = [...new Set([...state.bikesEverOwned, npc.gives])];
+      const { unlocked, msgs } = checkNewAreaUnlocks(nb, state.unlockedAreas);
+      const lines = [BIKES[npc.gives].name + ' を手に入れた！', ...msgs, ...npc.correctAfter];
+      if (npc.bonusPart) { np.push(npc.bonusPart); lines.push('📦 ' + PARTS[npc.bonusPart].name + ' を手に入れた！'); }
+      const gc = npc.gives === 'hayabusa' ? true : state.gameClear;
+      return { ...state, bikes:nb, parts:np, unlockedAreas:unlocked, bikesEverOwned:ne, gameClear:gc,
+        selectedBike:null, dialogLines:lines, dialogIndex:0,
+        dialogPhase:gc && npc.gives === 'hayabusa' ? 'gameClearAfter' : 'correctAfter' };
+    }
+    case 'PARTS_EXCHANGE': {
+      const npc = NPCS[state.activeNpc];
+      const np = state.parts.filter(p => p !== npc.wantsPart); np.push(npc.givesPart);
+      return { ...state, parts:np, dialogLines:[...npc.correct, '📦 ' + PARTS[npc.givesPart].name + ' を手に入れた！'], dialogIndex:0, dialogPhase:'partsExchangeDone' };
+    }
+    case 'SYNTH': {
+      const r = SYNTHESIS.find(x => x.id === action.recipeId); if (!r) return state;
+      const nb = state.bikes.filter(b => b !== r.bike); nb.push(r.result);
+      const np = state.parts.filter(p => p !== r.part);
+      const ne = [...new Set([...state.bikesEverOwned, r.result])];
+      const { unlocked } = checkNewAreaUnlocks(nb, state.unlockedAreas);
+      return { ...state, bikes:nb, parts:np, unlockedAreas:unlocked, bikesEverOwned:ne, synthResult:r.result, scene:'synthResult' };
+    }
+    case 'GAME_CLEAR': return { ...state, phase:'gameClear' };
+    case 'CONTINUE_AFTER_CLEAR':
+      return { ...state, phase:'playing', scene:'explore', activeNpc:null, dialogPhase:'idle', dialogLines:[], dialogIndex:0 };
+    case 'BACK_DIALOG': return { ...state, scene:'dialog', dialogPhase:'choice' };
+    case 'LEAVE': return { ...state, scene:'explore', activeNpc:null, dialogPhase:'idle', dialogLines:[], dialogIndex:0, selectedBike:null };
+    case 'OPEN_MAP': return { ...state, scene:'map' };
+    case 'OPEN_INV': return { ...state, scene:'inventory' };
+    case 'OPEN_SYNTH': return { ...state, scene:'synthesis' };
+    case 'GO_AREA': return { ...state, currentArea:action.areaId, npcIndex:0, scene:'explore' };
+    case 'CLOSE': return { ...state, scene:'explore', synthResult:null };
+    default: return state;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Dispatch with SE
+   ═══════════════════════════════════════════ */
+function dispatch(type, payload) {
+  audio.unlock();
+  const s = state;
+  const click = () => audio.playSe('click');
+  if (['NAV','OPEN_MAP','OPEN_INV','OPEN_SYNTH','CLOSE','BACK_DIALOG','LEAVE','PICK_BIKE','GO_AREA','START','PROLOGUE_END','GAME_CLEAR','CONTINUE_AFTER_CLEAR','CONTINUE'].includes(type)) click();
+  if (type === 'TALK') audio.playSe('talk');
+  if (type === 'EXCHANGE' || type === 'PARTS_EXCHANGE') audio.playSe('correct');
+  if (type === 'SYNTH') audio.playSe('craft');
+  if (type === 'SHOW') {
+    const npc = NPCS[s.activeNpc];
+    if (npc) {
+      const ok = s.gameClear && s.activeNpc === 'legend' && payload?.bikeId === 'cub50'
+        ? true : Array.isArray(npc.wants) ? npc.wants.includes(payload?.bikeId) : payload?.bikeId === npc.wants;
+      audio.playSe(ok ? 'correct' : 'wrong');
+    }
+  }
+  if (type === 'NEXT_LINE' && s.dialogPhase === 'shopGreeting' && s.dialogIndex >= s.dialogLines.length - 1) audio.playSe('cub');
+  if (type === 'START') { audio.playBgm('title'); deleteSave(); }
+  if (type === 'CONTINUE') { const sv = loadGame(); audio.playBgm(sv?.currentArea || 'street'); }
+
+  const prevPhase = state.phase;
+  const prevArea = state.currentArea;
+  state = reducer(state, { type, ...payload });
+
+  // SE: dialog phase transitions
+  if (state.dialogPhase === 'wrong' && prevDialogPhase !== 'wrong') audio.playSe('wrong');
+  prevDialogPhase = state.dialogPhase;
+
+  // SE: area unlock
+  if (state.unlockedAreas.length > prevAreasLen) audio.playSe('unlock');
+  prevAreasLen = state.unlockedAreas.length;
+
+  // BGM
+  if (state.phase === 'prologue' && prevPhase !== 'prologue') audio.playBgm('title');
+  else if (state.phase === 'gameClear' && prevPhase !== 'gameClear') audio.playBgm('ending');
+  else if (state.phase === 'playing' && (prevPhase !== 'playing' || state.currentArea !== prevArea)) audio.playBgm(state.currentArea);
+
+  // Auto-save
+  if (state.phase === 'playing' || state.phase === 'gameClear') saveGame(state);
+
+  render();
+}
+
+/* ═══════════════════════════════════════════
+   HTML helpers
+   ═══════════════════════════════════════════ */
+function h(tag, attrs, ...children) {
+  const el = document.createElement(tag);
+  if (attrs) {
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+      else if (k === 'className') el.className = v;
+      else if (k.startsWith('on')) el.addEventListener(k.slice(2).toLowerCase(), v);
+      else el.setAttribute(k, v);
+    }
+  }
+  for (const c of children) {
+    if (c == null) continue;
+    if (typeof c === 'string' || typeof c === 'number') el.appendChild(document.createTextNode(c));
+    else if (Array.isArray(c)) c.forEach(x => x && el.appendChild(x));
+    else el.appendChild(c);
+  }
+  return el;
+}
+
+function btn(label, onClick, cls, extra) {
+  const b = h('button', { className: 'ws-btn ' + (cls||'ws-btn-accent'), onClick, ...(extra||{}) }, label);
+  return b;
+}
+
+function volCtrl() {
+  const wrap = h('div', { style: { display:'flex', alignItems:'center', gap:'2px' } });
+  const muteBtn = h('button', {
+    style: { background:'none', border:'none', color:C.text, fontSize:'14px', cursor:'pointer', padding:'2px 4px', lineHeight:'1' },
+    onClick: () => { audio.toggleMute(); render(); }
+  }, audio.muted ? '🔇' : '🔊');
+  const slider = h('input', {
+    type: 'range', className: 'ws-vol', min: '0', max: '100',
+    style: { width:'44px', cursor:'pointer' },
+  });
+  slider.value = audio.muted ? 0 : Math.round(audio.vol * 100);
+  slider.addEventListener('input', e => { audio.setVol(parseInt(e.target.value) / 100); });
+  wrap.appendChild(muteBtn);
+  wrap.appendChild(slider);
+  return wrap;
+}
+
+/* ═══════════════════════════════════════════
+   Screen Renderers
+   ═══════════════════════════════════════════ */
+const root = document.getElementById('app');
+
+function render() {
+  root.innerHTML = '';
+  if (state.phase === 'title') renderTitle();
+  else if (state.phase === 'prologue') renderPrologue();
+  else if (state.phase === 'gameClear') renderGameClear();
+  else renderPlaying();
+}
+
+/* --- Title --- */
+function renderTitle() {
+  const hasSave = !!loadGame();
+  preloadAllImages();
+
+  const shell = h('div', { style: { fontFamily:"'Noto Sans JP',sans-serif", color:C.text, background:C.bg, position:'relative', width:'100%', height:'100%', overflow:'hidden', display:'flex', flexDirection:'column' } });
+  shell.appendChild(h('img', { src: IMG+'title_screen.png', alt:'', className:'ws-bg-img' }));
+  shell.appendChild(h('div', { style: { position:'absolute', inset:'0', background:'rgba(0,0,0,.45)', zIndex:'1' } }));
+
+  const content = h('div', { style: { position:'relative', zIndex:'2', flex:'1', display:'flex', flexDirection:'column' } });
+  const topRight = h('div', { style: { display:'flex', justifyContent:'flex-end', padding:'10px 12px' } });
+  topRight.appendChild(volCtrl());
+  content.appendChild(topRight);
+
+  const center = h('div', { style: { flex:'1', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', animation:'ws-fadeIn .8s ease-out' } });
+  center.appendChild(h('h1', { style: { fontSize:'28px', fontWeight:'900', marginBottom:'6px', textShadow:'0 2px 8px rgba(0,0,0,.7)', textAlign:'center', padding:'0 16px' } }, 'バイクわらしべ長者'));
+  center.appendChild(h('p', { style: { fontSize:'13px', marginBottom:'32px', opacity:'.85', textShadow:'0 1px 4px rgba(0,0,0,.6)' } }, 'カブ50から始まる、交換の旅'));
+
+  const startBtn = btn('はじめから', () => dispatch('START'), 'ws-btn ws-btn-accent', { style: { padding:'14px 48px', fontSize:'18px', animation:'ws-pulse 2s infinite' } });
+  center.appendChild(startBtn);
+
+  if (hasSave) {
+    const contBtn = btn('つづきから', () => dispatch('CONTINUE'), 'ws-btn ws-btn-card', { style: { padding:'12px 40px', fontSize:'16px', marginTop:'12px' } });
+    center.appendChild(contBtn);
+  }
+
+  content.appendChild(center);
+  shell.appendChild(content);
+  root.appendChild(shell);
+}
+
+/* --- Prologue --- */
+let prologueTimer = null;
+let prologueVc = 0;
+
+function renderPrologue() {
+  if (prologueTimer) clearTimeout(prologueTimer);
+  if (state.phase !== 'prologue') { prologueVc = 0; return; }
+
+  const shell = h('div', { style: { fontFamily:"'Noto Sans JP',sans-serif", color:C.text, background:C.bg, position:'relative', width:'100%', height:'100%', overflow:'hidden', display:'flex', flexDirection:'column' } });
+  shell.appendChild(h('img', { src: IMG+'title_screen.png', alt:'', className:'ws-bg-img' }));
+  shell.appendChild(h('div', { style: { position:'absolute', inset:'0', background:'rgba(0,0,0,.7)', zIndex:'1' } }));
+
+  const content = h('div', { style: { position:'relative', zIndex:'2', flex:'1', display:'flex', flexDirection:'column' } });
+  const topRight = h('div', { style: { display:'flex', justifyContent:'flex-end', padding:'10px 12px' } });
+  topRight.appendChild(volCtrl());
+  content.appendChild(topRight);
+
+  const center = h('div', { style: { flex:'1', display:'flex', alignItems:'center', justifyContent:'center', padding:'0 24px', overflowY:'auto' } });
+  const textBox = h('div', { style: { maxWidth:'440px', textAlign:'center' } });
+
+  PROLOGUE.forEach((line, i) => {
+    textBox.appendChild(h('p', { style: {
+      fontSize: i === 2 ? '14px' : '15px', lineHeight:'2', overflowWrap:'break-word', wordBreak:'break-word',
+      opacity: i < prologueVc ? '1' : '0', transform: i < prologueVc ? 'translateY(0)' : 'translateY(12px)',
+      transition: 'opacity .8s ease-out, transform .8s ease-out',
+      textShadow: '0 1px 6px rgba(0,0,0,.8)', fontStyle: i === 2 ? 'italic' : 'normal',
+    } }, line));
+  });
+
+  if (prologueVc >= PROLOGUE.length) {
+    const startBtn = btn('はじめる', () => { prologueVc = 0; dispatch('PROLOGUE_END'); }, 'ws-btn ws-btn-accent', { style: { padding:'14px 48px', fontSize:'18px', marginTop:'32px', animation:'ws-fadeIn .6s ease-out' } });
+    textBox.appendChild(startBtn);
+  }
+
+  center.appendChild(textBox);
+  content.appendChild(center);
+  shell.appendChild(content);
+  root.appendChild(shell);
+
+  if (prologueVc < PROLOGUE.length) {
+    prologueTimer = setTimeout(() => { prologueVc++; render(); }, 1200);
+  }
+}
+
+/* --- Game Clear --- */
+function renderGameClear() {
+  const shell = h('div', { style: {
+    fontFamily:"'Noto Sans JP',sans-serif", color:C.text,
+    background:'linear-gradient(135deg, #1a1a2e 0%, #0f3460 50%, #1a1a2e 100%)',
+    position:'relative', width:'100%', height:'100%', overflow:'hidden',
+    display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center'
+  } });
+
+  const inner = h('div', { style: { textAlign:'center', padding:'0 24px', animation:'ws-fadeIn 1s ease-out' } });
+  inner.appendChild(h('p', { style: { fontSize:'44px', marginBottom:'12px' } }, '🏁'));
+  inner.appendChild(h('h1', { style: { fontSize:'24px', fontWeight:'900', color:C.gold, marginBottom:'6px', textShadow:'0 0 20px rgba(255,215,0,.4)' } }, 'ゲームクリア！'));
+  inner.appendChild(h('p', { style: { fontSize:'14px', lineHeight:'1.8', marginBottom:'8px' } }, 'カブ50から始まった交換の旅——'));
+
+  const glowWrap = h('div', { style: { animation:'ws-glow 2s infinite', borderRadius:'16px', padding:'20px', display:'inline-block', margin:'12px 0' } });
+  glowWrap.appendChild(h('img', { src: BIKES.hayabusa.icon, alt:'隼', style: { width:'150px', height:'150px', objectFit:'contain' } }));
+  inner.appendChild(glowWrap);
+
+  inner.appendChild(h('p', { style: { fontSize:'18px', fontWeight:'900', color:C.gold } }, '隼（Hayabusa）を手に入れた！'));
+  inner.appendChild(h('p', { style: { fontSize:'12px', opacity:'.6', marginTop:'6px' } },
+    '入手バイク: ' + state.bikesEverOwned.length + '種 / 所持パーツ: ' + state.parts.length + '個'));
+
+  inner.appendChild(btn('まだまだ遊ぶ', () => dispatch('CONTINUE_AFTER_CLEAR'), 'ws-btn ws-btn-accent', { style: { padding:'12px 44px', fontSize:'16px', marginTop:'28px' } }));
+  inner.appendChild(h('p', { style: { fontSize:'11px', opacity:'.4', marginTop:'10px' } }, 'ヒント：伝説のライダーに、あのバイクで話しかけてみよう…'));
+
+  shell.appendChild(inner);
+  root.appendChild(shell);
+}
+
+/* --- Playing (main game) --- */
+function renderPlaying() {
+  const area = AREAS[state.currentArea];
+  const visNpcs = getVisibleNpcs(state.currentArea, state);
+  const npcId = visNpcs[state.npcIndex] || visNpcs[0];
+  const npc = NPCS[npcId];
+
+  const shell = h('div', { style: { fontFamily:"'Noto Sans JP',sans-serif", color:C.text, background:C.bg, position:'relative', width:'100%', height:'100%', overflow:'hidden', display:'flex', flexDirection:'column' } });
+  shell.appendChild(h('img', { src: area.bg, alt:'', className:'ws-bg-img' }));
+  shell.appendChild(h('div', { className:'ws-overlay', style: { background:'linear-gradient(to bottom, rgba(26,26,46,.3) 0%, rgba(26,26,46,.85) 100%)' } }));
+
+  const content = h('div', { className:'ws-content' });
+
+  // Top bar
+  const topBar = h('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 12px 6px', flexShrink:'0', position:'relative', zIndex:'10' } });
+  const leftInfo = h('div', { style: { display:'flex', alignItems:'center', gap:'6px' } });
+  leftInfo.appendChild(volCtrl());
+  const areaLabel = h('span', { style: { fontSize:'13px', fontWeight:'700', opacity:'.7' } }, area.emoji + ' ' + area.name);
+  if (state.gameClear) areaLabel.appendChild(h('span', { style: { marginLeft:'6px', color:C.gold, fontSize:'11px' } }, '🏆'));
+  leftInfo.appendChild(areaLabel);
+  topBar.appendChild(leftInfo);
+
+  const rightBtns = h('div', { style: { display:'flex', gap:'6px' } });
+  rightBtns.appendChild(hdrBtn('🔧' + (state.parts.length > 0 ? ' ' + state.parts.length : ''), () => dispatch('OPEN_SYNTH')));
+  rightBtns.appendChild(hdrBtn('📦 ' + state.bikes.length, () => dispatch('OPEN_INV')));
+  rightBtns.appendChild(hdrBtn('🗺️', () => dispatch('OPEN_MAP')));
+  topBar.appendChild(rightBtns);
+  content.appendChild(topBar);
+
+  // Scene
+  if (state.scene === 'explore' && npc) content.appendChild(renderExplore(npc, npcId, visNpcs));
+  else if (state.scene === 'dialog') content.appendChild(renderDialog());
+  else if (state.scene === 'bikeSelect') content.appendChild(renderBikeSelect());
+  else if (state.scene === 'inventory') content.appendChild(renderInventory());
+  else if (state.scene === 'map') content.appendChild(renderMap());
+  else if (state.scene === 'synthesis') content.appendChild(renderSynthesis());
+  else if (state.scene === 'synthResult') content.appendChild(renderSynthResult());
+
+  shell.appendChild(content);
+  root.appendChild(shell);
+}
+
+function hdrBtn(label, onClick) {
+  return h('button', {
+    className: 'ws-btn ws-btn-card',
+    style: { padding:'5px 10px', fontSize:'12px' },
+    onClick
+  }, label);
+}
+
+/* --- Explore --- */
+function renderExplore(npc, npcId, visNpcs) {
+  const wrap = h('div', { style: { flex:'1', display:'flex', flexDirection:'column' } });
+
+  const center = h('div', { style: { flex:'1', display:'flex', alignItems:'center', justifyContent:'center', padding:'0 16px' } });
+  const inner = h('div', { style: { display:'flex', flexDirection:'column', alignItems:'center', animation:'ws-fadeIn .4s ease-out', width:'100%' } });
+  inner.appendChild(h('img', { src: npc.image, alt: npc.name, className:'ws-npc-img', style: { animation:'ws-float 3s ease-in-out infinite' } }));
+  inner.appendChild(h('p', { style: { fontSize:'16px', fontWeight:'700', marginTop:'8px', textAlign:'center', textShadow:'0 1px 4px rgba(0,0,0,.6)' } }, npc.name));
+
+  const idle = h('p', { style: { fontSize:'14px', opacity:'.75', marginTop:'4px', fontStyle:'italic', textAlign:'center', lineHeight:'1.6', whiteSpace:'pre-line', padding:'0 8px' } });
+  idle.textContent = '「' + npc.idle + '」';
+  inner.appendChild(idle);
+  center.appendChild(inner);
+  wrap.appendChild(center);
+
+  // Bottom nav
+  const bottom = h('div', { style: { padding:'12px 16px 20px', background:'linear-gradient(to top, rgba(26,26,46,.95) 60%, rgba(26,26,46,0) 100%)', flexShrink:'0' } });
+  const navRow = h('div', { style: { display:'flex', alignItems:'center', gap:'10px', maxWidth:'480px', margin:'0 auto' } });
+
+  if (visNpcs.length > 1) navRow.appendChild(btn('◀', () => dispatch('NAV', { dir: -1 }), 'ws-btn ws-btn-card', { style: { padding:'12px 16px', fontSize:'18px' } }));
+  navRow.appendChild(btn('話しかける', () => dispatch('TALK'), 'ws-btn ws-btn-accent', { style: { flex:'1', padding:'14px 0', fontSize:'16px' } }));
+  if (visNpcs.length > 1) navRow.appendChild(btn('▶', () => dispatch('NAV', { dir: 1 }), 'ws-btn ws-btn-card', { style: { padding:'12px 16px', fontSize:'18px' } }));
+
+  bottom.appendChild(navRow);
+  wrap.appendChild(bottom);
+  return wrap;
+}
+
+/* --- Dialog --- */
+function renderDialog() {
+  const npc = NPCS[state.activeNpc];
+  const line = state.dialogLines[state.dialogIndex] || '';
+  const last = state.dialogIndex >= state.dialogLines.length - 1;
+  const dp = state.dialogPhase;
+
+  const wrap = h('div', { style: { flex:'1', display:'flex', flexDirection:'column' } });
+
+  if (npc) {
+    const imgWrap = h('div', { style: { flex:'1', display:'flex', alignItems:'center', justifyContent:'center' } });
+    const anim = dp === 'correct' ? 'ws-popIn .4s ease-out' : dp === 'wrong' ? 'ws-shake .4s' : '';
+    imgWrap.appendChild(h('img', { src: npc.image, alt: npc.name, className:'ws-npc-img', style: { animation: anim } }));
+    wrap.appendChild(imgWrap);
+  }
+
+  const bottom = h('div', { style: { padding:'0 12px 20px', background:'linear-gradient(to top, rgba(26,26,46,.95) 60%, rgba(26,26,46,0) 100%)', flexShrink:'0' } });
+  const inner = h('div', { style: { maxWidth:'480px', margin:'0 auto' } });
+
+  const dialogBox = h('div', {
+    className: 'ws-card',
+    style: { background:'rgba(22,33,62,.95)', border:'1px solid rgba(255,255,255,.1)', minHeight:'90px',
+      cursor: last && !['choice','exchangeReady','partsShopChoice'].includes(dp) ? 'default' : 'pointer',
+      animation:'ws-fadeUp .3s ease-out', textAlign:'center' },
+    onClick: () => { if (['choice','exchangeReady','partsShopChoice'].includes(dp)) return; dispatch('NEXT_LINE'); }
+  });
+  if (npc) dialogBox.appendChild(h('p', { style: { fontSize:'16px', fontWeight:'700', color:C.accent, marginBottom:'6px' } }, npc.name));
+
+  const lineP = h('p', { style: { fontSize:'15px', lineHeight:'1.7', whiteSpace:'pre-line' } });
+  lineP.textContent = line;
+  dialogBox.appendChild(lineP);
+
+  if (!last) dialogBox.appendChild(h('p', { style: { fontSize:'12px', opacity:'.5', marginTop:'6px' } }, '▼'));
+  inner.appendChild(dialogBox);
+
+  // Action buttons
+  if (dp === 'choice') {
+    const row = h('div', { style: { display:'flex', gap:'8px', marginTop:'8px', animation:'ws-fadeIn .3s ease-out' } });
+    row.appendChild(btn('バイクを見せる', () => dispatch('PICK_BIKE'), 'ws-btn ws-btn-accent', { style: { flex:'1', fontSize:'15px' } }));
+    row.appendChild(btn('やめる', () => dispatch('LEAVE'), 'ws-btn ws-btn-card', { style: { flex:'1', fontSize:'15px' } }));
+    inner.appendChild(row);
+  }
+  if (dp === 'exchangeReady') {
+    const row = h('div', { style: { marginTop:'8px', animation:'ws-fadeIn .3s ease-out' } });
+    row.appendChild(btn('交換する！', () => dispatch('EXCHANGE'), 'ws-btn ws-btn-success', { style: { width:'100%', fontSize:'15px' } }));
+    inner.appendChild(row);
+  }
+  if (dp === 'partsShopChoice') {
+    const row = h('div', { style: { display:'flex', gap:'8px', marginTop:'8px', animation:'ws-fadeIn .3s ease-out' } });
+    row.appendChild(btn('交換する', () => dispatch('PARTS_EXCHANGE'), 'ws-btn ws-btn-success', { style: { flex:'1', fontSize:'15px' } }));
+    row.appendChild(btn('やめる', () => dispatch('LEAVE'), 'ws-btn ws-btn-card', { style: { flex:'1', fontSize:'15px' } }));
+    inner.appendChild(row);
+  }
+  if (dp === 'gameClearAfter' && last) {
+    const row = h('div', { style: { marginTop:'8px', animation:'ws-fadeIn .3s ease-out' } });
+    row.appendChild(btn('🏁 ゲームクリア！', () => dispatch('GAME_CLEAR'), 'ws-btn ws-btn-gold', { style: { width:'100%', fontSize:'16px' } }));
+    inner.appendChild(row);
+  }
+  if (dp === 'done' || dp === 'partsExchangeDone' || dp === 'hiddenEvent' || (dp === 'correctAfter' && last)) {
+    const row = h('div', { style: { marginTop:'8px', animation:'ws-fadeIn .3s ease-out' } });
+    row.appendChild(btn('戻る', () => dispatch('LEAVE'), 'ws-btn ws-btn-card', { style: { width:'100%', fontSize:'15px' } }));
+    inner.appendChild(row);
+  }
+
+  bottom.appendChild(inner);
+  wrap.appendChild(bottom);
+  return wrap;
+}
+
+/* --- Bike Select --- */
+function renderBikeSelect() {
+  const wrap = h('div', { className:'ws-scene-col' });
+  wrap.appendChild(h('h2', { style: { fontSize:'15px', fontWeight:'700', textAlign:'center', margin:'12px 0 8px', animation:'ws-fadeIn .3s ease-out', flexShrink:'0' } }, 'どのバイクを見せる？'));
+
+  const scroll = h('div', { className:'ws-scroll' });
+  state.bikes.forEach((bid, i) => {
+    const b = BIKES[bid]; if (!b) return;
+    const card = h('button', {
+      className:'ws-card',
+      style: { display:'flex', alignItems:'center', gap:'12px', cursor:'pointer', width:'100%',
+        border: b.isCustom ? '1px solid ' + C.gold + '44' : '1px solid rgba(255,255,255,.1)',
+        animation: 'ws-slideIn .3s ease-out ' + (i * .05) + 's both' },
+      onClick: () => dispatch('SHOW', { bikeId: bid })
+    });
+    card.appendChild(h('img', { src: b.icon, alt: b.name, style: { width:'52px', height:'52px', objectFit:'contain' } }));
+    const info = h('div', { style: { textAlign:'left' } });
+    const nameP = h('p', { style: { fontSize:'14px', fontWeight:'700' } });
+    if (b.isCustom) nameP.appendChild(h('span', { style: { color:C.gold, marginRight:'4px' } }, '★'));
+    nameP.appendChild(document.createTextNode(b.name));
+    info.appendChild(nameP);
+    info.appendChild(h('p', { style: { fontSize:'11px', opacity:'.6' } }, b.cc + ' / ' + b.category));
+    card.appendChild(info);
+    scroll.appendChild(card);
+  });
+  wrap.appendChild(scroll);
+
+  const pad = h('div', { className:'ws-bottom-pad' });
+  pad.appendChild(btn('戻る', () => dispatch('BACK_DIALOG'), 'ws-btn ws-btn-card', { style: { width:'100%', fontSize:'14px' } }));
+  wrap.appendChild(pad);
+  return wrap;
+}
+
+/* --- Inventory --- */
+function renderInventory() {
+  const wrap = h('div', { className:'ws-scene-col' });
+  wrap.appendChild(h('h2', { style: { fontSize:'15px', fontWeight:'700', textAlign:'center', margin:'12px 0 8px', flexShrink:'0' } }, '所持バイク'));
+
+  const scroll = h('div', { className:'ws-scroll' });
+  if (state.bikes.length === 0) scroll.appendChild(h('p', { style: { textAlign:'center', opacity:'.6', marginTop:'16px' } }, 'バイクを持っていません'));
+
+  state.bikes.forEach((bid, i) => {
+    const b = BIKES[bid]; if (!b) return;
+    const card = h('div', { className:'ws-card', style: { display:'flex', alignItems:'center', gap:'12px', border: b.isCustom ? '1px solid '+C.gold+'44' : '1px solid rgba(255,255,255,.08)', animation:'ws-slideIn .3s ease-out '+(i*.05)+'s both' } });
+    card.appendChild(h('img', { src: b.icon, alt: b.name, style: { width:'52px', height:'52px', objectFit:'contain' } }));
+    const info = h('div');
+    const nameP = h('p', { style: { fontSize:'14px', fontWeight:'700' } });
+    if (b.isCustom) nameP.appendChild(h('span', { style: { color:C.gold, marginRight:'4px' } }, '★'));
+    nameP.appendChild(document.createTextNode(b.name));
+    info.appendChild(nameP);
+    info.appendChild(h('p', { style: { fontSize:'11px', opacity:'.6' } }, b.cc + ' / ' + b.category + ' / ' + b.price));
+    card.appendChild(info);
+    scroll.appendChild(card);
+  });
+
+  if (state.parts.length > 0) {
+    scroll.appendChild(h('h3', { style: { fontSize:'14px', fontWeight:'700', textAlign:'center', margin:'16px 0 6px' } }, '所持パーツ'));
+    state.parts.forEach((pid, i) => {
+      const p = PARTS[pid]; if (!p) return;
+      const card = h('div', { className:'ws-card', style: { display:'flex', alignItems:'center', gap:'12px', border:'1px solid rgba(255,255,255,.08)', animation:'ws-slideIn .3s ease-out '+(i*.05)+'s both' } });
+      card.appendChild(h('span', { style: { fontSize:'24px', width:'52px', textAlign:'center', display:'inline-block' } }, '🔧'));
+      const info = h('div');
+      info.appendChild(h('p', { style: { fontSize:'14px', fontWeight:'700' } }, p.name));
+      info.appendChild(h('p', { style: { fontSize:'11px', opacity:'.6' } }, p.desc));
+      card.appendChild(info);
+      scroll.appendChild(card);
+    });
+  }
+  wrap.appendChild(scroll);
+
+  const pad = h('div', { className:'ws-bottom-pad' });
+  pad.appendChild(btn('閉じる', () => dispatch('CLOSE'), 'ws-btn ws-btn-card', { style: { width:'100%', fontSize:'14px' } }));
+  wrap.appendChild(pad);
+  return wrap;
+}
+
+/* --- Map --- */
+function renderMap() {
+  const wrap = h('div', { className:'ws-scene-col' });
+  wrap.appendChild(h('h2', { style: { fontSize:'15px', fontWeight:'700', textAlign:'center', margin:'12px 0 8px', flexShrink:'0' } }, 'エリアマップ'));
+
+  const scroll = h('div', { className:'ws-scroll' });
+  Object.values(AREAS).forEach((a, i) => {
+    const ok = state.unlockedAreas.includes(a.id);
+    const card = h('button', {
+      className:'ws-card',
+      style: { width:'100%', cursor: ok ? 'pointer' : 'not-allowed', opacity: ok ? '1' : '.4',
+        border: state.currentArea === a.id ? '2px solid '+C.accent : '1px solid rgba(255,255,255,.1)',
+        display:'flex', alignItems:'center', gap:'12px',
+        backgroundImage: ok ? 'linear-gradient(135deg,rgba(22,33,62,.9),rgba(22,33,62,.7)),url('+a.bg+')' : '',
+        backgroundSize:'cover', backgroundPosition:'center',
+        animation:'ws-fadeIn .3s ease-out '+(i*.1)+'s both' },
+      onClick: () => ok && dispatch('GO_AREA', { areaId: a.id })
+    });
+    if (!ok) card.disabled = true;
+    card.appendChild(h('span', { style: { fontSize:'26px' } }, ok ? a.emoji : '🔒'));
+    const info = h('div', { style: { textAlign:'left' } });
+    info.appendChild(h('p', { style: { fontSize:'15px', fontWeight:'700' } }, a.name));
+    info.appendChild(h('p', { style: { fontSize:'11px', opacity:'.6' } }, ok ? 'NPC: '+getVisibleNpcs(a.id, state).length+'人' : '???'));
+    card.appendChild(info);
+    if (state.currentArea === a.id) card.appendChild(h('span', { style: { marginLeft:'auto', fontSize:'11px', color:C.accent, fontWeight:'700' } }, '現在地'));
+    scroll.appendChild(card);
+  });
+  wrap.appendChild(scroll);
+
+  const pad = h('div', { className:'ws-bottom-pad' });
+  pad.appendChild(btn('閉じる', () => dispatch('CLOSE'), 'ws-btn ws-btn-card', { style: { width:'100%', fontSize:'14px' } }));
+  wrap.appendChild(pad);
+  return wrap;
+}
+
+/* --- Synthesis --- */
+function renderSynthesis() {
+  const wrap = h('div', { className:'ws-scene-col' });
+  wrap.appendChild(h('h2', { style: { fontSize:'15px', fontWeight:'700', textAlign:'center', margin:'12px 0 8px', flexShrink:'0' } }, '🔧 合成'));
+
+  const scroll = h('div', { className:'ws-scroll' });
+  SYNTHESIS.forEach((r, i) => {
+    const hb = state.bikes.includes(r.bike), hp = state.parts.includes(r.part), can = hb && hp;
+    const bd = BIKES[r.bike], pd = PARTS[r.part], rd = BIKES[r.result];
+    if (!bd || !pd || !rd) return;
+
+    const card = h('div', { className:'ws-card', style: { opacity: can ? '1' : '.45', border: can ? '1px solid '+C.gold+'66' : '1px solid rgba(255,255,255,.08)', animation:'ws-fadeIn .3s ease-out '+(i*.1)+'s both' } });
+
+    const icons = h('div', { style: { display:'flex', alignItems:'center', gap:'6px', justifyContent:'center', marginBottom:'6px' } });
+    icons.appendChild(h('img', { src: bd.icon, alt:'', style: { width:'36px', height:'36px', objectFit:'contain', opacity: hb ? '1' : '.3' } }));
+    icons.appendChild(h('span', { style: { fontWeight:'700' } }, '+'));
+    icons.appendChild(h('span', { style: { fontSize:'18px', opacity: hp ? '1' : '.3' } }, '🔧'));
+    icons.appendChild(h('span', { style: { fontWeight:'700' } }, '='));
+    icons.appendChild(h('img', { src: rd.icon, alt:'', style: { width:'36px', height:'36px', objectFit:'contain' } }));
+    card.appendChild(icons);
+
+    card.appendChild(h('p', { style: { fontSize:'12px', textAlign:'center', opacity:'.8' } }, bd.name + ' + ' + pd.name));
+    card.appendChild(h('p', { style: { fontSize:'13px', fontWeight:'700', textAlign:'center', color:C.gold, marginTop:'2px' } }, '→ ' + rd.name));
+
+    if (can) {
+      card.appendChild(btn('合成する！', () => dispatch('SYNTH', { recipeId: r.id }), 'ws-btn ws-btn-success', { style: { width:'100%', marginTop:'8px', fontSize:'14px' } }));
+    }
+    scroll.appendChild(card);
+  });
+
+  if (state.parts.length > 0) {
+    scroll.appendChild(h('h3', { style: { fontSize:'13px', fontWeight:'700', textAlign:'center', margin:'14px 0 6px', opacity:'.7' } }, '所持パーツ'));
+    const flexWrap = h('div', { style: { display:'flex', flexWrap:'wrap', gap:'6px', justifyContent:'center', marginBottom:'8px' } });
+    state.parts.forEach(pId => {
+      const p = PARTS[pId]; if (!p) return;
+      flexWrap.appendChild(h('span', { className:'ws-card', style: { padding:'6px 10px', fontSize:'11px', margin:'0' } }, '🔧 ' + p.name));
+    });
+    scroll.appendChild(flexWrap);
+  }
+  wrap.appendChild(scroll);
+
+  const pad = h('div', { className:'ws-bottom-pad' });
+  pad.appendChild(btn('閉じる', () => dispatch('CLOSE'), 'ws-btn ws-btn-card', { style: { width:'100%', fontSize:'14px' } }));
+  wrap.appendChild(pad);
+  return wrap;
+}
+
+/* --- Synth Result --- */
+function renderSynthResult() {
+  const b = BIKES[state.synthResult]; if (!b) return h('div');
+  const wrap = h('div', { style: { flex:'1', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'0 16px', animation:'ws-fadeIn .5s ease-out' } });
+  wrap.appendChild(h('p', { style: { fontSize:'14px', opacity:'.7', marginBottom:'12px' } }, '🔧 合成成功！'));
+
+  const glowWrap = h('div', { style: { animation:'ws-glow 2s infinite', borderRadius:'16px', padding:'20px' } });
+  glowWrap.appendChild(h('img', { src: b.icon, alt: b.name, style: { width:'140px', height:'140px', objectFit:'contain', animation:'ws-popIn .5s ease-out' } }));
+  wrap.appendChild(glowWrap);
+
+  wrap.appendChild(h('p', { style: { fontSize:'18px', fontWeight:'900', color:C.gold, marginTop:'12px' } }, '★ ' + b.name));
+  wrap.appendChild(h('p', { style: { fontSize:'12px', opacity:'.6', marginTop:'4px' } }, b.cc + ' / ' + b.category + ' / ' + b.price));
+  wrap.appendChild(btn('OK', () => dispatch('CLOSE'), 'ws-btn ws-btn-accent', { style: { marginTop:'28px', padding:'12px 44px', fontSize:'16px' } }));
+  return wrap;
+}
+
+/* ═══════════════════════════════════════════
+   Boot
+   ═══════════════════════════════════════════ */
+render();
+</script>
+</body>
+</html>

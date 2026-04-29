@@ -74,6 +74,9 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     // カタログページ（地域なしプログラマティックSEO）
     Route::get('/catalog/{slug}', 'catalog')->name('catalog');
 
+    // 車種比較ページ（SEOプログラマティック）
+    Route::get('/compare/{slug}', 'modelCompare')->name('model_compare');
+
     // seo_urlフォールバック: メーカーslugがないモデルの /bikes/model/{id} を処理
     Route::get('/model/{id}', function ($id) {
         $model = \App\Models\BikeModel::with('manufacturer')->findOrFail($id);

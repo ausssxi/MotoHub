@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             SiteSeeder::class,
             SeoFeatureSeeder::class,
+            SeoCompareSeeder::class,
         ]);
     }
 }

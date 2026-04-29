@@ -25,6 +25,8 @@ use App\Services\Bike\BikeYouTubeService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use App\Services\RankingService;
+use App\Services\Bike\SeoCompareService;
+use App\Models\SeoCompare;
 
 /**
  * バイク検索・表示機能を提供するメインコントローラー
@@ -633,6 +635,31 @@ final class BikeController extends Controller
     public function compare(): View
     {
         return view('pages.compare');
+    }
+
+    /**
+     * 車種比較ページ（SEOプログラマティック）
+     * URL: /bikes/compare/{slug}
+     */
+    public function modelCompare(string $slug, SeoCompareService $compareService): View
+    {
+        $seoCompare = SeoCompare::active()
+            ->where('slug', $slug)
+            ->with(['model1.manufacturer', 'model1.categoryData', 'model1.representativeListing', 'model2.manufacturer', 'model2.categoryData', 'model2.representativeListing'])
+            ->firstOrFail();
+
+        $model1 = $seoCompare->model1;
+        $model2 = $seoCompare->model2;
+
+        $kpi = $compareService->computeCompareKpi($model1, $model2);
+        $relatedComparisons = $compareService->getRelatedComparisons($model1, $model2);
+
+        return view('bikes.compare', [
+            'model1' => $model1,
+            'model2' => $model2,
+            'kpi' => $kpi,
+            'relatedComparisons' => $relatedComparisons,
+        ]);
     }
 
     /**

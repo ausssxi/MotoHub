@@ -12,6 +12,7 @@ use App\Models\Category;
 use App\Models\Tag;
 use App\Models\SeoFeature;
 use App\Models\BikeParking;
+use App\Models\SeoCompare;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
@@ -370,6 +371,32 @@ class GenerateSitemap extends Command
 
         $this->closeSitemap($handle);
         $this->info(" -> {$catalogCount} URL (Catalog)");
+
+
+        // =========================================================
+        // 3.5. 車種比較ページ (sitemap-compare.xml)
+        // =========================================================
+        $this->info("車種比較サイトマップを生成中...");
+        $compareFileName = 'sitemap-compare.xml';
+        $handle = $this->openSitemap($compareFileName);
+        $sitemapFiles[] = $compareFileName;
+        $compareCount = 0;
+
+        SeoCompare::active()->select('slug', 'updated_at')->chunk(100, function ($compares) use ($handle, &$compareCount) {
+            foreach ($compares as $compare) {
+                $this->writeUrl(
+                    $handle,
+                    route('bikes.model_compare', $compare->slug),
+                    $compare->updated_at?->format('Y-m-d') ?? date('Y-m-d'),
+                    'weekly',
+                    '0.7'
+                );
+                $compareCount++;
+            }
+        });
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$compareCount} URL (Compare)");
 
 
         // =========================================================
