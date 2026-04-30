@@ -152,10 +152,10 @@ final class DealChartService
         $trendLabels = $monthly->pluck('month_label')->toArray();
         $trendPrices = $monthly->pluck('avg_price')->map(fn ($v) => round((float) $v / 10000, 1))->toArray();
 
-        // --- 右側: 相場推移グラフ (560x490, DPR=1) ---
+        // --- 右側: 相場推移グラフ (540x380, DPR=1) ---
         $chartPng = $this->fetchChart(
             $this->buildTrendChartConfig($trendLabels, $trendPrices, $listingPriceMan, '', 14),
-            560, 490, 1,
+            540, 380, 1,
         );
 
         if (!$chartPng) {
@@ -170,78 +170,87 @@ final class DealChartService
         $fontRegular = storage_path('app/fonts/NotoSansJP-Regular.ttf');
 
         // 左側テキスト描画
-        $leftCenter = 300; // 左半分の中央X
+        $leftCenter = 290; // 左半分の中央X
 
-        // 車種名（上部）
-        $nameSize = mb_strlen($modelName) > 12 ? 28 : 34;
-        $canvas->text($modelName, $leftCenter, 140, function (FontFactory $f) use ($fontBold, $nameSize) {
+        // 車種名（上部・小さめ）
+        $nameSize = mb_strlen($modelName) > 12 ? 22 : 26;
+        $canvas->text($modelName, $leftCenter, 120, function (FontFactory $f) use ($fontBold, $nameSize) {
             $f->filename($fontBold);
             $f->size($nameSize);
-            $f->color('#ffffff');
+            $f->color('#94a3b8');
             $f->align('center');
             $f->valign('middle');
         });
 
         // メーカー名
         if ($makerName) {
-            $canvas->text($makerName, $leftCenter, 185, function (FontFactory $f) use ($fontRegular) {
+            $canvas->text($makerName, $leftCenter, 155, function (FontFactory $f) use ($fontRegular) {
                 $f->filename($fontRegular);
-                $f->size(18);
-                $f->color('#94a3b8');
+                $f->size(16);
+                $f->color('#64748b');
                 $f->align('center');
                 $f->valign('middle');
             });
         }
 
-        // 価格（超大きい）
+        // 価格（大きく・緑）
         $priceText = number_format($listingPriceMan, 1) . '万円';
-        $canvas->text($priceText, $leftCenter, 300, function (FontFactory $f) use ($fontBold) {
+        $canvas->text($priceText, $leftCenter, 270, function (FontFactory $f) use ($fontBold) {
             $f->filename($fontBold);
             $f->size(64);
-            $f->color('#ffffff');
-            $f->align('center');
-            $f->valign('middle');
-        });
-
-        // 割引率
-        $discountText = "相場より{$percentOff}%安い！";
-        $canvas->text($discountText, $leftCenter, 380, function (FontFactory $f) use ($fontBold) {
-            $f->filename($fontBold);
-            $f->size(26);
             $f->color('#22c55e');
             $f->align('center');
             $f->valign('middle');
         });
 
-        // MotoHub ロゴテキスト（下部）
-        $canvas->text('MotoHub', $leftCenter, 540, function (FontFactory $f) use ($fontBold) {
+        // OFF!!（価格より大きく・赤・一番目立つ要素）
+        $offText = "{$percentOff}% OFF!!";
+        $canvas->text($offText, $leftCenter, 390, function (FontFactory $f) use ($fontBold) {
             $f->filename($fontBold);
-            $f->size(20);
-            $f->color('#475569');
+            $f->size(80);
+            $f->color('#ef4444');
             $f->align('center');
             $f->valign('middle');
         });
 
-        $canvas->text('motohub.jp', $leftCenter, 570, function (FontFactory $f) use ($fontRegular) {
+        // 「相場平均より」補足テキスト
+        $canvas->text('相場平均より', $leftCenter, 330, function (FontFactory $f) use ($fontRegular) {
             $f->filename($fontRegular);
-            $f->size(14);
-            $f->color('#334155');
-            $f->align('center');
-            $f->valign('middle');
-        });
-
-        // 右上: 「相場推移」ラベル
-        $canvas->text('相場推移（6ヶ月）', 900, 40, function (FontFactory $f) use ($fontBold) {
-            $f->filename($fontBold);
             $f->size(16);
             $f->color('#94a3b8');
             $f->align('center');
             $f->valign('middle');
         });
 
-        // 右側: グラフ配置
+        // 右上: 「相場推移」ラベル
+        $canvas->text('相場推移（6ヶ月）', 900, 55, function (FontFactory $f) use ($fontBold) {
+            $f->filename($fontBold);
+            $f->size(15);
+            $f->color('#64748b');
+            $f->align('center');
+            $f->valign('middle');
+        });
+
+        // 右側: グラフ配置（上部寄せ）
         $chartImg = $manager->read($chartPng);
-        $canvas->place($chartImg, 'top-left', 620, 65);
+        $canvas->place($chartImg, 'top-left', 640, 75);
+
+        // 右下: MotoHub ロゴ
+        $canvas->text('MotoHub', 900, 520, function (FontFactory $f) use ($fontBold) {
+            $f->filename($fontBold);
+            $f->size(24);
+            $f->color('#475569');
+            $f->align('center');
+            $f->valign('middle');
+        });
+
+        $canvas->text('motohub.jp', 900, 555, function (FontFactory $f) use ($fontRegular) {
+            $f->filename($fontRegular);
+            $f->size(14);
+            $f->color('#334155');
+            $f->align('center');
+            $f->valign('middle');
+        });
 
         return (string) $canvas->toPng();
     }
@@ -252,8 +261,19 @@ final class DealChartService
 
     private function buildTrendChartConfig(array $labels, array $prices, float $listingPriceMan, string $title, int $titleSize): array
     {
+        $minPrice = count($prices) > 0 ? min($prices) : 0;
+        $maxPrice = count($prices) > 0 ? max($prices) : 0;
         $avgOfPrices = count($prices) > 0 ? array_sum($prices) / count($prices) : 0;
         $labelPosition = $listingPriceMan >= $avgOfPrices ? 'bottom' : 'top';
+
+        // Y軸: データ範囲にズーム（0始まり固定しない）
+        $yTicks = array_merge($this->miniYTicks(), [
+            'callback' => '__TICK_CALLBACK_MAN__',
+        ]);
+        if ($listingPriceMan > 0 && $maxPrice > 0) {
+            $yTicks['min'] = floor(min($listingPriceMan, $minPrice) * 0.8);
+            $yTicks['max'] = ceil($maxPrice * 1.15);
+        }
 
         $annotations = [];
         if ($listingPriceMan > 0) {
@@ -307,9 +327,7 @@ final class DealChartService
                     'xAxes' => [$this->miniXAxis()],
                     'yAxes' => [[
                         'gridLines' => $this->gridLines(),
-                        'ticks' => array_merge($this->miniYTicks(), [
-                            'callback' => '__TICK_CALLBACK_MAN__',
-                        ]),
+                        'ticks' => $yTicks,
                     ]],
                 ],
                 'layout' => ['padding' => ['top' => 4, 'right' => 16, 'bottom' => 4, 'left' => 4]],

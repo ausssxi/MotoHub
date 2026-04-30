@@ -90,23 +90,59 @@ class TweetBargains extends Command
 
                 // --- ツイート文言 ---
                 $catchCopies = [
-                    "激アツ車両発見！急げ！",
-                    "相場崩壊！？この価格は見逃せない",
-                    "探していた人、チャンスです！",
-                    "掘り出し物を発見しました！",
+                    "🔥 激アツ車両発見！急げ！",
+                    "🔥 相場崩壊！？この価格は見逃せない",
+                    "🔥 探していた人、今がチャンスです！",
+                    "🔥 掘り出し物キタ！これは即決レベル",
+                    "🔥 この値段はバグってる…！？",
                 ];
                 $catch = $catchCopies[array_rand($catchCopies)];
 
-                $makerDisplay = $makerName ? "（{$makerName}）" : '';
+                $makerDisplay = $makerName ? " / {$makerName}" : '';
                 $url = route('bikes.show', $listing->id);
 
-                $makerTag = $makerSlug ? " #{$makerSlug}" : '';
+                // ハッシュタグ組み立て
+                $tags = ['#バイク乗りと繋がりたい', '#バイク売ります', '#中古バイク', '#MotoHub', '#バイクのある生活', '#バイク好きと繋がりたい', '#ツーリング'];
 
-                $text = "{$catch}\n\n";
+                // メーカー別タグ
+                match ($makerSlug) {
+                    'yamaha' => array_push($tags, '#YAMAHAが美しい', '#yamaha'),
+                    'honda' => array_push($tags, '#Honda党', '#honda'),
+                    'kawasaki' => array_push($tags, '#漢は黙ってカワサキ', '#kawasaki'),
+                    'suzuki' => array_push($tags, '#鈴菌', '#suzuki'),
+                    default => $makerSlug ? $tags[] = "#{$makerSlug}" : null,
+                };
+
+                // 車種タグ
+                $bikeSlug = $listing->bikeModel?->slug;
+                if ($bikeSlug) {
+                    $tags[] = '#' . strtolower($bikeSlug);
+                }
+
+                // 排気量タグ
+                $displacement = $listing->bikeModel?->displacement;
+                if ($displacement) {
+                    if ($displacement <= 50) {
+                        $tags[] = '#原付';
+                    } elseif ($displacement <= 125) {
+                        $tags[] = '#125cc';
+                    } elseif ($displacement <= 250) {
+                        $tags[] = '#250cc';
+                    } elseif ($displacement <= 400) {
+                        $tags[] = '#400cc';
+                    } else {
+                        $tags[] = '#大型バイク';
+                    }
+                }
+
+                $hashLine = implode(' ', array_unique($tags));
+
+                $text = "{$catch}\n";
                 $text .= "🏍 {$displayName}{$makerDisplay}\n";
-                $text .= "💰 {$priceInMan}万円（相場より{$percentOff}%安い！）\n\n";
+                $text .= "💰 価格: {$priceInMan}万円\n";
+                $text .= "（相場平均より {$percentOff}% OFF✨）\n\n";
                 $text .= "{$url}\n\n";
-                $text .= "#中古バイク #MotoHub{$makerTag}";
+                $text .= $hashLine;
 
                 // --- 画像生成 ---
                 $png = $this->chartService->generateCombinedImage($listing, $percentOff);
