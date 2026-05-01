@@ -9,7 +9,7 @@ use App\Models\BikeModel;
 use App\Models\Shop;
 use App\Models\Manufacturer;
 use App\Models\Category;
-use App\Models\Tag;
+
 use App\Models\SeoFeature;
 use App\Models\BikeParking;
 use App\Models\SeoCompare;
@@ -69,7 +69,7 @@ class GenerateSitemap extends Command
             // 主要ページ
             ['route' => 'bikes.index',       'priority' => '1.0', 'freq' => 'daily'],
             ['route' => 'bikes.prefectures', 'priority' => '0.9', 'freq' => 'monthly'],
-            ['route' => 'bikes.search',      'priority' => '0.9', 'freq' => 'daily'],
+
             ['route' => 'bikes.models',      'priority' => '0.9', 'freq' => 'weekly'],
             
             // 買取査定LP (SEO重要度・収益性が高いので優先度高めに)
@@ -99,75 +99,6 @@ class GenerateSitemap extends Command
             $this->writeUrl($handle, route($page['route']), date('Y-m-d'), $page['freq'], $page['priority']);
             $count++;
         }
-
-        // 都道府県別の検索結果ページ
-        foreach ($allPrefectures as $pref) {
-            $this->writeUrl(
-                $handle,
-                route('bikes.search', ['prefecture' => $pref]),
-                date('Y-m-d'),
-                'daily',
-                '0.8'
-            );
-            $count++;
-        }
-
-        // メーカー別の検索結果ページ
-        Manufacturer::chunk(100, function ($makers) use ($handle, &$count) {
-            foreach ($makers as $maker) {
-                $this->writeUrl(
-                    $handle,
-                    route('bikes.search', ['manufacturer_id' => $maker->id]),
-                    date('Y-m-d'),
-                    'daily',
-                    '0.8'
-                );
-                $count++;
-            }
-        });
-
-        // カテゴリ別の検索結果ページ
-        Category::chunk(100, function ($cats) use ($handle, &$count) {
-            foreach ($cats as $cat) {
-                $this->writeUrl(
-                    $handle,
-                    route('bikes.search', ['category_id' => $cat->id]),
-                    date('Y-m-d'),
-                    'daily',
-                    '0.8'
-                );
-                $count++;
-            }
-        });
-
-        // 車種別の検索結果ページ (keyword検索)
-        BikeModel::select('name')->chunk(500, function ($models) use ($handle, &$count) {
-            foreach ($models as $model) {
-                $this->writeUrl(
-                    $handle,
-                    route('bikes.search', ['keyword' => $model->name]),
-                    date('Y-m-d'),
-                    'daily',
-                    '0.8'
-                );
-                $count++;
-            }
-        });
-
-                // ★追加: タグ別の検索結果ページ
-        Tag::select('slug', 'updated_at')->chunk(100, function ($tags) use ($handle, &$count) {
-            foreach ($tags as $tag) {
-                // タグ一覧は検索需要が高いので、優先度0.8のdailyでクローラーを呼び込みます
-                $this->writeUrl(
-                    $handle,
-                    route('bikes.search', ['tag' => $tag->slug]),
-                    $tag->updated_at ? $tag->updated_at->format('Y-m-d') : date('Y-m-d'),
-                    'daily',
-                    '0.8'
-                );
-                $count++;
-            }
-        });
 
         // SEO特集ページ: 一覧ページ
         $this->writeUrl($handle, route('features.index'), date('Y-m-d'), 'daily', '0.8');
@@ -646,17 +577,20 @@ class GenerateSitemap extends Command
             $rankingCount++;
         }
 
-        // 車種別ランキングページ（在庫がある全bike_model_id）
-        $rankingModelIds = DB::table('listings')
+        // 車種別ランキングページ（掲載5台以上のモデルのみ）
+        DB::table('listings')
+            ->select('bike_model_id')
             ->where('is_sold_out', false)
             ->whereNotNull('bike_model_id')
-            ->distinct()
-            ->pluck('bike_model_id');
-
-        foreach ($rankingModelIds as $modelId) {
-            $this->writeUrl($handle, route('ranking.model_stats', $modelId), date('Y-m-d'), 'weekly', '0.5');
-            $rankingCount++;
-        }
+            ->groupBy('bike_model_id')
+            ->havingRaw('COUNT(*) >= 5')
+            ->orderBy('bike_model_id')
+            ->chunk(500, function ($rows) use ($handle, &$rankingCount) {
+                foreach ($rows as $row) {
+                    $this->writeUrl($handle, route('ranking.model_stats', $row->bike_model_id), date('Y-m-d'), 'weekly', '0.5');
+                    $rankingCount++;
+                }
+            });
 
         $this->closeSitemap($handle);
         $this->info(" -> {$rankingCount} URL (Rankings)");

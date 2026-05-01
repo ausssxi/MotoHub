@@ -45,6 +45,10 @@
 
     <x-slot:metaDescription>{{ implode('。', array_filter($descParts)) }}。</x-slot:metaDescription>
 
+    @if($listing->is_sold_out)
+    <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
+    @endif
+
     @if(!empty($listing->images) && isset($listing->images[0]))
     <x-slot:ogImage>{{ $listing->images[0] }}</x-slot:ogImage>
     @endif

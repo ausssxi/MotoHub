@@ -117,15 +117,46 @@
         @if($feature->guide_content)
         <div class="bg-blue-50 border-b border-blue-100">
             <div class="max-w-7xl mx-auto px-4 py-8">
-                <h2 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
-                    <i data-lucide="book-open" class="w-5 h-5 text-blue-500"></i>
-                    選び方ガイド
-                </h2>
-                <div class="prose prose-sm max-w-none text-gray-700 leading-relaxed">
-                    {!! nl2br(e($feature->guide_content)) !!}
+                <div class="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8 space-y-6">
+                    <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                        <i data-lucide="book-open" class="w-5 h-5 text-blue-500"></i>
+                        選び方ガイド
+                    </h2>
+                    <div class="guide-content text-gray-700 leading-relaxed">
+                        {!! $feature->guide_content !!}
+                    </div>
                 </div>
             </div>
         </div>
+        <style>
+        .guide-content h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #111827;
+            margin-top: 2rem;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #3b82f6;
+        }
+        .guide-content p {
+            margin-bottom: 1rem;
+        }
+        .guide-content ul {
+            list-style: disc;
+            padding-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .guide-content li {
+            margin-bottom: 0.5rem;
+        }
+        .guide-content strong {
+            color: #1e40af;
+        }
+        .guide-content a {
+            color: #2563eb;
+            text-decoration: underline;
+        }
+        </style>
         @endif
 
         {{-- メインコンテンツ --}}

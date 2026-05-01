@@ -9,6 +9,7 @@ use App\Models\BikeModel;
 use App\Models\Listing;
 use App\Models\SeoFeature;
 use App\Services\Bike\ListingSearchService;
+
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -40,11 +41,15 @@ final class FeatureController extends Controller
 
         $sort = $request->query('sort', $feature->sort);
 
+        $filters = is_array($feature->search_conditions)
+            ? $feature->search_conditions
+            : json_decode($feature->search_conditions, true) ?? [];
+
         $result = $this->listingSearchService->search(
             $feature->keyword,
             $feature->prefecture,
             $sort,
-            $feature->search_conditions ?? [],
+            $filters,
         );
 
         // DBベースのKPI集計（全件対象、キャッシュ付き）

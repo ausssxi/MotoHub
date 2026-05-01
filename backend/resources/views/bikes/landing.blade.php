@@ -3,7 +3,7 @@
     <x-slot:title>{{ $pageInfo['title'] }} | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $pageInfo['description'] }}</x-slot:metaDescription>
 
-    @if($pagination['total'] === 0)
+    @if($pagination['total'] <= 3)
         <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
     @endif
 
