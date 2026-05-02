@@ -289,7 +289,7 @@ final class GenerateMonthlyMarketReport extends Command
             "{$p['label']}: {$p['count']}台"
         )->implode("\n");
 
-        $month = (int) Carbon::parse($monthLabel)->month ?: now()->subMonth()->month;
+        $month = (int) now()->subMonth()->month;
 
         $seasonalContext = match ($month) {
             1  => '冬場で需要減、相場は底値圏',
