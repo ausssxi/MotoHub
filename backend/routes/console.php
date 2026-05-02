@@ -33,6 +33,12 @@ Schedule::command('twitter:post-ranking --type=daily')->dailyAt('06:05');
 Schedule::command('twitter:post-ranking --type=weekly')->weeklyOn(1, '06:35');
 Schedule::command('twitter:post-ranking --type=monthly')->monthlyOn(1, '07:05');
 
+// 週間相場速報生成 + X自動投稿（毎週月曜 8:30）
+Schedule::command('news:generate-weekly-report --publish')->weeklyOn(1, '08:30')
+    ->then(function () {
+        Artisan::call('news:tweet-latest-report');
+    });
+
 // 月次相場レポート（相場速報）生成 + X自動投稿（毎月1日 7:30）
 Schedule::command('news:generate-market-report --publish')->monthlyOn(1, '07:30')
     ->then(function () {
