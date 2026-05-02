@@ -1,7 +1,7 @@
 <x-layout>
     <x-slot:title>{{ $newsItem->title }} | バイクニュース | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ \Illuminate\Support\Str::limit($newsItem->title, 120) }}</x-slot:metaDescription>
-    <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
+    <x-slot:robotsMeta>{{ $newsItem->source === 'MotoHub' ? 'index, follow' : 'noindex, follow' }}</x-slot:robotsMeta>
     <x-slot:canonical>{{ route('news.show', $newsItem->id) }}</x-slot:canonical>
     @if($newsItem->thumbnail_url)
     <x-slot:ogImage>{{ $newsItem->thumbnail_url }}</x-slot:ogImage>
