@@ -126,7 +126,10 @@ final class ListingRepository
         $minPrice = $filters['price_min'] ?? $filters['min_price'] ?? null;
         if ($minPrice !== null && $minPrice > 0) $filterStrings[] = "total_price >= " . ((int)$minPrice * 10000);
         $maxPrice = $filters['price_max'] ?? $filters['max_price'] ?? null;
-        if ($maxPrice !== null) $filterStrings[] = "total_price <= " . ((int)$maxPrice * 10000);
+        if ($maxPrice !== null) {
+            $filterStrings[] = "total_price > 0";
+            $filterStrings[] = "total_price <= " . ((int)$maxPrice * 10000);
+        }
         
         $minMileage = $filters['mileage_min'] ?? $filters['min_mileage'] ?? null;
         if ($minMileage !== null && $minMileage > 0) $filterStrings[] = "mileage >= " . (int)$minMileage;
