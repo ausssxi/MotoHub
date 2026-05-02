@@ -114,9 +114,9 @@ final class GenerateMonthlyMarketReport extends Command
 
         $publishedAt = $this->option('publish') ? now() : null;
 
-        BikeNews::create([
+        $news = BikeNews::create([
             'title'           => $result['title'],
-            'url'             => route('news.show', ['news' => $slug]),
+            'url'             => '',
             'source'          => 'MotoHub',
             'content'         => $content,
             'thumbnail_url'   => $thumbnailUrl,
@@ -125,6 +125,8 @@ final class GenerateMonthlyMarketReport extends Command
             'manufacturer_id' => null,
             'is_featured'     => true,
         ]);
+
+        $news->update(['url' => route('news.show', $news->id)]);
 
         $status = $publishedAt ? '公開' : '下書き';
         $this->info("記事を生成しました（{$status}）: {$result['title']}");
