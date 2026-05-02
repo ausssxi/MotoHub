@@ -368,30 +368,28 @@ PROMPT;
             throw new \RuntimeException("API error: {$response->status()} - {$response->body()}");
         }
 
-        $body = $response->json();
-        $text = $body['content'][0]['text'] ?? null;
+        $result = $response->json();
+        $text = $result['content'][0]['text'] ?? null;
 
         if (!$text) {
-            Log::error('GenerateMonthlyMarketReport: API応答にtextなし', ['body' => $body]);
+            $this->error('Claude APIからのレスポンスが空です');
+            $this->error('Response: ' . json_encode($result));
+            Log::error('GenerateMonthlyMarketReport: API応答にtextなし', ['body' => $result]);
             return null;
         }
 
-        return $this->parseJsonResponse($text);
-    }
+        // JSONパース
+        $clean = preg_replace('/```json|```/', '', $text);
+        $data = json_decode(trim($clean), true);
 
-    private function parseJsonResponse(string $text): ?array
-    {
-        $text = preg_replace('/^```(?:json)?\s*/i', '', trim($text));
-        $text = preg_replace('/\s*```$/i', '', $text);
-
-        $decoded = json_decode(trim($text), true);
-
-        if (!is_array($decoded) || empty($decoded['title']) || empty($decoded['body'])) {
+        if (!$data || !isset($data['title'])) {
+            $this->error('レスポンスのJSONパースに失敗');
+            $this->error('Text: ' . $text);
             Log::error('GenerateMonthlyMarketReport: JSONパース失敗', ['raw' => $text]);
             return null;
         }
 
-        return $decoded;
+        return $data;
     }
 
     /**
