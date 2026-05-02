@@ -13,6 +13,7 @@ use App\Models\Listing;
 use App\Services\Bike\BikeService;
 use App\Services\Bike\ListingSearchService;
 use App\Services\Bike\SeoLandingService;
+use App\Services\Bike\CityLandingService;
 use App\Services\Bike\PriceStatsService;
 use App\Services\NearbyService;
 use App\Http\Resources\Bike\ListingResource;
@@ -38,6 +39,7 @@ final class BikeController extends Controller
         private readonly BikeService $bikeService,
         private readonly ListingSearchService $listingSearchService,
         private readonly SeoLandingService $seoLandingService,
+        private readonly CityLandingService $cityLandingService,
         private readonly PriceStatsService $priceStatsService,
         private readonly NearbyService $nearbyService
     ) {}
@@ -759,6 +761,56 @@ final class BikeController extends Controller
             'landingKpi' => $landingKpi,
             'relatedLinks' => $relatedLinks,
         ]));
+    }
+
+    /**
+     * 市区町村レベルSEOランディングページ
+     */
+    public function cityLanding(string $prefecture, string $city, string $slug): View
+    {
+        $pageInfo = $this->cityLandingService->resolveCityPageInfo($prefecture, $city, $slug);
+        if (empty($pageInfo)) {
+            abort(404);
+        }
+
+        // 都道府県の短縮形→正式名の変換
+        $fullPref = match ($prefecture) {
+            '北海道' => '北海道',
+            '東京' => '東京都',
+            '大阪' => '大阪府',
+            '京都' => '京都府',
+            default => $prefecture . '県',
+        };
+
+        $sort = request('sort', 'latest');
+        $listings = $this->cityLandingService->getCityListings($fullPref, $city, $pageInfo['filters'], $sort);
+
+        $landingKpi = $this->cityLandingService->computeCityKpi(
+            $fullPref,
+            $city,
+            $pageInfo['filters'],
+            $pageInfo['meta']['type'],
+        );
+
+        $relatedLinks = $this->cityLandingService->computeCityRelatedLinks(
+            $fullPref,
+            $city,
+            $pageInfo['filters'],
+            $pageInfo['meta']['type'],
+            $slug,
+            $prefecture,
+        );
+
+        return view('bikes.city-landing', [
+            'pageInfo' => $pageInfo['meta'],
+            'prefecture' => $prefecture,
+            'city' => $city,
+            'slug' => $slug,
+            'sort' => $sort,
+            'listings' => $listings,
+            'landingKpi' => $landingKpi,
+            'relatedLinks' => $relatedLinks,
+        ]);
     }
 
     public function storeReview(StoreReviewRequest $request, int $id)

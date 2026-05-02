@@ -252,6 +252,102 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
+        // 2.5. 市区町村レベルSEOランディングページ (sitemap-city-landings-{n}.xml)
+        // =========================================================
+        $this->info("市区町村SEOランディングサイトマップを生成中...");
+
+        // 古いファイルを削除
+        foreach (glob(public_path('sitemap-city-landings-*.xml')) as $old) {
+            unlink($old);
+        }
+
+        $cityFileIndex = 1;
+        $cityUrlCount = 0;
+        $totalCityCount = 0;
+
+        $currentCityFileName = "sitemap-city-landings-{$cityFileIndex}.xml";
+        $cityHandle = $this->openSitemap($currentCityFileName);
+        $sitemapFiles[] = $currentCityFileName;
+
+        $writeCityUrl = function($loc, $lastmod, $freq, $priority) use (&$cityHandle, &$cityUrlCount, &$cityFileIndex, &$sitemapFiles, &$totalCityCount) {
+            if ($cityUrlCount >= self::MAX_URLS_PER_FILE) {
+                $this->closeSitemap($cityHandle);
+                $this->info("  -> 分割: sitemap-city-landings-{$cityFileIndex}.xml 完了");
+
+                $cityFileIndex++;
+                $cityUrlCount = 0;
+
+                $nextFileName = "sitemap-city-landings-{$cityFileIndex}.xml";
+                $cityHandle = $this->openSitemap($nextFileName);
+                $sitemapFiles[] = $nextFileName;
+            }
+
+            $this->writeUrl($cityHandle, $loc, $lastmod, $freq, $priority);
+            $cityUrlCount++;
+            $totalCityCount++;
+        };
+
+        // 市区町村×メーカー（5台以上のみ）
+        $cityMakerCombos = DB::table('listings')
+            ->join('shops', 'listings.shop_id', '=', 'shops.id')
+            ->where('listings.is_sold_out', false)
+            ->whereNotNull('listings.bike_model_id')
+            ->whereNotNull('shops.city')
+            ->select(DB::raw('shops.prefecture, shops.city, listings.manufacturer_id, COUNT(*) as cnt'))
+            ->groupBy('shops.prefecture', 'shops.city', 'listings.manufacturer_id')
+            ->havingRaw('COUNT(*) >= 5')
+            ->get();
+
+        $makerSlugs = Manufacturer::whereNotNull('slug')->pluck('slug', 'id');
+
+        // config都道府県→短縮形への逆引きマップ
+        $toShortPref = collect($regions)->flatten()->mapWithKeys(fn ($p) => [$toFullPref($p) => $p]);
+
+        foreach ($cityMakerCombos as $combo) {
+            $mfrSlug = $makerSlugs->get($combo->manufacturer_id);
+            $shortPref = $toShortPref->get($combo->prefecture);
+            if (! $mfrSlug || ! $shortPref) {
+                continue;
+            }
+            $writeCityUrl(
+                route('bikes.city_landing', ['prefecture' => $shortPref, 'city' => $combo->city, 'slug' => $mfrSlug]),
+                date('Y-m-d'),
+                'weekly',
+                '0.6'
+            );
+        }
+
+        // 市区町村×車種（5台以上のみ）
+        $cityModelCombos = DB::table('listings')
+            ->join('shops', 'listings.shop_id', '=', 'shops.id')
+            ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
+            ->where('listings.is_sold_out', false)
+            ->whereNotNull('listings.bike_model_id')
+            ->whereNotNull('shops.city')
+            ->whereNotNull('bike_models.slug')
+            ->select(DB::raw('shops.prefecture, shops.city, bike_models.slug as model_slug, COUNT(*) as cnt'))
+            ->groupBy('shops.prefecture', 'shops.city', 'bike_models.slug')
+            ->havingRaw('COUNT(*) >= 5')
+            ->get();
+
+        foreach ($cityModelCombos as $combo) {
+            $shortPref = $toShortPref->get($combo->prefecture);
+            if (! $shortPref) {
+                continue;
+            }
+            $writeCityUrl(
+                route('bikes.city_landing', ['prefecture' => $shortPref, 'city' => $combo->city, 'slug' => $combo->model_slug]),
+                date('Y-m-d'),
+                'weekly',
+                '0.6'
+            );
+        }
+
+        $this->closeSitemap($cityHandle);
+        $this->info(" -> {$totalCityCount} URL (City Landings Total, {$cityFileIndex} files)");
+
+
+        // =========================================================
         // 3. カタログページ (sitemap-catalog.xml)
         // =========================================================
         $this->info("カタログページサイトマップを生成中...");

@@ -8,6 +8,9 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+// Shop市区町村バックフィル（毎日4:00 — 新規shop対応）
+Schedule::command('shops:backfill-city')->dailyAt('04:00');
+
 // ブログ予約投稿チェック（毎分）
 Schedule::command('blog:publish-scheduled')->everyMinute();
 

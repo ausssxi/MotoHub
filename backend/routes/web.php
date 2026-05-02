@@ -68,7 +68,10 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     Route::get('/identify', [BikeIdentifierController::class, 'index'])->name('identify');
     Route::post('/identify', [BikeIdentifierController::class, 'identify'])->name('identify.post');
 
-    // SEO着地ページ
+    // SEO着地ページ（市区町村レベル — セグメント数が多いので先に定義）
+    Route::get('/area/{prefecture}/{city}/{slug}', 'cityLanding')->name('city_landing');
+
+    // SEO着地ページ（都道府県レベル）
     Route::get('/area/{prefecture}/{slug}', 'landing')->name('landing');
 
     // カタログページ（地域なしプログラマティックSEO）
