@@ -52,7 +52,7 @@
             @endif
 
             @if($newsItem->content)
-            <div class="prose prose-sm max-w-none mb-6">
+            <div class="guide-content text-gray-700 leading-relaxed mb-6">
                 {!! $newsItem->content !!}
             </div>
             @endif
@@ -283,4 +283,13 @@
         </div>
         @endif
     </div>
+
+    <style>
+    .guide-content h3 { font-size: 1.25rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 2px solid #3b82f6; }
+    .guide-content p { margin-bottom: 1rem; }
+    .guide-content ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+    .guide-content li { margin-bottom: 0.5rem; }
+    .guide-content strong { color: #1e40af; }
+    .guide-content a { color: #2563eb; text-decoration: underline; }
+    </style>
 </x-layout>
