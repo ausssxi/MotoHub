@@ -35,6 +35,13 @@ final class GenerateNewModelImpactNews extends Command
         '発表', '発売',
     ];
 
+    private const EXCLUDE_KEYWORDS = [
+        'ヘルメット', 'インカム', 'ジャケット', 'グローブ', 'ブーツ',
+        'ウェア', '用品', 'パーツ', 'アクセサリー', 'レプリカ',
+        '自転車', 'サイクル', 'MTB', 'ロードバイク',
+        'リコール', 'リコール対応',
+    ];
+
     public function handle(): int
     {
         $apiKey = config('services.anthropic.api_key');
@@ -168,6 +175,7 @@ final class GenerateNewModelImpactNews extends Command
             ->where('published_at', '>=', now()->subDays(7))
             ->orderByDesc('published_at');
 
+        // キーワードフィルタ
         $query->where(function ($q) {
             foreach (self::KEYWORDS as $i => $keyword) {
                 $method = $i === 0 ? 'where' : 'orWhere';
@@ -175,7 +183,13 @@ final class GenerateNewModelImpactNews extends Command
             }
         });
 
-        return $query->get();
+        // 除外キーワード
+        foreach (self::EXCLUDE_KEYWORDS as $exclude) {
+            $query->where('title', 'not like', "%{$exclude}%");
+        }
+
+        // タイトル重複除去（同じタイトルは最新1件のみ）
+        return $query->get()->unique('title')->values();
     }
 
     /**
@@ -242,11 +256,13 @@ final class GenerateNewModelImpactNews extends Command
 
         foreach ($modelNames as $name) {
             $name = trim($name);
-            if (mb_strlen($name) < 2) continue;
+            if (mb_strlen($name) <= 2) continue;
 
             $found = BikeModel::with('manufacturer')
                 ->where('name', 'like', "%{$name}%")
+                ->where(fn ($q) => $q->whereNotNull('displacement')->where('displacement', '>', 0))
                 ->withCount(['listings' => fn ($q) => $q->where('is_sold_out', false)])
+                ->having('listings_count', '>=', 3)
                 ->get();
 
             $candidates = $candidates->merge($found);
