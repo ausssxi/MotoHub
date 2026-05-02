@@ -39,8 +39,11 @@ Schedule::command('news:generate-weekly-report --publish')->weeklyOn(1, '08:30')
         Artisan::call('news:tweet-latest-report');
     });
 
-// 新車発表→中古影響分析記事（毎日 9:00）
-Schedule::command('news:generate-new-model-impact --publish')->dailyAt('09:00');
+// 新車発表→中古影響分析記事 + X自動投稿（毎日 9:00）
+Schedule::command('news:generate-new-model-impact --publish')->dailyAt('09:00')
+    ->then(function () {
+        Artisan::call('news:tweet-latest-report');
+    });
 
 // 月次相場レポート（相場速報）生成 + X自動投稿（毎月1日 7:30）
 Schedule::command('news:generate-market-report --publish')->monthlyOn(1, '07:30')
