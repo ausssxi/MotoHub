@@ -20,7 +20,7 @@ final class TweetLatestReport extends Command
     public function handle(TrendService $trendService): int
     {
         $news = BikeNews::where('source', 'MotoHub')
-            ->where('title', 'like', '%相場速報%')
+            ->where(fn ($q) => $q->where('title', 'like', '%相場速報%')->orWhere('title', 'like', '%市場レポート%'))
             ->whereNotNull('published_at')
             ->orderByDesc('published_at')
             ->first();
