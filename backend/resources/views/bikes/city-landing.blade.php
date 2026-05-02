@@ -11,32 +11,32 @@
         <link rel="preload" href="{{ asset('css/bike-search.css') }}?v={{ filemtime(public_path('css/bike-search.css')) }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="{{ asset('css/bike-search.css') }}?v={{ filemtime(public_path('css/bike-search.css')) }}"></noscript>
 
-        {{-- JSON-LD パンくずリスト --}}
+        {{-- JSON-LD パンくずリスト（@をBladeディレクティブと誤認させないため@@でエスケープ） --}}
         <script type="application/ld+json">
         {
-            "@context": "https://schema.org",
-            "@type": "BreadcrumbList",
+            "@@context": "https://schema.org",
+            "@@type": "BreadcrumbList",
             "itemListElement": [
                 {
-                    "@type": "ListItem",
+                    "@@type": "ListItem",
                     "position": 1,
                     "name": "HOME",
                     "item": "{{ url('/') }}"
                 },
                 {
-                    "@type": "ListItem",
+                    "@@type": "ListItem",
                     "position": 2,
                     "name": "地域から探す",
                     "item": "{{ route('bikes.prefectures') }}"
                 },
                 {
-                    "@type": "ListItem",
+                    "@@type": "ListItem",
                     "position": 3,
                     "name": "{{ $prefecture }}",
                     "item": "{{ route('bikes.search', ['prefecture' => $prefecture]) }}"
                 },
                 {
-                    "@type": "ListItem",
+                    "@@type": "ListItem",
                     "position": 4,
                     "name": "{{ $city }}",
                     "item": "{{ url()->current() }}"
