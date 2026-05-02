@@ -74,7 +74,7 @@ final class CityLandingService
             default => $query->orderByDesc('listings.updated_at'),
         };
 
-        return $query->with(['shop', 'bikeModel.manufacturer'])->paginate($perPage);
+        return $query->with(['shop', 'bikeModel.manufacturer', 'site', 'tags'])->paginate($perPage);
     }
 
     /**

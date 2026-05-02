@@ -783,7 +783,11 @@ final class BikeController extends Controller
         };
 
         $sort = request('sort', 'latest');
-        $listings = $this->cityLandingService->getCityListings($fullPref, $city, $pageInfo['filters'], $sort);
+        $paginated = $this->cityLandingService->getCityListings($fullPref, $city, $pageInfo['filters'], $sort);
+
+        // Eloquentモデルをbike_cardパーシャル用にListingResourceで変換（万円表示等）
+        $transformedItems = ListingResource::collection($paginated->getCollection())->resolve();
+        $listings = $paginated->setCollection(collect($transformedItems));
 
         $landingKpi = $this->cityLandingService->computeCityKpi(
             $fullPref,
