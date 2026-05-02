@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use App\Models\BikeModel;
 use App\Services\Twitter\NewStockChartService;
 use Abraham\TwitterOAuth\TwitterOAuth;
 use Illuminate\Support\Facades\Log;
@@ -46,7 +47,7 @@ class TweetNewStock extends Command
             $text .= "🏍 {$model->name} {$model->count}台\n";
         }
         $text .= "\nhttps://motohub.jp/bikes?sort=newest\n\n";
-        $text .= "#中古バイク #MotoHub #新着入荷";
+        $text .= implode(' ', $this->buildTags($topModels));
 
         // --- 画像生成 ---
         $png = $this->chartService->generateDashboardImage();
@@ -125,5 +126,46 @@ class TweetNewStock extends Command
             $this->error("Tweet failed code: " . $connection->getLastHttpCode());
             Log::error("Twitter API Error (NewStock)", (array) $result);
         }
+    }
+
+    private function buildTags($topModels): array
+    {
+        $tags = [
+            '#バイク乗りと繋がりたい', '#バイク好きと繋がりたい', '#バイクのある生活',
+            '#中古バイク', '#MotoHub', '#ツーリング',
+            '#新着入荷',
+        ];
+
+        // TOP車種の名前とメーカーをタグに追加
+        $modelIds = collect($topModels)->pluck('bike_model_id')->filter()->values();
+        if ($modelIds->isNotEmpty()) {
+            $bikeModels = BikeModel::with('manufacturer')
+                ->whereIn('id', $modelIds)
+                ->get()
+                ->keyBy('id');
+
+            $addedMakers = [];
+            foreach ($topModels as $model) {
+                $bikeModel = $bikeModels->get($model->bike_model_id);
+                if (!$bikeModel) continue;
+
+                $clean = preg_replace('/[\s　\(\)（）\/]+/u', '', $bikeModel->name);
+                if ($clean) $tags[] = "#{$clean}";
+
+                $makerSlug = $bikeModel->manufacturer?->slug;
+                if ($makerSlug && !in_array($makerSlug, $addedMakers, true)) {
+                    $addedMakers[] = $makerSlug;
+                    $tags = array_merge($tags, match ($makerSlug) {
+                        'yamaha'   => ['#YAMAHAが美しい'],
+                        'honda'    => ['#Honda党'],
+                        'kawasaki' => ['#漢は黙ってカワサキ'],
+                        'suzuki'   => ['#鈴菌'],
+                        default    => ["#{$makerSlug}"],
+                    });
+                }
+            }
+        }
+
+        return array_slice(array_unique($tags), 0, 13);
     }
 }

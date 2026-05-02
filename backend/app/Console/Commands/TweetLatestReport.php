@@ -19,7 +19,8 @@ final class TweetLatestReport extends Command
 
     public function handle(TrendService $trendService): int
     {
-        $news = BikeNews::where('source', 'MotoHub')
+        $news = BikeNews::with('bikeModel.manufacturer')
+            ->where('source', 'MotoHub')
             ->where(fn ($q) => $q
                 ->where('title', 'like', '%相場速報%')
                 ->orWhere('title', 'like', '%市場レポート%')
@@ -43,7 +44,7 @@ final class TweetLatestReport extends Command
         $topRise = $trends['rise'][0] ?? null;
 
         $newsUrl = route('news.show', $news->id);
-        $text = $this->buildText($news->title, $topDrop, $topRise, $newsUrl);
+        $text = $this->buildText($news, $topDrop, $topRise, $newsUrl);
 
         if ($this->option('dry-run')) {
             $this->info('--- Dry Run ---');
@@ -57,9 +58,9 @@ final class TweetLatestReport extends Command
         return self::SUCCESS;
     }
 
-    private function buildText(string $title, ?array $topDrop, ?array $topRise, string $newsUrl): string
+    private function buildText(BikeNews $news, ?array $topDrop, ?array $topRise, string $newsUrl): string
     {
-        $text = "📊 {$title}\n\n";
+        $text = "📊 {$news->title}\n\n";
 
         if ($topDrop) {
             $text .= "📉 値下がり注目: {$topDrop['model_name']}が{$topDrop['diff']}万円\n";
@@ -69,11 +70,62 @@ final class TweetLatestReport extends Command
         }
 
         $text .= "\n詳細はこちら👇\n{$newsUrl}\n\n";
-        $text .= "#中古バイク #バイク相場 #MotoHub\n";
-        $text .= "#バイク乗りと繋がりたい #バイクのある生活\n";
-        $text .= '#バイク好きと繋がりたい';
+        $text .= implode(' ', $this->buildTags($news, $topDrop, $topRise));
 
         return $text;
+    }
+
+    private function buildTags(BikeNews $news, ?array $topDrop, ?array $topRise): array
+    {
+        // 共通コミュニティタグ
+        $tags = [
+            '#バイク乗りと繋がりたい', '#バイク好きと繋がりたい', '#バイクのある生活',
+            '#中古バイク', '#MotoHub', '#ツーリング',
+        ];
+
+        // 記事内容に応じた専用タグ
+        $title = $news->title;
+        if (str_contains($title, '新型') || str_contains($title, 'モデルチェンジ')) {
+            $tags[] = '#新型バイク';
+        }
+        if (str_contains($title, '相場') || str_contains($title, 'レポート')) {
+            $tags[] = '#バイク相場';
+        }
+
+        // メーカータグ（記事に紐づくメーカー）
+        $makerSlug = $news->bikeModel?->manufacturer?->slug;
+        if ($makerSlug) {
+            $tags = array_merge($tags, $this->makerTags($makerSlug));
+        }
+
+        // 車種名タグ（記事に紐づく車種）
+        $bikeSlug = $news->bikeModel?->slug;
+        if ($bikeSlug) {
+            $tags[] = '#' . strtolower($bikeSlug);
+        }
+
+        // トレンド車種名タグ
+        if ($topDrop) {
+            $clean = preg_replace('/[\s　\(\)（）\/]+/u', '', $topDrop['model_name']);
+            if ($clean) $tags[] = "#{$clean}";
+        }
+        if ($topRise) {
+            $clean = preg_replace('/[\s　\(\)（）\/]+/u', '', $topRise['model_name']);
+            if ($clean) $tags[] = "#{$clean}";
+        }
+
+        return array_slice(array_unique($tags), 0, 13);
+    }
+
+    private function makerTags(string $slug): array
+    {
+        return match ($slug) {
+            'yamaha'   => ['#YAMAHAが美しい', '#yamaha'],
+            'honda'    => ['#Honda党', '#honda'],
+            'kawasaki' => ['#漢は黙ってカワサキ', '#kawasaki'],
+            'suzuki'   => ['#鈴菌', '#suzuki'],
+            default    => ["#{$slug}"],
+        };
     }
 
     private function postTweet(string $text): void

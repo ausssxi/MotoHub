@@ -127,27 +127,32 @@ final class TweetRanking extends Command
     {
         $date = Carbon::yesterday()->format('n月j日');
 
-        return "🏍️【MotoHub調べ】{$date} バイク売れ筋デイリーランキング\n\n"
+        $body = "🏍️【MotoHub調べ】{$date} バイク売れ筋デイリーランキング\n\n"
             . "🥇 {$name(0)}（{$count(0)}台）\n"
             . "🥈 {$name(1)}（{$count(1)}台）\n"
             . "🥉 {$name(2)}（{$count(2)}台）\n\n"
             . "詳しくはこちら👇\n"
-            . "{$link}\n\n"
-            . "#バイク #中古バイク #売れ筋ランキング #MotoHub\n"
-            . "#{$name(0)} #{$name(1)} #{$name(2)}";
+            . "{$link}\n\n";
+
+        $tags = $this->buildTags([$name(0), $name(1), $name(2)], '#売れ筋ランキング');
+
+        return $body . implode(' ', $tags);
     }
 
     private function buildWeekly(\Closure $name, \Closure $count, \Closure $changeText, $rankings, string $link): string
     {
         $totalSold = $rankings->sum('sold_count');
 
-        return "📊【MotoHub調べ】先週のバイク売れ筋ランキング\n\n"
+        $body = "���【MotoHub調べ】先週のバイク売れ筋ランキング\n\n"
             . "🥇 {$name(0)}（{$count(0)}台）{$changeText(0)}\n"
             . "🥈 {$name(1)}（{$count(1)}台）{$changeText(1)}\n"
             . "🥉 {$name(2)}（{$count(2)}台）{$changeText(2)}\n\n"
             . number_format($totalSold) . "台の販売データから集計📈\n"
-            . "{$link}\n\n"
-            . "#バイク #中古バイク #バイク好きと繋がりたい #MotoHub";
+            . "{$link}\n\n";
+
+        $tags = $this->buildTags([$name(0), $name(1), $name(2)], '#売れ筋ランキング');
+
+        return $body . implode(' ', $tags);
     }
 
     private function buildMonthly(Carbon $startDate, \Closure $name, \Closure $count, $top, $models, string $link): string
@@ -156,15 +161,36 @@ final class TweetRanking extends Command
         $name4 = $models->get($top[3]->bike_model_id)?->name ?? '不明';
         $name5 = $models->get($top[4]->bike_model_id)?->name ?? '不明';
 
-        return "🏆【MotoHub調べ】{$month}月のバイク売れ筋ランキング\n\n"
+        $body = "🏆【MotoHub調べ】{$month}月のバイク売れ筋ランキング\n\n"
             . "🥇 {$name(0)}（{$count(0)}台）\n"
             . "🥈 {$name(1)}（{$count(1)}台）\n"
             . "🥉 {$name(2)}（{$count(2)}台）\n"
             . "4位 {$name4} / 5位 {$name5}\n\n"
             . "メディア・ブロガーの方へ：\n"
             . "このデータは自由にお使いいただけます📊\n"
-            . "詳細→ {$link}\n\n"
-            . "#バイク #中古バイク #バイクランキング #MotoHub";
+            . "詳細→ {$link}\n\n";
+
+        $tags = $this->buildTags([$name(0), $name(1), $name(2)], '#バイクランキング');
+
+        return $body . implode(' ', $tags);
+    }
+
+    private function buildTags(array $modelNames, string $topicTag): array
+    {
+        $tags = [
+            '#バイク乗りと繋がりたい', '#バイク好きと繋がりたい', '#バイクのある生活',
+            '#中古バイク', '#MotoHub', '#ツーリング',
+            $topicTag,
+        ];
+
+        foreach ($modelNames as $name) {
+            if ($name && $name !== '不明') {
+                $clean = preg_replace('/[\s　\(\)（）\/]+/u', '', $name);
+                if ($clean) $tags[] = "#{$clean}";
+            }
+        }
+
+        return array_slice(array_unique($tags), 0, 13);
     }
 
     private function fetchPrevRanks(string $type, Carbon $currentStart): array
