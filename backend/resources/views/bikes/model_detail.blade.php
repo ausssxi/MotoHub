@@ -12,16 +12,69 @@
     </x-slot:styles>
     
     <x-slot:scripts>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <script src="https://www.google.com/recaptcha/api.js?render={{ config('services.recaptcha.site_key') }}"></script>
         <script>
             window.bikeModelStats = @json($stats ?? []);
             window.bikeModelHistory = @json($history ?? []);
         </script>
         <script>window.__bikeModelId = {{ $model->id }};</script>
         <script src="{{ asset('js/promo/engagement-banner.js') }}?v={{ filemtime(public_path('js/promo/engagement-banner.js')) }}" defer></script>
-        <script src="{{ asset('js/bikes/model_detail.js') }}?v={{ filemtime(public_path('js/bikes/model_detail.js')) }}"></script>
-        <script src="{{ asset('js/bikes/review.js') }}?v={{ filemtime(public_path('js/bikes/review.js')) }}"></script>
+        <script src="{{ asset('js/bikes/model_detail.js') }}?v={{ filemtime(public_path('js/bikes/model_detail.js')) }}" defer></script>
+        <script src="{{ asset('js/bikes/review.js') }}?v={{ filemtime(public_path('js/bikes/review.js')) }}" defer></script>
+        {{-- Chart.js遅延読み込み: チャート要素が表示された時にCDNからロード --}}
+        <script>
+            (function() {
+                var chartLoaded = false;
+                var chartCallbacks = [];
+                function loadChartJs(cb) {
+                    if (chartLoaded) { if (cb) cb(); return; }
+                    if (chartCallbacks.length > 0) { if (cb) chartCallbacks.push(cb); return; }
+                    if (cb) chartCallbacks.push(cb);
+                    var s = document.createElement('script');
+                    s.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+                    s.onload = function() {
+                        chartLoaded = true;
+                        chartCallbacks.forEach(function(fn) { fn(); });
+                        chartCallbacks = [];
+                    };
+                    document.head.appendChild(s);
+                }
+                window.__loadChartJs = loadChartJs;
+                if ('IntersectionObserver' in window) {
+                    var targets = document.querySelectorAll('#yearDistributionChart, #priceChart, #historyChart, #reviewRadarChart');
+                    if (targets.length === 0) return;
+                    var obs = new IntersectionObserver(function(entries) {
+                        entries.forEach(function(e) {
+                            if (e.isIntersecting) { loadChartJs(); obs.disconnect(); }
+                        });
+                    }, { rootMargin: '200px' });
+                    targets.forEach(function(t) { obs.observe(t); });
+                } else {
+                    loadChartJs();
+                }
+            })();
+        </script>
+        {{-- reCAPTCHA遅延読み込み: レビューフォームが表示された時にロード --}}
+        <script>
+            (function() {
+                var recaptchaLoaded = false;
+                function loadRecaptcha() {
+                    if (recaptchaLoaded) return;
+                    recaptchaLoaded = true;
+                    var s = document.createElement('script');
+                    s.src = 'https://www.google.com/recaptcha/api.js?render={{ config('services.recaptcha.site_key') }}';
+                    document.head.appendChild(s);
+                }
+                var form = document.getElementById('review-form-element');
+                if (!form) return;
+                if ('IntersectionObserver' in window) {
+                    new IntersectionObserver(function(entries, obs) {
+                        if (entries[0].isIntersecting) { loadRecaptcha(); obs.disconnect(); }
+                    }, { rootMargin: '300px' }).observe(form);
+                } else {
+                    loadRecaptcha();
+                }
+            })();
+        </script>
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 const form = document.getElementById('review-form-element');
@@ -32,16 +85,26 @@
                         const originalText = submitBtn.innerHTML;
                         submitBtn.disabled = true;
                         submitBtn.innerHTML = 'スパムチェック中...';
-                        grecaptcha.ready(function() {
-                            grecaptcha.execute('{{ config('services.recaptcha.site_key') }}', {action: 'submit_review'}).then(function(token) {
-                                document.getElementById('recaptcha-token').value = token;
-                                form.submit();
-                            }).catch(function() {
-                                submitBtn.disabled = false;
-                                submitBtn.innerHTML = originalText;
-                                alert('スパムチェックに失敗しました。時間をおいて再試行してください。');
+                        function doRecaptcha() {
+                            grecaptcha.ready(function() {
+                                grecaptcha.execute('{{ config('services.recaptcha.site_key') }}', {action: 'submit_review'}).then(function(token) {
+                                    document.getElementById('recaptcha-token').value = token;
+                                    form.submit();
+                                }).catch(function() {
+                                    submitBtn.disabled = false;
+                                    submitBtn.innerHTML = originalText;
+                                    alert('スパムチェックに失敗しました。時間をおいて再試行してください。');
+                                });
                             });
-                        });
+                        }
+                        if (typeof grecaptcha !== 'undefined') {
+                            doRecaptcha();
+                        } else {
+                            var s = document.createElement('script');
+                            s.src = 'https://www.google.com/recaptcha/api.js?render={{ config('services.recaptcha.site_key') }}';
+                            s.onload = doRecaptcha;
+                            document.head.appendChild(s);
+                        }
                     });
                 }
             });
@@ -471,7 +534,8 @@
                         </div>
                     </div>
                     <script>
-                    document.addEventListener('DOMContentLoaded', function() {
+                    (function() {
+                        function initYearChart() {
                         var ctx = document.getElementById('yearDistributionChart');
                         if (!ctx) return;
                         var distData = @json($yearDistribution);
@@ -520,7 +584,11 @@
                                 }
                             }
                         });
-                    });
+                        }
+                        if (typeof window.__loadChartJs === 'function') {
+                            window.__loadChartJs(initYearChart);
+                        }
+                    })();
                     </script>
                     @endif
 
@@ -1101,7 +1169,8 @@
                         </div>
                     </div>
                     <script>
-                    document.addEventListener('DOMContentLoaded', function() {
+                    (function() {
+                        function initRadarChart() {
                         var ctx = document.getElementById('reviewRadarChart');
                         if (!ctx) return;
                         var stats = @json($categoryReviewStats);
@@ -1159,7 +1228,11 @@
                                 }
                             }
                         });
-                    });
+                        }
+                        if (typeof window.__loadChartJs === 'function') {
+                            window.__loadChartJs(initRadarChart);
+                        }
+                    })();
                     </script>
                     @endif
 

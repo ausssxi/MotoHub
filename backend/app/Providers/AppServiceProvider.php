@@ -9,7 +9,9 @@ use App\Services\Bike\ListingSearchService;
 use App\View\Composers\WishlistComposer; // ★作成したComposerをインポート
 use App\Models\BikeModel;
 use App\Models\Category;
+use App\Models\Listing;
 use App\Models\Shop;
+use App\Observers\ListingObserver;
 use App\Observers\ShopObserver;
 use Laravel\Socialite\Facades\Socialite;
 use SocialiteProviders\Line\Provider as LineProvider;
@@ -64,6 +66,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Shop::observe(ShopObserver::class);
+        Listing::observe(ListingObserver::class);
 
         Socialite::extend('line', function ($app) {
             $config = $app['config']['services.line'];

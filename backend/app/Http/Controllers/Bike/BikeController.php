@@ -860,36 +860,39 @@ final class BikeController extends Controller
 
     public function modelDetail($id, \App\Services\Bike\PriceStatsService $priceStatsService)
     {
-        // 1. バイクモデルの基本情報とリレーション（メーカー、レビューなど）を取得
+        return view('bikes.model_detail', $this->buildModelDetailData((int) $id));
+    }
+
+    /**
+     * 車種詳細ページのビューデータを構築（キャッシュ対象）
+     */
+    private function buildModelDetailData(int $id): array
+    {
         $model = \App\Models\BikeModel::with(['manufacturer', 'reviews'])->findOrFail($id);
 
-        // 2. 関連する販売中の中古車を取得（最大5件）
         $listings = \App\Models\Listing::with('shop')->where('bike_model_id', $id)
-            ->active() 
+            ->active()
             ->limit(5)
             ->get()
             ->map(function($listing) {
-                // Blade側でエラーにならないように配列の形に成形
                 return [
                     'id' => $listing->id,
                     'name' => $listing->title ?? $listing->bikeModel->name,
                     'total_price' => $listing->total_price ? number_format($listing->total_price / 10000, 1) : '-',
-                    'prefecture' => $listing->shop->prefecture ?? '地域不明', // shopから都道府県を取得
-                    'images' => $listing->images ?? [], // すでにモデルのアクセサで配列化されているのでそのまま渡す
+                    'prefecture' => $listing->shop->prefecture ?? '地域不明',
+                    'images' => $listing->images ?? [],
                 ];
             });
 
-        // 3. 買取相場・チャート用の本番データ（データベースの集計結果）
-        $stats = $priceStatsService->getModelStats((int)$id);
-        $history = $priceStatsService->getPriceHistory((int)$id);
-        $resale = $priceStatsService->getResaleStats((int)$id);
+        $stats = $this->priceStatsService->getModelStats($id);
+        $history = $this->priceStatsService->getPriceHistory($id);
+        $resale = $this->priceStatsService->getResaleStats($id);
 
         $reviewStats = DB::table('reviews')
             ->where('bike_model_id', $id)
             ->selectRaw('ROUND(AVG(rating), 1) as avg_rating, COUNT(*) as count')
             ->first();
 
-        // 項目別レビュー統計（レーダーチャート用）
         $ratingFields = ['rating_design', 'rating_engine', 'rating_handling', 'rating_fuel_economy', 'rating_cost_performance'];
         $modelAvgs = DB::table('reviews')
             ->where('bike_model_id', $id)
@@ -923,7 +926,7 @@ final class BikeController extends Controller
         if (!$hasAnyRatingDetail) {
             $categoryReviewStats = [];
         }
-        
+
         $relatedModels = \App\Models\BikeModel::with('manufacturer')
             ->where('manufacturer_id', $model->manufacturer_id)
             ->where('id', '!=', $model->id)
@@ -933,7 +936,6 @@ final class BikeController extends Controller
             ->limit(6)
             ->get();
 
-        // 同排気量帯の人気車種（±50cc、他メーカー含む、自車種と同メーカー除外）
         $similarDisplacementModels = collect();
         if ($model->displacement) {
             $similarDisplacementModels = \App\Models\BikeModel::with('manufacturer')
@@ -947,7 +949,6 @@ final class BikeController extends Controller
                 ->get();
         }
 
-        // 同カテゴリの車種（他メーカー含む、自車種と同メーカー除外）
         $sameCategoryModels = collect();
         if ($model->category_id) {
             $excludeIds = $similarDisplacementModels->pluck('id')->push($model->id)->all();
@@ -966,7 +967,6 @@ final class BikeController extends Controller
             return \App\Models\Listing::where('bike_model_id', $id)->active()->count();
         });
 
-        // オーナー一覧（この車種のMyBike）
         $owners = \App\Models\MyBike::with('user')
             ->where('bike_model_id', $model->id)
             ->latest()
@@ -980,17 +980,12 @@ final class BikeController extends Controller
                     $query->where('category_id', $model->category_id);
                 }
             })
-            ->whereHas('listings', function($query) {
-                $query->where('is_sold_out', 0);
-            })
-            ->withCount(['listings' => function($query) {
-                $query->where('is_sold_out', 0);
-            }])
+            ->whereHas('listings', fn($query) => $query->where('is_sold_out', 0))
+            ->withCount(['listings' => fn($query) => $query->where('is_sold_out', 0)])
             ->orderByDesc('listings_count')
             ->limit(6)
             ->get();
 
-        // エリア別在庫数（主要都道府県のみ、在庫ありのもの上位表示）
         $prefectureStocks = \App\Models\Listing::where('bike_model_id', $id)
             ->active()
             ->join('shops', 'listings.shop_id', '=', 'shops.id')
@@ -1009,7 +1004,6 @@ final class BikeController extends Controller
             ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'garage', 'description' => '愛車を登録・管理'],
         ];
 
-        // 楽天APIからカテゴリ別関連パーツを取得（24時間キャッシュ）
         $relatedParts = app(BikePartsService::class)->fetchForModel($model);
 
         try {
@@ -1024,10 +1018,8 @@ final class BikeController extends Controller
             $videos = [];
         }
 
-        // ランキングデータ
-        $rankingStats = app(RankingService::class)->getModelRankingStats((int)$id, $model->category_id);
+        $rankingStats = app(RankingService::class)->getModelRankingStats($id, $model->category_id);
 
-        // 年式分布
         $yearDistribution = DB::table('listings')
             ->where('bike_model_id', $model->id)
             ->whereNotNull('model_year')
@@ -1058,13 +1050,13 @@ final class BikeController extends Controller
             ];
         }
 
-        return view('bikes.model_detail', compact(
+        return compact(
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'categoryReviewStats', 'relatedModels', 'similarDisplacementModels',
             'sameCategoryModels', 'activeCount', 'owners', 'similarModels', 'crossLinks',
             'prefectureStocks', 'relatedParts', 'news', 'videos', 'rankingStats',
             'yearDistribution', 'yearStats'
-        ));
+        );
     }
 
     /**
@@ -1455,27 +1447,19 @@ final class BikeController extends Controller
     */
     public function modelDetailBySlug(string $mfrSlug, string $modelSlug)
     {
-        // 1. メーカーをスラッグで検索
         $manufacturer = \App\Models\Manufacturer::where('slug', $mfrSlug)->first();
 
         if (!$manufacturer) {
             abort(404);
         }
 
-        // 2. 車種を検索（スラッグ or ID）
-        if (is_numeric($modelSlug)) {
-            // IDフォールバック（日本語車種名の場合）
-            $model = \App\Models\BikeModel::where('id', $modelSlug)
-                ->where('manufacturer_id', $manufacturer->id)
-                ->firstOrFail();
-        } else {
-            // スラッグで検索
-            $model = \App\Models\BikeModel::where('slug', $modelSlug)
-                ->where('manufacturer_id', $manufacturer->id)
-                ->firstOrFail();
-        }
+        $model = is_numeric($modelSlug)
+            ? \App\Models\BikeModel::where('id', $modelSlug)->where('manufacturer_id', $manufacturer->id)->firstOrFail()
+            : \App\Models\BikeModel::where('slug', $modelSlug)->where('manufacturer_id', $manufacturer->id)->firstOrFail();
 
-        $priceStatsService = app(\App\Services\Bike\PriceStatsService::class);
-        return $this->modelDetail($model->id, $priceStatsService);
+        $cacheKey = "model_detail_v1_{$mfrSlug}_{$model->slug}";
+        $viewData = Cache::remember($cacheKey, 3600, fn () => $this->buildModelDetailData($model->id));
+
+        return view('bikes.model_detail', $viewData);
     }
 }
