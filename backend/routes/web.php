@@ -336,3 +336,10 @@ require __DIR__.'/auth.php';
 
 // ブログ機能ルート読み込み
 require __DIR__.'/blog.php';
+
+// --- RSSフィード（Google News Publisher Center用） ---
+use App\Http\Controllers\FeedController;
+
+Route::get('/feed/news', [FeedController::class, 'news'])->name('feed.news');
+Route::get('/feed/blog', [FeedController::class, 'blog'])->name('feed.blog');
+Route::get('/feed/original', [FeedController::class, 'original'])->name('feed.original');
