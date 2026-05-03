@@ -79,6 +79,7 @@ const COLORS = [
   { id: 'yamaha',   label: 'ヤマハ',   bg: '#3B82F6', light: '#DBEAFE' },
   { id: 'kawasaki', label: 'カワサキ',  bg: '#22C55E', light: '#DCFCE7' },
   { id: 'suzuki',   label: 'スズキ',   bg: '#EAB308', light: '#FEF9C3' },
+  { id: 'world',   label: '海外',     bg: '#F8FAFC', light: '#F1F5F9' },
 ];
 
 function getColor(id) {
@@ -137,6 +138,8 @@ function cloneGrid(grid) {
 function findConnected(grid, r, c) {
   const cell = grid[r][c];
   if (!cell) return new Set();
+  // Lv11+ blocks (gold) are immovable — cannot merge
+  if (cell.level >= 11) return new Set();
   const colorId = cell.colorId;
   const visited = new Set();
   const queue = [[r, c]];
@@ -149,7 +152,8 @@ function findConnected(grid, r, c) {
       const key = `${nr},${nc}`;
       if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && !visited.has(key)) {
         const neighbor = grid[nr][nc];
-        if (neighbor && neighbor.colorId === colorId) {
+        // Skip Lv11+ blocks — they don't connect
+        if (neighbor && neighbor.colorId === colorId && neighbor.level < 11) {
           visited.add(key);
           queue.push([nr, nc]);
         }
@@ -217,12 +221,14 @@ function checkGameOver(grid, mechanicPoints) {
     for (let c = 0; c < GRID_SIZE; c++) {
       const cell = grid[r][c];
       if (!cell) continue;
+      // Lv11+ blocks are immovable — skip them
+      if (cell.level >= 11) continue;
       for (const [dr, dc] of [[0, 1], [1, 0]]) {
         const nr = r + dr;
         const nc = c + dc;
         if (nr < GRID_SIZE && nc < GRID_SIZE) {
           const neighbor = grid[nr][nc];
-          if (neighbor && neighbor.colorId === cell.colorId) return false;
+          if (neighbor && neighbor.colorId === cell.colorId && neighbor.level < 11) return false;
         }
       }
     }
@@ -663,14 +669,29 @@ export default function SubaraCity() {
     // Measure grid cells
     measureCells();
 
-    // Compute merge result
-    let maxLvl = 1;
+    // Compute merge result: sum of all block levels
+    let levelSum = 0;
     for (const key of connected) {
       const [cr, cc] = key.split(',').map(Number);
-      if (grid[cr][cc]) maxLvl = Math.max(maxLvl, grid[cr][cc].level);
+      if (grid[cr][cc]) levelSum += grid[cr][cc].level;
     }
-    const newLevel = maxLvl + 1;
-    const colorId = grid[r][c].colorId;
+    const blockCount = connected.size;
+    const baseColorId = grid[r][c].colorId;
+
+    let newLevel, colorId;
+    if (baseColorId === 'world') {
+      // White (Lv10) blocks: newLevel = count + 9
+      newLevel = blockCount + 9;
+      colorId = 'world';
+    } else if (levelSum >= 10) {
+      // Level sum reaches 10+ → becomes Lv10 white/world
+      newLevel = 10;
+      colorId = 'world';
+    } else {
+      // Colored blocks: newLevel = sum of levels (cap 9)
+      newLevel = Math.min(levelSum, 9);
+      colorId = baseColorId;
+    }
 
     // Build merged grid
     const newGrid = cloneGrid(grid);
@@ -953,8 +974,10 @@ export default function SubaraCity() {
                     key={key}
                     className={`sc-cell ${animClass}`}
                     style={{
-                      backgroundColor: color ? color.bg : '#475569',
-                      cursor: isAnimating ? 'default' : mechanicMode ? 'crosshair' : 'pointer',
+                      backgroundColor: cell.level >= 11 ? '#78350f' : (color ? color.bg : '#475569'),
+                      border: cell.level >= 11 ? '2px solid #fbbf24' : cell.colorId === 'world' ? '2px solid #94a3b8' : 'none',
+                      cursor: isAnimating ? 'default' : mechanicMode ? 'crosshair' : cell.level >= 11 ? 'not-allowed' : 'pointer',
+                      opacity: cell.level >= 11 ? 0.9 : 1,
                       ...(slideStyle || {}),
                       ...cellAnimStyle,
                     }}
@@ -978,8 +1001,8 @@ export default function SubaraCity() {
                       right: '3px',
                       fontSize: '8px',
                       fontWeight: 'bold',
-                      color: '#fff',
-                      backgroundColor: 'rgba(0,0,0,0.4)',
+                      color: cell.level >= 11 ? '#fbbf24' : cell.colorId === 'world' ? '#1e293b' : '#fff',
+                      backgroundColor: cell.level >= 11 ? 'rgba(0,0,0,0.6)' : cell.colorId === 'world' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.4)',
                       borderRadius: '3px',
                       padding: '0 3px',
                       lineHeight: '14px',
@@ -989,10 +1012,10 @@ export default function SubaraCity() {
                     <span style={{
                       fontSize: 'clamp(6px, 1.6vw, 9px)',
                       fontWeight: 'bold',
-                      color: '#fff',
+                      color: cell.level >= 11 ? '#fbbf24' : cell.colorId === 'world' ? '#1e293b' : '#fff',
                       lineHeight: 1,
                       textAlign: 'center',
-                      textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                      textShadow: cell.level >= 11 ? '0 1px 2px rgba(0,0,0,0.8)' : cell.colorId === 'world' ? 'none' : '0 1px 2px rgba(0,0,0,0.5)',
                       wordBreak: 'keep-all',
                     }}>
                       {bikeName}
@@ -1125,7 +1148,7 @@ export default function SubaraCity() {
               登場バイクの実際の相場を見る
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-              {COLORS.map(color =>
+              {COLORS.filter(color => BIKE_NAMES[color.id]).map(color =>
                 BIKE_NAMES[color.id].slice(0, 5).map((name, i) => (
                   <a key={`${color.id}-${i}`} href={`/bikes/search?q=${encodeURIComponent(name)}`}
                     style={{
@@ -1286,13 +1309,20 @@ function HowToModal({ onClose }) {
                 <span style={{
                   width: '14px', height: '14px', borderRadius: '4px',
                   backgroundColor: c.bg, display: 'inline-block',
+                  border: c.id === 'world' ? '1px solid #94a3b8' : 'none',
                 }} />
                 <span style={{ color: '#94a3b8' }}>{c.label}</span>
               </div>
             ))}
           </div>
           <p style={{ color: '#64748b', fontSize: '11px', margin: '6px 0 0' }}>
-            ※ 30ターン目からスズキ（黄）も出現！
+            ※ 30ターン目からスズキ（黄��も出現！
+          </p>
+          <p style={{ color: '#64748b', fontSize: '11px', margin: '4px 0 0' }}>
+            ※ 合体レベル = ブロックのレベル合計（例: Lv3+Lv2=Lv5）{'\n'}
+            ※ 合計10以上 → 海外バイク（白Lv10）に進化！{'\n'}
+            ※ 白Lv10同士の合体 → 金ブロック（Lv11+）に！{'\n'}
+            ※ 金ブロックは合体不可（メカニックでのみ消去可能）
           </p>
         </div>
 

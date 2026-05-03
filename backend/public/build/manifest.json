@@ -4,7 +4,7 @@
     "name": "client"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DSETUBLA.css",
+    "file": "assets/app-BpeLbtkY.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -37,7 +37,7 @@
     ]
   },
   "resources/js/subaracity-app.jsx": {
-    "file": "assets/subaracity-app-DTlNyeTQ.js",
+    "file": "assets/subaracity-app-D0XYczQr.js",
     "name": "subaracity-app",
     "src": "resources/js/subaracity-app.jsx",
     "isEntry": true,
