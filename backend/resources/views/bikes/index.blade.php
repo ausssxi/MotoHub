@@ -297,7 +297,24 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {{-- バイクガレージパズル --}}
+                    <a href="{{ route('games.subaracity') }}"
+                       class="group relative overflow-hidden rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-orange-300 transition-all duration-300">
+                        <div class="overflow-hidden">
+                            <img src="{{ asset('images/subaracity/ogp.png') }}" alt="バイクガレージパズル"
+                                 class="w-full h-48 object-cover object-top rounded-t-xl group-hover:scale-105 transition-transform duration-500"
+                                 loading="lazy" decoding="async">
+                        </div>
+                        <div class="p-4 bg-white">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-lg">{!! '&#x1F3CD;' !!}</span>
+                                <h3 class="text-sm font-black text-gray-800 group-hover:text-orange-600 transition-colors">バイクガレージパズル</h3>
+                            </div>
+                            <p class="text-xs text-gray-500 leading-relaxed">同じ色のバイクを合体させてガレージを育てよう</p>
+                        </div>
+                    </a>
+
                     {{-- わらしべ長者 --}}
                     <a href="{{ route('warashibe') }}"
                        class="group relative overflow-hidden rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-amber-300 transition-all duration-300">

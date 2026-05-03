@@ -2,6 +2,7 @@
     <x-slot:title>バイクガレージパズル | MotoHub</x-slot:title>
     <x-slot:metaDescription>同じメーカー色のブロックを合体させてバイクをレベルアップ！カブ50からゴールドウイングを目指すパズルゲーム。</x-slot:metaDescription>
     <x-slot:canonical>{{ url('/games/subaracity') }}</x-slot:canonical>
+    <x-slot:ogImage>{{ asset('images/subaracity/ogp.png') }}</x-slot:ogImage>
 
     <x-slot:navigation>
         <x-navigation :showSearch="true" />

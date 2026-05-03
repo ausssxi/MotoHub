@@ -13,7 +13,7 @@
     $isMap      = $navIs('shops/map*', 'parking*');
     $isBlog     = $navIs('blog*');
     $isSouba    = $navIs('trends*', 'sell*');
-    $isOther    = $navIs('parts*', 'identify*', 'garage/public*', 'ar*', 'quiz*', 'warashibe*');
+    $isOther    = $navIs('parts*', 'identify*', 'garage/public*', 'ar*', 'quiz*', 'warashibe*', 'puzzle*', 'games/*');
 @endphp
 
 <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
@@ -132,6 +132,27 @@
                     <div x-show="open" x-transition
                          class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
                          style="display: none;">
+                        {{-- ゲームセクション --}}
+                        <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-widest">ゲーム</p>
+                        <a href="{{ route('games.subaracity') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="gamepad-2" class="w-3.5 h-3.5"></i>
+                            バイクガレージパズル
+                        </a>
+                        <a href="{{ route('warashibe') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="gamepad-2" class="w-3.5 h-3.5"></i>
+                            わらしべ長者
+                        </a>
+                        <a href="{{ route('quiz') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="gamepad-2" class="w-3.5 h-3.5"></i>
+                            バイククイズ
+                        </a>
+                        <a href="{{ route('puzzle') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="puzzle" class="w-3.5 h-3.5"></i>
+                            バイク2048
+                        </a>
+                        <div class="my-1 border-t border-gray-100"></div>
+                        {{-- ツールセクション --}}
+                        <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-widest">ツール</p>
                         <a href="{{ route('parts.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
                             <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
                             パーツ
@@ -147,18 +168,6 @@
                         <a href="{{ route('ar.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors whitespace-nowrap">
                             <i data-lucide="camera" class="w-3.5 h-3.5"></i>
                             AR駐車場ファインダー
-                        </a>
-                        <a href="{{ route('quiz') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors whitespace-nowrap">
-                            <i data-lucide="gamepad-2" class="w-3.5 h-3.5"></i>
-                            バイク4択クイズ
-                        </a>
-                        <a href="{{ route('warashibe') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors whitespace-nowrap">
-                            <i data-lucide="gamepad-2" class="w-3.5 h-3.5"></i>
-                            わらしべ
-                        </a>
-                        <a href="{{ route('puzzle') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors whitespace-nowrap">
-                            <i data-lucide="puzzle" class="w-3.5 h-3.5"></i>
-                            パズル
                         </a>
                     </div>
                 </div>
@@ -411,6 +420,35 @@
                 </div>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
             </a>
+
+            {{-- ゲームセクション --}}
+            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-4 mb-1 px-1">ゲーム</p>
+            <div class="grid grid-cols-2 gap-2">
+                <a href="{{ route('games.subaracity') }}" class="flex items-center gap-2 p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
+                    <div class="w-7 h-7 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                        <i data-lucide="gamepad-2" class="w-3.5 h-3.5 text-orange-600"></i>
+                    </div>
+                    <p class="text-[11px] font-black text-gray-800 leading-tight">ガレージパズル</p>
+                </a>
+                <a href="{{ route('warashibe') }}" class="flex items-center gap-2 p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
+                    <div class="w-7 h-7 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                        <i data-lucide="gamepad-2" class="w-3.5 h-3.5 text-orange-600"></i>
+                    </div>
+                    <p class="text-[11px] font-black text-gray-800 leading-tight">わらしべ長者</p>
+                </a>
+                <a href="{{ route('quiz') }}" class="flex items-center gap-2 p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
+                    <div class="w-7 h-7 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                        <i data-lucide="gamepad-2" class="w-3.5 h-3.5 text-orange-600"></i>
+                    </div>
+                    <p class="text-[11px] font-black text-gray-800 leading-tight">バイククイズ</p>
+                </a>
+                <a href="{{ route('puzzle') }}" class="flex items-center gap-2 p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
+                    <div class="w-7 h-7 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                        <i data-lucide="puzzle" class="w-3.5 h-3.5 text-orange-600"></i>
+                    </div>
+                    <p class="text-[11px] font-black text-gray-800 leading-tight">バイク2048</p>
+                </a>
+            </div>
 
             <div id="mobile-nav-suggest-results" class="absolute left-0 right-0 top-[60px] mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden hidden z-[120] text-left">
                 <div id="mobile-nav-suggest-list" class="py-2 max-h-[300px] overflow-y-auto"></div>
