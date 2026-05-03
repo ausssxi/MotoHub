@@ -39,3 +39,4 @@ backend/.cache-puppeteer/
 backend/node_modules/puppeteer/
 *.png
 /bargain_*.png
+!backend/public/images/subaracity/*.png
