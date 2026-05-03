@@ -260,6 +260,9 @@ Route::view('/warashibe', 'warashibe.index')->name('warashibe');
 // バイク2048パズル
 Route::view('/puzzle', 'puzzle.index')->name('puzzle');
 
+// バイクガレージパズル（スバラシティ風）
+Route::view('/games/subaracity', 'games.subaracity')->name('games.subaracity');
+
 // 買取査定LP
 Route::get('/sell', [SellController::class, 'index'])->name('sell.index');
 Route::post('/api/sell/calculate', [SellController::class, 'calculate'])->name('sell.calculate');

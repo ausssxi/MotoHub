@@ -36,6 +36,15 @@
       "_client-Ccx6zi3W.js"
     ]
   },
+  "resources/js/subaracity-app.jsx": {
+    "file": "assets/subaracity-app-DTlNyeTQ.js",
+    "name": "subaracity-app",
+    "src": "resources/js/subaracity-app.jsx",
+    "isEntry": true,
+    "imports": [
+      "_client-Ccx6zi3W.js"
+    ]
+  },
   "resources/js/warashibe-app.jsx": {
     "file": "assets/warashibe-app-DHvUsHMs.js",
     "name": "warashibe-app",
