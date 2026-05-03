@@ -11,7 +11,9 @@
         || request()->is('shops/map*')
         || request()->is('ar*')
         || request()->is('quiz*')
-        || request()->is('warashibe*');
+        || request()->is('warashibe*')
+        || request()->is('puzzle*')
+        || request()->is('games/*');
 @endphp
 <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 w-full bg-white border-t border-gray-100 z-50 md:hidden" style="height:60px;" aria-label="モバイルナビゲーション">
     <div class="flex w-full h-full items-center justify-around">
@@ -85,6 +87,15 @@
                 <div>
                     <p class="text-sm font-black text-gray-900">パーツ検索</p>
                     <p class="text-[10px] text-gray-400">バイクパーツを探す</p>
+                </div>
+            </a>
+            <a href="{{ route('games.subaracity') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="gamepad-2" class="w-5 h-5 text-orange-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">バイクガレージパズル</p>
+                    <p class="text-[10px] text-gray-400">同じ色のバイクを合体させてガレージを育てよう</p>
                 </div>
             </a>
             <a href="{{ route('quiz') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
