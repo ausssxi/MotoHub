@@ -66,6 +66,7 @@ final class GenerateNewModelImpactNews extends Command
         $this->info($candidates->count() . '件の候補ニュースを検出');
 
         $generated = 0;
+        $processedModelNames = []; // 同一cron実行内の車種重複防止
 
         foreach ($candidates as $sourceNews) {
             if ($generated >= $limit) {
@@ -107,6 +108,25 @@ final class GenerateNewModelImpactNews extends Command
 
             $this->info("  マッチ車種: {$bikeModel->name}（ID: {$bikeModel->id}）");
 
+            // 同一cron実行内の車種重複チェック
+            if (in_array($bikeModel->name, $processedModelNames, true)) {
+                $this->warn("  → {$bikeModel->name}: 同一実行内で処理済み、スキップ");
+                continue;
+            }
+
+            // 過去7日以内に同車種の記事がないかチェック
+            if (!$this->option('force')) {
+                $recentExists = BikeNews::where('source', 'MotoHub')
+                    ->where('title', 'like', "%{$bikeModel->name}%")
+                    ->where('created_at', '>=', now()->subDays(7))
+                    ->exists();
+
+                if ($recentExists) {
+                    $this->warn("  → {$bikeModel->name}: 7日以内に記事済み、スキップ");
+                    continue;
+                }
+            }
+
             // 中古相場データを取得
             $marketData = $this->collectMarketData($bikeModel);
 
@@ -117,6 +137,7 @@ final class GenerateNewModelImpactNews extends Command
 
             if ($isDryRun) {
                 $this->printDryRun($sourceNews, $bikeModel, $marketData);
+                $processedModelNames[] = $bikeModel->name;
                 $generated++;
                 continue;
             }
@@ -157,6 +178,7 @@ final class GenerateNewModelImpactNews extends Command
 
             $status = $publishedAt ? '公開' : '下書き';
             $this->info("  記事生成完了（{$status}）: {$result['title']}");
+            $processedModelNames[] = $bikeModel->name;
             $generated++;
 
             if ($generated < $limit) {
