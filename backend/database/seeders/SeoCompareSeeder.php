@@ -18,7 +18,7 @@ class SeoCompareSeeder extends Seeder
             ['PCX', 'NMAX', 20],
             ['Ninja250', 'CBR250RR', 30],
             ['YZF-R25', 'CBR250RR', 40],
-            ['Ninja400', 'CB400SF', 50],
+            ['Ninja400', 'CB400 SUPER FOUR', 50],
             ['MT-07', 'SV650', 60],
             ['Z900RS', 'CB1100', 70],
             ['モンキー125', 'グロム', 80],
@@ -34,13 +34,13 @@ class SeoCompareSeeder extends Seeder
             ['アフリカツイン', 'Vストローム1050', 180],
             ['セロー250', 'CRF250L', 190],
             ['GSX250R', 'Ninja250', 200],
-            ['ジクサー150', 'PCX160', 210],
+            ['ジクサー 150', 'PCX160', 210],
             ['MT-25', 'Z250', 220],
             ['YZF-R7', 'CBR650R', 230],
             ['CB250R', 'MT-25', 240],
             ['レブル500', 'レブル250', 250],
             ['ZX-25R', 'CBR250RR', 260],
-            ['CB1300SF', 'ZRX1200', 270],
+            ['CB1300 SUPER FOUR', 'ZRX1200', 270],
             ['Ninja ZX-6R', 'CBR600RR', 280],
             ['ハヤブサ', 'Ninja ZX-14R', 290],
             ['TMAX', 'X-MAX', 300],
@@ -49,8 +49,8 @@ class SeoCompareSeeder extends Seeder
         $notFound = [];
 
         foreach ($pairs as [$name1, $name2, $sortOrder]) {
-            $m1 = BikeModel::where('name', $name1)->first();
-            $m2 = BikeModel::where('name', $name2)->first();
+            $m1 = $this->findModel($name1);
+            $m2 = $this->findModel($name2);
 
             if (!$m1 || !$m2) {
                 if (!$m1) $notFound[] = $name1;
@@ -78,5 +78,23 @@ class SeoCompareSeeder extends Seeder
         }
 
         $this->command->info('SeoCompareSeeder: ' . SeoCompare::count() . '件の比較ペアを登録しました。');
+    }
+
+    /**
+     * 完全一致 → 部分一致(LIKE) の順で車種を検索
+     */
+    private function findModel(string $name): ?BikeModel
+    {
+        // 完全一致
+        $model = BikeModel::where('name', $name)->first();
+        if ($model) {
+            return $model;
+        }
+
+        // 部分一致（掲載台数が多いものを優先）
+        return BikeModel::where('name', 'like', "%{$name}%")
+            ->withCount(['listings' => fn ($q) => $q->where('is_sold_out', false)])
+            ->orderByDesc('listings_count')
+            ->first();
     }
 }

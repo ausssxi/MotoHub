@@ -427,6 +427,32 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
+        // 3.6. 特集LP (sitemap-features.xml)
+        // =========================================================
+        $this->info("特集LPサイトマップを生成中...");
+        $featureFileName = 'sitemap-features.xml';
+        $handle = $this->openSitemap($featureFileName);
+        $sitemapFiles[] = $featureFileName;
+        $featureCount = 0;
+
+        SeoFeature::active()->select('slug', 'updated_at')->ordered()->chunk(100, function ($features) use ($handle, &$featureCount) {
+            foreach ($features as $feature) {
+                $this->writeUrl(
+                    $handle,
+                    route('features.show', $feature->slug),
+                    $feature->updated_at?->format('Y-m-d') ?? date('Y-m-d'),
+                    'weekly',
+                    '0.8'
+                );
+                $featureCount++;
+            }
+        });
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$featureCount} URL (Features)");
+
+
+        // =========================================================
         // 4. 店舗詳細サイトマップ (sitemap-shops.xml)
         // =========================================================
         $this->info("店舗詳細サイトマップを生成中...");
