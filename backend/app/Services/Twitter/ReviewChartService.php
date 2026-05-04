@@ -51,11 +51,11 @@ final class ReviewChartService
     private function getRadarData(Review $review): array
     {
         $items = [
-            'デザイン' => $review->rating_design,
-            'エンジン性能' => $review->rating_engine,
-            '取り回し' => $review->rating_handling,
-            '燃費' => $review->rating_fuel_economy,
-            'コスパ' => $review->rating_cost_performance,
+            'デザイン' => $review->rating_design ?? 0,
+            'エンジン性能' => $review->rating_engine ?? 0,
+            '取り回し' => $review->rating_handling ?? 0,
+            '燃費' => $review->rating_fuel_economy ?? 0,
+            'コスパ' => $review->rating_cost_performance ?? 0,
         ];
 
         $labeled = [];

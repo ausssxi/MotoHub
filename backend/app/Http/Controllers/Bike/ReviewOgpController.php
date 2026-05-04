@@ -96,17 +96,23 @@ final class ReviewOgpController extends Controller
         $review = Review::where('id', $reviewId)
             ->where('bike_model_id', $bikeModelId)
             ->where('is_approved', true)
+            ->whereNotNull('rating_design')
+            ->whereNotNull('rating_engine')
+            ->whereNotNull('rating_handling')
+            ->whereNotNull('rating_fuel_economy')
+            ->whereNotNull('rating_cost_performance')
             ->first();
 
         if (!$review) {
-            abort(404);
+            // レーティング詳細がないレビューは車種全体OGPにフォールバック
+            return $this->generateOgpForModel($bikeModelId);
         }
 
         $review->loadMissing(['bikeModel.manufacturer']);
 
         $png = $this->chartService->generateReviewCard($review);
         if (!$png) {
-            abort(404);
+            return $this->generateOgpForModel($bikeModelId);
         }
 
         Storage::disk('public')->makeDirectory(self::CACHE_DIR);
