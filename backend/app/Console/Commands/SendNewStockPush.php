@@ -137,7 +137,9 @@ class SendNewStockPush extends Command
     {
         $name = $bikeModel?->name ?? '不明な車種';
         $maker = $bikeModel?->manufacturer?->name ?? '';
-        $url = $bikeModel ? ('https://www.motohub.jp' . $bikeModel->seo_url) : 'https://www.motohub.jp/bikes/search';
+        $url = ($bikeModel?->manufacturer?->slug && $bikeModel?->slug)
+            ? 'https://www.motohub.jp/bikes/' . $bikeModel->manufacturer->slug . '/' . $bikeModel->slug
+            : ($bikeModel ? ('https://www.motohub.jp' . $bikeModel->seo_url) : 'https://www.motohub.jp/bikes/search');
 
         return [
             'title' => "📦 {$name} 新着入荷！",

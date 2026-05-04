@@ -67,7 +67,11 @@ class TweetReviews extends Command
         $text .= "\n";
         $text .= "総合評価: {$stars} ({$avg})\n";
         $text .= "「{$bodySnippet}」\n\n";
-        $text .= 'https://motohub.jp' . ($review->bikeModel->seo_url ?? '') . "#reviews\n\n";
+        $bikeModel = $review->bikeModel;
+        $reviewUrl = ($bikeModel?->manufacturer?->slug && $bikeModel?->slug)
+            ? 'https://motohub.jp/bikes/' . $bikeModel->manufacturer->slug . '/' . $bikeModel->slug . '#reviews'
+            : 'https://motohub.jp' . ($bikeModel?->seo_url ?? '') . '#reviews';
+        $text .= "{$reviewUrl}\n\n";
 
         $text .= implode(' ', $this->buildTags($review, $bikeName, $makerName));
 

@@ -1461,6 +1461,11 @@ final class BikeController extends Controller
             ? \App\Models\BikeModel::where('id', $modelSlug)->where('manufacturer_id', $manufacturer->id)->firstOrFail()
             : \App\Models\BikeModel::where('slug', $modelSlug)->where('manufacturer_id', $manufacturer->id)->firstOrFail();
 
+        // IDアクセスでslugがある場合は正規URLへ301リダイレクト
+        if (is_numeric($modelSlug) && $model->slug) {
+            return redirect("/bikes/{$mfrSlug}/{$model->slug}", 301);
+        }
+
         $cacheKey = "model_detail_v1_{$mfrSlug}_{$model->slug}";
         $viewData = Cache::remember($cacheKey, 3600, fn () => $this->buildModelDetailData($model->id));
 

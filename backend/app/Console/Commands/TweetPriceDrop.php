@@ -36,7 +36,9 @@ class TweetPriceDrop extends Command
         $bikeModel = $listing->bikeModel;
         $makerName = $bikeModel?->manufacturer?->name ?? '';
         $bikeName = $bikeModel?->name ?? '車種不明';
-        $seoUrl = $bikeModel?->seo_url ?? '';
+        $seoUrl = ($bikeModel?->manufacturer?->slug && $bikeModel?->slug)
+            ? '/bikes/' . $bikeModel->manufacturer->slug . '/' . $bikeModel->slug
+            : ($bikeModel?->seo_url ?? '');
 
         $oldPriceMan = number_format($priceHistory->old_price / 10000, 1);
         $newPriceMan = number_format($priceHistory->new_price / 10000, 1);

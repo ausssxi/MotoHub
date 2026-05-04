@@ -190,10 +190,15 @@ final class BikeModel extends Model
     public function getSeoUrlAttribute(): string
     {
         $mfrSlug = $this->manufacturer?->slug;
-        $modelSlug = $this->slug ?? $this->id;
+        $modelSlug = $this->slug;
 
-        if ($mfrSlug) {
+        if ($mfrSlug && $modelSlug) {
             return "/bikes/{$mfrSlug}/{$modelSlug}";
+        }
+
+        // slugがない場合はIDベースフォールバック
+        if ($mfrSlug) {
+            return "/bikes/{$mfrSlug}/{$this->id}";
         }
 
         // メーカースラッグもない場合（レアケース）
