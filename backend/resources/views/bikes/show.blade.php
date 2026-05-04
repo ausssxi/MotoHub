@@ -49,7 +49,9 @@
     <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
     @endif
 
-    @if(!empty($listing->images) && isset($listing->images[0]))
+    @if(!empty($discountRate))
+    <x-slot:ogImage>{{ route('bikes.deal_ogp', ['listing' => $listing->id]) }}</x-slot:ogImage>
+    @elseif(!empty($listing->images) && isset($listing->images[0]))
     <x-slot:ogImage>{{ $listing->images[0] }}</x-slot:ogImage>
     @endif
 
@@ -1394,6 +1396,22 @@
                                         以前より {{ $priceDropDiff }}万円 値下がりしました！
                                     </div>
                                 </div>
+                                @endif
+
+                                @if(!empty($discountRate))
+                                @php
+                                    $dealShareText = "🔥 激アツ車両発見！\n"
+                                        . ($listing->name ?? '') . ' / ' . ($listing->maker ?? '') . "\n"
+                                        . '💰 価格: ' . $priceMan . "万円\n"
+                                        . '（相場平均より ' . $discountRate . "% OFF✨）\n"
+                                        . '#中古バイク #MotoHub #お買い得';
+                                @endphp
+                                <a href="https://twitter.com/intent/tweet?text={{ urlencode($dealShareText) }}&url={{ urlencode(route('bikes.show', $listing->id)) }}"
+                                   target="_blank" rel="noopener noreferrer"
+                                   class="mt-3 inline-flex items-center justify-center gap-2 w-full px-4 py-3 bg-red-600 text-white text-sm font-black rounded-full hover:bg-red-700 transition shadow-lg shadow-red-600/20">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                                    🔥 お買い得情報をシェア
+                                </a>
                                 @endif
                             </div>
 

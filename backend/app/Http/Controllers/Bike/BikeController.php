@@ -292,6 +292,16 @@ final class BikeController extends Controller
                 $priceDropDiff = number_format(($latestDrop->old_price - $latestDrop->new_price) / 10000, 1);
             }
         }
+
+        // お買い得割引率（相場平均より20%以上安い場合のみ）
+        $discountRate = null;
+        if ($currentPrice > 0 && isset($stats['avg']) && $stats['avg'] > 0 && ($stats['count'] ?? 0) >= 5) {
+            $currentPriceMan = $currentPrice / 10000;
+            $rate = (($stats['avg'] - $currentPriceMan) / $stats['avg']) * 100;
+            if ($rate >= 20) {
+                $discountRate = (int) round($rate);
+            }
+        }
         
         $reviews = $listing->bike_model_id 
             ? $this->bikeService->getReviewsByModelId((int)$listing->bike_model_id, 3) 
@@ -530,6 +540,7 @@ final class BikeController extends Controller
             'tags'              => $listing->tags,
             'reviews'           => $reviews,
             'priceDropDiff'     => $priceDropDiff,
+            'discountRate'      => $discountRate,
             'pricePercentile'   => $pricePercentile,
             'nearbyParkings'    => $nearbyParkings,
             'nearbyShops'       => $nearbyShops,
