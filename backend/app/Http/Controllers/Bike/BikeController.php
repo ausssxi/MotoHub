@@ -1471,4 +1471,27 @@ final class BikeController extends Controller
 
         return view('bikes.model_detail', $viewData);
     }
+
+    /**
+     * レビュー専用ページ（車種詳細と同じ画面、OGPをレーダーチャートに差替、レビューセクションへ自動スクロール）
+     */
+    public function modelReviews(string $mfrSlug, string $modelSlug, ?int $reviewId = null)
+    {
+        $manufacturer = \App\Models\Manufacturer::where('slug', $mfrSlug)->first();
+
+        if (!$manufacturer) {
+            abort(404);
+        }
+
+        $model = \App\Models\BikeModel::where('slug', $modelSlug)
+            ->where('manufacturer_id', $manufacturer->id)
+            ->firstOrFail();
+
+        $cacheKey = "model_detail_v1_{$mfrSlug}_{$model->slug}";
+        $viewData = Cache::remember($cacheKey, 3600, fn () => $this->buildModelDetailData($model->id));
+        $viewData['reviewOgpMode'] = true;
+        $viewData['scrollToReviewId'] = $reviewId;
+
+        return view('bikes.model_detail', $viewData);
+    }
 }

@@ -2,7 +2,11 @@
     <x-slot:title>{{ $model->manufacturer?->name }} {{ $model->name }}の中古バイク{{ $activeCount > 0 ? '【' . $activeCount . '台】' : '' }}{{ !empty($stats) && isset($stats['avg']) && $stats['count'] > 0 ? '相場' . $stats['min'] . '〜' . $stats['max'] . '万円' : '相場・価格' }} | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $model->manufacturer?->name }} {{ $model->name }}の中古バイク{{ $activeCount > 0 ? $activeCount . '台掲載中' : '情報' }}。{{ !empty($stats) && isset($stats['avg']) && $stats['count'] > 0 ? '価格' . $stats['min'] . '〜' . $stats['max'] . '万円（平均' . $stats['avg'] . '万円）。' : '' }}スペック・維持費・相場推移・口コミをMotoHubで比較検討。</x-slot:metaDescription>
     <x-slot:canonical>{{ url($model->seo_url) }}</x-slot:canonical>
-    @if($model->image_url)
+    @if(!empty($reviewOgpMode) && $model->manufacturer?->slug && $model->slug && !empty($scrollToReviewId))
+    <x-slot:ogImage>{{ url("/bikes/{$model->manufacturer->slug}/{$model->slug}/review-ogp/{$scrollToReviewId}.png") }}</x-slot:ogImage>
+    @elseif(!empty($reviewOgpMode) && $model->manufacturer?->slug && $model->slug)
+    <x-slot:ogImage>{{ url("/bikes/{$model->manufacturer->slug}/{$model->slug}/review-ogp.png") }}</x-slot:ogImage>
+    @elseif($model->image_url)
     <x-slot:ogImage>{{ $model->image_url }}</x-slot:ogImage>
     @endif
 
@@ -17,6 +21,21 @@
             window.bikeModelHistory = @json($history ?? []);
         </script>
         <script>window.__bikeModelId = {{ $model->id }};</script>
+        @if(!empty($reviewOgpMode))
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                var targetId = '{{ !empty($scrollToReviewId) ? "review-" . $scrollToReviewId : "reviews" }}';
+                var target = document.getElementById(targetId);
+                if (target) {
+                    var communityBtn = document.querySelector('[data-tab="community"]');
+                    if (communityBtn) communityBtn.click();
+                    setTimeout(function() {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 300);
+                }
+            });
+        </script>
+        @endif
         <script src="{{ asset('js/promo/engagement-banner.js') }}?v={{ filemtime(public_path('js/promo/engagement-banner.js')) }}" defer></script>
         <script src="{{ asset('js/bikes/model_detail.js') }}?v={{ filemtime(public_path('js/bikes/model_detail.js')) }}" defer></script>
         <script src="{{ asset('js/bikes/review.js') }}?v={{ filemtime(public_path('js/bikes/review.js')) }}" defer></script>
@@ -295,17 +314,6 @@
                 </a>
                 @endif
             </div>
-
-            {{-- Xシェアボタン --}}
-            @php
-                $modelShareText = '「' . $model->name . '」の詳細・レビュー・中古車情報はMotoHubでチェック！ #MotoHub #中古バイク #バイク好きと繋がりたい #バイクのある生活 #ツーリング #バイク乗りと繋がりたい #' . str_replace(' ', '', $model->name) . ' #' . $model->manufacturer->name . ' #バイク #バイクレビュー #中古バイク情報';
-            @endphp
-            <a href="https://twitter.com/intent/tweet?text={{ urlencode($modelShareText) }}&url={{ urlencode(route('bikes.model_detail', ['mfrSlug' => $model->manufacturer->slug, 'modelSlug' => $model->slug])) }}"
-               target="_blank" rel="noopener noreferrer"
-               class="inline-flex items-center gap-1.5 mt-4 px-4 py-2 bg-white/10 backdrop-blur-sm text-white text-xs font-bold rounded-full hover:bg-white/20 transition">
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                シェア
-            </a>
 
             {{-- 通知購読エリア --}}
             <div class="mt-4" id="push-area-header" data-model-id="{{ $model->id }}"></div>
@@ -1262,9 +1270,10 @@
                             </a>
                         </div>
 
+                        @php $showReviewShare = $model->manufacturer?->slug && $model->slug; @endphp
                         <div class="space-y-6 mb-12">
                             @forelse($model->reviews as $review)
-                                <div class="border-b border-gray-100 pb-6 last:border-0">
+                                <div class="border-b border-gray-100 pb-6 last:border-0" id="review-{{ $review->id }}">
                                     <div class="flex items-center justify-between mb-2">
                                         <div class="flex items-center gap-2">
                                             <div class="flex text-yellow-400">
@@ -1286,7 +1295,20 @@
                                     </div>
                                     @endif
                                     <p class="text-sm text-gray-600 leading-relaxed mb-2 whitespace-pre-wrap">{{ $review->body }}</p>
-                                    <p class="text-xs text-gray-400 font-bold">by {{ $review->nickname }}</p>
+                                    <div class="flex items-center justify-between">
+                                        <p class="text-xs text-gray-400 font-bold">by {{ $review->nickname }}</p>
+                                        @if($showReviewShare)
+                                        @php
+                                            $rvShareText = $model->name . 'のレビュー「' . $review->title . '」by ' . $review->nickname . ' ' . str_repeat('★', $review->rating) . str_repeat('☆', 5 - $review->rating) . ' #MotoHub #バイクレビュー #' . str_replace(' ', '', $model->name);
+                                        @endphp
+                                        <a href="https://twitter.com/intent/tweet?text={{ urlencode($rvShareText) }}&url={{ urlencode(route('bikes.model_review_single', ['mfrSlug' => $model->manufacturer->slug, 'modelSlug' => $model->slug, 'reviewId' => $review->id])) }}"
+                                           target="_blank" rel="noopener noreferrer"
+                                           class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-full hover:bg-gray-700 transition">
+                                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                                            シェア
+                                        </a>
+                                        @endif
+                                    </div>
                                 </div>
                             @empty
                                 <div class="text-center py-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">

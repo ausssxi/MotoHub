@@ -222,27 +222,52 @@ final class ReviewChartService
         $bikeName = $review->bikeModel?->name ?? '車種不明';
         $makerName = $review->bikeModel?->manufacturer?->name ?? '';
 
-        // --- 車種名（y=30、32px、白、中央揃え）---
+        // --- 車種名（y=18、28px、白、中央揃え）---
         $displayName = $makerName ? "{$makerName} {$bikeName}" : $bikeName;
         if (mb_strlen($displayName) > 24) {
             $displayName = mb_substr($displayName, 0, 23) . '…';
         }
-        $canvas->text($displayName, $centerX, 30, function (FontFactory $font) use ($fontPath) {
+        $canvas->text($displayName, $centerX, 18, function (FontFactory $font) use ($fontPath) {
             $font->filename($fontPath);
-            $font->size(32);
+            $font->size(28);
             $font->color('#ffffff');
             $font->align('center');
             $font->valign('top');
         });
 
-        // --- 総合評価（y=80、28px、黄色、中央揃え）---
+        // --- 総合評価（y=58、24px、黄色、中央揃え）---
         $rating = $review->rating;
         $stars = str_repeat('★', $rating) . str_repeat('☆', 5 - $rating);
         $avg = number_format($this->calcAvgRating($review), 1);
-        $canvas->text("{$stars} {$avg}", $centerX, 80, function (FontFactory $font) use ($fontPath) {
+        $canvas->text("{$stars} {$avg}", $centerX, 58, function (FontFactory $font) use ($fontPath) {
             $font->filename($fontPath);
-            $font->size(28);
+            $font->size(24);
             $font->color('#FBBF24');
+            $font->align('center');
+            $font->valign('top');
+        });
+
+        // --- レビュータイトル（y=95、18px、白80%、中央揃え）---
+        $title = $review->title ?? '';
+        if (mb_strlen($title) > 30) {
+            $title = mb_substr($title, 0, 29) . '…';
+        }
+        if ($title) {
+            $canvas->text("「{$title}」", $centerX, 95, function (FontFactory $font) use ($fontPath) {
+                $font->filename($fontPath);
+                $font->size(18);
+                $font->color('rgba(255, 255, 255, 0.8)');
+                $font->align('center');
+                $font->valign('top');
+            });
+        }
+
+        // --- ニックネーム（y=122、14px、白50%、中央揃え）---
+        $nickname = $review->nickname ?? '匿名ユーザー';
+        $canvas->text("by {$nickname}", $centerX, 122, function (FontFactory $font) use ($fontPath) {
+            $font->filename($fontPath);
+            $font->size(14);
+            $font->color('rgba(255, 255, 255, 0.5)');
             $font->align('center');
             $font->valign('top');
         });

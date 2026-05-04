@@ -69,7 +69,7 @@ class TweetReviews extends Command
         $text .= "「{$bodySnippet}」\n\n";
         $bikeModel = $review->bikeModel;
         $reviewUrl = ($bikeModel?->manufacturer?->slug && $bikeModel?->slug)
-            ? 'https://motohub.jp/bikes/' . $bikeModel->manufacturer->slug . '/' . $bikeModel->slug . '#reviews'
+            ? 'https://motohub.jp/bikes/' . $bikeModel->manufacturer->slug . '/' . $bikeModel->slug . '/reviews'
             : 'https://motohub.jp' . ($bikeModel?->seo_url ?? '') . '#reviews';
         $text .= "{$reviewUrl}\n\n";
 

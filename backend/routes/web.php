@@ -24,6 +24,7 @@ use App\Http\Controllers\Ar\ArController;
 use App\Http\Controllers\Bike\BikeIdentifierController;
 use App\Http\Controllers\Bike\NewArrivalsController;
 use App\Http\Controllers\Bike\PriceDropsController;
+use App\Http\Controllers\Bike\ReviewOgpController;
 use App\Http\Controllers\Parts\PartsController;
 use App\Http\Controllers\NewsController;
 use App\Http\Controllers\RankingController;
@@ -158,6 +159,26 @@ Route::get('/bikes/{mfrSlug}/{ccSlug}', [BikeController::class, 'categoryByDispl
     ->where('mfrSlug', '[a-z][a-z0-9\-]*')
     ->where('ccSlug', '\d+cc')
     ->name('bikes.category_displacement');
+
+// レビューOGP画像（車種全体 / 個別レビュー）
+Route::get('/bikes/{mfrSlug}/{modelSlug}/review-ogp/{reviewId}.png', [ReviewOgpController::class, 'showBySlug'])
+    ->where('mfrSlug', '[a-z][a-z0-9\-]*')
+    ->where('reviewId', '[0-9]+')
+    ->name('bikes.review_ogp_individual');
+
+Route::get('/bikes/{mfrSlug}/{modelSlug}/review-ogp.png', [ReviewOgpController::class, 'showBySlug'])
+    ->where('mfrSlug', '[a-z][a-z0-9\-]*')
+    ->name('bikes.review_ogp');
+
+// レビューページ（個別レビュー / 車種全体）
+Route::get('/bikes/{mfrSlug}/{modelSlug}/reviews/{reviewId}', [BikeController::class, 'modelReviews'])
+    ->where('mfrSlug', '[a-z][a-z0-9\-]*')
+    ->where('reviewId', '[0-9]+')
+    ->name('bikes.model_review_single');
+
+Route::get('/bikes/{mfrSlug}/{modelSlug}/reviews', [BikeController::class, 'modelReviews'])
+    ->where('mfrSlug', '[a-z][a-z0-9\-]*')
+    ->name('bikes.model_reviews');
 
 Route::get('/bikes/{mfrSlug}/{modelSlug}', [BikeController::class, 'modelDetailBySlug'])
     ->where('mfrSlug', '[a-z][a-z0-9\-]*')

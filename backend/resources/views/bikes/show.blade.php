@@ -320,23 +320,6 @@
                                 @endif
                             </div>
                             
-                            <div class="flex items-center gap-3">
-                                {{-- Xシェアボタン --}}
-                                @php
-                                    $sharePrice = $priceMan ? $priceMan . '万円' : '';
-                                    $shareMaker = $listing->maker ?? '';
-                                    $shareBikeName = $listing->bike_model_name ?? $listing->name;
-                                    $shareTextBike = $shareBikeName . ($sharePrice ? ' ' . $sharePrice : '') . ' | MotoHub #中古バイク #MotoHub #バイク好きと繋がりたい #バイクのある生活 #ツーリング #バイク乗りと繋がりたい #' . str_replace(' ', '', $shareBikeName) . ' #' . $shareMaker . ' #バイク #お買い得バイク #バイク探し #ツーリング仲間';
-                                    $shareUrlBike = url()->current();
-                                @endphp
-                                <a href="https://twitter.com/intent/tweet?text={{ urlencode($shareTextBike) }}&url={{ urlencode($shareUrlBike) }}"
-                                   target="_blank" rel="noopener noreferrer"
-                                   class="inline-flex items-center gap-1.5 px-3 py-2 bg-black text-white text-xs font-bold rounded-full hover:bg-gray-800 transition shadow-sm">
-                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                                    シェア
-                                </a>
-                            </div>
-
                             {{-- ★修正: イベントバブリングを阻害しないようJS直接呼び出しに変更 --}}
                             <div class="flex items-center gap-3">
                                 <div class="compare-btn flex items-center gap-3 bg-gray-50 pl-4 pr-1.5 py-1.5 rounded-full border border-gray-200 cursor-pointer hover:bg-blue-50 hover:border-blue-200 group transition-colors" data-id="{{ $listing->id }}">
@@ -1092,25 +1075,12 @@
                                 <h3 class="text-base sm:text-lg font-black text-gray-900 leading-tight">この車種のオーナーレビュー</h3>
                             </div>
                             <div class="self-end sm:self-auto border-t sm:border-t-0 border-gray-100 pt-2 sm:pt-0 w-full sm:w-auto text-right flex flex-wrap gap-3 justify-end items-center">
-                                {{-- レビューXシェアボタン --}}
-                                @php
-                                    $reviewModelName = $bikeModelForUrl->name ?? ($listing->bike_model_name ?? $listing->name);
-                                    $reviewMaker = $bikeModelForUrl->manufacturer->name ?? ($listing->maker ?? '');
-                                    $reviewAvg = isset($reviewDetailedStats['overall_avg']) ? number_format($reviewDetailedStats['overall_avg'], 1) : '';
-                                    $reviewShareText = '⭐ ' . $reviewModelName . 'のユーザーレビュー' . ($reviewAvg ? ' 総合評価: ' . $reviewAvg : '') . ' | MotoHub #中古バイク #MotoHub #バイクレビュー #' . str_replace(' ', '', $reviewModelName) . ' #' . $reviewMaker . ' #バイク好きと繋がりたい #バイクのある生活 #ツーリング #バイク乗りと繋がりたい #バイク #インプレ';
-                                @endphp
-                                <a href="https://twitter.com/intent/tweet?text={{ urlencode($reviewShareText) }}&url={{ urlencode(url()->current()) }}"
-                                   target="_blank" rel="noopener noreferrer"
-                                   class="inline-flex items-center gap-1.5 text-xs font-bold bg-black hover:bg-gray-800 text-white px-3 py-2 rounded-lg transition-colors shadow-sm">
-                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                                    シェア
-                                </a>
                                 <button type="button" onclick="openReviewModal()" class="inline-flex items-center text-xs font-bold bg-yellow-400 hover:bg-yellow-500 text-yellow-900 px-3 py-2 rounded-lg transition-colors shadow-sm active:scale-95">
                                     <i data-lucide="pen-line" class="w-3.5 h-3.5 mr-1"></i> レビューを書く
                                 </button>
-                                
+
                                 @if($reviews->isNotEmpty())
-                                <a href="{{ $bikeModelForUrl?->seo_url ? $bikeModelForUrl->seo_url . '#reviews' : '#' }}" class="inline-flex items-center text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors py-2">
+                                <a href="{{ ($bikeModelForUrl?->manufacturer?->slug && $bikeModelForUrl?->slug) ? route('bikes.model_reviews', ['mfrSlug' => $bikeModelForUrl->manufacturer->slug, 'modelSlug' => $bikeModelForUrl->slug]) : '#' }}" class="inline-flex items-center text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors py-2">
                                     すべて見る <i data-lucide="chevron-right" class="w-4 h-4 ml-0.5"></i>
                                 </a>
                                 @endif
@@ -1150,9 +1120,10 @@
                         </div>
                         @endif
 
+                        @php $showShowReviewShare = $bikeModelForUrl?->manufacturer?->slug && $bikeModelForUrl?->slug; @endphp
                         <div class="space-y-4" id="review-list-container">
                             @forelse($reviews as $review)
-                                <div class="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                <div class="p-4 bg-gray-50 rounded-2xl border border-gray-100" id="review-{{ $review->id }}">
                                     <div class="flex justify-between items-start mb-2">
                                         <div class="flex items-center gap-2">
                                             <div class="flex text-yellow-400">
@@ -1189,7 +1160,20 @@
                                         <span class="flex items-center gap-1">
                                             <i data-lucide="user" class="w-3 h-3"></i> {{ $review->nickname ?? '匿名ユーザー' }}
                                         </span>
-                                        <span>{{ $review->created_at->format('Y年m月') }}</span>
+                                        <div class="flex items-center gap-2">
+                                            @if($showShowReviewShare)
+                                            @php
+                                                $showRvShareText = ($bikeModelForUrl->name ?? '') . 'のレビュー「' . $review->title . '」by ' . ($review->nickname ?? '匿名') . ' ' . str_repeat('★', $review->rating) . str_repeat('☆', 5 - $review->rating) . ' #MotoHub #バイクレビュー #' . str_replace(' ', '', $bikeModelForUrl->name ?? '');
+                                            @endphp
+                                            <a href="https://twitter.com/intent/tweet?text={{ urlencode($showRvShareText) }}&url={{ urlencode(route('bikes.model_review_single', ['mfrSlug' => $bikeModelForUrl->manufacturer->slug, 'modelSlug' => $bikeModelForUrl->slug, 'reviewId' => $review->id])) }}"
+                                               target="_blank" rel="noopener noreferrer"
+                                               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-full hover:bg-gray-700 transition">
+                                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                                                シェア
+                                            </a>
+                                            @endif
+                                            <span>{{ $review->created_at->format('Y年m月') }}</span>
+                                        </div>
                                     </div>
                                 </div>
                             @empty
