@@ -186,6 +186,11 @@ Route::get('/bikes/{mfrSlug}/{modelSlug}/reviews/{reviewId}', [BikeController::c
     ->where('reviewId', '[0-9]+')
     ->name('bikes.model_review_single');
 
+// レビュー個別ページ（IDベース：slugがない車種用フォールバック）
+Route::get('/bikes/models/{modelId}/reviews/{reviewId}', [BikeController::class, 'modelReviewsById'])
+    ->where(['modelId' => '[0-9]+', 'reviewId' => '[0-9]+'])
+    ->name('bikes.model_review_single_by_id');
+
 Route::get('/bikes/{mfrSlug}/{modelSlug}/reviews', [BikeController::class, 'modelReviews'])
     ->where('mfrSlug', '[a-z][a-z0-9\-]*')
     ->name('bikes.model_reviews');

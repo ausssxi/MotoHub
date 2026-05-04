@@ -1270,7 +1270,7 @@
                             </a>
                         </div>
 
-                        @php $showReviewShare = $model->manufacturer?->slug && $model->slug; @endphp
+                        @php $showReviewShare = true; @endphp
                         <div class="space-y-6 mb-12">
                             @forelse($model->reviews as $review)
                                 <div class="border-b border-gray-100 pb-6 last:border-0" id="review-{{ $review->id }}">
@@ -1299,9 +1299,42 @@
                                         <p class="text-xs text-gray-400 font-bold">by {{ $review->nickname }}</p>
                                         @if($showReviewShare)
                                         @php
-                                            $rvShareText = $model->name . 'のレビュー「' . $review->title . '」by ' . $review->nickname . ' ' . str_repeat('★', $review->rating) . str_repeat('☆', 5 - $review->rating) . ' #MotoHub #バイクレビュー #' . str_replace(' ', '', $model->name);
+                                            $rvTags = ['#MotoHub', '#バイクレビュー', '#中古バイク', '#バイク乗りと繋がりたい', '#バイク好きと繋がりたい', '#バイクのある生活', '#ツーリング'];
+
+                                            $rvMakerSlug = $model->manufacturer?->slug ?? '';
+                                            match ($rvMakerSlug) {
+                                                'yamaha' => array_push($rvTags, '#YAMAHAが美しい', '#yamaha'),
+                                                'honda' => array_push($rvTags, '#Honda党', '#honda'),
+                                                'kawasaki' => array_push($rvTags, '#漢は黙ってカワサキ', '#kawasaki'),
+                                                'suzuki' => array_push($rvTags, '#鈴菌', '#suzuki'),
+                                                default => $rvMakerSlug ? $rvTags[] = "#{$rvMakerSlug}" : null,
+                                            };
+
+                                            $rvTags[] = '#' . str_replace(' ', '', $model->name);
+
+                                            $rvDisplacement = $model->displacement;
+                                            if ($rvDisplacement) {
+                                                if ($rvDisplacement <= 50) {
+                                                    $rvTags[] = '#原付';
+                                                } elseif ($rvDisplacement <= 125) {
+                                                    $rvTags[] = '#125cc';
+                                                } elseif ($rvDisplacement <= 250) {
+                                                    $rvTags[] = '#250cc';
+                                                } elseif ($rvDisplacement <= 400) {
+                                                    $rvTags[] = '#400cc';
+                                                } else {
+                                                    $rvTags[] = '#大型バイク';
+                                                }
+                                            }
+
+                                            $rvHashLine = implode(' ', array_unique($rvTags));
+                                            $rvShareText = $model->name . 'のレビュー「' . $review->title . '」by ' . $review->nickname . ' ' . str_repeat('★', $review->rating) . str_repeat('☆', 5 - $review->rating) . "\n" . $rvHashLine;
+
+                                            $rvShareUrl = ($model->manufacturer?->slug && $model->slug)
+                                                ? route('bikes.model_review_single', ['mfrSlug' => $model->manufacturer->slug, 'modelSlug' => $model->slug, 'reviewId' => $review->id])
+                                                : route('bikes.model_review_single_by_id', ['modelId' => $model->id, 'reviewId' => $review->id]);
                                         @endphp
-                                        <a href="https://twitter.com/intent/tweet?text={{ urlencode($rvShareText) }}&url={{ urlencode(route('bikes.model_review_single', ['mfrSlug' => $model->manufacturer->slug, 'modelSlug' => $model->slug, 'reviewId' => $review->id])) }}"
+                                        <a href="https://twitter.com/intent/tweet?text={{ urlencode($rvShareText) }}&url={{ urlencode($rvShareUrl) }}"
                                            target="_blank" rel="noopener noreferrer"
                                            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-full hover:bg-gray-700 transition">
                                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>

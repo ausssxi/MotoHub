@@ -1505,4 +1505,28 @@ final class BikeController extends Controller
 
         return view('bikes.model_detail', $viewData);
     }
+
+    /**
+     * レビュー個別ページ（IDベース：slugがない車種用フォールバック）
+     */
+    public function modelReviewsById(int $modelId, int $reviewId)
+    {
+        $model = \App\Models\BikeModel::with('manufacturer')->findOrFail($modelId);
+
+        // slugがあればスラッグベースURLへリダイレクト
+        if ($model->slug && $model->manufacturer?->slug) {
+            return redirect()->route('bikes.model_review_single', [
+                'mfrSlug' => $model->manufacturer->slug,
+                'modelSlug' => $model->slug,
+                'reviewId' => $reviewId,
+            ], 301);
+        }
+
+        $cacheKey = "model_detail_v1_id_{$modelId}";
+        $viewData = Cache::remember($cacheKey, 3600, fn () => $this->buildModelDetailData($modelId));
+        $viewData['reviewOgpMode'] = true;
+        $viewData['scrollToReviewId'] = $reviewId;
+
+        return view('bikes.model_detail', $viewData);
+    }
 }

@@ -1122,7 +1122,7 @@
                         </div>
                         @endif
 
-                        @php $showShowReviewShare = $bikeModelForUrl?->manufacturer?->slug && $bikeModelForUrl?->slug; @endphp
+                        @php $showShowReviewShare = (bool) $bikeModelForUrl; @endphp
                         <div class="space-y-4" id="review-list-container">
                             @forelse($reviews as $review)
                                 <div class="p-4 bg-gray-50 rounded-2xl border border-gray-100" id="review-{{ $review->id }}">
@@ -1165,9 +1165,42 @@
                                         <div class="flex items-center gap-2">
                                             @if($showShowReviewShare)
                                             @php
-                                                $showRvShareText = ($bikeModelForUrl->name ?? '') . 'のレビュー「' . $review->title . '」by ' . ($review->nickname ?? '匿名') . ' ' . str_repeat('★', $review->rating) . str_repeat('☆', 5 - $review->rating) . ' #MotoHub #バイクレビュー #' . str_replace(' ', '', $bikeModelForUrl->name ?? '');
+                                                $showRvTags = ['#MotoHub', '#バイクレビュー', '#中古バイク', '#バイク乗りと繋がりたい', '#バイク好きと繋がりたい', '#バイクのある生活', '#ツーリング'];
+
+                                                $showRvMakerSlug = $bikeModelForUrl?->manufacturer?->slug ?? '';
+                                                match ($showRvMakerSlug) {
+                                                    'yamaha' => array_push($showRvTags, '#YAMAHAが美しい', '#yamaha'),
+                                                    'honda' => array_push($showRvTags, '#Honda党', '#honda'),
+                                                    'kawasaki' => array_push($showRvTags, '#漢は黙ってカワサキ', '#kawasaki'),
+                                                    'suzuki' => array_push($showRvTags, '#鈴菌', '#suzuki'),
+                                                    default => $showRvMakerSlug ? $showRvTags[] = "#{$showRvMakerSlug}" : null,
+                                                };
+
+                                                $showRvTags[] = '#' . str_replace(' ', '', $bikeModelForUrl->name ?? '');
+
+                                                $showRvDisplacement = $bikeModelForUrl?->displacement;
+                                                if ($showRvDisplacement) {
+                                                    if ($showRvDisplacement <= 50) {
+                                                        $showRvTags[] = '#原付';
+                                                    } elseif ($showRvDisplacement <= 125) {
+                                                        $showRvTags[] = '#125cc';
+                                                    } elseif ($showRvDisplacement <= 250) {
+                                                        $showRvTags[] = '#250cc';
+                                                    } elseif ($showRvDisplacement <= 400) {
+                                                        $showRvTags[] = '#400cc';
+                                                    } else {
+                                                        $showRvTags[] = '#大型バイク';
+                                                    }
+                                                }
+
+                                                $showRvHashLine = implode(' ', array_unique($showRvTags));
+                                                $showRvShareText = ($bikeModelForUrl->name ?? '') . 'のレビュー「' . $review->title . '」by ' . ($review->nickname ?? '匿名') . ' ' . str_repeat('★', $review->rating) . str_repeat('☆', 5 - $review->rating) . "\n" . $showRvHashLine;
+
+                                                $showRvShareUrl = ($bikeModelForUrl->manufacturer?->slug && $bikeModelForUrl->slug)
+                                                    ? route('bikes.model_review_single', ['mfrSlug' => $bikeModelForUrl->manufacturer->slug, 'modelSlug' => $bikeModelForUrl->slug, 'reviewId' => $review->id])
+                                                    : route('bikes.model_review_single_by_id', ['modelId' => $bikeModelForUrl->id, 'reviewId' => $review->id]);
                                             @endphp
-                                            <a href="https://twitter.com/intent/tweet?text={{ urlencode($showRvShareText) }}&url={{ urlencode(route('bikes.model_review_single', ['mfrSlug' => $bikeModelForUrl->manufacturer->slug, 'modelSlug' => $bikeModelForUrl->slug, 'reviewId' => $review->id])) }}"
+                                            <a href="https://twitter.com/intent/tweet?text={{ urlencode($showRvShareText) }}&url={{ urlencode($showRvShareUrl) }}"
                                                target="_blank" rel="noopener noreferrer"
                                                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-full hover:bg-gray-700 transition">
                                                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
