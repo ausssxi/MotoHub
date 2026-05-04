@@ -23,7 +23,9 @@ use App\Http\Controllers\Parking\StationParkingController;
 use App\Http\Controllers\Ar\ArController;
 use App\Http\Controllers\Bike\BikeIdentifierController;
 use App\Http\Controllers\Bike\NewArrivalsController;
+use App\Http\Controllers\Bike\NewArrivalsOgpController;
 use App\Http\Controllers\Bike\PriceDropsController;
+use App\Http\Controllers\Bike\PriceDropsOgpController;
 use App\Http\Controllers\Bike\ReviewOgpController;
 use App\Http\Controllers\Parts\PartsController;
 use App\Http\Controllers\NewsController;
@@ -83,10 +85,18 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     Route::get('/identify', [BikeIdentifierController::class, 'index'])->name('identify');
     Route::post('/identify', [BikeIdentifierController::class, 'identify'])->name('identify.post');
 
+    // 新着入荷OGP画像
+    Route::get('/new-arrivals/ogp.png', [NewArrivalsOgpController::class, 'show'])
+        ->name('new_arrivals_ogp');
+
     // 新着入荷ページ
     Route::get('/new-arrivals/{date?}', [NewArrivalsController::class, 'index'])
         ->where('date', '\d{4}-\d{2}-\d{2}')
         ->name('new_arrivals');
+
+    // 値下げOGP画像
+    Route::get('/price-drops/ogp.png', [PriceDropsOgpController::class, 'show'])
+        ->name('price_drops_ogp');
 
     // 値下げページ
     Route::get('/price-drops/{date?}', [PriceDropsController::class, 'index'])

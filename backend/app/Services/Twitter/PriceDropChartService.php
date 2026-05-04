@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Http;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 
-final class NewStockChartService
+final class PriceDropChartService
 {
     private const WIDTH = 1200;
     private const HEIGHT = 630;
@@ -21,22 +21,16 @@ final class NewStockChartService
 
     public function generateDashboardImage(?Carbon $date = null): ?string
     {
-        if ($date) {
-            $byMaker = $this->getByMakerDate($date);
-            $byPrice = $this->getByPriceDate($date);
-            $byModel = $this->getByModelDate($date);
-            $daily = $this->getDailyTrend($date);
-        } else {
-            $since = now()->subDay();
-            $byMaker = $this->getByMaker($since);
-            $byPrice = $this->getByPrice($since);
-            $byModel = $this->getByModel($since);
-            $daily = $this->getDailyTrend();
-        }
+        $date = $date ?? Carbon::today();
+
+        $byMaker = $this->getByMaker($date);
+        $byAmount = $this->getByAmountBand($date);
+        $byModel = $this->getByModel($date);
+        $daily = $this->getDailyTrend($date);
 
         $charts = [
             $this->fetchChart($this->buildMakerConfig($byMaker)),
-            $this->fetchChart($this->buildPriceConfig($byPrice)),
+            $this->fetchChart($this->buildAmountConfig($byAmount)),
             $this->fetchChart($this->buildModelConfig($byModel)),
             $this->fetchChart($this->buildDailyTrendConfig($daily)),
         ];
@@ -66,14 +60,6 @@ final class NewStockChartService
         return (string) $canvas->toPng();
     }
 
-    public function getTotalCount(): int
-    {
-        return DB::table('listings')
-            ->where('is_sold_out', false)
-            ->where('created_at', '>=', now()->subDay())
-            ->count();
-    }
-
     // =====================================================================
     // チャート設定ビルダー
     // =====================================================================
@@ -91,7 +77,7 @@ final class NewStockChartService
                     'borderWidth' => 1,
                 ]],
             ],
-            'options' => $this->chartOptions('メーカー別 新着入荷', '__TICK_CB_1__'),
+            'options' => $this->chartOptions('メーカー別 値下げ件数', '__TICK_CB_1__'),
         ];
 
         return ['config' => $config, 'callbacks' => [
@@ -99,7 +85,7 @@ final class NewStockChartService
         ]];
     }
 
-    private function buildPriceConfig(Collection $data): array
+    private function buildAmountConfig(Collection $data): array
     {
         $config = [
             'type' => 'bar',
@@ -114,7 +100,7 @@ final class NewStockChartService
             ],
             'options' => [
                 'legend' => ['display' => false],
-                'title' => $this->miniTitle('価格帯別 新着'),
+                'title' => $this->miniTitle('値下げ額別 分布'),
                 'scales' => [
                     'xAxes' => [$this->xAxis()],
                     'yAxes' => [[
@@ -147,7 +133,7 @@ final class NewStockChartService
                     'borderWidth' => 1,
                 ]],
             ],
-            'options' => $this->chartOptions('車種別 新着TOP5', '__TICK_CB_3__'),
+            'options' => $this->chartOptions('車種別 値下げTOP5', '__TICK_CB_3__'),
         ];
 
         return ['config' => $config, 'callbacks' => [
@@ -162,7 +148,7 @@ final class NewStockChartService
             'data' => [
                 'labels' => $data->pluck('label')->toArray(),
                 'datasets' => [[
-                    'label' => '入荷数',
+                    'label' => '値下げ数',
                     'data' => $data->pluck('count')->toArray(),
                     'borderColor' => '#A855F7',
                     'backgroundColor' => 'rgba(168, 85, 247, 0.15)',
@@ -177,7 +163,7 @@ final class NewStockChartService
             ],
             'options' => [
                 'legend' => ['display' => false],
-                'title' => $this->miniTitle('入荷推移（7日間）'),
+                'title' => $this->miniTitle('値下げ推移（7日間）'),
                 'scales' => [
                     'xAxes' => [$this->xAxis()],
                     'yAxes' => [[
@@ -304,42 +290,44 @@ final class NewStockChartService
     // データ取得
     // =====================================================================
 
-    private function getByMaker(\Carbon\Carbon $since): Collection
+    private function getByMaker(Carbon $date): Collection
     {
-        return DB::table('listings')
+        return DB::table('price_histories')
+            ->join('listings', 'price_histories.listing_id', '=', 'listings.id')
             ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
             ->join('manufacturers', 'bike_models.manufacturer_id', '=', 'manufacturers.id')
             ->selectRaw('manufacturers.name, COUNT(*) as count')
             ->where('listings.is_sold_out', false)
-            ->where('listings.created_at', '>=', $since)
+            ->whereDate('price_histories.created_at', $date)
             ->groupBy('manufacturers.name')
             ->orderByDesc('count')
             ->limit(5)
             ->get();
     }
 
-    private function getByPrice(\Carbon\Carbon $since): Collection
+    private function getByAmountBand(Carbon $date): Collection
     {
         $bands = [
-            ['max' => 200000, 'label' => '〜20万'],
-            ['min' => 200000, 'max' => 400000, 'label' => '20〜40万'],
-            ['min' => 400000, 'max' => 600000, 'label' => '40〜60万'],
-            ['min' => 600000, 'max' => 800000, 'label' => '60〜80万'],
-            ['min' => 800000, 'label' => '80万〜'],
+            ['max' => 10000, 'label' => '〜1万'],
+            ['min' => 10000, 'max' => 30000, 'label' => '1〜3万'],
+            ['min' => 30000, 'max' => 50000, 'label' => '3〜5万'],
+            ['min' => 50000, 'max' => 100000, 'label' => '5〜10万'],
+            ['min' => 100000, 'label' => '10万〜'],
         ];
 
         $results = [];
         foreach ($bands as $band) {
-            $query = DB::table('listings')
-                ->where('is_sold_out', false)
-                ->where('total_price', '>', 0)
-                ->where('created_at', '>=', $since);
+            $query = DB::table('price_histories')
+                ->join('listings', 'price_histories.listing_id', '=', 'listings.id')
+                ->where('listings.is_sold_out', false)
+                ->whereDate('price_histories.created_at', $date)
+                ->whereRaw('(price_histories.old_price - price_histories.new_price) > 0');
 
             if (isset($band['min'])) {
-                $query->where('total_price', '>=', $band['min']);
+                $query->whereRaw('(price_histories.old_price - price_histories.new_price) >= ?', [$band['min']]);
             }
             if (isset($band['max'])) {
-                $query->where('total_price', '<', $band['max']);
+                $query->whereRaw('(price_histories.old_price - price_histories.new_price) < ?', [$band['max']]);
             }
 
             $results[] = (object) [
@@ -351,13 +339,14 @@ final class NewStockChartService
         return collect($results);
     }
 
-    private function getByModel(\Carbon\Carbon $since): Collection
+    private function getByModel(Carbon $date): Collection
     {
-        return DB::table('listings')
+        return DB::table('price_histories')
+            ->join('listings', 'price_histories.listing_id', '=', 'listings.id')
             ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
             ->selectRaw('bike_models.name, COUNT(*) as count')
             ->where('listings.is_sold_out', false)
-            ->where('listings.created_at', '>=', $since)
+            ->whereDate('price_histories.created_at', $date)
             ->whereNotNull('listings.bike_model_id')
             ->groupBy('bike_models.name')
             ->orderByDesc('count')
@@ -365,87 +354,16 @@ final class NewStockChartService
             ->get();
     }
 
-    public function getTopModels(): Collection
+    private function getDailyTrend(Carbon $date): Collection
     {
-        return $this->getByModel(now()->subDay());
-    }
-
-    private function getDailyTrend(?Carbon $date = null): Collection
-    {
-        $end = $date ?? now();
-
-        return DB::table('listings')
-            ->selectRaw("DATE(created_at) as day, DATE_FORMAT(created_at, '%m/%d') as label, COUNT(*) as count")
-            ->where('is_sold_out', false)
-            ->where('created_at', '>=', $end->copy()->subDays(7)->startOfDay())
-            ->where('created_at', '<=', $end->copy()->endOfDay())
-            ->groupByRaw("DATE(created_at), DATE_FORMAT(created_at, '%m/%d')")
+        return DB::table('price_histories')
+            ->join('listings', 'price_histories.listing_id', '=', 'listings.id')
+            ->selectRaw("DATE(price_histories.created_at) as day, DATE_FORMAT(price_histories.created_at, '%m/%d') as label, COUNT(*) as count")
+            ->where('listings.is_sold_out', false)
+            ->where('price_histories.created_at', '>=', $date->copy()->subDays(6)->startOfDay())
+            ->where('price_histories.created_at', '<=', $date->copy()->endOfDay())
+            ->groupByRaw("DATE(price_histories.created_at), DATE_FORMAT(price_histories.created_at, '%m/%d')")
             ->orderBy('day')
-            ->get();
-    }
-
-    // =====================================================================
-    // 日付指定データ取得（OGP用）
-    // =====================================================================
-
-    private function getByMakerDate(Carbon $date): Collection
-    {
-        return DB::table('listings')
-            ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
-            ->join('manufacturers', 'bike_models.manufacturer_id', '=', 'manufacturers.id')
-            ->selectRaw('manufacturers.name, COUNT(*) as count')
-            ->where('listings.is_sold_out', false)
-            ->whereDate('listings.created_at', $date)
-            ->groupBy('manufacturers.name')
-            ->orderByDesc('count')
-            ->limit(5)
-            ->get();
-    }
-
-    private function getByPriceDate(Carbon $date): Collection
-    {
-        $bands = [
-            ['max' => 200000, 'label' => '〜20万'],
-            ['min' => 200000, 'max' => 400000, 'label' => '20〜40万'],
-            ['min' => 400000, 'max' => 600000, 'label' => '40〜60万'],
-            ['min' => 600000, 'max' => 800000, 'label' => '60〜80万'],
-            ['min' => 800000, 'label' => '80万〜'],
-        ];
-
-        $results = [];
-        foreach ($bands as $band) {
-            $query = DB::table('listings')
-                ->where('is_sold_out', false)
-                ->where('total_price', '>', 0)
-                ->whereDate('created_at', $date);
-
-            if (isset($band['min'])) {
-                $query->where('total_price', '>=', $band['min']);
-            }
-            if (isset($band['max'])) {
-                $query->where('total_price', '<', $band['max']);
-            }
-
-            $results[] = (object) [
-                'label' => $band['label'],
-                'count' => $query->count(),
-            ];
-        }
-
-        return collect($results);
-    }
-
-    private function getByModelDate(Carbon $date): Collection
-    {
-        return DB::table('listings')
-            ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
-            ->selectRaw('bike_models.name, COUNT(*) as count')
-            ->where('listings.is_sold_out', false)
-            ->whereDate('listings.created_at', $date)
-            ->whereNotNull('listings.bike_model_id')
-            ->groupBy('bike_models.name')
-            ->orderByDesc('count')
-            ->limit(5)
             ->get();
     }
 }

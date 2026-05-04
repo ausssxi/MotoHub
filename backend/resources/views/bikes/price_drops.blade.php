@@ -2,6 +2,7 @@
     <x-slot:title>{{ $targetDate->format('Y年n月j日') }}の値下げバイク | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $targetDate->format('Y年n月j日') }}に値下げされたバイク{{ number_format($data['totalDrops']) }}台。値下げ額・値下げ率ランキングTOP20をチェック。</x-slot:metaDescription>
     <x-slot:canonical>{{ route('bikes.price_drops', $targetDate->toDateString()) }}</x-slot:canonical>
+    <x-slot:ogImage>{{ route('bikes.price_drops_ogp') }}</x-slot:ogImage>
     <x-slot:navigation><x-navigation :showSearch="true" /></x-slot:navigation>
 
     <div class="max-w-4xl mx-auto px-4 py-6 sm:py-10">

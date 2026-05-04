@@ -2,6 +2,7 @@
     <x-slot:title>{{ $targetDate->format('Y年n月j日') }}の新着入荷バイク | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $targetDate->format('Y年n月j日') }}の新着入荷バイク{{ number_format($data['totalNew']) }}台。メーカー別・価格帯別の内訳と人気車種TOP20をチェック。</x-slot:metaDescription>
     <x-slot:canonical>{{ route('bikes.new_arrivals', $targetDate->toDateString()) }}</x-slot:canonical>
+    <x-slot:ogImage>{{ route('bikes.new_arrivals_ogp') }}</x-slot:ogImage>
     <x-slot:navigation><x-navigation :showSearch="true" /></x-slot:navigation>
 
     <div class="max-w-4xl mx-auto px-4 py-6 sm:py-10">
