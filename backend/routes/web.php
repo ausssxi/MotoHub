@@ -22,6 +22,8 @@ use App\Http\Controllers\Parking\ParkingAreaController;
 use App\Http\Controllers\Parking\StationParkingController;
 use App\Http\Controllers\Ar\ArController;
 use App\Http\Controllers\Bike\BikeIdentifierController;
+use App\Http\Controllers\Bike\NewArrivalsController;
+use App\Http\Controllers\Bike\PriceDropsController;
 use App\Http\Controllers\Parts\PartsController;
 use App\Http\Controllers\NewsController;
 use App\Http\Controllers\RankingController;
@@ -56,6 +58,18 @@ Route::get('/suggest', function (Request $request) {
 // トップページ
 Route::get('/', [BikeController::class, 'index'])->name('bikes.index');
 
+// sort パラメータ付き /bikes リダイレクト
+Route::get('/bikes', function (Request $request) {
+    $sort = $request->query('sort');
+    if ($sort === 'newest' || $sort === 'new' || $sort === 'latest') {
+        return redirect()->route('bikes.new_arrivals', [], 301);
+    }
+    if ($sort === 'bargain_desc') {
+        return redirect()->route('bikes.price_drops', [], 301);
+    }
+    return redirect()->route('bikes.search', $request->except('sort'), 301);
+});
+
 // '/bikes' グループ (検索・一覧・詳細)
 Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group(function () {
     Route::get('/search', 'search')->name('search');    // /bikes/search
@@ -67,6 +81,16 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     // 車種判定AI
     Route::get('/identify', [BikeIdentifierController::class, 'index'])->name('identify');
     Route::post('/identify', [BikeIdentifierController::class, 'identify'])->name('identify.post');
+
+    // 新着入荷ページ
+    Route::get('/new-arrivals/{date?}', [NewArrivalsController::class, 'index'])
+        ->where('date', '\d{4}-\d{2}-\d{2}')
+        ->name('new_arrivals');
+
+    // 値下げページ
+    Route::get('/price-drops/{date?}', [PriceDropsController::class, 'index'])
+        ->where('date', '\d{4}-\d{2}-\d{2}')
+        ->name('price_drops');
 
     // SEO着地ページ（市区町村レベル — セグメント数が多いので先に定義）
     Route::get('/area/{prefecture}/{city}/{slug}', 'cityLanding')->name('city_landing');

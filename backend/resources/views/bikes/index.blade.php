@@ -141,11 +141,11 @@
                 <span class="text-[10px] font-bold text-gray-400 block">掲載</span>
                 <span class="text-sm font-black text-gray-900 tabular-nums">{{ number_format($totalListings) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
             </a>
-            <a href="{{ route('bikes.search', ['sort' => 'bargain_desc']) }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors" style="border-left:1px solid #e5e7eb">
+            <a href="{{ route('bikes.price_drops') }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors" style="border-left:1px solid #e5e7eb">
                 <span class="text-[10px] font-bold text-gray-400 block">本日値下げ</span>
                 <span class="text-sm font-black text-red-600 tabular-nums">{{ number_format($priceDropCount) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
             </a>
-            <a href="{{ route('bikes.search', ['sort' => 'latest']) }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors" style="border-left:1px solid #e5e7eb">
+            <a href="{{ route('bikes.new_arrivals') }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors" style="border-left:1px solid #e5e7eb">
                 <span class="text-[10px] font-bold text-gray-400 block">新着</span>
                 <span class="text-sm font-black text-green-600 tabular-nums">{{ number_format($newListingsCount) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
             </a>

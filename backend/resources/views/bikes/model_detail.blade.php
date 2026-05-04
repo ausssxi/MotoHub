@@ -296,6 +296,17 @@
                 @endif
             </div>
 
+            {{-- Xシェアボタン --}}
+            @php
+                $modelShareText = '「' . $model->name . '」の詳細・レビュー・中古車情報はMotoHubでチェック！ #MotoHub #中古バイク #バイク好きと繋がりたい #バイクのある生活 #ツーリング #バイク乗りと繋がりたい #' . str_replace(' ', '', $model->name) . ' #' . $model->manufacturer->name . ' #バイク #バイクレビュー #中古バイク情報';
+            @endphp
+            <a href="https://twitter.com/intent/tweet?text={{ urlencode($modelShareText) }}&url={{ urlencode(route('bikes.model_detail', ['mfrSlug' => $model->manufacturer->slug, 'modelSlug' => $model->slug])) }}"
+               target="_blank" rel="noopener noreferrer"
+               class="inline-flex items-center gap-1.5 mt-4 px-4 py-2 bg-white/10 backdrop-blur-sm text-white text-xs font-bold rounded-full hover:bg-white/20 transition">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                シェア
+            </a>
+
             {{-- 通知購読エリア --}}
             <div class="mt-4" id="push-area-header" data-model-id="{{ $model->id }}"></div>
         </div>

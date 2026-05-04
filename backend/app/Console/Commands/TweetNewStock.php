@@ -46,7 +46,7 @@ class TweetNewStock extends Command
         foreach ($topModels as $model) {
             $text .= "🏍 {$model->name} {$model->count}台\n";
         }
-        $text .= "\nhttps://motohub.jp/bikes?sort=newest\n\n";
+        $text .= "\nhttps://motohub.jp/bikes/new-arrivals\n\n";
         $text .= implode(' ', $this->buildTags($topModels));
 
         // --- 画像生成 ---
