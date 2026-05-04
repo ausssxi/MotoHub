@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Listing;
 use App\Services\Twitter\DealChartService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 final class DealOgpController extends Controller
@@ -24,7 +25,27 @@ final class DealOgpController extends Controller
             return $this->imageResponse(Storage::disk('public')->path($cachePath));
         }
 
-        $png = $this->chartService->generateChartImage($listing);
+        $listing->loadMissing(['bikeModel.manufacturer']);
+
+        // お買い得割引率を算出（TweetBargainsと同じロジック）
+        $percentOff = 0;
+        if ($listing->bike_model_id && $listing->total_price > 0) {
+            $averagePrice = (float) Listing::where('bike_model_id', $listing->bike_model_id)
+                ->where('is_sold_out', false)
+                ->where('id', '!=', $listing->id)
+                ->where('total_price', '>', 0)
+                ->avg('total_price');
+
+            if ($averagePrice > 0) {
+                $percentOff = (int) round((($averagePrice - $listing->total_price) / $averagePrice) * 100);
+            }
+        }
+
+        // 20%以上安ければCombined画像（左テキスト＋右チャート）、それ以外はチャートのみ
+        $png = $percentOff >= 20
+            ? $this->chartService->generateCombinedImage($listing, $percentOff)
+            : $this->chartService->generateChartImage($listing);
+
         if (!$png) {
             abort(404);
         }

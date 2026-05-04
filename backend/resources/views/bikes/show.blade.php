@@ -1400,11 +1400,45 @@
 
                                 @if(!empty($discountRate))
                                 @php
+                                    // TweetBargainsと同じハッシュタグ構成
+                                    $dealTags = ['#バイク乗りと繋がりたい', '#バイク売ります', '#中古バイク', '#MotoHub', '#バイクのある生活', '#バイク好きと繋がりたい', '#ツーリング'];
+
+                                    $dealMakerSlug = $bikeModelForUrl?->manufacturer?->slug ?? '';
+                                    match ($dealMakerSlug) {
+                                        'yamaha' => array_push($dealTags, '#YAMAHAが美しい', '#yamaha'),
+                                        'honda' => array_push($dealTags, '#Honda党', '#honda'),
+                                        'kawasaki' => array_push($dealTags, '#漢は黙ってカワサキ', '#kawasaki'),
+                                        'suzuki' => array_push($dealTags, '#鈴菌', '#suzuki'),
+                                        default => $dealMakerSlug ? $dealTags[] = "#{$dealMakerSlug}" : null,
+                                    };
+
+                                    $dealBikeSlug = $bikeModelForUrl?->slug;
+                                    if ($dealBikeSlug) {
+                                        $dealTags[] = '#' . strtolower($dealBikeSlug);
+                                    }
+
+                                    $dealDisplacement = $bikeModelForUrl?->displacement;
+                                    if ($dealDisplacement) {
+                                        if ($dealDisplacement <= 50) {
+                                            $dealTags[] = '#原付';
+                                        } elseif ($dealDisplacement <= 125) {
+                                            $dealTags[] = '#125cc';
+                                        } elseif ($dealDisplacement <= 250) {
+                                            $dealTags[] = '#250cc';
+                                        } elseif ($dealDisplacement <= 400) {
+                                            $dealTags[] = '#400cc';
+                                        } else {
+                                            $dealTags[] = '#大型バイク';
+                                        }
+                                    }
+
+                                    $dealHashLine = implode(' ', array_unique($dealTags));
+
                                     $dealShareText = "🔥 激アツ車両発見！\n"
-                                        . ($listing->name ?? '') . ' / ' . ($listing->maker ?? '') . "\n"
+                                        . '🏍 ' . ($listing->name ?? '') . ' / ' . ($listing->maker ?? '') . "\n"
                                         . '💰 価格: ' . $priceMan . "万円\n"
-                                        . '（相場平均より ' . $discountRate . "% OFF✨）\n"
-                                        . '#中古バイク #MotoHub #お買い得';
+                                        . '（相場平均より ' . $discountRate . "% OFF✨）\n\n"
+                                        . $dealHashLine;
                                 @endphp
                                 <a href="https://twitter.com/intent/tweet?text={{ urlencode($dealShareText) }}&url={{ urlencode(route('bikes.show', $listing->id)) }}"
                                    target="_blank" rel="noopener noreferrer"
