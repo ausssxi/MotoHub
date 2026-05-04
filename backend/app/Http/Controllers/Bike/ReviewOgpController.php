@@ -26,7 +26,7 @@ final class ReviewOgpController extends Controller
     {
         $manufacturer = Manufacturer::where('slug', $mfrSlug)->first();
         if (!$manufacturer) {
-            abort(404);
+            return $this->fallbackImage();
         }
 
         $bikeModel = BikeModel::where('manufacturer_id', $manufacturer->id)
@@ -34,7 +34,7 @@ final class ReviewOgpController extends Controller
             ->first();
 
         if (!$bikeModel) {
-            abort(404);
+            return $this->fallbackImage();
         }
 
         if ($reviewId) {
@@ -66,14 +66,14 @@ final class ReviewOgpController extends Controller
             ->first();
 
         if (!$review) {
-            abort(404);
+            return $this->fallbackImage();
         }
 
         $review->loadMissing(['bikeModel.manufacturer']);
 
         $png = $this->chartService->generateReviewCard($review);
         if (!$png) {
-            abort(404);
+            return $this->fallbackImage();
         }
 
         Storage::disk('public')->makeDirectory(self::CACHE_DIR);
@@ -124,6 +124,17 @@ final class ReviewOgpController extends Controller
     private function imageResponse(string $path): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         return response()->file($path, [
+            'Content-Type' => 'image/png',
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
+    /**
+     * レビューやモデルが見つからない場合のデフォルトOGP画像
+     */
+    private function fallbackImage(): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        return response()->file(public_path('images/twitter_template.png'), [
             'Content-Type' => 'image/png',
             'Cache-Control' => 'public, max-age=86400',
         ]);
