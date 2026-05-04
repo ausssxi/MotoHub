@@ -57,18 +57,29 @@
             </div>
             @endif
 
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 flex-wrap">
+                {{-- Xシェアボタン --}}
+                @php
+                    $newsShareText = $newsItem->title . ' | MotoHub #バイク乗りと繋がりたい #バイク好きと繋がりたい #バイクのある生活 #中古バイク #MotoHub #ツーリング #新着入荷 #バイク #バイクニュース #お買い得バイク #中古バイク情報';
+                @endphp
+                <a href="https://twitter.com/intent/tweet?text={{ urlencode($newsShareText) }}&url={{ urlencode(route('news.show', $newsItem->id)) }}"
+                   target="_blank" rel="noopener noreferrer"
+                   class="inline-flex items-center gap-1.5 px-4 py-2 bg-black text-white text-xs font-bold rounded-full hover:bg-gray-800 transition">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    シェア
+                </a>
+
                 @if($newsItem->source === 'MotoHub')
                 {{-- MotoHub生成記事: ランキングページへ --}}
                 <a href="{{ route('ranking.index') }}"
-                   class="inline-flex items-center gap-1.5 px-4 py-2 bg-black text-white text-xs font-bold rounded-full hover:bg-gray-800 transition">
+                   class="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-900 text-white text-xs font-bold rounded-full hover:bg-gray-700 transition">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                     ランキングを見る
                 </a>
                 @else
                 {{-- 外部ニュース: 元記事リンク --}}
                 <a href="{{ $newsItem->url }}" target="_blank" rel="noopener noreferrer"
-                   class="inline-flex items-center gap-1.5 px-4 py-2 bg-black text-white text-xs font-bold rounded-full hover:bg-gray-800 transition">
+                   class="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-900 text-white text-xs font-bold rounded-full hover:bg-gray-700 transition">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                     元記事を読む
                 </a>
