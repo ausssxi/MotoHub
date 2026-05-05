@@ -562,17 +562,21 @@
                 </div>
             </section>
 
-            {{-- 🏆 売れ筋ランキングバナー --}}
+            {{-- 🌍 海外バイクバナー --}}
+            @php
+                $overseasStats = app(\App\Services\Bike\OverseasBikeService::class)->getIndexData()['stats'] ?? null;
+            @endphp
+            @if($overseasStats && $overseasStats['total_count'] > 0)
             <section class="mb-20">
-                <a href="{{ route('ranking.index') }}" class="group relative overflow-hidden rounded-3xl p-8 sm:p-10 block shadow-lg hover:shadow-2xl transition-all duration-300" style="background: linear-gradient(135deg, #f97316, #ea580c);">
+                <a href="{{ route('bikes.overseas') }}" class="group relative overflow-hidden rounded-3xl p-8 sm:p-10 block shadow-lg hover:shadow-2xl transition-all duration-300" style="background: linear-gradient(135deg, #1e293b, #334155);">
                     <div class="absolute -right-8 -bottom-8 opacity-10 transform group-hover:scale-110 transition-transform duration-500">
-                        <i data-lucide="trophy" class="w-48 h-48 text-white"></i>
+                        <i data-lucide="globe" class="w-48 h-48 text-white"></i>
                     </div>
                     <div class="relative z-10 flex items-center justify-between">
                         <div class="text-white">
-                            <p class="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-2">Ranking Data</p>
-                            <h2 class="text-xl sm:text-2xl font-black mb-2">バイク売れ筋ランキング</h2>
-                            <p class="text-xs sm:text-sm text-white/80 font-medium">全国の販売データからリアルな人気車種をチェック</p>
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-2">Imported Motorcycles</p>
+                            <h2 class="text-xl sm:text-2xl font-black mb-2">海外メーカーの中古バイクを探す</h2>
+                            <p class="text-xs sm:text-sm text-white/80 font-medium">{{ $overseasStats['maker_count'] }}ブランド・{{ number_format($overseasStats['total_count']) }}台掲載</p>
                         </div>
                         <div class="hidden sm:flex items-center justify-center w-14 h-14 bg-white/20 rounded-full group-hover:bg-white/30 transition-colors shrink-0 ml-6">
                             <i data-lucide="arrow-right" class="w-6 h-6 text-white group-hover:translate-x-1 transition-transform"></i>
@@ -580,6 +584,7 @@
                     </div>
                 </a>
             </section>
+            @endif
 
             {{-- ======================= --}}
             {{-- 📊 相場 セクション      --}}

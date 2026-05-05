@@ -13,7 +13,7 @@
     $isMap      = $navIs('riders-map*', 'parking*');
     $isBlog     = $navIs('blog*');
     $isSouba    = $navIs('trends*', 'sell*');
-    $isOther    = $navIs('parts*', 'identify*', 'garage/public*', 'ar*', 'quiz*', 'warashibe*', 'puzzle*', 'games/*');
+    $isOther    = $navIs('bikes/overseas*', 'parts*', 'identify*', 'garage/public*', 'ar*', 'quiz*', 'warashibe*', 'puzzle*', 'games/*');
 @endphp
 
 <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
@@ -135,8 +135,12 @@
                             バイク2048
                         </a>
                         <div class="my-1 border-t border-gray-100"></div>
-                        {{-- ツールセクション --}}
+                        {{-- ツ��ルセクション --}}
                         <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-widest">ツール</p>
+                        <a href="{{ route('bikes.overseas') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                            輸入バイク
+                        </a>
                         <a href="{{ route('parts.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
                             <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
                             パーツ

@@ -30,6 +30,7 @@ use App\Http\Controllers\Bike\NewArrivalsOgpController;
 use App\Http\Controllers\Bike\PriceDropsController;
 use App\Http\Controllers\Bike\PriceDropsOgpController;
 use App\Http\Controllers\Bike\ReviewOgpController;
+use App\Http\Controllers\Bike\OverseasBikeController;
 use App\Http\Controllers\Parts\PartsController;
 use App\Http\Controllers\NewsController;
 use App\Http\Controllers\RankingController;
@@ -137,6 +138,12 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
 
     // トレンド・ランキング
     Route::get('/trends', [TrendController::class, 'index'])->name('trends');
+
+    // 輸入バイクLP
+    Route::get('/overseas', [OverseasBikeController::class, 'index'])->name('overseas');
+    Route::get('/overseas/{makerSlug}', [OverseasBikeController::class, 'maker'])
+        ->where('makerSlug', '[a-z][a-z0-9\-]*')
+        ->name('overseas.maker');
 
     // 車種別カタログページ
     Route::get('/models/{id}', function ($id) {

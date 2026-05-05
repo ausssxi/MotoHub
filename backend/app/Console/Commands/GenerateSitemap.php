@@ -401,6 +401,49 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
+        // 3.4. 輸入バイクLP (sitemap-overseas.xml)
+        // =========================================================
+        $this->info("輸入バイクサイトマップを生成中...");
+        $overseasFileName = 'sitemap-overseas.xml';
+        $handle = $this->openSitemap($overseasFileName);
+        $sitemapFiles[] = $overseasFileName;
+        $overseasCount = 0;
+
+        // まとめページ
+        $this->writeUrl($handle, route('bikes.overseas'), date('Y-m-d'), 'weekly', '0.7');
+        $overseasCount++;
+
+        // メーカー別ページ（在庫5台以上）
+        $domesticNames = ['ホンダ', 'ヤマハ', 'カワサキ', 'スズキ'];
+        $overseasMakers = Manufacturer::whereNotIn('name', $domesticNames)
+            ->whereNotNull('slug')
+            ->whereHas('bikeModels.listings', fn ($q) => $q->where('is_sold_out', false))
+            ->get();
+
+        foreach ($overseasMakers as $maker) {
+            $listingCount = DB::table('listings')
+                ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
+                ->where('bike_models.manufacturer_id', $maker->id)
+                ->where('listings.is_sold_out', false)
+                ->count();
+
+            if ($listingCount >= 5) {
+                $this->writeUrl(
+                    $handle,
+                    route('bikes.overseas.maker', $maker->slug),
+                    date('Y-m-d'),
+                    'weekly',
+                    '0.6'
+                );
+                $overseasCount++;
+            }
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$overseasCount} URL (Overseas)");
+
+
+        // =========================================================
         // 3.5. 車種比較ページ (sitemap-compare.xml)
         // =========================================================
         $this->info("車種比較サイトマップを生成中...");

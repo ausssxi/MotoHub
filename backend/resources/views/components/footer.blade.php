@@ -86,6 +86,9 @@
                         <a href="{{ route('shops.area.index') }}" class="footer-link">エリアからバイクショップを探す</a>
                     </li>
                     <li>
+                        <a href="{{ route('bikes.overseas') }}" class="footer-link">輸入バイク中古車</a>
+                    </li>
+                    <li>
                         <a href="{{ route('parts.index') }}" class="footer-link">バイクパーツ検索</a>
                     </li>
                     <li>
