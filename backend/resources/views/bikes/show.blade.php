@@ -55,6 +55,12 @@
     <x-slot:ogImage>{{ $listing->images[0] }}</x-slot:ogImage>
     @endif
 
+    @if(!empty($discountRate) && $discountRate >= 20)
+    <x-slot:styles>
+        <link rel="preload" as="image" href="{{ route('bikes.deal_ogp', ['listing' => $listing->id]) }}">
+    </x-slot:styles>
+    @endif
+
     <x-jsonld.product :listing="$listing" :reviewStats="$reviewDetailedStats ?? null" />
     <x-jsonld.breadcrumb :listing="$listing" />
 
