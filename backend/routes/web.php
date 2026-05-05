@@ -21,6 +21,8 @@ use App\Http\Controllers\Parking\ParkingController;
 use App\Http\Controllers\Parking\ParkingAreaController;
 use App\Http\Controllers\Parking\StationParkingController;
 use App\Http\Controllers\Shop\ShopAreaController;
+use App\Http\Controllers\RidersMapController;
+use App\Http\Controllers\Api\PoiApiController;
 use App\Http\Controllers\Ar\ArController;
 use App\Http\Controllers\Bike\BikeIdentifierController;
 use App\Http\Controllers\Bike\NewArrivalsController;
@@ -200,9 +202,12 @@ Route::get('/bikes/{mfrSlug}/{modelSlug}', [BikeController::class, 'modelDetailB
     ->where('mfrSlug', '[a-z][a-z0-9\-]*')
     ->name('bikes.model_detail');
 
+// ライダーズマップ（統合マップ）
+Route::get('/riders-map', [RidersMapController::class, 'index'])->name('riders.map');
+
 Route::prefix('shops')->name('shops.')->group(function () {
-    // マップページ
-    Route::get('/map', [ShopController::class, 'map'])->name('map');
+    // マップページ → ライダーズマップへ301リダイレクト
+    Route::get('/map', fn(Request $request) => redirect()->route('riders.map', $request->query(), 301))->name('map');
     // エリア検索API (※公開APIなので一旦ここに残します)
     Route::get('/api/area', [ShopController::class, 'area'])->name('api.area');
 
@@ -307,6 +312,7 @@ Route::prefix('api')->group(function () {
     Route::get('/manufacturers/{manufacturer}/models-light', [BikeApiController::class, 'modelsLight']);
     Route::get('/stats/price/{bikeModelId}', [App\Http\Controllers\Api\StatsApiController::class, 'getPriceStats']);
     Route::get('/widget/price/{bikeModelId}', [\App\Http\Controllers\Api\WidgetApiController::class, 'price']);
+    Route::get('/pois', [PoiApiController::class, 'search'])->name('api.pois');
 });
 
 // 固定ページ (運営者情報など)

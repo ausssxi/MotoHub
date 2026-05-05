@@ -10,7 +10,7 @@
     $isShindan  = $navIs('shindan*');
     $isRanking  = $navIs('ranking*');
     $isNews     = $navIs('news*');
-    $isMap      = $navIs('shops/map*', 'parking*');
+    $isMap      = $navIs('riders-map*', 'parking*');
     $isBlog     = $navIs('blog*');
     $isSouba    = $navIs('trends*', 'sell*');
     $isOther    = $navIs('parts*', 'identify*', 'garage/public*', 'ar*', 'quiz*', 'warashibe*', 'puzzle*', 'games/*');
@@ -71,27 +71,11 @@
                     <span class="hidden xl:inline">ニュース</span>
                 </a>
 
-                {{-- マップ ドロップダウン --}}
-                <div class="hidden md:flex relative" x-data="{ open: false }">
-                    <button @click="open = !open" @click.outside="open = false"
-                        class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isMap ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="マップ">
-                        <i data-lucide="map" class="w-4 h-4"></i>
-                        <span class="hidden xl:inline">マップ</span>
-                        <i data-lucide="chevron-down" class="w-3 h-3 transition-transform duration-200" x-bind:class="{ 'rotate-180': open }"></i>
-                    </button>
-                    <div x-show="open" x-transition
-                         class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
-                         style="display: none;">
-                        <a href="{{ route('shops.map') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
-                            <i data-lucide="store" class="w-3.5 h-3.5"></i>
-                            ショップマップ
-                        </a>
-                        <a href="{{ route('parking.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors whitespace-nowrap">
-                            <i data-lucide="square-parking" class="w-3.5 h-3.5"></i>
-                            駐車場マップ
-                        </a>
-                    </div>
-                </div>
+                {{-- マ���プ --}}
+                <a href="{{ route('riders.map') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isMap ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="ライダーズマップ">
+                    <i data-lucide="map" class="w-4 h-4"></i>
+                    <span class="hidden xl:inline">マップ</span>
+                </a>
 
                 {{-- ブログ --}}
                 <a href="{{ route('blog.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isBlog ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="ブログ記事">

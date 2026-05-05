@@ -71,6 +71,9 @@
                         <a href="{{ route('pages.widget') }}" class="footer-link">相場ウィジェット</a>
                     </li>
                     <li>
+                        <a href="{{ route('riders.map') }}" class="footer-link">ライダーズマップ</a>
+                    </li>
+                    <li>
                         <a href="{{ route('parking.index') }}" class="footer-link">バイク駐車場マップ</a>
                     </li>
                     <li>

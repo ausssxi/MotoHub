@@ -50,3 +50,9 @@ Schedule::command('news:generate-monthly-report --publish')->monthlyOn(1, '08:00
 
 // お買い得BOT（1日1回のみ残す）
 Schedule::command('bikes:tweet-bargains')->dailyAt('12:00');
+
+// POIデータ取得（毎日3:30 — Overpass APIからGS・コンビニ・道の駅）
+Schedule::command('poi:fetch')->dailyAt('03:30');
+
+// POI住所逆ジオコーディング（毎日4:30 — 5000件ずつ段階処理）
+Schedule::command('poi:geocode')->dailyAt('04:30');

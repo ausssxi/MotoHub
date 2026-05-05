@@ -8,7 +8,7 @@
         || request()->is('trends*')
         || request()->is('garage*')
         || request()->is('wishlist*')
-        || request()->is('shops/map*')
+        || request()->is('riders-map*')
         || request()->is('ar*')
         || request()->is('quiz*')
         || request()->is('warashibe*')
@@ -40,8 +40,8 @@
         </a>
 
         {{-- マップ --}}
-        <a href="{{ route('parking.index') }}"
-           class="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 {{ request()->is('parking*') ? 'text-blue-600' : 'text-gray-400' }}">
+        <a href="{{ route('riders.map') }}"
+           class="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 {{ request()->is('riders-map*') ? 'text-blue-600' : 'text-gray-400' }}">
             <i data-lucide="map-pin" class="w-5 h-5"></i>
             <span class="text-[10px] font-bold leading-tight">マップ</span>
         </a>
@@ -179,13 +179,13 @@
 
             {{-- その他 --}}
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mt-3 mb-1">その他</p>
-            <a href="{{ route('shops.map') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center">
-                    <i data-lucide="store" class="w-5 h-5 text-orange-600"></i>
+            <a href="{{ route('riders.map') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="map" class="w-5 h-5 text-blue-600"></i>
                 </div>
                 <div>
-                    <p class="text-sm font-black text-gray-900">ショップマップ</p>
-                    <p class="text-[10px] text-gray-400">近くのバイクショップを探す</p>
+                    <p class="text-sm font-black text-gray-900">ライダーズマップ</p>
+                    <p class="text-[10px] text-gray-400">ショップ・駐車場・GS・コンビニ・道の駅</p>
                 </div>
             </a>
             <a href="{{ route('ar.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
