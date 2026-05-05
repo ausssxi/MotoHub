@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>バイクガレージパズル</title>
+<meta name="description" content="同じメーカー色のブロックを合体させてバイクをレベルアップ！カブ50からゴールドウイングを目指すパズルゲーム。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#0f172a}
+body{font-family:'Noto Sans JP',sans-serif;-webkit-tap-highlight-color:transparent;user-select:none;color:#e2e8f0}
+
+@keyframes sc-slide-to{0%{transform:translate(0,0);opacity:1}50%{transform:translate(var(--sc-dx),0);opacity:.85}100%{transform:translate(var(--sc-dx),var(--sc-dy));opacity:.3}}
+@keyframes sc-flash{0%{opacity:0;transform:scale(.5)}40%{opacity:1;transform:scale(1.1)}100%{opacity:0;transform:scale(1.4)}}
+@keyframes sc-pop{0%{transform:scale(0)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
+@keyframes sc-gravity-fall{0%{transform:translateY(var(--sc-fall-y))}100%{transform:translateY(0)}}
+@keyframes sc-fill-drop{0%{transform:translateY(var(--sc-fill-y));opacity:0}50%{opacity:1}70%{transform:translateY(0)}82%{transform:translateY(6%)}100%{transform:translateY(0);opacity:1}}
+@keyframes sc-highlight-pulse{0%,100%{box-shadow:inset 0 0 0 3px rgba(255,255,255,.5)}50%{box-shadow:inset 0 0 0 3px rgba(255,255,255,1)}}
+@keyframes sc-target-glow{0%,100%{box-shadow:0 0 8px rgba(255,255,255,.3)}50%{box-shadow:0 0 16px rgba(255,255,255,.7)}}
+@keyframes sc-announce-in{0%{opacity:0;transform:scale(.3) rotate(-10deg)}50%{opacity:1;transform:scale(1.1) rotate(2deg)}70%{transform:scale(.95) rotate(-1deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes sc-announce-out{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.3)}}
+@keyframes sc-backdrop-in{0%{opacity:0}100%{opacity:1}}
+@keyframes sc-modal-in{0%{opacity:0;transform:scale(.9) translateY(20px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+
+.sc-grid{display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(5,1fr);gap:4px;border-radius:12px;padding:4px;background:#1e293b;aspect-ratio:1;max-width:400px;margin:0 auto}
+.sc-cell{border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;cursor:pointer;transition:transform .1s ease;overflow:visible;-webkit-tap-highlight-color:transparent}
+.sc-cell:active{transform:scale(.95)}
+.sc-cell-empty{background:rgba(255,255,255,.05);cursor:default;overflow:hidden}
+.sc-cell-empty:active{transform:none}
+.sc-cell-sliding{animation:sc-slide-to 300ms linear forwards;z-index:5;transition:none!important}
+.sc-cell-pop{animation:sc-pop 300ms ease}
+.sc-cell-gravity{animation:sc-gravity-fall 200ms ease-out backwards;animation-delay:var(--sc-fall-delay,0ms)}
+.sc-cell-fill{animation:sc-fill-drop 300ms ease-out backwards;animation-delay:var(--sc-fill-delay,0ms)}
+.sc-cell-highlight{animation:sc-highlight-pulse .8s ease infinite}
+.sc-cell-target-glow{animation:sc-target-glow .8s ease infinite}
+.sc-flash-overlay{position:absolute;inset:-12px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.95) 0%,rgba(255,255,180,.4) 50%,transparent 70%);animation:sc-flash 200ms ease-out forwards;z-index:15;pointer-events:none}
+.sc-evo-strip{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.sc-evo-strip::-webkit-scrollbar{height:4px}
+.sc-evo-strip::-webkit-scrollbar-thumb{background:#555;border-radius:2px}
+
+.sc-announce-overlay{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);animation:sc-backdrop-in .2s ease;pointer-events:none}
+.sc-announce-box{padding:20px 32px;border-radius:16px;text-align:center;animation:sc-announce-in .5s ease forwards;background:linear-gradient(135deg,#EAB308 0%,#CA8A04 100%);border:3px solid #FDE047;box-shadow:0 0 40px rgba(234,179,8,.5)}
+.sc-announce-box.leaving{animation:sc-announce-out .3s ease forwards}
+
+.sc-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;animation:sc-backdrop-in .2s ease}
+.sc-modal{background:#1e293b;border-radius:16px;padding:20px;max-width:380px;width:100%;max-height:80vh;overflow-y:auto;animation:sc-modal-in .3s ease;color:#e2e8f0}
+.sc-modal::-webkit-scrollbar{width:4px}
+.sc-modal::-webkit-scrollbar-thumb{background:#475569;border-radius:2px}
+
+.btn{padding:8px 14px;background:#475569;color:#e2e8f0;border:none;border-radius:6px;font-weight:bold;font-size:13px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.btn-overlay{padding:10px 20px;background:#475569;color:#fff;border:none;border-radius:8px;font-weight:bold;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+'use strict';
+
+// ── Data ────────────────────────────────────────────────
+var BIKE_NAMES = {
+  honda: ['スーパーカブ50','モンキー125','CT125','PCX','レブル250','GB350','CB400SF','CBR600RR','CB1300SF'],
+  yamaha: ['JOG','セロー250','SR400','YZF-R3','MT-07','XSR700','MT-09','YZF-R6','VMAX'],
+  kawasaki: ['KLX230','エストレヤ','Ninja250','Ninja400','W800','Z900RS','Ninja650','ZX-10R','H2'],
+  suzuki: ['アドレス','ST250','GSX250R','SV650','V-Strom','GSX-S750','SV1000','ハヤブサ','GSX-R1000R'],
+};
+var WORLD_BIKES = { 10: 'R1250GS', 11: 'Panigale V4', 12: 'ゴールドウイング' };
+var LEVEL_VALUES = [10,20,35,55,80,100,170,200,300,500,750,1000];
+var COLORS = [
+  { id:'honda', label:'ホンダ', bg:'#EF4444', light:'#FEE2E2' },
+  { id:'yamaha', label:'ヤマハ', bg:'#3B82F6', light:'#DBEAFE' },
+  { id:'kawasaki', label:'カワサキ', bg:'#22C55E', light:'#DCFCE7' },
+  { id:'suzuki', label:'スズキ', bg:'#EAB308', light:'#FEF9C3' },
+  { id:'world', label:'海外', bg:'#F8FAFC', light:'#F1F5F9' },
+];
+var RANKS = [
+  {min:0,rank:'F',label:'免許取りたて'},{min:100,rank:'E',label:'週末ライダー'},
+  {min:500,rank:'D',label:'ツーリングマスター'},{min:1000,rank:'C',label:'ガレージオーナー'},
+  {min:3000,rank:'B',label:'バイクコレクター'},{min:5000,rank:'A',label:'伝説のライダー'},
+  {min:10000,rank:'S',label:'スバラシガレージ'},
+];
+var GRID_SIZE = 5;
+var STORAGE_KEY = 'motohub_subaracity';
+var nextId = 1;
+
+function getBikeName(colorId, level) {
+  if (level >= 10) return WORLD_BIKES[level] || WORLD_BIKES[12];
+  var names = BIKE_NAMES[colorId];
+  return names ? (names[level-1] || 'Lv'+level) : 'Lv'+level;
+}
+function getBikeValue(level) {
+  return level <= LEVEL_VALUES.length ? LEVEL_VALUES[level-1] : 1000+(level-12)*500;
+}
+function bikeImagePath(colorId, level) {
+  if (level >= 13) return 'images/subaracity/world_12.png';
+  if (level >= 10) return 'images/subaracity/world_'+level+'.png';
+  return 'images/subaracity/'+colorId+'_'+level+'.png';
+}
+function getColor(id) { return COLORS.find(function(c){return c.id===id}); }
+function getRank(score) {
+  for (var i=RANKS.length-1;i>=0;i--) { if (score>=RANKS[i].min) return RANKS[i]; }
+  return RANKS[0];
+}
+function randomColor(turn) {
+  var count = turn < 30 ? 3 : 4;
+  return COLORS[Math.floor(Math.random()*count)].id;
+}
+function createCell(colorId) { return {id:nextId++,colorId:colorId,level:1}; }
+
+// ── Grid helpers ────────────────────────────────────────
+function initGrid() {
+  var grid = [];
+  for (var r=0;r<GRID_SIZE;r++){var row=[];for(var c=0;c<GRID_SIZE;c++) row.push(createCell(randomColor(0)));grid.push(row);}
+  return grid;
+}
+function cloneGrid(grid) { return grid.map(function(row){return row.map(function(cell){return cell?{id:cell.id,colorId:cell.colorId,level:cell.level}:null});}); }
+function findConnected(grid, r, c) {
+  var cell = grid[r][c]; if (!cell || cell.level>=11) return new Set();
+  var colorId=cell.colorId, visited=new Set(), queue=[[r,c]];
+  visited.add(r+','+c);
+  while (queue.length>0) {
+    var p=queue.shift(), cr=p[0], cc=p[1];
+    var dirs=[[0,1],[0,-1],[1,0],[-1,0]];
+    for (var d=0;d<dirs.length;d++){
+      var nr=cr+dirs[d][0], nc=cc+dirs[d][1], key=nr+','+nc;
+      if (nr>=0&&nr<GRID_SIZE&&nc>=0&&nc<GRID_SIZE&&!visited.has(key)){
+        var neighbor=grid[nr][nc];
+        if (neighbor&&neighbor.colorId===colorId&&neighbor.level<11){visited.add(key);queue.push([nr,nc]);}
+      }
+    }
+  }
+  return visited;
+}
+function gravity(grid) {
+  var g=cloneGrid(grid);
+  for(var c=0;c<GRID_SIZE;c++){var col=[];for(var r=GRID_SIZE-1;r>=0;r--){if(g[r][c])col.push(g[r][c]);}for(var r2=GRID_SIZE-1;r2>=0;r2--){g[r2][c]=col[GRID_SIZE-1-r2]||null;}}
+  return g;
+}
+function gravityWithTracking(grid) {
+  var newGrid=[];for(var i=0;i<GRID_SIZE;i++){newGrid.push(new Array(GRID_SIZE).fill(null));}
+  var movements=new Map();
+  for(var c=0;c<GRID_SIZE;c++){
+    var cells=[];
+    for(var r=0;r<GRID_SIZE;r++){if(grid[r][c])cells.push({cell:grid[r][c],origRow:r});}
+    var wr=GRID_SIZE-1;
+    for(var i2=cells.length-1;i2>=0;i2--){newGrid[wr][c]=cells[i2].cell;var dist=wr-cells[i2].origRow;if(dist>0)movements.set(wr+','+c,dist);wr--;}
+  }
+  return {grid:newGrid,movements:movements};
+}
+function fillEmpty(grid, turn) {
+  var g=cloneGrid(grid);
+  for(var r=0;r<GRID_SIZE;r++)for(var c=0;c<GRID_SIZE;c++){if(!g[r][c])g[r][c]=createCell(randomColor(turn));}
+  return g;
+}
+function checkGameOver(grid, mechPts) {
+  for(var r=0;r<GRID_SIZE;r++)for(var c=0;c<GRID_SIZE;c++){if(!grid[r][c])return false;}
+  if (mechPts>0) return false;
+  for(var r2=0;r2<GRID_SIZE;r2++)for(var c2=0;c2<GRID_SIZE;c2++){
+    var cell=grid[r2][c2];if(!cell||cell.level>=11)continue;
+    var dirs2=[[0,1],[1,0]];
+    for(var d=0;d<dirs2.length;d++){var nr=r2+dirs2[d][0],nc=c2+dirs2[d][1];
+      if(nr<GRID_SIZE&&nc<GRID_SIZE){var nb=grid[nr][nc];if(nb&&nb.colorId===cell.colorId&&nb.level<11)return false;}
+    }
+  }
+  return true;
+}
+function computeScore(grid) {
+  var t=0;for(var r=0;r<GRID_SIZE;r++)for(var c=0;c<GRID_SIZE;c++){var cell=grid[r][c];if(cell)t+=getBikeValue(cell.level);}return t;
+}
+function getMaxLevelInfo(grid) {
+  var max=1,colorId='honda';
+  for(var r=0;r<GRID_SIZE;r++)for(var c=0;c<GRID_SIZE;c++){if(grid[r][c]&&grid[r][c].level>max){max=grid[r][c].level;colorId=grid[r][c].colorId;}}
+  return {level:max,colorId:colorId};
+}
+
+// ── Persistence ─────────────────────────────────────────
+function saveData(bs,ml){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({bestScore:bs,maxLevel:ml}));}catch(e){}}
+function loadData(){
+  try{var raw=localStorage.getItem(STORAGE_KEY);if(!raw)return{bestScore:0,maxLevel:1};
+  var d=JSON.parse(raw);return{bestScore:typeof d.bestScore==='number'?d.bestScore:0,maxLevel:typeof d.maxLevel==='number'?d.maxLevel:1};}
+  catch(e){return{bestScore:0,maxLevel:1};}
+}
+
+// ── Audio ───────────────────────────────────────────────
+var audio = {
+  muted: false,
+  bgm: null,
+  bgmStarted: false,
+  init: function() {
+    this.bgm = new Audio('audio/puzzle/bgm.mp3');
+    this.bgm.loop = true;
+    this.bgm.volume = 0.25;
+  },
+  play: function(path) {
+    if (this.muted) return;
+    try { var a = new Audio(path); a.volume = 0.5; a.play().catch(function(){}); } catch(e){}
+  },
+  tryStartBgm: function() {
+    if (this.bgmStarted || this.muted || !this.bgm) return;
+    var self = this;
+    this.bgm.play().then(function(){ self.bgmStarted = true; }).catch(function(){});
+  },
+  toggleMute: function() {
+    this.muted = !this.muted;
+    if (!this.bgm) return;
+    if (this.muted) { this.bgm.pause(); }
+    else if (this.bgmStarted) { this.bgm.play().catch(function(){}); }
+  },
+  stopBgm: function() { if (this.bgm) this.bgm.pause(); },
+  restartBgm: function() {
+    if (!this.bgm || this.muted) return;
+    this.bgm.currentTime = 0;
+    var self = this;
+    this.bgm.play().then(function(){ self.bgmStarted = true; }).catch(function(){});
+  }
+};
+
+// ── Game State ──────────────────────────────────────────
+var state = {
+  grid: null,
+  turn: 0,
+  mechanicPoints: 2,
+  mechanicMode: false,
+  selected: null,    // {r,c}
+  highlighted: new Set(),
+  gameOver: false,
+  animPhase: 'idle', // idle | sliding | flash | result
+  slideTarget: null,
+  slideConnected: null,
+  flashCell: null,
+  poppingCell: null,
+  cellAnims: new Map(),
+  bestScore: 0,
+  maxLevel: 1,
+};
+var animTimeouts = [];
+var cellDims = { w:0, h:0, gap:4 };
+
+function resetGame() {
+  animTimeouts.forEach(clearTimeout);
+  animTimeouts = [];
+  nextId = 1;
+  state.grid = initGrid();
+  state.turn = 0;
+  state.mechanicPoints = 2;
+  state.mechanicMode = false;
+  state.selected = null;
+  state.highlighted = new Set();
+  state.gameOver = false;
+  state.animPhase = 'idle';
+  state.slideTarget = null;
+  state.slideConnected = null;
+  state.flashCell = null;
+  state.poppingCell = null;
+  state.cellAnims = new Map();
+  audio.restartBgm();
+  render();
+}
+
+function initState() {
+  var saved = loadData();
+  state.bestScore = saved.bestScore;
+  state.maxLevel = saved.maxLevel;
+  state.grid = initGrid();
+  audio.init();
+}
+
+// ── Measure cells ───────────────────────────────────────
+function measureCells() {
+  var el = document.querySelector('.sc-grid');
+  if (!el) return;
+  var rect = el.getBoundingClientRect();
+  var padding=4, gap=4;
+  var avail = rect.width - padding*2 - gap*(GRID_SIZE-1);
+  var sz = avail/GRID_SIZE;
+  cellDims = {w:sz, h:sz, gap:gap};
+}
+
+// ── Merge logic ─────────────────────────────────────────
+function performMerge(r, c, connected) {
+  animTimeouts.forEach(clearTimeout);
+  animTimeouts = [];
+  measureCells();
+
+  var levelSum=0;
+  connected.forEach(function(key){var p=key.split(',');var cr=+p[0],cc=+p[1];if(state.grid[cr][cc])levelSum+=state.grid[cr][cc].level;});
+  var blockCount=connected.size;
+  var baseColorId=state.grid[r][c].colorId;
+  var newLevel, colorId;
+
+  if (baseColorId==='world') { newLevel=blockCount+9; colorId='world'; }
+  else if (levelSum>=10) { newLevel=10; colorId='world'; }
+  else { newLevel=Math.min(levelSum,9); colorId=baseColorId; }
+
+  var newGrid=cloneGrid(state.grid);
+  connected.forEach(function(key){var p=key.split(',');newGrid[+p[0]][+p[1]]=null;});
+  newGrid[r][c]={id:nextId++,colorId:colorId,level:newLevel};
+
+  var gResult=gravityWithTracking(newGrid);
+  var afterGravity=gResult.grid, gravityMovements=gResult.movements;
+  var newTurn=state.turn+1;
+
+  var filledCells=new Set();
+  for(var dr=0;dr<GRID_SIZE;dr++)for(var dc=0;dc<GRID_SIZE;dc++){if(!afterGravity[dr][dc])filledCells.add(dr+','+dc);}
+  var afterFill=fillEmpty(afterGravity,newTurn);
+
+  var newMech=state.mechanicPoints;
+  if(newTurn>0&&newTurn%100===0)newMech+=1;
+
+  var dims=cellDims, cellStep=dims.w+dims.gap;
+  var anims=new Map(), maxGravEnd=0;
+
+  for(var col=0;col<GRID_SIZE;col++){var order=0;
+    for(var row=0;row<GRID_SIZE;row++){var k=row+','+col;var dist=gravityMovements.get(k);
+      if(dist){var delay=order*30;anims.set(k,{type:'gravity',fallY:(-dist*cellStep)+'px',delay:delay});maxGravEnd=Math.max(maxGravEnd,delay+200);order++;}
+    }
+  }
+  var maxFillEnd=0;
+  for(var col2=0;col2<GRID_SIZE;col2++){var order2=0;
+    for(var row2=0;row2<GRID_SIZE;row2++){var k2=row2+','+col2;
+      if(filledCells.has(k2)){var delay2=maxGravEnd+order2*40;anims.set(k2,{type:'fill',fillY:(-2*cellStep)+'px',delay:delay2});maxFillEnd=Math.max(maxFillEnd,delay2+300);order2++;}
+    }
+  }
+  var totalDropDuration=Math.max(maxGravEnd,maxFillEnd,300);
+
+  // Phase 1: Slide
+  audio.play('audio/warashibe/se_craft.mp3');
+  state.slideTarget={r:r,c:c};
+  state.slideConnected=connected;
+  state.selected=null;
+  state.highlighted=new Set();
+  state.animPhase='sliding';
+  render();
+
+  // Phase 2: Flash
+  var t1=setTimeout(function(){
+    state.animPhase='flash';
+    state.flashCell=r+','+c;
+    if(newLevel>=5) audio.play('audio/warashibe/se_unlock.mp3');
+    render();
+  },300);
+
+  // Phase 3: Pop + gravity + fill
+  var t2=setTimeout(function(){
+    state.flashCell=null;
+    state.slideTarget=null;
+    state.slideConnected=null;
+    state.grid=afterFill;
+    state.turn=newTurn;
+    state.mechanicPoints=newMech;
+    state.poppingCell=r+','+c;
+    state.cellAnims=anims;
+    state.animPhase='result';
+
+    var sc=computeScore(afterFill);
+    if(sc>state.bestScore)state.bestScore=sc;
+    var ml=getMaxLevelInfo(afterFill);
+    if(ml.level>state.maxLevel)state.maxLevel=ml.level;
+    saveData(state.bestScore,state.maxLevel);
+
+    render();
+  },500);
+
+  // Phase 4: Cleanup
+  var cleanupDelay=500+totalDropDuration+50;
+  var t3=setTimeout(function(){
+    state.poppingCell=null;
+    state.cellAnims=new Map();
+    state.animPhase='idle';
+    if(checkGameOver(afterFill,newMech)){state.gameOver=true;audio.play('audio/puzzle/gameover.mp3');audio.stopBgm();}
+    render();
+  },cleanupDelay);
+
+  // Suzuki announce
+  var t4=null,t5=null;
+  if(newTurn===30){
+    t4=setTimeout(function(){showAnnounce();audio.play('audio/warashibe/se_unlock.mp3');},cleanupDelay+100);
+    t5=setTimeout(function(){hideAnnounce();},cleanupDelay+1100);
+  }
+  animTimeouts=[t1,t2,t3,t4,t5].filter(Boolean);
+}
+
+// ── Cell tap ────────────────────────────────────────────
+function handleCellTap(r, c) {
+  if (state.gameOver || state.animPhase!=='idle') return;
+  if (!state.grid[r][c]) return;
+  audio.tryStartBgm();
+
+  if (state.mechanicMode) {
+    var ng=cloneGrid(state.grid); ng[r][c]=null;
+    var ag=gravity(ng); var af=fillEmpty(ag,state.turn);
+    state.grid=af; state.mechanicPoints--; state.mechanicMode=false;
+    state.selected=null; state.highlighted=new Set();
+    audio.play('audio/warashibe/se_click.mp3');
+    var mp=state.mechanicPoints;
+    render();
+    setTimeout(function(){if(checkGameOver(af,mp)){state.gameOver=true;audio.play('audio/puzzle/gameover.mp3');audio.stopBgm();render();}},200);
+    return;
+  }
+
+  if (state.selected && state.selected.r===r && state.selected.c===c && state.highlighted.size>=2) {
+    performMerge(r,c,state.highlighted);
+    return;
+  }
+
+  var connected=findConnected(state.grid,r,c);
+  if (connected.size>=2) {
+    state.selected={r:r,c:c}; state.highlighted=connected;
+    audio.play('audio/warashibe/se_click.mp3');
+  } else {
+    state.selected=null; state.highlighted=new Set();
+  }
+  render();
+}
+
+// ── Announce ────────────────────────────────────────────
+function showAnnounce() {
+  var overlay=document.createElement('div');
+  overlay.className='sc-announce-overlay';
+  overlay.id='announce-overlay';
+  overlay.innerHTML='<div class="sc-announce-box"><div style="font-size:32px;margin-bottom:4px">\uD83C\uDFCD</div><div style="font-size:22px;font-weight:900;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.3)">スズキ参戦！</div><div style="font-size:13px;color:#FEFCE8;margin-top:4px;font-weight:bold">4色目の黄色ブロックが出現！</div></div>';
+  document.body.appendChild(overlay);
+}
+function hideAnnounce() {
+  var el=document.getElementById('announce-overlay');
+  if(!el)return;
+  var box=el.querySelector('.sc-announce-box');
+  if(box)box.classList.add('leaving');
+  setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},300);
+}
+
+// ── How-to modal ────────────────────────────────────────
+function showHowTo() {
+  var bd=document.createElement('div');
+  bd.className='sc-modal-backdrop';
+  bd.id='howto-modal';
+  bd.onclick=function(e){if(e.target===bd)closeHowTo();};
+
+  bd.innerHTML='<div class="sc-modal">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+    +'<h2 style="font-size:18px;font-weight:900;margin:0;color:#f1f5f9">遊び方</h2>'
+    +'<button onclick="closeHowTo()" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;padding:0 4px;line-height:1">&times;</button></div>'
+    // SVG diagram
+    +'<div style="margin-bottom:16px;background:#0f172a;border-radius:12px;padding:12px">'
+    +'<svg viewBox="0 0 290 110" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">'
+    +'<text x="52" y="12" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="bold">1. タップで選択</text>'
+    +'<rect x="5" y="18" width="95" height="88" rx="8" fill="#1e293b"/>'
+    +'<rect x="10" y="22" width="26" height="26" rx="5" fill="#3B82F6"/><text x="23" y="38" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<rect x="39" y="22" width="26" height="26" rx="5" fill="#22C55E"/><text x="52" y="38" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<rect x="68" y="22" width="26" height="26" rx="5" fill="#EAB308"/><text x="81" y="38" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<rect x="10" y="51" width="26" height="26" rx="5" fill="#EF4444" stroke="#fff" stroke-width="2"/><text x="23" y="68" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<rect x="39" y="51" width="26" height="26" rx="5" fill="#EF4444" stroke="#fff" stroke-width="2"/><text x="52" y="68" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<rect x="68" y="51" width="26" height="26" rx="5" fill="#3B82F6"/><text x="81" y="68" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<rect x="10" y="80" width="26" height="26" rx="5" fill="#EF4444" stroke="#fff" stroke-width="2"/><text x="23" y="97" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<rect x="39" y="80" width="26" height="26" rx="5" fill="#22C55E"/><text x="52" y="97" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<rect x="68" y="80" width="26" height="26" rx="5" fill="#EAB308"/><text x="81" y="97" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<text x="125" y="68" text-anchor="middle" fill="#fbbf24" font-size="22" font-weight="bold">\u2192</text>'
+    +'<text x="125" y="82" text-anchor="middle" fill="#64748b" font-size="7">合体！</text>'
+    +'<text x="220" y="12" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="bold">2. レベルアップ！</text>'
+    +'<rect x="175" y="18" width="95" height="88" rx="8" fill="#1e293b"/>'
+    +'<rect x="180" y="22" width="26" height="26" rx="5" fill="#22C55E" opacity=".6"/><text x="193" y="38" text-anchor="middle" fill="#fff" font-size="5">NEW</text>'
+    +'<rect x="209" y="22" width="26" height="26" rx="5" fill="#22C55E"/><text x="222" y="38" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<rect x="238" y="22" width="26" height="26" rx="5" fill="#EAB308"/><text x="251" y="38" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<rect x="180" y="51" width="26" height="26" rx="5" fill="#3B82F6"/><text x="193" y="68" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<rect x="209" y="51" width="26" height="26" rx="5" fill="#EF4444"/><text x="222" y="68" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv2</text>'
+    +'<rect x="238" y="51" width="26" height="26" rx="5" fill="#3B82F6"/><text x="251" y="68" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<rect x="180" y="80" width="26" height="26" rx="5" fill="#3B82F6" opacity=".6"/><text x="193" y="97" text-anchor="middle" fill="#fff" font-size="5">NEW</text>'
+    +'<rect x="209" y="80" width="26" height="26" rx="5" fill="#22C55E"/><text x="222" y="97" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<rect x="238" y="80" width="26" height="26" rx="5" fill="#EAB308"/><text x="251" y="97" text-anchor="middle" fill="#fff" font-size="6" font-weight="bold">Lv1</text>'
+    +'<rect x="207" y="49" width="30" height="30" rx="6" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="3,2"/>'
+    +'</svg></div>'
+    // Rules
+    +'<div style="font-size:13px;line-height:2;color:#cbd5e1">'
+    +'<p style="display:flex;gap:8px;align-items:flex-start"><span style="color:#fbbf24;font-weight:bold;flex-shrink:0">1.</span>同じ色（メーカー）のバイクをタップして選択、もう一度タップで合体！</p>'
+    +'<p style="display:flex;gap:8px;align-items:flex-start"><span style="color:#fbbf24;font-weight:bold;flex-shrink:0">2.</span>合体するとレベルアップして上位バイクに変化</p>'
+    +'<p style="display:flex;gap:8px;align-items:flex-start"><span style="color:#fbbf24;font-weight:bold;flex-shrink:0">3.</span>Lv10以上は全メーカー共通の世界的名車に進化！</p>'
+    +'<p style="display:flex;gap:8px;align-items:flex-start"><span style="color:#fbbf24;font-weight:bold;flex-shrink:0">4.</span><span>メカニックポイント（\uD83D\uDD27）で邪魔なブロックを1つ消せる</span></p>'
+    +'<p style="display:flex;gap:8px;align-items:flex-start"><span style="color:#fbbf24;font-weight:bold;flex-shrink:0">5.</span>100ターンごとにメカニックポイント+1</p>'
+    +'<p style="display:flex;gap:8px;align-items:flex-start"><span style="color:#fbbf24;font-weight:bold;flex-shrink:0">6.</span>ガレージ総額を増やして「スバラシガレージ」ランクを目指そう！</p></div>'
+    // Maker colors
+    +'<div style="margin-top:14px;padding:10px;background:#0f172a;border-radius:10px;font-size:12px">'
+    +'<p style="font-weight:bold;color:#64748b;margin:0 0 6px">メーカーカラー</p>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +COLORS.map(function(co){return '<div style="display:flex;align-items:center;gap:4px"><span style="width:14px;height:14px;border-radius:4px;background:'+co.bg+';display:inline-block'+(co.id==='world'?';border:1px solid #94a3b8':'')+'"></span><span style="color:#94a3b8">'+co.label+'</span></div>';}).join('')
+    +'</div>'
+    +'<p style="color:#64748b;font-size:11px;margin:6px 0 0">※ 30ターン目からスズキ（黄）も出現！</p>'
+    +'<p style="color:#64748b;font-size:11px;margin:4px 0 0">※ 合体レベル = ブロックのレベル合計（例: Lv3+Lv2=Lv5）<br>※ 合計10以上 → 海外バイク（白Lv10）に進化！<br>※ 白Lv10同士の合体 → 金ブロック（Lv11+）に！<br>※ 金ブロックは合体不可（メカニックでのみ消去可能）</p></div>'
+    +'<button onclick="closeHowTo()" class="btn-overlay" style="width:100%;margin-top:16px;background:#3b82f6">閉じる</button>'
+    +'</div>';
+
+  document.body.appendChild(bd);
+}
+function closeHowTo() {
+  var el=document.getElementById('howto-modal');
+  if(el&&el.parentNode)el.parentNode.removeChild(el);
+}
+
+// ── Render ──────────────────────────────────────────────
+var root = document.getElementById('app');
+
+function render() {
+  var score = computeScore(state.grid);
+  var rank = getRank(score);
+  var maxInfo = getMaxLevelInfo(state.grid);
+  var maxBikeName = getBikeName(maxInfo.colorId, maxInfo.level);
+  if (score > state.bestScore) { state.bestScore = score; saveData(state.bestScore, state.maxLevel); }
+  if (maxInfo.level > state.maxLevel) { state.maxLevel = maxInfo.level; saveData(state.bestScore, state.maxLevel); }
+
+  var isAnimating = state.animPhase !== 'idle';
+  var h = '';
+
+  h += '<div style="min-height:100vh;background:#0f172a;padding:12px 8px 24px">';
+  h += '<div style="max-width:420px;margin:0 auto">';
+
+  // Header
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
+  h += '<div style="display:flex;align-items:center;gap:8px">';
+  h += '<h1 style="font-size:clamp(18px,5vw,24px);font-weight:900;color:#f1f5f9;margin:0">バイクガレージ</h1>';
+  h += '<button onclick="audio.toggleMute();render()" style="background:none;border:none;font-size:18px;cursor:pointer;padding:2px;line-height:1;color:#94a3b8">'+(audio.muted?'\uD83D\uDD07':'\uD83D\uDD0A')+'</button>';
+  h += '</div>';
+  h += '<div style="display:flex;gap:6px;align-items:center">';
+  h += infoBox('ターン', state.turn+'年目');
+  h += infoBox('\uD83D\uDD27', '\u00D7'+state.mechanicPoints);
+  h += '</div></div>';
+
+  // Controls
+  h += '<div style="display:flex;gap:8px;margin-bottom:10px">';
+  h += '<button onclick="resetGame()" class="btn">リセット</button>';
+  var mechDisabled = state.mechanicPoints<=0||isAnimating;
+  h += '<button onclick="toggleMechanic()" class="btn" style="background:'+(state.mechanicMode?'#f59e0b':'#475569')+';opacity:'+(mechDisabled?.4:1)+';cursor:'+(mechDisabled?'default':'pointer')+'">'+(state.mechanicMode?'メカニック中…':'メカニック\uD83D\uDD27')+'</button>';
+  h += '</div>';
+
+  // Mechanic indicator
+  if (state.mechanicMode) {
+    h += '<div style="text-align:center;padding:6px;margin-bottom:8px;background:#f59e0b;border-radius:8px;color:#000;font-size:13px;font-weight:bold">消去するブロックをタップしてください</div>';
+  }
+
+  // Grid
+  h += '<div style="position:relative">';
+  h += '<div class="sc-grid" style="opacity:'+(state.gameOver?.3:1)+';transition:opacity .5s">';
+  for (var r=0; r<GRID_SIZE; r++) {
+    for (var c2=0; c2<GRID_SIZE; c2++) {
+      var cell = state.grid[r][c2];
+      var key = r+','+c2;
+      if (!cell) {
+        h += '<div class="sc-cell sc-cell-empty"></div>';
+        continue;
+      }
+      var color = getColor(cell.colorId);
+      var bikeName = getBikeName(cell.colorId, cell.level);
+      var isHL = state.highlighted.has(key);
+      var isST = state.slideTarget && state.slideTarget.r===r && state.slideTarget.c===c2;
+
+      var animClass = '';
+      var animStyle = '';
+
+      // Slide animation
+      if (state.slideConnected && state.slideConnected.has(key) && state.slideTarget && !isST && (state.animPhase==='sliding'||state.animPhase==='flash')) {
+        var dims = cellDims;
+        var dx = (state.slideTarget.c - c2) * (dims.w + dims.gap);
+        var dy = (state.slideTarget.r - r) * (dims.h + dims.gap);
+        animClass = 'sc-cell-sliding';
+        animStyle = '--sc-dx:'+dx+'px;--sc-dy:'+dy+'px;';
+      } else if (isST && (state.animPhase==='sliding'||state.animPhase==='flash')) {
+        animClass = 'sc-cell-target-glow';
+      } else if (state.poppingCell===key) {
+        animClass = 'sc-cell-pop';
+      } else if (state.cellAnims.has(key)) {
+        var ad = state.cellAnims.get(key);
+        if (ad.type==='gravity') { animClass='sc-cell-gravity'; animStyle='--sc-fall-y:'+ad.fallY+';--sc-fall-delay:'+ad.delay+'ms;'; }
+        else if (ad.type==='fill') { animClass='sc-cell-fill'; animStyle='--sc-fill-y:'+ad.fillY+';--sc-fill-delay:'+ad.delay+'ms;'; }
+      } else if (isHL) {
+        animClass = 'sc-cell-highlight';
+      }
+
+      var bgCol = cell.level>=11 ? '#78350f' : (color ? color.bg : '#475569');
+      var border = cell.level>=11 ? '2px solid #fbbf24' : cell.colorId==='world' ? '2px solid #94a3b8' : 'none';
+      var cursor = isAnimating ? 'default' : state.mechanicMode ? 'crosshair' : cell.level>=11 ? 'not-allowed' : 'pointer';
+
+      h += '<div class="sc-cell '+animClass+'" style="background:'+bgCol+';border:'+border+';cursor:'+cursor+';opacity:'+(cell.level>=11?.9:1)+';'+animStyle+'" onclick="handleCellTap('+r+','+c2+')">';
+      h += '<img src="'+bikeImagePath(cell.colorId,cell.level)+'" alt="'+bikeName+'" draggable="false" style="width:clamp(28px,8vw,48px);height:clamp(22px,6vw,36px);object-fit:contain;pointer-events:none" onerror="this.style.display=\'none\'">';
+      // Level badge
+      var lvColor = cell.level>=11 ? '#fbbf24' : cell.colorId==='world' ? '#1e293b' : '#fff';
+      var lvBg = cell.level>=11 ? 'rgba(0,0,0,.6)' : cell.colorId==='world' ? 'rgba(255,255,255,.8)' : 'rgba(0,0,0,.4)';
+      h += '<span style="position:absolute;top:2px;right:3px;font-size:8px;font-weight:bold;color:'+lvColor+';background:'+lvBg+';border-radius:3px;padding:0 3px;line-height:14px">Lv'+cell.level+'</span>';
+      // Name
+      var nameColor = cell.level>=11 ? '#fbbf24' : cell.colorId==='world' ? '#1e293b' : '#fff';
+      var nameShadow = cell.level>=11 ? '0 1px 2px rgba(0,0,0,.8)' : cell.colorId==='world' ? 'none' : '0 1px 2px rgba(0,0,0,.5)';
+      h += '<span style="font-size:clamp(6px,1.6vw,9px);font-weight:bold;color:'+nameColor+';line-height:1;text-align:center;text-shadow:'+nameShadow+';word-break:keep-all">'+bikeName+'</span>';
+      // Flash
+      if (state.flashCell===key) h += '<div class="sc-flash-overlay"></div>';
+      h += '</div>';
+    }
+  }
+  h += '</div>'; // sc-grid
+
+  // Game Over overlay
+  if (state.gameOver) {
+    var shareText = '\uD83C\uDFCD MotoHubのバイクガレージパズルで総額'+score+'万円のガレージを達成！ランク: '+rank.rank+' #MotoHub #バイク好きと繋がりたい';
+    var shareUrl = 'https://twitter.com/intent/tweet?text='+encodeURIComponent(shareText);
+    h += '<div style="position:absolute;inset:0;background:rgba(15,23,42,.92);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;animation:sc-pop .3s ease">';
+    h += '<p style="font-size:28px;font-weight:900;color:#f1f5f9;margin:0 0 8px">GAME OVER</p>';
+    h += '<p style="font-size:16px;color:#94a3b8;margin:0 0 4px">ガレージ総額: <span style="color:#fbbf24;font-weight:bold">'+score.toLocaleString()+'万円</span></p>';
+    h += '<p style="font-size:14px;color:#94a3b8;margin:0 0 4px">ランク: <span style="font-weight:bold;color:#f1f5f9">'+rank.rank+'</span> — '+rank.label+'</p>';
+    h += '<p style="font-size:13px;color:#64748b;margin:0 0 16px">最高レベル: '+maxBikeName+'</p>';
+    h += '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">';
+    h += '<button onclick="resetGame()" class="btn-overlay">もう一度遊ぶ</button>';
+    h += '<a href="'+shareUrl+'" target="_blank" rel="noopener noreferrer" class="btn-overlay" style="background:#1d9bf0;text-decoration:none;display:inline-flex;align-items:center;gap:4px">Xでシェア</a>';
+    h += '</div></div>';
+  }
+  h += '</div>'; // position relative
+
+  // Score section
+  h += '<div style="margin-top:12px;background:#1e293b;border-radius:12px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">';
+  h += '<div><span style="font-size:11px;color:#64748b">ガレージ総額</span><p style="font-size:clamp(18px,5vw,24px);font-weight:900;color:#fbbf24;margin:2px 0 0">'+score.toLocaleString()+'<span style="font-size:12px;color:#94a3b8">万円</span></p></div>';
+  h += '<div style="text-align:center"><span style="font-size:11px;color:#64748b">ランク</span><p style="font-size:20px;font-weight:900;color:#f1f5f9;margin:2px 0 0">'+rank.rank+'</p><span style="font-size:10px;color:#94a3b8">'+rank.label+'</span></div>';
+  h += '<div style="text-align:right"><span style="font-size:11px;color:#64748b">BEST</span><p style="font-size:16px;font-weight:900;color:#94a3b8;margin:2px 0 0">'+state.bestScore.toLocaleString()+'<span style="font-size:10px">万円</span></p></div>';
+  h += '</div>';
+
+  // Collection strip
+  h += '<div style="margin-top:12px;background:#1e293b;border-radius:12px;padding:10px 12px">';
+  h += '<p style="font-size:11px;font-weight:bold;color:#64748b;margin:0 0 6px">レベル図鑑</p>';
+  h += '<div class="sc-evo-strip">';
+  for (var lv=1; lv<=12; lv++) {
+    var reached = lv <= state.maxLevel;
+    var ename = lv>=10 ? WORLD_BIKES[lv] : getBikeName('honda', lv);
+    var epath = lv>=10 ? 'images/subaracity/world_'+lv+'.png' : 'images/subaracity/honda_'+lv+'.png';
+    h += '<div style="flex-shrink:0;width:56px;height:66px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#334155;opacity:'+(reached?1:.3)+';filter:'+(reached?'none':'grayscale(1)')+';padding:3px 2px 2px;gap:2px">';
+    h += '<img src="'+epath+'" alt="'+ename+'" draggable="false" style="width:36px;height:28px;object-fit:contain" onerror="this.style.display=\'none\'">';
+    h += '<span style="font-size:7px;font-weight:bold;color:#e2e8f0;text-align:center;line-height:1.1">'+ename+'</span>';
+    h += '<span style="font-size:7px;color:#94a3b8">Lv'+lv+' / '+getBikeValue(lv)+'万円</span>';
+    h += '</div>';
+  }
+  h += '</div></div>';
+
+  // Game over links
+  if (state.gameOver) {
+    h += '<div style="margin-top:12px;background:#1e293b;border-radius:12px;padding:10px 14px">';
+    h += '<p style="font-size:12px;font-weight:bold;color:#64748b;margin:0 0 8px">登場バイクの実際の相場を見る</p>';
+    h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+    var makers = ['honda','yamaha','kawasaki','suzuki'];
+    for (var mi=0; mi<makers.length; mi++) {
+      var names = BIKE_NAMES[makers[mi]];
+      for (var ni=0; ni<5; ni++) {
+        h += '<a href="https://motohub.jp/bikes/search?q='+encodeURIComponent(names[ni])+'" target="_blank" style="font-size:11px;color:#60a5fa;text-decoration:none;padding:4px 8px;background:#0f172a;border-radius:6px">'+names[ni]+'</a>';
+      }
+    }
+    h += '</div></div>';
+  }
+
+  // How-to button
+  h += '<div style="text-align:center;margin-top:14px"><button onclick="showHowTo()" class="btn" style="background:#334155;font-size:14px;padding:10px 24px;border-radius:8px">遊び方</button></div>';
+
+  // Footer
+  h += '<p style="text-align:center;font-size:11px;color:#475569;margin-top:8px">同じメーカー色の隣接ブロックをタップして合体！</p>';
+
+  h += '</div></div>'; // max-width, min-height
+
+  root.innerHTML = h;
+}
+
+function infoBox(label, value) {
+  return '<div style="background:#1e293b;border-radius:6px;padding:3px 10px;text-align:center;min-width:50px"><div style="font-size:9px;color:#64748b;font-weight:bold">'+label+'</div><div style="font-size:clamp(12px,3vw,15px);font-weight:900;color:#f1f5f9">'+value+'</div></div>';
+}
+
+function toggleMechanic() {
+  if (state.mechanicPoints<=0 || state.animPhase!=='idle') return;
+  state.mechanicMode = !state.mechanicMode;
+  state.selected = null;
+  state.highlighted = new Set();
+  render();
+}
+
+// ── Init ────────────────────────────────────────────────
+initState();
+render();
+</script>
+</body>
+</html>

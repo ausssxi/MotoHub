@@ -80,6 +80,9 @@
                         <a href="{{ route('parking.station.index') }}" class="footer-link">駅から駐車場を探す</a>
                     </li>
                     <li>
+                        <a href="{{ route('shops.area.index') }}" class="footer-link">エリアからバイクショップを探す</a>
+                    </li>
+                    <li>
                         <a href="{{ route('parts.index') }}" class="footer-link">バイクパーツ検索</a>
                     </li>
                     <li>

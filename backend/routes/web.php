@@ -20,6 +20,7 @@ use App\Http\Controllers\Feature\FeatureController;
 use App\Http\Controllers\Parking\ParkingController;
 use App\Http\Controllers\Parking\ParkingAreaController;
 use App\Http\Controllers\Parking\StationParkingController;
+use App\Http\Controllers\Shop\ShopAreaController;
 use App\Http\Controllers\Ar\ArController;
 use App\Http\Controllers\Bike\BikeIdentifierController;
 use App\Http\Controllers\Bike\NewArrivalsController;
@@ -204,6 +205,13 @@ Route::prefix('shops')->name('shops.')->group(function () {
     Route::get('/map', [ShopController::class, 'map'])->name('map');
     // エリア検索API (※公開APIなので一旦ここに残します)
     Route::get('/api/area', [ShopController::class, 'area'])->name('api.area');
+
+    // エリア別ショップページ
+    Route::prefix('area')->name('area.')->controller(ShopAreaController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/{prefecture}', 'prefecture')->name('prefecture');
+        Route::get('/{prefecture}/{city}', 'city')->name('city');
+    });
 
     // チェーン別まとめページ（/{id} の前に配置）
     Route::get('/chain/{chainSlug}', [ShopController::class, 'chainShow'])->name('chain');

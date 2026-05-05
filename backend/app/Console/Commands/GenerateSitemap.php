@@ -592,6 +592,53 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
+        // 4.6.1. ショップエリアページ (sitemap-shop-area.xml)
+        // =========================================================
+        $this->info("ショップエリアサイトマップを生成中...");
+        $shopAreaFileName = 'sitemap-shop-area.xml';
+        $handle = $this->openSitemap($shopAreaFileName);
+        $sitemapFiles[] = $shopAreaFileName;
+        $shopAreaCount = 0;
+
+        // エリアインデックス
+        $this->writeUrl($handle, route('shops.area.index'), date('Y-m-d'), 'weekly', '0.8');
+        $shopAreaCount++;
+
+        // 都道府県ページ + 市区町村ページ
+        $shopAreaService = app(\App\Services\Shop\ShopAreaService::class);
+        $allShopPrefs = $shopAreaService->getAllPrefectures();
+
+        foreach ($allShopPrefs as $pref) {
+            $this->writeUrl(
+                $handle,
+                route('shops.area.prefecture', $pref),
+                date('Y-m-d'),
+                'weekly',
+                '0.7'
+            );
+            $shopAreaCount++;
+
+            // 市区町村ページ（3店以上のみ）
+            $shopCities = $shopAreaService->getCitiesForPrefecture($pref);
+            foreach ($shopCities as $city) {
+                if ($shopAreaService->getShopCountForCity($pref, $city) >= 3) {
+                    $this->writeUrl(
+                        $handle,
+                        route('shops.area.city', [$pref, $city]),
+                        date('Y-m-d'),
+                        'weekly',
+                        '0.6'
+                    );
+                    $shopAreaCount++;
+                }
+            }
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$shopAreaCount} URL (Shop Area)");
+
+
+        // =========================================================
         // 4.7. 駅別駐車場ページ (sitemap-parking-station.xml)
         // =========================================================
         $this->info("駅別駐車場サイトマップを生成中...");
