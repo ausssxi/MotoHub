@@ -144,6 +144,13 @@
         <div class="flex items-center justify-center w-full text-sm text-gray-400">地図を移動するとスポットが表示されます</div>
     </div>
 
+    {{-- 駐車場ページへのリンク --}}
+    <div class="bg-white px-4 py-2 border-b border-gray-100 text-right">
+        <a href="{{ route('parking.index') }}" class="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors inline-flex items-center gap-0.5">
+            駐車場一覧を見る <i data-lucide="arrow-right" class="w-3 h-3"></i>
+        </a>
+    </div>
+
     {{-- 詳細パネル --}}
     <div id="detail-panel-overlay"></div>
     <div id="detail-panel">

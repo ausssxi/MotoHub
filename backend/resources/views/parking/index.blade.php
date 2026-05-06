@@ -132,6 +132,7 @@
     {{-- 件数バー + レビュー促進 --}}
     <div class="bg-white border-t border-b border-gray-200 px-4 py-2 flex items-center justify-between gap-3">
         <span id="parking-count" class="text-sm font-black text-gray-800 shrink-0">地図内に0件</span>
+        <a href="/riders-map" class="ml-auto text-green-600 hover:underline text-sm shrink-0">ライダーズマップで探す →</a>
         <div id="review-banner" class="flex items-center gap-2 text-[10px] text-gray-400">
             <span>🅿️ 使った駐車場に★評価をつけてみんなの参考に</span>
             <button onclick="document.getElementById('review-banner').remove()" class="text-gray-300 hover:text-gray-500">✕</button>
