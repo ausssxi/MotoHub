@@ -18,6 +18,8 @@
     let allMarkers = [];
     let debounceTimer = null;
     let userLat = null, userLng = null;
+    let userMarker = null;
+    let distanceLimitKm = 0; // 0 = no limit
 
     // Create circular div icon with emoji, white bg + colored border
     function createIcon(color, label) {
@@ -36,7 +38,8 @@
         var lng = parseFloat(params.get('lng')) || 139.767125;
         var zoom = parseInt(params.get('zoom')) || 13;
 
-        map = L.map('map', { zoomControl: true }).setView([lat, lng], zoom);
+        map = L.map('map', { zoomControl: false }).setView([lat, lng], zoom);
+        L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -60,11 +63,23 @@
         // Current location button
         document.getElementById('btn-current-location').addEventListener('click', function() {
             if (!navigator.geolocation) return;
+            var btn = document.getElementById('btn-current-location');
+            btn.classList.add('text-blue-600');
             navigator.geolocation.getCurrentPosition(function(pos) {
                 userLat = pos.coords.latitude;
                 userLng = pos.coords.longitude;
                 map.setView([userLat, userLng], 14);
+                setUserMarker(userLat, userLng);
+                showDistanceFilter();
+            }, function() {
+                btn.classList.remove('text-blue-600');
             });
+        });
+
+        // Distance filter change
+        document.getElementById('distance-select').addEventListener('change', function() {
+            distanceLimitKm = parseInt(this.value) || 0;
+            updateCards();
         });
 
         // Listen for layer toggle changes from Alpine
@@ -156,22 +171,36 @@
         var container = document.getElementById('result-cards');
         var countEl = document.getElementById('result-count');
 
-        // Sort by distance if user location available
+        // Compute distance for each marker
+        var filtered = allMarkers;
         if (userLat && userLng) {
-            allMarkers.sort(function(a, b) {
-                return getDistance(userLat, userLng, a.lat, a.lng) - getDistance(userLat, userLng, b.lat, b.lng);
+            filtered.forEach(function(m) {
+                m._dist = getDistance(userLat, userLng, m.lat, m.lng);
             });
+            // Apply distance filter
+            if (distanceLimitKm > 0) {
+                filtered = filtered.filter(function(m) { return m._dist <= distanceLimitKm; });
+            }
+            // Sort by distance (nearest first)
+            filtered.sort(function(a, b) { return a._dist - b._dist; });
         }
 
-        countEl.textContent = '地図内に' + allMarkers.length + '件';
+        // Count text
+        if (userLat && userLng && distanceLimitKm > 0) {
+            countEl.textContent = '現在地から' + distanceLimitKm + 'km圏内に' + filtered.length + '件';
+        } else {
+            countEl.textContent = '地図内に' + filtered.length + '件';
+        }
 
-        if (allMarkers.length === 0) {
-            container.innerHTML = '<div class="flex items-center justify-center w-full text-sm text-gray-400">この範囲にスポットが見つかりません</div>';
+        if (filtered.length === 0) {
+            container.innerHTML = '<div class="flex items-center justify-center w-full text-sm text-gray-400">' +
+                (distanceLimitKm > 0 ? distanceLimitKm + 'km圏内にスポットが見つかりません' : 'この範囲にスポットが見つかりません') +
+                '</div>';
             return;
         }
 
         var html = '';
-        allMarkers.slice(0, 50).forEach(function(m) {
+        filtered.slice(0, 50).forEach(function(m) {
             var config = layerConfig[m.layerKey];
             var dist = '';
             if (userLat && userLng) {
@@ -374,6 +403,25 @@
 
     // Expose for card click
     window.ridersMapShowDetail = showDetail;
+
+    // Show current location marker
+    function setUserMarker(lat, lng) {
+        if (userMarker) map.removeLayer(userMarker);
+        var icon = L.divIcon({
+            className: '',
+            html: '<div style="width:16px;height:16px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 0 0 2px #3b82f6,0 2px 6px rgba(0,0,0,.3);"></div>',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+        });
+        userMarker = L.marker([lat, lng], { icon: icon, zIndexOffset: 1000 }).addTo(map);
+        userMarker.bindTooltip('現在地', { direction: 'top', offset: [0, -10] });
+    }
+
+    // Show distance filter UI
+    function showDistanceFilter() {
+        var el = document.getElementById('distance-filter');
+        if (el) el.style.display = '';
+    }
 
     function closePanel() {
         document.getElementById('detail-panel').classList.remove('open');

@@ -126,14 +126,23 @@
         </div>
 
         {{-- 現在地ボタン --}}
-        <button id="btn-current-location" class="absolute bottom-4 right-3 bg-white p-2.5 rounded-lg shadow-md z-40 text-gray-600 hover:text-blue-600 transition-colors border border-gray-200">
+        <button id="btn-current-location" class="absolute bottom-4 right-3 bg-white p-2.5 rounded-lg shadow-md z-40 text-gray-600 hover:text-blue-600 transition-colors border border-gray-200"
+                title="現在地に移動">
             <i data-lucide="crosshair" class="w-5 h-5"></i>
         </button>
     </div>
 
-    {{-- 件数バー --}}
-    <div class="bg-white border-t border-b border-gray-200 px-4 py-2 flex items-center justify-between gap-3">
+    {{-- 件数バー + 距離フィルタ --}}
+    <div class="bg-white border-t border-b border-gray-200 px-4 py-2 flex items-center gap-3">
         <span id="result-count" class="text-sm font-black text-gray-800 shrink-0">地図内に0件</span>
+        <div id="distance-filter" class="flex items-center gap-1 ml-auto shrink-0" style="display:none;">
+            <select id="distance-select" class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-blue-300">
+                <option value="0">距離制限なし</option>
+                <option value="5">5km圏内</option>
+                <option value="10">10km圏内</option>
+                <option value="20">20km圏内</option>
+            </select>
+        </div>
         <span class="text-xs text-gray-400 shrink-0 hidden sm:inline">← スクロール →</span>
     </div>
 
