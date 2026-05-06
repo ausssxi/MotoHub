@@ -45,9 +45,7 @@
 
     <x-slot:metaDescription>{{ implode('。', array_filter($descParts)) }}。</x-slot:metaDescription>
 
-    @if($listing->is_sold_out)
     <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
-    @endif
 
     @if(!empty($discountRate))
     <x-slot:ogImage>{{ route('bikes.deal_ogp', ['listing' => $listing->id]) }}</x-slot:ogImage>
