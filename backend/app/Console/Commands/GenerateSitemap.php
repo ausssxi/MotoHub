@@ -720,31 +720,36 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
-        // 5. 車種別カタログページ (sitemap-models.xml)
+        // 5. 車種詳細ページ (sitemap-models.xml)
         // =========================================================
-        $this->info("車種別カタログサイトマップを生成中...");
+        $this->info("車種詳細サイトマップを生成中...");
         $modelFileName = 'sitemap-models.xml';
         $handle = $this->openSitemap($modelFileName);
         $sitemapFiles[] = $modelFileName;
         $modelCount = 0;
 
-        BikeModel::with('manufacturer')->select('id', 'slug', 'manufacturer_id', 'updated_at')
+        BikeModel::with('manufacturer')
+            ->select('id', 'slug', 'manufacturer_id', 'updated_at')
+            ->whereNotNull('slug')
+            ->whereHas('manufacturer', fn ($q) => $q->whereNotNull('slug'))
             ->orderBy('updated_at', 'desc')
             ->chunk(1000, function ($models) use ($handle, &$modelCount) {
                 foreach ($models as $model) {
+                    $mfrSlug = $model->manufacturer->slug;
+                    $url = url("/bikes/{$mfrSlug}/{$model->slug}");
                     $this->writeUrl(
                         $handle,
-                        url($model->seo_url),
+                        $url,
                         $model->updated_at->format('Y-m-d'),
                         'weekly',
-                        '0.8'
+                        '0.7'
                     );
                     $modelCount++;
                 }
             });
 
         $this->closeSitemap($handle);
-        $this->info(" -> {$modelCount} URL (Model Catalogs)");
+        $this->info(" -> {$modelCount} URL (Model Detail)");
 
 
         // =========================================================
