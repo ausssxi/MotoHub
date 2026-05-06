@@ -4,11 +4,22 @@
 
     <x-slot:styles>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
         <style>
             #map { height: 60vh; z-index: 10; }
+            #map.route-mode-active,
+            #map.route-mode-active * { cursor: crosshair !important; }
             @media (max-width: 640px) { #map { height: 50vh; } }
             .scrollbar-hide::-webkit-scrollbar { display: none; }
             .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+            .leaflet-routing-container { display: none !important; }
+
+            /* Route toggle button */
+            #btn-route-toggle.active {
+                background: #ec4899 !important;
+                color: #fff !important;
+                border-color: #ec4899 !important;
+            }
 
             /* Detail Panel */
             #detail-panel {
@@ -52,8 +63,10 @@
 
     <x-slot:scripts>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+        <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
         <script src="{{ asset('js/common/map-search.js') }}?v={{ filemtime(public_path('js/common/map-search.js')) }}"></script>
         <script src="{{ asset('js/riders/map.js') }}?v={{ time() }}"></script>
+        <script src="{{ asset('js/riders/route.js') }}?v={{ time() }}"></script>
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -125,11 +138,40 @@
             </button>
         </div>
 
+        {{-- ルートコントロール --}}
+        <div class="absolute bottom-20 left-3 z-40 flex gap-1.5">
+            <button id="btn-route-toggle" class="bg-white px-3 py-2 rounded-lg shadow-md text-gray-600 hover:text-pink-600 transition-colors border border-gray-200 flex items-center gap-1.5 text-[11px] font-bold"
+                    title="ルート作成モード">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                <span class="route-btn-label">ルート作成</span>
+            </button>
+            <button id="btn-route-clear" class="hidden bg-white px-3 py-2 rounded-lg shadow-md text-gray-600 hover:text-red-600 transition-colors border border-gray-200 text-[11px] font-bold"
+                    title="ルートをクリア">
+                クリア
+            </button>
+            <button id="btn-route-pois" class="hidden bg-white px-3 py-2 rounded-lg shadow-md text-gray-600 hover:text-purple-600 transition-colors border border-gray-200 text-[11px] font-bold"
+                    title="沿線スポットを表示" onclick="window.ridersRouteSearchPois()">
+                沿線スポット表示
+            </button>
+        </div>
+
         {{-- 現在地ボタン --}}
         <button id="btn-current-location" class="absolute bottom-4 right-3 bg-white p-2.5 rounded-lg shadow-md z-40 text-gray-600 hover:text-blue-600 transition-colors border border-gray-200"
                 title="現在地に移動">
             <i data-lucide="crosshair" class="w-5 h-5"></i>
         </button>
+    </div>
+
+    {{-- ルート情報バー --}}
+    <div id="route-info-bar" class="hidden bg-pink-50 border-t border-b border-pink-200 px-4 py-2 flex items-center gap-4">
+        <div class="flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+            <span class="text-xs font-bold text-pink-700">ルート:</span>
+        </div>
+        <span class="text-xs font-black text-pink-800"><span id="route-distance">-</span></span>
+        <span class="text-xs text-pink-600">|</span>
+        <span class="text-xs font-black text-pink-800"><span id="route-time">-</span></span>
+        <span id="route-poi-count" class="text-xs font-bold text-purple-600"></span>
     </div>
 
     {{-- 件数バー + 距離フィルタ --}}

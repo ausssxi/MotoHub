@@ -330,6 +330,7 @@ Route::prefix('api')->group(function () {
     Route::get('/stats/price/{bikeModelId}', [App\Http\Controllers\Api\StatsApiController::class, 'getPriceStats']);
     Route::get('/widget/price/{bikeModelId}', [\App\Http\Controllers\Api\WidgetApiController::class, 'price']);
     Route::get('/pois', [PoiApiController::class, 'search'])->name('api.pois');
+    Route::post('/pois/along-route', [PoiApiController::class, 'alongRoute'])->name('api.pois.along_route');
 });
 
 // 固定ページ (運営者情報など)

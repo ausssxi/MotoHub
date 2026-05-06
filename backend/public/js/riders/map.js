@@ -46,6 +46,9 @@
             maxZoom: 18,
         }).addTo(map);
 
+        // Expose map instance globally (for route.js etc.)
+        window.ridersMap = map;
+
         // Initialize layer groups
         Object.keys(layerConfig).forEach(function(key) {
             layerGroups[key] = L.layerGroup().addTo(map);
