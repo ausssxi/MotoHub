@@ -76,6 +76,11 @@
         // Detail panel close
         document.getElementById('detail-panel-close').addEventListener('click', closePanel);
         document.getElementById('detail-panel-overlay').addEventListener('click', closePanel);
+
+        // 地名検索を初期化
+        if (typeof initMapSearch === 'function') {
+            initMapSearch(map);
+        }
     }
 
     // Fetch all enabled layers
