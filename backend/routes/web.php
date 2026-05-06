@@ -31,6 +31,8 @@ use App\Http\Controllers\Bike\PriceDropsController;
 use App\Http\Controllers\Bike\PriceDropsOgpController;
 use App\Http\Controllers\Bike\ReviewOgpController;
 use App\Http\Controllers\Bike\OverseasBikeController;
+use App\Http\Controllers\Bike\BargainsController;
+use App\Http\Controllers\Bike\BargainsOgpController;
 use App\Http\Controllers\Parts\PartsController;
 use App\Http\Controllers\NewsController;
 use App\Http\Controllers\RankingController;
@@ -106,6 +108,14 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     Route::get('/price-drops/{date?}', [PriceDropsController::class, 'index'])
         ->where('date', '\d{4}-\d{2}-\d{2}')
         ->name('price_drops');
+
+    // お買い得OGP画像
+    Route::get('/bargains/ogp.png', [BargainsOgpController::class, 'show'])
+        ->name('bargains_ogp');
+
+    // お買い得ページ
+    Route::get('/bargains', [BargainsController::class, 'index'])
+        ->name('bargains');
 
     // SEO着地ページ（市区町村レベル — セグメント数が多いので先に定義）
     Route::get('/area/{prefecture}/{city}/{slug}', 'cityLanding')->name('city_landing');

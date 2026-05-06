@@ -136,7 +136,7 @@
 
     {{-- ライブ統計バー --}}
     <div class="bg-white border-b border-gray-100 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 py-3 text-center" style="display:grid;grid-template-columns:repeat(4,1fr);border-collapse:collapse">
+        <div class="max-w-7xl mx-auto px-4 py-3 text-center" style="display:grid;grid-template-columns:repeat(5,1fr);border-collapse:collapse">
             <a href="{{ route('bikes.search') }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors">
                 <span class="text-[10px] font-bold text-gray-400 block">掲載</span>
                 <span class="text-sm font-black text-gray-900 tabular-nums">{{ number_format($totalListings) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
@@ -148,6 +148,10 @@
             <a href="{{ route('bikes.new_arrivals') }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors" style="border-left:1px solid #e5e7eb">
                 <span class="text-[10px] font-bold text-gray-400 block">新着</span>
                 <span class="text-sm font-black text-green-600 tabular-nums">{{ number_format($newListingsCount) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
+            </a>
+            <a href="{{ route('bikes.bargains') }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors" style="border-left:1px solid #e5e7eb">
+                <span class="text-[10px] font-bold text-gray-400 block">お買い得</span>
+                <span class="text-sm font-black text-purple-600 tabular-nums">{{ number_format($bargainsCount) }}<span class="text-[10px] font-bold text-gray-400 ml-0.5">台</span></span>
             </a>
             <a href="{{ route('ranking.index') }}" class="px-2 block hover:bg-gray-50 rounded-lg transition-colors" style="border-left:1px solid #e5e7eb">
                 <span class="text-[10px] font-bold text-gray-400 block">本日販売</span>

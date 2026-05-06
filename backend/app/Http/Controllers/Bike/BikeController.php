@@ -80,6 +80,38 @@ final class BikeController extends Controller
             Listing::where('is_sold_out', true)->whereDate('updated_at', today())->count()
         );
 
+        // お買い得車両数
+        $bargainsCount = Cache::remember('top_bargains_count', 3600, function () {
+            $excludedModelIds = \App\Models\BikeModel::where('name', '他車種')->pluck('id');
+            $modelAverages = Listing::where('is_sold_out', false)
+                ->whereNotNull('bike_model_id')
+                ->whereNotNull('total_price')
+                ->where('total_price', '>', 0)
+                ->whereNotIn('bike_model_id', $excludedModelIds)
+                ->select('bike_model_id', DB::raw('AVG(total_price) as avg_price'), DB::raw('COUNT(*) as cnt'))
+                ->groupBy('bike_model_id')
+                ->having('cnt', '>=', 3)
+                ->pluck('avg_price', 'bike_model_id');
+
+            $count = 0;
+            Listing::where('is_sold_out', false)
+                ->whereNotNull('bike_model_id')
+                ->whereNotNull('total_price')
+                ->where('total_price', '>', 0)
+                ->whereIn('bike_model_id', $modelAverages->keys())
+                ->orderByDesc('created_at')
+                ->limit(500)
+                ->chunk(100, function ($listings) use ($modelAverages, &$count) {
+                    foreach ($listings as $listing) {
+                        $avgPrice = (float) $modelAverages[$listing->bike_model_id];
+                        if ($avgPrice > 0 && $listing->total_price < ($avgPrice * 0.8)) {
+                            $count++;
+                        }
+                    }
+                });
+            return $count;
+        });
+
         // 売れ筋ランキングTOP5（今月）
         $rankingTop5 = Cache::remember('top_ranking_top5', 3600, function () {
             $start = now()->startOfMonth();
@@ -113,7 +145,7 @@ final class BikeController extends Controller
             'popularBikes', 'categories', 'manufacturers', 'regions',
             'latestReviews', 'licenses', 'popularTags', 'features', 'seoFeatures',
             'totalListings', 'priceDropCount', 'newListingsCount', 'latestMyBikes',
-            'todaySoldCount', 'rankingTop5'
+            'todaySoldCount', 'bargainsCount', 'rankingTop5'
         ));
     }
 

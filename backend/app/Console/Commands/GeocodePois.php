@@ -32,7 +32,9 @@ final class GeocodePois extends Command
         }
         $this->info('  ' . count($this->muniMap) . '件の市区町村を読み込み');
 
-        $pois = Poi::whereNull('address')
+        $pois = Poi::where(function ($q) {
+                $q->whereNull('address')->orWhere('address', '');
+            })
             ->limit($limit)
             ->get();
 
