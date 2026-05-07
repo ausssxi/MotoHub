@@ -11,6 +11,7 @@
         gas_station:       { endpoint: '/api/pois?type=gas_station', color: '#dc2626', label: '\u26FD', title: 'GS' },
         convenience_store: { endpoint: '/api/pois?type=convenience_store', color: '#ea580c', label: '\uD83C\uDFEA', title: 'コンビニ' },
         michi_no_eki:      { endpoint: '/api/pois?type=michi_no_eki', color: '#9333ea', label: '\uD83D\uDEE3\uFE0F', title: '道の駅' },
+        blog:              { endpoint: '/api/blog/map-pins', color: '#0891b2', label: '\u270D\uFE0F', title: '記事' },
     };
 
     let map;
@@ -103,7 +104,7 @@
 
     // Fetch all enabled layers
     function fetchAllLayers() {
-        var layers = window.ridersMapLayers || { shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false };
+        var layers = window.ridersMapLayers || { shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, blog: false };
         var bounds = map.getBounds();
         var ne = bounds.getNorthEast();
         var sw = bounds.getSouthWest();
@@ -154,7 +155,7 @@
             var marker = L.marker([lat, lng], { icon: icon }).addTo(group);
             marker.on('click', function() { showDetail(layerKey, item); });
 
-            var displayName = item.name || item.shop_name || '名称不明';
+            var displayName = item.name || item.shop_name || item.title || '名称不明';
             if (layerKey === 'gas_station' || layerKey === 'convenience_store') {
                 displayName = gsDisplayName(item).main;
             }
@@ -256,6 +257,13 @@
             lines += '<p class="text-[10px] text-gray-400 truncate mt-0.5">' + escapeHtml(item.address || '') + '</p>';
         } else if (layerKey === 'michi_no_eki') {
             lines += '<p class="text-[10px] text-gray-400 truncate mt-0.5">' + escapeHtml(item.address || '') + '</p>';
+        } else if (layerKey === 'blog') {
+            if (item.excerpt) {
+                lines += '<p class="text-[10px] text-gray-500 truncate mt-0.5">' + escapeHtml(item.excerpt) + '</p>';
+            }
+            if (item.published_at) {
+                lines += '<p class="text-[10px] text-gray-400 mt-0.5">' + escapeHtml(item.published_at) + '</p>';
+            }
         }
         return lines;
     }
@@ -397,6 +405,11 @@
             html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(item.name) + '</h3>'
                 + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
                 + gmapBtn + routeBtn;
+        } else if (layerKey === 'blog') {
+            html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(item.title) + '</h3>'
+                + (item.excerpt ? '<p class="text-sm text-gray-600 mb-3 leading-relaxed">' + escapeHtml(item.excerpt) + '</p>' : '')
+                + '<p class="text-[10px] text-gray-400 mb-3">' + escapeHtml(item.published_at || '') + '</p>'
+                + '<a href="/blog/' + encodeURIComponent(item.slug) + '" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-cyan-600 text-white text-xs font-bold rounded-lg hover:bg-cyan-700 transition">記事を読む &rarr;</a>';
         }
 
         body.innerHTML = html;

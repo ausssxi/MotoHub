@@ -154,6 +154,22 @@
                 </div>
             </div>
 
+            {{-- 位置情報 --}}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1">緯度</label>
+                    <p class="text-xs text-gray-400 mb-1.5">ライダーズマップ「記事」レイヤーに表示。[riders-map]がある場合は空欄で自動設定</p>
+                    <input type="number" name="latitude" value="{{ old('latitude', $post->latitude) }}" step="0.0000001" min="-90" max="90"
+                           class="w-full rounded-lg border-gray-300 text-sm" placeholder="35.6812362">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1">経度</label>
+                    <p class="text-xs text-gray-400 mb-1.5">&nbsp;</p>
+                    <input type="number" name="longitude" value="{{ old('longitude', $post->longitude) }}" step="0.0000001" min="-180" max="180"
+                           class="w-full rounded-lg border-gray-300 text-sm" placeholder="139.7671248">
+                </div>
+            </div>
+
             {{-- ステータス + 公開日時 --}}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>

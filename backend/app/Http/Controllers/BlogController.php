@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BlogPost;
 use App\Models\BlogTag;
+use App\Services\Blog\ShortcodeService;
 use App\Services\BlogRelatedPostService;
 use App\Services\MarkdownService;
 use Illuminate\Http\Request;
@@ -20,7 +21,7 @@ class BlogController extends Controller
         return view('blog.index', compact('posts'));
     }
 
-    public function show(string $slug, Request $request, MarkdownService $markdown, BlogRelatedPostService $relatedService)
+    public function show(string $slug, Request $request, MarkdownService $markdown, ShortcodeService $shortcode, BlogRelatedPostService $relatedService)
     {
         $post = BlogPost::where('slug', $slug)
             ->published()
@@ -48,6 +49,9 @@ class BlogController extends Controller
         }
 
         $html = $markdown->toHtml($post->body);
+        $shortcodeResult = $shortcode->processShortcodes($html);
+        $html = $shortcodeResult['html'];
+        $hasMap = $shortcodeResult['hasMap'] || ($post->latitude && $post->longitude);
         $toc = $markdown->generateToc($post->body);
         $relatedPosts = $relatedService->getRelatedPosts($post);
 
@@ -70,7 +74,7 @@ class BlogController extends Controller
         $prevPost = BlogPost::where('status', 'published')->where('id', '<', $post->id)->orderByDesc('id')->first();
         $nextPost = BlogPost::where('status', 'published')->where('id', '>', $post->id)->orderBy('id')->first();
 
-        return view('blog.show', compact('post', 'html', 'toc', 'relatedPosts', 'seriesNav', 'prevPost', 'nextPost'));
+        return view('blog.show', compact('post', 'html', 'hasMap', 'toc', 'relatedPosts', 'seriesNav', 'prevPost', 'nextPost'));
     }
 
     public function byTag(string $slug)

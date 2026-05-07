@@ -9,6 +9,13 @@
             #map { height: 60vh; z-index: 10; }
             #map.route-mode-active,
             #map.route-mode-active * { cursor: crosshair !important; }
+            #map.blog-pin-mode,
+            #map.blog-pin-mode * { cursor: crosshair !important; }
+            #btn-blog-pin.active {
+                background: #0891b2 !important;
+                color: #fff !important;
+                border-color: #0891b2 !important;
+            }
             @media (max-width: 640px) { #map { height: 50vh; } }
             .scrollbar-hide::-webkit-scrollbar { display: none; }
             .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
@@ -67,6 +74,9 @@
         <script src="{{ asset('js/common/map-search.js') }}?v={{ filemtime(public_path('js/common/map-search.js')) }}"></script>
         <script src="{{ asset('js/riders/map.js') }}?v={{ time() }}"></script>
         <script src="{{ asset('js/riders/route.js') }}?v={{ time() }}"></script>
+        @auth
+            <script src="{{ asset('js/riders/blog-pin.js') }}?v={{ time() }}"></script>
+        @endauth
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -98,14 +108,14 @@
         {{-- レイヤートグル --}}
         <div class="absolute top-14 left-3 right-3 z-40 flex flex-wrap gap-1.5"
              x-data="{
-                 shop: true, parking: true, gas: false, cvs: false, michi: false,
+                 shop: true, parking: true, gas: false, cvs: false, michi: false, blog: false,
                  notify() {
-                     let l = {shop: this.shop, parking: this.parking, gas_station: this.gas, convenience_store: this.cvs, michi_no_eki: this.michi};
+                     let l = {shop: this.shop, parking: this.parking, gas_station: this.gas, convenience_store: this.cvs, michi_no_eki: this.michi, blog: this.blog};
                      window.ridersMapLayers = l;
                      window.dispatchEvent(new CustomEvent('layers-changed', {detail: l}));
                  }
              }"
-             x-init="window.ridersMapLayers = {shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false}">
+             x-init="window.ridersMapLayers = {shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, blog: false}">
             <button type="button" @click="shop = !shop; notify()"
                     class="layer-btn px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1"
                     :style="shop ? 'background:#2563eb;color:#fff;border:2px solid #2563eb' : 'background:#fff;color:#4b5563;border:2px solid #e5e7eb'">
@@ -136,6 +146,12 @@
                 <span class="text-sm leading-none">&#x1F6E3;&#xFE0F;</span>
                 道の駅
             </button>
+            <button type="button" @click="blog = !blog; notify()"
+                    class="layer-btn px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1"
+                    :style="blog ? 'background:#0891b2;color:#fff;border:2px solid #0891b2' : 'background:#fff;color:#4b5563;border:2px solid #e5e7eb'">
+                <span class="text-sm leading-none">&#x270D;&#xFE0F;</span>
+                記事
+            </button>
         </div>
 
         {{-- ルートコントロール --}}
@@ -153,6 +169,13 @@
                     title="沿線スポットを表示" onclick="window.ridersRouteSearchPois()">
                 沿線スポット表示
             </button>
+            @auth
+                <button id="btn-blog-pin" class="bg-white px-3 py-2 rounded-lg shadow-md text-gray-600 hover:text-cyan-600 transition-colors border border-gray-200 flex items-center gap-1.5 text-[11px] font-bold"
+                        title="地図上の場所を選んで記事を書く">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    <span class="blog-pin-label">記事を書く</span>
+                </button>
+            @endauth
         </div>
 
         {{-- 現在地ボタン --}}

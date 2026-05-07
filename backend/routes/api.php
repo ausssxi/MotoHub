@@ -39,3 +39,36 @@ Route::get('/push/subscribed-models', [\App\Http\Controllers\Api\PushSubscriptio
 
 // クイズ問題API
 Route::get('/quiz/questions', [\App\Http\Controllers\Api\QuizController::class, 'questions']);
+
+// ブログ記事マップピンAPI
+Route::get('/blog/map-pins', function (Request $request) {
+    // map.jsは ne_lat/ne_lng/sw_lat/sw_lng を送信、手動テスト用に north/south/east/west もサポート
+    $neLatitude = (float) ($request->query('ne_lat') ?: $request->query('north', 0));
+    $neLongitude = (float) ($request->query('ne_lng') ?: $request->query('east', 0));
+    $swLatitude = (float) ($request->query('sw_lat') ?: $request->query('south', 0));
+    $swLongitude = (float) ($request->query('sw_lng') ?: $request->query('west', 0));
+
+    $posts = \App\Models\BlogPost::published()
+        ->whereNotNull('latitude')
+        ->whereNotNull('longitude')
+        ->whereBetween('latitude', [$swLatitude, $neLatitude])
+        ->whereBetween('longitude', [$swLongitude, $neLongitude])
+        ->select('id', 'title', 'slug', 'latitude', 'longitude', 'excerpt', 'published_at')
+        ->orderByDesc('published_at')
+        ->limit(50)
+        ->get()
+        ->map(fn ($post) => [
+            'id' => $post->id,
+            'title' => $post->title,
+            'slug' => $post->slug,
+            'lat' => (float) $post->latitude,
+            'lng' => (float) $post->longitude,
+            'excerpt' => \Illuminate\Support\Str::limit(
+                \App\Models\BlogPost::stripMarkdown($post->excerpt ?? ''),
+                80
+            ),
+            'published_at' => $post->published_at->format('Y.m.d'),
+        ]);
+
+    return response()->json($posts);
+});

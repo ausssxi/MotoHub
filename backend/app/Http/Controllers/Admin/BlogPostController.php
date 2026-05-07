@@ -56,6 +56,8 @@ class BlogPostController extends Controller
             'published_at' => 'nullable|date',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:300',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:50',
         ]);
@@ -80,6 +82,8 @@ class BlogPostController extends Controller
             'published_at' => $validated['status'] === 'draft' ? null : ($validated['published_at'] ?? now()),
             'meta_title' => $validated['meta_title'] ?? null,
             'meta_description' => $validated['meta_description'] ?? null,
+            'latitude' => $validated['latitude'] ?? null,
+            'longitude' => $validated['longitude'] ?? null,
         ]);
 
         if (!empty($validated['tags'])) {
@@ -127,6 +131,8 @@ class BlogPostController extends Controller
             'published_at' => 'nullable|date',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:300',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:50',
         ]);

@@ -46,6 +46,16 @@
             <a href="{{ route('admin.blog.posts.index') }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; 記事一覧に戻る</a>
         </div>
 
+        @if(request('lat') && request('lng'))
+            <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
+                <svg class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <div>
+                    <p class="text-sm font-medium text-blue-800">ライダーズマップから記事を作成中です</p>
+                    <p class="text-xs text-blue-600 mt-0.5">テンプレートを参考に、スポットの魅力を自由に書いてください。位置情報は自動で設定済みです。</p>
+                </div>
+            </div>
+        @endif
+
         @if($errors->any())
             <div class="mb-4 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg">
                 <ul class="list-disc list-inside">
@@ -61,10 +71,23 @@
 
             {{-- タイトル --}}
             <div class="mb-4">
-                <input type="text" name="title" value="{{ old('title') }}" placeholder="記事タイトル"
+                <input type="text" name="title" value="{{ old('title') }}"
+                       placeholder="{{ request('lat') && request('lng') ? '例: 箱根ターンパイクの絶景ポイント' : '記事タイトル' }}"
                        class="w-full text-2xl font-bold border-0 border-b-2 border-gray-200 focus:border-blue-500 focus:ring-0 px-0 py-2"
                        required>
             </div>
+
+            {{-- 位置情報プレビュー --}}
+            @if(request('lat') && request('lng'))
+                <div id="location-preview-bar" class="mb-4 px-4 py-3 bg-cyan-50 border border-cyan-200 rounded-lg flex items-center gap-3">
+                    <span class="text-lg">&#x1F4CD;</span>
+                    <div class="flex-1 min-w-0">
+                        <span class="location-address text-sm font-medium text-cyan-900">住所を取得中...</span>
+                        <span class="text-xs text-cyan-600 ml-2">（{{ request('lat') }}, {{ request('lng') }}）</span>
+                    </div>
+                    <span class="text-xs text-cyan-500 shrink-0">位置情報は自動設定済み</span>
+                </div>
+            @endif
 
             {{-- Markdownエディタ + プレビュー --}}
             <div class="mb-6">
@@ -137,6 +160,22 @@
                     <label class="block text-sm font-medium text-gray-600 mb-1">記事の紹介文（空欄で自動生成）</label>
                     <p class="text-xs text-gray-400 mb-1.5">検索結果やSNSシェア時に表示される説明文です</p>
                     <textarea name="excerpt" rows="3" class="w-full rounded-lg border-gray-300 text-sm">{{ old('excerpt') }}</textarea>
+                </div>
+            </div>
+
+            {{-- 位置情報 --}}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1">緯度</label>
+                    <p class="text-xs text-gray-400 mb-1.5">ライダーズマップ「記事」レイヤーに表示。[riders-map]がある場合は空欄で自動設定</p>
+                    <input type="number" name="latitude" id="latitudeInput" value="{{ old('latitude', request('lat')) }}" step="0.0000001" min="-90" max="90"
+                           class="w-full rounded-lg border-gray-300 text-sm" placeholder="35.6812362">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1">経度</label>
+                    <p class="text-xs text-gray-400 mb-1.5">&nbsp;</p>
+                    <input type="number" name="longitude" id="longitudeInput" value="{{ old('longitude', request('lng')) }}" step="0.0000001" min="-180" max="180"
+                           class="w-full rounded-lg border-gray-300 text-sm" placeholder="139.7671248">
                 </div>
             </div>
 
@@ -240,7 +279,41 @@
                 }
 
                 editor.addEventListener('input', updatePreview);
+
                 updatePreview();
+
+                // 位置情報プレビューバーの住所取得
+                @if(request('lat') && request('lng'))
+                (function() {
+                    var previewBar = document.getElementById('location-preview-bar');
+                    if (!previewBar) return;
+                    var lat = {{ (float) request('lat') }};
+                    var lng = {{ (float) request('lng') }};
+                    var PREF_NAMES = [
+                        '','北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県',
+                        '茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県',
+                        '新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県',
+                        '静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県',
+                        '奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県',
+                        '徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県',
+                        '熊本県','大分県','宮崎県','鹿児島県','沖縄県'
+                    ];
+                    fetch('https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=' + lat + '&lon=' + lng)
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            if (data && data.results && data.results.muniCd) {
+                                var prefCode = parseInt(data.results.muniCd.substring(0, 2), 10);
+                                var pref = PREF_NAMES[prefCode] || '';
+                                var local = data.results.lv01Nm || '';
+                                var address = pref + local;
+                                if (address) {
+                                    previewBar.querySelector('.location-address').textContent = address;
+                                }
+                            }
+                        })
+                        .catch(function() {});
+                })();
+                @endif
 
                 // ステータスに応じて公開日時フィールドの表示切替
                 function togglePublishedAt() {

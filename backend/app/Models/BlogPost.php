@@ -28,12 +28,16 @@ class BlogPost extends Model
         'meta_title',
         'meta_description',
         'og_image',
+        'latitude',
+        'longitude',
     ];
 
     protected $casts = [
         'published_at' => 'datetime',
         'series_order' => 'integer',
         'reading_time_minutes' => 'integer',
+        'latitude' => 'decimal:7',
+        'longitude' => 'decimal:7',
     ];
 
     protected static function booted(): void
@@ -51,6 +55,9 @@ class BlogPost extends Model
             if (empty($post->excerpt) && !empty($post->body)) {
                 $post->excerpt = Str::limit(self::stripMarkdown($post->body), 150);
             }
+
+            // [riders-map]ショートコードから位置情報を自動抽出（手動入力がなければ）
+            self::extractLocationFromShortcode($post);
         });
 
         static::updating(function (BlogPost $post) {
@@ -60,6 +67,9 @@ class BlogPost extends Model
                 if (empty($post->excerpt)) {
                     $post->excerpt = Str::limit(self::stripMarkdown($post->body), 150);
                 }
+
+                // [riders-map]ショートコードから位置情報を自動抽出（手動入力がなければ）
+                self::extractLocationFromShortcode($post);
             }
         });
     }
@@ -101,6 +111,7 @@ class BlogPost extends Model
     public static function stripMarkdown(string $text): string
     {
         $text = strip_tags($text);
+        $text = preg_replace('/\[riders-map\s+[^\]]+\]/', '', $text); // [riders-map ...]ショートコード
         $text = preg_replace('/^#+\s*/m', '', $text);           // # 見出し
         $text = preg_replace('/\*\*([^*]+)\*\*/', '$1', $text); // **太字**
         $text = preg_replace('/\*([^*]+)\*/', '$1', $text);     // *斜体*
@@ -115,6 +126,33 @@ class BlogPost extends Model
         $text = preg_replace('/^-{3,}$/m', '', $text);          // --- 水平線
         $text = preg_replace('/\s+/', ' ', $text);              // 連続空白を1つに
         return trim($text);
+    }
+
+    /**
+     * 本文の[riders-map]ショートコードからlat/lngを自動抽出（手動入力がなければ）
+     */
+    private static function extractLocationFromShortcode(BlogPost $post): void
+    {
+        if (!empty($post->latitude) && !empty($post->longitude)) {
+            return;
+        }
+
+        if (empty($post->body)) {
+            return;
+        }
+
+        if (preg_match('/\[riders-map\s+([^\]]+)\]/', $post->body, $matches)) {
+            preg_match_all('/(\w+)=["\']?([^"\'\s]+)["\']?/', $matches[1], $params, PREG_SET_ORDER);
+            $parsed = [];
+            foreach ($params as $param) {
+                $parsed[$param[1]] = $param[2];
+            }
+
+            if (isset($parsed['lat'], $parsed['lng'])) {
+                $post->latitude = (float) $parsed['lat'];
+                $post->longitude = (float) $parsed['lng'];
+            }
+        }
     }
 
     // ---- Helpers ----

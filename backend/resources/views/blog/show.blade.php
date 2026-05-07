@@ -11,6 +11,11 @@
     <x-slot:styles>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github.min.css">
 
+        @if(!empty($hasMap))
+            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+            <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+        @endif
+
         {{-- JSON-LD 構造化データ --}}
         <script type="application/ld+json">
         {
@@ -150,6 +155,24 @@
                 <div class="mb-8">
                     <img src="{{ $post->getEyecatchUrl() }}" alt="{{ $post->title }}"
                          class="w-full rounded-xl" onerror="handleImageError(this)">
+                </div>
+            @endif
+
+            {{-- 位置情報マップ（lat/lngがあれば自動表示） --}}
+            @if($post->latitude && $post->longitude)
+                <div class="mb-8 rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+                    <div class="riders-map-embed"
+                         data-lat="{{ $post->latitude }}"
+                         data-lng="{{ $post->longitude }}"
+                         data-zoom="13"
+                         data-layers="all"
+                         style="height:350px; width:100%;"></div>
+                    <div class="flex items-center gap-2 px-4 py-2.5 bg-gray-50 text-xs text-gray-500">
+                        <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        <span>{{ number_format($post->latitude, 5) }}, {{ number_format($post->longitude, 5) }}</span>
+                        <a href="{{ route('riders.map') }}?lat={{ $post->latitude }}&lng={{ $post->longitude }}&zoom=14"
+                           class="ml-auto text-cyan-600 hover:text-cyan-800 font-medium">ライダーズマップで見る &rarr;</a>
+                    </div>
                 </div>
             @endif
 
@@ -299,5 +322,10 @@
                 document.querySelectorAll('.blog-content pre code').forEach(el => hljs.highlightElement(el));
             });
         </script>
+        @if(!empty($hasMap))
+            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+            <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+            <script src="{{ asset('js/blog/embedded-map.js') }}"></script>
+        @endif
     </x-slot:scripts>
 </x-layout>
