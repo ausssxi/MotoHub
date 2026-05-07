@@ -118,11 +118,13 @@
                         var popupHtml = '<div style="min-width:160px;">';
 
                         if (key === 'blog') {
+                            var blogUrl = item.type === 'touring' ? '/touring/' : '/blog/';
+                            var blogLabel = item.type === 'touring' ? 'ガイドを読む' : '記事を読む';
                             popupHtml += '<strong>' + escapeHtml(item.title) + '</strong>';
                             if (item.excerpt) {
                                 popupHtml += '<br><span style="font-size:12px;color:#666;">' + escapeHtml(item.excerpt) + '</span>';
                             }
-                            popupHtml += '<br><a href="/blog/' + encodeURIComponent(item.slug) + '" style="font-size:12px;color:#0891b2;font-weight:bold;">記事を読む &rarr;</a>';
+                            popupHtml += '<br><a href="' + blogUrl + encodeURIComponent(item.slug) + '" style="font-size:12px;color:#0891b2;font-weight:bold;">' + blogLabel + ' &rarr;</a>';
                         } else {
                             popupHtml += '<strong>' + escapeHtml(name) + '</strong>';
                             if (item.address) {

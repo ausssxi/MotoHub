@@ -13,7 +13,7 @@
     $isMap      = $navIs('riders-map*', 'parking*');
     $isBlog     = $navIs('blog*');
     $isSouba    = $navIs('trends*', 'sell*');
-    $isOther    = $navIs('bikes/overseas*', 'bikes/bargains*', 'parts*', 'identify*', 'garage/public*', 'ar*', 'quiz*', 'warashibe*', 'puzzle*', 'games/*');
+    $isOther    = $navIs('bikes/overseas*', 'bikes/bargains*', 'parts*', 'identify*', 'garage/public*', 'ar*', 'quiz*', 'warashibe*', 'puzzle*', 'games/*', 'touring*');
 @endphp
 
 <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
@@ -160,6 +160,13 @@
                         <a href="{{ route('ar.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors whitespace-nowrap">
                             <i data-lucide="camera" class="w-3.5 h-3.5"></i>
                             AR駐車場ファインダー
+                        </a>
+                        <div class="my-1 border-t border-gray-100"></div>
+                        {{-- ガイドセクション --}}
+                        <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-widest">ガイド</p>
+                        <a href="{{ route('touring.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-cyan-50 hover:text-cyan-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
+                            ツーリングガイド
                         </a>
                     </div>
                 </div>
@@ -408,6 +415,19 @@
                     </div>
                     <div>
                         <p class="text-xs font-black text-gray-800">ブログ</p>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
+
+            {{-- ツーリングガイドバナー --}}
+            <a href="{{ route('touring.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-cyan-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="map-pin" class="w-4 h-4 text-cyan-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-black text-gray-800">ツーリングガイド</p>
                     </div>
                 </div>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>

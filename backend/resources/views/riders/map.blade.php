@@ -173,7 +173,7 @@
                 <button id="btn-blog-pin" class="bg-white px-3 py-2 rounded-lg shadow-md text-gray-600 hover:text-cyan-600 transition-colors border border-gray-200 flex items-center gap-1.5 text-[11px] font-bold"
                         title="地図上の場所を選んで記事を書く">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                    <span class="blog-pin-label">記事を書く</span>
+                    <span class="blog-pin-label">ガイドを書く</span>
                 </button>
             @endauth
         </div>

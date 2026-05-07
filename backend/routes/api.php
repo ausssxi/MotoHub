@@ -40,7 +40,7 @@ Route::get('/push/subscribed-models', [\App\Http\Controllers\Api\PushSubscriptio
 // クイズ問題API
 Route::get('/quiz/questions', [\App\Http\Controllers\Api\QuizController::class, 'questions']);
 
-// ブログ記事マップピンAPI
+// ブログ記事・ツーリングガイド マップピンAPI
 Route::get('/blog/map-pins', function (Request $request) {
     // map.jsは ne_lat/ne_lng/sw_lat/sw_lng を送信、手動テスト用に north/south/east/west もサポート
     $neLatitude = (float) ($request->query('ne_lat') ?: $request->query('north', 0));
@@ -59,6 +59,7 @@ Route::get('/blog/map-pins', function (Request $request) {
         ->get()
         ->map(fn ($post) => [
             'id' => $post->id,
+            'type' => 'blog',
             'title' => $post->title,
             'slug' => $post->slug,
             'lat' => (float) $post->latitude,
@@ -70,5 +71,30 @@ Route::get('/blog/map-pins', function (Request $request) {
             'published_at' => $post->published_at->format('Y.m.d'),
         ]);
 
-    return response()->json($posts);
+    $guides = \App\Models\TouringGuide::published()
+        ->whereNotNull('latitude')
+        ->whereNotNull('longitude')
+        ->whereBetween('latitude', [$swLatitude, $neLatitude])
+        ->whereBetween('longitude', [$swLongitude, $neLongitude])
+        ->select('id', 'title', 'slug', 'latitude', 'longitude', 'excerpt', 'published_at')
+        ->orderByDesc('published_at')
+        ->limit(50)
+        ->get()
+        ->map(fn ($guide) => [
+            'id' => $guide->id,
+            'type' => 'touring',
+            'title' => $guide->title,
+            'slug' => $guide->slug,
+            'lat' => (float) $guide->latitude,
+            'lng' => (float) $guide->longitude,
+            'excerpt' => \Illuminate\Support\Str::limit(
+                \App\Models\BlogPost::stripMarkdown($guide->excerpt ?? ''),
+                80
+            ),
+            'published_at' => $guide->published_at->format('Y.m.d'),
+        ]);
+
+    $merged = $posts->concat($guides)->sortByDesc('published_at')->take(50)->values();
+
+    return response()->json($merged);
 });

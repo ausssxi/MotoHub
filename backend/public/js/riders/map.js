@@ -262,7 +262,7 @@
                 lines += '<p class="text-[10px] text-gray-500 truncate mt-0.5">' + escapeHtml(item.excerpt) + '</p>';
             }
             if (item.published_at) {
-                lines += '<p class="text-[10px] text-gray-400 mt-0.5">' + escapeHtml(item.published_at) + '</p>';
+                lines += '<p class="text-[10px] text-gray-400 mt-0.5">' + escapeHtml(item.published_at) + (item.type === 'touring' ? ' [ガイド]' : '') + '</p>';
             }
         }
         return lines;
@@ -406,10 +406,12 @@
                 + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
                 + gmapBtn + routeBtn;
         } else if (layerKey === 'blog') {
+            var blogUrl = item.type === 'touring' ? '/touring/' : '/blog/';
+            var blogLabel = item.type === 'touring' ? 'ガイドを読む' : '記事を読む';
             html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(item.title) + '</h3>'
                 + (item.excerpt ? '<p class="text-sm text-gray-600 mb-3 leading-relaxed">' + escapeHtml(item.excerpt) + '</p>' : '')
                 + '<p class="text-[10px] text-gray-400 mb-3">' + escapeHtml(item.published_at || '') + '</p>'
-                + '<a href="/blog/' + encodeURIComponent(item.slug) + '" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-cyan-600 text-white text-xs font-bold rounded-lg hover:bg-cyan-700 transition">記事を読む &rarr;</a>';
+                + '<a href="' + blogUrl + encodeURIComponent(item.slug) + '" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-cyan-600 text-white text-xs font-bold rounded-lg hover:bg-cyan-700 transition">' + blogLabel + ' &rarr;</a>';
         }
 
         body.innerHTML = html;

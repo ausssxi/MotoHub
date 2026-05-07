@@ -435,6 +435,9 @@ require __DIR__.'/auth.php';
 // ブログ機能ルート読み込み
 require __DIR__.'/blog.php';
 
+// ツーリングガイド機能ルート読み込み
+require __DIR__.'/touring.php';
+
 // --- RSSフィード（Google News Publisher Center用） ---
 use App\Http\Controllers\FeedController;
 

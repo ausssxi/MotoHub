@@ -59,7 +59,7 @@
 
         if (btn) {
             btn.classList.remove('active');
-            btn.querySelector('.blog-pin-label').textContent = '記事を書く';
+            btn.querySelector('.blog-pin-label').textContent = 'ガイドを書く';
         }
         if (mapEl) mapEl.classList.remove('blog-pin-mode');
 
@@ -102,7 +102,7 @@
     }
 
     function buildLoadingPopup(lat, lng) {
-        var createUrl = '/admin/blog/posts/create?lat=' + lat + '&lng=' + lng;
+        var createUrl = '/admin/touring/create?lat=' + lat + '&lng=' + lng;
         return '<div style="min-width:240px;font-family:system-ui,sans-serif;">'
             + '<div style="display:flex;align-items:center;gap:6px;margin:0 0 8px;">'
             + '<svg width="14" height="14" fill="none" stroke="#9ca3af" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-width="2" d="M12 8v4m0 4h.01"/></svg>'
@@ -110,17 +110,17 @@
             + '</div>'
             + '<p style="font-size:11px;color:#9ca3af;margin:0 0 10px;">'
             + lat.toFixed(5) + ', ' + lng.toFixed(5) + '</p>'
-            + '<a href="' + createUrl + '" style="display:block;text-align:center;padding:8px 12px;background:#0891b2;color:#fff;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;">この場所の記事を書く &rarr;</a>'
+            + '<a href="' + createUrl + '" style="display:block;text-align:center;padding:8px 12px;background:#0891b2;color:#fff;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;">この場所のガイドを書く &rarr;</a>'
             + '</div>';
     }
 
     function buildPopup(lat, lng, address) {
-        var createUrl = '/admin/blog/posts/create?lat=' + lat + '&lng=' + lng;
+        var createUrl = '/admin/touring/create?lat=' + lat + '&lng=' + lng;
         return '<div style="min-width:240px;font-family:system-ui,sans-serif;">'
             + '<p style="font-size:14px;font-weight:700;color:#1f2937;margin:0 0 2px;">' + escapeHtml(address) + '</p>'
             + '<p style="font-size:11px;color:#9ca3af;margin:0 0 12px;">'
             + lat.toFixed(5) + ', ' + lng.toFixed(5) + '</p>'
-            + '<a href="' + createUrl + '" style="display:block;text-align:center;padding:8px 12px;background:#0891b2;color:#fff;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;">この場所の記事を書く &rarr;</a>'
+            + '<a href="' + createUrl + '" style="display:block;text-align:center;padding:8px 12px;background:#0891b2;color:#fff;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;">この場所のガイドを書く &rarr;</a>'
             + '<p style="font-size:10px;color:#9ca3af;margin:6px 0 0;text-align:center;">' + escapeHtml(address) + '</p>'
             + '</div>';
     }

@@ -47,6 +47,9 @@ class GenerateSitemap extends Command
         foreach (glob(public_path('sitemap-parts*.xml')) as $old) {
             unlink($old);
         }
+        foreach (glob(public_path('sitemap-touring*.xml')) as $old) {
+            unlink($old);
+        }
         $this->info("古いサイトマップファイルを削除しました。");
 
         $sitemapFiles = [];
@@ -814,6 +817,37 @@ class GenerateSitemap extends Command
 
         $this->closeSitemap($handle);
         $this->info(" -> {$rankingCount} URL (Rankings)");
+
+
+        // =========================================================
+        // 6.8. ツーリングガイドサイトマップ (sitemap-touring.xml)
+        // =========================================================
+        $this->info("ツーリングガイドサイトマップを生成中...");
+        $touringFileName = 'sitemap-touring.xml';
+        $handle = $this->openSitemap($touringFileName);
+        $sitemapFiles[] = $touringFileName;
+        $touringCount = 0;
+
+        $this->writeUrl($handle, url('/touring'), date('Y-m-d'), 'weekly', '0.7');
+        $touringCount++;
+
+        \App\Models\TouringGuide::published()
+            ->orderByDesc('published_at')
+            ->chunk(500, function ($guides) use ($handle, &$touringCount) {
+                foreach ($guides as $guide) {
+                    $this->writeUrl(
+                        $handle,
+                        url('/touring/' . $guide->slug),
+                        $guide->updated_at->toDateString(),
+                        'monthly',
+                        '0.6'
+                    );
+                    $touringCount++;
+                }
+            });
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$touringCount} URL (Touring Guides)");
 
 
         // =========================================================
