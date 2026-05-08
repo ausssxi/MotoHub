@@ -141,10 +141,6 @@
                             <i data-lucide="tag" class="w-3.5 h-3.5"></i>
                             お買い得バイク
                         </a>
-                        <a href="{{ route('bikes.overseas') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
-                            <i data-lucide="globe" class="w-3.5 h-3.5"></i>
-                            輸入バイク
-                        </a>
                         <a href="{{ route('parts.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
                             <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
                             パーツ
