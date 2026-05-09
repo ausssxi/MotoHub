@@ -2,6 +2,10 @@
     <x-slot:title>バイクショップ マップ検索 | MotoHub</x-slot:title>
     <x-slot:metaDescription>現在地や指定したエリアから、近くのバイクショップを探せます。在庫数や店舗情報も地図上で一目で確認できます。</x-slot:metaDescription>
 
+    @if(request()->hasAny(['lat', 'lng']))
+        <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
+    @endif
+
     <x-slot:styles>
         {{-- Leaflet CSS --}}
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>

@@ -5,6 +5,8 @@
         {{ $displayTitle }}の最安値を楽天市場・Yahoo!ショッピング・Amazonで比較。
     </x-slot:metaDescription>
 
+    <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
+
     <x-slot:navigation>
         <x-navigation :showSearch="true" />
     </x-slot:navigation>
