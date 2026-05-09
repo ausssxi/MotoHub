@@ -65,8 +65,8 @@
                     $ps = $pickupPriceStats[$model->id] ?? null;
                 @endphp
                 <a href="{{ url($model->seo_url) }}"
-                   class="snap-start shrink-0 w-44 sm:w-52 group bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition">
-                    <div class="aspect-[4/3] bg-gray-100 overflow-hidden">
+                   class="snap-start shrink-0 w-64 sm:w-72 group bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition">
+                    <div class="h-48 bg-gray-100 overflow-hidden">
                         @if($model->image_url)
                             <img src="{{ $model->image_url }}" alt="{{ $model->displayLabel() }}"
                                  class="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy">
