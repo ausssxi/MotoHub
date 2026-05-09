@@ -51,6 +51,18 @@ Schedule::command('news:generate-monthly-report --publish')->monthlyOn(1, '08:00
 // お買い得BOT（1日1回のみ残す）
 Schedule::command('bikes:tweet-bargains')->dailyAt('12:00');
 
+// ランキング画像付きX投稿
+// 月曜8:00 - 売れ筋ランキング
+Schedule::command('x:generate-ranking-image --type=weekly-sales')->weeklyOn(1, '07:55');
+Schedule::command('x:post-ranking-image --type=weekly-sales')->weeklyOn(1, '08:00');
+
+// 水曜12:00 - お買い得ランキング
+Schedule::command('x:generate-ranking-image --type=bargains')->weeklyOn(3, '11:55');
+Schedule::command('x:post-ranking-image --type=bargains')->weeklyOn(3, '12:00');
+
+// 金曜18:00 - 都道府県ランキング（47都道府県を週番号で自動ローテーション）
+Schedule::command('x:post-ranking-image --type=prefecture')->weeklyOn(5, '18:00');
+
 // POIデータ取得（毎日3:30 — Overpass APIからGS・コンビニ・道の駅）
 Schedule::command('poi:fetch')->dailyAt('03:30');
 
