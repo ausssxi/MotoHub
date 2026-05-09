@@ -87,6 +87,9 @@ class GenerateSitemap extends Command
             // お買い得バイク
             ['route' => 'bikes.bargains',    'priority' => '0.8', 'freq' => 'daily'],
 
+            // 絶版バイク一覧
+            ['route' => 'bikes.discontinued', 'priority' => '0.8', 'freq' => 'weekly'],
+
             // パーツ検索
             ['route' => 'parts.index',       'priority' => '0.7', 'freq' => 'weekly'],
 

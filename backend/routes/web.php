@@ -33,6 +33,7 @@ use App\Http\Controllers\Bike\ReviewOgpController;
 use App\Http\Controllers\Bike\OverseasBikeController;
 use App\Http\Controllers\Bike\BargainsController;
 use App\Http\Controllers\Bike\BargainsOgpController;
+use App\Http\Controllers\Bike\DiscontinuedController;
 use App\Http\Controllers\Parts\PartsController;
 use App\Http\Controllers\NewsController;
 use App\Http\Controllers\RankingController;
@@ -116,6 +117,10 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     // お買い得ページ
     Route::get('/bargains', [BargainsController::class, 'index'])
         ->name('bargains');
+
+    // 絶版バイク一覧
+    Route::get('/discontinued', [DiscontinuedController::class, 'index'])
+        ->name('discontinued');
 
     // SEO着地ページ（市区町村レベル — セグメント数が多いので先に定義）
     Route::get('/area/{prefecture}/{city}/{slug}', 'cityLanding')->name('city_landing');

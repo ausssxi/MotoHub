@@ -24,6 +24,8 @@ final class BikeModel extends Model
     protected $fillable = [
         'name',
         'display_name',
+        'is_discontinued',
+        'production_end_year',
         'local_image_path',
         'displacement',
         'manufacturer_id',
@@ -40,6 +42,8 @@ final class BikeModel extends Model
      */
     protected $casts = [
         'displacement' => 'integer',
+        'is_discontinued' => 'boolean',
+        'production_end_year' => 'integer',
         'local_image_path' => 'array',
         'enriched_content' => 'array',
         'content_generated_at' => 'datetime',

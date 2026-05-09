@@ -13,7 +13,7 @@
     $isMap      = $navIs('riders-map*', 'parking*');
     $isBlog     = $navIs('blog*');
     $isSouba    = $navIs('trends*', 'sell*');
-    $isOther    = $navIs('bikes/overseas*', 'bikes/bargains*', 'parts*', 'identify*', 'garage/public*', 'ar*', 'quiz*', 'warashibe*', 'puzzle*', 'games/*', 'touring*');
+    $isOther    = $navIs('bikes/overseas*', 'bikes/bargains*', 'bikes/discontinued*', 'parts*', 'identify*', 'garage/public*', 'ar*', 'quiz*', 'warashibe*', 'puzzle*', 'games/*', 'touring*');
 @endphp
 
 <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
@@ -140,6 +140,10 @@
                         <a href="{{ route('bikes.bargains') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors whitespace-nowrap">
                             <i data-lucide="tag" class="w-3.5 h-3.5"></i>
                             お買い得バイク
+                        </a>
+                        <a href="{{ route('bikes.discontinued') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                            絶版車
                         </a>
                         <a href="{{ route('parts.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
                             <i data-lucide="wrench" class="w-3.5 h-3.5"></i>

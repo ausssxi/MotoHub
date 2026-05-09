@@ -269,8 +269,15 @@
             @endif
         </div>
         <div class="max-w-7xl mx-auto px-4 relative z-10">
-            <div class="inline-block bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded mb-2">
-                {{ $model->manufacturer->name }}
+            <div class="flex items-center gap-2 mb-2">
+                <span class="inline-block bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded">
+                    {{ $model->manufacturer->name }}
+                </span>
+                @if($model->is_discontinued)
+                    <span class="inline-block bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded">
+                        生産終了{{ $model->production_end_year ? "（{$model->production_end_year}年）" : '' }}
+                    </span>
+                @endif
             </div>
             <h1 class="text-3xl sm:text-5xl font-black tracking-tight mb-2">
                 {{ $model->name }} <span class="text-2xl sm:text-3xl text-gray-300">の中古車・買取相場</span>
