@@ -590,6 +590,32 @@
             </section>
             @endif
 
+            {{-- 🕰 絶版車バナー --}}
+            @php
+                $discontinuedCount = \App\Models\BikeModel::where('is_discontinued', true)->count();
+            @endphp
+            @if($discontinuedCount > 0)
+            <section class="mb-20">
+                <a href="{{ route('bikes.discontinued') }}" class="group relative overflow-hidden rounded-3xl p-8 sm:p-10 block shadow-lg hover:shadow-2xl transition-all duration-300" style="background: linear-gradient(135deg, #451a1a, #78350f);">
+                    <div class="absolute -right-8 -bottom-8 opacity-10 transform group-hover:scale-110 transition-transform duration-500">
+                        <svg class="w-48 h-48 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/><path d="M12 2a10 10 0 0 0-7 17"/>
+                        </svg>
+                    </div>
+                    <div class="relative z-10 flex items-center justify-between">
+                        <div class="text-white">
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-2">Discontinued Models</p>
+                            <h2 class="text-xl sm:text-2xl font-black mb-2">絶版バイク・生産終了モデルを探す</h2>
+                            <p class="text-xs sm:text-sm text-white/80 font-medium">{{ number_format($discontinuedCount) }}車種・中古在庫あり</p>
+                        </div>
+                        <div class="hidden sm:flex items-center justify-center w-14 h-14 bg-white/20 rounded-full group-hover:bg-white/30 transition-colors shrink-0 ml-6">
+                            <i data-lucide="arrow-right" class="w-6 h-6 text-white group-hover:translate-x-1 transition-transform"></i>
+                        </div>
+                    </div>
+                </a>
+            </section>
+            @endif
+
             {{-- ======================= --}}
             {{-- 📊 相場 セクション      --}}
             {{-- ======================= --}}
