@@ -23,6 +23,7 @@ final class BikeModel extends Model
      */
     protected $fillable = [
         'name',
+        'display_name',
         'local_image_path',
         'displacement',
         'manufacturer_id',
@@ -45,6 +46,14 @@ final class BikeModel extends Model
         'model_history' => 'array',
         'history_generated_at' => 'datetime',
     ];
+
+    /**
+     * 表示用の名称を取得（display_name優先、なければname）
+     */
+    public function displayLabel(): string
+    {
+        return $this->display_name ?? $this->name;
+    }
 
     /**
      * 画像のフルURLを $bike->image_url で取得できるようにする
