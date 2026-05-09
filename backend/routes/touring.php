@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TouringController;
+use App\Http\Controllers\TouringOgpController;
 use App\Http\Controllers\Admin\TouringGuideController;
 
 /*
@@ -9,6 +10,9 @@ use App\Http\Controllers\Admin\TouringGuideController;
 | Touring Guide Routes
 |--------------------------------------------------------------------------
 */
+
+// --- OGP画像（キャッシュミドルウェア不要・独自ヘッダーで制御） ---
+Route::get('/touring/{slug}/ogp.png', [TouringOgpController::class, 'show'])->name('touring.ogp');
 
 // --- 公開画面 ---
 Route::prefix('touring')->name('touring.')->group(function () {

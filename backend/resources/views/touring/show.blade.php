@@ -1,6 +1,7 @@
 <x-layout>
     <x-slot:title>{{ $guide->title }} | ツーリングガイド | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $guide->excerpt }}</x-slot:metaDescription>
+    <x-slot:ogImage>{{ route('touring.ogp', $guide->slug) }}</x-slot:ogImage>
     <x-slot:canonical>{{ url('/touring/' . $guide->slug) }}</x-slot:canonical>
 
     <x-slot:navigation>
