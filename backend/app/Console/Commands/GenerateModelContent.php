@@ -15,6 +15,7 @@ final class GenerateModelContent extends Command
 {
     protected $signature = 'models:generate-content
         {--chunk=10 : 処理する車種数}
+        {--min-listings= : 最低在庫数（デフォルト5）}
         {--dry-run : APIを呼ばずデータ収集のみ表示}';
 
     protected $description = '車種モデルページのAI生成コンテンツを作成';
@@ -30,6 +31,7 @@ final class GenerateModelContent extends Command
         $apiKey = config('services.anthropic.api_key');
         $isDryRun = $this->option('dry-run');
         $chunk = (int) $this->option('chunk');
+        $minListings = (int) ($this->option('min-listings') ?? self::MIN_ACTIVE_COUNT);
 
         if (!$isDryRun && !$apiKey) {
             $this->error('ANTHROPIC_API_KEY が .env に設定されていません。');
@@ -39,7 +41,7 @@ final class GenerateModelContent extends Command
         // enriched_contentがNULLの車種を、販売中台数が多い順に取得
         $models = BikeModel::whereNull('enriched_content')
             ->withCount(['listings' => fn ($q) => $q->where('is_sold_out', false)])
-            ->having('listings_count', '>=', self::MIN_ACTIVE_COUNT)
+            ->having('listings_count', '>=', $minListings)
             ->where('name', '!=', '他車種')
             ->orderByDesc('listings_count')
             ->limit($chunk)
@@ -73,7 +75,7 @@ final class GenerateModelContent extends Command
             }
 
             // 販売中台数が少ない場合はスキップ
-            if ($data['active_count'] < self::MIN_ACTIVE_COUNT) {
+            if ($data['active_count'] < $minListings) {
                 $this->warn("{$prefix}: 販売中 {$data['active_count']}台 → スキップ");
                 $skipped++;
                 continue;
