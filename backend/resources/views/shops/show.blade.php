@@ -3,6 +3,10 @@
 
     <x-slot:metaDescription>{{ $shop->name }}@if(!empty($shop->prefecture))（{{ $shop->prefecture }}）@endifの中古バイク在庫{{ $pagination['total'] > 0 ? $pagination['total'] . '台' : '' }}を価格・年式で比較。営業時間・アクセス・地図情報も掲載。MotoHubで最安値をチェック。</x-slot:metaDescription>
 
+    @if($pagination['total'] === 0)
+        <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
+    @endif
+
     <x-slot:styles>
         <x-jsonld.local-business :shop="$shop" :stockCount="$pagination['total'] ?? 0" />
         <x-jsonld.breadcrumb-shop :shop="$shop" />
