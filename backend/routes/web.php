@@ -384,7 +384,19 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/history/record', [\App\Http\Controllers\Api\HistoryController::class, 'record'])->name('api.history.record');
     Route::get('/api/history/ids', [\App\Http\Controllers\Api\HistoryController::class, 'index'])->name('api.history.ids');
     Route::post('/api/history/sync', [\App\Http\Controllers\Api\HistoryController::class, 'sync'])->name('api.history.sync');
-    // ▲▲ ここまで追記 ▲▲
+
+    // お気に入りスポットAPI
+    Route::get('/api/spots', [\App\Http\Controllers\Api\SavedSpotController::class, 'index'])->name('api.spots.index');
+    Route::post('/api/spots', [\App\Http\Controllers\Api\SavedSpotController::class, 'store'])->name('api.spots.store');
+    Route::delete('/api/spots/{id}', [\App\Http\Controllers\Api\SavedSpotController::class, 'destroy'])->name('api.spots.destroy');
+
+    // お気に入りスポット一覧ページ
+    Route::get('/mypage/saved-spots', function () {
+        $spots = \App\Models\UserSavedSpot::where('user_id', auth()->id())
+            ->orderByDesc('created_at')
+            ->get();
+        return view('mypage.saved-spots', compact('spots'));
+    })->name('mypage.saved_spots');
 
     // プロフィール編集 (Breeze標準)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

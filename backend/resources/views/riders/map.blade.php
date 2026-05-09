@@ -16,6 +16,14 @@
                 color: #fff !important;
                 border-color: #0891b2 !important;
             }
+            #map.spot-pin-mode,
+            #map.spot-pin-mode * { cursor: crosshair !important; }
+            #btn-spot-pin.active {
+                background: #f59e0b !important;
+                color: #fff !important;
+                border-color: #f59e0b !important;
+            }
+            #map.has-spot-popup { z-index: 45 !important; }
             @media (max-width: 640px) { #map { height: 50vh; } }
             .scrollbar-hide::-webkit-scrollbar { display: none; }
             .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
@@ -76,6 +84,7 @@
         <script src="{{ asset('js/riders/route.js') }}?v={{ time() }}"></script>
         @auth
             <script src="{{ asset('js/riders/blog-pin.js') }}?v={{ time() }}"></script>
+            <script src="{{ asset('js/riders/spot-pin.js') }}?v={{ time() }}"></script>
         @endauth
     </x-slot:scripts>
 
@@ -108,14 +117,14 @@
         {{-- レイヤートグル --}}
         <div class="absolute top-14 left-3 right-3 z-40 flex flex-wrap gap-1.5"
              x-data="{
-                 shop: true, parking: true, gas: false, cvs: false, michi: false, blog: false,
+                 shop: true, parking: true, gas: false, cvs: false, michi: false, blog: false, saved_spots: {{ auth()->check() ? 'true' : 'false' }},
                  notify() {
-                     let l = {shop: this.shop, parking: this.parking, gas_station: this.gas, convenience_store: this.cvs, michi_no_eki: this.michi, blog: this.blog};
+                     let l = {shop: this.shop, parking: this.parking, gas_station: this.gas, convenience_store: this.cvs, michi_no_eki: this.michi, blog: this.blog, saved_spots: this.saved_spots};
                      window.ridersMapLayers = l;
                      window.dispatchEvent(new CustomEvent('layers-changed', {detail: l}));
                  }
              }"
-             x-init="window.ridersMapLayers = {shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, blog: false}">
+             x-init="window.ridersMapLayers = {shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, blog: false, saved_spots: {{ auth()->check() ? 'true' : 'false' }}}">
             <button type="button" @click="shop = !shop; notify()"
                     class="layer-btn px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1"
                     :style="shop ? 'background:#2563eb;color:#fff;border:2px solid #2563eb' : 'background:#fff;color:#4b5563;border:2px solid #e5e7eb'">
@@ -152,6 +161,14 @@
                 <span class="text-sm leading-none">&#x270D;&#xFE0F;</span>
                 記事
             </button>
+            @auth
+            <button type="button" @click="saved_spots = !saved_spots; notify()"
+                    class="layer-btn px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1"
+                    :style="saved_spots ? 'background:#f59e0b;color:#fff;border:2px solid #f59e0b' : 'background:#fff;color:#4b5563;border:2px solid #e5e7eb'">
+                <span class="text-sm leading-none">&#x2B50;</span>
+                お気に入り
+            </button>
+            @endauth
         </div>
 
         {{-- ルートコントロール --}}
@@ -174,6 +191,11 @@
                         title="地図上の場所を選んで記事を書く">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                     <span class="blog-pin-label">ガイドを書く</span>
+                </button>
+                <button id="btn-spot-pin" class="bg-white px-3 py-2 rounded-lg shadow-md text-gray-600 hover:text-amber-600 transition-colors border border-gray-200 flex items-center gap-1.5 text-[11px] font-bold"
+                        title="地図上の場所をお気に入り保存">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                    <span class="spot-pin-label">ピン留め</span>
                 </button>
             @endauth
         </div>

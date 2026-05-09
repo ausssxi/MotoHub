@@ -84,6 +84,33 @@
                         </div>
                     </div>
                     
+                    {{-- お気に入りスポット --}}
+                    <div class="bg-white overflow-hidden shadow-sm rounded-2xl border border-gray-100 hover:shadow-md transition-shadow">
+                        <div class="p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-black text-gray-900 flex items-center gap-2">
+                                    <i data-lucide="star" class="w-5 h-5 text-amber-500"></i>
+                                    お気に入りスポット
+                                </h3>
+                                <a href="{{ route('mypage.saved_spots') }}" class="text-xs font-bold text-blue-600 hover:underline">すべて見る</a>
+                            </div>
+
+                            <p class="text-sm text-gray-600 mb-6">
+                                ライダーズマップでピン留めしたお気に入りの場所を管理できます。
+                                <br>現在 <span class="font-black text-lg text-black mx-1">{{ \App\Models\UserSavedSpot::where('user_id', auth()->id())->count() }}</span> 件保存しています。
+                            </p>
+
+                            <div class="flex gap-3">
+                                <a href="{{ route('mypage.saved_spots') }}" class="inline-flex items-center gap-2 bg-gray-900 text-white px-5 py-3 rounded-xl text-sm font-bold hover:bg-gray-700 transition-colors">
+                                    スポット一覧を開く <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                </a>
+                                <a href="{{ route('riders.map') }}" class="inline-flex items-center gap-2 bg-amber-50 text-amber-700 px-5 py-3 rounded-xl text-sm font-bold hover:bg-amber-100 transition-colors">
+                                    マップで保存する <i data-lucide="map-pin" class="w-4 h-4"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
                     {{-- お気に入りへのショートカット --}}
                     <div class="bg-white overflow-hidden shadow-sm rounded-2xl border border-gray-100 hover:shadow-md transition-shadow">
                         <div class="p-6">

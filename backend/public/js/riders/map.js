@@ -12,6 +12,7 @@
         convenience_store: { endpoint: '/api/pois?type=convenience_store', color: '#ea580c', label: '\uD83C\uDFEA', title: 'コンビニ' },
         michi_no_eki:      { endpoint: '/api/pois?type=michi_no_eki', color: '#9333ea', label: '\uD83D\uDEE3\uFE0F', title: '道の駅' },
         blog:              { endpoint: '/api/blog/map-pins', color: '#0891b2', label: '\u270D\uFE0F', title: '記事' },
+        saved_spots:       { endpoint: '/api/spots', color: '#f59e0b', label: '\u2B50', title: 'お気に入り' },
     };
 
     let map;
@@ -21,6 +22,7 @@
     let userLat = null, userLng = null;
     let userMarker = null;
     let distanceLimitKm = 0; // 0 = no limit
+    let fetchGeneration = 0;
 
     // Create circular div icon with emoji, white bg + colored border
     function createIcon(color, label) {
@@ -104,7 +106,8 @@
 
     // Fetch all enabled layers
     function fetchAllLayers() {
-        var layers = window.ridersMapLayers || { shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, blog: false };
+        var gen = ++fetchGeneration;
+        var layers = window.ridersMapLayers || { shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, blog: false, saved_spots: false };
         var bounds = map.getBounds();
         var ne = bounds.getNorthEast();
         var sw = bounds.getSouthWest();
@@ -125,10 +128,12 @@
             var config = layerConfig[key];
             var url = config.endpoint + (config.endpoint.includes('?') ? '&' : '?') + boundsParams;
 
+            var fetchOpts = key === 'saved_spots' ? { credentials: 'same-origin' } : {};
             promises.push(
-                fetch(url)
+                fetch(url, fetchOpts)
                     .then(function(r) { return r.json(); })
                     .then(function(data) {
+                        if (gen !== fetchGeneration) return; // stale fetch
                         var items = Array.isArray(data) ? data : (data.data || data);
                         processLayerData(key, items, group);
                     })
@@ -137,6 +142,7 @@
         });
 
         Promise.all(promises).then(function() {
+            if (gen !== fetchGeneration) return;
             loading.classList.add('hidden');
             updateCards();
         });
@@ -264,6 +270,12 @@
             if (item.published_at) {
                 lines += '<p class="text-[10px] text-gray-400 mt-0.5">' + escapeHtml(item.published_at) + (item.type === 'touring' ? ' [ガイド]' : '') + '</p>';
             }
+        } else if (layerKey === 'saved_spots') {
+            if (item.memo) {
+                lines += '<p class="text-[10px] text-gray-500 truncate mt-0.5">' + escapeHtml(item.memo) + '</p>';
+            }
+            var catLabels = { touring_spot: 'ツーリングスポット', rest_area: '休憩所', scenic_point: '絶景ポイント', other: 'その他' };
+            lines += '<p class="text-[10px] text-gray-400 mt-0.5">' + escapeHtml(catLabels[item.category] || 'ツーリングスポット') + '</p>';
         }
         return lines;
     }
@@ -412,6 +424,14 @@
                 + (item.excerpt ? '<p class="text-sm text-gray-600 mb-3 leading-relaxed">' + escapeHtml(item.excerpt) + '</p>' : '')
                 + '<p class="text-[10px] text-gray-400 mb-3">' + escapeHtml(item.published_at || '') + '</p>'
                 + '<a href="' + blogUrl + encodeURIComponent(item.slug) + '" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-cyan-600 text-white text-xs font-bold rounded-lg hover:bg-cyan-700 transition">' + blogLabel + ' &rarr;</a>';
+        } else if (layerKey === 'saved_spots') {
+            var spotCatLabels = { touring_spot: 'ツーリングスポット', rest_area: '休憩所', scenic_point: '絶景ポイント', other: 'その他' };
+            html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(item.name) + '</h3>'
+                + '<span class="inline-block px-2.5 py-1 bg-amber-50 text-amber-700 text-[11px] font-bold rounded-md mb-3">' + escapeHtml(spotCatLabels[item.category] || 'ツーリングスポット') + '</span>'
+                + (item.memo ? '<p class="text-sm text-gray-600 mb-3 leading-relaxed">' + escapeHtml(item.memo) + '</p>' : '')
+                + '<p class="text-[10px] text-gray-400 mb-3">保存日: ' + escapeHtml(item.created_at || '') + '</p>'
+                + gmapBtn + routeBtn
+                + '<button onclick="window.ridersMapDeleteSpot(' + item.id + ')" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-red-50 text-red-600 text-xs font-bold rounded-lg hover:bg-red-100 transition mt-2">このスポットを削除</button>';
         }
 
         body.innerHTML = html;
@@ -421,6 +441,29 @@
 
     // Expose for card click
     window.ridersMapShowDetail = showDetail;
+
+    // Delete saved spot
+    window.ridersMapDeleteSpot = function(id) {
+        if (!confirm('このスポットを削除しますか？')) return;
+        var csrfToken = document.querySelector('meta[name="csrf-token"]');
+        fetch('/api/spots/' + id, {
+            method: 'DELETE',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken ? csrfToken.content : '',
+                'Accept': 'application/json',
+            },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function() {
+            closePanel();
+            fetchAllLayers();
+        })
+        .catch(function(e) { console.warn('Delete spot error:', e); });
+    };
+
+    // Expose fetchAllLayers for spot-pin.js
+    window.ridersMapRefresh = fetchAllLayers;
 
     // Show current location marker
     function setUserMarker(lat, lng) {
