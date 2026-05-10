@@ -16,8 +16,9 @@ use Illuminate\Support\Facades\Storage;
 final class PostRankingImage extends Command
 {
     protected $signature = 'x:post-ranking-image
-                            {--type=weekly-sales : weekly-sales|bargains|prefecture}
+                            {--type=weekly-sales : weekly-sales|bargains|prefecture|budget|fast-selling|price-up|displacement}
                             {--prefecture= : 都道府県名（type=prefectureの場合、未指定なら自動ローテーション）}
+                            {--displacement= : 排気量帯（125/250/400/大型）}
                             {--dry-run : 投稿せず内容をプレビュー}';
 
     protected $description = 'ランキング画像付きでX(Twitter)に投稿';
@@ -40,7 +41,7 @@ final class PostRankingImage extends Command
         $type = $this->option('type');
         $dryRun = (bool) $this->option('dry-run');
 
-        if (! in_array($type, ['weekly-sales', 'bargains', 'prefecture'], true)) {
+        if (! in_array($type, ['weekly-sales', 'bargains', 'prefecture', 'budget', 'fast-selling', 'price-up', 'displacement'], true)) {
             $this->error("無効なタイプ: {$type}");
 
             return self::FAILURE;
@@ -115,7 +116,13 @@ final class PostRankingImage extends Command
     private function ensureImage(string $type, ?string $prefecture): ?string
     {
         $date = now()->format('Y-m-d');
-        $path = "x-images/{$type}-{$date}.png";
+        $displacement = $this->resolveDisplacement($type);
+
+        if ($type === 'displacement' && $displacement) {
+            $path = "x-images/displacement-{$displacement}-{$date}.png";
+        } else {
+            $path = "x-images/{$type}-{$date}.png";
+        }
 
         if (Storage::disk('public')->exists($path)) {
             $this->info("既存画像を使用: {$path}");
@@ -129,6 +136,9 @@ final class PostRankingImage extends Command
         if ($prefecture) {
             $args['--prefecture'] = $prefecture;
         }
+        if ($displacement) {
+            $args['--displacement'] = $displacement;
+        }
 
         $exitCode = Artisan::call('x:generate-ranking-image', $args);
 
@@ -139,6 +149,26 @@ final class PostRankingImage extends Command
         return Storage::disk('public')->exists($path) ? $path : null;
     }
 
+    private function resolveDisplacement(string $type): ?string
+    {
+        if ($type !== 'displacement') {
+            return null;
+        }
+
+        $displacement = $this->option('displacement');
+        if ($displacement) {
+            return $displacement;
+        }
+
+        // 自動ローテーション: 週番号 % 4
+        $keys = ['125', '250', '400', '大型'];
+        $weekNumber = (int) now()->format('W');
+        $displacement = $keys[$weekNumber % count($keys)];
+        $this->info("排気量帯を自動選択: {$displacement}（週番号{$weekNumber}）");
+
+        return $displacement;
+    }
+
     // ─── Tweet Text ─────────────────────────────────────────────────
 
     private function buildTweetText(string $type, ?string $prefecture): ?string
@@ -147,6 +177,10 @@ final class PostRankingImage extends Command
             'weekly-sales' => $this->buildWeeklySalesText(),
             'bargains' => $this->buildBargainsText(),
             'prefecture' => $this->buildPrefectureText($prefecture),
+            'budget' => $this->buildBudgetText(),
+            'fast-selling' => $this->buildFastSellingText(),
+            'price-up' => $this->buildPriceUpText(),
+            'displacement' => $this->buildDisplacementText($this->resolveDisplacement($type)),
         };
     }
 
@@ -282,6 +316,200 @@ final class PostRankingImage extends Command
 
         $lines[] = "\nデータ元: MotoHub";
         $lines[] = "#バイク #{$prefTag} #中古バイク";
+
+        return implode("\n", $lines);
+    }
+
+    private function buildBudgetText(): ?string
+    {
+        $rankings = Listing::where('is_sold_out', false)
+            ->whereNotNull('bike_model_id')
+            ->whereNotNull('total_price')
+            ->where('total_price', '<=', 100000)
+            ->select('bike_model_id', DB::raw('COUNT(*) as stock_count'), DB::raw('MIN(total_price) as min_price'))
+            ->groupBy('bike_model_id')
+            ->orderByDesc('stock_count')
+            ->limit(5)
+            ->get();
+
+        if ($rankings->count() < 3) {
+            return null;
+        }
+
+        $models = BikeModel::with('manufacturer')
+            ->whereIn('id', $rankings->pluck('bike_model_id'))
+            ->get()
+            ->keyBy('id');
+
+        $lines = ["10万円以下で買えるバイクTOP5\n"];
+        foreach ($rankings->values()->take(3) as $i => $row) {
+            $model = $models->get($row->bike_model_id);
+            $name = $model?->displayLabel() ?? '不明';
+            $rank = $i + 1;
+            $minPrice = number_format((int) $row->min_price);
+            $lines[] = "{$rank}位 {$name}（¥{$minPrice}〜）";
+        }
+
+        $lines[] = "\nデータ元: MotoHub";
+        $lines[] = '#バイク #中古バイク #格安バイク #10万円以下';
+
+        return implode("\n", $lines);
+    }
+
+    private function buildFastSellingText(): ?string
+    {
+        $rankings = Listing::where('is_sold_out', true)
+            ->where('updated_at', '>=', now()->subDays(30))
+            ->whereNotNull('bike_model_id')
+            ->selectRaw('bike_model_id, AVG(DATEDIFF(updated_at, created_at)) as avg_days, COUNT(*) as sold_count')
+            ->groupBy('bike_model_id')
+            ->having('sold_count', '>=', 3)
+            ->havingRaw('AVG(DATEDIFF(updated_at, created_at)) BETWEEN 1 AND 365')
+            ->orderBy('avg_days')
+            ->limit(5)
+            ->get();
+
+        if ($rankings->count() < 3) {
+            return null;
+        }
+
+        $models = BikeModel::with('manufacturer')
+            ->whereIn('id', $rankings->pluck('bike_model_id'))
+            ->get()
+            ->keyBy('id');
+
+        $lines = ["即売れバイクTOP5\n"];
+        foreach ($rankings->values()->take(3) as $i => $row) {
+            $model = $models->get($row->bike_model_id);
+            $name = $model?->displayLabel() ?? '不明';
+            $rank = $i + 1;
+            $avgDays = (int) round($row->avg_days);
+            $lines[] = "{$rank}位 {$name}（平均{$avgDays}日で売却）";
+        }
+
+        $lines[] = "\nデータ元: MotoHub";
+        $lines[] = '#バイク #中古バイク #即売れ #バイク相場';
+
+        return implode("\n", $lines);
+    }
+
+    private function buildPriceUpText(): ?string
+    {
+        $thisMonth = Listing::where('is_sold_out', false)
+            ->whereNotNull('total_price')
+            ->where('total_price', '>', 0)
+            ->whereNotNull('bike_model_id')
+            ->select('bike_model_id', DB::raw('AVG(total_price) as avg_price'), DB::raw('COUNT(*) as cnt'))
+            ->groupBy('bike_model_id')
+            ->having('cnt', '>=', 5)
+            ->get()
+            ->keyBy('bike_model_id');
+
+        $lastMonth = Listing::where('is_sold_out', true)
+            ->whereBetween('updated_at', [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()])
+            ->whereNotNull('total_price')
+            ->where('total_price', '>', 0)
+            ->whereNotNull('bike_model_id')
+            ->select('bike_model_id', DB::raw('AVG(total_price) as avg_price'))
+            ->groupBy('bike_model_id')
+            ->get()
+            ->keyBy('bike_model_id');
+
+        $priceChanges = [];
+        foreach ($thisMonth as $modelId => $current) {
+            $previous = $lastMonth->get($modelId);
+            if (! $previous || $previous->avg_price <= 0) {
+                continue;
+            }
+
+            $changePercent = (($current->avg_price - $previous->avg_price) / $previous->avg_price) * 100;
+            if ($changePercent > 0) {
+                $priceChanges[] = [
+                    'bike_model_id' => $modelId,
+                    'change_percent' => $changePercent,
+                    'current_avg' => $current->avg_price,
+                ];
+            }
+        }
+
+        usort($priceChanges, fn ($a, $b) => $b['change_percent'] <=> $a['change_percent']);
+
+        if (count($priceChanges) < 3) {
+            return null;
+        }
+
+        $topChanges = array_slice($priceChanges, 0, 5);
+        $models = BikeModel::with('manufacturer')
+            ->whereIn('id', array_column($topChanges, 'bike_model_id'))
+            ->get()
+            ->keyBy('id');
+
+        $lines = ["今月値上がりしたバイクTOP5\n"];
+        foreach (array_values(array_slice($topChanges, 0, 3)) as $i => $item) {
+            $model = $models->get($item['bike_model_id']);
+            $name = $model?->displayLabel() ?? '不明';
+            $rank = $i + 1;
+            $percent = number_format($item['change_percent'], 1);
+            $lines[] = "{$rank}位 {$name}（+{$percent}%）";
+        }
+
+        $lines[] = "\nデータ元: MotoHub";
+        $lines[] = '#バイク #中古バイク #値上がり #バイク相場';
+
+        return implode("\n", $lines);
+    }
+
+    private function buildDisplacementText(?string $displacement): ?string
+    {
+        if (! $displacement) {
+            return null;
+        }
+
+        $ranges = [
+            '125' => [0, 125],
+            '250' => [126, 250],
+            '400' => [251, 400],
+            '大型' => [401, null],
+        ];
+
+        if (! isset($ranges[$displacement])) {
+            return null;
+        }
+
+        [$min, $max] = $ranges[$displacement];
+
+        $rankings = Listing::where('is_sold_out', false)
+            ->whereNotNull('bike_model_id')
+            ->displacementBetween($min, $max)
+            ->select('bike_model_id', DB::raw('COUNT(*) as stock_count'))
+            ->groupBy('bike_model_id')
+            ->orderByDesc('stock_count')
+            ->limit(5)
+            ->get();
+
+        if ($rankings->count() < 3) {
+            return null;
+        }
+
+        $models = BikeModel::with('manufacturer')
+            ->whereIn('id', $rankings->pluck('bike_model_id'))
+            ->get()
+            ->keyBy('id');
+
+        $label = $displacement === '大型' ? '大型（401cc〜）' : "{$displacement}ccクラス";
+
+        $lines = ["{$label} 人気バイクTOP5\n"];
+        foreach ($rankings->values()->take(3) as $i => $row) {
+            $model = $models->get($row->bike_model_id);
+            $name = $model?->displayLabel() ?? '不明';
+            $rank = $i + 1;
+            $lines[] = "{$rank}位 {$name}（{$row->stock_count}台）";
+        }
+
+        $ccTag = $displacement === '大型' ? '大型バイク' : "{$displacement}cc";
+
+        $lines[] = "\nデータ元: MotoHub";
+        $lines[] = "#バイク #{$ccTag} #中古バイク";
 
         return implode("\n", $lines);
     }

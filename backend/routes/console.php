@@ -63,6 +63,18 @@ Schedule::command('x:post-ranking-image --type=bargains')->weeklyOn(3, '12:00');
 // 金曜18:00 - 都道府県ランキング（47都道府県を週番号で自動ローテーション）
 Schedule::command('x:post-ranking-image --type=prefecture')->weeklyOn(5, '18:00');
 
+// 火曜12:00 - 10万円以下ランキング
+Schedule::command('x:post-ranking-image --type=budget')->weeklyOn(2, '12:00');
+
+// 木曜18:00 - 即売れランキング
+Schedule::command('x:post-ranking-image --type=fast-selling')->weeklyOn(4, '18:00');
+
+// 土曜10:00 - 値上がりランキング
+Schedule::command('x:post-ranking-image --type=price-up')->weeklyOn(6, '10:00');
+
+// 日曜10:00 - 排気量別ランキング（125/250/400/大型を週番号でローテーション）
+Schedule::command('x:post-ranking-image --type=displacement')->weeklyOn(0, '10:00');
+
 // POIデータ取得（毎日3:30 — Overpass APIからGS・コンビニ・道の駅）
 Schedule::command('poi:fetch')->dailyAt('03:30');
 

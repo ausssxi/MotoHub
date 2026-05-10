@@ -19,8 +19,9 @@ use Intervention\Image\Typography\FontFactory;
 final class GenerateRankingImage extends Command
 {
     protected $signature = 'x:generate-ranking-image
-                            {--type=weekly-sales : weekly-sales|bargains|prefecture}
+                            {--type=weekly-sales : weekly-sales|bargains|prefecture|budget|fast-selling|price-up|displacement}
                             {--prefecture= : 都道府県名（type=prefectureの場合必須）}
+                            {--displacement= : 排気量帯（125/250/400/大型）}
                             {--dry-run : 画像生成のみ、パスを表示}';
 
     protected $description = 'X投稿用ランキング画像を自動生成';
@@ -39,8 +40,8 @@ final class GenerateRankingImage extends Command
 
         $type = $this->option('type');
 
-        if (! in_array($type, ['weekly-sales', 'bargains', 'prefecture'], true)) {
-            $this->error("無効なタイプ: {$type}（weekly-sales|bargains|prefecture）");
+        if (! in_array($type, ['weekly-sales', 'bargains', 'prefecture', 'budget', 'fast-selling', 'price-up', 'displacement'], true)) {
+            $this->error("無効なタイプ: {$type}（weekly-sales|bargains|prefecture|budget|fast-selling|price-up|displacement）");
 
             return self::FAILURE;
         }
@@ -55,6 +56,10 @@ final class GenerateRankingImage extends Command
             'weekly-sales' => $this->handleWeeklySales(),
             'bargains' => $this->handleBargains(),
             'prefecture' => $this->handlePrefecture($this->option('prefecture')),
+            'budget' => $this->handleBudget(),
+            'fast-selling' => $this->handleFastSelling(),
+            'price-up' => $this->handlePriceUp(),
+            'displacement' => $this->handleDisplacement($this->option('displacement')),
         };
 
         if ($path === null) {
@@ -216,6 +221,221 @@ final class GenerateRankingImage extends Command
         return $this->generatePrefectureImage($rows, $prefecture);
     }
 
+    private function handleBudget(): ?string
+    {
+        $rankings = Listing::where('is_sold_out', false)
+            ->whereNotNull('bike_model_id')
+            ->whereNotNull('total_price')
+            ->where('total_price', '<=', 100000)
+            ->select('bike_model_id', DB::raw('COUNT(*) as stock_count'), DB::raw('MIN(total_price) as min_price'))
+            ->groupBy('bike_model_id')
+            ->orderByDesc('stock_count')
+            ->limit(5)
+            ->get();
+
+        if ($rankings->count() < 3) {
+            $this->warn('10万円以下データ不足のためスキップ（最低3件必要）');
+
+            return null;
+        }
+
+        $models = BikeModel::with('manufacturer')
+            ->whereIn('id', $rankings->pluck('bike_model_id'))
+            ->get()
+            ->keyBy('id');
+
+        $rows = [];
+        foreach ($rankings->values() as $i => $row) {
+            $model = $models->get($row->bike_model_id);
+            $minPriceText = '¥' . number_format((int) $row->min_price) . '〜';
+            $rows[] = [
+                'rank' => $i + 1,
+                'name' => $model?->displayLabel() ?? '不明',
+                'maker' => $model?->manufacturer?->name ?? '',
+                'rightText' => $minPriceText,
+                'rightSubText' => $row->stock_count . '台在庫',
+                'rightColor' => '#22c55e',
+            ];
+        }
+
+        return $this->generateBudgetImage($rows);
+    }
+
+    private function handleFastSelling(): ?string
+    {
+        $rankings = Listing::where('is_sold_out', true)
+            ->where('updated_at', '>=', now()->subDays(30))
+            ->whereNotNull('bike_model_id')
+            ->selectRaw('bike_model_id, AVG(DATEDIFF(updated_at, created_at)) as avg_days, COUNT(*) as sold_count')
+            ->groupBy('bike_model_id')
+            ->having('sold_count', '>=', 3)
+            ->havingRaw('AVG(DATEDIFF(updated_at, created_at)) BETWEEN 1 AND 365')
+            ->orderBy('avg_days')
+            ->limit(5)
+            ->get();
+
+        if ($rankings->count() < 3) {
+            $this->warn('即売れデータ不足のためスキップ（最低3件必要）');
+
+            return null;
+        }
+
+        $models = BikeModel::with('manufacturer')
+            ->whereIn('id', $rankings->pluck('bike_model_id'))
+            ->get()
+            ->keyBy('id');
+
+        $rows = [];
+        foreach ($rankings->values() as $i => $row) {
+            $model = $models->get($row->bike_model_id);
+            $avgDays = (int) round($row->avg_days);
+            $rows[] = [
+                'rank' => $i + 1,
+                'name' => $model?->displayLabel() ?? '不明',
+                'maker' => $model?->manufacturer?->name ?? '',
+                'rightText' => "平均{$avgDays}日で売却",
+                'rightSubText' => "先月{$row->sold_count}台売却",
+                'rightColor' => '#a855f7',
+            ];
+        }
+
+        return $this->generateFastSellingImage($rows);
+    }
+
+    private function handlePriceUp(): ?string
+    {
+        $thisMonth = Listing::where('is_sold_out', false)
+            ->whereNotNull('total_price')
+            ->where('total_price', '>', 0)
+            ->whereNotNull('bike_model_id')
+            ->select('bike_model_id', DB::raw('AVG(total_price) as avg_price'), DB::raw('COUNT(*) as cnt'))
+            ->groupBy('bike_model_id')
+            ->having('cnt', '>=', 5)
+            ->get()
+            ->keyBy('bike_model_id');
+
+        $lastMonth = Listing::where('is_sold_out', true)
+            ->whereBetween('updated_at', [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()])
+            ->whereNotNull('total_price')
+            ->where('total_price', '>', 0)
+            ->whereNotNull('bike_model_id')
+            ->select('bike_model_id', DB::raw('AVG(total_price) as avg_price'))
+            ->groupBy('bike_model_id')
+            ->get()
+            ->keyBy('bike_model_id');
+
+        $priceChanges = [];
+        foreach ($thisMonth as $modelId => $current) {
+            $previous = $lastMonth->get($modelId);
+            if (! $previous || $previous->avg_price <= 0) {
+                continue;
+            }
+
+            $changePercent = (($current->avg_price - $previous->avg_price) / $previous->avg_price) * 100;
+            if ($changePercent > 0) {
+                $priceChanges[] = [
+                    'bike_model_id' => $modelId,
+                    'change_percent' => $changePercent,
+                    'current_avg' => $current->avg_price,
+                ];
+            }
+        }
+
+        usort($priceChanges, fn ($a, $b) => $b['change_percent'] <=> $a['change_percent']);
+
+        if (count($priceChanges) < 3) {
+            $this->warn('値上がりデータ不足のためスキップ（最低3件必要）');
+
+            return null;
+        }
+
+        $topChanges = array_slice($priceChanges, 0, 5);
+        $models = BikeModel::with('manufacturer')
+            ->whereIn('id', array_column($topChanges, 'bike_model_id'))
+            ->get()
+            ->keyBy('id');
+
+        $rows = [];
+        foreach (array_values($topChanges) as $i => $item) {
+            $model = $models->get($item['bike_model_id']);
+            $percentText = '+' . number_format($item['change_percent'], 1) . '%';
+            $avgPriceText = '平均' . number_format((int) round($item['current_avg'] / 10000)) . '万円';
+            $rows[] = [
+                'rank' => $i + 1,
+                'name' => $model?->displayLabel() ?? '不明',
+                'maker' => $model?->manufacturer?->name ?? '',
+                'rightText' => $percentText,
+                'rightSubText' => $avgPriceText,
+                'rightColor' => '#ef4444',
+            ];
+        }
+
+        return $this->generatePriceUpImage($rows);
+    }
+
+    private function handleDisplacement(?string $displacement): ?string
+    {
+        $ranges = [
+            '125' => [0, 125],
+            '250' => [126, 250],
+            '400' => [251, 400],
+            '大型' => [401, null],
+        ];
+
+        if ($displacement === null) {
+            $keys = array_keys($ranges);
+            $weekNumber = (int) now()->format('W');
+            $displacement = $keys[$weekNumber % count($keys)];
+            $this->info("排気量帯を自動選択: {$displacement}（週番号{$weekNumber}）");
+        }
+
+        if (! isset($ranges[$displacement])) {
+            $this->error("無効な排気量帯: {$displacement}（125/250/400/大型）");
+
+            return null;
+        }
+
+        [$min, $max] = $ranges[$displacement];
+
+        $rankings = Listing::where('is_sold_out', false)
+            ->whereNotNull('bike_model_id')
+            ->displacementBetween($min, $max)
+            ->select('bike_model_id', DB::raw('COUNT(*) as stock_count'), DB::raw('AVG(total_price) as avg_price'))
+            ->groupBy('bike_model_id')
+            ->orderByDesc('stock_count')
+            ->limit(5)
+            ->get();
+
+        if ($rankings->count() < 3) {
+            $this->warn("{$displacement}ccクラスのデータ不足のためスキップ（最低3件必要）");
+
+            return null;
+        }
+
+        $models = BikeModel::with('manufacturer')
+            ->whereIn('id', $rankings->pluck('bike_model_id'))
+            ->get()
+            ->keyBy('id');
+
+        $rows = [];
+        foreach ($rankings->values() as $i => $row) {
+            $model = $models->get($row->bike_model_id);
+            $avgPriceText = $row->avg_price ? number_format((int) round($row->avg_price / 10000)) . '万円' : '';
+            $rows[] = [
+                'rank' => $i + 1,
+                'name' => $model?->displayLabel() ?? '不明',
+                'maker' => $model?->manufacturer?->name ?? '',
+                'rightText' => $row->stock_count . '台',
+                'rightSubText' => $avgPriceText,
+                'rightColor' => '#3b82f6',
+            ];
+        }
+
+        $label = $displacement === '大型' ? '大型（401cc〜）' : "{$displacement}ccクラス";
+
+        return $this->generateDisplacementImage($rows, $label, $displacement);
+    }
+
     // ─── Image Generation ───────────────────────────────────────────
 
     private function generateWeeklySalesImage(array $rows, string $dateRange): string
@@ -285,6 +505,78 @@ final class GenerateRankingImage extends Command
         }
 
         return $this->saveImage($image, 'prefecture');
+    }
+
+    private function generateBudgetImage(array $rows): string
+    {
+        $image = $this->createBaseImage();
+
+        $this->drawTitle($image, '10万円以下で買えるバイクTOP5', 60, '#22c55e');
+        $this->drawSubtitle($image, now()->format('Y年n月j日') . ' 時点', 100);
+
+        foreach ($rows as $i => $row) {
+            $y = 160 + ($i * 80);
+            $this->drawRankingRow($image, $row['rank'], $row['name'], $row['maker'], $row['rightText'], $row['rightSubText'] ?? '', $y, $row['rightColor']);
+            if ($i < count($rows) - 1) {
+                $this->drawSeparatorLine($image, $y + 70);
+            }
+        }
+
+        return $this->saveImage($image, 'budget');
+    }
+
+    private function generateFastSellingImage(array $rows): string
+    {
+        $image = $this->createBaseImage();
+
+        $this->drawTitle($image, '即売れバイクTOP5', 60, '#a855f7');
+        $this->drawSubtitle($image, '直近30日間の売却速度ランキング', 100);
+
+        foreach ($rows as $i => $row) {
+            $y = 160 + ($i * 80);
+            $this->drawRankingRow($image, $row['rank'], $row['name'], $row['maker'], $row['rightText'], $row['rightSubText'] ?? '', $y, $row['rightColor']);
+            if ($i < count($rows) - 1) {
+                $this->drawSeparatorLine($image, $y + 70);
+            }
+        }
+
+        return $this->saveImage($image, 'fast-selling');
+    }
+
+    private function generatePriceUpImage(array $rows): string
+    {
+        $image = $this->createBaseImage();
+
+        $this->drawTitle($image, '今月値上がりしたバイクTOP5', 60, '#ef4444');
+        $this->drawSubtitle($image, now()->format('Y年n月') . ' 前月比', 100);
+
+        foreach ($rows as $i => $row) {
+            $y = 160 + ($i * 80);
+            $this->drawRankingRow($image, $row['rank'], $row['name'], $row['maker'], $row['rightText'], $row['rightSubText'] ?? '', $y, $row['rightColor']);
+            if ($i < count($rows) - 1) {
+                $this->drawSeparatorLine($image, $y + 70);
+            }
+        }
+
+        return $this->saveImage($image, 'price-up');
+    }
+
+    private function generateDisplacementImage(array $rows, string $label, string $displacement): string
+    {
+        $image = $this->createBaseImage();
+
+        $this->drawTitle($image, "{$label} 人気バイクTOP5", 60, '#3b82f6');
+        $this->drawSubtitle($image, now()->format('Y年n月j日') . ' 在庫数ランキング', 100);
+
+        foreach ($rows as $i => $row) {
+            $y = 160 + ($i * 80);
+            $this->drawRankingRow($image, $row['rank'], $row['name'], $row['maker'], $row['rightText'], $row['rightSubText'] ?? '', $y, $row['rightColor']);
+            if ($i < count($rows) - 1) {
+                $this->drawSeparatorLine($image, $y + 70);
+            }
+        }
+
+        return $this->saveImage($image, "displacement-{$displacement}");
     }
 
     // ─── Drawing Helpers ────────────────────────────────────────────
@@ -363,9 +655,9 @@ final class GenerateRankingImage extends Command
         }
     }
 
-    private function drawTitle(\Intervention\Image\Image $image, string $text, int $y): void
+    private function drawTitle(\Intervention\Image\Image $image, string $text, int $y, string $color = '#ffffff'): void
     {
-        $this->drawText($image, $text, (int) (self::WIDTH / 2), $y, 36, '#ffffff', 'center');
+        $this->drawText($image, $text, (int) (self::WIDTH / 2), $y, 36, $color, 'center');
     }
 
     private function drawSubtitle(\Intervention\Image\Image $image, string $text, int $y): void
