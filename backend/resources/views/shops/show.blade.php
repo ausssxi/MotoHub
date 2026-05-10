@@ -1,7 +1,7 @@
 <x-layout>
-    <x-slot:title>{{ $shop->name }}の在庫一覧・口コミ{{ $pagination['total'] > 0 ? '【' . $pagination['total'] . '台掲載中】' : '' }}| MotoHub</x-slot:title>
+    <x-slot:title>{{ $shop->name }}｜{{ $shop->prefecture }}{{ $shop->city }}のバイクショップ{{ $pagination['total'] > 0 ? '【' . $pagination['total'] . '台掲載中】' : '' }} - MotoHub</x-slot:title>
 
-    <x-slot:metaDescription>{{ $shop->name }}@if(!empty($shop->prefecture))（{{ $shop->prefecture }}）@endifの中古バイク在庫{{ $pagination['total'] > 0 ? $pagination['total'] . '台' : '' }}を価格・年式で比較。営業時間・アクセス・地図情報も掲載。MotoHubで最安値をチェック。</x-slot:metaDescription>
+    <x-slot:metaDescription>{{ $shop->name }}は{{ $shop->prefecture }}{{ $shop->city }}のバイクショップ。{{ $pagination['total'] > 0 ? '中古バイク在庫' . $pagination['total'] . '台を価格・年式で比較。' : '' }}営業時間・アクセス・地図情報も掲載。MotoHubで最安値をチェック。</x-slot:metaDescription>
 
     @if($pagination['total'] === 0)
         <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>

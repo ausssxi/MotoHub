@@ -1,6 +1,6 @@
 <x-layout>
-    <x-slot:title>{{ $parking->name }} - バイク駐車場 @if($parking->prefecture)| {{ $parking->prefecture }}@endif | MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $parking->prefecture ? $parking->prefecture . 'の' : '' }}バイク駐車場「{{ $parking->name }}」の詳細情報。{{ $parking->getPriceDisplay() }}。ユーザーレビューも掲載。</x-slot:metaDescription>
+    <x-slot:title>{{ $parking->name }}｜{{ $parking->price_per_month ? '月極' . number_format($parking->price_per_month) . '円' : ($parking->price_per_hour ? number_format($parking->price_per_hour) . '円/時間' : '') }}{{ ($parking->price_per_month || $parking->price_per_hour) ? ' ' : '' }}バイク駐車場{{ $parking->city ? ' ' . $parking->city : '' }} - MotoHub</x-slot:title>
+    <x-slot:metaDescription>{{ $parking->prefecture }}{{ $parking->city }}のバイク駐車場「{{ $parking->name }}」の詳細情報。{{ $parking->getPriceDisplay() }}。ユーザーレビューも掲載。</x-slot:metaDescription>
 
     <x-slot:styles>
         <x-jsonld.parking :parking="$parking" />
