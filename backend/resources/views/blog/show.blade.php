@@ -1,6 +1,6 @@
 <x-layout>
     <x-slot:title>{{ $post->meta_title ?? $post->title }} | MotoHub Blog</x-slot:title>
-    <x-slot:metaDescription>{{ $post->meta_description ?? $post->excerpt }}</x-slot:metaDescription>
+    <x-slot:metaDescription>{{ \App\Models\BlogPost::stripMarkdown($post->meta_description ?? $post->excerpt ?? '') }}</x-slot:metaDescription>
     <x-slot:canonical>{{ url('/blog/' . $post->slug) }}</x-slot:canonical>
     <x-slot:ogImage>{{ route('blog.ogp', $post->slug) }}</x-slot:ogImage>
 
@@ -39,7 +39,7 @@
                     "url": "{{ asset('favicon-96x96.png') }}"
                 }
             },
-            "description": "{{ e($post->meta_description ?? $post->excerpt) }}",
+            "description": "{{ e(\App\Models\BlogPost::stripMarkdown($post->meta_description ?? $post->excerpt ?? '')) }}",
             "mainEntityOfPage": {
                 "@@type": "WebPage",
                 "@@id": "{{ url('/blog/' . $post->slug) }}"
