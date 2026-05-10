@@ -517,7 +517,7 @@
                     @if($bikeModelForUrl && $bikeModelForUrl->enriched_content && !empty($bikeModelForUrl->enriched_content['introduction']))
                     <div class="bg-blue-50 rounded-3xl border border-blue-100 p-6 sm:p-8">
                         <h3 class="text-lg font-black text-gray-900 mb-3">
-                            @if($bikeModelForUrl->manufacturer && $bikeModelForUrl->slug)
+                            @if($bikeModelForUrl->manufacturer?->slug && $bikeModelForUrl->slug)
                             <a href="{{ route('bikes.model_detail', ['mfrSlug' => $bikeModelForUrl->manufacturer->slug, 'modelSlug' => $bikeModelForUrl->slug]) }}"
                                class="text-blue-600 hover:underline">
                                 {{ $bikeModelForUrl->name }}について
@@ -532,7 +532,7 @@
                             <span class="font-black">おすすめ:</span> {{ $bikeModelForUrl->enriched_content['target_rider'] }}
                         </p>
                         @endif
-                        @if($bikeModelForUrl->manufacturer && $bikeModelForUrl->slug)
+                        @if($bikeModelForUrl->manufacturer?->slug && $bikeModelForUrl->slug)
                         <a href="{{ route('bikes.model_detail', ['mfrSlug' => $bikeModelForUrl->manufacturer->slug, 'modelSlug' => $bikeModelForUrl->slug]) }}"
                            class="text-sm text-blue-600 hover:underline mt-3 inline-flex items-center gap-1 font-bold">
                             {{ $bikeModelForUrl->name }}の詳細を見る
@@ -1063,7 +1063,7 @@
                             <span class="text-gray-400">|</span>
                             <span class="text-gray-600">取り回し<span class="text-yellow-500">★</span>{{ number_format($reviewDetailedStats['handling']['avg'], 1) }}</span>
                         @endif
-                        @if($bikeModelForUrl->manufacturer && $bikeModelForUrl->slug)
+                        @if($bikeModelForUrl->manufacturer?->slug && $bikeModelForUrl->slug)
                         <a href="{{ route('bikes.model_detail', ['mfrSlug' => $bikeModelForUrl->manufacturer->slug, 'modelSlug' => $bikeModelForUrl->slug]) }}#community"
                            class="text-blue-600 hover:underline font-bold ml-auto">詳細を見る</a>
                         @endif
@@ -1117,7 +1117,7 @@
                                     <span>コスパ <span class="text-yellow-500">★</span>{{ number_format($reviewDetailedStats['cost_performance']['avg'], 1) }}</span>
                                 @endif
                             </div>
-                            @if($bikeModelForUrl->manufacturer && $bikeModelForUrl->slug)
+                            @if($bikeModelForUrl->manufacturer?->slug && $bikeModelForUrl->slug)
                             <a href="{{ route('bikes.model_detail', ['mfrSlug' => $bikeModelForUrl->manufacturer->slug, 'modelSlug' => $bikeModelForUrl->slug]) }}#community"
                                class="text-xs font-bold text-blue-600 hover:underline inline-flex items-center gap-1">
                                 レビュー・評価の詳細を見る <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
