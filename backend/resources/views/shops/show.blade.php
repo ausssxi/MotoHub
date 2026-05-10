@@ -115,19 +115,48 @@
                         </div>
                         @endif
 
-                        {{-- ストリートビュー --}}
+                        {{-- ストリートビュー（IntersectionObserverで遅延読み込み） --}}
                         @if($shop->latitude && $shop->longitude && config('services.google_maps.api_key'))
-                        <div class="mt-6 pt-6 border-t border-gray-100">
+                        <div class="mt-6 pt-6 border-t border-gray-100" id="street-view-section">
                             <h3 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
                                 <i data-lucide="camera" class="w-4 h-4 text-green-600"></i> ストリートビュー
                             </h3>
-                            <img
-                                src="https://maps.googleapis.com/maps/api/streetview?size=800x400&location={{ $shop->latitude }},{{ $shop->longitude }}&key={{ config('services.google_maps.api_key') }}"
-                                alt="{{ $shop->name }} ストリートビュー"
-                                class="w-full rounded-xl"
-                                loading="lazy"
-                                onerror="this.parentElement.style.display='none'">
+                            <div id="street-view" class="w-full rounded-xl bg-gray-100" style="height:400px"></div>
                         </div>
+                        <script>
+                        (function() {
+                            var loaded = false;
+                            var observer = new IntersectionObserver(function(entries) {
+                                if (entries[0].isIntersecting && !loaded) {
+                                    loaded = true;
+                                    observer.disconnect();
+                                    var s = document.createElement('script');
+                                    s.src = 'https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.api_key') }}&callback=_initShopSV';
+                                    s.async = true;
+                                    s.defer = true;
+                                    document.head.appendChild(s);
+                                }
+                            }, {rootMargin: '200px'});
+                            observer.observe(document.getElementById('street-view-section'));
+
+                            window._initShopSV = function() {
+                                var el = document.getElementById('street-view');
+                                var sv = new google.maps.StreetViewService();
+                                var pos = {lat: {{ $shop->latitude }}, lng: {{ $shop->longitude }}};
+                                sv.getPanorama({location: pos, radius: 50}, function(data, status) {
+                                    if (status === 'OK') {
+                                        new google.maps.StreetViewPanorama(el, {
+                                            position: data.location.latLng,
+                                            pov: {heading: 0, pitch: 0},
+                                            zoom: 1
+                                        });
+                                    } else {
+                                        document.getElementById('street-view-section').style.display = 'none';
+                                    }
+                                });
+                            };
+                        })();
+                        </script>
                         @endif
                     </div>
 

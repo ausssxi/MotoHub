@@ -492,19 +492,48 @@
                 @endif
             </div>
 
-            {{-- ストリートビュー --}}
+            {{-- ストリートビュー（IntersectionObserverで遅延読み込み） --}}
             @if($parking->latitude && $parking->longitude && config('services.google_maps.api_key'))
-            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6" id="street-view-section">
                 <h2 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
                     <i data-lucide="camera" class="w-4 h-4 text-green-600"></i> ストリートビューで入口を確認
                 </h2>
-                <img
-                    src="https://maps.googleapis.com/maps/api/streetview?size=800x400&location={{ $parking->latitude }},{{ $parking->longitude }}&key={{ config('services.google_maps.api_key') }}"
-                    alt="{{ $parking->name }} ストリートビュー"
-                    class="w-full rounded-xl"
-                    loading="lazy"
-                    onerror="this.closest('.bg-white').style.display='none'">
+                <div id="street-view" class="w-full rounded-xl bg-gray-100" style="height:400px"></div>
             </div>
+            <script>
+            (function() {
+                var loaded = false;
+                var observer = new IntersectionObserver(function(entries) {
+                    if (entries[0].isIntersecting && !loaded) {
+                        loaded = true;
+                        observer.disconnect();
+                        var s = document.createElement('script');
+                        s.src = 'https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.api_key') }}&callback=_initParkingSV';
+                        s.async = true;
+                        s.defer = true;
+                        document.head.appendChild(s);
+                    }
+                }, {rootMargin: '200px'});
+                observer.observe(document.getElementById('street-view-section'));
+
+                window._initParkingSV = function() {
+                    var el = document.getElementById('street-view');
+                    var sv = new google.maps.StreetViewService();
+                    var pos = {lat: {{ $parking->latitude }}, lng: {{ $parking->longitude }}};
+                    sv.getPanorama({location: pos, radius: 50}, function(data, status) {
+                        if (status === 'OK') {
+                            new google.maps.StreetViewPanorama(el, {
+                                position: data.location.latLng,
+                                pov: {heading: 0, pitch: 0},
+                                zoom: 1
+                            });
+                        } else {
+                            document.getElementById('street-view-section').style.display = 'none';
+                        }
+                    });
+                };
+            })();
+            </script>
             @endif
 
             {{-- ===== 9. 料金比較テーブル ===== --}}
