@@ -49,7 +49,7 @@ Schedule::command('news:generate-market-report --publish')->monthlyOn(1, '07:30'
 Schedule::command('news:generate-monthly-report --publish')->monthlyOn(1, '08:00');
 
 // お買い得BOT（1日1回のみ残す）
-Schedule::command('bikes:tweet-bargains')->dailyAt('12:00');
+// Schedule::command('bikes:tweet-bargains')->dailyAt('12:00');
 
 // ランキング画像付きX投稿
 // 月曜8:00 - 売れ筋ランキング
