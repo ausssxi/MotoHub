@@ -226,6 +226,14 @@ final class BikeController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
+            // AJAX系リクエストにはJSON返却（Viewを返すとフロントでパースエラー）
+            if ($request->has('count_only')) {
+                return response()->json(['total' => 0]);
+            }
+            if ($request->query('load_more')) {
+                return response()->json(['html' => '', 'next_url' => null]);
+            }
+
             return view('bikes.search', [
                 'items'            => [],
                 'pagination'       => ['total' => 0, 'last_page' => 1, 'prev_url' => null, 'next_url' => null, 'pages' => []],
@@ -283,6 +291,7 @@ final class BikeController extends Controller
             ], 404);
         }
 
+        try {
         $isSoldOut = (bool) $listing->is_sold_out;
 
         if (!$isSoldOut) {
@@ -595,6 +604,18 @@ final class BikeController extends Controller
             'activeSameModel'   => $activeSameModel,
             'reviewDetailedStats' => $reviewDetailedStats,
         ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Listing show failed', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->view('errors.404', [
+                'message'   => 'この車両情報の表示中にエラーが発生しました',
+                'searchUrl' => route('bikes.index'),
+                'bikeName'  => null,
+            ], 404);
+        }
     }
 
     public function getModels(int $manufacturerId): JsonResponse
