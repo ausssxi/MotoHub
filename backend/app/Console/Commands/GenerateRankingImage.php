@@ -288,7 +288,7 @@ final class GenerateRankingImage extends Command
         $rows = [];
         foreach ($rankings->values() as $i => $row) {
             $model = $models->get($row->bike_model_id);
-            $avgDays = (int) round($row->avg_days);
+            $avgDays = (int) round((float) $row->avg_days);
             $rows[] = [
                 'rank' => $i + 1,
                 'name' => $model?->displayLabel() ?? '不明',
@@ -397,11 +397,22 @@ final class GenerateRankingImage extends Command
 
         [$min, $max] = $ranges[$displacement];
 
-        $rankings = Listing::where('is_sold_out', false)
-            ->whereNotNull('bike_model_id')
-            ->displacementBetween($min, $max)
-            ->select('bike_model_id', DB::raw('COUNT(*) as stock_count'), DB::raw('AVG(total_price) as avg_price'))
-            ->groupBy('bike_model_id')
+        $query = Listing::where('listings.is_sold_out', false)
+            ->whereNotNull('listings.bike_model_id')
+            ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
+            ->whereNotNull('bike_models.displacement')
+            ->where('bike_models.displacement', '>', 0);
+
+        if ($min !== null) {
+            $query->where('bike_models.displacement', '>=', $min);
+        }
+        if ($max !== null) {
+            $query->where('bike_models.displacement', '<=', $max);
+        }
+
+        $rankings = $query
+            ->select('listings.bike_model_id', DB::raw('COUNT(*) as stock_count'), DB::raw('AVG(listings.total_price) as avg_price'))
+            ->groupBy('listings.bike_model_id')
             ->orderByDesc('stock_count')
             ->limit(5)
             ->get();

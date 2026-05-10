@@ -383,7 +383,7 @@ final class PostRankingImage extends Command
             $model = $models->get($row->bike_model_id);
             $name = $model?->displayLabel() ?? '不明';
             $rank = $i + 1;
-            $avgDays = (int) round($row->avg_days);
+            $avgDays = (int) round((float) $row->avg_days);
             $lines[] = "{$rank}位 {$name}（平均{$avgDays}日で売却）";
         }
 
@@ -478,11 +478,22 @@ final class PostRankingImage extends Command
 
         [$min, $max] = $ranges[$displacement];
 
-        $rankings = Listing::where('is_sold_out', false)
-            ->whereNotNull('bike_model_id')
-            ->displacementBetween($min, $max)
-            ->select('bike_model_id', DB::raw('COUNT(*) as stock_count'))
-            ->groupBy('bike_model_id')
+        $query = Listing::where('listings.is_sold_out', false)
+            ->whereNotNull('listings.bike_model_id')
+            ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
+            ->whereNotNull('bike_models.displacement')
+            ->where('bike_models.displacement', '>', 0);
+
+        if ($min !== null) {
+            $query->where('bike_models.displacement', '>=', $min);
+        }
+        if ($max !== null) {
+            $query->where('bike_models.displacement', '<=', $max);
+        }
+
+        $rankings = $query
+            ->select('listings.bike_model_id', DB::raw('COUNT(*) as stock_count'))
+            ->groupBy('listings.bike_model_id')
             ->orderByDesc('stock_count')
             ->limit(5)
             ->get();
