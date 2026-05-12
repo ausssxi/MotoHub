@@ -10,6 +10,7 @@ use App\Models\Shop;
 use App\Models\Manufacturer;
 use App\Models\Category;
 
+use App\Models\Listing;
 use App\Models\SeoFeature;
 use App\Models\BikeParking;
 use App\Models\SeoCompare;
@@ -365,9 +366,43 @@ class GenerateSitemap extends Command
         $sitemapFiles[] = $catalogFileName;
         $catalogCount = 0;
 
-        // メーカー単体のカタログページ
+        // 在庫チェック用データを事前取得（N+1回避）
+        $catalogMakersWithStock = Listing::where('is_sold_out', false)
+            ->whereNotNull('bike_model_id')
+            ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
+            ->distinct()
+            ->pluck('bike_models.manufacturer_id')
+            ->flip();
+
+        $catalogMakerCatWithStock = Listing::where('is_sold_out', false)
+            ->whereNotNull('bike_model_id')
+            ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
+            ->selectRaw('DISTINCT bike_models.manufacturer_id, bike_models.category_id')
+            ->get()
+            ->map(fn ($r) => $r->manufacturer_id . '-' . $r->category_id)
+            ->flip();
+
+        $catalogCcWithStock = Listing::where('is_sold_out', false)
+            ->whereNotNull('bike_model_id')
+            ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
+            ->whereNotNull('bike_models.displacement')
+            ->pluck('bike_models.displacement');
+
+        // 排気量帯の範囲定義
+        $ccRanges = [
+            '50cc'  => ['min' => 0,   'max' => 50],
+            '125cc' => ['min' => 51,  'max' => 125],
+            '250cc' => ['min' => 126, 'max' => 250],
+            '400cc' => ['min' => 251, 'max' => 400],
+            '750cc' => ['min' => 401, 'max' => 750],
+        ];
+
+        // メーカー単体のカタログページ（在庫ありのみ）
         $catalogManufacturers = Manufacturer::whereNotNull('slug')->get();
         foreach ($catalogManufacturers as $maker) {
+            if (!$catalogMakersWithStock->has($maker->id)) {
+                continue;
+            }
             $this->writeUrl(
                 $handle,
                 route('bikes.catalog', $maker->slug),
@@ -378,10 +413,13 @@ class GenerateSitemap extends Command
             $catalogCount++;
         }
 
-        // メーカー×カテゴリの組み合わせカタログページ
+        // メーカー×カテゴリの組み合わせカタログページ（在庫ありのみ）
         $catalogCategories = Category::whereNotNull('slug')->get();
         foreach ($catalogManufacturers as $maker) {
             foreach ($catalogCategories as $cat) {
+                if (!$catalogMakerCatWithStock->has($maker->id . '-' . $cat->id)) {
+                    continue;
+                }
                 $this->writeUrl(
                     $handle,
                     route('bikes.catalog', "{$maker->slug}-{$cat->slug}"),
@@ -393,8 +431,12 @@ class GenerateSitemap extends Command
             }
         }
 
-        // 排気量帯カタログページ
-        foreach (['50cc', '125cc', '250cc', '400cc', '750cc'] as $cc) {
+        // 排気量帯カタログページ（在庫ありのみ）
+        foreach ($ccRanges as $cc => $range) {
+            $hasStock = $catalogCcWithStock->contains(fn ($d) => $d >= $range['min'] && $d <= $range['max']);
+            if (!$hasStock) {
+                continue;
+            }
             $this->writeUrl(
                 $handle,
                 route('bikes.catalog', $cc),

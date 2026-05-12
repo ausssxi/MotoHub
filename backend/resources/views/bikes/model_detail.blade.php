@@ -1,6 +1,12 @@
 <x-layout>
-    <x-slot:title>{{ $model->manufacturer?->name }} {{ $model->name }}の中古バイク{{ $activeCount > 0 ? '【' . $activeCount . '台】' : '' }}{{ !empty($stats) && isset($stats['avg']) && $stats['count'] > 0 ? '相場' . $stats['min'] . '〜' . $stats['max'] . '万円' : '相場・価格' }} | MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $model->manufacturer?->name }} {{ $model->name }}の中古バイク{{ $activeCount > 0 ? $activeCount . '台掲載中' : '情報' }}。{{ !empty($stats) && isset($stats['avg']) && $stats['count'] > 0 ? '価格' . $stats['min'] . '〜' . $stats['max'] . '万円（平均' . $stats['avg'] . '万円）。' : '' }}スペック・維持費・相場推移・口コミをMotoHubで比較検討。</x-slot:metaDescription>
+    @php
+        $seoName = $model->name;
+        if ($model->display_name && $model->display_name !== $model->name) {
+            $seoName .= '(' . $model->display_name . ')';
+        }
+    @endphp
+    <x-slot:title>{{ $model->manufacturer?->name }} {{ $seoName }}の中古バイク{{ $activeCount > 0 ? '【' . $activeCount . '台】' : '' }}{{ !empty($stats) && isset($stats['avg']) && $stats['count'] > 0 ? '相場' . $stats['min'] . '〜' . $stats['max'] . '万円' : '相場・価格' }} | MotoHub</x-slot:title>
+    <x-slot:metaDescription>{{ $model->manufacturer?->name }} {{ $seoName }}の中古バイク{{ $activeCount > 0 ? $activeCount . '台掲載中' : '情報' }}。{{ !empty($stats) && isset($stats['avg']) && $stats['count'] > 0 ? '価格' . $stats['min'] . '〜' . $stats['max'] . '万円（平均' . $stats['avg'] . '万円）。' : '' }}スペック・維持費・相場推移・口コミをMotoHubで比較検討。</x-slot:metaDescription>
     <x-slot:canonical>{{ url($model->seo_url) }}</x-slot:canonical>
     @if(!empty($reviewOgpMode) && $model->manufacturer?->slug && $model->slug && !empty($scrollToReviewId))
     <x-slot:ogImage>{{ url("/bikes/{$model->manufacturer->slug}/{$model->slug}/review-ogp/{$scrollToReviewId}.png") }}</x-slot:ogImage>
