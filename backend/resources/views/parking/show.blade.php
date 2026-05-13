@@ -1,6 +1,6 @@
 <x-layout>
     <x-slot:title>{{ $parking->name }}｜{{ $parking->price_per_month ? '月極' . number_format($parking->price_per_month) . '円' : ($parking->price_per_hour ? number_format($parking->price_per_hour) . '円/時間' : '') }}{{ ($parking->price_per_month || $parking->price_per_hour) ? ' ' : '' }}バイク駐車場{{ $parking->city ? ' ' . $parking->city : '' }} - MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $parking->prefecture }}{{ $parking->city }}のバイク駐車場「{{ $parking->name }}」の詳細情報。{{ $parking->getPriceDisplay() }}。ユーザーレビューも掲載。</x-slot:metaDescription>
+    <x-slot:metaDescription>{{ $parking->prefecture || $parking->city ? ($parking->prefecture ?? '') . ($parking->city ?? '') . 'のバイク駐車場' : 'バイク駐車場' }}「{{ $parking->name }}」の詳細情報。{{ $parking->getPriceDisplay() ? $parking->getPriceDisplay() . '。' : '' }}ユーザーレビューも掲載。</x-slot:metaDescription>
 
     <x-slot:styles>
         <x-jsonld.parking :parking="$parking" />
@@ -946,7 +946,7 @@
                 }
             @endphp
 
-            @if(count($faqs) >= 2)
+            @if(count($faqs) >= 1)
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6" x-data="{ open: null }">
                 <h2 class="text-sm font-black text-gray-900 mb-4 flex items-center gap-2">
                     <i data-lucide="help-circle" class="w-4 h-4 text-green-600"></i> よくある質問
