@@ -167,46 +167,41 @@ return Application::configure(basePath: dirname(__DIR__))
 
         /**
          * --- 4. Twitter Bot (自動投稿) ---
-         *
-         * 08:00  お買い得車両 (ダッシュボードグラフ付き)
-         * 10:00  新着入荷まとめ
-         * 12:00  お買い得車両 (2回目)
-         * 14:00  新着レビュー紹介
-         * 20:00  お買い得車両 (3回目)
-         * 日曜11:00  週間トレンド
+         * リンク付き投稿を停止（2026-05 Xポリシー対応）
+         * 画像のみ投稿は routes/console.php の x:post-ranking-image で継続
          */
 
-        // お買い得車両 (1日3回)
-        $schedule->command('bikes:tweet-bargains')
-                 ->dailyAt('08:00')
-                 ->withoutOverlapping()
-                 ->appendOutputTo($bargainLog);
-        $schedule->command('bikes:tweet-bargains')
-                 ->dailyAt('12:00')
-                 ->withoutOverlapping()
-                 ->appendOutputTo($bargainLog);
-        $schedule->command('bikes:tweet-bargains')
-                 ->dailyAt('20:00')
-                 ->withoutOverlapping()
-                 ->appendOutputTo($bargainLog);
+        // // お買い得車両 (1日3回)
+        // $schedule->command('bikes:tweet-bargains')
+        //          ->dailyAt('08:00')
+        //          ->withoutOverlapping()
+        //          ->appendOutputTo($bargainLog);
+        // $schedule->command('bikes:tweet-bargains')
+        //          ->dailyAt('12:00')
+        //          ->withoutOverlapping()
+        //          ->appendOutputTo($bargainLog);
+        // $schedule->command('bikes:tweet-bargains')
+        //          ->dailyAt('20:00')
+        //          ->withoutOverlapping()
+        //          ->appendOutputTo($bargainLog);
 
-        // 新着入荷まとめ (10:00)
-        $schedule->command('bikes:tweet-new-stock')
-                 ->dailyAt('10:00')
-                 ->withoutOverlapping()
-                 ->appendOutputTo(storage_path('logs/new_stock_tweets.log'));
+        // // 新着入荷まとめ (10:00)
+        // $schedule->command('bikes:tweet-new-stock')
+        //          ->dailyAt('10:00')
+        //          ->withoutOverlapping()
+        //          ->appendOutputTo(storage_path('logs/new_stock_tweets.log'));
 
-        // 新着レビュー紹介 (14:00・1日1回)
-        $schedule->command('bikes:tweet-reviews')
-                 ->dailyAt('14:00')
-                 ->withoutOverlapping()
-                 ->appendOutputTo(storage_path('logs/review_tweets.log'));
+        // // 新着レビュー紹介 (14:00・1日1回)
+        // $schedule->command('bikes:tweet-reviews')
+        //          ->dailyAt('14:00')
+        //          ->withoutOverlapping()
+        //          ->appendOutputTo(storage_path('logs/review_tweets.log'));
 
-        // 週間トレンド (日曜 11:00)
-        $schedule->command('bikes:tweet-trending')
-                 ->weeklyOn(0, '11:00')
-                 ->withoutOverlapping()
-                 ->appendOutputTo(storage_path('logs/trending_tweets.log'));
+        // // 週間トレンド (日曜 11:00)
+        // $schedule->command('bikes:tweet-trending')
+        //          ->weeklyOn(0, '11:00')
+        //          ->withoutOverlapping()
+        //          ->appendOutputTo(storage_path('logs/trending_tweets.log'));
 
         /**
          * --- 5. Push通知 ---
