@@ -51,10 +51,8 @@ final class TweetRanking extends Command
             ],
         };
 
-        // TOP車種を集計
-        $rankings = Listing::where('is_sold_out', true)
-            ->where('updated_at', '>=', $startDate)
-            ->where('updated_at', '<', $endDate)
+        // TOP車種を集計（水増し対策: shop×model×日あたり最大5台）
+        $rankings = Listing::cappedSold($startDate, $endDate->copy()->subDay())
             ->whereNotNull('bike_model_id')
             ->select('bike_model_id', DB::raw('COUNT(*) as sold_count'))
             ->groupBy('bike_model_id')
@@ -201,9 +199,7 @@ final class TweetRanking extends Command
             'monthly' => [$currentStart->copy()->subMonth(), $currentStart->copy()],
         };
 
-        $prevData = Listing::where('is_sold_out', true)
-            ->where('updated_at', '>=', $prevStart)
-            ->where('updated_at', '<', $prevEnd)
+        $prevData = Listing::cappedSold($prevStart, $prevEnd->copy()->subDay())
             ->whereNotNull('bike_model_id')
             ->select('bike_model_id', DB::raw('COUNT(*) as sold_count'))
             ->groupBy('bike_model_id')

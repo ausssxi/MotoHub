@@ -17,13 +17,11 @@ final class RankingService
      */
     public function getAllRankPositions(): array
     {
-        return Cache::remember('ranking_positions_all_v2', 86400, function () {
+        return Cache::remember('ranking_positions_all_v3', 86400, function () {
             $lms = Carbon::now()->subMonth()->startOfMonth();
             $lme = Carbon::now()->subMonth()->endOfMonth();
 
-            $rows = Listing::where('is_sold_out', true)
-                ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
-                ->whereBetween('updated_at', [$lms, $lme])
+            $rows = Listing::cappedSold($lms, $lme)
                 ->whereNotNull('bike_model_id')
                 ->select('bike_model_id', DB::raw('COUNT(*) as cnt'))
                 ->groupBy('bike_model_id')
@@ -45,13 +43,11 @@ final class RankingService
      */
     public function getCategoryRankPositions(int $categoryId): array
     {
-        return Cache::remember("ranking_positions_cat_v2_{$categoryId}", 86400, function () use ($categoryId) {
+        return Cache::remember("ranking_positions_cat_v3_{$categoryId}", 86400, function () use ($categoryId) {
             $lms = Carbon::now()->subMonth()->startOfMonth();
             $lme = Carbon::now()->subMonth()->endOfMonth();
 
-            $rows = Listing::where('is_sold_out', true)
-                ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
-                ->whereBetween('updated_at', [$lms, $lme])
+            $rows = Listing::cappedSold($lms, $lme)
                 ->whereNotNull('bike_model_id')
                 ->whereHas('bikeModel', fn ($q) => $q->where('category_id', $categoryId))
                 ->select('bike_model_id', DB::raw('COUNT(*) as cnt'))
@@ -73,14 +69,12 @@ final class RankingService
      */
     public function getModelRankingStats(int $bikeModelId, ?int $categoryId = null): ?array
     {
-        return Cache::remember("model_ranking_stats_v2_{$bikeModelId}", 3600, function () use ($bikeModelId, $categoryId) {
+        return Cache::remember("model_ranking_stats_v3_{$bikeModelId}", 3600, function () use ($bikeModelId, $categoryId) {
             $lms = Carbon::now()->subMonth()->startOfMonth();
             $lme = Carbon::now()->subMonth()->endOfMonth();
 
-            $monthlySold = Listing::where('bike_model_id', $bikeModelId)
-                ->where('is_sold_out', true)
-                ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
-                ->whereBetween('updated_at', [$lms, $lme])
+            $monthlySold = Listing::cappedSold($lms, $lme)
+                ->where('bike_model_id', $bikeModelId)
                 ->count();
 
             if ($monthlySold === 0) {
@@ -102,10 +96,8 @@ final class RankingService
             }
 
             // 平均在庫日数
-            $avgDays = Listing::where('bike_model_id', $bikeModelId)
-                ->where('is_sold_out', true)
-                ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
-                ->whereBetween('updated_at', [$lms, $lme])
+            $avgDays = Listing::cappedSold($lms, $lme)
+                ->where('bike_model_id', $bikeModelId)
                 ->selectRaw('AVG(DATEDIFF(updated_at, created_at)) as avg_days')
                 ->value('avg_days');
 

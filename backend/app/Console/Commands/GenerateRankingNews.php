@@ -38,10 +38,8 @@ final class GenerateRankingNews extends Command
             return self::SUCCESS;
         }
 
-        // 販売データ集計
-        $rankings = Listing::where('is_sold_out', true)
-            ->where('updated_at', '>=', $startDate)
-            ->where('updated_at', '<', $endDate)
+        // 販売データ集計（水増し対策: shop×model×日あたり最大5台）
+        $rankings = Listing::cappedSold($startDate, $endDate->copy()->subDay())
             ->whereNotNull('bike_model_id')
             ->select('bike_model_id', DB::raw('COUNT(*) as sold_count'))
             ->groupBy('bike_model_id')
@@ -61,9 +59,7 @@ final class GenerateRankingNews extends Command
             ->keyBy('id');
 
         // 平均価格を一括取得（今期）
-        $avgPrices = Listing::where('is_sold_out', true)
-            ->where('updated_at', '>=', $startDate)
-            ->where('updated_at', '<', $endDate)
+        $avgPrices = Listing::cappedSold($startDate, $endDate->copy()->subDay())
             ->whereIn('bike_model_id', $rankings->pluck('bike_model_id'))
             ->whereNotNull('total_price')
             ->select('bike_model_id', DB::raw('ROUND(AVG(total_price) / 10000, 1) as avg_price'))
@@ -148,9 +144,7 @@ final class GenerateRankingNews extends Command
             ],
         };
 
-        $prevData = Listing::where('is_sold_out', true)
-            ->where('updated_at', '>=', $prevStart)
-            ->where('updated_at', '<', $prevEnd)
+        $prevData = Listing::cappedSold($prevStart, $prevEnd->copy()->subDay())
             ->whereNotNull('bike_model_id')
             ->select('bike_model_id', DB::raw('COUNT(*) as sold_count'))
             ->groupBy('bike_model_id')
@@ -165,9 +159,7 @@ final class GenerateRankingNews extends Command
         // 前期間の平均価格（今期ランクイン車種のみ）
         $prevAvgPrices = [];
         if (!empty($modelIds)) {
-            $prevAvgPrices = Listing::where('is_sold_out', true)
-                ->where('updated_at', '>=', $prevStart)
-                ->where('updated_at', '<', $prevEnd)
+            $prevAvgPrices = Listing::cappedSold($prevStart, $prevEnd->copy()->subDay())
                 ->whereIn('bike_model_id', $modelIds)
                 ->whereNotNull('total_price')
                 ->select('bike_model_id', DB::raw('ROUND(AVG(total_price) / 10000, 1) as avg_price'))

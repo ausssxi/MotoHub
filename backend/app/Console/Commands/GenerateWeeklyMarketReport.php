@@ -125,14 +125,13 @@ final class GenerateWeeklyMarketReport extends Command
 
     private function collectSummary(Carbon $start, Carbon $end, Carbon $prevStart, Carbon $prevEnd): array
     {
-        $soldQuery = fn (Carbon $s, Carbon $e) => Listing::where('listings.is_sold_out', true)
-            ->whereBetween('listings.updated_at', [$s, $e]);
+        $soldQuery = fn (Carbon $s, Carbon $e) => Listing::cappedSold($s, $e);
 
         $soldCount = $soldQuery($start, $end)->count();
         $prevSoldCount = $soldQuery($prevStart, $prevEnd)->count();
 
-        $avgPrice = (int) $soldQuery($start, $end)->whereNotNull('listings.total_price')->avg('listings.total_price');
-        $prevAvgPrice = (int) $soldQuery($prevStart, $prevEnd)->whereNotNull('listings.total_price')->avg('listings.total_price');
+        $avgPrice = (int) $soldQuery($start, $end)->whereNotNull('total_price')->avg('total_price');
+        $prevAvgPrice = (int) $soldQuery($prevStart, $prevEnd)->whereNotNull('total_price')->avg('total_price');
 
         return [
             'sold_count' => $soldCount,
@@ -146,15 +145,14 @@ final class GenerateWeeklyMarketReport extends Command
 
     private function collectTopModels(Carbon $start, Carbon $end)
     {
-        return Listing::where('listings.is_sold_out', true)
-            ->whereBetween('listings.updated_at', [$start, $end])
-            ->whereNotNull('listings.bike_model_id')
+        return Listing::cappedSold($start, $end)
+            ->whereNotNull('bike_model_id')
             ->select(
-                'listings.bike_model_id',
+                'bike_model_id',
                 DB::raw('COUNT(*) as sold_count'),
-                DB::raw('ROUND(AVG(listings.total_price)) as avg_price'),
+                DB::raw('ROUND(AVG(total_price)) as avg_price'),
             )
-            ->groupBy('listings.bike_model_id')
+            ->groupBy('bike_model_id')
             ->orderByDesc('sold_count')
             ->limit(5)
             ->get();

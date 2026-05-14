@@ -186,8 +186,7 @@ final class PostRankingImage extends Command
 
     private function buildWeeklySalesText(): ?string
     {
-        $rankings = Listing::where('is_sold_out', true)
-            ->where('updated_at', '>=', now()->subWeek())
+        $rankings = Listing::cappedSold(now()->subWeek(), now())
             ->whereNotNull('bike_model_id')
             ->select('bike_model_id', DB::raw('COUNT(*) as sold_count'))
             ->groupBy('bike_model_id')
@@ -358,8 +357,7 @@ final class PostRankingImage extends Command
 
     private function buildFastSellingText(): ?string
     {
-        $rankings = Listing::where('is_sold_out', true)
-            ->where('updated_at', '>=', now()->subDays(30))
+        $rankings = Listing::cappedSold(now()->subDays(30), now())
             ->whereNotNull('bike_model_id')
             ->selectRaw('bike_model_id, AVG(DATEDIFF(updated_at, created_at)) as avg_days, COUNT(*) as sold_count')
             ->groupBy('bike_model_id')
@@ -405,8 +403,7 @@ final class PostRankingImage extends Command
             ->get()
             ->keyBy('bike_model_id');
 
-        $lastMonth = Listing::where('is_sold_out', true)
-            ->whereBetween('updated_at', [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()])
+        $lastMonth = Listing::cappedSold(now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth())
             ->whereNotNull('total_price')
             ->where('total_price', '>', 0)
             ->whereNotNull('bike_model_id')

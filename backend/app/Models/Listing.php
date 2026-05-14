@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
@@ -144,6 +145,31 @@ class Listing extends Model
     }
 
     // --- Query Scopes ---
+
+    /**
+     * 水増し対策: shop_id × bike_model_id の1日あたりカウントを最大5台に制限
+     * is_sold_out=true、掲載3日以上、日付範囲フィルタを含む
+     */
+    public function scopeCappedSold(Builder $query, Carbon $start, Carbon $end): Builder
+    {
+        $from = $start->copy()->startOfDay();
+        $to = $end->copy()->endOfDay();
+
+        return $query->whereRaw('listings.id IN (
+            SELECT id FROM (
+                SELECT id, ROW_NUMBER() OVER (
+                    PARTITION BY shop_id, bike_model_id, DATE(updated_at)
+                    ORDER BY updated_at
+                ) as rn
+                FROM listings
+                WHERE is_sold_out = 1
+                AND created_at <= updated_at - INTERVAL 3 DAY
+                AND updated_at BETWEEN ? AND ?
+            ) as capped
+            WHERE rn <= 5
+        )', [$from, $to]);
+    }
+
     public function scopeActive(Builder $query): Builder { return $query->where('listings.is_sold_out', false); }
     public function scopeWithKeyword(Builder $query, ?string $keyword): Builder {
         if (!$keyword) return $query;

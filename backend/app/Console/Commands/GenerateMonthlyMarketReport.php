@@ -139,16 +139,15 @@ final class GenerateMonthlyMarketReport extends Command
      */
     private function collectSummary(Carbon $start, Carbon $end, Carbon $prevStart, Carbon $prevEnd): array
     {
-        $soldQuery = fn (Carbon $s, Carbon $e) => Listing::where('listings.is_sold_out', true)
-            ->whereBetween('listings.updated_at', [$s, $e]);
+        $soldQuery = fn (Carbon $s, Carbon $e) => Listing::cappedSold($s, $e);
 
         $newQuery = fn (Carbon $s, Carbon $e) => Listing::whereBetween('listings.created_at', [$s, $e]);
 
         $soldCount = $soldQuery($start, $end)->count();
         $prevSoldCount = $soldQuery($prevStart, $prevEnd)->count();
 
-        $avgPrice = (int) $soldQuery($start, $end)->whereNotNull('listings.total_price')->avg('listings.total_price');
-        $prevAvgPrice = (int) $soldQuery($prevStart, $prevEnd)->whereNotNull('listings.total_price')->avg('listings.total_price');
+        $avgPrice = (int) $soldQuery($start, $end)->whereNotNull('total_price')->avg('total_price');
+        $prevAvgPrice = (int) $soldQuery($prevStart, $prevEnd)->whereNotNull('total_price')->avg('total_price');
 
         $newCount = $newQuery($start, $end)->count();
         $prevNewCount = $newQuery($prevStart, $prevEnd)->count();
@@ -174,13 +173,12 @@ final class GenerateMonthlyMarketReport extends Command
         $results = [];
 
         foreach (self::DISPLACEMENT_BANDS as $label => [$min, $max]) {
-            $baseQuery = fn (Carbon $s, Carbon $e) => Listing::where('listings.is_sold_out', true)
-                ->whereBetween('listings.updated_at', [$s, $e])
+            $baseQuery = fn (Carbon $s, Carbon $e) => Listing::cappedSold($s, $e)
                 ->whereHas('bikeModel', fn ($q) => $q->whereBetween('bike_models.displacement', [$min, $max]));
 
             $count = $baseQuery($start, $end)->count();
             $prevCount = $baseQuery($prevStart, $prevEnd)->count();
-            $avg = (int) $baseQuery($start, $end)->whereNotNull('listings.total_price')->avg('listings.total_price');
+            $avg = (int) $baseQuery($start, $end)->whereNotNull('total_price')->avg('total_price');
 
             $results[] = [
                 'label' => $label,
@@ -199,8 +197,7 @@ final class GenerateMonthlyMarketReport extends Command
      */
     private function collectMakerData(Carbon $start, Carbon $end): array
     {
-        return Listing::where('listings.is_sold_out', true)
-            ->whereBetween('listings.updated_at', [$start, $end])
+        return Listing::cappedSold($start, $end)
             ->whereNotNull('listings.manufacturer_id')
             ->join('manufacturers', 'listings.manufacturer_id', '=', 'manufacturers.id')
             ->select('manufacturers.name', DB::raw('COUNT(*) as sold_count'))
@@ -216,15 +213,14 @@ final class GenerateMonthlyMarketReport extends Command
      */
     private function collectTopModels(Carbon $start, Carbon $end)
     {
-        return Listing::where('listings.is_sold_out', true)
-            ->whereBetween('listings.updated_at', [$start, $end])
-            ->whereNotNull('listings.bike_model_id')
+        return Listing::cappedSold($start, $end)
+            ->whereNotNull('bike_model_id')
             ->select(
-                'listings.bike_model_id',
+                'bike_model_id',
                 DB::raw('COUNT(*) as sold_count'),
-                DB::raw('ROUND(AVG(listings.total_price)) as avg_price'),
+                DB::raw('ROUND(AVG(total_price)) as avg_price'),
             )
-            ->groupBy('listings.bike_model_id')
+            ->groupBy('bike_model_id')
             ->orderByDesc('sold_count')
             ->limit(10)
             ->get();
@@ -238,10 +234,9 @@ final class GenerateMonthlyMarketReport extends Command
         $results = [];
 
         foreach (self::PRICE_BANDS as $label => [$min, $max]) {
-            $count = Listing::where('listings.is_sold_out', true)
-                ->whereBetween('listings.updated_at', [$start, $end])
-                ->whereNotNull('listings.total_price')
-                ->whereBetween('listings.total_price', [$min, $max])
+            $count = Listing::cappedSold($start, $end)
+                ->whereNotNull('total_price')
+                ->whereBetween('total_price', [$min, $max])
                 ->count();
 
             $results[] = [
