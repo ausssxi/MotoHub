@@ -21,11 +21,11 @@ final class SellService
     ) {}
 
     /**
-     * フォーム用のメーカー一覧を取得 (ID順)
+     * フォーム用のメーカー一覧を取得（在庫あり・人気順）
      */
     public function getManufacturersForForm(): Collection
     {
-        return $this->manufacturerRepo->getAllSortedById();
+        return $this->manufacturerRepo->getAllWithListingCount();
     }
 
     /**

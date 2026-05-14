@@ -23,4 +23,12 @@ final class Manufacturer extends Model
     {
         return $this->hasMany(BikeModel::class);
     }
+
+    /**
+     * このメーカーの出品一覧を取得
+     */
+    public function listings(): HasMany
+    {
+        return $this->hasMany(Listing::class);
+    }
 }

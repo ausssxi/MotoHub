@@ -25,34 +25,83 @@
                 </p>
 
                 {{-- 査定フォーム --}}
-                <div class="bg-white rounded-3xl p-6 sm:p-10 shadow-2xl max-w-2xl mx-auto text-left transform translate-y-10">
-                    <form id="sell-form">
+                <div class="bg-white rounded-3xl p-6 sm:p-10 shadow-2xl max-w-2xl mx-auto text-left transform translate-y-10"
+                     x-data="sellForm()" x-cloak>
+                    <form id="sell-form" @submit.prevent="calculate">
                         @csrf
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-                            
+
                             {{-- メーカー選択 --}}
-                            <div>
+                            <div class="relative" @click.outside="makerOpen = false">
                                 <label class="block text-xs font-bold text-gray-500 mb-2">メーカー</label>
                                 <div class="relative">
-                                    <select id="select-maker" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3.5 appearance-none">
-                                        <option value="">選択してください</option>
-                                        @foreach($manufacturers as $maker)
-                                            <option value="{{ $maker->id }}">{{ $maker->name }}</option>
-                                        @endforeach
-                                    </select>
-                                    <i data-lucide="chevron-down" class="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
+                                    <input type="text"
+                                           x-model="makerSearch"
+                                           @focus="makerOpen = true; $event.target.select()"
+                                           @keydown.arrow-down.prevent="makerHighlight = Math.min(makerHighlight + 1, filteredMakers.length - 1)"
+                                           @keydown.arrow-up.prevent="makerHighlight = Math.max(makerHighlight - 1, 0)"
+                                           @keydown.enter.prevent="if(filteredMakers.length > 0) selectMaker(filteredMakers[makerHighlight])"
+                                           @keydown.escape="makerOpen = false"
+                                           placeholder="メーカーを検索（例: ヤマハ）"
+                                           autocomplete="off"
+                                           class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3.5 pr-10">
+                                    <i data-lucide="chevron-down" class="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none transition-transform" :class="makerOpen && 'rotate-180'"></i>
                                 </div>
+                                <ul x-show="makerOpen && filteredMakers.length > 0"
+                                    x-transition.opacity
+                                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 shadow-lg rounded-xl max-h-60 overflow-y-auto">
+                                    <template x-for="(m, idx) in filteredMakers" :key="m.id">
+                                        <li @click="selectMaker(m)"
+                                            @mouseenter="makerHighlight = idx"
+                                            class="py-3 px-4 text-sm font-bold cursor-pointer flex items-center justify-between transition-colors"
+                                            :class="idx === makerHighlight ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'">
+                                            <span x-text="m.name"></span>
+                                            <i data-lucide="check" class="w-4 h-4 text-blue-500" x-show="selectedMakerId === m.id" x-cloak></i>
+                                        </li>
+                                    </template>
+                                </ul>
+                                <p x-show="makerOpen && makerSearch && filteredMakers.length === 0" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 shadow-lg rounded-xl py-3 px-4 text-sm text-gray-400">
+                                    該当するメーカーがありません
+                                </p>
                             </div>
 
                             {{-- 車種選択 --}}
-                            <div>
+                            <div class="relative" @click.outside="modelOpen = false">
                                 <label class="block text-xs font-bold text-gray-500 mb-2">車種</label>
                                 <div class="relative">
-                                    <select id="select-model" disabled class="w-full bg-gray-50 border border-gray-200 text-gray-400 text-sm font-bold rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3.5 appearance-none disabled:opacity-50 disabled:cursor-not-allowed">
-                                        <option value="">メーカーを選択してください</option>
-                                    </select>
-                                    <i data-lucide="chevron-down" class="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
+                                    <input type="text"
+                                           x-model="modelSearch"
+                                           @focus="if(selectedMakerId) { modelOpen = true; $event.target.select() }"
+                                           @keydown.arrow-down.prevent="modelHighlight = Math.min(modelHighlight + 1, filteredModels.length - 1)"
+                                           @keydown.arrow-up.prevent="modelHighlight = Math.max(modelHighlight - 1, 0)"
+                                           @keydown.enter.prevent="if(filteredModels.length > 0) selectModel(filteredModels[modelHighlight])"
+                                           @keydown.escape="modelOpen = false"
+                                           :disabled="!selectedMakerId"
+                                           :placeholder="selectedMakerId ? '車種を検索（例: レブル）' : 'メーカーを選択してください'"
+                                           autocomplete="off"
+                                           class="w-full bg-gray-50 border border-gray-200 text-sm font-bold rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3.5 pr-10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                           :class="selectedMakerId ? 'text-gray-900' : 'text-gray-400'">
+                                    <i data-lucide="chevron-down" class="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none transition-transform" :class="modelOpen && 'rotate-180'"></i>
                                 </div>
+                                <ul x-show="modelOpen && filteredModels.length > 0"
+                                    x-transition.opacity
+                                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 shadow-lg rounded-xl max-h-60 overflow-y-auto">
+                                    <template x-for="(m, idx) in filteredModels" :key="m.id">
+                                        <li @click="selectModel(m)"
+                                            @mouseenter="modelHighlight = idx"
+                                            class="py-3 px-4 text-sm font-bold cursor-pointer flex items-center justify-between transition-colors"
+                                            :class="idx === modelHighlight ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'">
+                                            <span x-text="m.name"></span>
+                                            <i data-lucide="check" class="w-4 h-4 text-blue-500" x-show="selectedModelId === m.id" x-cloak></i>
+                                        </li>
+                                    </template>
+                                </ul>
+                                <p x-show="modelOpen && modelSearch && filteredModels.length === 0" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 shadow-lg rounded-xl py-3 px-4 text-sm text-gray-400">
+                                    該当する車種がありません
+                                </p>
+                                <p x-show="loadingModels" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 shadow-lg rounded-xl py-3 px-4 text-sm text-gray-400">
+                                    読み込み中...
+                                </p>
                             </div>
                         </div>
 
@@ -79,9 +128,13 @@
                             </div>
                         </div>
 
-                        <button type="submit" id="btn-calculate" disabled class="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-300 text-white font-black text-lg py-4 rounded-xl shadow-lg shadow-blue-500/30 disabled:shadow-none transition transform active:scale-95 flex items-center justify-center gap-2">
-                            <span>相場をチェックする</span>
-                            <i data-lucide="calculator" class="w-5 h-5"></i>
+                        <button type="submit" :disabled="!selectedModelId || calculating" class="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-300 text-white font-black text-lg py-4 rounded-xl shadow-lg shadow-blue-500/30 disabled:shadow-none transition transform active:scale-95 flex items-center justify-center gap-2">
+                            <template x-if="calculating">
+                                <span class="flex items-center gap-2"><i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> 計算中...</span>
+                            </template>
+                            <template x-if="!calculating">
+                                <span class="flex items-center gap-2">相場をチェックする <i data-lucide="calculator" class="w-5 h-5"></i></span>
+                            </template>
                         </button>
                     </form>
                 </div>
@@ -199,6 +252,9 @@
 
     </div>
 
-    {{-- JS読み込み --}}
+    {{-- メーカーデータ + JS読み込み --}}
+    <script>
+        window.__sellMakers = @json($manufacturers->map(fn ($m) => ['id' => $m->id, 'name' => $m->name]));
+    </script>
     <script src="{{ asset('js/pages/sell.js') }}?v={{ filemtime(public_path('js/pages/sell.js')) }}"></script>
 </x-layout>
