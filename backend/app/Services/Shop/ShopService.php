@@ -70,7 +70,7 @@ final class ShopService
             ['label' => '車種カタログ', 'url' => route('bikes.models'), 'icon' => 'book-open', 'description' => '車種の相場を確認'],
             ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => 'バイク駐車場を探す'],
             ['label' => 'バイク診断', 'url' => route('shindan.index'), 'icon' => 'sparkles', 'description' => 'あなたにピッタリの1台'],
-            ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'garage', 'description' => '愛車を登録・管理'],
+            ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'car', 'description' => '愛車を登録・管理'],
         ];
 
         $shopExpensesStats = $this->getShopExpensesStats($shop);

@@ -91,13 +91,15 @@
                                 <i data-lucide="clock" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
                                 <p class="font-bold text-gray-600">{{ $shop->business_hours ?? '-' }}</p>
                             </div>
+                            @if($shop->closed_days && $shop->closed_days !== '-')
                             <div class="flex items-start gap-3">
                                 <i data-lucide="calendar-off" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
-                                <p class="font-bold text-gray-600">{{ $shop->closed_days ?? '-' }}</p>
+                                <p class="font-bold text-gray-600">{{ $shop->closed_days }}</p>
                             </div>
+                            @endif
                         </div>
 
-                        @if($shop->url)
+                        @if($shop->url && $shop->url !== '-')
                         <div class="mt-6 pt-6 border-t border-gray-100">
                             <a href="{{ $shop->url }}" target="_blank" rel="nofollow" class="flex items-center justify-center gap-2 text-xs font-bold text-gray-400 hover:text-blue-600 transition-colors">
                                 公式サイト・詳細ページ <i data-lucide="external-link" class="w-3 h-3"></i>
@@ -143,7 +145,7 @@
                                 var el = document.getElementById('street-view');
                                 var sv = new google.maps.StreetViewService();
                                 var pos = {lat: {{ $shop->latitude }}, lng: {{ $shop->longitude }}};
-                                sv.getPanorama({location: pos, radius: 50}, function(data, status) {
+                                sv.getPanorama({location: pos, radius: 200}, function(data, status) {
                                     if (status === 'OK') {
                                         new google.maps.StreetViewPanorama(el, {
                                             position: data.location.latLng,
