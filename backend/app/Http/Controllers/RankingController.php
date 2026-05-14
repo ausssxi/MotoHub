@@ -45,7 +45,7 @@ final class RankingController extends Controller
         }
 
         $ranking = Cache::remember(
-            "ranking_daily_{$targetDate->toDateString()}",
+            "ranking_daily_v2_{$targetDate->toDateString()}",
             $targetDate->isToday() ? 3600 : 86400,
             fn () => $this->getDailyRanking($targetDate),
         );
@@ -75,7 +75,7 @@ final class RankingController extends Controller
         $startDate = $endDate->copy()->subDays(7);
 
         $ranking = Cache::remember(
-            "ranking_weekly_{$endDate->toDateString()}",
+            "ranking_weekly_v2_{$endDate->toDateString()}",
             3600,
             fn () => $this->getRanking($startDate->copy(), $endDate->copy()),
         );
@@ -110,7 +110,7 @@ final class RankingController extends Controller
         $bikeModel = BikeModel::with('manufacturer')->findOrFail($bikeModelId);
 
         $stats = Cache::remember(
-            "model_stats_ranking_{$bikeModelId}",
+            "model_stats_ranking_v2_{$bikeModelId}",
             3600,
             fn () => $this->getModelStats($bikeModelId),
         );
@@ -141,29 +141,21 @@ final class RankingController extends Controller
 
     private function getDailyRanking(Carbon $date): array
     {
-        $totalSold = Listing::where('is_sold_out', true)
-            ->whereDate('updated_at', $date)
-            ->count();
+        $baseQuery = fn () => Listing::where('is_sold_out', true)
+            ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
+            ->whereDate('updated_at', $date);
 
-        $modelRanking = $this->buildModelRanking(
-            Listing::where('is_sold_out', true)->whereDate('updated_at', $date),
-            20,
-        );
+        $totalSold = $baseQuery()->count();
 
-        $makerRanking = $this->buildMakerRanking(
-            Listing::where('is_sold_out', true)->whereDate('updated_at', $date),
-        );
+        $modelRanking = $this->buildModelRanking($baseQuery(), 20);
 
-        $shopRanking = $this->buildShopRanking(
-            Listing::where('is_sold_out', true)->whereDate('updated_at', $date),
-        );
+        $makerRanking = $this->buildMakerRanking($baseQuery());
 
-        $priceRanges = $this->buildPriceRanges(
-            Listing::where('is_sold_out', true)->whereDate('updated_at', $date),
-        );
+        $shopRanking = $this->buildShopRanking($baseQuery());
 
-        $displacementRanges = Listing::where('is_sold_out', true)
-            ->whereDate('updated_at', $date)
+        $priceRanges = $this->buildPriceRanges($baseQuery());
+
+        $displacementRanges = $baseQuery()
             ->whereNotNull('displacement')
             ->select(DB::raw("
                 CASE
@@ -195,6 +187,7 @@ final class RankingController extends Controller
         $to = $end->copy()->endOfDay();
 
         $baseQuery = fn () => Listing::where('is_sold_out', true)
+            ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
             ->whereBetween('updated_at', [$from, $to]);
 
         $totalSold = $baseQuery()->count();
@@ -310,7 +303,7 @@ final class RankingController extends Controller
         $end = $start->copy()->endOfMonth();
 
         return Cache::remember(
-            "ranking_monthly_v2_{$year}_{$month}",
+            "ranking_monthly_v3_{$year}_{$month}",
             Carbon::now()->month === $month && Carbon::now()->year === $year ? 3600 : 86400,
             fn () => $this->getRanking($start, $end),
         );
@@ -319,7 +312,7 @@ final class RankingController extends Controller
     private function getDailySummary(int $year, int $month): array
     {
         return Cache::remember(
-            "ranking_daily_summary_{$year}_{$month}",
+            "ranking_daily_summary_v2_{$year}_{$month}",
             Carbon::now()->month === $month && Carbon::now()->year === $year ? 3600 : 86400,
             function () use ($year, $month) {
                 $start = Carbon::create($year, $month, 1)->startOfDay();
@@ -331,6 +324,7 @@ final class RankingController extends Controller
                 }
 
                 return Listing::where('is_sold_out', true)
+                    ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
                     ->whereBetween('updated_at', [$start, $end])
                     ->select(
                         DB::raw('DATE(updated_at) as sold_date'),
@@ -346,11 +340,12 @@ final class RankingController extends Controller
 
     private function getWeekSummary(Carbon $start, Carbon $end): array
     {
-        $cacheKey = "ranking_week_{$start->toDateString()}_{$end->toDateString()}";
+        $cacheKey = "ranking_week_v2_{$start->toDateString()}_{$end->toDateString()}";
         $ttl = $end->gte(Carbon::today()) ? 3600 : 86400;
 
         $dayCounts = Cache::remember($cacheKey, $ttl, function () use ($start, $end) {
             return Listing::where('is_sold_out', true)
+                ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
                 ->whereBetween('updated_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
                 ->select(DB::raw('DATE(updated_at) as sold_date'), DB::raw('COUNT(*) as cnt'))
                 ->groupBy(DB::raw('DATE(updated_at)'))
@@ -384,11 +379,13 @@ final class RankingController extends Controller
 
         $lastMonthSold = Listing::where('bike_model_id', $bikeModelId)
             ->where('is_sold_out', true)
+            ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
             ->whereBetween('updated_at', [$lastMonthStart, $lastMonthEnd])
             ->count();
 
         // 全車種中の順位
         $allModelSales = Listing::where('is_sold_out', true)
+            ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
             ->whereBetween('updated_at', [$lastMonthStart, $lastMonthEnd])
             ->whereNotNull('bike_model_id')
             ->select('bike_model_id', DB::raw('COUNT(*) as cnt'))
@@ -401,6 +398,7 @@ final class RankingController extends Controller
 
         $avgDays = Listing::where('bike_model_id', $bikeModelId)
             ->where('is_sold_out', true)
+            ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
             ->whereBetween('updated_at', [$lastMonthStart, $lastMonthEnd])
             ->selectRaw('AVG(DATEDIFF(updated_at, created_at)) as avg_days')
             ->value('avg_days');
@@ -408,6 +406,7 @@ final class RankingController extends Controller
         // 価格帯（過去3ヶ月）
         $priceRanges = Listing::where('bike_model_id', $bikeModelId)
             ->where('is_sold_out', true)
+            ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
             ->where('updated_at', '>=', $threeMonthsAgo)
             ->whereNotNull('total_price')
             ->select(DB::raw("
@@ -428,6 +427,7 @@ final class RankingController extends Controller
         // 地域TOP10
         $regionRanking = Listing::where('listings.bike_model_id', $bikeModelId)
             ->where('listings.is_sold_out', true)
+            ->whereRaw('listings.created_at <= listings.updated_at - INTERVAL 3 DAY')
             ->where('listings.updated_at', '>=', $threeMonthsAgo)
             ->join('shops', 'listings.shop_id', '=', 'shops.id')
             ->whereNotNull('shops.prefecture')
@@ -440,6 +440,7 @@ final class RankingController extends Controller
         // 走行距離帯
         $mileageRanges = Listing::where('bike_model_id', $bikeModelId)
             ->where('is_sold_out', true)
+            ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
             ->where('updated_at', '>=', $threeMonthsAgo)
             ->whereNotNull('mileage')
             ->select(DB::raw("
@@ -458,6 +459,7 @@ final class RankingController extends Controller
         // 年式（新しい順）
         $yearRanking = Listing::where('bike_model_id', $bikeModelId)
             ->where('is_sold_out', true)
+            ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
             ->where('updated_at', '>=', $threeMonthsAgo)
             ->whereNotNull('model_year')
             ->select('model_year', DB::raw('COUNT(*) as cnt'))
@@ -476,6 +478,7 @@ final class RankingController extends Controller
                 'label' => $ms->format('n月'),
                 'count' => Listing::where('bike_model_id', $bikeModelId)
                     ->where('is_sold_out', true)
+                    ->whereRaw('created_at <= updated_at - INTERVAL 3 DAY')
                     ->whereBetween('updated_at', [$ms, $me])
                     ->count(),
             ];
