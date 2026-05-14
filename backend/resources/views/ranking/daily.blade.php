@@ -71,7 +71,11 @@
                     <span style="font-size:10px;font-weight:700;color:{{ $isSelected ? '#bfdbfe' : ($isSun ? '#f87171' : ($isSat ? '#60a5fa' : '#9ca3af')) }}">{{ $day['dow'] }}</span>
                     <span style="font-size:13px;font-weight:900;color:{{ $isSelected ? '#fff' : '#111827' }}">{{ $day['label'] }}</span>
                     <span style="font-size:10px;font-weight:700;margin-top:2px;color:{{ $isSelected ? '#dbeafe' : '#9ca3af' }}">
-                        {{ $day['count'] > 0 ? number_format($day['count']) . '台' : '-' }}
+                        @if(!empty($day['isToday']))
+                            集計中
+                        @else
+                            {{ $day['count'] > 0 ? number_format($day['count']) . '台' : '-' }}
+                        @endif
                     </span>
                 </a>
                 @endif

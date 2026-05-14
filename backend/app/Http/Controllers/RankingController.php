@@ -324,6 +324,11 @@ final class RankingController extends Controller
             function () use ($year, $month) {
                 $start = Carbon::create($year, $month, 1)->startOfDay();
                 $end = $start->copy()->endOfMonth()->endOfDay();
+                // 当日は集計未確定のため除外（昨日までのデータのみ）
+                $yesterday = Carbon::yesterday()->endOfDay();
+                if ($end->gt($yesterday)) {
+                    $end = $yesterday;
+                }
 
                 return Listing::where('is_sold_out', true)
                     ->whereBetween('updated_at', [$start, $end])
@@ -363,6 +368,7 @@ final class RankingController extends Controller
                 'dow' => ['日','月','火','水','木','金','土'][$current->dayOfWeek],
                 'count' => $dayCounts[$dateStr] ?? 0,
                 'isFuture' => $current->isFuture(),
+                'isToday' => $current->isToday(),
             ];
             $current->addDay();
         }
