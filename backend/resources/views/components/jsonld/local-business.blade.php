@@ -5,14 +5,14 @@
     使い方:
     <x-jsonld.local-business :shop="$shop" :stockCount="$pagination['total'] ?? 0" />
 --}}
-@props(['shop', 'stockCount' => 0])
+@props(['shop', 'stockCount' => 0, 'description' => ''])
 
 @php
     $schema = [
         '@context' => 'https://schema.org',
         '@type' => 'MotorcycleDealer',
         'name' => $shop->name,
-        'description' => ($shop->prefecture ? $shop->prefecture . 'にある' : '') . '「' . $shop->name . '」のバイク在庫情報。' . ($stockCount > 0 ? "現在{$stockCount}台販売中。" : ''),
+        'description' => $description ?: (($shop->prefecture ? $shop->prefecture . 'にある' : '') . '「' . $shop->name . '」のバイク在庫情報。' . ($stockCount > 0 ? "現在{$stockCount}台販売中。" : '')),
         'address' => [
             '@type' => 'PostalAddress',
             'addressRegion' => $shop->prefecture ?? '',

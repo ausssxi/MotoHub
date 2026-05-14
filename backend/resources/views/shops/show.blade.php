@@ -1,14 +1,15 @@
 <x-layout>
     <x-slot:title>{{ $shop->name }}の在庫・取扱車両一覧{{ $pagination['total'] > 0 ? '【' . $pagination['total'] . '台】' : '' }}｜中古バイク検索 - MotoHub</x-slot:title>
 
-    <x-slot:metaDescription>{{ $shop->name }}（{{ $shop->prefecture }}{{ $shop->city }}）の中古バイク在庫を一括検索。{{ $pagination['total'] > 0 ? '取扱車両' . $pagination['total'] . '台の価格・年式・走行距離を比較できます。' : '' }}営業時間・アクセス・地図情報も掲載。</x-slot:metaDescription>
+    <x-slot:metaDescription>{{ $description }}</x-slot:metaDescription>
 
-    @if($pagination['total'] === 0)
+    @if(!$shop->latitude || !$shop->longitude)
+        {{-- 位置情報がない＝品質不十分なショップはnoindex --}}
         <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
     @endif
 
     <x-slot:styles>
-        <x-jsonld.local-business :shop="$shop" :stockCount="$pagination['total'] ?? 0" />
+        <x-jsonld.local-business :shop="$shop" :stockCount="$pagination['total'] ?? 0" :description="$description" />
         <x-jsonld.breadcrumb-shop :shop="$shop" />
         {{-- CSSの非同期読み込み（レンダリングブロック完全解除） --}}
         <link rel="preload" href="{{ asset('css/bike-search.css') }}?v={{ filemtime(public_path('css/bike-search.css')) }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -56,6 +57,7 @@
                             <span class="inline-block bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-1 rounded-full border border-blue-100">
                                 {{ $shop->prefecture }}
                             </span>
+                            <p class="text-sm text-gray-500 mt-3">{{ $description }}</p>
                         </div>
 
                         <div class="space-y-4 text-sm">

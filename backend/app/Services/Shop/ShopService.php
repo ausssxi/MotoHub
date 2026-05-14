@@ -75,8 +75,19 @@ final class ShopService
 
         $shopExpensesStats = $this->getShopExpensesStats($shop);
 
+        // 店舗説明文（meta description / JSON-LD / ページ表示で共用）
+        $description = $shop->name . 'は' . $shop->prefecture . 'にあるバイクショップです。';
+        if ($shop->chain) {
+            $description .= $shop->chain->name . 'は全国に展開する大手バイク販売チェーンで、新車・中古車の販売、買取、車検、整備に対応しています。';
+        }
+        if ($shop->business_hours && $shop->business_hours !== '-') {
+            $description .= '営業時間は' . $shop->business_hours . '。';
+        }
+        $description .= 'お気軽にお問い合わせください。';
+
         return [
             'shop' => $shop,
+            'description' => $description,
             'items' => ListingResource::collection($paginated->getCollection())->resolve(),
             'pagination' => $pagination,
             'manufacturers' => $manufacturers,
