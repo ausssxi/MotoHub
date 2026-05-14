@@ -113,6 +113,24 @@ final class BikeParking extends Model
         return $query->where('prefecture', $prefecture);
     }
 
+    /**
+     * タイトル用のクリーンな駐車場名を返す
+     * 元データの内部コード・記号を除去
+     */
+    public function getCleanNameAttribute(): string
+    {
+        $name = $this->name;
+        // [英数字] 形式の内部コード除去（例: [176b2]）
+        $name = preg_replace('/\[[a-zA-Z0-9]+\]/', '', $name);
+        // 【数字】 形式の内部コード除去（例: 【1246】）
+        $name = preg_replace('/【[0-9]+】/', '', $name);
+        // ☆ を除去
+        $name = str_replace('☆', '', $name);
+        // 連続スペースを1つに
+        $name = preg_replace('/\s+/', ' ', trim($name));
+        return $name;
+    }
+
     public function getParkingTypeLabel(): string
     {
         return match ($this->parking_type) {
