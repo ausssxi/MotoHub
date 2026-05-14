@@ -119,46 +119,82 @@
                         </div>
                         @endif
 
-                        {{-- ストリートビュー（IntersectionObserverで遅延読み込み） --}}
+                        {{-- 地図 / ストリートビュー（タブ切り替え、Maps JavaScript API 共用） --}}
                         @if($shop->latitude && $shop->longitude && config('services.google_maps.api_key'))
-                        <div class="mt-6 pt-6 border-t border-gray-100" id="street-view-section">
-                            <h3 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
-                                <i data-lucide="camera" class="w-4 h-4 text-green-600"></i> ストリートビュー
-                            </h3>
-                            <div id="street-view" class="w-full rounded-xl bg-gray-100" style="height:400px"></div>
+                        <div class="mt-6 pt-6 border-t border-gray-100" id="map-section" x-data="{ tab: 'map' }">
+                            <div class="flex items-center gap-1 mb-3">
+                                <button @click="tab = 'map'" :class="tab === 'map' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition" id="map-tab-btn">
+                                    <i data-lucide="map" class="w-3.5 h-3.5"></i> 地図
+                                </button>
+                                <button @click="tab = 'sv'" :class="tab === 'sv' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition" id="sv-tab-btn">
+                                    <i data-lucide="camera" class="w-3.5 h-3.5"></i> ストリートビュー
+                                </button>
+                            </div>
+                            <div x-show="tab === 'map'" id="map-container" class="w-full rounded-xl bg-gray-100" style="height:300px"></div>
+                            <div x-show="tab === 'sv'" x-cloak id="street-view" class="w-full rounded-xl bg-gray-100" style="height:300px"></div>
                         </div>
                         <script>
                         (function() {
-                            var loaded = false;
-                            var observer = new IntersectionObserver(function(entries) {
-                                if (entries[0].isIntersecting && !loaded) {
-                                    loaded = true;
-                                    observer.disconnect();
-                                    var s = document.createElement('script');
-                                    s.src = 'https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.api_key') }}&callback=_initShopSV';
-                                    s.async = true;
-                                    s.defer = true;
-                                    document.head.appendChild(s);
-                                }
-                            }, {rootMargin: '200px'});
-                            observer.observe(document.getElementById('street-view-section'));
+                            var apiLoaded = false, mapInit = false, svInit = false;
+                            var pos = {lat: {{ $shop->latitude }}, lng: {{ $shop->longitude }}};
 
-                            window._initShopSV = function() {
+                            function loadApi(callback) {
+                                if (apiLoaded) { callback(); return; }
+                                apiLoaded = true;
+                                window._onMapsReady = callback;
+                                var s = document.createElement('script');
+                                s.src = 'https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.api_key') }}&callback=_onMapsReady';
+                                s.async = true;
+                                s.defer = true;
+                                document.head.appendChild(s);
+                            }
+
+                            function initMap() {
+                                if (mapInit) return;
+                                mapInit = true;
+                                var map = new google.maps.Map(document.getElementById('map-container'), {
+                                    center: pos, zoom: 15, mapTypeControl: false, streetViewControl: false
+                                });
+                                new google.maps.Marker({ position: pos, map: map });
+                            }
+
+                            function initSV() {
+                                if (svInit) return;
+                                svInit = true;
                                 var el = document.getElementById('street-view');
                                 var sv = new google.maps.StreetViewService();
-                                var pos = {lat: {{ $shop->latitude }}, lng: {{ $shop->longitude }}};
                                 sv.getPanorama({location: pos, radius: 200}, function(data, status) {
                                     if (status === 'OK') {
                                         new google.maps.StreetViewPanorama(el, {
-                                            position: data.location.latLng,
-                                            pov: {heading: 0, pitch: 0},
-                                            zoom: 1
+                                            position: data.location.latLng, pov: {heading: 0, pitch: 0}, zoom: 1
                                         });
                                     } else {
-                                        document.getElementById('street-view-section').style.display = 'none';
+                                        el.innerHTML = '<div class="flex items-center justify-center h-full text-sm text-gray-400 font-bold">この地点のストリートビューはありません</div>';
                                     }
                                 });
-                            };
+                            }
+
+                            // 地図タブ: IntersectionObserverで遅延ロード
+                            var observed = false;
+                            var observer = new IntersectionObserver(function(entries) {
+                                if (entries[0].isIntersecting && !observed) {
+                                    observed = true;
+                                    observer.disconnect();
+                                    loadApi(initMap);
+                                }
+                            }, {rootMargin: '200px'});
+                            observer.observe(document.getElementById('map-section'));
+
+                            // SVタブ: クリック時に初期化
+                            document.getElementById('sv-tab-btn').addEventListener('click', function() {
+                                loadApi(initSV);
+                            });
+                            // 地図タブに戻った時のリサイズ対応
+                            document.getElementById('map-tab-btn').addEventListener('click', function() {
+                                if (mapInit && window.google) {
+                                    setTimeout(function() { google.maps.event.trigger(document.getElementById('map-container'), 'resize'); }, 100);
+                                }
+                            });
                         })();
                         </script>
                         @endif
@@ -301,18 +337,17 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                         @forelse ($items as $listing)
-                            {{-- ★修正: 長い直書きコードを削除し、共通コンポーネントを呼び出す形にリファクタリング --}}
-                            {{-- これにより、カードのデザイン変更が1箇所で済み、最初の4枚高速読み込みも自動適用されます --}}
                             @include('bikes.partials.bike_card', ['listing' => $listing, 'isFirstView' => $loop->index < 4])
                         @empty
-                            <div class="col-span-full py-16 text-center bg-white rounded-2xl border border-dashed border-gray-200">
-                                <p class="text-gray-400 font-bold text-sm">現在、在庫はありません。</p>
+                            <div class="col-span-full py-6 sm:py-10 text-center bg-white rounded-2xl border border-dashed border-gray-200">
+                                <i data-lucide="bike" class="w-8 h-8 text-gray-300 mx-auto mb-2"></i>
+                                <p class="text-gray-400 font-bold text-sm">現在、在庫はありません</p>
                                 @if(!empty($chainInfo))
-                                <div class="mt-6 mx-auto max-w-md bg-blue-50 border border-blue-100 rounded-xl p-4">
+                                <div class="mt-4 mx-auto max-w-sm bg-blue-50 border border-blue-200 rounded-xl p-4">
                                     <p class="text-sm font-bold text-blue-900">{{ $chainInfo['name'] }}の在庫は一括管理されています</p>
                                     <p class="text-xs text-blue-600 mt-1">現在 {{ number_format($chainInfo['stock']) }}台 の在庫があります</p>
-                                    <a href="{{ route('shops.show', $chainInfo['main_shop_id']) }}" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg mt-3 transition-colors">
-                                        <i data-lucide="bike" class="w-3 h-3"></i>
+                                    <a href="{{ route('shops.show', $chainInfo['main_shop_id']) }}" class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold w-full py-3 rounded-lg mt-3 transition-colors">
+                                        <i data-lucide="bike" class="w-4 h-4"></i>
                                         在庫を見る
                                     </a>
                                 </div>
@@ -339,16 +374,25 @@
                         </div>
                     </div>
                     @endif
-                    {{-- ★追加: SEO強化用の内部リンク（エリア検索への強力な導線） --}}
+
+                    {{-- 在庫0台時は近くのショップ・駐車場を右カラム内に表示して空白を埋める --}}
+                    @if($pagination['total'] === 0)
+                    <div class="mt-6 space-y-6">
+                        <x-nearby-shops :nearbyShops="$nearbyShops" :latitude="$shop->latitude" :longitude="$shop->longitude" />
+                        <x-nearby-parkings :nearbyParkings="$nearbyParkings" :latitude="$shop->latitude" :longitude="$shop->longitude" />
+                    </div>
+                    @endif
+
+                    {{-- エリア検索への導線 --}}
                     @if(!empty($shop->prefecture))
-                    <div class="mt-16 bg-blue-50/50 rounded-3xl p-8 border border-blue-100 text-center shadow-sm">
-                        <h3 class="text-base sm:text-lg font-black text-blue-900 mb-3 flex items-center justify-center gap-2">
+                    <div class="mt-8 sm:mt-16 bg-blue-50/50 rounded-3xl p-5 sm:p-8 border border-blue-100 text-center shadow-sm">
+                        <h3 class="text-base sm:text-lg font-black text-blue-900 mb-2 sm:mb-3 flex items-center justify-center gap-2">
                             <i data-lucide="map-pin" class="w-5 h-5 text-blue-600"></i> {{ $shop->prefecture }}のバイクをもっと探す
                         </h3>
-                        <p class="text-xs text-gray-600 font-bold mb-6">
+                        <p class="text-xs text-gray-600 font-bold mb-4 sm:mb-6">
                             「{{ $shop->name }}」がある{{ $shop->prefecture }}内の他店舗の在庫も、一括で比較・検索できます！
                         </p>
-                        <a href="{{ route('bikes.search', ['prefecture' => $shop->prefecture]) }}" 
+                        <a href="{{ route('bikes.search', ['prefecture' => $shop->prefecture]) }}"
                            class="inline-flex items-center justify-center gap-2 bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white font-black py-3.5 px-8 rounded-xl transition-all shadow-sm group w-full sm:w-auto">
                             {{ $shop->prefecture }}の中古・新車一覧を見る
                             <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
@@ -365,7 +409,7 @@
                     class="bg-indigo-600 text-white font-bold text-sm px-6 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors">
                     行ったことある！
                 </button>
-                <p class="text-xs text-gray-400 mt-2" id="visited-count">
+                <p class="text-xs text-gray-400 mt-2" id="visited-count" @if(empty($shop->visited_count)) style="display:none" @endif>
                     {{ $shop->visited_count ?? 0 }}人が訪問済み
                 </p>
             </div>
@@ -385,15 +429,19 @@
                     btn.disabled = true;
                     btn.classList.replace('bg-indigo-600', 'bg-gray-400');
                     btn.classList.remove('hover:bg-indigo-700');
-                    document.getElementById('visited-count').textContent = data.count + '人が訪問済み';
+                    var vc = document.getElementById('visited-count');
+                    vc.textContent = data.count + '人が訪問済み';
+                    vc.style.display = '';
                 });
             }
             </script>
 
-            {{-- 近くの駐車場・ショップ・回遊リンク --}}
-            <div class="mt-12 space-y-6">
+            {{-- 近くの駐車場・ショップ・回遊リンク（在庫0台時は右カラム内に表示済みなのでスキップ） --}}
+            <div class="mt-8 sm:mt-12 space-y-6">
+                @if($pagination['total'] > 0)
                 <x-nearby-parkings :nearbyParkings="$nearbyParkings" :latitude="$shop->latitude" :longitude="$shop->longitude" />
                 <x-nearby-shops :nearbyShops="$nearbyShops" :latitude="$shop->latitude" :longitude="$shop->longitude" />
+                @endif
                 <x-cross-links :crossLinks="$crossLinks" />
             </div>
         </div>
