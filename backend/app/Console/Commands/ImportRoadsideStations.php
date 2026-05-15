@@ -6,19 +6,24 @@ namespace App\Console\Commands;
 
 use App\Models\RoadsideStation;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Http;
 
 final class ImportRoadsideStations extends Command
 {
     protected $signature = 'roadside-stations:import
+                            {--source=api : データソース (api|csv)}
                             {--file= : CSVファイルのパス (デフォルト: storage/app/roadside_stations.csv)}
                             {--pref= : 都道府県コード (01-47) で絞り込み}';
 
-    protected $description = 'LinkData.orgのCSVファイルから道の駅データを一括インポート';
+    protected $description = '道の駅データをインポート（API個別取得 or CSV一括読み込み）';
 
-    /**
-     * CSVヘッダー名 → 内部キーのマッピング
-     * プレフィックス付き・なし両方に対応
-     */
+    private const API_BASE = 'https://it-social.net/roadside_station/json/';
+    private const SLEEP_SEC = 3;
+    private const RETRY_WAIT_SEC = 30;
+    private const MAX_RETRIES = 3;
+    private const CONSECUTIVE_404_LIMIT = 10;
+
+    // ── CSV用ヘッダーマッピング ──────────────────────────
     private const HEADER_MAP = [
         'iclt:ID'              => 'id',
         'ID'                   => 'id',
@@ -77,6 +82,190 @@ final class ImportRoadsideStations extends Command
     ];
 
     public function handle(): int
+    {
+        return match ($this->option('source')) {
+            'csv'   => $this->handleCsv(),
+            'api'   => $this->handleApi(),
+            default => $this->handleApi(),
+        };
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  API モード
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    private function handleApi(): int
+    {
+        $prefFilter = $this->option('pref')
+            ? str_pad($this->option('pref'), 2, '0', STR_PAD_LEFT)
+            : null;
+
+        $prefStart = $prefFilter ? (int) $prefFilter : 1;
+        $prefEnd = $prefFilter ? (int) $prefFilter : 47;
+
+        $upserted = 0;
+        $skipped = 0;
+
+        for ($pref = $prefStart; $pref <= $prefEnd; $pref++) {
+            $prefCode = str_pad((string) $pref, 2, '0', STR_PAD_LEFT);
+            $this->info("── 都道府県: {$prefCode} ──");
+
+            $consecutive404 = 0;
+
+            for ($seq = 1; $seq <= 999; $seq++) {
+                $code = $prefCode . str_pad((string) $seq, 3, '0', STR_PAD_LEFT);
+
+                $data = $this->fetchStation($code);
+
+                if ($data === null) {
+                    $consecutive404++;
+                    if ($consecutive404 >= self::CONSECUTIVE_404_LIMIT) {
+                        $this->line("  {$code}: {$consecutive404}件連続404 → 次の都道府県へ");
+                        break;
+                    }
+                    continue;
+                }
+
+                $consecutive404 = 0;
+
+                $status = (string) ($data['状態'] ?? '');
+                $name = (string) ($data['名称'] ?? '');
+
+                if ($status !== '' && $status !== '営業中') {
+                    $this->line("  {$code}: {$name}（{$status}）→ スキップ");
+                    $skipped++;
+                    continue;
+                }
+
+                $this->upsertFromJson($code, $data);
+                $upserted++;
+                $this->line("  {$code}: {$name} ✓");
+
+                if ($upserted % 100 === 0) {
+                    $this->info("  ... {$upserted}件処理済み");
+                }
+            }
+        }
+
+        $this->newLine();
+        $this->info("完了: {$upserted}件 登録/更新, {$skipped}件 スキップ");
+        $this->info("DB総数: " . RoadsideStation::count() . '件');
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * 1件のJSONを取得。404ならnull、HTMLレスポンスなら30秒待ちリトライ。
+     */
+    private function fetchStation(string $code): ?array
+    {
+        $url = self::API_BASE . $code . '.json';
+
+        for ($attempt = 1; $attempt <= self::MAX_RETRIES; $attempt++) {
+            sleep(self::SLEEP_SEC);
+
+            try {
+                $response = Http::timeout(15)->get($url);
+            } catch (\Throwable $e) {
+                $this->warn("  {$code}: 接続エラー ({$e->getMessage()}) → リトライ {$attempt}/" . self::MAX_RETRIES);
+                sleep(self::RETRY_WAIT_SEC);
+                continue;
+            }
+
+            if ($response->status() === 404) {
+                return null;
+            }
+
+            $body = $response->body();
+
+            // HTMLレスポンス検知 → レート制限の可能性
+            if (str_starts_with(ltrim($body), '<!DOCTYPE') || str_starts_with(ltrim($body), '<html')) {
+                $this->warn("  {$code}: HTMLレスポンス検知 → {$attempt}/" . self::MAX_RETRIES . " 30秒待機...");
+                sleep(self::RETRY_WAIT_SEC);
+                continue;
+            }
+
+            $json = $this->fixJson($body);
+            $data = json_decode($json, true);
+
+            if (! is_array($data)) {
+                $this->warn("  {$code}: JSONパースエラー → スキップ");
+
+                return null;
+            }
+
+            return $data;
+        }
+
+        $this->error("  {$code}: リトライ上限 → スキップ");
+
+        return null;
+    }
+
+    /**
+     * 壊れたJSONを修復: BOM除去、空値→0、カンマ補完
+     */
+    private function fixJson(string $raw): string
+    {
+        // BOM除去
+        $json = ltrim($raw, "\xEF\xBB\xBF");
+
+        // 空値 → 0  (例: "就労体験型受入道の駅": )
+        $json = preg_replace('/:\s*\n/', ": 0\n", $json);
+        $json = preg_replace('/:\s*$/', ': 0', $json);
+
+        // 行末カンマ補完: 値の後に改行→次行が "キー": の場合にカンマ追加
+        $json = preg_replace('/([0-9"\]}])\s*\n(\s*")/', "$1,\n$2", $json);
+
+        return $json;
+    }
+
+    private function upsertFromJson(string $code, array $data): void
+    {
+        $str = fn (string $key): string => trim((string) ($data[$key] ?? ''));
+        $flag = fn (string $key): bool => ((int) ($data[$key] ?? 0)) === 1;
+
+        // APIは経度・緯度ラベルが逆（経度=lat値, 緯度=lng値）
+        $lat = (float) ($data['経度'] ?? 0);
+        $lng = (float) ($data['緯度'] ?? 0);
+
+        $website = $str('Webサイト1') ?: $str('Webサイト2') ?: $str('Webサイト3') ?: $str('Webサイト4');
+
+        RoadsideStation::updateOrCreate(
+            ['station_code' => $code],
+            [
+                'name'            => $str('名称'),
+                'nickname'        => $str('通称') ?: null,
+                'address'         => $str('住所') ?: null,
+                'latitude'        => $lat,
+                'longitude'       => $lng,
+                'prefecture'      => $str('都道府県') ?: null,
+                'city'            => $str('市区町村') ?: null,
+                'route'           => $str('登録路線') ?: null,
+                'image_url'       => $str('画像') ?: null,
+                'summary'         => $str('概要') ?: null,
+                'website_url'     => $website ?: null,
+                'wikipedia_url'   => $str('Wikipedia') ?: null,
+                'has_atm'         => $flag('ATM'),
+                'has_restaurant'  => $flag('レストラン') || $flag('軽食喫茶'),
+                'has_onsen'       => $flag('温泉施設'),
+                'has_ev_charging' => $flag('EV充電施設'),
+                'has_wifi'        => $flag('無線LAN'),
+                'has_shower'      => $flag('シャワー'),
+                'has_camp'        => $flag('キャンプ場等'),
+                'has_gas_station' => $flag('ガソリンスタンド'),
+                'has_observatory' => $flag('展望台'),
+                'has_shop'        => $flag('ショップ'),
+                'designated_year' => ($y = (int) ($data['指定年'] ?? 0)) > 0 ? $y : null,
+            ]
+        );
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  CSV モード
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    private function handleCsv(): int
     {
         $file = $this->option('file')
             ?? storage_path('app/roadside_stations.csv');
@@ -140,25 +329,22 @@ final class ImportRoadsideStations extends Command
             $status = isset($colMap['status']) ? trim($row[$colMap['status']] ?? '') : '';
             $name = trim($row[$colMap['name']] ?? '');
 
-            // station_code がない行はスキップ
             if ($code === '' || ! preg_match('/^\d{5}$/', $code)) {
                 $skipped++;
                 continue;
             }
 
-            // 都道府県フィルタ
             if ($prefFilter && ! str_starts_with($code, $prefFilter)) {
                 continue;
             }
 
-            // 営業中以外はスキップ
             if ($status !== '' && $status !== '営業中') {
                 $this->line("  {$code}: {$name}（{$status}）→ スキップ");
                 $skipped++;
                 continue;
             }
 
-            $this->upsertFromRow($code, $row, $colMap);
+            $this->upsertFromCsvRow($code, $row, $colMap);
             $upserted++;
 
             if ($upserted % 100 === 0) {
@@ -175,9 +361,6 @@ final class ImportRoadsideStations extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * CSVヘッダーから内部キー → カラムインデックスのマップを構築
-     */
     private function buildColumnMap(array $headers): array
     {
         $map = [];
@@ -191,10 +374,7 @@ final class ImportRoadsideStations extends Command
         return $map;
     }
 
-    /**
-     * 施設フラグ変換: 「ある」or「1」→ true, それ以外 → false
-     */
-    private function hasFlag(array $row, array $colMap, string $key): bool
+    private function csvFlag(array $row, array $colMap, string $key): bool
     {
         if (! isset($colMap[$key])) {
             return false;
@@ -205,7 +385,7 @@ final class ImportRoadsideStations extends Command
         return $val === 'ある' || $val === '1';
     }
 
-    private function col(array $row, array $colMap, string $key): string
+    private function csvCol(array $row, array $colMap, string $key): string
     {
         if (! isset($colMap[$key])) {
             return '';
@@ -214,34 +394,34 @@ final class ImportRoadsideStations extends Command
         return trim($row[$colMap[$key]] ?? '');
     }
 
-    private function upsertFromRow(string $code, array $row, array $colMap): void
+    private function upsertFromCsvRow(string $code, array $row, array $colMap): void
     {
         RoadsideStation::updateOrCreate(
             ['station_code' => $code],
             [
-                'name'            => $this->col($row, $colMap, 'name'),
-                'nickname'        => $this->col($row, $colMap, 'nickname') ?: null,
-                'address'         => $this->col($row, $colMap, 'address') ?: null,
-                'latitude'        => (float) ($this->col($row, $colMap, 'lat') ?: 0),
-                'longitude'       => (float) ($this->col($row, $colMap, 'lng') ?: 0),
-                'prefecture'      => $this->col($row, $colMap, 'prefecture') ?: null,
-                'city'            => $this->col($row, $colMap, 'city') ?: null,
-                'route'           => $this->col($row, $colMap, 'route') ?: null,
-                'image_url'       => $this->col($row, $colMap, 'image') ?: null,
-                'summary'         => $this->col($row, $colMap, 'summary') ?: null,
-                'website_url'     => $this->col($row, $colMap, 'website') ?: null,
-                'wikipedia_url'   => $this->col($row, $colMap, 'wikipedia') ?: null,
-                'has_atm'         => $this->hasFlag($row, $colMap, 'atm'),
-                'has_restaurant'  => $this->hasFlag($row, $colMap, 'restaurant') || $this->hasFlag($row, $colMap, 'cafe'),
-                'has_onsen'       => $this->hasFlag($row, $colMap, 'onsen'),
-                'has_ev_charging' => $this->hasFlag($row, $colMap, 'ev_charging'),
-                'has_wifi'        => $this->hasFlag($row, $colMap, 'wifi'),
-                'has_shower'      => $this->hasFlag($row, $colMap, 'shower'),
-                'has_camp'        => $this->hasFlag($row, $colMap, 'camp'),
-                'has_gas_station' => $this->hasFlag($row, $colMap, 'gas_station'),
-                'has_observatory' => $this->hasFlag($row, $colMap, 'observatory'),
-                'has_shop'        => $this->hasFlag($row, $colMap, 'shop'),
-                'designated_year' => ($y = $this->col($row, $colMap, 'designated_year')) !== '' ? (int) $y : null,
+                'name'            => $this->csvCol($row, $colMap, 'name'),
+                'nickname'        => $this->csvCol($row, $colMap, 'nickname') ?: null,
+                'address'         => $this->csvCol($row, $colMap, 'address') ?: null,
+                'latitude'        => (float) ($this->csvCol($row, $colMap, 'lat') ?: 0),
+                'longitude'       => (float) ($this->csvCol($row, $colMap, 'lng') ?: 0),
+                'prefecture'      => $this->csvCol($row, $colMap, 'prefecture') ?: null,
+                'city'            => $this->csvCol($row, $colMap, 'city') ?: null,
+                'route'           => $this->csvCol($row, $colMap, 'route') ?: null,
+                'image_url'       => $this->csvCol($row, $colMap, 'image') ?: null,
+                'summary'         => $this->csvCol($row, $colMap, 'summary') ?: null,
+                'website_url'     => $this->csvCol($row, $colMap, 'website') ?: null,
+                'wikipedia_url'   => $this->csvCol($row, $colMap, 'wikipedia') ?: null,
+                'has_atm'         => $this->csvFlag($row, $colMap, 'atm'),
+                'has_restaurant'  => $this->csvFlag($row, $colMap, 'restaurant') || $this->csvFlag($row, $colMap, 'cafe'),
+                'has_onsen'       => $this->csvFlag($row, $colMap, 'onsen'),
+                'has_ev_charging' => $this->csvFlag($row, $colMap, 'ev_charging'),
+                'has_wifi'        => $this->csvFlag($row, $colMap, 'wifi'),
+                'has_shower'      => $this->csvFlag($row, $colMap, 'shower'),
+                'has_camp'        => $this->csvFlag($row, $colMap, 'camp'),
+                'has_gas_station' => $this->csvFlag($row, $colMap, 'gas_station'),
+                'has_observatory' => $this->csvFlag($row, $colMap, 'observatory'),
+                'has_shop'        => $this->csvFlag($row, $colMap, 'shop'),
+                'designated_year' => ($y = $this->csvCol($row, $colMap, 'designated_year')) !== '' ? (int) $y : null,
             ]
         );
     }
