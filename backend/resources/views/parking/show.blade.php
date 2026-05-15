@@ -536,6 +536,25 @@
             </script>
             @endif
 
+            {{-- ===== 最寄り駅の駐車場ページへの内部リンク ===== --}}
+            @if($parking->station)
+            <a href="{{ route('parking.station.show', $parking->station->slug) }}"
+               class="block bg-gradient-to-r from-blue-50 to-indigo-50 rounded-3xl border border-blue-100 p-5 mb-6 hover:shadow-md hover:border-blue-200 transition-all group">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="bg-blue-100 rounded-xl p-2.5 shrink-0 group-hover:bg-blue-200 transition-colors">
+                            <i data-lucide="train-front" class="w-5 h-5 text-blue-600"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-sm font-black text-gray-900 truncate">{{ $parking->station->name }}駅周辺のバイク駐車場をもっと見る</p>
+                            <p class="text-xs text-gray-500 mt-0.5">{{ $parking->station->name }}駅の駐車場一覧・料金比較</p>
+                        </div>
+                    </div>
+                    <i data-lucide="chevron-right" class="w-5 h-5 text-blue-400 shrink-0 group-hover:translate-x-0.5 transition-transform"></i>
+                </div>
+            </a>
+            @endif
+
             {{-- ===== 9. 料金比較テーブル ===== --}}
             @if(!empty($priceComparison))
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
