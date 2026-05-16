@@ -8,6 +8,7 @@ use App\Models\BikeModel;
 use App\Models\BikeParking;
 use App\Models\BikeParkingImage;
 use App\Models\Listing;
+use App\Models\TouringSpot;
 use App\Models\User;
 use App\Repositories\Parking\BikeParkingRepository;
 use App\Repositories\Parking\ParkingReviewRepository;
@@ -87,6 +88,15 @@ final class ParkingService
         // 駅情報をロード
         $parking->load('station');
 
+        // 周辺ツーリングスポット（同一都道府県から最大5件）
+        $touringSpots = collect();
+        if ($parking->prefecture) {
+            $touringSpots = TouringSpot::where('prefecture', $parking->prefecture)
+                ->orderBy('name')
+                ->limit(5)
+                ->get(['name', 'slug', 'prefecture']);
+        }
+
         return [
             'parking' => $parking,
             'reviews' => $reviews,
@@ -97,6 +107,7 @@ final class ParkingService
             'displacementLimit' => $displacementLimit,
             'bikeCompatibility' => $bikeCompatibility,
             'priceComparison' => $priceComparison,
+            'touringSpots' => $touringSpots,
         ];
     }
 

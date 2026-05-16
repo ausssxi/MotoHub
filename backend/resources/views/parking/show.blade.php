@@ -1016,36 +1016,23 @@
                 <x-nearby-shops :nearbyShops="$nearbyShops" :latitude="$parking->latitude" :longitude="$parking->longitude" />
 
                 {{-- ===== 10. 周辺ツーリングスポット ===== --}}
-                @if($parking->prefecture)
+                @if($touringSpots->isNotEmpty())
                 @php
-                    $touringSpots = [
-                        '北海道' => ['美瑛のパッチワークの路', '宗谷岬', 'ニセコパノラマライン'],
-                        '東京都' => ['奥多摩周遊道路', 'お台場海浜公園', '秋川渓谷'],
-                        '神奈川県' => ['箱根ターンパイク', 'ヤビツ峠', '湘南海岸'],
-                        '千葉県' => ['房総フラワーライン', '鹿野山', '九十九里浜'],
-                        '埼玉県' => ['秩父ミューズパーク', '定峰峠', '名栗湖'],
-                        '大阪府' => ['阪奈道路', '箕面の滝', '泉北ニュータウン周遊'],
-                        '京都府' => ['嵐山', '周山街道', '天橋立'],
-                        '愛知県' => ['茶臼山高原道路', '渥美半島', '三ヶ根山スカイライン'],
-                        '静岡県' => ['伊豆スカイライン', '西伊豆スカイライン', '日本平'],
-                        '福岡県' => ['志賀島', '糸島半島', '耳納連山'],
-                    ];
-                    $spots = $touringSpots[$parking->prefecture] ?? null;
+                    $prefSlug = \App\Models\TouringSpot::slugFromPrefectureName($parking->prefecture);
                 @endphp
-                @if($spots)
                 <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
                     <h2 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
                         <i data-lucide="mountain" class="w-4 h-4 text-emerald-500"></i> {{ $parking->prefecture }}のおすすめツーリングスポット
                     </h2>
                     <div class="flex flex-wrap gap-2">
-                        @foreach($spots as $spot)
-                        <span class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-lg">
-                            <i data-lucide="map-pin" class="w-3 h-3"></i> {{ $spot }}
-                        </span>
+                        @foreach($touringSpots as $spot)
+                        <a href="{{ url('/touring/' . $prefSlug . '/' . $spot->slug) }}"
+                           class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition">
+                            <i data-lucide="map-pin" class="w-3 h-3"></i> {{ $spot->name }}
+                        </a>
                         @endforeach
                     </div>
                 </div>
-                @endif
                 @endif
 
                 {{-- 都道府県エリアリンク --}}
