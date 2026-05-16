@@ -423,6 +423,22 @@
         <div class="max-w-7xl mx-auto px-4">
 
             {{-- 🔍探す: タイプから探す --}}
+            @php
+                // category_id → カテゴリLPスラッグのマッピング
+                $categoryTypeSlugMap = [
+                    1 => 'mini',
+                    2 => 'scooter',
+                    3 => 'scooter',
+                    4 => 'naked',
+                    6 => 'tourer',
+                    8 => 'sport',
+                    10 => 'american',
+                    11 => 'offroad',
+                    14 => 'adventure',
+                    20 => 'street-fighter',
+                    21 => 'classic',
+                ];
+            @endphp
             <section class="mb-20">
                 <div class="flex items-end justify-between mb-8 px-2">
                     <div>
@@ -436,7 +452,13 @@
                 <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
                     @foreach($categories as $category)
                         @if($category->display_icon_url)
-                        <a href="{{ route('bikes.search', ['category_id' => $category->id]) }}"
+                        @php
+                            $typeSlug = $categoryTypeSlugMap[$category->id] ?? null;
+                            $typeUrl = $typeSlug
+                                ? route('bikes.category_type', ['slug' => $typeSlug])
+                                : route('bikes.search', ['category_id' => $category->id]);
+                        @endphp
+                        <a href="{{ $typeUrl }}"
                            class="group bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col items-center text-center h-full">
 
                             <div class="w-16 h-12 sm:w-20 sm:h-14 mb-3 relative flex items-center justify-center">
@@ -462,13 +484,13 @@
                         <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
                             免許・排気量から探す
                         </h2>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Search by License</p>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Search by Displacement</p>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                     @foreach($licenses as $license)
-                        <a href="{{ route('bikes.search', ['min_displacement' => $license['min_cc'], 'max_displacement' => $license['max_cc']]) }}"
+                        <a href="{{ route('bikes.category_cc', ['slug' => $license['slug']]) }}"
                            class="group relative overflow-hidden rounded-2xl p-6 {{ $license['color'] }} transition-all duration-300 hover:shadow-lg border border-transparent hover:border-current flex flex-col items-center justify-center text-center h-32">
 
                             {{-- 背景の装飾アイコン --}}

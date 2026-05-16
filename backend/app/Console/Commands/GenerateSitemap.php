@@ -495,6 +495,31 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
+        // 3.4.1. カテゴリ別LP (排気量+タイプ 計16ページ)
+        // =========================================================
+        $this->info("カテゴリ別LPをメインサイトマップに追加中...");
+        $categoryLpFileName = 'sitemap-category-lp.xml';
+        $handle = $this->openSitemap($categoryLpFileName);
+        $sitemapFiles[] = $categoryLpFileName;
+        $categoryLpCount = 0;
+
+        // 排気量別 6ページ
+        foreach (['50', '125', '250', '400', '750', 'over750'] as $ccSlug) {
+            $this->writeUrl($handle, route('bikes.category_cc', $ccSlug), date('Y-m-d'), 'weekly', '0.7');
+            $categoryLpCount++;
+        }
+
+        // タイプ別 10ページ
+        foreach (['naked', 'scooter', 'american', 'sport', 'offroad', 'tourer', 'classic', 'adventure', 'street-fighter', 'mini'] as $typeSlug) {
+            $this->writeUrl($handle, route('bikes.category_type', $typeSlug), date('Y-m-d'), 'weekly', '0.7');
+            $categoryLpCount++;
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$categoryLpCount} URL (Category LP)");
+
+
+        // =========================================================
         // 3.5. 車種比較ページ (sitemap-compare.xml)
         // =========================================================
         $this->info("車種比較サイトマップを生成中...");

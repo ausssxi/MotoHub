@@ -15,23 +15,38 @@ return [
     'licenses' => [
         [
             'label' => '原付 (~50cc)',
-            'icon' => 'bike', // アイコン名(lucide)
-            'min_cc' => 0,
-            'max_cc' => 50,
+            'icon' => 'bike',
+            'slug' => '50',
             'color' => 'bg-teal-50 text-teal-600',
         ],
         [
-            'label' => '小型二輳 (~125cc)',
+            'label' => '小型二種 (~125cc)',
             'icon' => 'bike',
-            'min_cc' => 51,
-            'max_cc' => 125,
+            'slug' => '125',
             'color' => 'bg-pink-50 text-pink-600',
         ],
         [
-            'label' => '大型二輪 (401cc~)',
+            'label' => '軽二輪 (~250cc)',
             'icon' => 'bike',
-            'min_cc' => 401,
-            'max_cc' => 9999,
+            'slug' => '250',
+            'color' => 'bg-sky-50 text-sky-600',
+        ],
+        [
+            'label' => '中型 (~400cc)',
+            'icon' => 'bike',
+            'slug' => '400',
+            'color' => 'bg-amber-50 text-amber-600',
+        ],
+        [
+            'label' => 'ナナハン (~750cc)',
+            'icon' => 'bike',
+            'slug' => '750',
+            'color' => 'bg-orange-50 text-orange-600',
+        ],
+        [
+            'label' => '大型 (750cc超)',
+            'icon' => 'bike',
+            'slug' => 'over750',
             'color' => 'bg-purple-50 text-purple-600',
         ],
     ],

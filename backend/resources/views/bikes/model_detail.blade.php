@@ -1748,6 +1748,54 @@
                     </div>
                     @endif
 
+                    {{-- カテゴリLP導線 --}}
+                    @php
+                        $ccSlugMap = match(true) {
+                            ($model->displacement ?? 0) <= 50 => '50',
+                            ($model->displacement ?? 0) <= 125 => '125',
+                            ($model->displacement ?? 0) <= 250 => '250',
+                            ($model->displacement ?? 0) <= 400 => '400',
+                            ($model->displacement ?? 0) <= 750 => '750',
+                            default => 'over750',
+                        };
+                        $ccLabelMap = [
+                            '50' => '50cc以下', '125' => '51〜125cc', '250' => '126〜250cc',
+                            '400' => '251〜400cc', '750' => '401〜750cc', 'over750' => '751cc以上',
+                        ];
+                        $typeLpMap = [
+                            1 => ['slug' => 'mini', 'label' => 'ミニバイク'],
+                            2 => ['slug' => 'scooter', 'label' => 'スクーター'],
+                            3 => ['slug' => 'scooter', 'label' => 'スクーター'],
+                            4 => ['slug' => 'naked', 'label' => 'ネイキッド'],
+                            6 => ['slug' => 'tourer', 'label' => 'ツアラー'],
+                            8 => ['slug' => 'sport', 'label' => 'スポーツ/レプリカ'],
+                            10 => ['slug' => 'american', 'label' => 'アメリカン'],
+                            11 => ['slug' => 'offroad', 'label' => 'オフロード'],
+                            14 => ['slug' => 'adventure', 'label' => 'アドベンチャー'],
+                            20 => ['slug' => 'street-fighter', 'label' => 'ストリートファイター'],
+                            21 => ['slug' => 'classic', 'label' => 'クラシック'],
+                        ];
+                        $typeInfo = $typeLpMap[$model->category_id] ?? null;
+                    @endphp
+                    <div class="bg-white rounded-2xl shadow-sm p-5 border border-gray-100 flex flex-col sm:flex-row gap-3">
+                        @if($model->displacement)
+                        <a href="{{ route('bikes.category_cc', ['slug' => $ccSlugMap]) }}"
+                           class="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 border border-blue-100 hover:bg-blue-100 hover:border-blue-300 transition-colors group">
+                            <i data-lucide="gauge" class="w-5 h-5 text-blue-500"></i>
+                            <span class="text-sm font-bold text-gray-700 group-hover:text-blue-700">{{ $ccLabelMap[$ccSlugMap] }}クラスのバイク一覧を見る</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4 text-blue-400 ml-auto"></i>
+                        </a>
+                        @endif
+                        @if($typeInfo)
+                        <a href="{{ route('bikes.category_type', ['slug' => $typeInfo['slug']]) }}"
+                           class="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-50 border border-purple-100 hover:bg-purple-100 hover:border-purple-300 transition-colors group">
+                            <i data-lucide="layers" class="w-5 h-5 text-purple-500"></i>
+                            <span class="text-sm font-bold text-gray-700 group-hover:text-purple-700">{{ $typeInfo['label'] }}のバイク一覧を見る</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4 text-purple-400 ml-auto"></i>
+                        </a>
+                        @endif
+                    </div>
+
                     {{-- 閲覧履歴ウィジェット --}}
                     @include('bikes.partials.history_widget', ['widgetId' => 'model-history-widget'])
 

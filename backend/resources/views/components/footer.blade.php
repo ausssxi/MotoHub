@@ -15,6 +15,50 @@
                 </p>
             </div>
 
+            <!-- SEO内部リンク: 排気量から探す -->
+            <div class="mb-10 w-full max-w-4xl">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">排気量から探す</h3>
+                <div class="flex flex-wrap justify-center gap-2">
+                    @foreach([
+                        '50' => '50cc以下',
+                        '125' => '51〜125cc',
+                        '250' => '126〜250cc',
+                        '400' => '251〜400cc',
+                        '750' => '401〜750cc',
+                        'over750' => '751cc以上',
+                    ] as $slug => $label)
+                        <a href="{{ route('bikes.category_cc', ['slug' => $slug]) }}"
+                           class="px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors">
+                            {{ $label }}
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+
+            <!-- SEO内部リンク: タイプから探す -->
+            <div class="mb-10 w-full max-w-4xl">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">タイプから探す</h3>
+                <div class="flex flex-wrap justify-center gap-2">
+                    @foreach([
+                        'naked' => 'ネイキッド',
+                        'scooter' => 'スクーター',
+                        'american' => 'アメリカン',
+                        'sport' => 'スポーツ/レプリカ',
+                        'offroad' => 'オフロード',
+                        'tourer' => 'ツアラー',
+                        'classic' => 'クラシック',
+                        'adventure' => 'アドベンチャー',
+                        'street-fighter' => 'ストリートファイター',
+                        'mini' => 'ミニバイク',
+                    ] as $slug => $label)
+                        <a href="{{ route('bikes.category_type', ['slug' => $slug]) }}"
+                           class="px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors">
+                            {{ $label }}
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+
             <!-- SEO内部リンク: 人気の車種 -->
             @if(isset($footerPopularBikes) && $footerPopularBikes->isNotEmpty())
             <div class="mb-10 w-full max-w-4xl">
