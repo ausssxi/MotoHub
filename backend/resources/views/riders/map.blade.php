@@ -186,6 +186,12 @@
                     title="沿線スポットを表示" onclick="window.ridersRouteSearchPois()">
                 沿線スポット表示
             </button>
+            <a id="btn-ai-route" href="#" onclick="event.preventDefault();var c=window.ridersMap?window.ridersMap.getCenter():{lat:35.68,lng:139.77};location.href='/touring/planner?lat='+c.lat.toFixed(5)+'&lng='+c.lng.toFixed(5);"
+               class="bg-white px-3 py-2 rounded-lg shadow-md text-gray-600 hover:text-violet-600 transition-colors border border-gray-200 flex items-center gap-1.5 text-[11px] font-bold"
+               title="AIにツーリングルートを提案してもらう">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <span>AIルート提案</span>
+            </a>
             @auth
                 <button id="btn-blog-pin" class="bg-white px-3 py-2 rounded-lg shadow-md text-gray-600 hover:text-cyan-600 transition-colors border border-gray-200 flex items-center gap-1.5 text-[11px] font-bold"
                         title="地図上の場所を選んで記事を書く">

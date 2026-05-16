@@ -13,6 +13,65 @@ function touringPlanner() {
         googleMapsUrl: '',
         _map: null,
         _layerGroup: null,
+        _prefilledCoords: null,
+
+        init() {
+            var params = new URLSearchParams(window.location.search);
+            var lat = parseFloat(params.get('lat'));
+            var lng = parseFloat(params.get('lng'));
+            if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                this._prefilledCoords = { lat: lat, lng: lng };
+                this.reverseGeocode(lat, lng);
+            }
+        },
+
+        async reverseGeocode(lat, lng) {
+            try {
+                var url = 'https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=' + lat + '&lon=' + lng;
+                var res = await fetch(url);
+                if (!res.ok) return;
+                var data = await res.json();
+                var muniCode = data.results ? data.results.mupiCode || data.results.muniCode : null;
+                var lv01Nm = data.results ? data.results.lv01Nm : '';
+                if (muniCode) {
+                    var prefCode = muniCode.substring(0, 2);
+                    var name = await this.resolveMuniName(prefCode, muniCode);
+                    this.origin = name + (lv01Nm ? lv01Nm : '');
+                } else {
+                    this.origin = lat.toFixed(3) + ', ' + lng.toFixed(3);
+                }
+            } catch (e) {
+                this.origin = lat.toFixed(3) + ', ' + lng.toFixed(3);
+            }
+        },
+
+        async resolveMuniName(prefCode, muniCode) {
+            var PREF_NAMES = [
+                '', 'hokkaido', 'aomori', 'iwate', 'miyagi', 'akita', 'yamagata', 'fukushima',
+                'ibaraki', 'tochigi', 'gunma', 'saitama', 'chiba', 'tokyo', 'kanagawa',
+                'niigata', 'toyama', 'ishikawa', 'fukui', 'yamanashi', 'nagano', 'gifu',
+                'shizuoka', 'aichi', 'mie', 'shiga', 'kyoto', 'osaka', 'hyogo',
+                'nara', 'wakayama', 'tottori', 'shimane', 'okayama', 'hiroshima', 'yamaguchi',
+                'tokushima', 'kagawa', 'ehime', 'kochi', 'fukuoka', 'saga', 'nagasaki',
+                'kumamoto', 'oita', 'miyazaki', 'kagoshima', 'okinawa'
+            ];
+            var PREF_JP = [
+                '', '\u5317\u6d77\u9053', '\u9752\u68ee\u770c', '\u5ca9\u624b\u770c', '\u5bae\u57ce\u770c',
+                '\u79cb\u7530\u770c', '\u5c71\u5f62\u770c', '\u798f\u5cf6\u770c', '\u8328\u57ce\u770c',
+                '\u6803\u6728\u770c', '\u7fa4\u99ac\u770c', '\u57fc\u7389\u770c', '\u5343\u8449\u770c',
+                '\u6771\u4eac\u90fd', '\u795e\u5948\u5ddd\u770c', '\u65b0\u6f5f\u770c', '\u5bcc\u5c71\u770c',
+                '\u77f3\u5ddd\u770c', '\u798f\u4e95\u770c', '\u5c71\u68a8\u770c', '\u9577\u91ce\u770c',
+                '\u5c90\u961c\u770c', '\u9759\u5ca1\u770c', '\u611b\u77e5\u770c', '\u4e09\u91cd\u770c',
+                '\u6ecb\u8cc0\u770c', '\u4eac\u90fd\u5e9c', '\u5927\u962a\u5e9c', '\u5175\u5eab\u770c',
+                '\u5948\u826f\u770c', '\u548c\u6b4c\u5c71\u770c', '\u9ce5\u53d6\u770c', '\u5cf6\u6839\u770c',
+                '\u5ca1\u5c71\u770c', '\u5e83\u5cf6\u770c', '\u5c71\u53e3\u770c', '\u5fb3\u5cf6\u770c',
+                '\u9999\u5ddd\u770c', '\u611b\u5a9b\u770c', '\u9ad8\u77e5\u770c', '\u798f\u5ca1\u770c',
+                '\u4f50\u8cc0\u770c', '\u9577\u5d0e\u770c', '\u718a\u672c\u770c', '\u5927\u5206\u770c',
+                '\u5bae\u5d0e\u770c', '\u9e7f\u5150\u5cf6\u770c', '\u6c96\u7e04\u770c'
+            ];
+            var idx = parseInt(prefCode, 10);
+            return (PREF_JP[idx] || '') + ' ';
+        },
 
         async suggest() {
             const query = this.origin.trim();
@@ -23,8 +82,14 @@ function touringPlanner() {
             this.result = null;
 
             try {
-                // 1. 国土地理院APIで地名→座標変換
-                const coords = await this.geocode(query);
+                // URLパラメータからの座標がある場合はジオコーディングをスキップ
+                var coords = null;
+                if (this._prefilledCoords) {
+                    coords = this._prefilledCoords;
+                    this._prefilledCoords = null; // 2回目以降はテキストからジオコーディング
+                } else {
+                    coords = await this.geocode(query);
+                }
                 if (!coords) {
                     this.error = '「' + query + '」の場所が見つかりませんでした。別の地名で試してください。';
                     return;
