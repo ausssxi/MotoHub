@@ -77,8 +77,14 @@ function touringPlanner() {
             const results = await res.json();
             if (!results || results.length === 0) return null;
 
-            // 最初の結果を使用（国土地理院APIは [経度, 緯度] の順）
-            const coords = results[0].geometry.coordinates;
+            // クエリとタイトルの一致度でベスト結果を選択
+            // （APIは部分一致で無関係な結果が先頭に来ることがある）
+            const exact = results.find(r => r.properties?.title === query);
+            const partial = results.find(r => r.properties?.title?.includes(query));
+            const best = exact || partial || results[results.length - 1];
+
+            // 国土地理院APIは [経度, 緯度] の順
+            const coords = best.geometry.coordinates;
             return { lat: coords[1], lng: coords[0] };
         },
 
