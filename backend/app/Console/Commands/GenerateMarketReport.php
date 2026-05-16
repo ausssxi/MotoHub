@@ -106,24 +106,38 @@ final class GenerateMarketReport extends Command
 
     private function computePriceChange(Carbon $start, Carbon $end, Carbon $prevStart, Carbon $prevEnd, string $direction): array
     {
+        // 「その他」車種を除外するためjoin
+        $excludeOther = fn ($query) => $query
+            ->join('bike_models', 'bike_models.id', '=', 'listings.bike_model_id')
+            ->where('bike_models.name', 'NOT LIKE', '%その他%');
+
         // 当月の車種別平均価格（5台以上）
-        $currentPrices = Listing::where('is_sold_out', false)
-            ->where('total_price', '>', 0)
-            ->whereNotNull('bike_model_id')
-            ->where('created_at', '<=', $end)
-            ->select('bike_model_id', DB::raw('AVG(total_price) as avg_price'), DB::raw('COUNT(*) as cnt'))
-            ->groupBy('bike_model_id')
+        // 当月末時点の掲載中 = created_at <= 当月末 AND (is_sold_out = false OR updated_at > 当月末)
+        $currentPrices = Listing::where('listings.total_price', '>', 0)
+            ->whereNotNull('listings.bike_model_id')
+            ->where('listings.created_at', '<=', $end)
+            ->where(function ($q) use ($end) {
+                $q->where('listings.is_sold_out', false)
+                  ->orWhere('listings.updated_at', '>', $end);
+            })
+            ->tap($excludeOther)
+            ->select('listings.bike_model_id', DB::raw('AVG(listings.total_price) as avg_price'), DB::raw('COUNT(*) as cnt'))
+            ->groupBy('listings.bike_model_id')
             ->having('cnt', '>=', self::MIN_LISTINGS_FOR_RANKING)
             ->get()
             ->keyBy('bike_model_id');
 
-        // 前月の車種別平均価格（5台以上）
-        $prevPrices = Listing::where('is_sold_out', false)
-            ->where('total_price', '>', 0)
-            ->whereNotNull('bike_model_id')
-            ->where('created_at', '<=', $prevEnd)
-            ->select('bike_model_id', DB::raw('AVG(total_price) as avg_price'), DB::raw('COUNT(*) as cnt'))
-            ->groupBy('bike_model_id')
+        // 前月末時点の掲載中 = created_at <= 前月末 AND (is_sold_out = false OR updated_at > 前月末)
+        $prevPrices = Listing::where('listings.total_price', '>', 0)
+            ->whereNotNull('listings.bike_model_id')
+            ->where('listings.created_at', '<=', $prevEnd)
+            ->where(function ($q) use ($prevEnd) {
+                $q->where('listings.is_sold_out', false)
+                  ->orWhere('listings.updated_at', '>', $prevEnd);
+            })
+            ->tap($excludeOther)
+            ->select('listings.bike_model_id', DB::raw('AVG(listings.total_price) as avg_price'), DB::raw('COUNT(*) as cnt'))
+            ->groupBy('listings.bike_model_id')
             ->having('cnt', '>=', self::MIN_LISTINGS_FOR_RANKING)
             ->get()
             ->keyBy('bike_model_id');
@@ -178,11 +192,15 @@ final class GenerateMarketReport extends Command
 
         $results = [];
         foreach ($ranges as $label => [$min, $max]) {
-            $baseQuery = fn (Carbon $asOf) => Listing::where('is_sold_out', false)
-                ->where('total_price', '>', 0)
+            // asOf時点で掲載中だった車両 = created_at <= asOf AND (is_sold_out = false OR updated_at > asOf)
+            $baseQuery = fn (Carbon $asOf) => Listing::where('total_price', '>', 0)
                 ->where('displacement', '>=', $min)
                 ->where('displacement', '<=', $max)
-                ->where('created_at', '<=', $asOf);
+                ->where('created_at', '<=', $asOf)
+                ->where(function ($q) use ($asOf) {
+                    $q->where('is_sold_out', false)
+                      ->orWhere('updated_at', '>', $asOf);
+                });
 
             $currentAvg = $baseQuery($end)->avg('total_price');
             $prevAvg = $baseQuery($prevEnd)->avg('total_price');
@@ -259,12 +277,16 @@ final class GenerateMarketReport extends Command
 
         $results = [];
         foreach ($categories as $id => $label) {
-            $baseQuery = fn (Carbon $asOf) => Listing::where('is_sold_out', false)
-                ->where('total_price', '>', 0)
+            // asOf時点で掲載中だった車両 = created_at <= asOf AND (is_sold_out = false OR updated_at > asOf)
+            $baseQuery = fn (Carbon $asOf) => Listing::where('total_price', '>', 0)
                 ->where('category_id', $id)
-                ->where('created_at', '<=', $asOf);
+                ->where('created_at', '<=', $asOf)
+                ->where(function ($q) use ($asOf) {
+                    $q->where('is_sold_out', false)
+                      ->orWhere('updated_at', '>', $asOf);
+                });
 
-            $currentCount = (clone $baseQuery($end))->count();
+            $currentCount = $baseQuery($end)->count();
             $currentAvg = $baseQuery($end)->avg('total_price');
             $prevAvg = $baseQuery($prevEnd)->avg('total_price');
 
