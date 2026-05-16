@@ -2,6 +2,9 @@
     <x-slot:title>{{ $bikeModel->name }}のニュース | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $bikeModel->name }}に関する最新ニュース一覧。新型情報、モデルチェンジ、レビューなどをまとめてチェック。</x-slot:metaDescription>
     <x-slot:canonical>{{ route('news.model', $bikeModel->id) }}</x-slot:canonical>
+    @if($news->isEmpty())
+        <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
+    @endif
     <x-slot:navigation><x-navigation :showSearch="true" /></x-slot:navigation>
 
     <div class="max-w-4xl mx-auto px-4 py-6 sm:py-10">
