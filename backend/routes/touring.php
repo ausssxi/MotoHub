@@ -29,6 +29,7 @@ Route::prefix('touring')->name('touring.spot.')->group(function () {
 // --- 公開画面（ツーリングガイド） ---
 Route::prefix('touring')->name('touring.')->group(function () {
     Route::get('/', [TouringController::class, 'index'])->name('index');
+    Route::get('/planner', [TouringSpotController::class, 'planner'])->name('planner');
     Route::get('/{slug}', [TouringController::class, 'show'])->name('show');
 });
 

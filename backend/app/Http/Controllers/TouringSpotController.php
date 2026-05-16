@@ -47,4 +47,9 @@ final class TouringSpotController extends Controller
 
         return view('touring.spot-show', compact('spot', 'prefName', 'prefectureSlug', 'relatedSpots'));
     }
+
+    public function planner()
+    {
+        return view('touring.planner');
+    }
 }

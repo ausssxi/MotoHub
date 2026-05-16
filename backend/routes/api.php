@@ -40,6 +40,9 @@ Route::get('/push/subscribed-models', [\App\Http\Controllers\Api\PushSubscriptio
 // クイズ問題API
 Route::get('/quiz/questions', [\App\Http\Controllers\Api\QuizController::class, 'questions']);
 
+// ツーリングルート提案API
+Route::post('/touring/suggest', [\App\Http\Controllers\Api\TouringPlannerController::class, 'suggest']);
+
 // ブログ記事・ツーリングガイド マップピンAPI
 Route::get('/blog/map-pins', function (Request $request) {
     // map.jsは ne_lat/ne_lng/sw_lat/sw_lng を送信、手動テスト用に north/south/east/west もサポート
