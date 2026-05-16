@@ -5,286 +5,472 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\BikeModel;
-use App\Models\BikeNews;
-use App\Services\Bike\TrendService;
+use App\Models\BlogPost;
+use App\Models\BlogTag;
+use App\Models\Listing;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 final class GenerateMarketReport extends Command
 {
-    protected $signature = 'news:generate-market-report
-                            {--publish : 即時公開（デフォルトはdraft）}
-                            {--force : 重複チェックをスキップ}
-                            {--dry-run : APIを呼ばずデータ確認のみ}';
+    protected $signature = 'blog:generate-market-report
+        {--month= : 対象月 (1-12)}
+        {--year= : 対象年}
+        {--publish : 公開状態で投稿（デフォルトは下書き）}
+        {--dry-run : 生成結果をターミナルに出力するのみ}';
 
-    protected $description = '相場変動データからマーケットレポートニュースを自動生成';
+    protected $description = '月次中古バイク相場レポートを生成してブログ記事として保存';
 
-    private const API_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-    private const MODEL_ID = 'claude-sonnet-4-20250514';
-    private const MAX_TOKENS = 3000;
+    private const MIN_LISTINGS_FOR_RANKING = 5;
 
-    public function handle(TrendService $trendService): int
+    public function handle(): int
     {
-        $apiKey = config('services.anthropic.api_key');
-        $isDryRun = $this->option('dry-run');
+        $year = (int) ($this->option('year') ?: now()->subMonth()->year);
+        $month = (int) ($this->option('month') ?: now()->subMonth()->month);
 
-        if (!$isDryRun && !$apiKey) {
-            $this->error('ANTHROPIC_API_KEY が .env に設定されていません。');
-            return self::FAILURE;
-        }
+        $targetMonth = Carbon::create($year, $month, 1)->startOfMonth();
+        $targetEnd = $targetMonth->copy()->endOfMonth();
+        $prevMonth = $targetMonth->copy()->subMonth();
+        $prevEnd = $prevMonth->copy()->endOfMonth();
+        $threeMonthsAgo = $targetMonth->copy()->subMonths(3);
 
-        $this->info('相場データを取得中...');
-        $trends = $trendService->getRanking(30);
+        $this->info("対象月: {$targetMonth->format('Y年m月')}");
+        $this->info("前月: {$prevMonth->format('Y年m月')}");
 
-        $drops = $trends['drop'] ?? [];
-        $rises = $trends['rise'] ?? [];
-        $period = $trends['period'] ?? [];
+        // データ集計
+        $summary = $this->computeSummary($targetMonth, $targetEnd, $prevMonth, $prevEnd);
+        $priceUp = $this->computePriceChange($targetMonth, $targetEnd, $prevMonth, $prevEnd, 'up');
+        $priceDown = $this->computePriceChange($targetMonth, $targetEnd, $prevMonth, $prevEnd, 'down');
+        $displacement = $this->computeDisplacementTrends($targetMonth, $targetEnd, $prevMonth, $prevEnd, $threeMonthsAgo);
+        $popular = $this->computePopularModels($targetMonth, $targetEnd);
+        $categoryTrends = $this->computeCategoryTrends($targetMonth, $targetEnd, $prevMonth, $prevEnd);
 
-        if (empty($drops) && empty($rises)) {
-            $this->warn('相場変動データがありません。スキップします。');
+        // Markdown生成
+        $markdown = $this->buildMarkdown($targetMonth, $summary, $priceUp, $priceDown, $displacement, $popular, $categoryTrends);
+
+        if ($this->option('dry-run')) {
+            $this->line('');
+            $this->line($markdown);
+            $this->info("\n--- dry-run 完了 (保存されていません) ---");
             return self::SUCCESS;
         }
 
-        $periodFrom = $period['from'] ?? now()->subDays(30)->format('Y年m月d日');
-        $periodTo = $period['to'] ?? now()->format('Y年m月d日');
-
-        $title = '【相場速報】' . Carbon::now()->format('Y年n月') . ' バイク中古相場レポート｜値下がり・高騰車種まとめ';
-
-        // 重複チェック
-        if (!$this->option('force') && BikeNews::where('title', $title)->exists()) {
-            $this->warn("既に同じタイトルの記事が存在します: {$title}");
-            return self::SUCCESS;
-        }
-
-        $topDrops = array_slice($drops, 0, 10);
-        $topRises = array_slice($rises, 0, 10);
-
-        $this->info('値下がりTOP: ' . count($topDrops) . '車種');
-        $this->info('高騰TOP: ' . count($topRises) . '車種');
-
-        if ($isDryRun) {
-            $this->info('--- 値下がりTOP ---');
-            foreach ($topDrops as $d) {
-                $this->line("  {$d['model_name']} ({$d['maker_name']}): {$d['diff']}万円 ({$d['rate']}%)");
-            }
-            $this->info('--- 高騰TOP ---');
-            foreach ($topRises as $r) {
-                $this->line("  {$r['model_name']} ({$r['maker_name']}): +{$r['diff']}万円 (+{$r['rate']}%)");
-            }
-            return self::SUCCESS;
-        }
-
-        // Claude APIで考察テキスト生成
-        $this->info('Claude APIで分析テキストを生成中...');
-
-        try {
-            $analysis = $this->callClaudeApi($apiKey, $topDrops, $topRises, $periodFrom, $periodTo);
-        } catch (\Throwable $e) {
-            $this->error("API呼び出しエラー: {$e->getMessage()}");
-            Log::error('GenerateMarketReport: API呼び出し失敗', ['error' => $e->getMessage()]);
-            return self::FAILURE;
-        }
-
-        if ($analysis === null) {
-            $this->error('Claude APIのレスポンスパースに失敗しました。');
-            return self::FAILURE;
-        }
-
-        // HTML本文を構築
-        $content = $this->buildContent($topDrops, $topRises, $analysis, $periodFrom, $periodTo);
-
-        // サムネイル: 値下がり1位の車種画像
-        $thumbnailUrl = $topDrops[0]['image_url'] ?? ($topRises[0]['image_url'] ?? null);
-
-        // 関連車種: 値下がり1位
-        $topModelId = $topDrops[0]['model_id'] ?? ($topRises[0]['model_id'] ?? null);
-
-        $publishedAt = $this->option('publish') ? now() : null;
-
-        BikeNews::create([
-            'title'           => $title,
-            'url'             => route('bikes.trends'),
-            'source'          => 'MotoHub',
-            'content'         => $content,
-            'thumbnail_url'   => $thumbnailUrl,
-            'published_at'    => $publishedAt,
-            'bike_model_id'   => $topModelId,
-            'manufacturer_id' => null,
-            'is_featured'     => true,
-        ]);
-
-        $status = $publishedAt ? '公開' : '下書き';
-        $this->info("記事を生成しました（{$status}）: {$title}");
+        // ブログ記事として保存
+        $this->saveAsBlogPost($targetMonth, $markdown, $summary);
 
         return self::SUCCESS;
     }
 
-    private function callClaudeApi(string $apiKey, array $drops, array $rises, string $periodFrom, string $periodTo): ?string
+    private function computeSummary(Carbon $start, Carbon $end, Carbon $prevStart, Carbon $prevEnd): array
     {
-        $systemPrompt = <<<'PROMPT'
-あなたはバイク中古市場の専門アナリストです。
-相場変動データを元に、簡潔で読みやすい市場レポートの考察テキストを日本語で書いてください。
+        // 当月の掲載台数（月末時点のアクティブ）
+        $activeCount = Listing::where('is_sold_out', false)
+            ->where('created_at', '<=', $end)
+            ->count();
 
-ルール：
-- 300〜500文字程度で簡潔に
-- 値下がり・高騰の要因を推察する（季節要因、新型発売、人気トレンドなど）
-- バイク初心者にもわかりやすい表現を使う
-- 「買い時」「売り時」などの具体的なアドバイスを1つ含める
-- HTMLタグは使わない。プレーンテキストで出力する
-PROMPT;
+        // 新規掲載数
+        $newListings = Listing::whereBetween('created_at', [$start, $end])->count();
 
-        $dropsSummary = collect($drops)->map(fn ($d) =>
-            "{$d['model_name']}（{$d['maker_name']}）: {$d['current_price']}万円（{$d['diff']}万円 / {$d['rate']}%）掲載{$d['count']}台"
-        )->implode("\n");
+        // 販売台数（updated_atが対象月内で売り切れになったもの）
+        $soldCount = Listing::where('is_sold_out', true)
+            ->whereBetween('updated_at', [$start, $end])
+            ->where('created_at', '<=', DB::raw('updated_at - INTERVAL 1 DAY'))
+            ->count();
 
-        $risesSummary = collect($rises)->map(fn ($r) =>
-            "{$r['model_name']}（{$r['maker_name']}）: {$r['current_price']}万円（+{$r['diff']}万円 / +{$r['rate']}%）掲載{$r['count']}台"
-        )->implode("\n");
+        // 当月平均価格
+        $avgPrice = Listing::where('is_sold_out', false)
+            ->where('total_price', '>', 0)
+            ->where('created_at', '<=', $end)
+            ->avg('total_price');
 
-        $userPrompt = <<<PROMPT
-以下のバイク中古相場データ（{$periodFrom}〜{$periodTo}の変動）を元に、市場レポートの考察テキストを書いてください。
-テキストのみ出力してください。
+        // 前月平均価格
+        $prevAvgPrice = Listing::where('is_sold_out', false)
+            ->where('total_price', '>', 0)
+            ->where('created_at', '<=', $prevEnd)
+            ->avg('total_price');
 
-【値下がりTOP】
-{$dropsSummary}
+        $priceChange = ($prevAvgPrice && $prevAvgPrice > 0)
+            ? round(($avgPrice - $prevAvgPrice) / $prevAvgPrice * 100, 1)
+            : null;
 
-【高騰TOP】
-{$risesSummary}
-PROMPT;
-
-        $response = Http::withHeaders([
-            'x-api-key' => $apiKey,
-            'anthropic-version' => '2023-06-01',
-            'content-type' => 'application/json',
-        ])->timeout(60)->post(self::API_ENDPOINT, [
-            'model' => self::MODEL_ID,
-            'max_tokens' => self::MAX_TOKENS,
-            'system' => $systemPrompt,
-            'messages' => [
-                ['role' => 'user', 'content' => $userPrompt],
-            ],
-        ]);
-
-        if (!$response->successful()) {
-            throw new \RuntimeException("API error: {$response->status()} - {$response->body()}");
-        }
-
-        $body = $response->json();
-        $text = $body['content'][0]['text'] ?? null;
-
-        if (!$text) {
-            Log::error('GenerateMarketReport: API応答にtextなし', ['body' => $body]);
-            return null;
-        }
-
-        return trim($text);
+        return [
+            'active_count' => $activeCount,
+            'new_listings' => $newListings,
+            'sold_count' => $soldCount,
+            'avg_price' => $avgPrice ? round($avgPrice / 10000, 1) : null,
+            'prev_avg_price' => $prevAvgPrice ? round($prevAvgPrice / 10000, 1) : null,
+            'price_change' => $priceChange,
+        ];
     }
 
-    private function buildContent(array $drops, array $rises, string $analysis, string $periodFrom, string $periodTo): string
+    private function computePriceChange(Carbon $start, Carbon $end, Carbon $prevStart, Carbon $prevEnd, string $direction): array
     {
-        $html = '<div class="market-report">';
+        // 当月の車種別平均価格（5台以上）
+        $currentPrices = Listing::where('is_sold_out', false)
+            ->where('total_price', '>', 0)
+            ->whereNotNull('bike_model_id')
+            ->where('created_at', '<=', $end)
+            ->select('bike_model_id', DB::raw('AVG(total_price) as avg_price'), DB::raw('COUNT(*) as cnt'))
+            ->groupBy('bike_model_id')
+            ->having('cnt', '>=', self::MIN_LISTINGS_FOR_RANKING)
+            ->get()
+            ->keyBy('bike_model_id');
 
-        // 期間・導入
-        $html .= '<p class="text-sm text-gray-600 mb-4">';
-        $html .= e($periodFrom) . '〜' . e($periodTo) . 'の中古バイク相場変動をまとめました。';
-        $html .= '</p>';
+        // 前月の車種別平均価格（5台以上）
+        $prevPrices = Listing::where('is_sold_out', false)
+            ->where('total_price', '>', 0)
+            ->whereNotNull('bike_model_id')
+            ->where('created_at', '<=', $prevEnd)
+            ->select('bike_model_id', DB::raw('AVG(total_price) as avg_price'), DB::raw('COUNT(*) as cnt'))
+            ->groupBy('bike_model_id')
+            ->having('cnt', '>=', self::MIN_LISTINGS_FOR_RANKING)
+            ->get()
+            ->keyBy('bike_model_id');
 
-        // AI考察
-        $html .= '<div class="bg-blue-50 rounded-lg p-4 mb-6">';
-        $html .= '<div class="flex items-center gap-2 mb-2">';
-        $html .= '<span class="text-lg">📊</span>';
-        $html .= '<span class="font-bold text-gray-800">今月の相場トレンド</span>';
-        $html .= '</div>';
-        $html .= '<p class="text-sm text-gray-700 leading-relaxed">' . nl2br(e($analysis)) . '</p>';
-        $html .= '</div>';
+        $changes = [];
+        foreach ($currentPrices as $modelId => $current) {
+            $prev = $prevPrices->get($modelId);
+            if (!$prev || $prev->avg_price <= 0) continue;
+
+            $changePercent = round(($current->avg_price - $prev->avg_price) / $prev->avg_price * 100, 1);
+            $changes[] = [
+                'bike_model_id' => $modelId,
+                'current_avg' => round($current->avg_price / 10000, 1),
+                'prev_avg' => round($prev->avg_price / 10000, 1),
+                'change_percent' => $changePercent,
+                'count' => (int) $current->cnt,
+            ];
+        }
+
+        // ソート
+        usort($changes, function ($a, $b) use ($direction) {
+            return $direction === 'up'
+                ? $b['change_percent'] <=> $a['change_percent']
+                : $a['change_percent'] <=> $b['change_percent'];
+        });
+
+        $top10 = array_slice($changes, 0, 10);
+
+        // モデル名を取得
+        $modelIds = array_column($top10, 'bike_model_id');
+        $models = BikeModel::with('manufacturer')->whereIn('id', $modelIds)->get()->keyBy('id');
+
+        return array_map(function ($item) use ($models) {
+            $model = $models->get($item['bike_model_id']);
+            $item['name'] = $model
+                ? trim(($model->manufacturer?->name ?? '') . ' ' . $model->name)
+                : '不明';
+            return $item;
+        }, $top10);
+    }
+
+    private function computeDisplacementTrends(Carbon $start, Carbon $end, Carbon $prevStart, Carbon $prevEnd, Carbon $threeMonthsAgo): array
+    {
+        $ranges = [
+            '50cc以下' => [0, 50],
+            '51〜125cc' => [51, 125],
+            '126〜250cc' => [126, 250],
+            '251〜400cc' => [251, 400],
+            '401〜750cc' => [401, 750],
+            '751cc以上' => [751, 99999],
+        ];
+
+        $results = [];
+        foreach ($ranges as $label => [$min, $max]) {
+            $baseQuery = fn (Carbon $asOf) => Listing::where('is_sold_out', false)
+                ->where('total_price', '>', 0)
+                ->where('displacement', '>=', $min)
+                ->where('displacement', '<=', $max)
+                ->where('created_at', '<=', $asOf);
+
+            $currentAvg = $baseQuery($end)->avg('total_price');
+            $prevAvg = $baseQuery($prevEnd)->avg('total_price');
+            $threeMonthAvg = $baseQuery($threeMonthsAgo->copy()->endOfMonth())->avg('total_price');
+
+            $monthChange = ($prevAvg && $prevAvg > 0)
+                ? round(($currentAvg - $prevAvg) / $prevAvg * 100, 1)
+                : null;
+            $threeMonthChange = ($threeMonthAvg && $threeMonthAvg > 0)
+                ? round(($currentAvg - $threeMonthAvg) / $threeMonthAvg * 100, 1)
+                : null;
+
+            $results[] = [
+                'label' => $label,
+                'avg_price' => $currentAvg ? round($currentAvg / 10000, 1) : null,
+                'month_change' => $monthChange,
+                'three_month_change' => $threeMonthChange,
+            ];
+        }
+
+        return $results;
+    }
+
+    private function computePopularModels(Carbon $start, Carbon $end): array
+    {
+        $rankings = Listing::cappedSold($start, $end)
+            ->whereNotNull('bike_model_id')
+            ->select('bike_model_id', DB::raw('COUNT(*) as sold_count'))
+            ->groupBy('bike_model_id')
+            ->orderByDesc('sold_count')
+            ->limit(10)
+            ->get();
+
+        $modelIds = $rankings->pluck('bike_model_id')->toArray();
+        $models = BikeModel::with('manufacturer')->whereIn('id', $modelIds)->get()->keyBy('id');
+
+        // 平均価格も取得
+        $avgPrices = Listing::where('is_sold_out', true)
+            ->whereBetween('updated_at', [$start, $end])
+            ->where('total_price', '>', 0)
+            ->whereIn('bike_model_id', $modelIds)
+            ->select('bike_model_id', DB::raw('AVG(total_price) as avg_price'))
+            ->groupBy('bike_model_id')
+            ->pluck('avg_price', 'bike_model_id');
+
+        return $rankings->map(function ($row) use ($models, $avgPrices) {
+            $model = $models->get($row->bike_model_id);
+            return [
+                'name' => $model
+                    ? trim(($model->manufacturer?->name ?? '') . ' ' . $model->name)
+                    : '不明',
+                'sold_count' => (int) $row->sold_count,
+                'avg_price' => ($avgPrices->get($row->bike_model_id, 0) > 0)
+                    ? round($avgPrices->get($row->bike_model_id) / 10000, 1)
+                    : null,
+            ];
+        })->toArray();
+    }
+
+    private function computeCategoryTrends(Carbon $start, Carbon $end, Carbon $prevStart, Carbon $prevEnd): array
+    {
+        $categories = [
+            4 => 'ネイキッド',
+            2 => 'スクーター（〜125cc）',
+            3 => 'スクーター（126cc〜）',
+            10 => 'アメリカン',
+            8 => 'スポーツ/レプリカ',
+            11 => 'オフロード',
+            6 => 'ツアラー',
+            14 => 'アドベンチャー',
+            21 => 'クラシック',
+            1 => 'ミニバイク',
+        ];
+
+        $results = [];
+        foreach ($categories as $id => $label) {
+            $baseQuery = fn (Carbon $asOf) => Listing::where('is_sold_out', false)
+                ->where('total_price', '>', 0)
+                ->where('category_id', $id)
+                ->where('created_at', '<=', $asOf);
+
+            $currentCount = (clone $baseQuery($end))->count();
+            $currentAvg = $baseQuery($end)->avg('total_price');
+            $prevAvg = $baseQuery($prevEnd)->avg('total_price');
+
+            $change = ($prevAvg && $prevAvg > 0)
+                ? round(($currentAvg - $prevAvg) / $prevAvg * 100, 1)
+                : null;
+
+            $results[] = [
+                'label' => $label,
+                'count' => $currentCount,
+                'avg_price' => $currentAvg ? round($currentAvg / 10000, 1) : null,
+                'change' => $change,
+            ];
+        }
+
+        return $results;
+    }
+
+    private function buildMarkdown(Carbon $targetMonth, array $summary, array $priceUp, array $priceDown, array $displacement, array $popular, array $categoryTrends): string
+    {
+        $monthLabel = $targetMonth->format('Y年n月');
+        $md = '';
+
+        // サマリー
+        $md .= "## {$monthLabel} 中古バイク市場サマリー\n\n";
+        $md .= "| 指標 | 数値 |\n";
+        $md .= "|------|------|\n";
+        $md .= "| 掲載台数 | " . number_format($summary['active_count']) . "台 |\n";
+        $md .= "| 新規掲載数 | " . number_format($summary['new_listings']) . "台 |\n";
+        $md .= "| 販売台数 | " . number_format($summary['sold_count']) . "台 |\n";
+        $md .= "| 全体平均価格 | " . ($summary['avg_price'] ?? '-') . "万円 |\n";
+        if ($summary['price_change'] !== null) {
+            $sign = $summary['price_change'] >= 0 ? '+' : '';
+            $md .= "| 前月比 | {$sign}{$summary['price_change']}% |\n";
+        }
+        $md .= "\n";
+
+        // 今月のポイント
+        $md .= "### 今月のポイント\n\n";
+        $md .= $this->generateHighlights($targetMonth, $summary, $priceUp, $priceDown);
+        $md .= "\n\n";
+
+        // 値上がりランキング
+        $md .= "## 値上がり車種ランキング TOP10\n\n";
+        if (!empty($priceUp)) {
+            $md .= "※ 今月・前月ともに掲載" . self::MIN_LISTINGS_FOR_RANKING . "台以上の車種が対象\n\n";
+            $md .= "| 順位 | 車種名 | 今月平均 | 前月平均 | 変動率 |\n";
+            $md .= "|:----:|--------|:--------:|:--------:|:------:|\n";
+            foreach ($priceUp as $i => $item) {
+                $md .= "| " . ($i + 1) . " | {$item['name']} | {$item['current_avg']}万円 | {$item['prev_avg']}万円 | +{$item['change_percent']}% |\n";
+            }
+        } else {
+            $md .= "該当データなし\n";
+        }
+        $md .= "\n";
 
         // 値下がりランキング
-        if (!empty($drops)) {
-            $html .= '<h3 class="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">';
-            $html .= '<span class="text-blue-500">📉</span> 値下がりランキングTOP' . count($drops);
-            $html .= '</h3>';
-            $html .= $this->buildRankingTable($drops, 'drop');
+        $md .= "## 値下がり車種ランキング TOP10\n\n";
+        if (!empty($priceDown)) {
+            $md .= "※ 今月・前月ともに掲載" . self::MIN_LISTINGS_FOR_RANKING . "台以上の車種が対象\n\n";
+            $md .= "| 順位 | 車種名 | 今月平均 | 前月平均 | 変動率 |\n";
+            $md .= "|:----:|--------|:--------:|:--------:|:------:|\n";
+            foreach ($priceDown as $i => $item) {
+                $md .= "| " . ($i + 1) . " | {$item['name']} | {$item['current_avg']}万円 | {$item['prev_avg']}万円 | {$item['change_percent']}% |\n";
+            }
+        } else {
+            $md .= "該当データなし\n";
         }
+        $md .= "\n";
 
-        // 高騰ランキング
-        if (!empty($rises)) {
-            $html .= '<h3 class="text-lg font-bold text-gray-900 mb-3 mt-6 flex items-center gap-2">';
-            $html .= '<span class="text-red-500">📈</span> 高騰ランキングTOP' . count($rises);
-            $html .= '</h3>';
-            $html .= $this->buildRankingTable($rises, 'rise');
+        // 排気量別推移
+        $md .= "## 排気量別 平均価格推移\n\n";
+        $md .= "| クラス | 平均価格 | 前月比 | 3ヶ月前比 |\n";
+        $md .= "|--------|:--------:|:------:|:---------:|\n";
+        foreach ($displacement as $row) {
+            $mChange = $row['month_change'] !== null ? ($row['month_change'] >= 0 ? '+' : '') . $row['month_change'] . '%' : '-';
+            $tChange = $row['three_month_change'] !== null ? ($row['three_month_change'] >= 0 ? '+' : '') . $row['three_month_change'] . '%' : '-';
+            $md .= "| {$row['label']} | " . ($row['avg_price'] ?? '-') . "万円 | {$mChange} | {$tChange} |\n";
         }
+        $md .= "\n";
 
-        $html .= '<p class="text-xs text-gray-400 mt-4">※ MotoHubに掲載された中古バイクの平均相場データに基づく集計です。</p>';
-        $html .= '<a href="' . route('bikes.trends') . '" class="inline-block mt-3 text-sm font-bold text-blue-600 hover:underline">相場変動ランキングの詳細はこちら →</a>';
-        $html .= '</div>';
+        // 人気車種TOP10
+        $md .= "## 人気車種 TOP10（販売台数ベース）\n\n";
+        if (!empty($popular)) {
+            $md .= "| 順位 | 車種名 | 販売台数 | 平均価格 |\n";
+            $md .= "|:----:|--------|:--------:|:--------:|\n";
+            foreach ($popular as $i => $item) {
+                $price = $item['avg_price'] ? $item['avg_price'] . '万円' : '-';
+                $md .= "| " . ($i + 1) . " | {$item['name']} | {$item['sold_count']}台 | {$price} |\n";
+            }
+        } else {
+            $md .= "該当データなし\n";
+        }
+        $md .= "\n";
 
-        return $html;
+        // カテゴリ別トレンド
+        $md .= "## カテゴリ別トレンド\n\n";
+        $md .= "| カテゴリ | 掲載台数 | 平均価格 | 前月比 |\n";
+        $md .= "|----------|:--------:|:--------:|:------:|\n";
+        foreach ($categoryTrends as $row) {
+            $change = $row['change'] !== null ? ($row['change'] >= 0 ? '+' : '') . $row['change'] . '%' : '-';
+            $md .= "| {$row['label']} | " . number_format($row['count']) . "台 | " . ($row['avg_price'] ?? '-') . "万円 | {$change} |\n";
+        }
+        $md .= "\n";
+
+        // 注目ポイント
+        $md .= "## 注目ポイント\n\n";
+        $md .= $this->getSeasonalComment($targetMonth);
+        $md .= "\n\n";
+
+        // フッター
+        $md .= "---\n\n";
+        $md .= "※ 本レポートはMotoHubに掲載中の中古バイクデータを基に自動集計しています。\n";
+        $md .= "※ 掲載" . self::MIN_LISTINGS_FOR_RANKING . "台未満の車種はランキング対象外です。\n";
+        $md .= "※ 販売台数は掲載終了（売り切れ）となった車両数を基に算出しています。\n";
+
+        return $md;
     }
 
-    private function buildRankingTable(array $items, string $type): string
+    private function generateHighlights(Carbon $month, array $summary, array $priceUp, array $priceDown): string
     {
-        $html = '<div class="space-y-2 mb-4">';
+        $lines = [];
 
-        foreach ($items as $i => $item) {
-            $rank = $i + 1;
-            $name = e($item['model_name']);
-            $maker = e($item['maker_name']);
-            $price = $item['current_price'];
-            $diff = $item['diff'];
-            $rate = $item['rate'];
-            $count = $item['count'];
-            $imgUrl = e($item['image_url'] ?? '');
-
-            $modelUrl = e(route('bikes.model_detail.fallback', $item['model_id']));
-
-            $diffColor = $type === 'drop' ? 'text-blue-600' : 'text-red-600';
-            $diffPrefix = $type === 'rise' ? '+' : '';
-            $ratePrefix = $type === 'rise' ? '+' : '';
-
-            $medal = match ($rank) {
-                1 => '🥇',
-                2 => '🥈',
-                3 => '🥉',
-                default => null,
-            };
-
-            if ($rank <= 3) {
-                $imgTag = $imgUrl
-                    ? '<img src="' . $imgUrl . '" alt="' . $name . '" class="w-20 h-14 object-cover rounded" loading="lazy" onerror="this.style.display=\'none\'">'
-                    : '';
-
-                $html .= '<div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">';
-                $html .= '<div class="text-xl font-bold">' . $medal . '</div>';
-                if ($imgTag) {
-                    $html .= '<a href="' . $modelUrl . '" class="block flex-shrink-0">' . $imgTag . '</a>';
-                }
-                $html .= '<div class="flex-1 min-w-0">';
-                $html .= '<div><a href="' . $modelUrl . '" class="font-bold text-blue-700 hover:underline">' . $name . '</a></div>';
-                $html .= '<div class="text-xs text-gray-500">' . $maker . ' / 掲載' . $count . '台</div>';
-                $html .= '</div>';
-                $html .= '<div class="text-right flex-shrink-0">';
-                $html .= '<div class="font-bold">' . $price . '万円</div>';
-                $html .= '<div class="text-sm ' . $diffColor . ' font-bold">' . $diffPrefix . $diff . '万円（' . $ratePrefix . $rate . '%）</div>';
-                $html .= '</div>';
-                $html .= '</div>';
-            } else {
-                $html .= '<div class="flex items-center gap-3 py-2 border-b border-gray-100">';
-                $html .= '<span class="w-6 text-center font-bold text-gray-400 text-sm">' . $rank . '</span>';
-                $html .= '<div class="flex-1 min-w-0">';
-                $html .= '<a href="' . $modelUrl . '" class="font-bold text-blue-700 hover:underline text-sm">' . $name . '</a>';
-                $html .= '<span class="text-gray-400 text-xs ml-1">' . $maker . '</span>';
-                $html .= '</div>';
-                $html .= '<div class="text-right flex-shrink-0">';
-                $html .= '<span class="font-bold text-sm">' . $price . '万円</span>';
-                $html .= '<span class="text-xs ' . $diffColor . ' font-bold ml-1">' . $diffPrefix . $diff . '万</span>';
-                $html .= '</div>';
-                $html .= '</div>';
-            }
+        if ($summary['price_change'] !== null) {
+            $direction = $summary['price_change'] >= 0 ? '上昇' : '下落';
+            $lines[] = "- 中古バイク全体の平均価格は前月比{$summary['price_change']}%の{$direction}（{$summary['avg_price']}万円）";
         }
 
-        $html .= '</div>';
-        return $html;
+        if (!empty($priceUp)) {
+            $lines[] = "- 値上がり率トップは「{$priceUp[0]['name']}」（+{$priceUp[0]['change_percent']}%）";
+        }
+
+        if (!empty($priceDown)) {
+            $lines[] = "- 値下がり率トップは「{$priceDown[0]['name']}」（{$priceDown[0]['change_percent']}%）";
+        }
+
+        if ($summary['sold_count'] > 0) {
+            $lines[] = "- 今月の販売台数は" . number_format($summary['sold_count']) . "台（新規掲載: " . number_format($summary['new_listings']) . "台）";
+        }
+
+        return implode("\n", array_slice($lines, 0, 3));
+    }
+
+    private function getSeasonalComment(Carbon $month): string
+    {
+        return match ((int) $month->month) {
+            1 => "1月は年末年始の影響で市場の動きが鈍化する傾向があります。一方で、春に向けた早期購入を狙うライダーにとっては競争が少なく、良い車両を見つけやすい時期でもあります。",
+            2 => "2月は春のバイクシーズンに向けた準備期間。3月以降の需要増を見越した価格上昇が一部車種で始まる傾向があります。",
+            3 => "3月はバイクシーズン開幕を控え、需要が本格的に高まる時期です。人気車種は価格が上昇傾向にあり、早めの購入検討がおすすめです。新生活に合わせた通勤・通学用バイクの需要も増加します。",
+            4 => "4月はバイクシーズン本番。ツーリング需要の高まりから中型〜大型クラスの価格が上昇しやすい時期です。新生活需要で原付・小型二輪も活発に動きます。",
+            5 => "5月はGWのツーリング需要でバイク市場が最も活況を呈する時期の一つ。アドベンチャーやツアラーなど長距離向けモデルの価格が特に堅調です。",
+            6 => "6月は梅雨入りに伴い需要がやや落ち着く時期。価格交渉がしやすくなる傾向があり、夏のツーリングに向けた購入には良いタイミングです。",
+            7 => "7月は夏休みに向けた需要回復期。オフロードやアドベンチャーモデルへの関心が高まります。梅雨明け後は一気に需要が増える傾向があります。",
+            8 => "8月は夏のツーリングシーズン真っ只中。大型バイクの需要が高い一方、酷暑の影響で小排気量の通勤需要はやや落ち着きます。",
+            9 => "9月は秋のツーリングシーズンに向けた需要期。涼しくなり始めバイクに乗りやすい季節の到来で、幅広い排気量帯で動きがあります。",
+            10 => "10月は秋のベストシーズン。紅葉ツーリング需要で市場は活発。特にツアラーやネイキッドの人気が高まります。冬前の駆け込み購入も見られます。",
+            11 => "11月は冬の到来を前に在庫整理セールが増える時期。バイクショップの決算期とも重なり、お買い得な車両が出やすい傾向があります。",
+            12 => "12月は年末に向けてバイク市場は落ち着きを見せます。冬場は価格が下がりやすく、春に向けた購入を検討するには良い時期です。年末セールも狙い目です。",
+        };
+    }
+
+    private function saveAsBlogPost(Carbon $targetMonth, string $markdown, array $summary): void
+    {
+        $monthStr = $targetMonth->format('Y-m');
+        $monthLabel = $targetMonth->format('Y年n月');
+        $slug = "market-report-{$monthStr}";
+
+        // 既存記事チェック
+        $existing = BlogPost::where('slug', $slug)->first();
+        if ($existing) {
+            $this->warn("slug '{$slug}' の記事は既に存在します。上書きします。");
+            $existing->update([
+                'body' => $markdown,
+                'meta_description' => "{$monthLabel}の中古バイク相場レポート。値上がり・値下がり車種ランキング、排気量別の価格推移、人気車種TOP10を掲載。",
+            ]);
+            $this->info("既存記事を更新しました: {$existing->title}");
+            return;
+        }
+
+        $title = "{$monthLabel} 中古バイク相場レポート｜値上がり・値下がり車種ランキング";
+        $status = $this->option('publish') ? 'published' : 'draft';
+        $publishedAt = $this->option('publish') ? $targetMonth->copy()->addMonth()->startOfMonth() : null;
+
+        $post = BlogPost::create([
+            'author_id' => 1,
+            'title' => $title,
+            'slug' => $slug,
+            'body' => $markdown,
+            'status' => $status,
+            'published_at' => $publishedAt,
+            'meta_title' => "{$monthLabel} 中古バイク相場レポート | MotoHub",
+            'meta_description' => "{$monthLabel}の中古バイク相場レポート。値上がり・値下がり車種ランキング、排気量別の価格推移、人気車種TOP10を掲載。",
+        ]);
+
+        // タグ付与
+        $tags = collect(['相場レポート', '市場動向'])->map(function ($name) {
+            return BlogTag::firstOrCreate(['name' => $name]);
+        });
+        $post->tags()->sync($tags->pluck('id'));
+
+        $this->info("ブログ記事を{$status}として保存しました。");
+        $this->info("  タイトル: {$title}");
+        $this->info("  スラッグ: {$slug}");
+        $this->info("  ステータス: {$status}");
+        if ($publishedAt) {
+            $this->info("  公開予定日: {$publishedAt->format('Y-m-d')}");
+        }
     }
 }
