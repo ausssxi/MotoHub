@@ -11,12 +11,18 @@ use App\Models\Listing;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Intervention\Image\Drivers\Gd\Driver as GdDriver;
+use Intervention\Image\Geometry\Factories\LineFactory;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Typography\FontFactory;
 
 final class GenerateMarketReport extends Command
 {
     protected $signature = 'blog:generate-market-report
         {--month= : 対象月 (1-12)}
         {--year= : 対象年}
+        {--user-id=2 : 投稿者のユーザーID}
         {--publish : 公開状態で投稿（デフォルトは下書き）}
         {--dry-run : 生成結果をターミナルに出力するのみ}';
 
@@ -453,6 +459,10 @@ final class GenerateMarketReport extends Command
         $monthStr = $targetMonth->format('Y-m');
         $monthLabel = $targetMonth->format('Y年n月');
         $slug = "market-report-{$monthStr}";
+        $userId = (int) $this->option('user-id');
+
+        // サムネイル画像生成
+        $imagePath = $this->generateThumbnail($targetMonth, $summary);
 
         // 既存記事チェック
         $existing = BlogPost::where('slug', $slug)->first();
@@ -460,6 +470,8 @@ final class GenerateMarketReport extends Command
             $this->warn("slug '{$slug}' の記事は既に存在します。上書きします。");
             $existing->update([
                 'body' => $markdown,
+                'eyecatch_image' => $imagePath,
+                'og_image' => $imagePath,
                 'meta_description' => "{$monthLabel}の中古バイク相場レポート。値上がり・値下がり車種ランキング、排気量別の価格推移、人気車種TOP10を掲載。",
             ]);
             $this->info("既存記事を更新しました: {$existing->title}");
@@ -471,10 +483,12 @@ final class GenerateMarketReport extends Command
         $publishedAt = $this->option('publish') ? $targetMonth->copy()->addMonth()->startOfMonth() : null;
 
         $post = BlogPost::create([
-            'author_id' => 1,
+            'author_id' => $userId,
             'title' => $title,
             'slug' => $slug,
             'body' => $markdown,
+            'eyecatch_image' => $imagePath,
+            'og_image' => $imagePath,
             'status' => $status,
             'published_at' => $publishedAt,
             'meta_title' => "{$monthLabel} 中古バイク相場レポート | MotoHub",
@@ -491,8 +505,149 @@ final class GenerateMarketReport extends Command
         $this->info("  タイトル: {$title}");
         $this->info("  スラッグ: {$slug}");
         $this->info("  ステータス: {$status}");
+        $this->info("  画像: {$imagePath}");
         if ($publishedAt) {
             $this->info("  公開予定日: {$publishedAt->format('Y-m-d')}");
         }
+    }
+
+    private function generateThumbnail(Carbon $targetMonth, array $summary): string
+    {
+        $width = 1200;
+        $height = 630;
+        $fontPath = storage_path('app/fonts/NotoSansJP-Bold.ttf');
+        $hasFont = file_exists($fontPath);
+
+        $manager = new ImageManager(new GdDriver());
+        $image = $manager->create($width, $height);
+
+        // 背景グラデーション（ダークブルー #0f172a → #1e3a5f）
+        for ($y = 0; $y < $height; $y++) {
+            $ratio = $y / $height;
+            $r = (int) (0x0f + (0x1e - 0x0f) * $ratio);
+            $g = (int) (0x17 + (0x3a - 0x17) * $ratio);
+            $b = (int) (0x2a + (0x5f - 0x2a) * $ratio);
+            $hex = sprintf('#%02x%02x%02x', $r, $g, $b);
+            $image->drawLine(function (LineFactory $line) use ($y, $width, $hex) {
+                $line->from(0, $y);
+                $line->to($width, $y);
+                $line->color($hex);
+            });
+        }
+
+        // 上部アクセントライン（オレンジ）
+        for ($i = 0; $i < 5; $i++) {
+            $image->drawLine(function (LineFactory $line) use ($i, $width) {
+                $line->from(0, $i);
+                $line->to($width, $i);
+                $line->color('#e67e22');
+            });
+        }
+
+        if ($hasFont) {
+            // 上部: 「MotoHub 月次レポート」
+            $image->text('MotoHub 月次レポート', (int) ($width / 2), 120, function (FontFactory $font) use ($fontPath) {
+                $font->filename($fontPath);
+                $font->size(28);
+                $font->color('rgba(255, 255, 255, 0.7)');
+                $font->align('center');
+                $font->valign('middle');
+            });
+
+            // 中央: 年月
+            $monthText = $targetMonth->format('Y年n月');
+            $image->text($monthText, (int) ($width / 2), 220, function (FontFactory $font) use ($fontPath) {
+                $font->filename($fontPath);
+                $font->size(80);
+                $font->color('#ffffff');
+                $font->align('center');
+                $font->valign('middle');
+            });
+
+            // 中央下: 「中古バイク相場レポート」
+            $image->text('中古バイク相場レポート', (int) ($width / 2), 310, function (FontFactory $font) use ($fontPath) {
+                $font->filename($fontPath);
+                $font->size(40);
+                $font->color('#ffffff');
+                $font->align('center');
+                $font->valign('middle');
+            });
+
+            // 下部: データカード3つ
+            $cards = [];
+            if ($summary['avg_price'] !== null) {
+                $cards[] = ['label' => '平均価格', 'value' => $summary['avg_price'] . '万円'];
+            }
+            if ($summary['price_change'] !== null) {
+                $sign = $summary['price_change'] >= 0 ? '+' : '';
+                $cards[] = [
+                    'label' => '前月比',
+                    'value' => $sign . $summary['price_change'] . '%',
+                    'color' => $summary['price_change'] >= 0 ? '#4ade80' : '#f87171',
+                ];
+            }
+            if ($summary['sold_count'] > 0) {
+                $cards[] = ['label' => '販売台数', 'value' => number_format($summary['sold_count']) . '台'];
+            }
+
+            $cardCount = count($cards);
+            if ($cardCount > 0) {
+                $cardWidth = 280;
+                $totalWidth = $cardCount * $cardWidth + ($cardCount - 1) * 40;
+                $startX = (int) (($width - $totalWidth) / 2) + (int) ($cardWidth / 2);
+
+                foreach ($cards as $i => $card) {
+                    $cx = $startX + $i * ($cardWidth + 40);
+                    $cy = 480;
+
+                    // カード背景（白）
+                    for ($ry = $cy - 55; $ry <= $cy + 55; $ry++) {
+                        $image->drawLine(function (LineFactory $line) use ($cx, $ry, $cardWidth) {
+                            $line->from($cx - (int) ($cardWidth / 2), $ry);
+                            $line->to($cx + (int) ($cardWidth / 2), $ry);
+                            $line->color('rgba(255, 255, 255, 0.95)');
+                        });
+                    }
+
+                    // ラベル（グレー）
+                    $image->text($card['label'], $cx, $cy - 25, function (FontFactory $font) use ($fontPath) {
+                        $font->filename($fontPath);
+                        $font->size(18);
+                        $font->color('#6b7280');
+                        $font->align('center');
+                        $font->valign('middle');
+                    });
+
+                    // 値（黒、前月比のみ緑/赤）
+                    $valueColor = $card['color'] ?? '#1f2937';
+                    $image->text($card['value'], $cx, $cy + 20, function (FontFactory $font) use ($fontPath, $valueColor) {
+                        $font->filename($fontPath);
+                        $font->size(32);
+                        $font->color($valueColor);
+                        $font->align('center');
+                        $font->valign('middle');
+                    });
+                }
+            }
+
+            // 右下ブランディング
+            $image->text('MotoHub', $width - 60, $height - 30, function (FontFactory $font) use ($fontPath) {
+                $font->filename($fontPath);
+                $font->size(18);
+                $font->color('rgba(255, 255, 255, 0.4)');
+                $font->align('right');
+                $font->valign('bottom');
+            });
+        }
+
+        // 保存
+        $filename = "market-report-{$targetMonth->format('Y-m')}.png";
+        $savePath = "blog/thumbnails/{$filename}";
+        Storage::disk('public')->makeDirectory('blog/thumbnails');
+        Storage::disk('public')->put($savePath, $image->toPng()->toString());
+
+        $this->info("サムネイル画像を生成しました: {$savePath}");
+
+        return $savePath;
     }
 }
