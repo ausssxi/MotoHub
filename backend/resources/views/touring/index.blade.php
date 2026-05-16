@@ -88,26 +88,38 @@
         <section class="mt-12">
             <h2 class="text-xl font-bold mb-6">都道府県別ツーリングスポット</h2>
 
-            <div class="space-y-6">
+            <div class="space-y-8">
                 @foreach($regions as $regionName => $prefs)
                     <div>
-                        <h3 class="text-sm font-bold text-gray-600 mb-2">{{ $regionName }}</h3>
-                        <div class="flex flex-wrap gap-2">
+                        <h3 class="text-sm font-bold text-gray-600 mb-3">{{ $regionName }}</h3>
+                        <div class="space-y-3">
                             @foreach($prefs as $pref)
                                 @php
-                                    $count = $spotCounts[$pref] ?? 0;
-                                    $slug = $slugFlip[$pref] ?? null;
+                                    $spots = $spotsByPrefecture[$pref] ?? collect();
+                                    $prefSlug = $slugFlip[$pref] ?? null;
                                 @endphp
-                                @if($count > 0 && $slug)
-                                    <a href="{{ url('/touring/' . $slug) }}"
-                                       class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-full bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition">
-                                        {{ $pref }}
-                                        <span class="text-[10px] text-cyan-500">({{ $count }})</span>
-                                    </a>
+                                @if($spots->isNotEmpty() && $prefSlug)
+                                    <div>
+                                        <a href="{{ url('/touring/' . $prefSlug) }}"
+                                           class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-full bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition">
+                                            {{ $pref }}
+                                            <span class="text-[10px] text-cyan-500">({{ $spots->count() }})</span>
+                                        </a>
+                                        <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 pl-2">
+                                            @foreach($spots as $spot)
+                                                <a href="{{ url('/touring/' . $prefSlug . '/' . $spot->slug) }}"
+                                                   class="text-xs text-gray-500 hover:text-cyan-600 transition">
+                                                    {{ $spot->name }}
+                                                </a>
+                                            @endforeach
+                                        </div>
+                                    </div>
                                 @else
-                                    <span class="inline-flex items-center px-3 py-1.5 text-xs font-bold rounded-full bg-gray-50 text-gray-300">
-                                        {{ $pref }}
-                                    </span>
+                                    <div>
+                                        <span class="inline-flex items-center px-3 py-1.5 text-xs font-bold rounded-full bg-gray-50 text-gray-300">
+                                            {{ $pref }}
+                                        </span>
+                                    </div>
                                 @endif
                             @endforeach
                         </div>
