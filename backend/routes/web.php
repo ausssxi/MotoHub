@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\PoiApiController;
 use App\Http\Controllers\Api\RoadsideStationApiController;
 use App\Http\Controllers\Ar\ArController;
 use App\Http\Controllers\Bike\BikeIdentifierController;
+use App\Http\Controllers\Bike\CategoryLandingController;
 use App\Http\Controllers\Bike\NewArrivalsController;
 use App\Http\Controllers\Bike\NewArrivalsOgpController;
 use App\Http\Controllers\Bike\PriceDropsController;
@@ -160,6 +161,16 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     Route::get('/overseas/{makerSlug}', [OverseasBikeController::class, 'maker'])
         ->where('makerSlug', '[a-z][a-z0-9\-]*')
         ->name('overseas.maker');
+
+    // カテゴリ別LP（排気量）
+    Route::get('/cc/{slug}', [CategoryLandingController::class, 'byDisplacement'])
+        ->where('slug', '50|125|250|400|750|over750')
+        ->name('category_cc');
+
+    // カテゴリ別LP（タイプ）
+    Route::get('/type/{slug}', [CategoryLandingController::class, 'byType'])
+        ->where('slug', '[a-z][a-z0-9\-]*')
+        ->name('category_type');
 
     // 車種別カタログページ
     Route::get('/models/{id}', function ($id) {
