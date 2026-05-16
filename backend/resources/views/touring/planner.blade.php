@@ -187,6 +187,6 @@
 
     <x-slot:scripts>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script src="{{ asset('js/touring/planner.js') }}"></script>
+        <script src="{{ asset('js/touring/planner.js') }}" charset="utf-8"></script>
     </x-slot:scripts>
 </x-layout>
