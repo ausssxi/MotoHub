@@ -89,7 +89,7 @@ final class SeoLandingService
      */
     public function computeLandingKpi(string $prefecture, array $filters, string $type = 'maker'): array
     {
-        $cacheKey = 'landing_kpi_v3_' . md5(serialize([$prefecture, $filters, $type]));
+        $cacheKey = 'landing_kpi_v4_' . md5(serialize([$prefecture, $filters, $type]));
 
         return Cache::remember($cacheKey, 3600, function () use ($prefecture, $filters, $type) {
             $query = Listing::query()
@@ -192,6 +192,56 @@ final class SeoLandingService
     }
 
     /**
+     * 年式分布を集計
+     */
+    private function buildYearDistribution(mixed $query, int $totalCount): array
+    {
+        if ($totalCount === 0) {
+            return [];
+        }
+
+        $currentYear = (int) date('Y');
+        $bands = [
+            ['label' => '〜2005年', 'min' => 0, 'max' => 2005],
+            ['label' => '2006〜2010年', 'min' => 2006, 'max' => 2010],
+            ['label' => '2011〜2015年', 'min' => 2011, 'max' => 2015],
+            ['label' => '2016〜2020年', 'min' => 2016, 'max' => 2020],
+            ['label' => '2021年〜', 'min' => 2021, 'max' => $currentYear + 1],
+        ];
+
+        $caseWhen = 'CASE';
+        foreach ($bands as $i => $band) {
+            $caseWhen .= " WHEN listings.model_year >= {$band['min']} AND listings.model_year <= {$band['max']} THEN {$i}";
+        }
+        $caseWhen .= ' END';
+
+        $rows = (clone $query)
+            ->where('listings.model_year', '>', 0)
+            ->selectRaw("{$caseWhen} as band_idx, COUNT(*) as cnt")
+            ->groupByRaw($caseWhen)
+            ->get()
+            ->keyBy('band_idx');
+
+        $maxCount = $rows->max('cnt') ?: 1;
+
+        $distribution = [];
+        foreach ($bands as $i => $band) {
+            $count = (int) ($rows->get($i)?->cnt ?? 0);
+            if ($count === 0) {
+                continue;
+            }
+            $distribution[] = [
+                'label' => $band['label'],
+                'count' => $count,
+                'bar_width' => round($count / $maxCount * 100),
+                'is_max' => $count === $maxCount,
+            ];
+        }
+
+        return $distribution;
+    }
+
+    /**
      * 車種ページ用KPI: 年式別TOP3
      */
     private function buildModelKpi(mixed $query, int $totalCount, mixed $priceStats, array $priceDistribution): array
@@ -212,14 +262,26 @@ final class SeoLandingService
                 : null,
         ])->toArray();
 
+        // 追加KPI: 平均走行距離、平均年式
+        $extraStats = (clone $query)->selectRaw('
+            AVG(CASE WHEN listings.mileage > 0 THEN listings.mileage END) as avg_mileage,
+            AVG(CASE WHEN listings.model_year > 1980 THEN listings.model_year END) as avg_year
+        ')->first();
+
+        // 年式分布
+        $yearDistribution = $this->buildYearDistribution($query, $totalCount);
+
         return [
             'total_count' => $totalCount,
             'avg_price' => $priceStats->avg_price > 0 ? number_format((float) ($priceStats->avg_price / 10000), 1) : null,
             'min_price' => $priceStats->min_price > 0 ? number_format((float) ($priceStats->min_price / 10000), 1) : null,
+            'avg_mileage' => ($extraStats->avg_mileage ?? 0) > 0 ? number_format((float) ($extraStats->avg_mileage / 10000), 1) : null,
+            'avg_year' => ($extraStats->avg_year ?? 0) > 1980 ? (int) round((float) $extraStats->avg_year) : null,
             'top_model' => $topYearsFormatted[0]['name'] ?? null,
             'top_models' => $topYearsFormatted,
             'kpi_mode' => 'model_year',
             'price_distribution' => $priceDistribution,
+            'year_distribution' => $yearDistribution,
         ];
     }
 
@@ -253,14 +315,26 @@ final class SeoLandingService
                 : null,
         ])->toArray();
 
+        // 追加KPI: 平均走行距離、平均年式
+        $extraStats = (clone $query)->selectRaw('
+            AVG(CASE WHEN listings.mileage > 0 THEN listings.mileage END) as avg_mileage,
+            AVG(CASE WHEN listings.model_year > 1980 THEN listings.model_year END) as avg_year
+        ')->first();
+
+        // 年式分布
+        $yearDistribution = $this->buildYearDistribution($query, $totalCount);
+
         return [
             'total_count' => $totalCount,
             'avg_price' => $priceStats->avg_price > 0 ? number_format((float) ($priceStats->avg_price / 10000), 1) : null,
             'min_price' => $priceStats->min_price > 0 ? number_format((float) ($priceStats->min_price / 10000), 1) : null,
+            'avg_mileage' => ($extraStats->avg_mileage ?? 0) > 0 ? number_format((float) ($extraStats->avg_mileage / 10000), 1) : null,
+            'avg_year' => ($extraStats->avg_year ?? 0) > 1980 ? (int) round((float) $extraStats->avg_year) : null,
             'top_model' => $topModelsFormatted[0]['name'] ?? null,
             'top_models' => $topModelsFormatted,
             'kpi_mode' => 'default',
             'price_distribution' => $priceDistribution,
+            'year_distribution' => $yearDistribution,
         ];
     }
 

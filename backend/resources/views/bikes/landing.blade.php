@@ -1,7 +1,29 @@
 <x-layout>
-    {{-- SEO用タイトル・説明文の設定 --}}
-    <x-slot:title>{{ $pageInfo['title'] }} | MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $pageInfo['description'] }}</x-slot:metaDescription>
+    {{-- SEO用タイトル・説明文の設定（KPIデータを組み込み） --}}
+    @php
+        $kpiCount = $landingKpi['total_count'] ?? $pagination['total'] ?? 0;
+        $kpiAvg = $landingKpi['avg_price'] ?? null;
+        $kpiMin = $landingKpi['min_price'] ?? null;
+
+        // title: 車種名を先頭 + 台数・相場を付与（60文字以内を意識）
+        $seoTitle = $pageInfo['target_name'] . 'の中古バイク(' . $prefecture . ')';
+        if ($kpiCount > 0 && $kpiAvg) {
+            $seoTitle .= ' | ' . number_format($kpiCount) . '台掲載・相場' . $kpiAvg . '万円';
+        } elseif ($kpiCount > 0) {
+            $seoTitle .= ' | ' . number_format($kpiCount) . '台掲載';
+        }
+        $seoTitle .= ' | MotoHub';
+
+        // description: 具体的な数字入り（120文字以内）
+        if ($kpiCount > 0 && $kpiMin) {
+            $seoDescription = $pageInfo['target_name'] . 'の中古バイクを' . $prefecture . 'で探すならMotoHub。'
+                . number_format($kpiCount) . '台掲載中、価格' . $kpiMin . '万円〜。年式・走行距離・価格で比較できます。';
+        } else {
+            $seoDescription = $pageInfo['description'];
+        }
+    @endphp
+    <x-slot:title>{{ $seoTitle }}</x-slot:title>
+    <x-slot:metaDescription>{{ $seoDescription }}</x-slot:metaDescription>
 
     @if($pagination['total'] <= 3)
         <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
@@ -11,6 +33,73 @@
         {{-- CSSの非同期読み込み（レンダリングブロック完全解除） --}}
         <link rel="preload" href="{{ asset('css/bike-search.css') }}?v={{ filemtime(public_path('css/bike-search.css')) }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="{{ asset('css/bike-search.css') }}?v={{ filemtime(public_path('css/bike-search.css')) }}"></noscript>
+
+        {{-- JSON-LD ��ンくずリスト --}}
+        <script type="application/ld+json">
+        {
+            "@@context": "https://schema.org",
+            "@@type": "BreadcrumbList",
+            "itemListElement": [
+                {
+                    "@@type": "ListItem",
+                    "position": 1,
+                    "name": "HOME",
+                    "item": "{{ url('/') }}"
+                },
+                {
+                    "@@type": "ListItem",
+                    "position": 2,
+                    "name": "地域から探す",
+                    "item": "{{ route('bikes.prefectures') }}"
+                },
+                {
+                    "@@type": "ListItem",
+                    "position": 3,
+                    "name": "{{ $prefecture }}",
+                    "item": "{{ route('bikes.search', ['prefecture' => $prefecture]) }}"
+                },
+                {
+                    "@@type": "ListItem",
+                    "position": 4,
+                    "name": "{{ $pageInfo['target_name'] }}",
+                    "item": "{{ url()->current() }}"
+                }
+            ]
+        }
+        </script>
+
+        {{-- JSON-LD ItemList（最大10件） --}}
+        @if(!empty($items) && count($items) > 0)
+        <script type="application/ld+json">
+        {
+            "@@context": "https://schema.org",
+            "@@type": "ItemList",
+            "name": "{{ $pageInfo['target_name'] }}の中古バイク（{{ $prefecture }}）",
+            "numberOfItems": {{ $kpiCount }},
+            "itemListElement": [
+                @foreach(collect($items)->take(10) as $i => $item)
+                {
+                    "@@type": "ListItem",
+                    "position": {{ $i + 1 }},
+                    "item": {
+                        "@@type": "Product",
+                        "name": "{{ $item['title'] ?? ($item->title ?? '') }}",
+                        "url": "{{ route('bikes.show', ['id' => $item['id'] ?? ($item->id ?? 0)]) }}"
+                        @if(($item['total_price'] ?? ($item->total_price ?? 0)) > 0)
+                        ,"offers": {
+                            "@@type": "Offer",
+                            "price": "{{ $item['total_price'] ?? $item->total_price }}",
+                            "priceCurrency": "JPY",
+                            "availability": "https://schema.org/InStock"
+                        }
+                        @endif
+                    }
+                }@if(!$loop->last),@endif
+                @endforeach
+            ]
+        }
+        </script>
+        @endif
     </x-slot:styles>
 
     <x-slot:scripts>
@@ -64,7 +153,7 @@
         @if(($landingKpi['total_count'] ?? 0) > 0)
         <div class="bg-white border-b border-gray-100">
             <div class="max-w-7xl mx-auto px-4 py-6">
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                     <div class="bg-gray-50 rounded-2xl p-4 text-center">
                         <div class="text-xs font-bold text-gray-400 mb-1">掲載台数</div>
                         <div class="text-2xl font-black text-gray-900">{{ number_format($landingKpi['total_count']) }}<span class="text-sm font-bold text-gray-400 ml-1">台</span></div>
@@ -76,6 +165,14 @@
                     <div class="bg-gray-50 rounded-2xl p-4 text-center">
                         <div class="text-xs font-bold text-gray-400 mb-1">最安値</div>
                         <div class="text-2xl font-black text-green-600">{{ $landingKpi['min_price'] ?? '-' }}<span class="text-sm font-bold text-gray-400 ml-1">万円</span></div>
+                    </div>
+                    <div class="bg-gray-50 rounded-2xl p-4 text-center">
+                        <div class="text-xs font-bold text-gray-400 mb-1">平均走行距離</div>
+                        <div class="text-2xl font-black text-gray-700">{{ $landingKpi['avg_mileage'] ?? '-' }}<span class="text-sm font-bold text-gray-400 ml-1">万km</span></div>
+                    </div>
+                    <div class="bg-gray-50 rounded-2xl p-4 text-center">
+                        <div class="text-xs font-bold text-gray-400 mb-1">平均年式</div>
+                        <div class="text-2xl font-black text-gray-700">{{ $landingKpi['avg_year'] ?? '-' }}<span class="text-sm font-bold text-gray-400 ml-1">年</span></div>
                     </div>
                     <div class="bg-gray-50 rounded-2xl p-4 text-center">
                         <div class="text-xs font-bold text-gray-400 mb-1">{{ ($landingKpi['kpi_mode'] ?? '') === 'model_year' ? '最多年式' : '人気No.1' }}</div>
@@ -142,9 +239,31 @@
         </div>
         @endif
 
+        {{-- 年式分布ブロック --}}
+        @if(!empty($landingKpi['year_distribution']))
+        <div class="bg-white border-b border-gray-100">
+            <div class="max-w-7xl mx-auto px-4 py-6">
+                <div class="bg-gray-50 rounded-2xl p-6">
+                    <h2 class="text-base font-black text-gray-900 mb-4">📅 年式分布</h2>
+                    <div class="space-y-3">
+                        @foreach($landingKpi['year_distribution'] as $band)
+                        <div class="flex items-center gap-3">
+                            <div class="w-24 text-xs font-bold text-gray-600 text-right flex-shrink-0">{{ $band['label'] }}</div>
+                            <div class="flex-1 bg-gray-200 rounded-full h-5 overflow-hidden">
+                                <div class="h-full rounded-full {{ $band['is_max'] ? 'bg-green-600' : 'bg-green-500' }}" style="width: {{ $band['bar_width'] }}%"></div>
+                            </div>
+                            <div class="w-16 text-xs font-bold text-gray-500 flex-shrink-0">{{ number_format($band['count']) }}台</div>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
+
         <div class="py-8">
             <div class="max-w-7xl mx-auto px-4 flex flex-col lg:flex-row gap-8">
-                
+
                 {{-- サイドバー --}}
                 <aside class="w-full lg:w-64 flex-shrink-0">
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-24">
@@ -273,8 +392,67 @@
                     </div>
                     @endif
 
+                    {{-- カテゴリLP導線 --}}
+                    <div class="mt-10 pt-6 border-t border-gray-100">
+                        <h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">カテゴリ別で探す</h4>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach([
+                                '50' => '50cc以下',
+                                '125' => '51〜125cc',
+                                '250' => '126〜250cc',
+                                '400' => '251〜400cc',
+                                '750' => '401〜750cc',
+                                'over750' => '751cc以上',
+                            ] as $ccSlug => $ccLabel)
+                                <a href="{{ route('bikes.category_cc', ['slug' => $ccSlug]) }}"
+                                   class="px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors">
+                                    {{ $ccLabel }}
+                                </a>
+                            @endforeach
+                        </div>
+                        <div class="flex flex-wrap gap-2 mt-3">
+                            @foreach([
+                                'naked' => 'ネイキッド',
+                                'scooter' => 'スクーター',
+                                'american' => 'アメリカン',
+                                'sport' => 'スポーツ',
+                                'offroad' => 'オフロード',
+                                'tourer' => 'ツアラー',
+                                'classic' => 'クラシック',
+                                'adventure' => 'アドベンチャー',
+                            ] as $typeSlug => $typeLabel)
+                                <a href="{{ route('bikes.category_type', ['slug' => $typeSlug]) }}"
+                                   class="px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors">
+                                    {{ $typeLabel }}
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
+
+        {{-- SEOテキスト（導入文） --}}
+        @if(($landingKpi['total_count'] ?? 0) > 0)
+        <div class="bg-white border-t border-gray-100">
+            <div class="max-w-7xl mx-auto px-4 py-10">
+                <h2 class="text-lg font-black text-gray-900 mb-4">{{ $prefecture }}で{{ $pageInfo['target_name'] }}をお探しの方へ</h2>
+                <div class="prose prose-sm max-w-none text-gray-600 leading-relaxed">
+                    <p>
+                        {{ $prefecture }}の{{ $pageInfo['target_name'] }}中古バイクは現在{{ number_format($landingKpi['total_count']) }}台掲載中。
+                        平均価格は{{ $landingKpi['avg_price'] ?? '-' }}万円、最安値は{{ $landingKpi['min_price'] ?? '-' }}万円からご覧いただけます。
+                        @if($landingKpi['avg_mileage'] ?? null)
+                            平均走行距離は{{ $landingKpi['avg_mileage'] }}万kmです。
+                        @endif
+                    </p>
+                    <p class="mt-2">
+                        MotoHubでは複数のバイクショップの在庫を一括で比較・検討でき、価格・走行距離・年式で並び替えが可能です。
+                        気になるバイクはお気に入りに保存して、じっくり��較検討してください。
+                    </p>
+                </div>
+            </div>
+        </div>
+        @endif
     </div>
 </x-layout>
