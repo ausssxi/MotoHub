@@ -204,7 +204,17 @@ return Application::configure(basePath: dirname(__DIR__))
         //          ->appendOutputTo(storage_path('logs/trending_tweets.log'));
 
         /**
-         * --- 5. Push通知 ---
+         * --- 5. 月次レポート自動生成 ---
+         */
+
+        // 毎月1日 09:00 に前月の相場レポートを自動生成・公開
+        $schedule->command('blog:generate-market-report --publish --user-id=2')
+                 ->monthlyOn(1, '09:00')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/market_report.log'));
+
+        /**
+         * --- 6. Push通知 ---
          */
 
         // 新着入荷プッシュ通知 (08:30 - データ更新後)
