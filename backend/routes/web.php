@@ -23,6 +23,7 @@ use App\Http\Controllers\Parking\StationParkingController;
 use App\Http\Controllers\Shop\ShopAreaController;
 use App\Http\Controllers\RidersMapController;
 use App\Http\Controllers\Api\PoiApiController;
+use App\Http\Controllers\Api\RoadsideStationApiController;
 use App\Http\Controllers\Ar\ArController;
 use App\Http\Controllers\Bike\BikeIdentifierController;
 use App\Http\Controllers\Bike\NewArrivalsController;
@@ -336,6 +337,7 @@ Route::prefix('api')->group(function () {
     Route::get('/widget/price/{bikeModelId}', [\App\Http\Controllers\Api\WidgetApiController::class, 'price']);
     Route::get('/pois', [PoiApiController::class, 'search'])->name('api.pois');
     Route::post('/pois/along-route', [PoiApiController::class, 'alongRoute'])->name('api.pois.along_route');
+    Route::get('/roadside-stations', [RoadsideStationApiController::class, 'search'])->name('api.roadside_stations');
 });
 
 // 固定ページ (運営者情報など)

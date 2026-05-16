@@ -10,7 +10,7 @@
         parking: { endpoint: '/parking/api/search', color: '#16a34a', label: '\uD83C\uDD7F\uFE0F', title: '駐車場' },
         gas_station:       { endpoint: '/api/pois?type=gas_station', color: '#dc2626', label: '\u26FD', title: 'GS' },
         convenience_store: { endpoint: '/api/pois?type=convenience_store', color: '#ea580c', label: '\uD83C\uDFEA', title: 'コンビニ' },
-        michi_no_eki:      { endpoint: '/api/pois?type=michi_no_eki', color: '#9333ea', label: '\uD83D\uDEE3\uFE0F', title: '道の駅' },
+        michi_no_eki:      { endpoint: '/api/roadside-stations', color: '#9333ea', label: '\uD83D\uDEE3\uFE0F', title: '道の駅' },
         blog:              { endpoint: '/api/blog/map-pins', color: '#0891b2', label: '\u270D\uFE0F', title: '記事' },
         saved_spots:       { endpoint: '/api/spots', color: '#f59e0b', label: '\u2B50', title: 'お気に入り' },
     };
@@ -263,6 +263,7 @@
             lines += '<p class="text-[10px] text-gray-400 truncate mt-0.5">' + escapeHtml(item.address || '') + '</p>';
         } else if (layerKey === 'michi_no_eki') {
             lines += '<p class="text-[10px] text-gray-400 truncate mt-0.5">' + escapeHtml(item.address || '') + '</p>';
+            lines += michiNoEkiFacilities(item);
         } else if (layerKey === 'blog') {
             if (item.excerpt) {
                 lines += '<p class="text-[10px] text-gray-500 truncate mt-0.5">' + escapeHtml(item.excerpt) + '</p>';
@@ -414,9 +415,35 @@
                 + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
                 + gmapBtn + routeBtn;
         } else if (layerKey === 'michi_no_eki') {
-            html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(item.name) + '</h3>'
-                + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
-                + gmapBtn + routeBtn;
+            html = '';
+            // サムネイル画像
+            if (item.image_url) {
+                html += '<div class="rounded-lg overflow-hidden mb-3 bg-gray-100">'
+                    + '<img src="' + escapeHtml(item.image_url) + '" alt="' + escapeHtml(item.name) + '" class="w-full h-32 object-cover" loading="lazy" onerror="this.parentElement.style.display=\'none\'">'
+                    + '</div>';
+            }
+            html += '<h3 class="text-base font-black text-gray-900 mb-1">' + escapeHtml(item.name) + '</h3>';
+            if (item.address) {
+                html += '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>';
+            }
+            // 施設アイコン一覧
+            var facilities = michiNoEkiFacilitiesDetail(item);
+            if (facilities) {
+                html += '<div class="bg-gray-50 rounded-lg p-3 mb-3">'
+                    + '<p class="text-[10px] font-bold text-gray-400 mb-2">施設・設備</p>'
+                    + '<div class="flex flex-wrap gap-1.5">' + facilities + '</div>'
+                    + '</div>';
+            }
+            // 概要
+            if (item.summary) {
+                html += '<p class="text-xs text-gray-600 mb-3 leading-relaxed">' + escapeHtml(item.summary) + '</p>';
+            }
+            // 外部リンク
+            var extUrl = item.website_url || item.wikipedia_url;
+            if (extUrl) {
+                html += '<a href="' + escapeHtml(extUrl) + '" target="_blank" rel="noopener" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition">詳しく見る &rarr;</a>';
+            }
+            html += gmapBtn + routeBtn;
         } else if (layerKey === 'blog') {
             var blogUrl = item.type === 'touring' ? '/touring/' : '/blog/';
             var blogLabel = item.type === 'touring' ? 'ガイドを読む' : '記事を読む';
@@ -498,6 +525,40 @@
             + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
             * Math.sin(dLng/2) * Math.sin(dLng/2);
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    // 道の駅施設アイコン（カード用・コンパクト版）
+    function michiNoEkiFacilities(item) {
+        var icons = [];
+        if (item.has_restaurant) icons.push('\uD83C\uDF7D');
+        if (item.has_onsen)      icons.push('\u2668\uFE0F');
+        if (item.has_ev_charging) icons.push('\u26A1');
+        if (item.has_wifi)       icons.push('\uD83D\uDCF6');
+        if (item.has_shower)     icons.push('\uD83D\uDEBF');
+        if (item.has_gas_station) icons.push('\u26FD');
+        if (item.has_shop)       icons.push('\uD83C\uDFEA');
+        if (!icons.length) return '';
+        return '<p class="text-[10px] mt-0.5">' + icons.join(' ') + '</p>';
+    }
+
+    // 道の駅施設バッジ（詳細パネル用）
+    function michiNoEkiFacilitiesDetail(item) {
+        var list = [
+            { key: 'has_restaurant',  icon: '\uD83C\uDF7D', label: 'レストラン' },
+            { key: 'has_onsen',       icon: '\u2668\uFE0F',  label: '温泉' },
+            { key: 'has_ev_charging', icon: '\u26A1',        label: 'EV充電' },
+            { key: 'has_wifi',        icon: '\uD83D\uDCF6', label: 'WiFi' },
+            { key: 'has_shower',      icon: '\uD83D\uDEBF', label: 'シャワー' },
+            { key: 'has_gas_station', icon: '\u26FD',        label: 'GS' },
+            { key: 'has_shop',        icon: '\uD83C\uDFEA', label: 'ショップ' },
+        ];
+        var html = '';
+        list.forEach(function(f) {
+            if (item[f.key]) {
+                html += '<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-white rounded text-[10px] font-bold text-gray-600 border border-gray-200">' + f.icon + ' ' + f.label + '</span>';
+            }
+        });
+        return html;
     }
 
     function escapeHtml(str) {
