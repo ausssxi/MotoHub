@@ -916,8 +916,36 @@ class GenerateSitemap extends Command
                 }
             });
 
+        // ツーリングスポット — 都道府県一覧ページ
+        $spotPrefectures = \App\Models\TouringSpot::select('prefecture')->distinct()->pluck('prefecture');
+        foreach ($spotPrefectures as $pref) {
+            $slug = \App\Models\TouringSpot::slugFromPrefectureName($pref);
+            if ($slug) {
+                $this->writeUrl($handle, url("/touring/{$slug}"), date('Y-m-d'), 'weekly', '0.6');
+                $touringCount++;
+            }
+        }
+
+        // ツーリングスポット — 個別ページ
+        \App\Models\TouringSpot::orderBy('prefecture')->orderBy('name')
+            ->chunk(500, function ($spots) use ($handle, &$touringCount) {
+                foreach ($spots as $spot) {
+                    $prefSlug = \App\Models\TouringSpot::slugFromPrefectureName($spot->prefecture);
+                    if ($prefSlug) {
+                        $this->writeUrl(
+                            $handle,
+                            url("/touring/{$prefSlug}/{$spot->slug}"),
+                            $spot->updated_at->toDateString(),
+                            'monthly',
+                            '0.5'
+                        );
+                        $touringCount++;
+                    }
+                }
+            });
+
         $this->closeSitemap($handle);
-        $this->info(" -> {$touringCount} URL (Touring Guides)");
+        $this->info(" -> {$touringCount} URL (Touring Guides + Spots)");
 
 
         // =========================================================

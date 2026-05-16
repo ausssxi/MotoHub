@@ -70,5 +70,50 @@
         <div class="mt-8">
             {{ $guides->links() }}
         </div>
+
+        {{-- 都道府県別ツーリングスポット --}}
+        @php
+            $slugMap = \App\Models\TouringSpot::PREFECTURE_SLUG_MAP;
+            $slugFlip = array_flip($slugMap);
+            $regions = [
+                '北海道・東北' => ['北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県'],
+                '関東' => ['茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県'],
+                '中部' => ['新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県', '静岡県', '愛知県'],
+                '関西' => ['三重県', '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県'],
+                '中国・四国' => ['鳥取県', '島根県', '岡山県', '広島県', '山口県', '徳島県', '香川県', '愛媛県', '高知県'],
+                '九州・沖縄' => ['福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'],
+            ];
+        @endphp
+
+        <section class="mt-12">
+            <h2 class="text-xl font-bold mb-6">都道府県別ツーリングスポット</h2>
+
+            <div class="space-y-6">
+                @foreach($regions as $regionName => $prefs)
+                    <div>
+                        <h3 class="text-sm font-bold text-gray-600 mb-2">{{ $regionName }}</h3>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($prefs as $pref)
+                                @php
+                                    $count = $spotCounts[$pref] ?? 0;
+                                    $slug = $slugFlip[$pref] ?? null;
+                                @endphp
+                                @if($count > 0 && $slug)
+                                    <a href="{{ url('/touring/' . $slug) }}"
+                                       class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-full bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition">
+                                        {{ $pref }}
+                                        <span class="text-[10px] text-cyan-500">({{ $count }})</span>
+                                    </a>
+                                @else
+                                    <span class="inline-flex items-center px-3 py-1.5 text-xs font-bold rounded-full bg-gray-50 text-gray-300">
+                                        {{ $pref }}
+                                    </span>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </section>
     </div>
 </x-layout>

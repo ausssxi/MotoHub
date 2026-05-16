@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\TouringGuide;
+use App\Models\TouringSpot;
 use App\Services\Blog\ShortcodeService;
 use App\Services\MarkdownService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 final class TouringController extends Controller
 {
@@ -29,7 +31,11 @@ final class TouringController extends Controller
             ->orderBy('prefecture')
             ->pluck('prefecture');
 
-        return view('touring.index', compact('guides', 'prefectures'));
+        $spotCounts = TouringSpot::select('prefecture', DB::raw('COUNT(*) as count'))
+            ->groupBy('prefecture')
+            ->pluck('count', 'prefecture');
+
+        return view('touring.index', compact('guides', 'prefectures', 'spotCounts'));
     }
 
     public function show(string $slug, MarkdownService $markdown, ShortcodeService $shortcode)

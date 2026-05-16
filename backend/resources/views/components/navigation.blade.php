@@ -158,7 +158,7 @@
                         <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-widest">ガイド</p>
                         <a href="{{ route('touring.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-cyan-50 hover:text-cyan-600 transition-colors whitespace-nowrap">
                             <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
-                            ツーリングガイド
+                            ツーリングガイド・スポット
                         </a>
                     </div>
                 </div>
@@ -420,6 +420,7 @@
                     </div>
                     <div>
                         <p class="text-xs font-black text-gray-800">ツーリングガイド</p>
+                        <p class="text-[10px] text-gray-400">全国{{ \App\Models\TouringSpot::count() }}スポット掲載</p>
                     </div>
                 </div>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
