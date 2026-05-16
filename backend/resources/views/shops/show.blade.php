@@ -3,8 +3,8 @@
 
     <x-slot:metaDescription>{{ $description }}</x-slot:metaDescription>
 
-    @if(!$shop->latitude || !$shop->longitude)
-        {{-- 位置情報がない＝品質不十分なショップはnoindex --}}
+    @if(!$shop->latitude || !$shop->longitude || ($pagination['total'] ?? 0) === 0)
+        {{-- 位置情報なし or 在庫0台 → noindex --}}
         <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
     @endif
 
