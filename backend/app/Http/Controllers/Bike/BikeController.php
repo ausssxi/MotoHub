@@ -75,7 +75,7 @@ final class BikeController extends Controller
             ->whereDate('listings.created_at', today())
             ->count();
 
-        // 本日販売台数
+        // 前日の販売台数（スクレイパーが深夜に完売判定するため updated_at = today は前日分）
         $todaySoldCount = Cache::remember('top_today_sold', 3600, fn () =>
             Listing::where('is_sold_out', true)->whereDate('updated_at', today())->count()
         );

@@ -359,69 +359,44 @@
                 </div>
             </form>
             
-            {{-- スマホでのみ表示される診断バナー --}}
+            {{-- ツールセクション --}}
+            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">ツール</p>
             <a href="/shindan" class="flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl text-white shadow-lg active:scale-[0.98] transition-all">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
                         <i data-lucide="sparkles" class="w-6 h-6 fill-current"></i>
                     </div>
                     <div>
-                        <p class="text-sm font-black">AIバイク診断をはじめる</p>
+                        <p class="text-sm font-black">AIバイク診断</p>
                         <p class="text-[10px] text-white/70 font-bold">あなたにぴったりの1台を提案</p>
                     </div>
                 </div>
                 <i data-lucide="chevron-right" class="w-5 h-5 opacity-50"></i>
             </a>
-
-            {{-- 車種判定AIバナー --}}
             <a href="{{ route('bikes.identify') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
                         <i data-lucide="scan-eye" class="w-4 h-4 text-purple-600"></i>
                     </div>
-                    <div>
-                        <p class="text-xs font-black text-gray-800">このバイクなに？ 車種判定AI</p>
-                    </div>
+                    <p class="text-xs font-black text-gray-800">車種判定AI</p>
                 </div>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
             </a>
-
-            {{-- パーツ検索バナー --}}
             <a href="{{ route('parts.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                         <i data-lucide="wrench" class="w-4 h-4 text-blue-600"></i>
                     </div>
-                    <div>
-                        <p class="text-xs font-black text-gray-800">バイクパーツ検索</p>
-                    </div>
+                    <p class="text-xs font-black text-gray-800">パーツ検索</p>
                 </div>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
             </a>
-
-            {{-- ブログバナー --}}
-            <a href="{{ route('blog.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
+            <a href="{{ route('ar.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
-                        <i data-lucide="pen-line" class="w-4 h-4 text-amber-600"></i>
+                    <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="camera" class="w-4 h-4 text-green-600"></i>
                     </div>
-                    <div>
-                        <p class="text-xs font-black text-gray-800">ブログ</p>
-                    </div>
-                </div>
-                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
-            </a>
-
-            {{-- ツーリングガイドバナー --}}
-            <a href="{{ route('touring.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 bg-cyan-100 rounded-full flex items-center justify-center">
-                        <i data-lucide="map-pin" class="w-4 h-4 text-cyan-600"></i>
-                    </div>
-                    <div>
-                        <p class="text-xs font-black text-gray-800">ツーリングガイド</p>
-                        <p class="text-[10px] text-gray-400">全国{{ \App\Models\TouringSpot::count() }}スポット掲載</p>
-                    </div>
+                    <p class="text-xs font-black text-gray-800">AR駐車場ファインダー</p>
                 </div>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
             </a>
@@ -435,17 +410,17 @@
                     </div>
                     <p class="text-[11px] font-black text-gray-800 leading-tight">ガレージパズル</p>
                 </a>
-                <a href="{{ route('warashibe') }}" class="flex items-center gap-2 p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
-                    <div class="w-7 h-7 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
-                        <i data-lucide="gamepad-2" class="w-3.5 h-3.5 text-orange-600"></i>
-                    </div>
-                    <p class="text-[11px] font-black text-gray-800 leading-tight">わらしべ長者</p>
-                </a>
                 <a href="{{ route('quiz') }}" class="flex items-center gap-2 p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
                     <div class="w-7 h-7 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
                         <i data-lucide="gamepad-2" class="w-3.5 h-3.5 text-orange-600"></i>
                     </div>
-                    <p class="text-[11px] font-black text-gray-800 leading-tight">バイククイズ</p>
+                    <p class="text-[11px] font-black text-gray-800 leading-tight">バイク4択クイズ</p>
+                </a>
+                <a href="{{ route('warashibe') }}" class="flex items-center gap-2 p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
+                    <div class="w-7 h-7 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                        <i data-lucide="gamepad-2" class="w-3.5 h-3.5 text-orange-600"></i>
+                    </div>
+                    <p class="text-[11px] font-black text-gray-800 leading-tight">わらしべ</p>
                 </a>
                 <a href="{{ route('puzzle') }}" class="flex items-center gap-2 p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
                     <div class="w-7 h-7 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
@@ -454,6 +429,81 @@
                     <p class="text-[11px] font-black text-gray-800 leading-tight">バイク2048</p>
                 </a>
             </div>
+
+            {{-- 情報セクション --}}
+            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-4 mb-1 px-1">情報</p>
+            <a href="{{ route('blog.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="pen-line" class="w-4 h-4 text-amber-600"></i>
+                    </div>
+                    <p class="text-xs font-black text-gray-800">ブログ</p>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
+            <a href="{{ route('sell.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="coins" class="w-4 h-4 text-yellow-600"></i>
+                    </div>
+                    <p class="text-xs font-black text-gray-800">買取相場</p>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
+            <a href="{{ route('bikes.trends') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-rose-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="trophy" class="w-4 h-4 text-rose-600"></i>
+                    </div>
+                    <p class="text-xs font-black text-gray-800">相場ランキング</p>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
+
+            {{-- ガイドセクション --}}
+            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-4 mb-1 px-1">ガイド</p>
+            <a href="{{ route('touring.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-cyan-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="map-pin" class="w-4 h-4 text-cyan-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-black text-gray-800">ツーリングガイド・スポット</p>
+                        <p class="text-[10px] text-gray-400">全国{{ \App\Models\TouringSpot::count() }}スポット掲載</p>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
+            <a href="{{ route('riders.map') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="map" class="w-4 h-4 text-teal-600"></i>
+                    </div>
+                    <p class="text-xs font-black text-gray-800">ライダーズマップ</p>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
+
+            {{-- マイページセクション --}}
+            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-4 mb-1 px-1">マイページ</p>
+            <a href="{{ route('mybikes.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="bike" class="w-4 h-4 text-pink-600"></i>
+                    </div>
+                    <p class="text-xs font-black text-gray-800">ガレージ</p>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
+            <a href="{{ route('wishlist') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="heart" class="w-4 h-4 text-red-600"></i>
+                    </div>
+                    <p class="text-xs font-black text-gray-800">お気に入り</p>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
 
             <div id="mobile-nav-suggest-results" class="absolute left-0 right-0 top-[60px] mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden hidden z-[120] text-left">
                 <div id="mobile-nav-suggest-list" class="py-2 max-h-[300px] overflow-y-auto"></div>
