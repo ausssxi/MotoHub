@@ -954,6 +954,27 @@ class GenerateSitemap extends Command
         $this->info("インデックスファイル (sitemap.xml) を生成中...");
         $this->generateIndexFile($sitemapFiles);
 
+        // =========================================================
+        // 8. IndexNow通知
+        // =========================================================
+        $indexNowKey = config('services.indexnow.key');
+        if ($indexNowKey) {
+            $this->info('IndexNowに通知中...');
+            try {
+                \Illuminate\Support\Facades\Http::post('https://api.indexnow.org/indexnow', [
+                    'host' => 'motohub.jp',
+                    'key' => $indexNowKey,
+                    'keyLocation' => "https://motohub.jp/{$indexNowKey}.txt",
+                    'urlList' => [
+                        'https://motohub.jp/sitemap.xml',
+                    ],
+                ]);
+                $this->info('IndexNow通知完了');
+            } catch (\Throwable $e) {
+                $this->warn('IndexNow通知失敗: ' . $e->getMessage());
+            }
+        }
+
         $duration = round(microtime(true) - $startTime, 2);
         $this->info("全ての処理が完了しました！ ({$duration}秒)");
     }
