@@ -68,7 +68,8 @@ class BaseBikeSpider(scrapy.Spider):
             description=data.get('description'),
             image_urls=data.get('image_urls', []),
             has_repair_history=data.get('has_repair_history', False),
-            is_sold_out=False
+            is_sold_out=False,
+            needs_reindex=True
         )
         self.db.add(new_listing)
 
@@ -95,6 +96,7 @@ class BaseBikeSpider(scrapy.Spider):
             "total_price": data.get('total_price'),
             "description": data.get('description'),
             "is_sold_out": False,
+            "needs_reindex": True,
             "updated_at": datetime.datetime.now()
         }
         self.db.query(Listing).filter(Listing.source_url == url).update(update_values)
@@ -108,10 +110,11 @@ class BaseBikeSpider(scrapy.Spider):
             for i in range(0, len(missing_list), 500):
                 chunk = missing_list[i:i + 500]
                 self.db.query(Listing).filter(
-                    Listing.source_url.in_(chunk), 
+                    Listing.source_url.in_(chunk),
                     Listing.site_id == self.site_id
                 ).update({
-                    "is_sold_out": True, 
+                    "is_sold_out": True,
+                    "needs_reindex": True,
                     "updated_at": datetime.datetime.now()
                 }, synchronize_session=False)
                 self.db.commit()

@@ -26,6 +26,7 @@ class Listing extends Model
         'has_repair_history' => 'boolean',
         'is_sold_out' => 'boolean',
         'is_new' => 'boolean',
+        'needs_reindex' => 'boolean',
     ];
 
     /**

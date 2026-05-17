@@ -133,9 +133,10 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->withoutOverlapping()
                  ->appendOutputTo($tagsLog);
 
-        // Meilisearch(検索エンジン)の同期 (05:30)
-        // Pythonスクレイパーとタグ抽出で更新されたMySQLの最新状態を検索エンジンに流し込みます。
-        $schedule->command('scout:import', ['App\Models\Listing'])
+        // Meilisearch差分同期 (05:30)
+        // PythonスクレイパーがセットしたFlaggedレコードのみ同期（フルインポート不要）
+        // 手動フルインポート: php artisan scout:import 'App\Models\Listing'
+        $schedule->command('scout:sync-flagged')
                  ->dailyAt('05:30')
                  ->withoutOverlapping()
                  ->appendOutputTo($meiliLog);
