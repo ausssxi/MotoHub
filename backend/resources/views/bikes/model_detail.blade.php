@@ -624,15 +624,10 @@
                                 }
                             });
                         }
-                        function register() {
-                            if (typeof window.__loadChartJs === 'function') {
-                                window.__loadChartJs(initYearChart);
-                            }
-                        }
-                        if (document.readyState === 'loading') {
-                            document.addEventListener('DOMContentLoaded', register);
-                        } else {
-                            register();
+                        if (typeof Chart !== 'undefined') {
+                            initYearChart();
+                        } else if (typeof window.__loadChartJs === 'function') {
+                            window.__loadChartJs(initYearChart);
                         }
                     })();
                     </script>
@@ -1275,15 +1270,10 @@
                             }
                         });
                         }
-                        function register() {
-                            if (typeof window.__loadChartJs === 'function') {
-                                window.__loadChartJs(initRadarChart);
-                            }
-                        }
-                        if (document.readyState === 'loading') {
-                            document.addEventListener('DOMContentLoaded', register);
-                        } else {
-                            register();
+                        if (typeof Chart !== 'undefined') {
+                            initRadarChart();
+                        } else if (typeof window.__loadChartJs === 'function') {
+                            window.__loadChartJs(initRadarChart);
                         }
                     })();
                     </script>
