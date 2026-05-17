@@ -13,8 +13,10 @@
     <link rel="canonical" href="{{ $canonical ?? url()->current() }}">
 
     {{-- robots meta（ページ単位でのクロール制御） --}}
-    @if(isset($robotsMeta))
+    @if(isset($robotsMeta) && str_contains(strtolower($robotsMeta), 'noindex'))
     <meta name="robots" content="{{ $robotsMeta }}">
+    @else
+    <meta name="robots" content="max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     @endif
 
     {{-- OGP設定 (SNSシェア用) --}}
