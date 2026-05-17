@@ -575,57 +575,64 @@
                     <script>
                     (function() {
                         function initYearChart() {
-                        var ctx = document.getElementById('yearDistributionChart');
-                        if (!ctx) return;
-                        var distData = @json($yearDistribution);
-                        var currentYear = new Date().getFullYear();
-                        var labels = distData.map(function(d) { return d.model_year + '年'; });
-                        var values = distData.map(function(d) { return d.count; });
-                        var colors = distData.map(function(d) {
-                            return d.model_year >= currentYear ? 'rgba(34,197,94,0.7)' : 'rgba(59,130,246,0.7)';
-                        });
-                        var borderColors = distData.map(function(d) {
-                            return d.model_year >= currentYear ? 'rgba(34,197,94,1)' : 'rgba(59,130,246,1)';
-                        });
-                        new Chart(ctx, {
-                            type: 'bar',
-                            data: {
-                                labels: labels,
-                                datasets: [{
-                                    label: '台数',
-                                    data: values,
-                                    backgroundColor: colors,
-                                    borderColor: borderColors,
-                                    borderWidth: 1,
-                                    borderRadius: 3
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                    legend: { display: false },
-                                    tooltip: {
-                                        callbacks: {
-                                            label: function(ctx) { return ctx.parsed.y + '台'; }
+                            var ctx = document.getElementById('yearDistributionChart');
+                            if (!ctx) return;
+                            var distData = @json($yearDistribution);
+                            var currentYear = new Date().getFullYear();
+                            var labels = distData.map(function(d) { return d.model_year + '年'; });
+                            var values = distData.map(function(d) { return d.count; });
+                            var colors = distData.map(function(d) {
+                                return d.model_year >= currentYear ? 'rgba(34,197,94,0.7)' : 'rgba(59,130,246,0.7)';
+                            });
+                            var borderColors = distData.map(function(d) {
+                                return d.model_year >= currentYear ? 'rgba(34,197,94,1)' : 'rgba(59,130,246,1)';
+                            });
+                            new Chart(ctx, {
+                                type: 'bar',
+                                data: {
+                                    labels: labels,
+                                    datasets: [{
+                                        label: '台数',
+                                        data: values,
+                                        backgroundColor: colors,
+                                        borderColor: borderColors,
+                                        borderWidth: 1,
+                                        borderRadius: 3
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: { display: false },
+                                        tooltip: {
+                                            callbacks: {
+                                                label: function(ctx) { return ctx.parsed.y + '台'; }
+                                            }
+                                        }
+                                    },
+                                    scales: {
+                                        x: {
+                                            ticks: { font: { size: 10, weight: 'bold' }, maxRotation: 45, minRotation: 0 },
+                                            grid: { display: false }
+                                        },
+                                        y: {
+                                            beginAtZero: true,
+                                            ticks: { precision: 0, font: { size: 10 } }
                                         }
                                     }
-                                },
-                                scales: {
-                                    x: {
-                                        ticks: { font: { size: 10, weight: 'bold' }, maxRotation: 45, minRotation: 0 },
-                                        grid: { display: false }
-                                    },
-                                    y: {
-                                        beginAtZero: true,
-                                        ticks: { precision: 0, font: { size: 10 } }
-                                    }
                                 }
-                            }
-                        });
+                            });
                         }
-                        if (typeof window.__loadChartJs === 'function') {
-                            window.__loadChartJs(initYearChart);
+                        function register() {
+                            if (typeof window.__loadChartJs === 'function') {
+                                window.__loadChartJs(initYearChart);
+                            }
+                        }
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', register);
+                        } else {
+                            register();
                         }
                     })();
                     </script>
@@ -1268,8 +1275,15 @@
                             }
                         });
                         }
-                        if (typeof window.__loadChartJs === 'function') {
-                            window.__loadChartJs(initRadarChart);
+                        function register() {
+                            if (typeof window.__loadChartJs === 'function') {
+                                window.__loadChartJs(initRadarChart);
+                            }
+                        }
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', register);
+                        } else {
+                            register();
                         }
                     })();
                     </script>
