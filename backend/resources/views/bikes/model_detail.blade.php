@@ -624,11 +624,16 @@
                                 }
                             });
                         }
-                        if (typeof Chart !== 'undefined') {
-                            initYearChart();
-                        } else if (typeof window.__loadChartJs === 'function') {
-                            window.__loadChartJs(initYearChart);
-                        }
+                        var attempts = 0;
+                        var timer = setInterval(function() {
+                            attempts++;
+                            if (typeof Chart !== 'undefined') {
+                                clearInterval(timer);
+                                initYearChart();
+                            } else if (attempts > 100) {
+                                clearInterval(timer);
+                            }
+                        }, 100);
                     })();
                     </script>
                     @endif
@@ -1270,11 +1275,16 @@
                             }
                         });
                         }
-                        if (typeof Chart !== 'undefined') {
-                            initRadarChart();
-                        } else if (typeof window.__loadChartJs === 'function') {
-                            window.__loadChartJs(initRadarChart);
-                        }
+                        var attempts = 0;
+                        var timer = setInterval(function() {
+                            attempts++;
+                            if (typeof Chart !== 'undefined') {
+                                clearInterval(timer);
+                                initRadarChart();
+                            } else if (attempts > 100) {
+                                clearInterval(timer);
+                            }
+                        }, 100);
                     })();
                     </script>
                     @endif
