@@ -64,17 +64,24 @@
                     document.head.appendChild(s);
                 }
                 window.__loadChartJs = loadChartJs;
-                if ('IntersectionObserver' in window) {
-                    var targets = document.querySelectorAll('#yearDistributionChart, #priceChart, #historyChart, #reviewRadarChart');
-                    if (targets.length === 0) return;
-                    var obs = new IntersectionObserver(function(entries) {
-                        entries.forEach(function(e) {
-                            if (e.isIntersecting) { loadChartJs(); obs.disconnect(); }
-                        });
-                    }, { rootMargin: '200px' });
-                    targets.forEach(function(t) { obs.observe(t); });
+                function setupObserver() {
+                    if ('IntersectionObserver' in window) {
+                        var targets = document.querySelectorAll('#yearDistributionChart, #priceChart, #historyChart, #reviewRadarChart');
+                        if (targets.length === 0) return;
+                        var obs = new IntersectionObserver(function(entries) {
+                            entries.forEach(function(e) {
+                                if (e.isIntersecting) { loadChartJs(); obs.disconnect(); }
+                            });
+                        }, { rootMargin: '200px' });
+                        targets.forEach(function(t) { obs.observe(t); });
+                    } else {
+                        loadChartJs();
+                    }
+                }
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', setupObserver);
                 } else {
-                    loadChartJs();
+                    setupObserver();
                 }
             })();
         </script>
