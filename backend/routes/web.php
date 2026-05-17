@@ -130,6 +130,9 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     // SEO着地ページ（都道府県レベル）
     Route::get('/area/{prefecture}/{slug}', 'landing')->name('landing');
 
+    // 都道府県エリアインデックス
+    Route::get('/area/{prefecture}', 'areaIndex')->name('area_index');
+
     // カタログページ（地域なしプログラマティックSEO）
     Route::get('/catalog/{slug}', 'catalog')->name('catalog');
 

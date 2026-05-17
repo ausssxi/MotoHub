@@ -13,7 +13,8 @@
         || request()->is('quiz*')
         || request()->is('warashibe*')
         || request()->is('puzzle*')
-        || request()->is('games/*');
+        || request()->is('games/*')
+        || request()->is('touring*');
 @endphp
 <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 w-full bg-white border-t border-gray-100 z-50 md:hidden" style="height:60px;" aria-label="モバイルナビゲーション">
     <div class="flex w-full h-full items-center justify-around">
@@ -60,8 +61,8 @@
         <div class="absolute bottom-[60px] inset-x-0 bg-white rounded-t-2xl shadow-xl border-t border-gray-100 p-4 transform transition-transform duration-200 animate-slide-up max-h-[80vh] overflow-y-auto">
             <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
 
-            {{-- よく使う --}}
-            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1">よく使う</p>
+            {{-- ツール --}}
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1">ツール</p>
             <a href="{{ route('shindan.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
                 <div class="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
                     <i data-lucide="sparkles" class="w-5 h-5 text-purple-600"></i>
@@ -89,6 +90,18 @@
                     <p class="text-[10px] text-gray-400">バイクパーツを探す</p>
                 </div>
             </a>
+            <a href="{{ route('ar.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="camera" class="w-5 h-5 text-green-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">AR駐車場ファインダー</p>
+                    <p class="text-[10px] text-gray-400">ARで近くの駐車場を探す</p>
+                </div>
+            </a>
+
+            {{-- ゲーム --}}
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mt-3 mb-1">ゲーム</p>
             <a href="{{ route('games.subaracity') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
                 <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center">
                     <i data-lucide="gamepad-2" class="w-5 h-5 text-orange-600"></i>
@@ -121,7 +134,7 @@
                     <i data-lucide="puzzle" class="w-5 h-5 text-orange-600"></i>
                 </div>
                 <div>
-                    <p class="text-sm font-black text-gray-900">パズル</p>
+                    <p class="text-sm font-black text-gray-900">バイク2048</p>
                     <p class="text-[10px] text-gray-400">カブ50から合体！目指せゴールドウイング</p>
                 </div>
             </a>
@@ -156,6 +169,27 @@
                 </div>
             </a>
 
+            {{-- ガイド --}}
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mt-3 mb-1">ガイド</p>
+            <a href="{{ route('touring.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-cyan-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="map-pin" class="w-5 h-5 text-cyan-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">ツーリングガイド・スポット</p>
+                    <p class="text-[10px] text-gray-400">全国{{ \App\Models\TouringSpot::count() }}スポット掲載</p>
+                </div>
+            </a>
+            <a href="{{ route('riders.map') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="map" class="w-5 h-5 text-blue-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">ライダーズマップ</p>
+                    <p class="text-[10px] text-gray-400">ショップ・駐車場・GS・コンビニ・道の駅</p>
+                </div>
+            </a>
+
             {{-- マイページ --}}
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mt-3 mb-1">マイページ</p>
             <a href="{{ route('mybikes.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
@@ -174,27 +208,6 @@
                 <div>
                     <p class="text-sm font-black text-gray-900">お気に入り</p>
                     <p class="text-[10px] text-gray-400">気になる車両を確認</p>
-                </div>
-            </a>
-
-            {{-- その他 --}}
-            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mt-3 mb-1">その他</p>
-            <a href="{{ route('riders.map') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-                    <i data-lucide="map" class="w-5 h-5 text-blue-600"></i>
-                </div>
-                <div>
-                    <p class="text-sm font-black text-gray-900">ライダーズマップ</p>
-                    <p class="text-[10px] text-gray-400">ショップ・駐車場・GS・コンビニ・道の駅</p>
-                </div>
-            </a>
-            <a href="{{ route('ar.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                <div class="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
-                    <i data-lucide="camera" class="w-5 h-5 text-green-600"></i>
-                </div>
-                <div>
-                    <p class="text-sm font-black text-gray-900">AR駐車場ファインダー</p>
-                    <p class="text-[10px] text-gray-400">ARで近くの駐車場を探す</p>
                 </div>
             </a>
         </div>

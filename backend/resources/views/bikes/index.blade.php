@@ -572,7 +572,7 @@
 
                         <div class="flex flex-wrap justify-center gap-3">
                             @foreach(['東京', '神奈川', '埼玉', '千葉', '大阪', '愛知', '福岡', '北海道'] as $pref)
-                                <a href="{{ route('bikes.search', ['prefecture' => $pref]) }}"
+                                <a href="{{ route('bikes.area_index', $pref) }}"
                                    class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">
                                     {{ $pref }}
                                 </a>

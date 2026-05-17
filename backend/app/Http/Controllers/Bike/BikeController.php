@@ -75,9 +75,9 @@ final class BikeController extends Controller
             ->whereDate('listings.created_at', today())
             ->count();
 
-        // 前日の販売台数（スクレイパーが深夜に完売判定するため updated_at = today は前日分）
-        $todaySoldCount = Cache::remember('top_today_sold', 3600, fn () =>
-            Listing::where('is_sold_out', true)->whereDate('updated_at', today())->count()
+        // 前日の販売台数
+        $todaySoldCount = Cache::remember('top_yesterday_sold', 3600, fn () =>
+            Listing::where('is_sold_out', true)->whereDate('updated_at', today()->subDay())->count()
         );
 
         // お買い得車両数
@@ -173,6 +173,75 @@ final class BikeController extends Controller
             return $mapped;
         });
         return view('bikes.prefectures', compact('regions', 'totalListings', 'prefCounts'));
+    }
+
+    /**
+     * 都道府県別エリアインデックス（/bikes/area/{prefecture}）
+     */
+    public function areaIndex(string $prefecture): View
+    {
+        $cacheKey = 'area_index_' . md5($prefecture);
+
+        $data = Cache::remember($cacheKey, 3600, function () use ($prefecture) {
+            $baseQuery = Listing::query()
+                ->join('shops', 'listings.shop_id', '=', 'shops.id')
+                ->where('shops.prefecture', 'like', "{$prefecture}%")
+                ->where('listings.is_sold_out', false);
+
+            $totalCount = (clone $baseQuery)->count();
+
+            // メーカー別
+            $makerRows = (clone $baseQuery)
+                ->selectRaw('listings.manufacturer_id, COUNT(*) as cnt')
+                ->where('listings.manufacturer_id', '>', 0)
+                ->groupBy('listings.manufacturer_id')
+                ->orderByDesc('cnt')
+                ->limit(20)
+                ->get();
+            $makerNames = \App\Models\Manufacturer::whereIn('id', $makerRows->pluck('manufacturer_id'))->pluck('name', 'id');
+            $makers = $makerRows->map(fn ($r) => [
+                'label' => $makerNames->get($r->manufacturer_id),
+                'url' => route('bikes.landing', ['prefecture' => $prefecture, 'slug' => $makerNames->get($r->manufacturer_id)]),
+                'count' => (int) $r->cnt,
+            ])->filter(fn ($m) => $m['label'] !== null)->values();
+
+            // カテゴリ別
+            $catRows = (clone $baseQuery)
+                ->selectRaw('listings.category_id, COUNT(*) as cnt')
+                ->where('listings.category_id', '>', 0)
+                ->groupBy('listings.category_id')
+                ->orderByDesc('cnt')
+                ->limit(15)
+                ->get();
+            $catNames = \App\Models\Category::whereIn('id', $catRows->pluck('category_id'))->pluck('name', 'id');
+            $categories = $catRows->map(fn ($r) => [
+                'label' => $catNames->get($r->category_id),
+                'url' => route('bikes.landing', ['prefecture' => $prefecture, 'slug' => $catNames->get($r->category_id)]),
+                'count' => (int) $r->cnt,
+            ])->filter(fn ($c) => $c['label'] !== null)->values();
+
+            // 排気量別
+            $displacements = collect([
+                ['label' => '原付(〜50cc)', 'slug' => '原付', 'min' => 0, 'max' => 50],
+                ['label' => '小型(〜125cc)', 'slug' => '小型', 'min' => 51, 'max' => 125],
+                ['label' => '軽二輪(〜250cc)', 'slug' => '軽二輪', 'min' => 126, 'max' => 250],
+                ['label' => '中型(〜400cc)', 'slug' => '中型', 'min' => 251, 'max' => 400],
+                ['label' => '大型(401cc〜)', 'slug' => '大型', 'min' => 401, 'max' => 99999],
+            ])->map(function ($d) use ($baseQuery, $prefecture) {
+                $cnt = (clone $baseQuery)
+                    ->whereBetween('listings.displacement', [$d['min'], $d['max']])
+                    ->count();
+                return [
+                    'label' => $d['label'],
+                    'url' => route('bikes.landing', ['prefecture' => $prefecture, 'slug' => $d['slug']]),
+                    'count' => $cnt,
+                ];
+            });
+
+            return compact('totalCount', 'makers', 'categories', 'displacements');
+        });
+
+        return view('bikes.area-index', array_merge($data, ['prefecture' => $prefecture]));
     }
 
     /**
