@@ -149,8 +149,8 @@ class Listing extends Model
 
     /**
      * 水増し対策: shop_id × bike_model_id の1日あたりカウントを最大5台に制限
-     * is_sold_out=true、掲載1〜180日、日付範囲フィルタを含む
-     * 即日sold_out(0日)=掲載ミス、180日超=一括sold_out処理を除外
+     * is_sold_out=true、掲載1〜90日、日付範囲フィルタを含む
+     * 即日sold_out(0日)=掲載ミス、90日超=一括sold_out処理を除外
      */
     public function scopeCappedSold(Builder $query, Carbon $start, Carbon $end): Builder
     {
@@ -165,7 +165,7 @@ class Listing extends Model
                 ) as rn
                 FROM listings
                 WHERE is_sold_out = 1
-                AND DATEDIFF(updated_at, created_at) BETWEEN 1 AND 180
+                AND DATEDIFF(updated_at, created_at) BETWEEN 1 AND 90
                 AND updated_at BETWEEN ? AND ?
             ) as capped
             WHERE rn <= 5
