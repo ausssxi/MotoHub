@@ -1,6 +1,6 @@
 <x-layout>
-    <x-slot:title>{{ $chain['name'] }}の中古バイク在庫一覧 - 全国{{ $shops->count() }}店舗 | MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $chain['name'] }}全国{{ $shops->count() }}店舗のバイク在庫を一覧表示。現在{{ number_format($totalStock) }}台販売中。店舗ごとの在庫数・住所を確認して、お近くの{{ $chain['name'] }}を探せます。</x-slot:metaDescription>
+    <x-slot:title>{{ $chain['name'] }}の中古バイク在庫一覧【全国{{ $shops->count() }}店舗・{{ number_format($totalStock) }}台】| MotoHub</x-slot:title>
+    <x-slot:metaDescription>{{ $chain['name'] }}全{{ $shops->count() }}店舗の中古バイク在庫を一括検索。現在{{ number_format($totalStock) }}台の在庫から価格・車種で比較できます。店舗情報・営業時間・アクセスも掲載。</x-slot:metaDescription>
 
     <x-slot:navigation>
         <x-navigation :showSearch="true" />
