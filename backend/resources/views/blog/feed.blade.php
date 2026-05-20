@@ -18,6 +18,9 @@
             @if($post->author)
             <author>{{ e($post->author->name) }}</author>
             @endif
+            @if($post->eyecatch_image)
+            <enclosure url="{{ url('/storage/' . $post->eyecatch_image) }}" length="0" type="image/{{ Str::endsWith($post->eyecatch_image, '.jpg') || Str::endsWith($post->eyecatch_image, '.jpeg') ? 'jpeg' : 'png' }}" />
+            @endif
         </item>
         @endforeach
     </channel>
