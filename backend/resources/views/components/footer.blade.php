@@ -147,6 +147,39 @@
                 </ul>
             </nav>
 
+            <!-- メディア掲載実績 -->
+            @php
+                $mediaFeatures = [
+                    [
+                        'date' => '2026.05.20',
+                        'name' => 'PRESSNOW プレスナウ',
+                        'url'  => 'https://pressnow.jp/2026/05/20/motohub/',
+                    ],
+                    [
+                        'date' => '2026.05.19',
+                        'name' => 'valuepress',
+                        'url'  => 'https://www.value-press.com/pressrelease/374582',
+                    ],
+                ];
+            @endphp
+            <div class="mb-10 w-full max-w-4xl">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">メディア掲載実績</h3>
+                <div class="flex flex-col items-center gap-2">
+                    @foreach($mediaFeatures as $media)
+                        <div class="text-[11px]">
+                            <span class="text-gray-500">{{ $media['date'] }}</span>
+                            <span class="text-gray-300 mx-1">&mdash;</span>
+                            <a href="{{ $media['url'] }}"
+                               target="_blank"
+                               rel="noopener"
+                               class="text-gray-400 hover:text-blue-500 transition-colors">
+                                {{ $media['name'] }} に掲載されました
+                            </a>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+
             <!-- データ出典 -->
             <div class="pt-6 border-t border-gray-200/50 w-full">
                 <p class="text-[10px] text-gray-400 leading-relaxed">駅データ: 国土数値情報（鉄道データ）国土交通省</p>
