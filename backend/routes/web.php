@@ -325,6 +325,7 @@ Route::middleware('auth')->prefix('news')->name('news.')->controller(NewsControl
 // 売れ筋ランキング
 Route::prefix('ranking')->name('ranking.')->controller(RankingController::class)->group(function () {
     Route::get('/', 'index')->name('index');
+    Route::get('/download', 'downloadCsv')->name('download');
     Route::get('/daily/{date?}', 'daily')->name('daily')->where('date', '\d{4}-\d{2}-\d{2}');
     Route::get('/weekly', 'weekly')->name('weekly');
     Route::get('/monthly/{month?}', 'monthly')->name('monthly')->where('month', '\d{4}-\d{1,2}');

@@ -166,6 +166,9 @@
         {{-- 注記 --}}
         <p class="text-[10px] text-gray-400 mt-6 text-center">※MotoHub掲載車両の売り切れデータに基づく集計です</p>
 
+        {{-- データ引用セクション --}}
+        @include('ranking._citation')
+
         @include('ranking._related_links')
     </div>
 </x-layout>

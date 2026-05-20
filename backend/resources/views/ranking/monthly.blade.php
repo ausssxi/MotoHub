@@ -58,6 +58,9 @@
             </div>
         </div>
 
+        {{-- CSVダウンロードボタン --}}
+        @include('ranking._download_button', ['downloadUrl' => route('ranking.download', ['period' => 'monthly', 'year' => $year, 'month' => $month])])
+
         {{-- 車種ランキング --}}
         @include('ranking._model_ranking', ['modelRanking' => $ranking['modelRanking'], 'limit' => 30])
 
@@ -72,6 +75,9 @@
 
         {{-- 注記 --}}
         <p class="text-[10px] text-gray-400 mt-6 text-center">※MotoHub掲載車両の売り切れデータに基づく集計です</p>
+
+        {{-- データ引用セクション --}}
+        @include('ranking._citation')
 
         @include('ranking._related_links')
     </div>

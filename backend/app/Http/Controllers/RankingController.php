@@ -14,6 +14,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 final class RankingController extends Controller
 {
     /**
@@ -135,6 +136,115 @@ final class RankingController extends Controller
             'relatedListings' => $relatedListings,
             'relatedParts' => $relatedParts,
         ]);
+    }
+
+    /**
+     * CSVダウンロード（月間 or 週間）
+     */
+    public function downloadCsv(Request $request): StreamedResponse
+    {
+        $period = $request->input('period', 'monthly');
+
+        if ($period === 'weekly') {
+            $endDate = Carbon::today();
+            $startDate = $endDate->copy()->subDays(7);
+            $year = $endDate->year;
+            $week = (int) $endDate->format('W');
+
+            $baseQuery = fn () => Listing::cappedSold($startDate->copy(), $endDate->copy());
+            $modelRanking = $this->buildModelRankingWithPrice($baseQuery(), 30);
+            $makerRanking = $this->buildMakerRanking($baseQuery());
+
+            $filename = sprintf('motohub-ranking-weekly-%d-w%02d.csv', $year, $week);
+            $periodLabel = sprintf('%s〜%s（週間）', $startDate->format('Y年n月j日'), $endDate->format('n月j日'));
+
+            return $this->streamCsv($filename, function ($handle) use ($periodLabel, $modelRanking, $makerRanking) {
+                fwrite($handle, "\xEF\xBB\xBF");
+                fputcsv($handle, ["# 出典：MotoHub中古バイク市場データ（https://motohub.jp/rankings）"]);
+                fputcsv($handle, ["# 集計期間：{$periodLabel}"]);
+                fputcsv($handle, []);
+
+                fputcsv($handle, ['## 車種ランキングTOP30']);
+                fputcsv($handle, ['車種名', 'メーカー', '販売台数', '平均価格']);
+                foreach ($modelRanking as $row) {
+                    fputcsv($handle, [
+                        $row['name'],
+                        $row['manufacturer'],
+                        $row['sold_count'],
+                        $row['avg_price'] ? round($row['avg_price']) : '',
+                    ]);
+                }
+                fputcsv($handle, []);
+
+                fputcsv($handle, ['## メーカー別販売台数']);
+                fputcsv($handle, ['メーカー名', '販売台数']);
+                foreach ($makerRanking as $row) {
+                    fputcsv($handle, [$row['name'], $row['sold_count']]);
+                }
+            });
+        }
+
+        // monthly (default)
+        $year = (int) $request->input('year', Carbon::now()->year);
+        $month = (int) $request->input('month', Carbon::now()->month);
+        $start = Carbon::create($year, $month, 1);
+        $end = $start->copy()->endOfMonth();
+
+        $baseQuery = fn () => Listing::cappedSold($start->copy(), $end->copy());
+        $modelRanking = $this->buildModelRankingWithPrice($baseQuery(), 30);
+        $makerRanking = $this->buildMakerRanking($baseQuery());
+        $displacementRanges = $this->buildDisplacementRanges($baseQuery());
+        $priceRanges = $this->buildPriceRanges($baseQuery());
+        $prefectureRanking = $this->buildPrefectureRanking($baseQuery());
+
+        $filename = sprintf('motohub-ranking-monthly-%d-%02d.csv', $year, $month);
+        $periodLabel = sprintf('%d年%d月（月間）', $year, $month);
+
+        return $this->streamCsv($filename, function ($handle) use ($periodLabel, $modelRanking, $makerRanking, $displacementRanges, $priceRanges, $prefectureRanking) {
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, ["# 出典：MotoHub中古バイク市場データ（https://motohub.jp/rankings）"]);
+            fputcsv($handle, ["# 集計期間：{$periodLabel}"]);
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['## 車種ランキングTOP30']);
+            fputcsv($handle, ['車種名', 'メーカー', '販売台数', '平均価格']);
+            foreach ($modelRanking as $row) {
+                fputcsv($handle, [
+                    $row['name'],
+                    $row['manufacturer'],
+                    $row['sold_count'],
+                    $row['avg_price'] ? round($row['avg_price']) : '',
+                ]);
+            }
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['## メーカー別販売台数']);
+            fputcsv($handle, ['メーカー名', '販売台数']);
+            foreach ($makerRanking as $row) {
+                fputcsv($handle, [$row['name'], $row['sold_count']]);
+            }
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['## 排気量帯別サマリー']);
+            fputcsv($handle, ['排気量帯', '販売台数']);
+            foreach ($displacementRanges as $row) {
+                fputcsv($handle, [$row->cc_range, $row->cnt]);
+            }
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['## 価格帯別分布']);
+            fputcsv($handle, ['価格帯', '台数']);
+            foreach ($priceRanges as $row) {
+                fputcsv($handle, [$row->price_range, $row->cnt]);
+            }
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['## 都道府県別販売台数']);
+            fputcsv($handle, ['都道府県', '販売台数']);
+            foreach ($prefectureRanking as $row) {
+                fputcsv($handle, [$row->prefecture, $row->sold_count]);
+            }
+        });
     }
 
     // ─── Private helpers ────────────────────────────────
@@ -471,4 +581,66 @@ final class RankingController extends Controller
         ];
     }
 
+    private function buildModelRankingWithPrice($query, int $limit = 30): array
+    {
+        $rows = (clone $query)->whereNotNull('bike_model_id')
+            ->select('bike_model_id', DB::raw('COUNT(*) as sold_count'), DB::raw('AVG(total_price) as avg_price'))
+            ->groupBy('bike_model_id')
+            ->orderByDesc('sold_count')
+            ->limit($limit)
+            ->get();
+
+        $models = BikeModel::with('manufacturer')
+            ->whereIn('id', $rows->pluck('bike_model_id'))
+            ->get()->keyBy('id');
+
+        return $rows->map(function ($item) use ($models) {
+            $m = $models->get($item->bike_model_id);
+            return [
+                'bike_model_id' => $item->bike_model_id,
+                'name' => $m->name ?? '不明',
+                'manufacturer' => $m->manufacturer->name ?? '不明',
+                'sold_count' => $item->sold_count,
+                'avg_price' => $item->avg_price,
+            ];
+        })->toArray();
+    }
+
+    private function buildDisplacementRanges($query)
+    {
+        return (clone $query)->whereNotNull('displacement')
+            ->select(DB::raw("
+                CASE
+                    WHEN displacement <= 50 THEN '〜50cc'
+                    WHEN displacement <= 125 THEN '51〜125cc'
+                    WHEN displacement <= 250 THEN '126〜250cc'
+                    WHEN displacement <= 400 THEN '251〜400cc'
+                    ELSE '401cc〜'
+                END as cc_range
+            "), DB::raw('COUNT(*) as cnt'))
+            ->groupBy('cc_range')
+            ->orderByDesc('cnt')
+            ->get();
+    }
+
+    private function buildPrefectureRanking($query)
+    {
+        return (clone $query)->join('shops', 'listings.shop_id', '=', 'shops.id')
+            ->whereNotNull('shops.prefecture')
+            ->select('shops.prefecture', DB::raw('COUNT(*) as sold_count'))
+            ->groupBy('shops.prefecture')
+            ->orderByDesc('sold_count')
+            ->get();
+    }
+
+    private function streamCsv(string $filename, callable $writer): StreamedResponse
+    {
+        return response()->streamDownload(function () use ($writer) {
+            $handle = fopen('php://output', 'w');
+            $writer($handle);
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
 }

@@ -193,6 +193,9 @@
         {{-- 注記 --}}
         <p class="text-[10px] text-gray-400 mb-6 text-center">※MotoHub掲載車両の売り切れデータに基づく集計です（過去3ヶ月分）</p>
 
+        {{-- データ引用セクション --}}
+        @include('ranking._citation')
+
         {{-- この車種の在庫 --}}
         @if($relatedListings->isNotEmpty())
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
