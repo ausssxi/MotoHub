@@ -171,7 +171,7 @@ final class RankingController extends Controller
                         $row['name'],
                         $row['manufacturer'],
                         $row['sold_count'],
-                        $row['avg_price'] ? round($row['avg_price']) : '',
+                        $row['avg_price'] ? round((float) $row['avg_price']) : '',
                     ]);
                 }
                 fputcsv($handle, []);
@@ -213,7 +213,7 @@ final class RankingController extends Controller
                     $row['name'],
                     $row['manufacturer'],
                     $row['sold_count'],
-                    $row['avg_price'] ? round($row['avg_price']) : '',
+                    $row['avg_price'] ? round((float) $row['avg_price']) : '',
                 ]);
             }
             fputcsv($handle, []);
