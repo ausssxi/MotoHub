@@ -46,7 +46,7 @@ final class RankingController extends Controller
         }
 
         $ranking = Cache::remember(
-            "ranking_daily_v2_{$targetDate->toDateString()}",
+            "ranking_daily_v3_{$targetDate->toDateString()}",
             $targetDate->isToday() ? 3600 : 86400,
             fn () => $this->getDailyRanking($targetDate),
         );
@@ -76,7 +76,7 @@ final class RankingController extends Controller
         $startDate = $endDate->copy()->subDays(7);
 
         $ranking = Cache::remember(
-            "ranking_weekly_v2_{$endDate->toDateString()}",
+            "ranking_weekly_v3_{$endDate->toDateString()}",
             3600,
             fn () => $this->getRanking($startDate->copy(), $endDate->copy()),
         );
@@ -111,7 +111,7 @@ final class RankingController extends Controller
         $bikeModel = BikeModel::with('manufacturer')->findOrFail($bikeModelId);
 
         $stats = Cache::remember(
-            "model_stats_ranking_v2_{$bikeModelId}",
+            "model_stats_ranking_v3_{$bikeModelId}",
             3600,
             fn () => $this->getModelStats($bikeModelId),
         );
@@ -406,7 +406,7 @@ final class RankingController extends Controller
         $end = $start->copy()->endOfMonth();
 
         return Cache::remember(
-            "ranking_monthly_v3_{$year}_{$month}",
+            "ranking_monthly_v4_{$year}_{$month}",
             Carbon::now()->month === $month && Carbon::now()->year === $year ? 3600 : 86400,
             fn () => $this->getRanking($start, $end),
         );
@@ -415,7 +415,7 @@ final class RankingController extends Controller
     private function getDailySummary(int $year, int $month): array
     {
         return Cache::remember(
-            "ranking_daily_summary_v2_{$year}_{$month}",
+            "ranking_daily_summary_v3_{$year}_{$month}",
             Carbon::now()->month === $month && Carbon::now()->year === $year ? 3600 : 86400,
             function () use ($year, $month) {
                 $start = Carbon::create($year, $month, 1)->startOfDay();
@@ -441,7 +441,7 @@ final class RankingController extends Controller
 
     private function getWeekSummary(Carbon $start, Carbon $end): array
     {
-        $cacheKey = "ranking_week_v2_{$start->toDateString()}_{$end->toDateString()}";
+        $cacheKey = "ranking_week_v3_{$start->toDateString()}_{$end->toDateString()}";
         $ttl = $end->gte(Carbon::today()) ? 3600 : 86400;
 
         $dayCounts = Cache::remember($cacheKey, $ttl, function () use ($start, $end) {
