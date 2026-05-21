@@ -226,7 +226,7 @@ class BDSListingSpider(BaseBikeSpider):
 
     def closed(self, reason):
         if reason == 'finished':
-            self.handle_sold_out(self.known_urls)
+            self.handle_sold_out()
         super().closed(reason)
 
 if __name__ == "__main__":

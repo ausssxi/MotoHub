@@ -102,34 +102,32 @@ class BaseBikeSpider(scrapy.Spider):
         }
         self.db.query(Listing).filter(Listing.source_url == url).update(update_values)
 
-    def handle_sold_out(self, known_urls):
-        """今回見つからなかったURLを完売（is_sold_out=True）にする"""
-        missing_urls = known_urls - self.found_urls
+    def handle_sold_out(self):
+        """last_seen_atが72時間以上前のアクティブなlistingsをsold_outにする"""
+        cutoff = datetime.datetime.now() - datetime.timedelta(hours=72)
 
-        if not missing_urls:
+        stale = self.db.query(Listing.id).filter(
+            Listing.site_id == self.site_id,
+            Listing.is_sold_out == False,
+            Listing.last_seen_at != None,
+            Listing.last_seen_at < cutoff,
+        ).all()
+
+        if not stale:
+            self.logger.info(f"No stale listings to mark as SOLD OUT for {self.site_name}")
             return
 
-        # 安全弁：一度に全体の20%以上がsold_outになる場合はスキップ
-        ratio = len(missing_urls) / len(known_urls) if known_urls else 0
-        if ratio > 0.2:
-            self.logger.warning(
-                f"SKIPPED sold_out marking: {len(missing_urls)}/{len(known_urls)} "
-                f"({ratio*100:.1f}%) exceeds 20% threshold. "
-                f"Possible scraping failure for {self.site_name}."
-            )
-            return
+        stale_ids = [row.id for row in stale]
+        self.logger.info(f"Marking {len(stale_ids)} listings as SOLD OUT for {self.site_name} (last_seen > 72h)")
 
-        missing_list = list(missing_urls)
-        self.logger.info(f"Marking {len(missing_list)} listings as SOLD OUT for {self.site_name}")
-        for i in range(0, len(missing_list), 500):
-            chunk = missing_list[i:i + 500]
+        for i in range(0, len(stale_ids), 500):
+            chunk = stale_ids[i:i + 500]
             self.db.query(Listing).filter(
-                Listing.source_url.in_(chunk),
-                Listing.site_id == self.site_id
+                Listing.id.in_(chunk),
             ).update({
                 "is_sold_out": True,
                 "needs_reindex": True,
-                "updated_at": datetime.datetime.now()
+                "updated_at": datetime.datetime.now(),
             }, synchronize_session=False)
             self.db.commit()
 
