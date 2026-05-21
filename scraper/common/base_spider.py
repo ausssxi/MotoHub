@@ -64,11 +64,11 @@ class BaseBikeSpider(scrapy.Spider):
             model_year=data.get('model_year'),
             mileage=data.get('mileage'),
             condition=data.get('condition', '中古車'),
-            # ✨ 追加: 説明文を保存
             description=data.get('description'),
             image_urls=data.get('image_urls', []),
             has_repair_history=data.get('has_repair_history', False),
             is_sold_out=False,
+            last_seen_at=datetime.datetime.now(),
             needs_reindex=True
         )
         self.db.add(new_listing)
@@ -96,6 +96,7 @@ class BaseBikeSpider(scrapy.Spider):
             "total_price": data.get('total_price'),
             "description": data.get('description'),
             "is_sold_out": False,
+            "last_seen_at": datetime.datetime.now(),
             "needs_reindex": True,
             "updated_at": datetime.datetime.now()
         }
@@ -104,20 +105,33 @@ class BaseBikeSpider(scrapy.Spider):
     def handle_sold_out(self, known_urls):
         """今回見つからなかったURLを完売（is_sold_out=True）にする"""
         missing_urls = known_urls - self.found_urls
-        if missing_urls:
-            missing_list = list(missing_urls)
-            self.logger.info(f"Marking {len(missing_list)} listings as SOLD OUT for {self.site_name}")
-            for i in range(0, len(missing_list), 500):
-                chunk = missing_list[i:i + 500]
-                self.db.query(Listing).filter(
-                    Listing.source_url.in_(chunk),
-                    Listing.site_id == self.site_id
-                ).update({
-                    "is_sold_out": True,
-                    "needs_reindex": True,
-                    "updated_at": datetime.datetime.now()
-                }, synchronize_session=False)
-                self.db.commit()
+
+        if not missing_urls:
+            return
+
+        # 安全弁：一度に全体の20%以上がsold_outになる場合はスキップ
+        ratio = len(missing_urls) / len(known_urls) if known_urls else 0
+        if ratio > 0.2:
+            self.logger.warning(
+                f"SKIPPED sold_out marking: {len(missing_urls)}/{len(known_urls)} "
+                f"({ratio*100:.1f}%) exceeds 20% threshold. "
+                f"Possible scraping failure for {self.site_name}."
+            )
+            return
+
+        missing_list = list(missing_urls)
+        self.logger.info(f"Marking {len(missing_list)} listings as SOLD OUT for {self.site_name}")
+        for i in range(0, len(missing_list), 500):
+            chunk = missing_list[i:i + 500]
+            self.db.query(Listing).filter(
+                Listing.source_url.in_(chunk),
+                Listing.site_id == self.site_id
+            ).update({
+                "is_sold_out": True,
+                "needs_reindex": True,
+                "updated_at": datetime.datetime.now()
+            }, synchronize_session=False)
+            self.db.commit()
 
     def closed(self, reason):
         """スパイダー終了時にDB接続を閉じる"""

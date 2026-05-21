@@ -69,6 +69,7 @@ class Listing(Base):
     condition = Column(String(50))
     description = Column(Text)
     is_sold_out = Column(Boolean, default=False)
+    last_seen_at = Column(DateTime, nullable=True)
     needs_reindex = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
