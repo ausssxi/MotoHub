@@ -160,8 +160,20 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->dailyAt('07:00')
                  ->withoutOverlapping();
 
+        // ランキングページのキャッシュウォーマー
+        // 毎日05:10: 主要4P + 前日変動分 / 土曜14:00: 全件
+        $schedule->command('cache:warm-ranking --daily')
+                 ->dailyAt('05:10')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/ranking_cache_warmer.log'));
+
+        $schedule->command('cache:warm-ranking --full')
+                 ->weeklyOn(6, '14:00')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/ranking_cache_warmer.log'));
+
         // モデルページのキャッシュウォーマー
-        // 平日: 変動分のみ (07:30) / 日曜: 全件 (03:00)
+        // 毎日07:30: 変動分のみ（日曜除外） / 日曜14:00: 全件
         $schedule->command('cache:warm-models')
                  ->dailyAt('07:30')
                  ->skip(fn () => now()->isSunday())
@@ -169,7 +181,7 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->appendOutputTo(storage_path('logs/cache_warmer.log'));
 
         $schedule->command('cache:warm-models --all')
-                 ->weeklyOn(0, '03:00')
+                 ->weeklyOn(0, '14:00')
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/cache_warmer.log'));
 

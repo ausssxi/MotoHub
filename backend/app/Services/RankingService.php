@@ -17,7 +17,7 @@ final class RankingService
      */
     public function getAllRankPositions(): array
     {
-        return Cache::remember('ranking_positions_all_v3', 86400, function () {
+        return Cache::remember('ranking_positions_all_v4', 604800, function () {
             $lms = Carbon::now()->subMonth()->startOfMonth();
             $lme = Carbon::now()->subMonth()->endOfMonth();
 
@@ -43,7 +43,7 @@ final class RankingService
      */
     public function getCategoryRankPositions(int $categoryId): array
     {
-        return Cache::remember("ranking_positions_cat_v3_{$categoryId}", 86400, function () use ($categoryId) {
+        return Cache::remember("ranking_positions_cat_v4_{$categoryId}", 604800, function () use ($categoryId) {
             $lms = Carbon::now()->subMonth()->startOfMonth();
             $lme = Carbon::now()->subMonth()->endOfMonth();
 
@@ -69,7 +69,7 @@ final class RankingService
      */
     public function getModelRankingStats(int $bikeModelId, ?int $categoryId = null): ?array
     {
-        return Cache::remember("model_ranking_stats_v3_{$bikeModelId}", 3600, function () use ($bikeModelId, $categoryId) {
+        return Cache::remember("model_ranking_stats_v4_{$bikeModelId}", 604800, function () use ($bikeModelId, $categoryId) {
             $lms = Carbon::now()->subMonth()->startOfMonth();
             $lme = Carbon::now()->subMonth()->endOfMonth();
 
