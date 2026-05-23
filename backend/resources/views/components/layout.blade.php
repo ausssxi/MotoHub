@@ -19,10 +19,18 @@
     <meta name="robots" content="max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     @endif
 
+    {{-- 日付メタタグ (Ahrefs コンテンツ監査対応) --}}
+    @if(isset($publishedTime))
+    <meta property="article:published_time" content="{{ $publishedTime }}" />
+    @endif
+    @if(isset($modifiedTime))
+    <meta property="article:modified_time" content="{{ $modifiedTime }}" />
+    @endif
+
     {{-- OGP設定 (SNSシェア用) --}}
     <meta property="og:title" content="{{ $title ?? 'MotoHub' }}" />
     <meta property="og:description" content="{{ $metaDescription ?? '日本最大級のバイク検索・比較プラットフォーム。GooBike、BDS、Webikeから一括検索！' }}" />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content="{{ isset($publishedTime) ? 'article' : 'website' }}" />
     <meta property="og:url" content="{{ $canonical ?? url()->current() }}" />
     <meta property="og:site_name" content="MotoHub" />
     <meta property="og:locale" content="ja_JP" />

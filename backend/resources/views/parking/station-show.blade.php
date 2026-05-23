@@ -5,6 +5,8 @@
     @if(isset($canonicalUrl))
     <x-slot:canonical>{{ $canonicalUrl }}</x-slot:canonical>
     @endif
+    <x-slot:publishedTime>{{ $station->created_at->toIso8601String() }}</x-slot:publishedTime>
+    <x-slot:modifiedTime>{{ now()->toIso8601String() }}</x-slot:modifiedTime>
 
     <x-slot:styles>
         <x-jsonld.breadcrumb-station :station="$station" />

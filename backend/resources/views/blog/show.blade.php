@@ -3,6 +3,8 @@
     <x-slot:metaDescription>{{ \App\Models\BlogPost::stripMarkdown($post->meta_description ?? $post->excerpt ?? '') }}</x-slot:metaDescription>
     <x-slot:canonical>{{ url('/blog/' . $post->slug) }}</x-slot:canonical>
     <x-slot:ogImage>{{ route('blog.ogp', $post->slug) }}</x-slot:ogImage>
+    <x-slot:publishedTime>{{ $post->published_at->toIso8601String() }}</x-slot:publishedTime>
+    <x-slot:modifiedTime>{{ $post->updated_at->toIso8601String() }}</x-slot:modifiedTime>
 
     <x-slot:navigation>
         <x-navigation />

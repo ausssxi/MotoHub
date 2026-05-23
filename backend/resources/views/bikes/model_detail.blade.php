@@ -15,6 +15,8 @@
     @elseif($model->image_url)
     <x-slot:ogImage>{{ $model->image_url }}</x-slot:ogImage>
     @endif
+    <x-slot:publishedTime>{{ $model->created_at->toIso8601String() }}</x-slot:publishedTime>
+    <x-slot:modifiedTime>{{ $model->updated_at->toIso8601String() }}</x-slot:modifiedTime>
 
     <x-slot:styles>
         <x-jsonld.model-product :model="$model" :stats="$stats" :reviewStats="$reviewStats ?? null" />

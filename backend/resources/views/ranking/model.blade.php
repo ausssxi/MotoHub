@@ -2,6 +2,8 @@
     <x-slot:title>{{ $bikeModel->name }}の販売データ・売れ筋分析【{{ now()->format('Y年n月') }}】| MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $bikeModel->manufacturer->name ?? '' }} {{ $bikeModel->name }}の販売データを徹底分析。先月{{ $stats['lastMonthSold'] }}台が販売、売れ筋価格帯・地域・走行距離をグラフで可視化。</x-slot:metaDescription>
     <x-slot:canonical>{{ route('ranking.model_stats', $bikeModel->id) }}</x-slot:canonical>
+    <x-slot:publishedTime>2025-04-01T00:00:00+09:00</x-slot:publishedTime>
+    <x-slot:modifiedTime>{{ now()->toIso8601String() }}</x-slot:modifiedTime>
     <x-slot:navigation><x-navigation :showSearch="true" /></x-slot:navigation>
 
     <div class="max-w-4xl mx-auto px-4 py-6 sm:py-10">

@@ -2,6 +2,8 @@
     <x-slot:title>{{ $targetDate->format('Y年n月j日') }}のバイク売れ筋ランキング | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $targetDate->format('Y年n月j日') }}に売れたバイクTOP20。販売台数{{ number_format($ranking['totalSold']) }}台のデータから人気車種をランキング。</x-slot:metaDescription>
     <x-slot:canonical>{{ route('ranking.daily', $targetDate->toDateString()) }}</x-slot:canonical>
+    <x-slot:publishedTime>{{ $targetDate->toIso8601String() }}</x-slot:publishedTime>
+    <x-slot:modifiedTime>{{ now()->toIso8601String() }}</x-slot:modifiedTime>
     <x-slot:navigation><x-navigation :showSearch="true" /></x-slot:navigation>
 
     <div class="max-w-4xl mx-auto px-4 py-6 sm:py-10">

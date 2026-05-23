@@ -5,6 +5,8 @@
     @if(in_array($parking->management_company, ['akippa株式会社', '株式会社アース・カー'], true))
         <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
     @endif
+    <x-slot:publishedTime>{{ $parking->created_at->toIso8601String() }}</x-slot:publishedTime>
+    <x-slot:modifiedTime>{{ $parking->updated_at->toIso8601String() }}</x-slot:modifiedTime>
 
     <x-slot:styles>
         <x-jsonld.parking :parking="$parking" />

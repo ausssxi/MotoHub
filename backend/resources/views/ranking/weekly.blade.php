@@ -2,6 +2,8 @@
     <x-slot:title>週間バイク売れ筋ランキング【{{ $startDate->format('n/j') }}〜{{ $endDate->format('n/j') }}】| MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $startDate->format('Y年n月j日') }}〜{{ $endDate->format('n月j日') }}の週間バイク売れ筋ランキング。販売台数{{ number_format($ranking['totalSold']) }}台のデータから人気車種をランキング。</x-slot:metaDescription>
     <x-slot:canonical>{{ route('ranking.weekly') }}</x-slot:canonical>
+    <x-slot:publishedTime>2025-04-01T00:00:00+09:00</x-slot:publishedTime>
+    <x-slot:modifiedTime>{{ now()->toIso8601String() }}</x-slot:modifiedTime>
     <x-slot:navigation><x-navigation :showSearch="true" /></x-slot:navigation>
 
     <div class="max-w-4xl mx-auto px-4 py-6 sm:py-10">
