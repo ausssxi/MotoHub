@@ -3,6 +3,10 @@
     <x-slot:metaDescription>{{ $prefecture }}の中古バイク{{ number_format($totalCount) }}台を一括検索。メーカー別・タイプ別・排気量別に比較できます。</x-slot:metaDescription>
     <x-slot:canonical>{{ route('bikes.area_index', $prefecture) }}</x-slot:canonical>
 
+    @if($totalCount < 5)
+        <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
+    @endif
+
     <x-slot:navigation>
         <x-navigation :showSearch="true" />
     </x-slot:navigation>

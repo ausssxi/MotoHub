@@ -180,14 +180,16 @@ class GenerateSitemap extends Command
             default => $pref . '県',
         };
 
-        // ★ Listingが存在する組み合わせのみサイトマップに含める（クロールバジェット最適化）
-        // 都道府県×メーカーの有効な組み合わせを事前取得
+        // ★ 在庫5台以上の組み合わせのみサイトマップに含める（クロールバジェット最適化）
+        // 都道府県×メーカーの有効な組み合わせを事前取得（5台以上）
         $activeManufPrefSet = DB::table('listings')
             ->join('shops', 'listings.shop_id', '=', 'shops.id')
             ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
             ->where('listings.is_sold_out', false)
             ->whereNotNull('listings.bike_model_id')
-            ->select(DB::raw('DISTINCT CONCAT(shops.prefecture, "-", bike_models.manufacturer_id) as combo'))
+            ->select(DB::raw('CONCAT(shops.prefecture, "-", bike_models.manufacturer_id) as combo'))
+            ->groupBy('combo')
+            ->havingRaw('COUNT(*) >= 5')
             ->pluck('combo')
             ->flip(); // flip で O(1) ルックアップ
 
@@ -202,9 +204,52 @@ class GenerateSitemap extends Command
             ->pluck('combo')
             ->flip();
 
+        // 都道府県×カテゴリの有効な組み合わせを事前取得（5台以上）
+        $activeCatPrefSet = DB::table('listings')
+            ->join('shops', 'listings.shop_id', '=', 'shops.id')
+            ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
+            ->where('listings.is_sold_out', false)
+            ->whereNotNull('bike_models.category_id')
+            ->select(DB::raw('CONCAT(shops.prefecture, "-", bike_models.category_id) as combo'))
+            ->groupBy('combo')
+            ->havingRaw('COUNT(*) >= 5')
+            ->pluck('combo')
+            ->flip();
+
+        // 都道府県×排気量帯の有効な組み合わせを事前取得（5台以上）
+        // SeoLandingService::findDisplacement と同じレンジ定義
+        $dispSlugRanges = [
+            '原付'       => [0, 50],
+            'スクーター' => [0, 125],
+            '小型'       => [51, 125],
+            '中型'       => [126, 400],
+            '大型'       => [401, null],
+            'リッター'   => [1000, null],
+        ];
+        $activeDispPrefSet = collect();
+        foreach ($dispSlugRanges as $slug => [$min, $max]) {
+            $query = DB::table('listings')
+                ->join('shops', 'listings.shop_id', '=', 'shops.id')
+                ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
+                ->where('listings.is_sold_out', false)
+                ->whereNotNull('bike_models.displacement')
+                ->where('bike_models.displacement', '>=', $min);
+            if ($max !== null) {
+                $query->where('bike_models.displacement', '<=', $max);
+            }
+            $prefectures = $query
+                ->select('shops.prefecture')
+                ->groupBy('shops.prefecture')
+                ->havingRaw('COUNT(*) >= 5')
+                ->pluck('prefecture');
+            foreach ($prefectures as $p) {
+                $activeDispPrefSet->put("{$p}-{$slug}", true);
+            }
+        }
+
         $this->info("  有効な都道府県×メーカー: {$activeManufPrefSet->count()} / 都道府県×車種: {$activeModelPrefSet->count()}");
 
-        // 1. メーカー・カテゴリ・排気量の組み合わせ（Listingがある場合のみ）
+        // 1. メーカー・カテゴリ・排気量の組み合わせ（5台以上のみ）
         foreach ($allPrefectures as $pref) {
             $fullPref = $toFullPref($pref);
 
@@ -220,8 +265,10 @@ class GenerateSitemap extends Command
                 );
             }
 
-            // カテゴリと排気量は在庫数に関係なく含める（種類が少ない & 需要がある）
             foreach ($categories as $cat) {
+                if (!$activeCatPrefSet->has("{$fullPref}-{$cat->id}")) {
+                    continue;
+                }
                 $writeLandingUrl(
                     route('bikes.landing', ['prefecture' => $pref, 'slug' => $cat->name]),
                     date('Y-m-d'),
@@ -231,6 +278,9 @@ class GenerateSitemap extends Command
             }
 
             foreach ($displacements as $disp) {
+                if (!$activeDispPrefSet->has("{$fullPref}-{$disp}")) {
+                    continue;
+                }
                 $writeLandingUrl(
                     route('bikes.landing', ['prefecture' => $pref, 'slug' => $disp]),
                     date('Y-m-d'),
