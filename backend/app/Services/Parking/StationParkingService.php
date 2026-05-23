@@ -16,7 +16,7 @@ final class StationParkingService
      */
     public function getStationDetail(Station $station): array
     {
-        $cacheKey = "station_parking_detail_v3_{$station->id}";
+        $cacheKey = "station_parking_detail_v4_{$station->id}";
 
         return Cache::remember($cacheKey, 3600, function () use ($station) {
             $parkings = $station->nearbyParkings(0.5)->get();
@@ -97,6 +97,112 @@ final class StationParkingService
                 return $p['price_per_hour'] ?? PHP_INT_MAX;
             })->values()->toArray();
 
+            // 用途別おすすめ
+            $reservationCompanies = ['akippa株式会社', '株式会社アース・カー'];
+            $recommendations = [];
+
+            // 短時間: price_per_hour最安（is_free除外）
+            $hourlyBest = $parkings->filter(fn ($p) => !$p->is_free && $p->price_per_hour > 0)
+                ->sortBy([['price_per_hour', 'asc'], ['distance', 'asc']])
+                ->first();
+            if ($hourlyBest) {
+                $recommendations[] = [
+                    'category' => '短時間利用',
+                    'emoji' => '⏱️',
+                    'icon' => 'clock',
+                    'id' => $hourlyBest->id,
+                    'name' => $hourlyBest->name,
+                    'price_label' => number_format($hourlyBest->price_per_hour) . '円/時',
+                    'distance_m' => isset($hourlyBest->distance) ? (int) round($hourlyBest->distance * 1000) : null,
+                    'is_reservation' => in_array($hourlyBest->management_company, $reservationCompanies, true),
+                ];
+            }
+
+            // 終日: price_per_day最安、なければprice_per_hour×8で推定
+            $dailyBest = $parkings->filter(fn ($p) => !$p->is_free && ($p->price_per_day > 0 || $p->price_per_hour > 0))
+                ->sortBy(function ($p) {
+                    $day = $p->price_per_day > 0 ? $p->price_per_day : $p->price_per_hour * 8;
+                    return [$day, $p->distance ?? PHP_INT_MAX];
+                })
+                ->first();
+            if ($dailyBest) {
+                $isEstimated = !$dailyBest->price_per_day;
+                $dayPrice = $dailyBest->price_per_day > 0 ? $dailyBest->price_per_day : $dailyBest->price_per_hour * 8;
+                $recommendations[] = [
+                    'category' => '終日利用',
+                    'emoji' => '☀️',
+                    'icon' => 'sun',
+                    'id' => $dailyBest->id,
+                    'name' => $dailyBest->name,
+                    'price_label' => number_format($dayPrice) . '円/日' . ($isEstimated ? '（推定）' : ''),
+                    'distance_m' => isset($dailyBest->distance) ? (int) round($dailyBest->distance * 1000) : null,
+                    'is_reservation' => in_array($dailyBest->management_company, $reservationCompanies, true),
+                ];
+            }
+
+            // 月極: price_per_month最安
+            $monthlyBest = $parkings->filter(fn ($p) => $p->price_per_month > 0)
+                ->sortBy([['price_per_month', 'asc'], ['distance', 'asc']])
+                ->first();
+            if ($monthlyBest) {
+                $recommendations[] = [
+                    'category' => '月極利用',
+                    'emoji' => '📅',
+                    'icon' => 'calendar',
+                    'id' => $monthlyBest->id,
+                    'name' => $monthlyBest->name,
+                    'price_label' => number_format($monthlyBest->price_per_month) . '円/月',
+                    'distance_m' => isset($monthlyBest->distance) ? (int) round($monthlyBest->distance * 1000) : null,
+                    'is_reservation' => in_array($monthlyBest->management_company, $reservationCompanies, true),
+                ];
+            }
+
+            // この駅のポイント
+            $stationPoints = [];
+
+            // 屋根付き率
+            if ($totalCount > 0) {
+                $coveredRate = $coveredCount / $totalCount * 100;
+                if ($coveredRate === 0.0) {
+                    $stationPoints[] = ['icon' => 'cloud-rain', 'text' => '屋根付き駐車場はありません。雨天時はカバーの持参がおすすめです。'];
+                } elseif ($coveredRate < 30) {
+                    $stationPoints[] = ['icon' => 'cloud-rain', 'text' => "屋根付きは{$coveredCount}件（" . round($coveredRate) . "%）と少なめ。早めの確保がおすすめです。"];
+                } elseif ($coveredRate >= 70) {
+                    $stationPoints[] = ['icon' => 'umbrella', 'text' => "屋根付き駐車場が{$coveredCount}件（" . round($coveredRate) . "%）と充実しています。"];
+                }
+            }
+
+            // 24時間率
+            if ($totalCount > 0) {
+                if ($available24hCount === 0) {
+                    $stationPoints[] = ['icon' => 'moon', 'text' => '24時間営業の駐車場はありません。営業時間にご注意ください。'];
+                } elseif ($available24hCount / $totalCount >= 0.5) {
+                    $stationPoints[] = ['icon' => 'clock', 'text' => "24時間利用可能な駐車場が{$available24hCount}件と半数以上。深夜・早朝も安心です。"];
+                }
+            }
+
+            // 時間料金幅
+            if ($hourlyPrices->isNotEmpty() && $hourlyPrices->max() - $hourlyPrices->min() > 200) {
+                $stationPoints[] = ['icon' => 'trending-up', 'text' => '時間料金は' . number_format($hourlyPrices->min()) . '〜' . number_format($hourlyPrices->max()) . '円/時と幅があります。料金比較がおすすめです。'];
+            }
+
+            // 総収容台数
+            $totalCapacity = $parkings->sum('capacity');
+            if ($totalCapacity > 0) {
+                $stationPoints[] = ['icon' => 'layers', 'text' => "周辺の総収容台数は約{$totalCapacity}台です。"];
+            }
+
+            // 月極対応
+            $monthlyAvailableCount = $parkings->filter(fn ($p) => $p->price_per_month > 0)->count();
+            if ($monthlyAvailableCount === 0) {
+                $stationPoints[] = ['icon' => 'calendar-x', 'text' => '月極プランのある駐車場は現在見つかりませんでした。'];
+            } elseif ($monthlyAvailableCount >= 3) {
+                $stationPoints[] = ['icon' => 'calendar-check', 'text' => "月極対応の駐車場が{$monthlyAvailableCount}件あり、通勤・通学にも便利です。"];
+            }
+
+            // 最大6項目
+            $stationPoints = array_slice($stationPoints, 0, 6);
+
             return [
                 'station' => $station,
                 'parkings' => $parkings,
@@ -109,6 +215,8 @@ final class StationParkingService
                 'bicycleSharedCount' => $bicycleSharedCount,
                 'priceStats' => $priceStats,
                 'comparisonTable' => $comparisonTable,
+                'recommendations' => $recommendations,
+                'stationPoints' => $stationPoints,
                 'nearbyListings' => $nearbyListings,
                 'siblingStations' => $siblingStations,
             ];

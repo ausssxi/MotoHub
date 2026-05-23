@@ -178,6 +178,60 @@
             </div>
             @endif
 
+            {{-- この駅の駐車場ポイント --}}
+            @if(!empty($stationPoints))
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-8">
+                <h2 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="lightbulb" class="w-5 h-5 text-green-500"></i>
+                    {{ $station->name }}駅の駐車場ポイント
+                </h2>
+                <ul class="space-y-3">
+                    @foreach($stationPoints as $point)
+                    <li class="flex items-start gap-3">
+                        <i data-lucide="{{ $point['icon'] }}" class="w-4 h-4 text-green-500 shrink-0 mt-0.5"></i>
+                        <span class="text-sm text-gray-700">{{ $point['text'] }}</span>
+                    </li>
+                    @endforeach
+                </ul>
+            </div>
+            @endif
+
+            {{-- 用途別おすすめ --}}
+            @if(!empty($recommendations))
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-8">
+                <h2 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="thumbs-up" class="w-5 h-5 text-green-500"></i>
+                    用途別おすすめ駐車場
+                </h2>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    @foreach($recommendations as $rec)
+                    <a href="{{ route('parking.show', $rec['id']) }}"
+                       class="group block bg-gray-50 rounded-2xl p-5 border border-gray-100 hover:border-green-200 hover:bg-green-50 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">{{ $rec['emoji'] }}</span>
+                            <span class="text-xs font-black text-gray-500 uppercase tracking-wider">{{ $rec['category'] }}</span>
+                        </div>
+                        <p class="text-sm font-black text-gray-900 group-hover:text-green-700 transition-colors mb-2 line-clamp-2">{{ $rec['name'] }}</p>
+                        <p class="text-lg font-black text-green-600 mb-1">{{ $rec['price_label'] }}</p>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            @if($rec['distance_m'] !== null)
+                            <span class="text-xs text-gray-500">
+                                <i data-lucide="navigation" class="w-3 h-3 inline"></i>
+                                {{ $rec['distance_m'] }}m
+                            </span>
+                            @endif
+                            @if($rec['is_reservation'])
+                            <span class="inline-flex items-center gap-1 bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-100">
+                                予約制
+                            </span>
+                            @endif
+                        </div>
+                    </a>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
             {{-- AI生成テキスト --}}
             @if($station->ai_parking_content)
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-8">
