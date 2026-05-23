@@ -25,7 +25,7 @@
     <x-slot:title>{{ $seoTitle }}</x-slot:title>
     <x-slot:metaDescription>{{ $seoDescription }}</x-slot:metaDescription>
 
-    @if($pagination['total'] < 5)
+    @if($kpiCount < 5)
         <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
     @endif
 
