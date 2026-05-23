@@ -113,12 +113,11 @@ final class BikeController extends Controller
             return $count;
         });
 
-        // 売れ筋ランキングTOP5（今月）
-        $rankingTop5 = Cache::remember('top_ranking_top5', 3600, function () {
+        // 売れ筋ランキングTOP5（今月）— cappedSold で水増し対策
+        $rankingTop5 = Cache::remember('top_ranking_top5_v2', 3600, function () {
             $start = now()->startOfMonth();
-            $end = now()->endOfMonth();
-            $rows = Listing::where('is_sold_out', true)
-                ->whereBetween('updated_at', [$start, $end])
+            $end = now();
+            $rows = Listing::cappedSold($start, $end)
                 ->whereNotNull('bike_model_id')
                 ->select('bike_model_id', DB::raw('COUNT(*) as sold_count'))
                 ->groupBy('bike_model_id')

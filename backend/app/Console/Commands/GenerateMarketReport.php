@@ -78,11 +78,8 @@ final class GenerateMarketReport extends Command
         // 新規掲載数
         $newListings = Listing::whereBetween('created_at', [$start, $end])->count();
 
-        // 販売台数（updated_atが対象月内で売り切れになったもの）
-        $soldCount = Listing::where('is_sold_out', true)
-            ->whereBetween('updated_at', [$start, $end])
-            ->where('created_at', '<=', DB::raw('updated_at - INTERVAL 1 DAY'))
-            ->count();
+        // 販売台数（cappedSold: shop×model×日あたり最大5台）
+        $soldCount = Listing::cappedSold($start, $end)->count();
 
         // 当月平均価格
         $avgPrice = Listing::where('is_sold_out', false)
@@ -243,9 +240,8 @@ final class GenerateMarketReport extends Command
         $modelIds = $rankings->pluck('bike_model_id')->toArray();
         $models = BikeModel::with('manufacturer')->whereIn('id', $modelIds)->get()->keyBy('id');
 
-        // 平均価格も取得
-        $avgPrices = Listing::where('is_sold_out', true)
-            ->whereBetween('updated_at', [$start, $end])
+        // 平均価格も取得（cappedSold で統一）
+        $avgPrices = Listing::cappedSold($start, $end)
             ->where('total_price', '>', 0)
             ->whereIn('bike_model_id', $modelIds)
             ->select('bike_model_id', DB::raw('AVG(total_price) as avg_price'))
