@@ -160,6 +160,13 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->dailyAt('07:00')
                  ->withoutOverlapping();
 
+        // モデルページのキャッシュウォーマー (07:30)
+        // 全データ更新・サイトマップ生成完了後に実行
+        $schedule->command('cache:warm-models')
+                 ->dailyAt('07:30')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/cache_warmer.log'));
+
         // 値下げアラート送信 (10:00) - 1ユーザー最大3通/日
         $schedule->command('bikes:send-price-alerts')
                  ->dailyAt('10:00')

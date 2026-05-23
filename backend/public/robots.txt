@@ -10,6 +10,9 @@ Disallow: /bikes/search
 Disallow: /bikes?
 Disallow: /bikes/compare?*
 Disallow: /wishlist
+# Map pages - JS rendered, no crawl value
+Disallow: /shops/map
+Disallow: /riders-map
 
 User-agent: YandexBot
 Disallow: /
