@@ -3,7 +3,7 @@
     <x-slot:title>{{ $pageInfo['title'] }} | {{ number_format($landingKpi['total_count'] ?? 0) }}台掲載 | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $pageInfo['description'] }}</x-slot:metaDescription>
 
-    @if(($landingKpi['total_count'] ?? 0) < 5)
+    @if(($landingKpi['total_count'] ?? 0) < 10)
         <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
     @endif
 

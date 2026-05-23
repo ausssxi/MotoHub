@@ -189,7 +189,7 @@ class GenerateSitemap extends Command
             ->whereNotNull('listings.bike_model_id')
             ->select(DB::raw('CONCAT(shops.prefecture, "-", bike_models.manufacturer_id) as combo'))
             ->groupBy('combo')
-            ->havingRaw('COUNT(*) >= 5')
+            ->havingRaw('COUNT(*) >= 10')
             ->pluck('combo')
             ->flip(); // flip で O(1) ルックアップ
 
@@ -200,7 +200,7 @@ class GenerateSitemap extends Command
             ->whereNotNull('listings.bike_model_id')
             ->select(DB::raw('CONCAT(shops.prefecture, "-", listings.bike_model_id) as combo'))
             ->groupBy('combo')
-            ->havingRaw('COUNT(*) >= 5')
+            ->havingRaw('COUNT(*) >= 10')
             ->pluck('combo')
             ->flip();
 
@@ -212,7 +212,7 @@ class GenerateSitemap extends Command
             ->whereNotNull('bike_models.category_id')
             ->select(DB::raw('CONCAT(shops.prefecture, "-", bike_models.category_id) as combo'))
             ->groupBy('combo')
-            ->havingRaw('COUNT(*) >= 5')
+            ->havingRaw('COUNT(*) >= 10')
             ->pluck('combo')
             ->flip();
 
@@ -240,7 +240,7 @@ class GenerateSitemap extends Command
             $prefectures = $query
                 ->select('shops.prefecture')
                 ->groupBy('shops.prefecture')
-                ->havingRaw('COUNT(*) >= 5')
+                ->havingRaw('COUNT(*) >= 10')
                 ->pluck('prefecture');
             foreach ($prefectures as $p) {
                 $activeDispPrefSet->put("{$p}-{$slug}", true);
@@ -355,7 +355,7 @@ class GenerateSitemap extends Command
             ->whereNotNull('shops.city')
             ->select(DB::raw('shops.prefecture, shops.city, listings.manufacturer_id, COUNT(*) as cnt'))
             ->groupBy('shops.prefecture', 'shops.city', 'listings.manufacturer_id')
-            ->havingRaw('COUNT(*) >= 5')
+            ->havingRaw('COUNT(*) >= 10')
             ->get();
 
         $makerSlugs = Manufacturer::whereNotNull('slug')->pluck('slug', 'id');
@@ -387,7 +387,7 @@ class GenerateSitemap extends Command
             ->whereNotNull('bike_models.slug')
             ->select(DB::raw('shops.prefecture, shops.city, bike_models.slug as model_slug, COUNT(*) as cnt'))
             ->groupBy('shops.prefecture', 'shops.city', 'bike_models.slug')
-            ->havingRaw('COUNT(*) >= 5')
+            ->havingRaw('COUNT(*) >= 10')
             ->get();
 
         foreach ($cityModelCombos as $combo) {
@@ -926,7 +926,7 @@ class GenerateSitemap extends Command
             ->where('is_sold_out', false)
             ->whereNotNull('bike_model_id')
             ->groupBy('bike_model_id')
-            ->havingRaw('COUNT(*) >= 5')
+            ->havingRaw('COUNT(*) >= 10')
             ->orderBy('bike_model_id')
             ->chunk(500, function ($rows) use ($handle, &$rankingCount) {
                 foreach ($rows as $row) {
