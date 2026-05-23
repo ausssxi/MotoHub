@@ -164,6 +164,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // 平日: 変動分のみ (07:30) / 日曜: 全件 (03:00)
         $schedule->command('cache:warm-models')
                  ->dailyAt('07:30')
+                 ->skip(fn () => now()->isSunday())
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/cache_warmer.log'));
 
