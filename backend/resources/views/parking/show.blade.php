@@ -2,6 +2,10 @@
     <x-slot:title>{{ $parking->clean_name }}｜{{ $parking->price_per_month ? '月極' . number_format($parking->price_per_month) . '円' : ($parking->price_per_hour ? number_format($parking->price_per_hour) . '円/時間' : '') }}{{ ($parking->price_per_month || $parking->price_per_hour) ? ' ' : '' }}バイク駐車場{{ $parking->city ? ' ' . $parking->city : '' }} - MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $parking->prefecture || $parking->city ? ($parking->prefecture ?? '') . ($parking->city ?? '') . 'のバイク駐車場' : 'バイク駐車場' }}「{{ $parking->clean_name }}」の詳細。{{ $parking->getPriceDisplay() ? $parking->getPriceDisplay() . '。' : '' }}ユーザーレビューも掲載。</x-slot:metaDescription>
 
+    @if(in_array($parking->management_company, ['akippa株式会社', '株式会社アース・カー'], true))
+        <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
+    @endif
+
     <x-slot:styles>
         <x-jsonld.parking :parking="$parking" />
         <x-jsonld.breadcrumb-parking :parking="$parking" />
