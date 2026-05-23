@@ -160,10 +160,15 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->dailyAt('07:00')
                  ->withoutOverlapping();
 
-        // モデルページのキャッシュウォーマー (07:30)
-        // 全データ更新・サイトマップ生成完了後に実行
+        // モデルページのキャッシュウォーマー
+        // 平日: 変動分のみ (07:30) / 日曜: 全件 (03:00)
         $schedule->command('cache:warm-models')
                  ->dailyAt('07:30')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/cache_warmer.log'));
+
+        $schedule->command('cache:warm-models --all')
+                 ->weeklyOn(0, '03:00')
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/cache_warmer.log'));
 
