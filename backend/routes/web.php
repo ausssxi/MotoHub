@@ -127,6 +127,17 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     // SEO着地ページ（市区町村レベル — セグメント数が多いので先に定義）
     Route::get('/area/{prefecture}/{city}/{slug}', 'cityLanding')->name('city_landing');
 
+    // 4+セグメントcatch-all（GSC 404リダイレクト）
+    Route::get('/area/{prefecture}/{extra}', function (string $prefecture, string $extra) {
+        $firstSegment = explode('/', $extra)[0];
+        $seoService = app(\App\Services\Bike\SeoLandingService::class);
+        $pageInfo = $seoService->resolvePageInfo($prefecture, $firstSegment);
+        if (!empty($pageInfo)) {
+            return redirect("/bikes/area/{$prefecture}/{$firstSegment}", 301);
+        }
+        return redirect("/bikes/area/{$prefecture}", 301);
+    })->where('extra', '.+/.+');
+
     // SEO着地ページ（都道府県レベル）
     Route::get('/area/{prefecture}/{slug}', 'landing')->name('landing');
 

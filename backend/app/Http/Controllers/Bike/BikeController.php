@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use App\Models\Listing;
 use App\Services\Bike\BikeService;
@@ -801,10 +802,10 @@ final class BikeController extends Controller
      * カタログページ（地域なしプログラマティックSEO）
      * URL: /bikes/catalog/{slug}
      */
-    public function catalog(string $slug): View
+    public function catalog(string $slug): View|RedirectResponse
     {
         $pageInfo = $this->seoLandingService->resolveCatalogPage($slug);
-        if (empty($pageInfo)) abort(404);
+        if (empty($pageInfo)) return redirect('/bikes/search', 301);
 
         $result = $this->listingSearchService->search(null, null, 'latest', $pageInfo['filters']);
 
@@ -865,16 +866,16 @@ final class BikeController extends Controller
         ]));
     }
 
-    public function landing(string $prefecture, string $slug): View
+    public function landing(string $prefecture, string $slug): View|RedirectResponse
     {
         $pageInfo = $this->seoLandingService->resolvePageInfo($prefecture, $slug);
-        if (empty($pageInfo)) abort(404);
+        if (empty($pageInfo)) return redirect("/bikes/area/{$prefecture}", 301);
 
         try {
             $result = $this->listingSearchService->search(null, $prefecture, 'latest', $pageInfo['filters']);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning("Landing search failed: {$prefecture}/{$slug}", ['error' => $e->getMessage()]);
-            abort(404);
+            return redirect("/bikes/area/{$prefecture}", 301);
         }
 
         $landingKpi = $this->seoLandingService->computeLandingKpi($prefecture, $pageInfo['filters'], $pageInfo['meta']['type']);
@@ -899,11 +900,16 @@ final class BikeController extends Controller
     /**
      * 市区町村レベルSEOランディングページ
      */
-    public function cityLanding(string $prefecture, string $city, string $slug): View
+    public function cityLanding(string $prefecture, string $city, string $slug): View|RedirectResponse
     {
         $pageInfo = $this->cityLandingService->resolveCityPageInfo($prefecture, $city, $slug);
         if (empty($pageInfo)) {
-            abort(404);
+            // slugが実は都道府県レベルの有効なslugかチェック
+            $fallback = $this->seoLandingService->resolvePageInfo($prefecture, $city);
+            if (!empty($fallback)) {
+                return redirect("/bikes/area/{$prefecture}/{$city}", 301);
+            }
+            return redirect("/bikes/area/{$prefecture}", 301);
         }
 
         // 都道府県の短縮形→正式名の変換

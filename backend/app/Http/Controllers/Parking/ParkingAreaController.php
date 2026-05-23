@@ -9,6 +9,7 @@ use App\Models\Station;
 use App\Services\Parking\ParkingAreaService;
 use App\Services\Parking\StationParkingService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 
 class ParkingAreaController extends Controller
 {
@@ -50,12 +51,12 @@ class ParkingAreaController extends Controller
     /**
      * 市区町村ページ
      */
-    public function city(string $prefecture, string $city): View
+    public function city(string $prefecture, string $city): View|RedirectResponse
     {
         $data = $this->areaService->getCityDetail($prefecture, $city);
 
         if (! $data) {
-            abort(404);
+            return redirect()->route('parking.area.prefecture', $prefecture, 301);
         }
 
         // この市区町村の駅を取得
