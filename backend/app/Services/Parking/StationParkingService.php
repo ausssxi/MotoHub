@@ -163,10 +163,10 @@ final class StationParkingService
             // 屋根付き率
             if ($totalCount > 0) {
                 $coveredRate = $coveredCount / $totalCount * 100;
-                if ($coveredRate === 0.0) {
-                    $stationPoints[] = ['icon' => 'cloud-rain', 'text' => '屋根付き駐車場はありません。雨天時はカバーの持参がおすすめです。'];
+                if ($coveredCount === 0) {
+                    $stationPoints[] = ['icon' => 'cloud-rain', 'text' => '屋根付きの駐車場はありません。雨天時はバイクカバーの持参をおすすめします。'];
                 } elseif ($coveredRate < 30) {
-                    $stationPoints[] = ['icon' => 'cloud-rain', 'text' => "屋根付きは{$coveredCount}件（" . round($coveredRate) . "%）と少なめ。早めの確保がおすすめです。"];
+                    $stationPoints[] = ['icon' => 'cloud-rain', 'text' => "屋根付きは{$coveredCount}件（" . round($coveredRate) . "%）と少なめ。雨天時は早めの確保を。"];
                 } elseif ($coveredRate >= 70) {
                     $stationPoints[] = ['icon' => 'umbrella', 'text' => "屋根付き駐車場が{$coveredCount}件（" . round($coveredRate) . "%）と充実しています。"];
                 }
