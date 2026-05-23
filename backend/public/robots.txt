@@ -10,6 +10,8 @@ Disallow: /bikes/search
 Disallow: /bikes?
 Disallow: /bikes/compare?*
 Disallow: /wishlist
+# Search/filter pages - dynamic params, no index value
+Disallow: /pages/widget
 # Map pages - JS rendered, no crawl value
 Disallow: /shops/map
 Disallow: /riders-map
