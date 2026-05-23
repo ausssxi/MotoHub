@@ -521,7 +521,7 @@ final class BikeController extends Controller
         // 車種販売データ（ランキング連携）
         $rankingStats = null;
         if ($listing->bike_model_id) {
-            $rankingStats = Cache::remember("show_ranking_stats_{$listing->bike_model_id}", 3600, function () use ($listing) {
+            $rankingStats = Cache::remember("show_ranking_stats_{$listing->bike_model_id}", 86400, function () use ($listing) {
                 $lms = now()->subMonth()->startOfMonth();
                 $lme = now()->subMonth()->endOfMonth();
                 $three = now()->subMonths(3);
@@ -1106,7 +1106,7 @@ final class BikeController extends Controller
                 ->get();
         }
 
-        $activeCount = Cache::remember("active_count_model_{$id}", 3600, function () use ($id) {
+        $activeCount = Cache::remember("active_count_model_{$id}", 86400, function () use ($id) {
             return \App\Models\Listing::where('bike_model_id', $id)->active()->count();
         });
 
@@ -1427,7 +1427,7 @@ final class BikeController extends Controller
 
         $modelStats = Cache::remember(
             "market_position_{$listing->bike_model_id}",
-            3600,
+            86400,
             function () use ($listing) {
                 return Listing::where('bike_model_id', $listing->bike_model_id)
                     ->where('is_sold_out', false)
@@ -1606,7 +1606,7 @@ final class BikeController extends Controller
         }
 
         $cacheKey = "model_detail_v1_{$mfrSlug}_{$model->slug}";
-        $viewData = Cache::remember($cacheKey, 3600, fn () => $this->buildModelDetailData($model->id));
+        $viewData = Cache::remember($cacheKey, 86400, fn () => $this->buildModelDetailData($model->id));
 
         return view('bikes.model_detail', $viewData);
     }
@@ -1627,7 +1627,7 @@ final class BikeController extends Controller
             ->firstOrFail();
 
         $cacheKey = "model_detail_v1_{$mfrSlug}_{$model->slug}";
-        $viewData = Cache::remember($cacheKey, 3600, fn () => $this->buildModelDetailData($model->id));
+        $viewData = Cache::remember($cacheKey, 86400, fn () => $this->buildModelDetailData($model->id));
         $viewData['reviewOgpMode'] = true;
         $viewData['scrollToReviewId'] = $reviewId;
 
@@ -1651,7 +1651,7 @@ final class BikeController extends Controller
         }
 
         $cacheKey = "model_detail_v1_id_{$modelId}";
-        $viewData = Cache::remember($cacheKey, 3600, fn () => $this->buildModelDetailData($modelId));
+        $viewData = Cache::remember($cacheKey, 86400, fn () => $this->buildModelDetailData($modelId));
         $viewData['reviewOgpMode'] = true;
         $viewData['scrollToReviewId'] = $reviewId;
 
