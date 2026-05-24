@@ -15,6 +15,7 @@
         </style>
     </x-slot:styles>
 
+    <h1 class="sr-only">バイクわらしべ長者ゲーム｜カブ50からハヤブサを目指す交換パズル</h1>
     <div id="warashibe-root"></div>
 
     <x-slot:scripts>
