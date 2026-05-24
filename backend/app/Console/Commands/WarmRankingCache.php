@@ -66,7 +66,7 @@ final class WarmRankingCache extends Command
                 ->pluck('bike_model_id');
         }
 
-        $total = $mainPages + $modelIds->count();
+        $total = count($mainPages) + $modelIds->count();
         $this->log("モデル別ページ: {$modelIds->count()} 件");
 
         $index = 0;
