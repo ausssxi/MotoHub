@@ -78,7 +78,7 @@ final class BikeController extends Controller
 
         // 前日の販売台数
         $yesterday = today()->subDay();
-        $todaySoldCount = Cache::remember('top_yesterday_sold_v2', 3600, fn () =>
+        $todaySoldCount = Cache::remember('top_yesterday_sold_v3', 3600, fn () =>
             Listing::cappedSold($yesterday, $yesterday)->count()
         );
 
