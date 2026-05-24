@@ -26,6 +26,15 @@ class GenerateSitemap extends Command
     // 1ファイルあたりのURL上限 (Google推奨: 10,000以下)
     private const MAX_URLS_PER_FILE = 10000;
 
+    // IndexNow 1リクエストあたりの最大URL数
+    private const INDEXNOW_BATCH_SIZE = 10000;
+
+    // IndexNow差分検出用スナップショットの保存先
+    private const INDEXNOW_SNAPSHOT_FILE = 'indexnow_snapshot.json';
+
+    /** @var array<string, string> url => lastmod */
+    private array $collectedUrls = [];
+
     public function handle(): void
     {
         ini_set('memory_limit', '512M');
@@ -999,31 +1008,67 @@ class GenerateSitemap extends Command
 
 
         // =========================================================
+        // 6.9. チェーン店サイトマップ (sitemap-chains.xml)
+        // =========================================================
+        $this->info("チェーン店サイトマップを生成中...");
+        $chainFileName = 'sitemap-chains.xml';
+        $handle = $this->openSitemap($chainFileName);
+        $sitemapFiles[] = $chainFileName;
+        $chainCount = 0;
+
+        $chains = config('bike.chains', []);
+        foreach (array_keys($chains) as $chainSlug) {
+            $this->writeUrl($handle, route('shops.chain', $chainSlug), date('Y-m-d'), 'weekly', '0.6');
+            $chainCount++;
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$chainCount} URL (Chains)");
+
+
+        // =========================================================
+        // 6.10. オリジナルニュースサイトマップ (sitemap-news.xml)
+        // =========================================================
+        $this->info("オリジナルニュースサイトマップを生成中...");
+        $newsFileName = 'sitemap-news.xml';
+        $handle = $this->openSitemap($newsFileName);
+        $sitemapFiles[] = $newsFileName;
+        $newsCount = 0;
+
+        // ニュース一覧ページ
+        $this->writeUrl($handle, route('news.index'), date('Y-m-d'), 'daily', '0.7');
+        $newsCount++;
+
+        // MotoHubオリジナル記事のみ
+        \App\Models\BikeNews::where('source', 'MotoHub')
+            ->orderByDesc('published_at')
+            ->chunk(500, function ($articles) use ($handle, &$newsCount) {
+                foreach ($articles as $article) {
+                    $this->writeUrl(
+                        $handle,
+                        route('news.show', $article->id),
+                        $article->updated_at->toDateString(),
+                        'weekly',
+                        '0.6'
+                    );
+                    $newsCount++;
+                }
+            });
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$newsCount} URL (Original News)");
+
+
+        // =========================================================
         // 7. サイトマップインデックス (目次) の生成
         // =========================================================
         $this->info("インデックスファイル (sitemap.xml) を生成中...");
         $this->generateIndexFile($sitemapFiles);
 
         // =========================================================
-        // 8. IndexNow通知
+        // 8. IndexNow通知（差分送信）
         // =========================================================
-        $indexNowKey = config('services.indexnow.key');
-        if ($indexNowKey) {
-            $this->info('IndexNowに通知中...');
-            try {
-                \Illuminate\Support\Facades\Http::post('https://api.indexnow.org/indexnow', [
-                    'host' => 'motohub.jp',
-                    'key' => $indexNowKey,
-                    'keyLocation' => "https://motohub.jp/{$indexNowKey}.txt",
-                    'urlList' => [
-                        'https://motohub.jp/sitemap.xml',
-                    ],
-                ]);
-                $this->info('IndexNow通知完了');
-            } catch (\Throwable $e) {
-                $this->warn('IndexNow通知失敗: ' . $e->getMessage());
-            }
-        }
+        $this->submitIndexNow();
 
         $duration = round(microtime(true) - $startTime, 2);
         $this->info("全ての処理が完了しました！ ({$duration}秒)");
@@ -1032,6 +1077,112 @@ class GenerateSitemap extends Command
     private function pingGoogle(): void
     {
         // GoogleのPing送信機能は廃止されたため、メソッド内は空にしておくか、削除してもOKです
+    }
+
+    /**
+     * ブログサイトマップからURLを収集してcollectedUrlsに追加
+     */
+    private function collectBlogSitemapUrls(): void
+    {
+        $blogSitemapPath = storage_path('app/public/' . config('blog.sitemap.path', 'sitemap-blog.xml'));
+
+        if (! file_exists($blogSitemapPath)) {
+            return;
+        }
+
+        $xml = @simplexml_load_file($blogSitemapPath);
+        if (! $xml) {
+            return;
+        }
+
+        foreach ($xml->url as $entry) {
+            $loc = (string) $entry->loc;
+            $lastmod = (string) $entry->lastmod;
+            if ($loc) {
+                $this->collectedUrls[$loc] = $lastmod ?: date('Y-m-d');
+            }
+        }
+    }
+
+    /**
+     * IndexNow差分送信
+     */
+    private function submitIndexNow(): void
+    {
+        $indexNowKey = config('services.indexnow.key');
+        if (! $indexNowKey) {
+            return;
+        }
+
+        // ブログサイトマップのURLも収集
+        $this->collectBlogSitemapUrls();
+
+        $currentUrls = $this->collectedUrls;
+        $snapshotPath = storage_path('app/' . self::INDEXNOW_SNAPSHOT_FILE);
+
+        // 前回スナップショットを読み込み
+        $previousUrls = [];
+        if (file_exists($snapshotPath)) {
+            $previousUrls = json_decode(file_get_contents($snapshotPath), true) ?: [];
+        }
+
+        // 差分検出: 新規URL or lastmodが変わったURL
+        $changedUrls = [];
+        foreach ($currentUrls as $url => $lastmod) {
+            if (! isset($previousUrls[$url]) || $previousUrls[$url] !== $lastmod) {
+                $changedUrls[] = $url;
+            }
+        }
+
+        if (empty($changedUrls)) {
+            $this->info('IndexNow: 差分なし — スキップ');
+            // スナップショットは更新（削除されたURLを反映）
+            file_put_contents($snapshotPath, json_encode($currentUrls));
+
+            return;
+        }
+
+        $this->info("IndexNow: {$this->formatCount(count($changedUrls))}件の差分URLを送信中...");
+        $batches = array_chunk($changedUrls, self::INDEXNOW_BATCH_SIZE);
+        $totalSent = 0;
+        $totalFailed = 0;
+
+        foreach ($batches as $i => $batch) {
+            try {
+                $response = Http::timeout(30)->post('https://api.indexnow.org/indexnow', [
+                    'host' => 'motohub.jp',
+                    'key' => $indexNowKey,
+                    'keyLocation' => "https://motohub.jp/{$indexNowKey}.txt",
+                    'urlList' => $batch,
+                ]);
+
+                if ($response->successful() || $response->status() === 202) {
+                    $totalSent += count($batch);
+                    $this->info("  バッチ" . ($i + 1) . "/" . count($batches) . ": " . count($batch) . "件送信OK (status: {$response->status()})");
+                } else {
+                    $totalFailed += count($batch);
+                    $this->warn("  バッチ" . ($i + 1) . ": FAIL (status: {$response->status()})");
+                }
+            } catch (\Throwable $e) {
+                $totalFailed += count($batch);
+                $this->warn("  バッチ" . ($i + 1) . ": ERROR ({$e->getMessage()})");
+            }
+
+            // レート制限対策: バッチ間に1秒待機
+            if ($i < count($batches) - 1) {
+                sleep(1);
+            }
+        }
+
+        // スナップショット更新
+        file_put_contents($snapshotPath, json_encode($currentUrls));
+
+        $this->info("IndexNow完了: 送信={$this->formatCount($totalSent)} 失敗={$this->formatCount($totalFailed)} (全収集URL: {$this->formatCount(count($currentUrls))}件)");
+    }
+
+    private function formatCount(int $count): string
+    {
+        return number_format($count);
     }
 
     private function openSitemap(string $filename)
@@ -1045,6 +1196,9 @@ class GenerateSitemap extends Command
 
     private function writeUrl($handle, $loc, $lastmod, $freq, $priority)
     {
+        // IndexNow差分検出用にURL収集
+        $this->collectedUrls[$loc] = $lastmod;
+
         $loc = htmlspecialchars($loc, ENT_XML1, 'UTF-8');
         $xml = "    <url>\n";
         $xml .= "        <loc>{$loc}</loc>\n";

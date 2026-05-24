@@ -62,6 +62,7 @@
     </x-slot:navigation>
 
     <div class="relative w-full">
+        <h1 class="sr-only">バイク駐車場マップ｜全国{{ number_format($parkingCount) }}件の駐車場・駐輪場を検索</h1>
         <div id="map" class="w-full bg-gray-100"></div>
 
         {{-- 検索中ローディング --}}
