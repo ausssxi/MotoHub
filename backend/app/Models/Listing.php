@@ -172,27 +172,21 @@ class Listing extends Model
     }
 
     /**
-     * 一括sold_out除外: 同一 bike_model_id × updated_at（秒精度）で10件以上を除外
+     * 一括sold_out除外: 事前計算済みIDリスト（Redis）で除外
      * cappedSold の後にチェーンして使う
      */
-    public function scopeExcludeBulkSold(Builder $query, Carbon $start, Carbon $end): Builder
+    public function scopeExcludeBulkSold(Builder $query): Builder
     {
-        $from = $start->copy()->startOfDay();
-        $to = $end->copy()->endOfDay();
+        $ids = \Illuminate\Support\Facades\Redis::connection()
+            ->smembers(\App\Console\Commands\ComputeBulkExclusions::REDIS_KEY);
 
-        return $query->whereRaw('NOT EXISTS (
-            SELECT 1 FROM (
-                SELECT bike_model_id, updated_at AS ts
-                FROM listings
-                WHERE is_sold_out = 1
-                AND bike_model_id IS NOT NULL
-                AND updated_at BETWEEN ? AND ?
-                GROUP BY bike_model_id, updated_at
-                HAVING COUNT(*) >= 10
-            ) AS bulk_sold
-            WHERE bulk_sold.bike_model_id = listings.bike_model_id
-            AND bulk_sold.ts = listings.updated_at
-        )', [$from, $to]);
+        if (empty($ids)) {
+            return $query;
+        }
+
+        $ids = array_map('intval', $ids);
+
+        return $query->whereNotIn('listings.id', $ids);
     }
 
     public function scopeActive(Builder $query): Builder { return $query->where('listings.is_sold_out', false); }

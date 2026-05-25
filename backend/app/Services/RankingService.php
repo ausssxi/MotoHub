@@ -21,7 +21,7 @@ final class RankingService
             $lms = Carbon::now()->subMonth()->startOfMonth();
             $lme = Carbon::now()->subMonth()->endOfMonth();
 
-            $rows = Listing::cappedSold($lms, $lme)->excludeBulkSold($lms, $lme)
+            $rows = Listing::cappedSold($lms, $lme)->excludeBulkSold()
                 ->whereNotNull('bike_model_id')
                 ->select('bike_model_id', DB::raw('COUNT(*) as cnt'))
                 ->groupBy('bike_model_id')
@@ -47,7 +47,7 @@ final class RankingService
             $lms = Carbon::now()->subMonth()->startOfMonth();
             $lme = Carbon::now()->subMonth()->endOfMonth();
 
-            $rows = Listing::cappedSold($lms, $lme)->excludeBulkSold($lms, $lme)
+            $rows = Listing::cappedSold($lms, $lme)->excludeBulkSold()
                 ->whereNotNull('bike_model_id')
                 ->whereHas('bikeModel', fn ($q) => $q->where('category_id', $categoryId))
                 ->select('bike_model_id', DB::raw('COUNT(*) as cnt'))
@@ -73,7 +73,7 @@ final class RankingService
             $lms = Carbon::now()->subMonth()->startOfMonth();
             $lme = Carbon::now()->subMonth()->endOfMonth();
 
-            $monthlySold = Listing::cappedSold($lms, $lme)->excludeBulkSold($lms, $lme)
+            $monthlySold = Listing::cappedSold($lms, $lme)->excludeBulkSold()
                 ->where('bike_model_id', $bikeModelId)
                 ->count();
 
@@ -96,7 +96,7 @@ final class RankingService
             }
 
             // 平均在庫日数
-            $avgDays = Listing::cappedSold($lms, $lme)->excludeBulkSold($lms, $lme)
+            $avgDays = Listing::cappedSold($lms, $lme)->excludeBulkSold()
                 ->where('bike_model_id', $bikeModelId)
                 ->selectRaw('AVG(DATEDIFF(updated_at, created_at)) as avg_days')
                 ->value('avg_days');

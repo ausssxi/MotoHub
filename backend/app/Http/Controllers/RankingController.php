@@ -151,7 +151,7 @@ final class RankingController extends Controller
             $year = $endDate->year;
             $week = (int) $endDate->format('W');
 
-            $baseQuery = fn () => Listing::cappedSold($startDate->copy(), $endDate->copy())->excludeBulkSold($startDate->copy(), $endDate->copy());
+            $baseQuery = fn () => Listing::cappedSold($startDate->copy(), $endDate->copy())->excludeBulkSold();
             $modelRanking = $this->buildModelRankingWithPrice($baseQuery(), 30);
             $makerRanking = $this->buildMakerRanking($baseQuery());
 
@@ -190,7 +190,7 @@ final class RankingController extends Controller
         $start = Carbon::create($year, $month, 1);
         $end = $start->copy()->endOfMonth();
 
-        $baseQuery = fn () => Listing::cappedSold($start->copy(), $end->copy())->excludeBulkSold($start->copy(), $end->copy());
+        $baseQuery = fn () => Listing::cappedSold($start->copy(), $end->copy())->excludeBulkSold();
         $modelRanking = $this->buildModelRankingWithPrice($baseQuery(), 30);
         $makerRanking = $this->buildMakerRanking($baseQuery());
         $displacementRanges = $this->buildDisplacementRanges($baseQuery());
@@ -251,7 +251,7 @@ final class RankingController extends Controller
 
     private function getDailyRanking(Carbon $date): array
     {
-        $baseQuery = fn () => Listing::cappedSold($date, $date)->excludeBulkSold($date, $date);
+        $baseQuery = fn () => Listing::cappedSold($date, $date)->excludeBulkSold();
 
         $totalSold = $baseQuery()->count();
 
@@ -291,7 +291,7 @@ final class RankingController extends Controller
 
     private function getRanking(Carbon $start, Carbon $end): array
     {
-        $baseQuery = fn () => Listing::cappedSold($start, $end)->excludeBulkSold($start, $end);
+        $baseQuery = fn () => Listing::cappedSold($start, $end)->excludeBulkSold();
 
         $totalSold = $baseQuery()->count();
         $modelRanking = $this->buildModelRanking($baseQuery(), 30);
@@ -426,7 +426,7 @@ final class RankingController extends Controller
                     $end = $yesterday;
                 }
 
-                return Listing::cappedSold($start, $end)->excludeBulkSold($start, $end)
+                return Listing::cappedSold($start, $end)->excludeBulkSold()
                     ->select(
                         DB::raw('DATE(updated_at) as sold_date'),
                         DB::raw('COUNT(*) as cnt'),
@@ -445,7 +445,7 @@ final class RankingController extends Controller
         $ttl = 604800;
 
         $dayCounts = Cache::remember($cacheKey, $ttl, function () use ($start, $end) {
-            return Listing::cappedSold($start, $end)->excludeBulkSold($start, $end)
+            return Listing::cappedSold($start, $end)->excludeBulkSold()
                 ->select(DB::raw('DATE(updated_at) as sold_date'), DB::raw('COUNT(*) as cnt'))
                 ->groupBy(DB::raw('DATE(updated_at)'))
                 ->pluck('cnt', 'sold_date')
@@ -476,12 +476,12 @@ final class RankingController extends Controller
         $lastMonthEnd = Carbon::now()->subMonth()->endOfMonth();
         $threeMonthsAgo = Carbon::now()->subMonths(3);
 
-        $lastMonthSold = Listing::cappedSold($lastMonthStart, $lastMonthEnd)->excludeBulkSold($lastMonthStart, $lastMonthEnd)
+        $lastMonthSold = Listing::cappedSold($lastMonthStart, $lastMonthEnd)->excludeBulkSold()
             ->where('bike_model_id', $bikeModelId)
             ->count();
 
         // 全車種中の順位
-        $allModelSales = Listing::cappedSold($lastMonthStart, $lastMonthEnd)->excludeBulkSold($lastMonthStart, $lastMonthEnd)
+        $allModelSales = Listing::cappedSold($lastMonthStart, $lastMonthEnd)->excludeBulkSold()
             ->whereNotNull('bike_model_id')
             ->select('bike_model_id', DB::raw('COUNT(*) as cnt'))
             ->groupBy('bike_model_id')
@@ -491,14 +491,14 @@ final class RankingController extends Controller
         $rank = $allModelSales->search(fn ($item) => $item->bike_model_id == $bikeModelId);
         $rank = $rank !== false ? $rank + 1 : null;
 
-        $avgDays = Listing::cappedSold($lastMonthStart, $lastMonthEnd)->excludeBulkSold($lastMonthStart, $lastMonthEnd)
+        $avgDays = Listing::cappedSold($lastMonthStart, $lastMonthEnd)->excludeBulkSold()
             ->where('bike_model_id', $bikeModelId)
             ->selectRaw('AVG(DATEDIFF(updated_at, created_at)) as avg_days')
             ->value('avg_days');
 
         // 価格帯（過去3ヶ月）
         $now = Carbon::now();
-        $priceRanges = Listing::cappedSold($threeMonthsAgo, $now)->excludeBulkSold($threeMonthsAgo, $now)
+        $priceRanges = Listing::cappedSold($threeMonthsAgo, $now)->excludeBulkSold()
             ->where('bike_model_id', $bikeModelId)
             ->whereNotNull('total_price')
             ->select(DB::raw("
@@ -517,7 +517,7 @@ final class RankingController extends Controller
             ->get();
 
         // 地域TOP10
-        $regionRanking = Listing::cappedSold($threeMonthsAgo, $now)->excludeBulkSold($threeMonthsAgo, $now)
+        $regionRanking = Listing::cappedSold($threeMonthsAgo, $now)->excludeBulkSold()
             ->where('listings.bike_model_id', $bikeModelId)
             ->join('shops', 'listings.shop_id', '=', 'shops.id')
             ->whereNotNull('shops.prefecture')
@@ -528,7 +528,7 @@ final class RankingController extends Controller
             ->get();
 
         // 走行距離帯
-        $mileageRanges = Listing::cappedSold($threeMonthsAgo, $now)->excludeBulkSold($threeMonthsAgo, $now)
+        $mileageRanges = Listing::cappedSold($threeMonthsAgo, $now)->excludeBulkSold()
             ->where('bike_model_id', $bikeModelId)
             ->whereNotNull('mileage')
             ->select(DB::raw("
@@ -545,7 +545,7 @@ final class RankingController extends Controller
             ->get();
 
         // 年式（新しい順）
-        $yearRanking = Listing::cappedSold($threeMonthsAgo, $now)->excludeBulkSold($threeMonthsAgo, $now)
+        $yearRanking = Listing::cappedSold($threeMonthsAgo, $now)->excludeBulkSold()
             ->where('bike_model_id', $bikeModelId)
             ->whereNotNull('model_year')
             ->select('model_year', DB::raw('COUNT(*) as cnt'))
@@ -562,7 +562,7 @@ final class RankingController extends Controller
             $monthlySales[] = [
                 'month' => $ms->format('Y年n月'),
                 'label' => $ms->format('n月'),
-                'count' => Listing::cappedSold($ms, $me)->excludeBulkSold($ms, $me)
+                'count' => Listing::cappedSold($ms, $me)->excludeBulkSold()
                     ->where('bike_model_id', $bikeModelId)
                     ->count(),
             ];

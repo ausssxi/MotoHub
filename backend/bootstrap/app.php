@@ -126,6 +126,11 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->withoutOverlapping()
                  ->appendOutputTo($specsLog);
 
+        // 一括sold_out除外IDの事前計算 (04:50) — ランキングウォーマーの前に実行
+        $schedule->command('ranking:compute-bulk-exclusions')
+                 ->dailyAt('04:50')
+                 ->withoutOverlapping();
+
         // タグ抽出処理 (05:00)
         // 収集したばかりの最新データから「ETC」「ワンオーナー」などのタグを生成
         $schedule->command('tags:extract')
