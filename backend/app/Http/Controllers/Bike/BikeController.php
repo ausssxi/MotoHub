@@ -50,7 +50,9 @@ final class BikeController extends Controller
      */
     public function index(): View
     {
-        $popularBikes = $this->bikeService->getPopularBikesForTopPage();
+        $popularBikes = Cache::remember('top_popular_bikes', 1800, fn () =>
+            $this->bikeService->getPopularBikesForTopPage()
+        );
         $categories = $this->bikeService->getCategoriesForTopPage();
         $manufacturers = $this->bikeService->getMajorManufacturers();
         $regions = config('bike.regions');
@@ -68,13 +70,21 @@ final class BikeController extends Controller
 
         // ライブ統計バー用のカウント（リポジトリ側でキャッシュ済み）
         $totalListings = $this->listingSearchService->getActiveCount();
-        $priceDropCount = DB::table('price_histories')
-            ->whereDate('created_at', today())
-            ->distinct('listing_id')
-            ->count('listing_id');
-        $newListingsCount = Listing::active()
-            ->whereDate('listings.created_at', today())
-            ->count();
+        $todayStart = today();
+        $todayEnd = today()->addDay();
+        $priceDropCount = Cache::remember('top_price_drop_count', 1800, fn () =>
+            DB::table('price_histories')
+                ->where('created_at', '>=', $todayStart)
+                ->where('created_at', '<', $todayEnd)
+                ->distinct('listing_id')
+                ->count('listing_id')
+        );
+        $newListingsCount = Cache::remember('top_new_listings_count', 1800, fn () =>
+            Listing::active()
+                ->where('listings.created_at', '>=', $todayStart)
+                ->where('listings.created_at', '<', $todayEnd)
+                ->count()
+        );
 
         // 前日の販売台数
         $yesterday = today()->subDay();
