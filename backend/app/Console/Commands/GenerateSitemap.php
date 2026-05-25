@@ -929,13 +929,14 @@ class GenerateSitemap extends Command
             $rankingCount++;
         }
 
-        // 車種別ランキングページ（掲載5台以上のモデルのみ）
-        DB::table('listings')
-            ->select('bike_model_id')
-            ->where('is_sold_out', false)
+        // 車種別ランキングページ（先月販売3台以上のモデルのみ）
+        $lms = \Carbon\Carbon::now()->subMonth()->startOfMonth();
+        $lme = \Carbon\Carbon::now()->subMonth()->endOfMonth();
+        Listing::cappedSold($lms, $lme)->excludeBulkSold()
             ->whereNotNull('bike_model_id')
+            ->select('bike_model_id', DB::raw('COUNT(*) as cnt'))
             ->groupBy('bike_model_id')
-            ->havingRaw('COUNT(*) >= 10')
+            ->havingRaw('COUNT(*) >= 3')
             ->orderBy('bike_model_id')
             ->chunk(500, function ($rows) use ($handle, &$rankingCount) {
                 foreach ($rows as $row) {

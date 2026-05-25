@@ -1,7 +1,16 @@
+@php
+    $mfName = $bikeModel->manufacturer->name ?? '';
+    $displayName = (mb_strlen($mfName) >= 2 && mb_stripos($bikeModel->name, $mfName) !== false)
+        ? $bikeModel->name
+        : trim($mfName . ' ' . $bikeModel->name);
+@endphp
 <x-layout>
-    <x-slot:title>{{ $bikeModel->name }}の販売データ・売れ筋分析【{{ now()->format('Y年n月') }}】| MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $bikeModel->manufacturer->name ?? '' }} {{ $bikeModel->name }}の販売データを徹底分析。先月{{ $stats['lastMonthSold'] }}台が販売、売れ筋価格帯・地域・走行距離をグラフで可視化。</x-slot:metaDescription>
+    <x-slot:title>{{ $displayName }}の販売データ・売れ筋分析【{{ now()->format('Y年n月') }}】| MotoHub</x-slot:title>
+    <x-slot:metaDescription>{{ $displayName }}の販売データを徹底分析。先月{{ $stats['lastMonthSold'] }}台が販売、売れ筋価格帯・地域・走行距離をグラフで可視化。</x-slot:metaDescription>
     <x-slot:canonical>{{ route('ranking.model_stats', $bikeModel->id) }}</x-slot:canonical>
+    @if($stats['lastMonthSold'] <= 2)
+    <x-slot:robotsMeta>noindex</x-slot:robotsMeta>
+    @endif
     <x-slot:publishedTime>2025-04-01T00:00:00+09:00</x-slot:publishedTime>
     <x-slot:modifiedTime>{{ now()->toIso8601String() }}</x-slot:modifiedTime>
     <x-slot:navigation><x-navigation :showSearch="true" /></x-slot:navigation>
@@ -28,7 +37,7 @@
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                    {{ $bikeModel->manufacturer->name ?? '' }} {{ $bikeModel->name }} の販売データ分析
+                    {{ $displayName }} の販売データ分析
                 </h1>
                 <p class="text-sm text-gray-500 mt-1">過去の販売データに基づく詳細分析</p>
             </div>
