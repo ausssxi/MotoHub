@@ -148,9 +148,8 @@ class Listing extends Model
     // --- Query Scopes ---
 
     /**
-     * 水増し対策（2層フィルター）
-     * Layer 1: shop_id × bike_model_id × DATE の1日あたりカウントを最大5台に制限
-     * Layer 2: 同一 bike_model_id × updated_at（秒精度）で10件以上 → 一括sold_out除外
+     * 水増し対策: shop_id × bike_model_id の1日あたりカウントを最大5台に制限
+     * is_sold_out=true、掲載3日以上、日付範囲フィルタを含む
      */
     public function scopeCappedSold(Builder $query, Carbon $start, Carbon $end): Builder
     {
@@ -167,17 +166,33 @@ class Listing extends Model
                 WHERE is_sold_out = 1
                 AND created_at <= updated_at - INTERVAL 3 DAY
                 AND updated_at BETWEEN ? AND ?
-                AND (bike_model_id, updated_at) NOT IN (
-                    SELECT bike_model_id, updated_at
-                    FROM listings
-                    WHERE is_sold_out = 1
-                    AND updated_at BETWEEN ? AND ?
-                    GROUP BY bike_model_id, updated_at
-                    HAVING COUNT(*) >= 10
-                )
             ) as capped
             WHERE rn <= 5
-        )', [$from, $to, $from, $to]);
+        )', [$from, $to]);
+    }
+
+    /**
+     * 一括sold_out除外: 同一 bike_model_id × updated_at（秒精度）で10件以上を除外
+     * cappedSold の後にチェーンして使う
+     */
+    public function scopeExcludeBulkSold(Builder $query, Carbon $start, Carbon $end): Builder
+    {
+        $from = $start->copy()->startOfDay();
+        $to = $end->copy()->endOfDay();
+
+        return $query->whereRaw('NOT EXISTS (
+            SELECT 1 FROM (
+                SELECT bike_model_id, updated_at AS ts
+                FROM listings
+                WHERE is_sold_out = 1
+                AND bike_model_id IS NOT NULL
+                AND updated_at BETWEEN ? AND ?
+                GROUP BY bike_model_id, updated_at
+                HAVING COUNT(*) >= 10
+            ) AS bulk_sold
+            WHERE bulk_sold.bike_model_id = listings.bike_model_id
+            AND bulk_sold.ts = listings.updated_at
+        )', [$from, $to]);
     }
 
     public function scopeActive(Builder $query): Builder { return $query->where('listings.is_sold_out', false); }

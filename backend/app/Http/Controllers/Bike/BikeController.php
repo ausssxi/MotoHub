@@ -79,7 +79,7 @@ final class BikeController extends Controller
         // 前日の販売台数
         $yesterday = today()->subDay();
         $todaySoldCount = Cache::remember('top_yesterday_sold_v3', 3600, fn () =>
-            Listing::cappedSold($yesterday, $yesterday)->count()
+            Listing::cappedSold($yesterday, $yesterday)->excludeBulkSold($yesterday, $yesterday)->count()
         );
 
         // お買い得車両数
@@ -118,7 +118,7 @@ final class BikeController extends Controller
         $rankingTop5 = Cache::remember('top_ranking_top5_v2', 3600, function () {
             $start = now()->startOfMonth();
             $end = now();
-            $rows = Listing::cappedSold($start, $end)
+            $rows = Listing::cappedSold($start, $end)->excludeBulkSold($start, $end)
                 ->whereNotNull('bike_model_id')
                 ->select('bike_model_id', DB::raw('COUNT(*) as sold_count'))
                 ->groupBy('bike_model_id')
