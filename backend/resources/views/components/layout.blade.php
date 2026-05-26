@@ -12,6 +12,9 @@
     {{-- canonical URL（重複コンテンツ防止） --}}
     <link rel="canonical" href="{{ $canonical ?? url()->current() }}">
 
+    {{-- RSS auto-discovery（ブログランキング連携用） --}}
+    <link rel="alternate" type="application/rss+xml" title="MotoHub Blog" href="https://www.motohub.jp/blog/feed" />
+
     {{-- robots meta（ページ単位でのクロール制御） --}}
     @if(isset($robotsMeta) && str_contains(strtolower($robotsMeta), 'noindex'))
     <meta name="robots" content="{{ $robotsMeta }}">
