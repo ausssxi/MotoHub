@@ -37,13 +37,13 @@
     <meta property="og:url" content="{{ $canonical ?? url()->current() }}" />
     <meta property="og:site_name" content="MotoHub" />
     <meta property="og:locale" content="ja_JP" />
-    <meta property="og:image" content="{{ $ogImage ?? asset('images/twitter_template.png') }}" />
+    <meta property="og:image" content="{{ $ogImage ?? asset('images/about-ogp.png') }}" />
 
     {{-- Twitter Card設定 --}}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="{{ $title ?? 'MotoHub' }}" />
     <meta name="twitter:description" content="{{ $metaDescription ?? '日本最大級のバイク検索・比較プラットフォーム。' }}" />
-    <meta name="twitter:image" content="{{ $ogImage ?? asset('images/twitter_template.png') }}" />
+    <meta name="twitter:image" content="{{ $ogImage ?? asset('images/about-ogp.png') }}" />
     
     {{-- CSRFトークン（Ajax通信に必須） --}}
     <meta name="csrf-token" content="{{ csrf_token() }}">

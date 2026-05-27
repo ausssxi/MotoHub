@@ -24,7 +24,7 @@
             "@@context": "https://schema.org",
             "@@type": "BlogPosting",
             "headline": "{{ e($post->title) }}",
-            "image": "{{ $post->eyecatch_image ? url($post->getEyecatchUrl()) : asset('images/twitter_template.png') }}",
+            "image": "{{ $post->eyecatch_image ? url($post->getEyecatchUrl()) : asset('images/about-ogp.png') }}",
             "datePublished": "{{ $post->published_at->toIso8601String() }}",
             "dateModified": "{{ $post->updated_at->toIso8601String() }}",
             "author": {
