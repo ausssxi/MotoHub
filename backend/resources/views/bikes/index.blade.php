@@ -119,13 +119,19 @@
                 </div>
             </form>
 
-            {{-- バイク診断へのクイック導線バナー --}}
-            <div class="mt-6 flex justify-center">
+            {{-- AIツール導線バナー --}}
+            <div class="mt-6 flex flex-col sm:flex-row justify-center gap-3">
+                <a href="{{ route('ai-search') }}" class="group relative inline-flex items-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-md border border-purple-400/30 rounded-2xl hover:bg-white/20 transition-all shadow-xl">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white border-2 border-white/20 shadow-lg">
+                        <i data-lucide="bot" class="w-4 h-4"></i>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-sm font-black text-white leading-none">AIで探す <i data-lucide="chevron-right" class="w-4 h-4 inline-block group-hover:translate-x-1 transition-transform"></i></p>
+                    </div>
+                </a>
                 <a href="/shindan" class="group relative inline-flex items-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl hover:bg-white/20 transition-all shadow-xl">
-                    <div class="flex -space-x-2">
-                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white border-2 border-white/20 shadow-lg">
-                            <i data-lucide="sparkles" class="w-4 h-4 fill-current"></i>
-                        </div>
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white border-2 border-white/20 shadow-lg">
+                        <i data-lucide="sparkles" class="w-4 h-4 fill-current"></i>
                     </div>
                     <div class="text-left">
                         <p class="text-[10px] font-black text-blue-300 uppercase tracking-tighter leading-none mb-1">AI Style Match</p>

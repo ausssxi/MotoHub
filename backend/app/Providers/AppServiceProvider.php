@@ -13,6 +13,9 @@ use App\Models\Listing;
 use App\Models\Shop;
 use App\Observers\ListingObserver;
 use App\Observers\ShopObserver;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Socialite\Facades\Socialite;
 use SocialiteProviders\Line\Provider as LineProvider;
 
@@ -64,6 +67,8 @@ class AppServiceProvider extends ServiceProvider
             $view->with('footerPopularBikes', $footerPopularBikes);
             $view->with('footerCategories', $footerCategories);
         });
+
+        RateLimiter::for('ai-search', fn (Request $request) => Limit::perDay(10)->by($request->ip()));
 
         Shop::observe(ShopObserver::class);
         Listing::observe(ListingObserver::class);

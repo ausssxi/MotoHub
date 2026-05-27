@@ -49,6 +49,16 @@
                 </button>
                 @endif
 
+                {{-- AIで探す --}}
+                <a href="{{ route('ai-search') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $navIs('ai-search*') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest group relative" title="AIで探す">
+                    <i data-lucide="bot" class="w-4 h-4 text-purple-500 group-hover:animate-pulse"></i>
+                    <span class="hidden xl:inline">AIで探す</span>
+                    <span class="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+                    </span>
+                </a>
+
                 {{-- バイク診断 --}}
                 <a href="/shindan" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isShindan ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest group relative" title="あなたにぴったりの1台を診断">
                     <i data-lucide="sparkles" class="w-4 h-4 text-blue-500 group-hover:animate-pulse"></i>
@@ -137,6 +147,10 @@
                         <div class="my-1 border-t border-gray-100"></div>
                         {{-- ツ��ルセクション --}}
                         <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-widest">ツール</p>
+                        <a href="{{ route('ai-search') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="bot" class="w-3.5 h-3.5"></i>
+                            AIで探す
+                        </a>
                         <a href="{{ route('parts.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
                             <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
                             パーツ
@@ -361,7 +375,19 @@
             
             {{-- ツールセクション --}}
             <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">ツール</p>
-            <a href="/shindan" class="flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl text-white shadow-lg active:scale-[0.98] transition-all">
+            <a href="{{ route('ai-search') }}" class="flex items-center justify-between p-4 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl text-white shadow-lg active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                        <i data-lucide="bot" class="w-6 h-6 fill-current"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-black">AIで探す</p>
+                        <p class="text-[10px] text-white/70 font-bold">条件を話しかけるだけでOK</p>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-5 h-5 opacity-50"></i>
+            </a>
+            <a href="/shindan" class="flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl text-white shadow-lg active:scale-[0.98] transition-all mt-2">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
                         <i data-lucide="sparkles" class="w-6 h-6 fill-current"></i>

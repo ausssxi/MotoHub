@@ -341,8 +341,13 @@
                             <span class="text-xs text-gray-400 font-bold ml-2 not-italic">({{ number_format($pagination['total']) }}台)</span>
                         </h2>
                     </div>
-                    
+
                     <div class="flex items-center gap-3">
+                        <a href="{{ route('ai-search') }}" class="flex-shrink-0 flex items-center gap-1.5 bg-purple-50 border border-purple-200 rounded-xl px-3 py-2.5 text-xs font-black text-purple-700 hover:bg-purple-100 transition shadow-sm">
+                            <i data-lucide="bot" class="w-4 h-4"></i>
+                            <span>AIで探す</span>
+                            <i data-lucide="chevron-right" class="w-3 h-3 opacity-50"></i>
+                        </a>
                         <button id="open-filter" class="lg:hidden flex-shrink-0 flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 text-xs font-black shadow-sm active:bg-gray-50 transition">
                             <i data-lucide="sliders-horizontal" class="w-4 h-4 text-blue-500"></i>
                             <span>絞り込み</span>

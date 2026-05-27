@@ -39,6 +39,7 @@ use App\Http\Controllers\Bike\DiscontinuedController;
 use App\Http\Controllers\Parts\PartsController;
 use App\Http\Controllers\NewsController;
 use App\Http\Controllers\RankingController;
+use App\Http\Controllers\Api\AiSearchController;
 use App\Http\Controllers\DealOgpController;
 
 /**
@@ -390,6 +391,9 @@ Route::view('/games/subaracity', 'games.subaracity')->name('games.subaracity');
 
 // ライダーの塔（放置系RPG）
 Route::view('/games/riders-tower', 'games.riders-tower')->name('games.riders-tower');
+
+// AIスマート検索
+Route::get('/ai-search', [AiSearchController::class, 'index'])->name('ai-search');
 
 // 買取査定LP
 Route::get('/sell', [SellController::class, 'index'])->name('sell.index');
