@@ -25,7 +25,7 @@
 
     <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
 
-    <x-slot:canonical>{{ route('bikes.search', request()->only(['keyword', 'manufacturer_id', 'bike_model_id', 'prefecture', 'tag'])) }}</x-slot:canonical>
+    <x-slot:canonical>{{ route('bikes.search', request()->only(['keyword', 'manufacturer_id', 'bike_model_id', 'prefecture', 'tags'])) }}</x-slot:canonical>
 
     <x-slot:styles>
         <x-jsonld.breadcrumb-search :filters="$filters ?? []" :pageTitle="$pageTitle ?? ''" />
@@ -105,20 +105,21 @@
                         <input type="hidden" name="keyword" value="{{ $keyword }}">
                         <input type="hidden" id="sort-hidden-input" name="sort" value="{{ $sort }}">
 
-                        <!-- 人気のこだわり条件（タグ） -->
-                        @php $currentTag = request('tag'); @endphp
-                        <div class="filter-group">
+                        <!-- 人気のこだわり条件（タグ複数選択） -->
+                        @php $currentTags = $filters['tags'] ?? (request('tag') ? [request('tag')] : []); @endphp
+                        <div class="filter-group" id="tag-filter-group">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-3 block">人気のこだわり条件</label>
+                            <div id="tags-hidden-container">
+                                @foreach($currentTags as $ct)
+                                    <input type="hidden" name="tags[]" value="{{ $ct }}">
+                                @endforeach
+                            </div>
                             <div class="flex flex-wrap gap-2">
                                 @foreach($popularTags as $tag)
-                                    @php
-                                        $nextTag = ($currentTag === $tag) ? null : $tag;
-                                        $url = route('bikes.search', array_merge(request()->except(['page', 'tag']), ['tag' => $nextTag]));
-                                    @endphp
-                                    <a href="{{ $url }}" 
-                                       class="px-3 py-1.5 rounded-lg text-[10px] font-bold transition border {{ ($currentTag === $tag) ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm' : 'bg-white text-gray-600 border-gray-100 hover:border-blue-300 hover:bg-blue-50' }}">
+                                    <button type="button" data-tag="{{ $tag }}"
+                                        class="tag-btn px-3 py-1.5 rounded-lg text-[10px] font-bold transition border {{ in_array($tag, $currentTags) ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm' : 'bg-white text-gray-600 border-gray-100 hover:border-blue-300 hover:bg-blue-50' }}">
                                         #{{ $tag }}
-                                    </a>
+                                    </button>
                                 @endforeach
                             </div>
                         </div>
@@ -189,6 +190,52 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- 排気量クラス -->
+                        <div class="filter-group">
+                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2 block">排気量</label>
+                            <input type="hidden" name="min_displacement" id="min-displacement-hidden" value="{{ $filters['min_displacement'] ?? '' }}">
+                            <input type="hidden" name="max_displacement" id="max-displacement-hidden" value="{{ $filters['max_displacement'] ?? '' }}">
+                            @php
+                                $currentMinDisp = $filters['min_displacement'] ?? '';
+                                $currentMaxDisp = $filters['max_displacement'] ?? '';
+                                $dispClasses = [
+                                    ['min' => '', 'max' => '', 'label' => 'すべて'],
+                                    ['min' => '0', 'max' => '50', 'label' => '〜50cc'],
+                                    ['min' => '51', 'max' => '125', 'label' => '51〜125cc'],
+                                    ['min' => '126', 'max' => '250', 'label' => '126〜250cc'],
+                                    ['min' => '251', 'max' => '400', 'label' => '251〜400cc'],
+                                    ['min' => '401', 'max' => '', 'label' => '401cc〜'],
+                                ];
+                            @endphp
+                            <div class="flex flex-wrap bg-gray-100 p-1 rounded-xl gap-1">
+                                @foreach($dispClasses as $dc)
+                                <label class="flex-1 min-w-[calc(33%-4px)] text-center cursor-pointer">
+                                    <input type="radio" name="displacement_class" value="{{ $dc['min'] }}_{{ $dc['max'] }}" class="hidden peer"
+                                        @checked((string)$currentMinDisp === (string)$dc['min'] && (string)$currentMaxDisp === (string)$dc['max'])>
+                                    <span class="block py-2 text-[10px] font-black rounded-lg transition peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">
+                                        {{ $dc['label'] }}
+                                    </span>
+                                </label>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- カテゴリ -->
+                        @if(isset($categories) && $categories->isNotEmpty())
+                        <div class="filter-group">
+                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-3 block">カテゴリ</label>
+                            <input type="hidden" name="category_id" id="category-id-hidden" value="{{ $filters['category_id'] ?? '' }}">
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($categories as $cat)
+                                    <button type="button" data-category-id="{{ $cat->id }}"
+                                        class="category-btn px-3 py-1.5 rounded-lg text-[10px] font-bold transition border {{ (string)($filters['category_id'] ?? '') === (string)$cat->id ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm' : 'bg-white text-gray-600 border-gray-100 hover:border-blue-300 hover:bg-blue-50' }}">
+                                        {{ $cat->name }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endif
 
                         <!-- メーカー・車種 ドリルダウン -->
                         <div class="space-y-4 pt-4 border-t border-gray-50">

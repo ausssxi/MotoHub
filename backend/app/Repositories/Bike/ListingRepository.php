@@ -19,7 +19,7 @@ final class ListingRepository
         'listings.manufacturer_id', 'listings.category_id', 'listings.site_id',
         'listings.title', 'listings.model_year', 'listings.mileage', 
         'listings.displacement', 'listings.total_price', 'listings.price', 
-        'listings.condition', 'listings.is_sold_out', 'listings.image_urls', 
+        'listings.condition', 'listings.has_repair_history', 'listings.is_sold_out', 'listings.image_urls',
         'listings.local_image_paths',
         'listings.created_at', 'listings.bargain_score',
         'listings.view_count_today', 'listings.favorite_count'
@@ -117,7 +117,18 @@ final class ListingRepository
         if (isset($filters['is_new']) && $filters['is_new'] !== '') $filterStrings[] = "is_new = " . (int)$filters['is_new'];
         if (isset($filters['has_repair_history']) && $filters['has_repair_history'] !== '') $filterStrings[] = "has_repair_history = " . (int)$filters['has_repair_history'];
         
-        if (!empty($filters['tag'])) {
+        if (!empty($filters['tags']) && is_array($filters['tags'])) {
+            $tagFilters = [];
+            foreach ($filters['tags'] as $tag) {
+                $safeTag = str_replace("'", "\\'", $tag);
+                $tagFilters[] = "tag_slugs = '{$safeTag}'";
+            }
+            if (count($tagFilters) === 1) {
+                $filterStrings[] = $tagFilters[0];
+            } elseif (count($tagFilters) > 1) {
+                $filterStrings[] = '(' . implode(' AND ', $tagFilters) . ')';
+            }
+        } elseif (!empty($filters['tag'])) {
             $safeTag = str_replace("'", "\\'", $filters['tag']);
             $filterStrings[] = "tag_slugs = '{$safeTag}'";
         }

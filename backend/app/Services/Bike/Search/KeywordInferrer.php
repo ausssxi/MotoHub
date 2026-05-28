@@ -65,19 +65,16 @@ final class KeywordInferrer
                 }
             }
 
-            // B. 車種名の判定
+            // B. 車種名の判定（元のキーワード自身の完全一致のみ。同義語展開でリトルカブ等に誤マッチするのを防止）
             if (!$matched && !$result['bike_model_id']) {
-                foreach ($searchTargets as $target) {
-                    $bikeModel = BikeModel::query()
-                        ->whereRaw("LOWER(REPLACE(REPLACE(name, ' ', ''), '　', '')) = ?", [str_replace([' ', '　'], '', $target)])
-                        ->first();
+                $bikeModel = BikeModel::query()
+                    ->whereRaw("LOWER(REPLACE(REPLACE(name, ' ', ''), '　', '')) = ?", [str_replace([' ', '　'], '', $normalizedWord)])
+                    ->first();
 
-                    if ($bikeModel) {
-                        $result['bike_model_id'] = $bikeModel->id;
-                        $result['manufacturer_id'] = $bikeModel->manufacturer_id;
-                        $matched = true;
-                        break;
-                    }
+                if ($bikeModel) {
+                    $result['bike_model_id'] = $bikeModel->id;
+                    $result['manufacturer_id'] = $bikeModel->manufacturer_id;
+                    $matched = true;
                 }
             }
 

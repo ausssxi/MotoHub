@@ -323,6 +323,7 @@ final class BikeController extends Controller
                 'relaxSuggestions' => [],
                 'manufacturers'    => collect(),
                 'models'           => collect(),
+                'categories'       => collect(),
                 'regions'          => config('bike.regions', []),
                 'prefectures'      => collect(config('bike.regions', []))->flatten()->toArray(),
                 'filters'          => $filters,

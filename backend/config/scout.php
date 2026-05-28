@@ -142,7 +142,7 @@ return [
         'index-settings' => [
             // インデックス名「listings」に対して設定を定義
             'listings' => [
-                'filterableAttributes' => ['prefecture', 'manufacturer_id', 'bike_model_id', 'category_id', 'is_new', 'is_sold_out', 'tag_slugs', 'total_price', 'mileage', 'model_year'],
+                'filterableAttributes' => ['prefecture', 'manufacturer_id', 'bike_model_id', 'category_id', 'is_new', 'has_repair_history', 'is_sold_out', 'tag_slugs', 'total_price', 'mileage', 'model_year', 'displacement'],
                 'sortableAttributes' => ['total_price', 'mileage', 'model_year', 'bargain_score', 'created_at'],
             ],
         ],

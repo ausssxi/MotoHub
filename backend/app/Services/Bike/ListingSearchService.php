@@ -59,8 +59,8 @@ final class ListingSearchService
                 $filters['prefecture'] = $inference['prefecture']; // サイドバーUI用にもセット
             }
             // タグを抽出
-            if (empty($filters['tag']) && $inference['tag']) {
-                $filters['tag'] = $inference['tag'];
+            if (empty($filters['tags']) && empty($filters['tag']) && $inference['tag']) {
+                $filters['tags'] = [$inference['tag']];
             }
 
             // フィルターに変換できた単語を取り除き、残った言葉だけを純粋なキーワード検索に回す
@@ -131,6 +131,7 @@ final class ListingSearchService
             'relaxSuggestions' => $relaxSuggestions,
             'manufacturers'    => $this->manufacturerRepo->getAllSortedByName(),
             'models'           => $models,
+            'categories'       => $this->categoryRepo->getAllSorted(),
             'regions'          => config('bike.regions', []),
             'prefectures'      => collect(config('bike.regions', []))->flatten()->toArray(),
             'filters'          => $filters,
@@ -248,7 +249,11 @@ final class ListingSearchService
             $pref = $prefecture ?: ($filters['prefecture'] ?? '');
             $title = "{$pref} の車両一覧";
         }
-        if (!empty($filters['tag'])) {
+        if (!empty($filters['tags'])) {
+            $tagStr = implode(' #', $filters['tags']);
+            if ($title === '車両一覧') return "#{$tagStr} の車両一覧";
+            return "#{$tagStr} " . $title;
+        } elseif (!empty($filters['tag'])) {
             if ($title === '車両一覧') return "#{$filters['tag']} の車両一覧";
             return "#{$filters['tag']} " . $title;
         }

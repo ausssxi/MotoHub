@@ -25,9 +25,18 @@ class Listing extends Model
         'local_image_paths' => 'array',
         'has_repair_history' => 'boolean',
         'is_sold_out' => 'boolean',
-        'is_new' => 'boolean',
         'needs_reindex' => 'boolean',
     ];
+
+    /**
+     * conditionカラム('新車'/'中古車')からis_newを算出するアクセサ
+     */
+    protected function isNew(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->condition === '新車',
+        );
+    }
 
     /**
      * ★追加の核心部分：インポート時のN+1問題を解決し、確実にリレーションを含める

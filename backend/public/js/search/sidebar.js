@@ -67,6 +67,9 @@ document.addEventListener('DOMContentLoaded', () => {
      * フォーム送信直前のクリーンアップ
      */
     const cleanFormBeforeSubmit = () => {
+        // displacement_class はUI専用ラジオ（hidden inputで値を送信）なので除外
+        filterForm.querySelectorAll('input[name="displacement_class"]').forEach(r => r.disabled = true);
+
         const inputs = filterForm.querySelectorAll('input, select');
         inputs.forEach(input => {
             const val = input.value;
@@ -218,6 +221,60 @@ document.addEventListener('DOMContentLoaded', () => {
                 handleFilterChange(false);
                 updateMobileHitCount();
             });
+        });
+    });
+
+    // --- 排気量クラス ラジオボタン ---
+    filterForm.querySelectorAll('input[name="displacement_class"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            const [min, max] = radio.value.split('_');
+            document.getElementById('min-displacement-hidden').value = min;
+            document.getElementById('max-displacement-hidden').value = max;
+            handleFilterChange(false);
+        });
+    });
+
+    // --- カテゴリボタン ---
+    const categoryHidden = document.getElementById('category-id-hidden');
+    filterForm.querySelectorAll('.category-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const catId = btn.dataset.categoryId;
+            const isActive = categoryHidden && categoryHidden.value === catId;
+            if (categoryHidden) categoryHidden.value = isActive ? '' : catId;
+
+            filterForm.querySelectorAll('.category-btn').forEach(b => {
+                b.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-200', 'shadow-sm');
+                b.classList.add('bg-white', 'text-gray-600', 'border-gray-100');
+            });
+            if (!isActive) {
+                btn.classList.remove('bg-white', 'text-gray-600', 'border-gray-100');
+                btn.classList.add('bg-blue-50', 'text-blue-600', 'border-blue-200', 'shadow-sm');
+            }
+            handleFilterChange(false);
+        });
+    });
+
+    // --- タグ複数選択 ---
+    const tagsContainer = document.getElementById('tags-hidden-container');
+    filterForm.querySelectorAll('.tag-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tag = btn.dataset.tag;
+            const existing = tagsContainer ? tagsContainer.querySelector(`input[value="${tag}"]`) : null;
+
+            if (existing) {
+                existing.remove();
+                btn.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-200', 'shadow-sm');
+                btn.classList.add('bg-white', 'text-gray-600', 'border-gray-100');
+            } else if (tagsContainer) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'tags[]';
+                input.value = tag;
+                tagsContainer.appendChild(input);
+                btn.classList.remove('bg-white', 'text-gray-600', 'border-gray-100');
+                btn.classList.add('bg-blue-50', 'text-blue-600', 'border-blue-200', 'shadow-sm');
+            }
+            handleFilterChange(false);
         });
     });
 

@@ -53,7 +53,9 @@ class BikeSearchRequest extends FormRequest
             'is_new'             => ['nullable', 'in:0,1,true,false'],
             'has_repair_history' => ['nullable', 'in:0,1,true,false'],
             
-            // タグ
+            // タグ（複数選択対応 + 後方互換）
+            'tags'               => ['nullable', 'array'],
+            'tags.*'             => ['string', 'max:50'],
             'tag'                => ['nullable', 'string', 'max:50'],
         ];
     }
@@ -68,12 +70,12 @@ class BikeSearchRequest extends FormRequest
         $validated = $this->validated();
 
         $filterKeys = [
-            'min_price', 'max_price', 
+            'min_price', 'max_price',
             'min_mileage', 'max_mileage',
-            'min_year', 'max_year', 
+            'min_year', 'max_year',
             'min_displacement', 'max_displacement',
             'manufacturer_id', 'bike_model_id', 'category_id',
-            'is_new', 'has_repair_history', 'tag'
+            'is_new', 'has_repair_history',
         ];
 
         $filters = [];
@@ -81,6 +83,13 @@ class BikeSearchRequest extends FormRequest
             if (isset($validated[$key])) {
                 $filters[$key] = $validated[$key];
             }
+        }
+
+        // タグ: tags[] 配列を優先、旧 ?tag=xxx も後方互換で配列に変換
+        if (!empty($validated['tags'])) {
+            $filters['tags'] = array_values(array_filter($validated['tags']));
+        } elseif (!empty($validated['tag'])) {
+            $filters['tags'] = [$validated['tag']];
         }
 
         return $filters;
