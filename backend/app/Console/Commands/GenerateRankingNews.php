@@ -40,6 +40,7 @@ final class GenerateRankingNews extends Command
 
         // 販売データ集計（水増し対策: shop×model×日あたり最大5台）
         $rankings = Listing::cappedSold($startDate, $endDate->copy()->subDay())
+            ->excludeBulkSold()
             ->whereNotNull('bike_model_id')
             ->select('bike_model_id', DB::raw('COUNT(*) as sold_count'))
             ->groupBy('bike_model_id')

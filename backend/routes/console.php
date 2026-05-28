@@ -26,6 +26,9 @@ Schedule::command('youtube:refresh-videos --days=30')->weeklyOn(1, '03:30');
 // バイクニュース取得（毎時）
 Schedule::command('news:fetch')->hourly();
 
+// 一括sold_out除外IDの事前計算（ランキング集計前に実行）
+Schedule::command('ranking:compute-bulk-exclusions')->dailyAt('05:30');
+
 // ランキングニュース自動生成
 Schedule::command('news:generate-ranking --type=daily')->dailyAt('06:00');
 Schedule::command('news:generate-ranking --type=weekly')->weeklyOn(1, '06:30');
