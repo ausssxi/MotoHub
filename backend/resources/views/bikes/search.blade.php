@@ -154,7 +154,8 @@
                                         $countHtml = '';
                                         if ($val !== '') {
                                             $c = $facets['is_new'][$val] ?? 0;
-                                            if($c > 0) $countHtml = "<span class='text-[8px] opacity-70 ml-0.5'>({$c})</span>";
+                                            // 0件でも括弧内に件数を表示する
+                                            $countHtml = "<span class='text-[8px] opacity-70 ml-0.5'>({$c})</span>";
                                         }
                                     @endphp
                                     <label class="flex-1 text-center cursor-pointer">
@@ -176,7 +177,8 @@
                                         $countHtml = '';
                                         if ($val !== '') {
                                             $c = $facets['has_repair_history'][$val] ?? 0;
-                                            if($c > 0) $countHtml = "<span class='text-[8px] opacity-70 ml-0.5'>({$c})</span>";
+                                            // 0件でも括弧内に件数を表示する（例: あり(0)）
+                                            $countHtml = "<span class='text-[8px] opacity-70 ml-0.5'>({$c})</span>";
                                         }
                                     @endphp
                                     <label class="flex-1 text-center cursor-pointer">
