@@ -270,8 +270,22 @@
                             </div>
                         </div>
 
-                        <!-- 価格・走行距離・年式 (プリセットボタン) -->
+                        <!-- 価格・走行距離・年式 (複数選択プリセットボタン) -->
                         <div class="space-y-6 pt-4 border-t border-gray-50">
+                            @php
+                                // 保存済みの min/max エンベロープから、各プリセットバンドの選択状態を復元する。
+                                // バンドが現在のエンベロープ [curMin, curMax] に完全に含まれていれば選択中とみなす（空=±∞）。
+                                $rangeBandActive = function ($bMin, $bMax, string $curMin, string $curMax): bool {
+                                    if ($curMin === '' && $curMax === '') return false; // 「すべて」状態では個別バンドは非選択
+                                    $bLo = $bMin === '' ? -INF : (float) $bMin;
+                                    $bHi = $bMax === '' ?  INF : (float) $bMax;
+                                    $oLo = $curMin === '' ? -INF : (float) $curMin;
+                                    $oHi = $curMax === '' ?  INF : (float) $curMax;
+                                    return $bLo >= $oLo && $bHi <= $oHi;
+                                };
+                                // 「すべて」ボタンの選択状態（min/max ともに未指定なら ON）
+                                $rangeAllActive = fn (string $curMin, string $curMax): bool => $curMin === '' && $curMax === '';
+                            @endphp
                             <!-- 価格 -->
                             <div class="filter-group">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2 block">価格</label>
@@ -290,15 +304,21 @@
                                         ['min' => '200', 'max' => '', 'label' => '200万〜'],
                                     ];
                                 @endphp
-                                <div class="flex flex-wrap bg-gray-100 p-1 rounded-xl gap-1">
+                                <div class="flex flex-wrap bg-gray-100 p-1 rounded-xl gap-1" data-range-group="price">
                                     @foreach($priceClasses as $pc)
-                                    <label class="flex-1 min-w-[calc(33%-4px)] text-center cursor-pointer">
-                                        <input type="radio" name="price_class" value="{{ $pc['min'] }}_{{ $pc['max'] }}" class="hidden peer"
-                                            @checked($currentMinPrice === (string)$pc['min'] && $currentMaxPrice === (string)$pc['max'])>
-                                        <span class="block py-2 text-[10px] font-black rounded-lg transition peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">
+                                        @php
+                                            $isAll = ($pc['min'] === '' && $pc['max'] === '');
+                                            $active = $isAll
+                                                ? $rangeAllActive($currentMinPrice, $currentMaxPrice)
+                                                : $rangeBandActive($pc['min'], $pc['max'], $currentMinPrice, $currentMaxPrice);
+                                        @endphp
+                                        <button type="button"
+                                            class="range-btn flex-1 min-w-[calc(33%-4px)] py-2 text-[10px] font-black rounded-lg transition {{ $active ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500' }}"
+                                            data-group="price" data-min="{{ $pc['min'] }}" data-max="{{ $pc['max'] }}"
+                                            @if($isAll) data-all="1" @endif
+                                            aria-pressed="{{ $active ? 'true' : 'false' }}">
                                             {{ $pc['label'] }}
-                                        </span>
-                                    </label>
+                                        </button>
                                     @endforeach
                                 </div>
                             </div>
@@ -320,15 +340,21 @@
                                         ['min' => '50000', 'max' => '', 'label' => '50,000km〜'],
                                     ];
                                 @endphp
-                                <div class="flex flex-wrap bg-gray-100 p-1 rounded-xl gap-1">
+                                <div class="flex flex-wrap bg-gray-100 p-1 rounded-xl gap-1" data-range-group="mileage">
                                     @foreach($mileageClasses as $mc)
-                                    <label class="flex-1 min-w-[calc(50%-4px)] text-center cursor-pointer">
-                                        <input type="radio" name="mileage_class" value="{{ $mc['min'] }}_{{ $mc['max'] }}" class="hidden peer"
-                                            @checked($currentMinMileage === (string)$mc['min'] && $currentMaxMileage === (string)$mc['max'])>
-                                        <span class="block py-2 text-[10px] font-black rounded-lg transition peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">
+                                        @php
+                                            $isAll = ($mc['min'] === '' && $mc['max'] === '');
+                                            $active = $isAll
+                                                ? $rangeAllActive($currentMinMileage, $currentMaxMileage)
+                                                : $rangeBandActive($mc['min'], $mc['max'], $currentMinMileage, $currentMaxMileage);
+                                        @endphp
+                                        <button type="button"
+                                            class="range-btn flex-1 min-w-[calc(50%-4px)] py-2 text-[10px] font-black rounded-lg transition {{ $active ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500' }}"
+                                            data-group="mileage" data-min="{{ $mc['min'] }}" data-max="{{ $mc['max'] }}"
+                                            @if($isAll) data-all="1" @endif
+                                            aria-pressed="{{ $active ? 'true' : 'false' }}">
                                             {{ $mc['label'] }}
-                                        </span>
-                                    </label>
+                                        </button>
                                     @endforeach
                                 </div>
                             </div>
@@ -350,15 +376,21 @@
                                         ['min' => '', 'max' => '2009', 'label' => '〜2009'],
                                     ];
                                 @endphp
-                                <div class="flex flex-wrap bg-gray-100 p-1 rounded-xl gap-1">
+                                <div class="flex flex-wrap bg-gray-100 p-1 rounded-xl gap-1" data-range-group="year">
                                     @foreach($yearClasses as $yc)
-                                    <label class="flex-1 min-w-[calc(33%-4px)] text-center cursor-pointer">
-                                        <input type="radio" name="year_class" value="{{ $yc['min'] }}_{{ $yc['max'] }}" class="hidden peer"
-                                            @checked($currentMinYear === (string)$yc['min'] && $currentMaxYear === (string)$yc['max'])>
-                                        <span class="block py-2 text-[10px] font-black rounded-lg transition peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">
+                                        @php
+                                            $isAll = ($yc['min'] === '' && $yc['max'] === '');
+                                            $active = $isAll
+                                                ? $rangeAllActive($currentMinYear, $currentMaxYear)
+                                                : $rangeBandActive($yc['min'], $yc['max'], $currentMinYear, $currentMaxYear);
+                                        @endphp
+                                        <button type="button"
+                                            class="range-btn flex-1 min-w-[calc(33%-4px)] py-2 text-[10px] font-black rounded-lg transition {{ $active ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500' }}"
+                                            data-group="year" data-min="{{ $yc['min'] }}" data-max="{{ $yc['max'] }}"
+                                            @if($isAll) data-all="1" @endif
+                                            aria-pressed="{{ $active ? 'true' : 'false' }}">
                                             {{ $yc['label'] }}
-                                        </span>
-                                    </label>
+                                        </button>
                                     @endforeach
                                 </div>
                             </div>

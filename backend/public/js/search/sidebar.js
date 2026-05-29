@@ -16,12 +16,65 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * 範囲系プリセット（UI専用ラジオ → 送信用hidden input）のマッピング
      * value="{min}_{max}" のラジオ選択を、対応する hidden input に反映する
+     * ※ 排気量のみ単一選択ラジオ。価格・走行距離・年式は複数選択ボタン（rangeButtonGroups）に移行済み。
      */
     const rangeRadioMap = {
         displacement_class: ['min-displacement-hidden', 'max-displacement-hidden'],
-        price_class: ['min-price-hidden', 'max-price-hidden'],
-        mileage_class: ['min-mileage-hidden', 'max-mileage-hidden'],
-        year_class: ['min-year-hidden', 'max-year-hidden'],
+    };
+
+    /**
+     * 複数選択プリセットボタン群（価格・走行距離・年式）の hidden input マッピング。
+     * 選択中の各バンドを min/max のエンベロープ（最小min〜最大max）に結合して送信する。
+     */
+    const rangeButtonGroups = {
+        price: ['min-price-hidden', 'max-price-hidden'],
+        mileage: ['min-mileage-hidden', 'max-mileage-hidden'],
+        year: ['min-year-hidden', 'max-year-hidden'],
+    };
+
+    // ボタンの選択状態（見た目 + aria-pressed）を切り替える
+    const setRangeBtnState = (btn, active) => {
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        if (active) {
+            btn.classList.remove('text-gray-500');
+            btn.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
+        } else {
+            btn.classList.remove('bg-white', 'text-blue-600', 'shadow-sm');
+            btn.classList.add('text-gray-500');
+        }
+    };
+
+    const isRangeBtnActive = (btn) => btn.getAttribute('aria-pressed') === 'true';
+
+    // グループ内の選択中バンドを min/max エンベロープへ結合し hidden input に反映する
+    const applyGroupToHidden = (group) => {
+        const [minId, maxId] = rangeButtonGroups[group];
+        const minEl = document.getElementById(minId);
+        const maxEl = document.getElementById(maxId);
+        const buttons = filterForm.querySelectorAll(`.range-btn[data-group="${group}"]`);
+
+        const activeBands = Array.from(buttons).filter(b => !b.dataset.all && isRangeBtnActive(b));
+
+        let overMin = '';
+        let overMax = '';
+        if (activeBands.length > 0) {
+            // min側: 一つでも下限なし（空）があれば 0（=空）扱い。それ以外は最小値。
+            const mins = activeBands.map(b => b.dataset.min);
+            overMin = mins.some(v => v === '') ? '' : String(Math.min(...mins.map(Number)));
+            // max側: 一つでも上限なし（空）があれば無制限（=空）。それ以外は最大値。
+            const maxes = activeBands.map(b => b.dataset.max);
+            overMax = maxes.some(v => v === '') ? '' : String(Math.max(...maxes.map(Number)));
+        }
+        if (minEl) minEl.value = overMin;
+        if (maxEl) maxEl.value = overMax;
+    };
+
+    // グループを「すべて」状態（全バンド解除＝hidden空）に戻す
+    const resetRangeGroup = (group) => {
+        filterForm.querySelectorAll(`.range-btn[data-group="${group}"]`).forEach(b => {
+            setRangeBtnState(b, !!b.dataset.all);
+        });
+        applyGroupToHidden(group);
     };
 
     /**
@@ -63,17 +116,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetAllFilters = () => {
         if (keywordInput) keywordInput.value = "";
 
-        // 範囲系プリセット（価格・走行距離・年式・排気量）を「すべて」に戻す
+        // 排気量ラジオの hidden input を「すべて」に戻す
         Object.values(rangeRadioMap).forEach(([minId, maxId]) => {
             const minEl = document.getElementById(minId);
             const maxEl = document.getElementById(maxId);
             if (minEl) minEl.value = '';
             if (maxEl) maxEl.value = '';
         });
-        // value="_"（すべて）のラジオを選択状態に戻す
+        // value="_"（すべて）のラジオ（排気量）を選択状態に戻す
         filterForm.querySelectorAll('input[name$="_class"]').forEach(radio => {
             radio.checked = (radio.value === '_');
         });
+        // 複数選択ボタン群（価格・走行距離・年式）を「すべて」に戻す
+        Object.keys(rangeButtonGroups).forEach(group => resetRangeGroup(group));
     };
 
     /**
@@ -173,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- 範囲系プリセット（排気量・価格・走行距離・年式）ラジオボタン ---
+    // --- 排気量プリセット（単一選択ラジオ） ---
     Object.entries(rangeRadioMap).forEach(([name, [minId, maxId]]) => {
         filterForm.querySelectorAll(`input[name="${name}"]`).forEach(radio => {
             radio.addEventListener('change', () => {
@@ -184,6 +239,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (maxEl) maxEl.value = max;
                 handleFilterChange(false);
             });
+        });
+    });
+
+    // --- 価格・走行距離・年式プリセット（複数選択ボタン） ---
+    filterForm.querySelectorAll('.range-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const group = btn.dataset.group;
+            const groupBtns = filterForm.querySelectorAll(`.range-btn[data-group="${group}"]`);
+
+            if (btn.dataset.all) {
+                // 「すべて」を押したら他を解除して「すべて」だけ ON
+                groupBtns.forEach(b => setRangeBtnState(b, !!b.dataset.all));
+            } else {
+                // 個別バンドをトグル。押した時点で「すべて」は解除。
+                setRangeBtnState(btn, !isRangeBtnActive(btn));
+                groupBtns.forEach(b => { if (b.dataset.all) setRangeBtnState(b, false); });
+
+                // 個別バンドが一つも選ばれていなければ「すべて」を ON に戻す
+                const anyBand = Array.from(groupBtns).some(b => !b.dataset.all && isRangeBtnActive(b));
+                if (!anyBand) {
+                    groupBtns.forEach(b => { if (b.dataset.all) setRangeBtnState(b, true); });
+                }
+            }
+
+            applyGroupToHidden(group);
+            handleFilterChange(false);
         });
     });
 
