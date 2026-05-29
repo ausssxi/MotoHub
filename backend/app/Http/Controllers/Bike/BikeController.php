@@ -1616,7 +1616,9 @@ final class BikeController extends Controller
             return redirect("/bikes/{$mfrSlug}/{$model->slug}", 301);
         }
 
-        $cacheKey = "model_detail_v1_{$mfrSlug}_{$model->slug}";
+        // slugがnullの車種はIDをキーに含める（Observerのパージ処理と一致させ、キー衝突を防ぐ）
+        $slugForKey = $model->slug ?? $model->id;
+        $cacheKey = "model_detail_v1_{$mfrSlug}_{$slugForKey}";
         $viewData = Cache::remember($cacheKey, 604800, fn () => $this->buildModelDetailData($model->id));
 
         return view('bikes.model_detail', $viewData);
@@ -1637,7 +1639,9 @@ final class BikeController extends Controller
             ->where('manufacturer_id', $manufacturer->id)
             ->firstOrFail();
 
-        $cacheKey = "model_detail_v1_{$mfrSlug}_{$model->slug}";
+        // slugがnullの車種はIDをキーに含める（Observerのパージ処理と一致させ、キー衝突を防ぐ）
+        $slugForKey = $model->slug ?? $model->id;
+        $cacheKey = "model_detail_v1_{$mfrSlug}_{$slugForKey}";
         $viewData = Cache::remember($cacheKey, 604800, fn () => $this->buildModelDetailData($model->id));
         $viewData['reviewOgpMode'] = true;
         $viewData['scrollToReviewId'] = $reviewId;
