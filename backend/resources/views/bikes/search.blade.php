@@ -96,7 +96,7 @@
                             <i data-lucide="filter" class="w-4 h-4 text-blue-500"></i> 絞り込み条件
                         </h3>
                         <div class="flex items-center gap-4">
-                            <a href="{{ route('bikes.search', ['keyword' => $keyword]) }}" class="text-[10px] font-bold text-gray-400 hover:text-blue-600 transition-colors uppercase">条件クリア</a>
+                            <button type="button" id="clear-filters" class="text-[10px] font-bold text-gray-400 hover:text-blue-600 transition-colors uppercase">条件クリア</button>
                             <button id="close-filter" class="lg:hidden p-1 text-gray-400"><i data-lucide="x" class="w-5 h-5"></i></button>
                         </div>
                     </div>

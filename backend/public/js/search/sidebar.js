@@ -112,9 +112,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * すべてのフィルタ条件を初期状態（リセット）にする関数
+     * @param {boolean} keepKeyword true ならキーワードは保持する（条件クリアボタン用）
      */
-    const resetAllFilters = () => {
-        if (keywordInput) keywordInput.value = "";
+    const resetAllFilters = (keepKeyword = false) => {
+        if (!keepKeyword && keywordInput) keywordInput.value = "";
 
         // 排気量ラジオの hidden input を「すべて」に戻す
         Object.values(rangeRadioMap).forEach(([minId, maxId]) => {
@@ -129,6 +130,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         // 複数選択ボタン群（価格・走行距離・年式）を「すべて」に戻す
         Object.keys(rangeButtonGroups).forEach(group => resetRangeGroup(group));
+
+        // コンディション・修復歴ラジオを「すべて」（value=""）に戻す
+        ['is_new', 'has_repair_history'].forEach(name => {
+            filterForm.querySelectorAll(`input[name="${name}"]`).forEach(radio => {
+                radio.checked = (radio.value === '');
+            });
+        });
+
+        // 地域（都道府県）セレクトを「すべての地域」に戻す
+        const prefSelect = filterForm.querySelector('select[name="prefecture"]');
+        if (prefSelect) prefSelect.value = '';
+
+        // メーカー・車種ドリルダウンを初期状態に戻す
+        if (mSelect) mSelect.value = '';
+        if (modelSelect) {
+            modelSelect.innerHTML = '<option value="">すべての車種</option>';
+            modelSelect.value = '';
+            modelSelect.disabled = true;
+            modelContainer?.classList.add('opacity-40');
+        }
+
+        // カテゴリ（単一選択）を解除
+        const categoryHiddenEl = document.getElementById('category-id-hidden');
+        if (categoryHiddenEl) categoryHiddenEl.value = '';
+        filterForm.querySelectorAll('.category-btn').forEach(b => {
+            b.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-200', 'shadow-sm');
+            b.classList.add('bg-white', 'text-gray-600', 'border-gray-100');
+        });
+
+        // タグ（複数選択）を全解除
+        const tagsContainerEl = document.getElementById('tags-hidden-container');
+        if (tagsContainerEl) tagsContainerEl.innerHTML = '';
+        filterForm.querySelectorAll('.tag-btn').forEach(b => {
+            b.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-200', 'shadow-sm');
+            b.classList.add('bg-white', 'text-gray-600', 'border-gray-100');
+        });
     };
 
     /**
@@ -267,6 +304,18 @@ document.addEventListener('DOMContentLoaded', () => {
             handleFilterChange(false);
         });
     });
+
+    // --- 条件クリアボタン（全フィルターをデフォルトに戻す。画面は閉じない） ---
+    const clearBtn = document.getElementById('clear-filters');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            resetAllFilters(true); // キーワードは保持
+            // フィルター画面は閉じない。PCは再検索、スマホは件数のみ更新。
+            handleFilterChange(false);
+            updateMobileHitCount();
+        });
+    }
 
     // --- カテゴリボタン ---
     const categoryHidden = document.getElementById('category-id-hidden');
