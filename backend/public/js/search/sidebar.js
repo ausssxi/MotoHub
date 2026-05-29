@@ -14,6 +14,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!filterForm) return;
 
     /**
+     * 範囲系プリセット（UI専用ラジオ → 送信用hidden input）のマッピング
+     * value="{min}_{max}" のラジオ選択を、対応する hidden input に反映する
+     */
+    const rangeRadioMap = {
+        displacement_class: ['min-displacement-hidden', 'max-displacement-hidden'],
+        price_class: ['min-price-hidden', 'max-price-hidden'],
+        mileage_class: ['min-mileage-hidden', 'max-mileage-hidden'],
+        year_class: ['min-year-hidden', 'max-year-hidden'],
+    };
+
+    /**
      * スマートフォン用：条件一致件数の非同期更新
      * フィルタが変更されるたびに、適用ボタン内の「(〇〇台)」を更新します。
      */
@@ -52,14 +63,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetAllFilters = () => {
         if (keywordInput) keywordInput.value = "";
 
-        const sliders = filterForm.querySelectorAll('input[type="range"]');
-        sliders.forEach(slider => {
-            if (slider.classList.contains('range-min')) {
-                slider.value = slider.getAttribute('min');
-            } else if (slider.classList.contains('range-max')) {
-                slider.value = slider.getAttribute('max');
-            }
-            slider.dispatchEvent(new Event('input'));
+        // 範囲系プリセット（価格・走行距離・年式・排気量）を「すべて」に戻す
+        Object.values(rangeRadioMap).forEach(([minId, maxId]) => {
+            const minEl = document.getElementById(minId);
+            const maxEl = document.getElementById(maxId);
+            if (minEl) minEl.value = '';
+            if (maxEl) maxEl.value = '';
+        });
+        // value="_"（すべて）のラジオを選択状態に戻す
+        filterForm.querySelectorAll('input[name$="_class"]').forEach(radio => {
+            radio.checked = (radio.value === '_');
         });
     };
 
@@ -67,8 +80,8 @@ document.addEventListener('DOMContentLoaded', () => {
      * フォーム送信直前のクリーンアップ
      */
     const cleanFormBeforeSubmit = () => {
-        // displacement_class はUI専用ラジオ（hidden inputで値を送信）なので除外
-        filterForm.querySelectorAll('input[name="displacement_class"]').forEach(r => r.disabled = true);
+        // *_class はUI専用ラジオ（hidden inputで値を送信）なので除外
+        filterForm.querySelectorAll('input[name$="_class"]').forEach(r => r.disabled = true);
 
         const inputs = filterForm.querySelectorAll('input, select');
         inputs.forEach(input => {
@@ -78,13 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!val && name !== 'sort') {
                 input.disabled = true;
                 return;
-            }
-
-            if (input.type === 'range') {
-                const minAttr = input.getAttribute('min');
-                const maxAttr = input.getAttribute('max');
-                if (input.classList.contains('range-min') && val === minAttr) input.disabled = true;
-                if (input.classList.contains('range-max') && val === maxAttr) input.disabled = true;
             }
         });
     };
@@ -113,63 +119,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             updateMobileHitCount();
         }
-    };
-
-    // --- デュアルレンジスライダーの初期化 ---
-    const initDualSlider = (containerId, minGap = 1) => {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-
-        const rangeInputs = container.querySelectorAll("input");
-        const progress = container.querySelector(".slider-progress");
-        const type = containerId.split('-')[1];
-        const labelMin = document.getElementById(`label-min-${type}`);
-        const labelMax = document.getElementById(`label-max-${type}`);
-
-        const updateUI = (event) => {
-            let minVal = parseInt(rangeInputs[0].value);
-            let maxVal = parseInt(rangeInputs[1].value);
-            const minLimit = parseInt(rangeInputs[0].min);
-            const maxLimit = parseInt(rangeInputs[0].max);
-
-            if (maxVal - minVal < minGap) {
-                if (event && event.target.className.includes("range-min")) {
-                    rangeInputs[0].value = maxVal - minGap;
-                    minVal = maxVal - minGap;
-                } else if (event) {
-                    rangeInputs[1].value = minVal + minGap;
-                    maxVal = minVal + minGap;
-                }
-            }
-
-            const formatLabel = (val, type, isMin) => {
-                if (isMin && val <= minLimit) return "下限なし";
-                if (!isMin && val >= maxLimit) return "上限なし";
-                const formattedNum = val.toLocaleString();
-                if (type === 'price') return `${formattedNum}万円`;
-                if (type === 'mileage') return `${formattedNum}km`;
-                if (type === 'year') return `${val}年`;
-                return val;
-            };
-
-            if (labelMin) labelMin.textContent = formatLabel(minVal, type, true);
-            if (labelMax) labelMax.textContent = formatLabel(maxVal, type, false);
-
-            const minPercent = (minVal - rangeInputs[0].min) / (rangeInputs[0].max - rangeInputs[0].min) * 100;
-            const maxPercent = (maxVal - rangeInputs[1].min) / (rangeInputs[1].max - rangeInputs[1].min) * 100;
-            progress.style.left = minPercent + "%";
-            progress.style.width = (maxPercent - minPercent) + "%";
-        };
-
-        rangeInputs.forEach(input => {
-            input.addEventListener("input", (e) => {
-                updateUI(e);
-                updateMobileHitCount(); 
-            });
-            input.addEventListener("change", () => handleFilterChange(false));
-        });
-
-        updateUI();
     };
 
     // --- メーカー・車種連動 ---
@@ -224,13 +173,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- 排気量クラス ラジオボタン ---
-    filterForm.querySelectorAll('input[name="displacement_class"]').forEach(radio => {
-        radio.addEventListener('change', () => {
-            const [min, max] = radio.value.split('_');
-            document.getElementById('min-displacement-hidden').value = min;
-            document.getElementById('max-displacement-hidden').value = max;
-            handleFilterChange(false);
+    // --- 範囲系プリセット（排気量・価格・走行距離・年式）ラジオボタン ---
+    Object.entries(rangeRadioMap).forEach(([name, [minId, maxId]]) => {
+        filterForm.querySelectorAll(`input[name="${name}"]`).forEach(radio => {
+            radio.addEventListener('change', () => {
+                const [min, max] = radio.value.split('_');
+                const minEl = document.getElementById(minId);
+                const maxEl = document.getElementById(maxId);
+                if (minEl) minEl.value = min;
+                if (maxEl) maxEl.value = max;
+                handleFilterChange(false);
+            });
         });
     });
 
@@ -277,10 +230,6 @@ document.addEventListener('DOMContentLoaded', () => {
             handleFilterChange(false);
         });
     });
-
-    initDualSlider("slider-price", 5);
-    initDualSlider("slider-mileage", 2000);
-    initDualSlider("slider-year", 1);
 
     if (mSelect && mSelect.value && modelSelect && modelSelect.options.length <= 1) {
         updateModelList(modelSelect.dataset.selectedId);

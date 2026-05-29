@@ -268,44 +268,96 @@
                             </div>
                         </div>
 
-                        <!-- 既存のスライダー (価格・走行距離・年式) -->
-                        <div class="space-y-10 pt-4 border-t border-gray-50">
+                        <!-- 価格・走行距離・年式 (プリセットボタン) -->
+                        <div class="space-y-6 pt-4 border-t border-gray-50">
+                            <!-- 価格 -->
                             <div class="filter-group">
-                                <div class="flex justify-between items-end mb-4">
-                                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic tracking-wider">価格</label>
-                                    <div class="text-xs font-black text-blue-600 tracking-tighter"><span id="label-min-price"></span> 〜 <span id="label-max-price"></span></div>
-                                </div>
-                                <div class="range-slider-container" id="slider-price">
-                                    <div class="slider-track"></div>
-                                    <div class="slider-progress"></div>
-                                    <input type="range" class="range-input range-min" name="min_price" min="0" max="{{ $meta['price']['max'] ?? 300 }}" value="{{ $filters['min_price'] ?? 0 }}" step="5">
-                                    <input type="range" class="range-input range-max" name="max_price" min="0" max="{{ $meta['price']['max'] ?? 300 }}" value="{{ $filters['max_price'] ?? ($meta['price']['max'] ?? 300) }}" step="5">
+                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2 block">価格</label>
+                                <input type="hidden" name="min_price" id="min-price-hidden" value="{{ $filters['min_price'] ?? '' }}">
+                                <input type="hidden" name="max_price" id="max-price-hidden" value="{{ $filters['max_price'] ?? '' }}">
+                                @php
+                                    $currentMinPrice = (string)($filters['min_price'] ?? '');
+                                    $currentMaxPrice = (string)($filters['max_price'] ?? '');
+                                    $priceClasses = [
+                                        ['min' => '', 'max' => '', 'label' => 'すべて'],
+                                        ['min' => '', 'max' => '20', 'label' => '〜20万'],
+                                        ['min' => '20', 'max' => '40', 'label' => '20〜40万'],
+                                        ['min' => '40', 'max' => '70', 'label' => '40〜70万'],
+                                        ['min' => '70', 'max' => '100', 'label' => '70〜100万'],
+                                        ['min' => '100', 'max' => '200', 'label' => '100〜200万'],
+                                        ['min' => '200', 'max' => '', 'label' => '200万〜'],
+                                    ];
+                                @endphp
+                                <div class="flex flex-wrap bg-gray-100 p-1 rounded-xl gap-1">
+                                    @foreach($priceClasses as $pc)
+                                    <label class="flex-1 min-w-[calc(33%-4px)] text-center cursor-pointer">
+                                        <input type="radio" name="price_class" value="{{ $pc['min'] }}_{{ $pc['max'] }}" class="hidden peer"
+                                            @checked($currentMinPrice === (string)$pc['min'] && $currentMaxPrice === (string)$pc['max'])>
+                                        <span class="block py-2 text-[10px] font-black rounded-lg transition peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">
+                                            {{ $pc['label'] }}
+                                        </span>
+                                    </label>
+                                    @endforeach
                                 </div>
                             </div>
 
+                            <!-- 走行距離 -->
                             <div class="filter-group">
-                                <div class="flex justify-between items-end mb-4">
-                                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic tracking-wider">走行距離</label>
-                                    <div class="text-xs font-black text-blue-600 tracking-tighter"><span id="label-min-mileage"></span> 〜 <span id="label-max-mileage"></span></div>
-                                </div>
-                                <div class="range-slider-container" id="slider-mileage">
-                                    <div class="slider-track"></div>
-                                    <div class="slider-progress"></div>
-                                    <input type="range" class="range-input range-min" name="min_mileage" min="0" max="{{ $meta['mileage']['max'] ?? 50000 }}" value="{{ $filters['min_mileage'] ?? 0 }}" step="1000">
-                                    <input type="range" class="range-input range-max" name="max_mileage" min="0" max="{{ $meta['mileage']['max'] ?? 50000 }}" value="{{ $filters['max_mileage'] ?? ($meta['mileage']['max'] ?? 50000) }}" step="1000">
+                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2 block">走行距離</label>
+                                <input type="hidden" name="min_mileage" id="min-mileage-hidden" value="{{ $filters['min_mileage'] ?? '' }}">
+                                <input type="hidden" name="max_mileage" id="max-mileage-hidden" value="{{ $filters['max_mileage'] ?? '' }}">
+                                @php
+                                    $currentMinMileage = (string)($filters['min_mileage'] ?? '');
+                                    $currentMaxMileage = (string)($filters['max_mileage'] ?? '');
+                                    $mileageClasses = [
+                                        ['min' => '', 'max' => '', 'label' => 'すべて'],
+                                        ['min' => '', 'max' => '5000', 'label' => '〜5,000km'],
+                                        ['min' => '5000', 'max' => '10000', 'label' => '5,000〜10,000km'],
+                                        ['min' => '10000', 'max' => '30000', 'label' => '10,000〜30,000km'],
+                                        ['min' => '30000', 'max' => '50000', 'label' => '30,000〜50,000km'],
+                                        ['min' => '50000', 'max' => '', 'label' => '50,000km〜'],
+                                    ];
+                                @endphp
+                                <div class="flex flex-wrap bg-gray-100 p-1 rounded-xl gap-1">
+                                    @foreach($mileageClasses as $mc)
+                                    <label class="flex-1 min-w-[calc(50%-4px)] text-center cursor-pointer">
+                                        <input type="radio" name="mileage_class" value="{{ $mc['min'] }}_{{ $mc['max'] }}" class="hidden peer"
+                                            @checked($currentMinMileage === (string)$mc['min'] && $currentMaxMileage === (string)$mc['max'])>
+                                        <span class="block py-2 text-[10px] font-black rounded-lg transition peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">
+                                            {{ $mc['label'] }}
+                                        </span>
+                                    </label>
+                                    @endforeach
                                 </div>
                             </div>
 
+                            <!-- 年式 -->
                             <div class="filter-group">
-                                <div class="flex justify-between items-end mb-4">
-                                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic tracking-wider">年式</label>
-                                    <div class="text-xs font-black text-blue-600 tracking-tighter"><span id="label-min-year"></span> 〜 <span id="label-max-year"></span></div>
-                                </div>
-                                <div class="range-slider-container" id="slider-year">
-                                    <div class="slider-track"></div>
-                                    <div class="slider-progress"></div>
-                                    <input type="range" class="range-input range-min" name="min_year" min="{{ $meta['year']['min'] ?? 1990 }}" max="{{ $meta['year']['max'] ?? date('Y') }}" value="{{ $filters['min_year'] ?? ($meta['year']['min'] ?? 1990) }}" step="1">
-                                    <input type="range" class="range-input range-max" name="max_year" min="{{ $meta['year']['min'] ?? 1990 }}" max="{{ $meta['year']['max'] ?? date('Y') }}" value="{{ $filters['max_year'] ?? ($meta['year']['max'] ?? date('Y')) }}" step="1">
+                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2 block">年式</label>
+                                <input type="hidden" name="min_year" id="min-year-hidden" value="{{ $filters['min_year'] ?? '' }}">
+                                <input type="hidden" name="max_year" id="max-year-hidden" value="{{ $filters['max_year'] ?? '' }}">
+                                @php
+                                    $currentMinYear = (string)($filters['min_year'] ?? '');
+                                    $currentMaxYear = (string)($filters['max_year'] ?? '');
+                                    $yearClasses = [
+                                        ['min' => '', 'max' => '', 'label' => 'すべて'],
+                                        ['min' => '2024', 'max' => '', 'label' => '2024〜'],
+                                        ['min' => '2020', 'max' => '2023', 'label' => '2020〜2023'],
+                                        ['min' => '2015', 'max' => '2019', 'label' => '2015〜2019'],
+                                        ['min' => '2010', 'max' => '2014', 'label' => '2010〜2014'],
+                                        ['min' => '', 'max' => '2009', 'label' => '〜2009'],
+                                    ];
+                                @endphp
+                                <div class="flex flex-wrap bg-gray-100 p-1 rounded-xl gap-1">
+                                    @foreach($yearClasses as $yc)
+                                    <label class="flex-1 min-w-[calc(33%-4px)] text-center cursor-pointer">
+                                        <input type="radio" name="year_class" value="{{ $yc['min'] }}_{{ $yc['max'] }}" class="hidden peer"
+                                            @checked($currentMinYear === (string)$yc['min'] && $currentMaxYear === (string)$yc['max'])>
+                                        <span class="block py-2 text-[10px] font-black rounded-lg transition peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-500">
+                                            {{ $yc['label'] }}
+                                        </span>
+                                    </label>
+                                    @endforeach
                                 </div>
                             </div>
                         </div>

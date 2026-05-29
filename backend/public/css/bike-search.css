@@ -161,65 +161,6 @@
  }
  
  /* ==========================================
-  * 4. デュアルレンジスライダー (機能)
-  * ========================================== */
- .range-slider-container {
-     position: relative;
-     width: 100%;
-     height: 40px;
-     margin-top: 8px;
- }
- 
- .slider-track {
-     position: absolute;
-     width: 100%;
-     height: 4px;
-     background: #f3f4f6;
-     border-radius: 2px;
-     top: 50%;
-     transform: translateY(-50%);
- }
- 
- .slider-progress {
-     position: absolute;
-     height: 4px;
-     background: var(--agoda-blue);
-     border-radius: 2px;
-     top: 50%;
-     transform: translateY(-50%);
- }
- 
- .range-input {
-     position: absolute;
-     width: 100%;
-     height: 4px;
-     top: 50%;
-     transform: translateY(-50%);
-     background: none;
-     pointer-events: none;
-     -webkit-appearance: none;
-     margin: 0;
- }
- 
- .range-input::-webkit-slider-thumb {
-     height: 24px;
-     width: 24px;
-     border-radius: 50%;
-     background: #fff;
-     border: 2px solid var(--agoda-blue);
-     pointer-events: auto;
-     -webkit-appearance: none;
-     cursor: pointer;
-     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-     transition: all 0.2s;
- }
- 
- .range-input::-webkit-slider-thumb:active {
-     transform: scale(1.2);
-     background: var(--agoda-blue);
- }
- 
- /* ==========================================
   * 5. バイクカード (デザイン & アニメーション)
   * ========================================== */
  .bike-card {
