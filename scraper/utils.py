@@ -74,19 +74,20 @@ def normalize_prefecture(pref: str) -> str:
     """
     if not pref: return ""
     pref = pref.strip()
-    
+
+    # マッピング辞書（endswith判定より先に照合する。
+    # '京都'は末尾が'都'のため、先にendswithで素通りさせると'京都府'に統一されないため）
+    mapping = {
+        '東京': '東京都', '京都': '京都府', '大阪': '大阪府', '北海道': '北海道'
+    }
+
+    if pref in mapping:
+        return mapping[pref]
+
     # すでに正式名称ならそのまま返す
     if pref.endswith(('都', '道', '府', '県')):
         return pref
 
-    # マッピング辞書
-    mapping = {
-        '東京': '東京都', '京都': '京都府', '大阪': '大阪府', '北海道': '北海道'
-    }
-    
-    if pref in mapping:
-        return mapping[pref]
-    
     # それ以外（県）は末尾に「県」を付与
     # (ただし、念のため実在する県名のリストに含まれる場合のみなど、ガードを入れるのが理想)
     return pref + '県'

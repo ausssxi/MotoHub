@@ -127,12 +127,23 @@
                         <!-- 都道府県 -->
                         <div class="filter-group">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2 block">地域</label>
+                            @php
+                                // ファセットのキーは shops.prefecture の値（「京都」「京都府」等の表記揺れあり）。
+                                // 都/道/府/県 を剥がした短縮名で突合・合算し、表記揺れに関わらず正しい件数を出す。
+                                $prefCounts = [];
+                                foreach (($facets['prefecture'] ?? []) as $rawPref => $cnt) {
+                                    $short = str_replace(['都', '道', '府', '県'], '', $rawPref);
+                                    if ($short === '北海') $short = '北海道'; // 北海道は「道」を剥がすと「北海」になるため補正
+                                    $prefCounts[$short] = ($prefCounts[$short] ?? 0) + $cnt;
+                                }
+                            @endphp
                             <div class="relative">
                                 <select name="prefecture" class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none appearance-none pr-10">
                                     <option value="">すべての地域</option>
                                     @foreach($prefectures as $pref)
                                         @php
-                                            $count = $facets['prefecture'][$pref] ?? 0;
+                                            // $pref は config(bike.regions) の短縮名（例: 京都, 大阪, 北海道）
+                                            $count = $prefCounts[$pref] ?? 0;
                                             $countText = $count > 0 ? " ({$count}台)" : "";
                                         @endphp
                                         <option value="{{ $pref }}" {{ ($filters['prefecture'] ?? '') == $pref ? 'selected' : '' }}>

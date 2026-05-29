@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 # 共通基盤のインポート
 from common.database import SessionLocal, Listing, Shop, ShopIdentifier, Site
+from utils import normalize_prefecture
 
 class BdsShopFixSpider(scrapy.Spider):
     """
@@ -154,7 +155,10 @@ class BdsShopFixSpider(scrapy.Spider):
                     m = re.match(r'(東京都|北海道|大阪府|京都府|.{2,3}県)', address)
                     if m: prefecture = m.group(1)
 
-                safe_address = address if address else "-" 
+                # 都道府県を正式名称に正規化（表記揺れ吸収）
+                prefecture = normalize_prefecture(prefecture)
+
+                safe_address = address if address else "-"
 
                 new_shop = Shop(
                     name=name,

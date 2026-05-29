@@ -2,6 +2,7 @@ import re
 import logging
 from sqlalchemy import or_
 from .database import Shop, ShopIdentifier
+from utils import normalize_prefecture
 
 class ShopManager:
     """
@@ -17,6 +18,9 @@ class ShopManager:
         サイト固有の店舗ID、または電話番号等から既存店舗を特定し、
         必要であれば新規作成・識別子の紐付けを行います。
         """
+        # 都道府県を正式名称に正規化（重複判定・保存の両方で表記揺れを吸収する）
+        data['prefecture'] = normalize_prefecture(data.get('prefecture'))
+
         # 1. 識別子テーブルでチェック (すでに紐付け済みか)
         identifier = self.db.query(ShopIdentifier).filter(
             ShopIdentifier.site_id == site_id,
