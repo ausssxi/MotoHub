@@ -8,8 +8,8 @@
     @endif
 
     <x-slot:styles>
-        <link rel="preload" href="{{ asset('css/bike-search.css') }}?v={{ filemtime(public_path('css/bike-search.css')) }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
-        <noscript><link rel="stylesheet" href="{{ asset('css/bike-search.css') }}?v={{ filemtime(public_path('css/bike-search.css')) }}"></noscript>
+        <link rel="preload" href="{{ asset('css/bike-search.css') }}?v={{ asset_buster(public_path('css/bike-search.css')) }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="{{ asset('css/bike-search.css') }}?v={{ asset_buster(public_path('css/bike-search.css')) }}"></noscript>
 
         {{-- JSON-LD パンくずリスト（@をBladeディレクティブと誤認させないため@@でエスケープ） --}}
         <script type="application/ld+json">
@@ -47,9 +47,9 @@
     </x-slot:styles>
 
     <x-slot:scripts>
-        <script src="{{ asset('js/search/sidebar.js') }}?v={{ filemtime(public_path('js/search/sidebar.js')) }}" defer></script>
-        <script src="{{ asset('js/compare/manager.js') }}?v={{ filemtime(public_path('js/compare/manager.js')) }}" defer></script>
-        <script src="{{ asset('js/compare/ui.js') }}?v={{ filemtime(public_path('js/compare/ui.js')) }}" defer></script>
+        <script src="{{ asset('js/search/sidebar.js') }}?v={{ asset_buster(public_path('js/search/sidebar.js')) }}" defer></script>
+        <script src="{{ asset('js/compare/manager.js') }}?v={{ asset_buster(public_path('js/compare/manager.js')) }}" defer></script>
+        <script src="{{ asset('js/compare/ui.js') }}?v={{ asset_buster(public_path('js/compare/ui.js')) }}" defer></script>
     </x-slot:scripts>
 
     <x-slot:navigation>

@@ -256,5 +256,5 @@
     <script>
         window.__sellMakers = @json($manufacturers->map(fn ($m) => ['id' => $m->id, 'name' => $m->name]));
     </script>
-    <script src="{{ asset('js/pages/sell.js') }}?v={{ filemtime(public_path('js/pages/sell.js')) }}"></script>
+    <script src="{{ asset('js/pages/sell.js') }}?v={{ asset_buster(public_path('js/pages/sell.js')) }}"></script>
 </x-layout>

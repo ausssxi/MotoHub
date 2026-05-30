@@ -44,9 +44,9 @@
             });
         </script>
         @endif
-        <script src="{{ asset('js/promo/engagement-banner.js') }}?v={{ filemtime(public_path('js/promo/engagement-banner.js')) }}" defer></script>
-        <script src="{{ asset('js/bikes/model_detail.js') }}?v={{ filemtime(public_path('js/bikes/model_detail.js')) }}" defer></script>
-        <script src="{{ asset('js/bikes/review.js') }}?v={{ filemtime(public_path('js/bikes/review.js')) }}" defer></script>
+        <script src="{{ asset('js/promo/engagement-banner.js') }}?v={{ asset_buster(public_path('js/promo/engagement-banner.js')) }}" defer></script>
+        <script src="{{ asset('js/bikes/model_detail.js') }}?v={{ asset_buster(public_path('js/bikes/model_detail.js')) }}" defer></script>
+        <script src="{{ asset('js/bikes/review.js') }}?v={{ asset_buster(public_path('js/bikes/review.js')) }}" defer></script>
         {{-- Chart.js遅延読み込み: チャート要素が表示された時にCDNからロード --}}
         <script>
             (function() {

@@ -63,9 +63,9 @@
     <x-jsonld.breadcrumb :listing="$listing" />
 
     <x-slot:scripts>
-        <script src="{{ asset('js/compare/manager.js') }}?v={{ filemtime(public_path('js/compare/manager.js')) }}"></script>
-        <script src="{{ asset('js/compare/ui.js') }}?v={{ filemtime(public_path('js/compare/ui.js')) }}"></script>
-        <script src="{{ asset('js/bikes/loan-simulator.js') }}?v={{ filemtime(public_path('js/bikes/loan-simulator.js')) }}"></script>
+        <script src="{{ asset('js/compare/manager.js') }}?v={{ asset_buster(public_path('js/compare/manager.js')) }}"></script>
+        <script src="{{ asset('js/compare/ui.js') }}?v={{ asset_buster(public_path('js/compare/ui.js')) }}"></script>
+        <script src="{{ asset('js/bikes/loan-simulator.js') }}?v={{ asset_buster(public_path('js/bikes/loan-simulator.js')) }}"></script>
 
         {{-- JSにBladeの変数を渡す --}}
         <script>
@@ -74,7 +74,7 @@
             window.recaptchaSiteKey = "{{ config('services.recaptcha.site_key') }}";
         </script>
         <script>window.__bikeModelId = {{ $listing->bike_model_id ?? 'null' }};</script>
-        <script src="{{ asset('js/promo/engagement-banner.js') }}?v={{ filemtime(public_path('js/promo/engagement-banner.js')) }}" defer></script>
+        <script src="{{ asset('js/promo/engagement-banner.js') }}?v={{ asset_buster(public_path('js/promo/engagement-banner.js')) }}" defer></script>
 
         {{-- Chart.js + model_detail.js: チャートが見えた時のみ遅延読込（TBT大幅改善） --}}
         <script>
@@ -89,7 +89,7 @@
                         s.src = 'https://cdn.jsdelivr.net/npm/chart.js';
                         s.onload = function() {
                             var s2 = document.createElement('script');
-                            s2.src = '{{ asset("js/bikes/model_detail.js") }}?v={{ filemtime(public_path("js/bikes/model_detail.js")) }}';
+                            s2.src = '{{ asset("js/bikes/model_detail.js") }}?v={{ asset_buster(public_path("js/bikes/model_detail.js")) }}';
                             document.head.appendChild(s2);
                         };
                         s.onerror = function() {
@@ -118,9 +118,9 @@
                 obs.observe(form);
             })();
         </script>
-        <script src="{{ asset('js/bikes/review.js') }}?v={{ filemtime(public_path('js/bikes/review.js')) }}"></script>
-        <script src="{{ asset('js/search/seamless-nav.js') }}?v={{ filemtime(public_path('js/search/seamless-nav.js')) }}"></script>
-        <script src="{{ asset('js/bikes/show.js') }}?v={{ filemtime(public_path('js/bikes/show.js')) }}"></script>
+        <script src="{{ asset('js/bikes/review.js') }}?v={{ asset_buster(public_path('js/bikes/review.js')) }}"></script>
+        <script src="{{ asset('js/search/seamless-nav.js') }}?v={{ asset_buster(public_path('js/search/seamless-nav.js')) }}"></script>
+        <script src="{{ asset('js/bikes/show.js') }}?v={{ asset_buster(public_path('js/bikes/show.js')) }}"></script>
     </x-slot:scripts>
 
     <x-slot:navigation>

@@ -12,7 +12,7 @@
 
     <x-slot:scripts>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-        <script src="{{ asset('js/parking/create.js') }}?v={{ filemtime(public_path('js/parking/create.js')) }}"></script>
+        <script src="{{ asset('js/parking/create.js') }}?v={{ asset_buster(public_path('js/parking/create.js')) }}"></script>
         <script>
             function markImageForDeletion(btn, imageId) {
                 const wrapper = btn.closest('[data-image-id]');

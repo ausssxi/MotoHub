@@ -79,7 +79,7 @@
     <x-slot:scripts>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
         <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
-        <script src="{{ asset('js/common/map-search.js') }}?v={{ filemtime(public_path('js/common/map-search.js')) }}"></script>
+        <script src="{{ asset('js/common/map-search.js') }}?v={{ asset_buster(public_path('js/common/map-search.js')) }}"></script>
         <script src="{{ asset('js/riders/map.js') }}?v={{ time() }}"></script>
         <script src="{{ asset('js/riders/route.js') }}?v={{ time() }}"></script>
         @auth

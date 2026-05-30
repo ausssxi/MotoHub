@@ -6,9 +6,9 @@
 
     {{-- 比較機能とお気に入りページ専用のJSを読み込む --}}
     <x-slot:scripts>
-        <script src="{{ asset('js/compare/manager.js') }}?v={{ filemtime(public_path('js/compare/manager.js')) }}"></script>
-        <script src="{{ asset('js/compare/ui.js') }}?v={{ filemtime(public_path('js/compare/ui.js')) }}"></script>
-        <script src="{{ asset('js/wishlist/page.js') }}?v={{ filemtime(public_path('js/wishlist/page.js')) }}"></script>
+        <script src="{{ asset('js/compare/manager.js') }}?v={{ asset_buster(public_path('js/compare/manager.js')) }}"></script>
+        <script src="{{ asset('js/compare/ui.js') }}?v={{ asset_buster(public_path('js/compare/ui.js')) }}"></script>
+        <script src="{{ asset('js/wishlist/page.js') }}?v={{ asset_buster(public_path('js/wishlist/page.js')) }}"></script>
     </x-slot:scripts>
 
     {{-- 2. ナビゲーション --}}

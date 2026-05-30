@@ -67,7 +67,7 @@
 
     {{-- サードパーティの重いJSに「defer(遅延)」をつけて画面描画を優先させる --}}
     <script src="https://unpkg.com/lucide@0.469.0" defer></script>
-    <script src="{{ asset('js/push-manager.js') }}?v={{ filemtime(public_path('js/push-manager.js')) }}" defer></script>
+    <script src="{{ asset('js/push-manager.js') }}?v={{ asset_buster(public_path('js/push-manager.js')) }}" defer></script>
     
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
@@ -119,10 +119,10 @@
     <x-bottom-nav />
 
     {{-- 独自スクリプト --}}
-    <script src="{{ asset('js/wishlist/manager.js') }}?v={{ filemtime(public_path('js/wishlist/manager.js')) }}" defer></script>
-    <script src="{{ asset('js/wishlist/page.js') }}?v={{ filemtime(public_path('js/wishlist/page.js')) }}" defer></script>
-    <script src="{{ asset('js/history/manager.js') }}?v={{ filemtime(public_path('js/history/manager.js')) }}" defer></script>
-    <script src="{{ asset('js/search/interaction.js') }}?v={{ filemtime(public_path('js/search/interaction.js')) }}" defer></script>
+    <script src="{{ asset('js/wishlist/manager.js') }}?v={{ asset_buster(public_path('js/wishlist/manager.js')) }}" defer></script>
+    <script src="{{ asset('js/wishlist/page.js') }}?v={{ asset_buster(public_path('js/wishlist/page.js')) }}" defer></script>
+    <script src="{{ asset('js/history/manager.js') }}?v={{ asset_buster(public_path('js/history/manager.js')) }}" defer></script>
+    <script src="{{ asset('js/search/interaction.js') }}?v={{ asset_buster(public_path('js/search/interaction.js')) }}" defer></script>
     
     {{-- 各ページから渡されるスクリプト --}}
     {{ $scripts ?? '' }}
@@ -174,8 +174,8 @@
     </script>
     {{-- 登録促進プロモーション（未ログイン時のみ） --}}
     @guest
-        <link rel="stylesheet" href="{{ asset('css/registration-promo.css') }}?v={{ filemtime(public_path('css/registration-promo.css')) }}">
-        <script src="{{ asset('js/promo/registration-promo.js') }}?v={{ filemtime(public_path('js/promo/registration-promo.js')) }}" defer></script>
+        <link rel="stylesheet" href="{{ asset('css/registration-promo.css') }}?v={{ asset_buster(public_path('css/registration-promo.css')) }}">
+        <script src="{{ asset('js/promo/registration-promo.js') }}?v={{ asset_buster(public_path('js/promo/registration-promo.js')) }}" defer></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (typeof RegistrationPromo !== 'undefined') {
@@ -183,7 +183,7 @@
                 }
             });
         </script>
-        <script src="{{ asset('js/promo/return-trigger.js') }}?v={{ filemtime(public_path('js/promo/return-trigger.js')) }}" defer></script>
+        <script src="{{ asset('js/promo/return-trigger.js') }}?v={{ asset_buster(public_path('js/promo/return-trigger.js')) }}" defer></script>
     @endguest
 </body>
 </html>

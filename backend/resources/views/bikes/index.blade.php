@@ -9,7 +9,7 @@
     </x-slot:styles>
 
     <x-slot:scripts>
-        <script src="{{ asset('js/search/suggest.js') }}?v={{ filemtime(public_path('js/search/suggest.js')) }}"></script>
+        <script src="{{ asset('js/search/suggest.js') }}?v={{ asset_buster(public_path('js/search/suggest.js')) }}"></script>
 
         {{-- 閲覧履歴の描画（manager.js は layout.blade.php で読み込み済み） --}}
         <script>

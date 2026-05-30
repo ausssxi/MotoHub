@@ -3,7 +3,7 @@
     <x-slot:metaDescription>国内全{{ number_format($totalModelsCount) }}車種の中古バイク相場を一覧比較。メーカー別・排気量別に価格帯・在庫数・人気ランキングをチェック。あなたにぴったりの1台が見つかる。</x-slot:metaDescription>
 
     <x-slot:scripts>
-        <script src="{{ asset('js/bikes/models.js') }}?v={{ filemtime(public_path('js/bikes/models.js')) }}"></script>
+        <script src="{{ asset('js/bikes/models.js') }}?v={{ asset_buster(public_path('js/bikes/models.js')) }}"></script>
         {{-- ★修正: DOMの読み込みを待たずに即座にAPI通信を開始して表示を高速化 --}}
         <script>
             (async function() {
