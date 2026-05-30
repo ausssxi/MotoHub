@@ -38,14 +38,13 @@ final class ShopService
         $paginated = $this->listingRepo->getByShopId($shopId, 20);
         $pagination = $this->paginator->format($paginated);
 
-        // ★追加: PaginationFormatterがtotalを落としてしまう問題の対策
-        // ページネーターが total() メソッドを持っていれば、正確な「全在庫数」を強制上書きする
-        if (method_exists($paginated, 'total')) {
-            $pagination['total'] = $paginated->total();
-        } elseif (!isset($pagination['total']) || $pagination['total'] === 0) {
-            // simplePaginate等の場合は、とりあえず今取得できている件数を入れる
-            $pagination['total'] = $paginated->count();
-        }
+        // 在庫総数（title / meta / 見出し / JSON-LD / noindex判定で共用する正本）を1回だけCOUNT。
+        // getByShopId は simplePaginate のため total() を持たず、PaginationFormatter も total=0 を返す。
+        // 旧実装は count()（現在ページ件数=perPage）に頭打ちで実数より小さく表示されていたため、
+        // 実在庫数を pagination.total に上書きして全表示箇所で正確な台数を使う。
+        // （last_page/pages は lastPage() 由来で total とは独立のためページネーション動作に影響しない）
+        $stockCount = Listing::where('shop_id', $shopId)->active()->count();
+        $pagination['total'] = $stockCount;
 
         // 取扱メーカー集計（在庫がある車両のメーカーを台数順で取得）
         $manufacturers = Listing::where('shop_id', $shopId)
@@ -76,7 +75,12 @@ final class ShopService
         $shopExpensesStats = $this->getShopExpensesStats($shop);
 
         // 店舗説明文（meta description / JSON-LD / ページ表示で共用）
-        $description = $shop->name . 'は' . $shop->prefecture . 'にあるバイクショップです。';
+        // 在庫検索意図のクリックを後押しするため、在庫台数を前段に配置（在庫0台は対象外＝文を出さない）
+        $description = '';
+        if ($stockCount > 0) {
+            $description = '現在' . number_format($stockCount) . '台の中古バイクを掲載中。';
+        }
+        $description .= $shop->name . 'は' . $shop->prefecture . 'にあるバイクショップです。';
         if ($shop->chain) {
             $description .= $shop->chain->name . 'は全国に展開する大手バイク販売チェーンで、新車・中古車の販売、買取、車検、整備に対応しています。';
         }
@@ -88,6 +92,7 @@ final class ShopService
         return [
             'shop' => $shop,
             'description' => $description,
+            'stockCount' => $stockCount,
             'items' => ListingResource::collection($paginated->getCollection())->resolve(),
             'pagination' => $pagination,
             'manufacturers' => $manufacturers,

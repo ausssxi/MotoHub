@@ -1,5 +1,5 @@
 <x-layout>
-    <x-slot:title>{{ $shop->name }}の在庫・取扱車両一覧{{ $pagination['total'] > 0 ? '【' . $pagination['total'] . '台】' : '' }}｜中古バイク検索 - MotoHub</x-slot:title>
+    <x-slot:title>{{ $shop->name }}の在庫・取扱車両一覧{{ $stockCount > 0 ? '【' . number_format($stockCount) . '台】' : '' }}｜中古バイク検索 - MotoHub</x-slot:title>
 
     <x-slot:metaDescription>{{ $description }}</x-slot:metaDescription>
 
