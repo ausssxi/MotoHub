@@ -102,7 +102,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 });
                 const data = await res.json();
-                mobileHitCount.textContent = `(${data.total.toLocaleString()}台)`;
+                // maxTotalHits 以上は件数が頭打ちになるため「50,000+」表示にする
+                const cap = parseInt(mobileHitCount.dataset.hitCap || '0', 10);
+                const total = Number(data.total) || 0;
+                const label = (cap && total >= cap)
+                    ? `${cap.toLocaleString()}+`
+                    : total.toLocaleString();
+                mobileHitCount.textContent = `(${label}台)`;
             } catch (e) {
                 console.error("Count Fetch Error:", e);
                 mobileHitCount.textContent = "";

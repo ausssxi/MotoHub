@@ -144,6 +144,10 @@ return [
             'listings' => [
                 'filterableAttributes' => ['prefecture', 'manufacturer_id', 'bike_model_id', 'category_id', 'is_new', 'has_repair_history', 'is_sold_out', 'tag_slugs', 'total_price', 'mileage', 'model_year', 'displacement'],
                 'sortableAttributes' => ['total_price', 'mileage', 'model_year', 'bargain_score', 'created_at'],
+                // 件数カウント・到達可能ページ数の上限。デフォルト1000だと
+                // ヒット件数が1000で頭打ちになるため引き上げる。
+                // 50,000を超えるクエリ（≒無フィルタ等の超広域）は「50,000+」表示にする。
+                'pagination' => ['maxTotalHits' => 50000],
             ],
         ],
     ],

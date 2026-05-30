@@ -467,8 +467,8 @@
                         <div class="pt-4 lg:hidden">
                             <button type="submit" class="w-full bg-[#5392f9] text-white font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest shadow-xl shadow-blue-100 active:scale-95 transition flex items-center justify-center gap-2">
                                 <span>条件を適用する</span>
-                                <span class="bg-white/20 px-2 py-0.5 rounded text-[10px] min-w-[3rem]" id="mobile-hit-count">
-                                    ({{ number_format($pagination['total']) }}台)
+                                <span class="bg-white/20 px-2 py-0.5 rounded text-[10px] min-w-[3rem]" id="mobile-hit-count" data-hit-cap="{{ hit_count_cap() }}">
+                                    ({{ format_hit_count($pagination['total']) }}台)
                                 </span>
                             </button>
                         </div>
@@ -538,7 +538,7 @@
                     <div>
                         <h2 class="text-2xl font-black text-black tracking-tighter italic">
                             {{ $pageTitle }}
-                            <span class="text-xs text-gray-400 font-bold ml-2 not-italic">({{ number_format($pagination['total']) }}台)</span>
+                            <span class="text-xs text-gray-400 font-bold ml-2 not-italic">({{ format_hit_count($pagination['total']) }}台)</span>
                         </h2>
                     </div>
 
