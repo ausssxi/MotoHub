@@ -55,7 +55,7 @@ return [
     'chains' => [
         'red-baron'   => ['name' => 'レッドバロン', 'pattern' => 'レッドバロン'],
         'bikeo'       => ['name' => 'バイク王',     'pattern' => 'バイク王'],
-        'bikekan'     => ['name' => 'バイク館',     'pattern' => 'バイク館'],
+        'bikekan'     => ['name' => 'バイク館',     'pattern' => 'バイク館', 'guide_slug' => 'bikekan-used-bike-guide-2026'],
         'scs'         => ['name' => 'SCS',          'pattern' => 'SCS'],
         'naps'        => ['name' => 'ナップス',     'pattern' => 'ナップス'],
         'ricoland'    => ['name' => 'ライコランド', 'pattern' => 'ライコランド'],

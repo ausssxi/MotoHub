@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use App\Models\Shop;
 use App\Models\Listing;
 use App\Models\BikeModel;
+use App\Models\BlogPost;
 use App\Services\Shop\ShopService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -166,13 +167,18 @@ class ShopController extends Controller
         $mainShop = $shops->sortByDesc('listings_count')->first();
         $mainShopStock = $mainShop?->listings_count ?? 0;
 
+        // 解説記事（公開済みのみ）。config の guide_slug が設定されたチェーンだけ表示される。
+        $guideArticle = !empty($chain['guide_slug'])
+            ? BlogPost::published()->where('slug', $chain['guide_slug'])->first(['id', 'slug', 'title'])
+            : null;
+
         $crossLinks = [
             ['label' => '中古バイク検索', 'url' => route('bikes.search'), 'icon' => 'search', 'description' => '全国の在庫を検索'],
             ['label' => '車種カタログ', 'url' => route('bikes.models'), 'icon' => 'book-open', 'description' => '車種の相場を確認'],
             ['label' => 'ショップマップ', 'url' => route('shops.map'), 'icon' => 'store', 'description' => 'バイクショップを探す'],
         ];
 
-        return view('shops.chain', compact('chain', 'chainSlug', 'shops', 'totalStock', 'mainShop', 'mainShopStock', 'crossLinks'));
+        return view('shops.chain', compact('chain', 'chainSlug', 'shops', 'totalStock', 'mainShop', 'mainShopStock', 'crossLinks', 'guideArticle'));
     }
 
     /**

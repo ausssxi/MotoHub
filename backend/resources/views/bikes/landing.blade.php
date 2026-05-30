@@ -25,7 +25,10 @@
     <x-slot:title>{{ $seoTitle }}</x-slot:title>
     <x-slot:metaDescription>{{ $seoDescription }}</x-slot:metaDescription>
 
-    @if($kpiCount < 10)
+    {{-- noindex閾値: 車種(model)ページは5台、メーカー/カテゴリ/排気量は10台。
+         sitemap(GenerateSitemap)の収録閾値と必ず一致させること（薄いページをsitemapに載せない）。 --}}
+    @php $noindexThreshold = (($pageInfo['type'] ?? '') === 'model') ? 5 : 10; @endphp
+    @if($kpiCount < $noindexThreshold)
         <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
     @endif
 

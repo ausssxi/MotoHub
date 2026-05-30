@@ -189,8 +189,9 @@ class GenerateSitemap extends Command
             default => $pref . '県',
         };
 
-        // ★ 在庫5台以上の組み合わせのみサイトマップに含める（クロールバジェット最適化）
-        // 都道府県×メーカーの有効な組み合わせを事前取得（5台以上）
+        // ★ 在庫が一定以上の組み合わせのみサイトマップに含める（クロールバジェット最適化）
+        //   閾値: メーカー/カテゴリ/排気量×県 = 10台以上、車種×県 = 5台以上（勝ちパターンを優遇）
+        // 都道府県×メーカーの有効な組み合わせを事前取得（10台以上）
         $activeManufPrefSet = DB::table('listings')
             ->join('shops', 'listings.shop_id', '=', 'shops.id')
             ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
@@ -202,18 +203,20 @@ class GenerateSitemap extends Command
             ->pluck('combo')
             ->flip(); // flip で O(1) ルックアップ
 
-        // 都道府県×車種(bike_model_id)の有効な組み合わせを事前取得（在庫5台以上のみ）
+        // 都道府県×車種(bike_model_id)の有効な組み合わせを事前取得（在庫5台以上）
+        // ※ 車種×エリアはCTR最高の勝ちパターンのため、メーカー/カテゴリ/排気量(10台)より
+        //    閾値を緩めて面を広げる。noindex閾値(landing.blade)も type=model のみ5に揃えてある。
         $activeModelPrefSet = DB::table('listings')
             ->join('shops', 'listings.shop_id', '=', 'shops.id')
             ->where('listings.is_sold_out', false)
             ->whereNotNull('listings.bike_model_id')
             ->select(DB::raw('CONCAT(shops.prefecture, "-", listings.bike_model_id) as combo'))
             ->groupBy('combo')
-            ->havingRaw('COUNT(*) >= 10')
+            ->havingRaw('COUNT(*) >= 5')
             ->pluck('combo')
             ->flip();
 
-        // 都道府県×カテゴリの有効な組み合わせを事前取得（5台以上）
+        // 都道府県×カテゴリの有効な組み合わせを事前取得（10台以上）
         $activeCatPrefSet = DB::table('listings')
             ->join('shops', 'listings.shop_id', '=', 'shops.id')
             ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
@@ -225,7 +228,7 @@ class GenerateSitemap extends Command
             ->pluck('combo')
             ->flip();
 
-        // 都道府県×排気量帯の有効な組み合わせを事前取得（5台以上）
+        // 都道府県×排気量帯の有効な組み合わせを事前取得（10台以上）
         // SeoLandingService::findDisplacement と同じレンジ定義
         $dispSlugRanges = [
             '原付'       => [0, 50],
@@ -258,7 +261,7 @@ class GenerateSitemap extends Command
 
         $this->info("  有効な都道府県×メーカー: {$activeManufPrefSet->count()} / 都道府県×車種: {$activeModelPrefSet->count()}");
 
-        // 1. メーカー・カテゴリ・排気量の組み合わせ（5台以上のみ）
+        // 1. メーカー・カテゴリ・排気量の組み合わせ（10台以上のみ）
         foreach ($allPrefectures as $pref) {
             $fullPref = $toFullPref($pref);
 
@@ -300,12 +303,22 @@ class GenerateSitemap extends Command
         }
 
         // 2. 車種名(モデル)との掛け合わせ（Listingがある場合のみ）
-        BikeModel::select('id', 'name', 'updated_at')->chunk(500, function ($models) use ($allPrefectures, $writeLandingUrl, $activeModelPrefSet, $toFullPref) {
+        // URLは車種「名」で生成するため、同名の重複モデル行が複数 active だと
+        // 同一URLを二重出力してしまう。(都道府県,車種名) で重複排除する。
+        // ※ resolvePageInfo 側は searchByName が listings_count desc 順なので
+        //   在庫最多の行に解決される＝出力URLとページ実体は整合する。
+        $seenModelPref = [];
+        BikeModel::select('id', 'name', 'updated_at')->chunk(500, function ($models) use ($allPrefectures, $writeLandingUrl, $activeModelPrefSet, $toFullPref, &$seenModelPref) {
             foreach ($models as $model) {
                 foreach ($allPrefectures as $pref) {
                     if (!$activeModelPrefSet->has("{$toFullPref($pref)}-{$model->id}")) {
                         continue;
                     }
+                    $dedupeKey = $pref . "\x1f" . $model->name;
+                    if (isset($seenModelPref[$dedupeKey])) {
+                        continue;
+                    }
+                    $seenModelPref[$dedupeKey] = true;
                     $writeLandingUrl(
                         route('bikes.landing', ['prefecture' => $pref, 'slug' => $model->name]),
                         $model->updated_at->format('Y-m-d'),

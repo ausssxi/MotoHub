@@ -191,7 +191,8 @@ final class BikeController extends Controller
      */
     public function areaIndex(string $prefecture): View
     {
-        $cacheKey = 'area_index_' . md5($prefecture);
+        // v2: 車種(models)リンクを追加したためキー更新（旧キャッシュに models が無く未定義変数になるのを防ぐ）
+        $cacheKey = 'area_index_v2_' . md5($prefecture);
 
         $data = Cache::remember($cacheKey, 3600, function () use ($prefecture) {
             $baseQuery = Listing::query()
@@ -231,6 +232,26 @@ final class BikeController extends Controller
                 'count' => (int) $r->cnt,
             ])->filter(fn ($c) => $c['label'] !== null)->values();
 
+            // 車種別（人気車種×エリア = CTR最高の bikes.landing へ内部リンク）
+            // 在庫5台以上(=車種×県のsitemap/noindex閾値)に限定。同名重複モデルは在庫最多のみ残す。
+            $modelRows = (clone $baseQuery)
+                ->selectRaw('listings.bike_model_id, COUNT(*) as cnt')
+                ->whereNotNull('listings.bike_model_id')
+                ->groupBy('listings.bike_model_id')
+                ->havingRaw('COUNT(*) >= 5')
+                ->orderByDesc('cnt')
+                ->limit(40)
+                ->get();
+            $modelNames = \App\Models\BikeModel::whereIn('id', $modelRows->pluck('bike_model_id'))->pluck('name', 'id');
+            $models = $modelRows->map(fn ($r) => [
+                'label' => $modelNames->get($r->bike_model_id),
+                'url' => route('bikes.landing', ['prefecture' => $prefecture, 'slug' => $modelNames->get($r->bike_model_id)]),
+                'count' => (int) $r->cnt,
+            ])->filter(fn ($m) => $m['label'] !== null)
+              ->unique('label') // 同名重複モデルは在庫最多(先頭)のみ
+              ->take(24)
+              ->values();
+
             // 排気量別
             $displacements = collect([
                 ['label' => '原付(〜50cc)', 'slug' => '原付', 'min' => 0, 'max' => 50],
@@ -249,7 +270,7 @@ final class BikeController extends Controller
                 ];
             });
 
-            return compact('totalCount', 'makers', 'categories', 'displacements');
+            return compact('totalCount', 'makers', 'categories', 'displacements', 'models');
         });
 
         return view('bikes.area-index', array_merge($data, ['prefecture' => $prefecture]));

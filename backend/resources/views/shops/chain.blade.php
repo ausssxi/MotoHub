@@ -37,6 +37,23 @@
                 </div>
             </div>
 
+            {{-- 解説記事への導線（公開済みガイドがある場合のみ） --}}
+            @if(!empty($guideArticle))
+            <a href="{{ route('blog.show', $guideArticle->slug) }}"
+               class="flex items-center justify-between gap-4 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-blue-200 hover:shadow-md p-5 mb-8 transition-all">
+                <div class="flex items-center gap-3 min-w-0">
+                    <i data-lucide="book-open" class="w-5 h-5 text-blue-500 shrink-0"></i>
+                    <div class="min-w-0">
+                        <p class="text-[10px] font-black text-blue-500 uppercase tracking-widest">解説ガイド</p>
+                        <p class="text-sm font-bold text-gray-900 line-clamp-1">{{ $guideArticle->title }}</p>
+                    </div>
+                </div>
+                <span class="inline-flex items-center gap-1 text-xs font-bold text-blue-600 shrink-0">
+                    記事を読む<i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </span>
+            </a>
+            @endif
+
             @if($mainShopStock > 0)
             <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 mt-6">
                 <div class="flex items-center justify-between flex-wrap gap-4">

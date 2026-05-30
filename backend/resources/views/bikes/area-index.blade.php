@@ -47,6 +47,30 @@
             </section>
             @endif
 
+            {{-- 車種から探す（人気車種×エリア = bikes.landing への内部リンク） --}}
+            @if(!empty($models) && $models->isNotEmpty())
+            <section class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-10 mb-8">
+                <h2 class="text-xl font-black text-gray-800 mb-6 flex items-center gap-3">
+                    <span class="w-1.5 h-6 bg-green-500 rounded-full"></span>
+                    人気の車種から探す
+                </h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    @foreach($models as $m)
+                        <a href="{{ $m['url'] }}"
+                           class="group flex items-center justify-between px-4 py-3 rounded-xl bg-white border border-gray-200 shadow-sm hover:border-green-500 hover:shadow-md hover:-translate-y-0.5 transition duration-200">
+                            <div class="min-w-0">
+                                <span class="text-sm font-black text-gray-700 group-hover:text-green-600 transition-colors block truncate">{{ $m['label'] }}</span>
+                                <span class="text-[10px] font-bold text-gray-400">{{ number_format($m['count']) }}台</span>
+                            </div>
+                            <div class="w-6 h-6 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-green-50 transition-colors shrink-0">
+                                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-gray-400 group-hover:text-green-500 transition-colors"></i>
+                            </div>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+            @endif
+
             {{-- タイプから探す --}}
             @if($categories->isNotEmpty())
             <section class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-10 mb-8">

@@ -883,16 +883,18 @@
                     {{-- ===== タブ3: 在庫・エリア ===== --}}
                     <div id="tab-panel-inventory" class="tab-panel space-y-8" style="display:none">
 
-                    {{-- エリア別リンク --}}
-                    @if(isset($prefectureStocks) && $prefectureStocks->isNotEmpty())
+                    {{-- エリア別リンク：CTR最高の車種×エリアLP(bikes.landing)へ誘導し権威を集中。
+                         リンク先は indexable な県(在庫5台以上=sitemap/noindex閾値)のみに限定する。 --}}
+                    @php $linkablePrefStocks = (isset($prefectureStocks) ? $prefectureStocks : collect())->where('stock_count', '>=', 5); @endphp
+                    @if($linkablePrefStocks->isNotEmpty())
                     <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
                         <h2 class="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
                             <span class="bg-orange-100 text-orange-600 p-2 rounded-lg"><i data-lucide="map-pin" class="w-5 h-5"></i></span>
                             {{ $model->name }}をエリアから探す
                         </h2>
                         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                            @foreach($prefectureStocks as $ps)
-                            <a href="{{ route('bikes.search', ['bike_model_id' => $model->id, 'prefecture' => $ps->prefecture]) }}"
+                            @foreach($linkablePrefStocks as $ps)
+                            <a href="{{ route('bikes.landing', ['prefecture' => $ps->prefecture, 'slug' => $model->name]) }}"
                                class="group flex items-center justify-between bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl px-4 py-3 transition-all duration-200">
                                 <span class="text-xs font-black text-gray-800 group-hover:text-blue-700 transition-colors">{{ $ps->prefecture }}</span>
                                 <span class="text-[10px] font-bold text-gray-400 group-hover:text-blue-500 bg-white px-2 py-0.5 rounded-full border border-gray-100">{{ $ps->stock_count }}台</span>
