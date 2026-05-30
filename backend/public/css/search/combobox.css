@@ -1,0 +1,139 @@
+/**
+ * MotoHub 検索付きコンボボックス スタイル
+ * メーカー・車種の選択UI（自前バニラ実装）。PC/スマホ両対応。
+ */
+
+.moto-combobox {
+    position: relative;
+}
+
+/* 無効化（メーカー未選択時の車種） */
+.moto-combobox--disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.moto-combobox__toggle {
+    cursor: pointer;
+}
+
+.moto-combobox__toggle:disabled {
+    cursor: not-allowed;
+}
+
+.moto-combobox__label {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* プレースホルダ表示時は淡色に */
+.moto-combobox__label--empty {
+    color: #9ca3af; /* gray-400 */
+    font-weight: 700;
+}
+
+/* ドロップダウン本体 */
+.moto-combobox__panel {
+    position: absolute;
+    z-index: 50;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #e5e7eb; /* gray-200 */
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 320px;
+}
+
+/* 検索入力欄 */
+.moto-combobox__search-wrap {
+    padding: 8px;
+    border-bottom: 1px solid #f3f4f6; /* gray-100 */
+    position: sticky;
+    top: 0;
+    background: #fff;
+}
+
+.moto-combobox__search {
+    width: 100%;
+    box-sizing: border-box;
+    background: #f9fafb; /* gray-50 */
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.moto-combobox__search:focus {
+    border-color: #3b82f6; /* blue-500 */
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+/* 候補リスト */
+.moto-combobox__list {
+    list-style: none;
+    margin: 0;
+    padding: 4px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.moto-combobox__opt {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0.6rem 0.65rem;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #374151; /* gray-700 */
+    cursor: pointer;
+    /* タップしやすい最小高さ（スマホ） */
+    min-height: 44px;
+}
+
+.moto-combobox__opt:hover,
+.moto-combobox__opt--active {
+    background: #eff6ff; /* blue-50 */
+    color: #2563eb; /* blue-600 */
+}
+
+.moto-combobox__opt-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.moto-combobox__opt-count {
+    flex: 0 0 auto;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #9ca3af; /* gray-400 */
+    background: #f3f4f6; /* gray-100 */
+    border-radius: 9999px;
+    padding: 1px 8px;
+}
+
+.moto-combobox__opt.hidden {
+    display: none;
+}
+
+.moto-combobox__empty {
+    padding: 1rem;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+
+.moto-combobox__empty.hidden,
+.moto-combobox__panel.hidden {
+    display: none;
+}

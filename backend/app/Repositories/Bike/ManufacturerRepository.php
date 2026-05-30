@@ -49,6 +49,18 @@ final class ManufacturerRepository
     }
 
     /**
+     * 全メーカーを掲載台数（active）の多い順で取得（コンボボックス用）
+     * 0台メーカーも検索で選べるよう残し、台数→名前の順で並べる。
+     */
+    public function getAllSortedByListingCount(): Collection
+    {
+        return Manufacturer::withCount(['listings' => fn ($q) => $q->active()])
+            ->orderByDesc('listings_count')
+            ->orderBy('name', 'asc')
+            ->get();
+    }
+
+    /**
      * 指定された名前リストに一致するメーカーを取得
      * トップページのクイックリンク用
      */

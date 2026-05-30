@@ -129,7 +129,11 @@ final class ListingSearchService
             'meta'             => $searchMeta,
             'facets'           => $facets,
             'relaxSuggestions' => $relaxSuggestions,
-            'manufacturers'    => $this->manufacturerRepo->getAllSortedByName(),
+            'manufacturers'    => Cache::remember(
+                'search_manufacturers_by_listing_count_v1',
+                1800,
+                fn () => $this->manufacturerRepo->getAllSortedByListingCount()
+            ),
             'models'           => $models,
             'categories'       => $this->categoryRepo->getAllSorted(),
             'regions'          => config('bike.regions', []),

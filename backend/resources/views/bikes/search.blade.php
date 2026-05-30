@@ -30,9 +30,11 @@
     <x-slot:styles>
         <x-jsonld.breadcrumb-search :filters="$filters ?? []" :pageTitle="$pageTitle ?? ''" />
         <link rel="stylesheet" href="{{ asset('css/bike-search.css') }}?v={{ asset_buster(public_path('css/bike-search.css')) }}">
+        <link rel="stylesheet" href="{{ asset('css/search/combobox.css') }}?v={{ asset_buster(public_path('css/search/combobox.css')) }}">
     </x-slot:styles>
 
     <x-slot:scripts>
+        <script src="{{ asset('js/search/combobox.js') }}?v={{ asset_buster(public_path('js/search/combobox.js')) }}" defer></script>
         <script src="{{ asset('js/search/sidebar.js') }}?v={{ asset_buster(public_path('js/search/sidebar.js')) }}" defer></script>
         <script src="{{ asset('js/common/custom-dropdown.js') }}?v={{ asset_buster(public_path('js/common/custom-dropdown.js')) }}" defer></script>
         <script src="{{ asset('js/compare/manager.js') }}?v={{ asset_buster(public_path('js/compare/manager.js')) }}" defer></script>
@@ -280,33 +282,57 @@
                         </div>
                         @endif
 
-                        <!-- メーカー・車種 ドリルダウン -->
+                        <!-- メーカー・車種 ドリルダウン（検索付きコンボボックス） -->
                         <div class="space-y-4 pt-4 border-t border-gray-50">
                             <div class="filter-group">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2 block">メーカー</label>
-                                <div class="relative">
-                                    <select name="manufacturer_id" id="manufacturer-select" class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none appearance-none pr-10">
-                                        <option value="">指定なし</option>
-                                        @foreach($manufacturers as $m)
-                                            <option value="{{ $m->id }}" {{ (string)($filters['manufacturer_id'] ?? '') === (string)$m->id ? 'selected' : '' }}>{{ $m->name }}</option>
-                                        @endforeach
-                                    </select>
-                                    <i data-lucide="chevron-down" class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none"></i>
+                                <div class="moto-combobox" data-combobox="manufacturer" data-placeholder="指定なし">
+                                    <input type="hidden" name="manufacturer_id" value="{{ $filters['manufacturer_id'] ?? '' }}">
+                                    <button type="button" class="moto-combobox__toggle w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-left focus:ring-2 focus:ring-blue-500 outline-none flex items-center justify-between gap-2" aria-haspopup="listbox" aria-expanded="false" aria-label="メーカーを選択">
+                                        <span class="moto-combobox__label truncate"></span>
+                                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-300 shrink-0"></i>
+                                    </button>
+                                    <div class="moto-combobox__panel hidden" role="dialog" aria-label="メーカー候補">
+                                        <div class="moto-combobox__search-wrap">
+                                            <input type="text" class="moto-combobox__search" placeholder="メーカー名で検索..." aria-label="メーカー名で検索" autocomplete="off">
+                                        </div>
+                                        <ul class="moto-combobox__list" role="listbox" aria-label="メーカー一覧">
+                                            <li role="option" class="moto-combobox__opt" data-value="" data-label="指定なし"><span class="moto-combobox__opt-name">指定なし</span></li>
+                                            @foreach($manufacturers as $m)
+                                                <li role="option" class="moto-combobox__opt" data-value="{{ $m->id }}" data-label="{{ $m->name }}" data-search="{{ $m->name }} {{ $m->slug }}">
+                                                    <span class="moto-combobox__opt-name">{{ $m->name }}</span>
+                                                    @if(($m->listings_count ?? 0) > 0)<span class="moto-combobox__opt-count">{{ number_format($m->listings_count) }}</span>@endif
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                        <div class="moto-combobox__empty hidden">該当するメーカーがありません</div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="filter-group {{ empty($filters['manufacturer_id']) ? 'opacity-40' : '' }}" id="model-select-container">
+                            <div class="filter-group" id="model-combobox-group">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2 block">車種</label>
-                                <div class="relative">
-                                    <select name="bike_model_id" id="model-select" 
-                                            data-selected-id="{{ $filters['bike_model_id'] ?? '' }}"
-                                            class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none appearance-none pr-10" {{ empty($filters['manufacturer_id']) ? 'disabled' : '' }}>
-                                        <option value="">すべての車種</option>
-                                        @foreach($models as $model)
-                                            <option value="{{ $model->id }}" {{ (string)($filters['bike_model_id'] ?? '') === (string)$model->id ? 'selected' : '' }}>{{ $model->name }}</option>
-                                        @endforeach
-                                    </select>
-                                    <i data-lucide="chevron-down" class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none"></i>
+                                <div class="moto-combobox {{ empty($filters['manufacturer_id']) ? 'moto-combobox--disabled' : '' }}" data-combobox="model" data-placeholder="すべての車種">
+                                    <input type="hidden" name="bike_model_id" value="{{ $filters['bike_model_id'] ?? '' }}">
+                                    <button type="button" class="moto-combobox__toggle w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-left focus:ring-2 focus:ring-blue-500 outline-none flex items-center justify-between gap-2" aria-haspopup="listbox" aria-expanded="false" aria-label="車種を選択" {{ empty($filters['manufacturer_id']) ? 'disabled' : '' }}>
+                                        <span class="moto-combobox__label truncate"></span>
+                                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-300 shrink-0"></i>
+                                    </button>
+                                    <div class="moto-combobox__panel hidden" role="dialog" aria-label="車種候補">
+                                        <div class="moto-combobox__search-wrap">
+                                            <input type="text" class="moto-combobox__search" placeholder="車種名で検索..." aria-label="車種名で検索" autocomplete="off">
+                                        </div>
+                                        <ul class="moto-combobox__list" role="listbox" aria-label="車種一覧">
+                                            <li role="option" class="moto-combobox__opt" data-value="" data-label="すべての車種"><span class="moto-combobox__opt-name">すべての車種</span></li>
+                                            @foreach($models as $model)
+                                                <li role="option" class="moto-combobox__opt" data-value="{{ $model->id }}" data-label="{{ $model->name }}" data-search="{{ $model->name }}">
+                                                    <span class="moto-combobox__opt-name">{{ $model->name }}</span>
+                                                    @if(($model->listings_count ?? 0) > 0)<span class="moto-combobox__opt-count">{{ number_format($model->listings_count) }}</span>@endif
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                        <div class="moto-combobox__empty hidden">該当する車種がありません</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

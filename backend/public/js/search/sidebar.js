@@ -113,8 +113,10 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * すべてのフィルタ条件を初期状態（リセット）にする関数
      * @param {boolean} keepKeyword true ならキーワードは保持する（条件クリアボタン用）
+     * @param {boolean} resetMakerModel false ならメーカー・車種コンボボックスは触らない
+     *   （メーカー/車種変更時は「他のフィルターだけ」リセットし、選択自体は維持・送信するため）
      */
-    const resetAllFilters = (keepKeyword = false) => {
+    const resetAllFilters = (keepKeyword = false, resetMakerModel = true) => {
         if (!keepKeyword && keywordInput) keywordInput.value = "";
 
         // 排気量ラジオの hidden input を「すべて」に戻す
@@ -142,13 +144,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const prefSelect = filterForm.querySelector('select[name="prefecture"]');
         if (prefSelect) prefSelect.value = '';
 
-        // メーカー・車種ドリルダウンを初期状態に戻す
-        if (mSelect) mSelect.value = '';
-        if (modelSelect) {
-            modelSelect.innerHTML = '<option value="">すべての車種</option>';
-            modelSelect.value = '';
-            modelSelect.disabled = true;
-            modelContainer?.classList.add('opacity-40');
+        // メーカー・車種コンボボックスを初期状態に戻す（呼び出し側で制御可能）
+        if (resetMakerModel) {
+            manuCombo?.clear();
+            if (modelCombo) {
+                modelCombo.setOptions([{ value: '', label: 'すべての車種' }]);
+                modelCombo.clear();
+                modelCombo.disable();
+            }
         }
 
         // カテゴリ（単一選択）を解除
@@ -213,36 +216,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- メーカー・車種連動 ---
-    const mSelect = document.getElementById('manufacturer-select');
-    const modelSelect = document.getElementById('model-select');
-    const modelContainer = document.getElementById('model-select-container');
+    // --- メーカー・車種連動（検索付きコンボボックス） ---
+    const manuCombo = window.MotoCombobox?.get('manufacturer');
+    const modelCombo = window.MotoCombobox?.get('model');
 
+    // 選択中メーカーの車種候補を /api で取得し、コンボボックスに人気順で流し込む
     const updateModelList = async (selectedModelId = null) => {
-        const mid = mSelect.value;
+        if (!manuCombo || !modelCombo) return;
+        const mid = manuCombo.getValue();
         if (!mid) {
-            modelSelect.innerHTML = '<option value="">すべての車種</option>';
-            modelSelect.disabled = true;
-            modelContainer?.classList.add('opacity-40');
+            modelCombo.setOptions([{ value: '', label: 'すべての車種' }]);
+            modelCombo.clear();
+            modelCombo.disable();
             return;
         }
-        modelSelect.disabled = false;
-        modelContainer?.classList.remove('opacity-40');
+        modelCombo.enable();
 
         try {
             const res = await fetch(`/api/manufacturers/${mid}/models`);
             const models = await res.json();
-            let html = '<option value="">すべての車種</option>';
+            const opts = [{ value: '', label: 'すべての車種' }];
             models.forEach(m => {
-                const isSelected = String(m.id) === String(selectedModelId) ? 'selected' : '';
-                html += `<option value="${m.id}" ${isSelected}>${m.name}</option>`;
+                opts.push({
+                    value: String(m.id),
+                    label: m.name,
+                    search: m.name,
+                    count: (m.listings_count && m.listings_count > 0)
+                        ? Number(m.listings_count).toLocaleString()
+                        : null,
+                });
             });
-            modelSelect.innerHTML = html;
+            modelCombo.setOptions(opts);
+            if (selectedModelId) modelCombo.setValue(String(selectedModelId));
+            else modelCombo.clear();
         } catch (e) { console.error(e); }
     };
 
-    mSelect?.addEventListener('change', () => {
-        resetAllFilters(); 
+    // メーカー変更：他フィルターはリセットしつつメーカー選択は維持。車種は選び直し。
+    manuCombo?.onChange(() => {
+        resetAllFilters(false, false);
+        modelCombo?.clear();
         if (window.innerWidth >= 1024) {
             handleFilterChange(false);
         } else {
@@ -251,8 +264,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    modelSelect?.addEventListener('change', () => {
-        handleFilterChange(true);
+    // 車種変更：他フィルターはリセットしつつメーカー・車種は維持して再検索。
+    modelCombo?.onChange(() => {
+        resetAllFilters(false, false);
+        handleFilterChange(false);
     });
 
     const filterSelectors = ['select[name="prefecture"]', 'input[name="is_new"]', 'input[name="has_repair_history"]'];
@@ -361,7 +376,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    if (mSelect && mSelect.value && modelSelect && modelSelect.options.length <= 1) {
-        updateModelList(modelSelect.dataset.selectedId);
-    }
+    // メーカー選択済みでページロードされた場合、車種候補はサーバー側で
+    // 人気順に描画済み・コンボボックスが選択値を復元するため、初期fetchは不要。
 });

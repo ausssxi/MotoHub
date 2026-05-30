@@ -38,14 +38,16 @@ final class BikeModelRepository
     }
 
     /**
-     * 特定のメーカーに紐づく車種一覧をID順で取得
+     * 特定のメーカーに紐づく車種一覧を掲載台数（active）の多い順で取得
+     * 人気車種が上に来るようにし、同数は名前順で安定させる。
      */
     public function getByManufacturerId(int $manufacturerId): Collection
     {
         return BikeModel::where('manufacturer_id', $manufacturerId)
             ->with('representativeListing')
             ->withCount(['listings' => fn($q) => $q->active()])
-            ->orderBy('id', 'asc')
+            ->orderByDesc('listings_count')
+            ->orderBy('name', 'asc')
             ->get();
     }
 
