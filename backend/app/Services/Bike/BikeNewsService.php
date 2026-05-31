@@ -9,10 +9,13 @@ use Illuminate\Support\Facades\Http;
 
 class BikeNewsService
 {
-    public function fetch(string $query, int $limit = 5): array
+    public function fetch(string $query, int $limit = 5, ?int $modelId = null): array
     {
-        $slug = str($query)->slug();
-        $cacheKey = "bike_news_{$slug}";
+        // 取り違え防止: 日本語名はStr::slugで落ちて衝突する（bike_news_650 等）ため、
+        // model_idがあればそれをキーに使う。無ければ従来のslugにフォールバック。
+        $cacheKey = $modelId !== null
+            ? "bike_news_model_{$modelId}"
+            : 'bike_news_' . str($query)->slug();
 
         return Cache::remember($cacheKey, 86400, function () use ($query, $limit) {
             try {
@@ -23,7 +26,7 @@ class BikeNewsService
                     'ceid' => 'JP:ja',
                 ]);
 
-                $response = Http::timeout(5)->get($url);
+                $response = Http::timeout(2)->get($url);
 
                 if ($response->failed()) {
                     return [];
@@ -49,7 +52,7 @@ class BikeNewsService
                     }
 
                     $link = (string) $item->link;
-                    $image = $this->extractImage($item, $link);
+                    $image = $this->extractImage($item);
 
                     $items[] = [
                         'title'  => $title,
@@ -67,7 +70,7 @@ class BikeNewsService
         });
     }
 
-    private function extractImage(\SimpleXMLElement $item, string $articleUrl): ?string
+    private function extractImage(\SimpleXMLElement $item): ?string
     {
         // 1. <media:content> からサムネイル取得
         $media = $item->children('http://search.yahoo.com/mrss/');
@@ -101,32 +104,8 @@ class BikeNewsService
             }
         }
 
-        // 3. OGP画像をフォールバック取得
-        return $this->fetchOgImage($articleUrl);
-    }
-
-    private function fetchOgImage(string $url): ?string
-    {
-        try {
-            $response = Http::timeout(3)
-                ->withHeaders(['User-Agent' => 'MotoHub/1.0'])
-                ->get($url);
-
-            if ($response->failed()) {
-                return null;
-            }
-
-            $body = $response->body();
-            if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $body, $m)) {
-                return $m[1];
-            }
-            if (preg_match('/<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']/i', $body, $m)) {
-                return $m[1];
-            }
-
-            return null;
-        } catch (\Throwable) {
-            return null;
-        }
+        // 3. RSSにサムネが無い場合は画像なし。
+        //    各記事ページへの同期og:imageスクレイプ(最大5件×3s)はコールドスパイクの主因のため廃止。
+        return null;
     }
 }

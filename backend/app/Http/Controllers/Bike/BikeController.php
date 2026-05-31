@@ -1182,7 +1182,7 @@ final class BikeController extends Controller
         $relatedParts = app(BikePartsService::class)->fetchForModel($model);
 
         try {
-            $news = (new BikeNewsService())->fetch("{$model->manufacturer->name} {$model->name} バイク", 5);
+            $news = (new BikeNewsService())->fetch("{$model->manufacturer->name} {$model->name} バイク", 5, $model->id);
         } catch (\Throwable) {
             $news = [];
         }
