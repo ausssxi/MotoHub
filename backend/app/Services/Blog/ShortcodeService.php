@@ -4,10 +4,21 @@ declare(strict_types=1);
 
 namespace App\Services\Blog;
 
+use App\Models\BikeModel;
+use App\Models\Manufacturer;
+use App\Services\Bike\PriceStatsService;
+use Illuminate\Support\Facades\View;
+
 final class ShortcodeService
 {
+    public function __construct(
+        private readonly PriceStatsService $priceStats,
+    ) {}
+
     /**
-     * HTML内の[riders-map ...]ショートコードを検出し、マップ用divに置換する。
+     * HTML内のショートコードを検出して置換する。
+     *  - [riders-map ...]      … 地図埋め込み
+     *  - [bikes <id|mfr/slug> …] … 関連車種の在庫CTAブロック（記事末などに著者が明示配置）
      *
      * @return array{html: string, hasMap: bool}
      */
@@ -48,7 +59,90 @@ final class ShortcodeService
             );
         }, $html) ?? $html;
 
+        // [bikes honda/super-cub-110 kawasaki/gpz900r 629] → 在庫CTAブロック
+        $bikesPattern = '/(?:<p>\s*)?\[bikes\s+([^\]]+)\](?:\s*<\/p>)?/u';
+        $html = preg_replace_callback($bikesPattern, function (array $matches): string {
+            return $this->renderBikesBlock($matches[1]);
+        }, $html) ?? $html;
+
         return ['html' => $html, 'hasMap' => $hasMap];
+    }
+
+    /**
+     * [bikes ...] の中身（空白区切りの識別子）を車種に解決し、CTAブロックHTMLを返す。
+     * 識別子は "mfrSlug/modelSlug"（主・/bikes/{mfr}/{slug} ルートと同一解決）または数値ID（フォールバック）。
+     * 解決できない識別子はスキップ（誤リンクより無リンクを優先）。
+     */
+    private function renderBikesBlock(string $rawTokens): string
+    {
+        $tokens = preg_split('/[\s　]+/u', trim($rawTokens), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        $bikes = [];
+        $seen = [];
+        foreach ($tokens as $token) {
+            $model = $this->resolveModel($token);
+            if ($model === null || isset($seen[$model->id])) {
+                continue;
+            }
+            $seen[$model->id] = true;
+
+            $stats = $this->priceStats->getModelStats($model->id);
+            $count = (int) ($stats['count'] ?? 0);
+            $minMan = isset($stats['min']) && $stats['min'] > 0 ? $stats['min'] : null;
+
+            // アンカー表記は車種ページのタイトル構成（メーカー名＋車種名）に合わせる
+            $label = trim(($model->manufacturer?->name ? $model->manufacturer->name . ' ' : '') . $model->name);
+
+            $bikes[] = [
+                'name' => $label,
+                'url' => $model->seo_url,
+                'count' => $count,
+                'minMan' => $minMan,
+            ];
+        }
+
+        if (empty($bikes)) {
+            return '';
+        }
+
+        return View::make('blog.partials.bike-cta', ['bikes' => $bikes])->render();
+    }
+
+    /**
+     * 識別子1つを車種に解決する。/bikes/{mfr}/{slug} ルートと同じロジックでページとリンク先を一致させる。
+     */
+    private function resolveModel(string $token): ?BikeModel
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return null;
+        }
+
+        // 数値ID（フォールバック）
+        if (ctype_digit($token)) {
+            return BikeModel::with('manufacturer')->find((int) $token);
+        }
+
+        // mfrSlug/modelSlug（主）
+        if (! str_contains($token, '/')) {
+            return null;
+        }
+        [$mfrSlug, $modelSlug] = explode('/', $token, 2);
+        $mfrSlug = trim($mfrSlug);
+        $modelSlug = trim($modelSlug);
+        if ($mfrSlug === '' || $modelSlug === '') {
+            return null;
+        }
+
+        $manufacturer = Manufacturer::where('slug', $mfrSlug)->first();
+        if ($manufacturer === null) {
+            return null;
+        }
+
+        return BikeModel::with('manufacturer')
+            ->where('manufacturer_id', $manufacturer->id)
+            ->where('slug', $modelSlug)
+            ->first();
     }
 
     /**
