@@ -33,6 +33,6 @@ final class ListingObserver
         $mfrSlug = $bikeModel->manufacturer->slug;
         $modelSlug = $bikeModel->slug ?? $bikeModel->id;
 
-        Cache::forget("model_detail_v1_{$mfrSlug}_{$modelSlug}");
+        Cache::forget(\App\Models\BikeModel::modelDetailCacheKey($mfrSlug, $modelSlug));
     }
 }

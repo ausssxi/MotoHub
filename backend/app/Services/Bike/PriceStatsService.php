@@ -39,6 +39,9 @@ final class PriceStatsService
                 'min'   => round($cached->min_price / 10000, 1),
                 'max'   => round($cached->max_price / 10000, 1),
                 'avg'   => round($cached->avg_price / 10000, 1),
+                // 円の生値（schema.org AggregateOffer の lowPrice/highPrice 用。万円丸めの精度ロスを避ける）
+                'min_raw' => (int) $cached->min_price,
+                'max_raw' => (int) $cached->max_price,
                 'distribution' => $cached->distribution_data,
             ];
         } else {
@@ -128,7 +131,7 @@ final class PriceStatsService
         $prices = $this->listingStatsRepo->getValidTotalPricesByModelId($bikeModelId);
 
         if ($prices->isEmpty()) {
-            return ['count' => 0, 'min' => 0, 'max' => 0, 'avg' => 0, 'distribution' => []];
+            return ['count' => 0, 'min' => 0, 'max' => 0, 'avg' => 0, 'min_raw' => 0, 'max_raw' => 0, 'distribution' => []];
         }
 
         $min = $prices->min() / 10000;
@@ -141,6 +144,9 @@ final class PriceStatsService
             'min'   => round($min, 1),
             'max'   => round($max, 1),
             'avg'   => round($avg, 1),
+            // 円の生値（schema.org AggregateOffer の lowPrice/highPrice 用。万円丸めの精度ロスを避ける）
+            'min_raw' => (int) $prices->min(),
+            'max_raw' => (int) $prices->max(),
             'distribution' => $this->createDistribution($prices, $step),
         ];
     }

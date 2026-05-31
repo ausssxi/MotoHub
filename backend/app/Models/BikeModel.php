@@ -17,6 +17,22 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 final class BikeModel extends Model
 {
     /**
+     * 車種詳細ページ(model_detail)キャッシュのバージョン。
+     * $stats等のキャッシュ構造を変えた際にバンプすると、旧キャッシュを破棄せず自然に無効化できる。
+     * （BikeController::modelDetailBySlug 等と ListingObserver::purgeModelDetailCache が同じキーを共有）
+     */
+    public const MODEL_DETAIL_CACHE_VERSION = 'v2';
+
+    /**
+     * model_detail ページのキャッシュキーを生成する（生成側とパージ側で必ず一致させるための単一の正本）。
+     * slugが無い車種はID、IDベースのフォールバックは $mfrSlug='id' を渡す。
+     */
+    public static function modelDetailCacheKey(string $mfrSlug, string|int $slugForKey): string
+    {
+        return 'model_detail_' . self::MODEL_DETAIL_CACHE_VERSION . "_{$mfrSlug}_{$slugForKey}";
+    }
+
+    /**
      * 複数代入可能な属性
      *
      * @var array<int, string>
