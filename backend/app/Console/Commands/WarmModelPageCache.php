@@ -68,7 +68,7 @@ final class WarmModelPageCache extends Command
                     $fail++;
                 }
 
-                sleep(5);
+                sleep(1);
             }
         });
 

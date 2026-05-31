@@ -20,6 +20,10 @@ final class BikeModel extends Model
      * 車種詳細ページ(model_detail)キャッシュのバージョン。
      * $stats等のキャッシュ構造を変えた際にバンプすると、旧キャッシュを破棄せず自然に無効化できる。
      * （BikeController::modelDetailBySlug 等と ListingObserver::purgeModelDetailCache が同じキーを共有）
+     *
+     * ⚠️ このバージョンを bump したら、デプロイ後に必ず1回 `php artisan cache:warm-models --all`
+     *    を実行して全車種をv2キーで再温めすること（バンプ直後は全ページがコールド＝TTFB悪化、
+     *    日次ウォーマーは07:30まで走らない）。cache:clear は使わない（上書きウォームのみ）。
      */
     public const MODEL_DETAIL_CACHE_VERSION = 'v2';
 
