@@ -26,6 +26,10 @@ Schedule::command('youtube:refresh-videos --days=30')->weeklyOn(1, '03:30');
 // バイクニュース取得（毎時）
 Schedule::command('news:fetch')->hourly();
 
+// 楽天パーツ事前取得（在庫車種を日次ローテーション・render pathから分離）
+// 失効分のみ約800件/日 → 7日TTLで全在庫車種(~4300)をカバー。A案のためwarmとの順序不問。
+Schedule::command('parts:refresh')->dailyAt('02:00')->withoutOverlapping()->runInBackground();
+
 // 一括sold_out除外IDの事前計算（ランキング集計前に実行）
 Schedule::command('ranking:compute-bulk-exclusions')->dailyAt('05:30');
 

@@ -5,30 +5,30 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Bike;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Contracts\View\View;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Response;
-use App\Models\Listing;
-use App\Services\Bike\BikeService;
-use App\Services\Bike\ListingSearchService;
-use App\Services\Bike\SeoLandingService;
-use App\Services\Bike\CityLandingService;
-use App\Services\Bike\PriceStatsService;
-use App\Services\NearbyService;
-use App\Http\Resources\Bike\ListingResource;
-use App\Http\Requests\Bike\StoreReviewRequest;
 use App\Http\Requests\Bike\BikeSearchRequest;
+use App\Http\Requests\Bike\StoreReviewRequest;
+use App\Http\Resources\Bike\ListingResource;
+use App\Models\Listing;
+use App\Models\SeoCompare;
 use App\Models\SeoFeature;
-use App\Services\Bike\BikePartsService;
 use App\Services\Bike\BikeNewsService;
+use App\Services\Bike\BikePartsService;
+use App\Services\Bike\BikeService;
 use App\Services\Bike\BikeYouTubeService;
+use App\Services\Bike\CityLandingService;
+use App\Services\Bike\ListingSearchService;
+use App\Services\Bike\PriceStatsService;
+use App\Services\Bike\SeoCompareService;
+use App\Services\Bike\SeoLandingService;
+use App\Services\NearbyService;
+use App\Services\RankingService;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use App\Services\RankingService;
-use App\Services\Bike\SeoCompareService;
-use App\Models\SeoCompare;
 
 /**
  * バイク検索・表示機能を提供するメインコントローラー
@@ -50,8 +50,7 @@ final class BikeController extends Controller
      */
     public function index(): View
     {
-        $popularBikes = Cache::remember('top_popular_bikes', 1800, fn () =>
-            $this->bikeService->getPopularBikesForTopPage()
+        $popularBikes = Cache::remember('top_popular_bikes', 1800, fn () => $this->bikeService->getPopularBikesForTopPage()
         );
         $categories = $this->bikeService->getCategoriesForTopPage();
         $manufacturers = $this->bikeService->getMajorManufacturers();
@@ -72,24 +71,21 @@ final class BikeController extends Controller
         $totalListings = $this->listingSearchService->getActiveCount();
         $todayStart = today();
         $todayEnd = today()->addDay();
-        $priceDropCount = Cache::remember('top_price_drop_count', 1800, fn () =>
-            DB::table('price_histories')
-                ->where('created_at', '>=', $todayStart)
-                ->where('created_at', '<', $todayEnd)
-                ->distinct('listing_id')
-                ->count('listing_id')
+        $priceDropCount = Cache::remember('top_price_drop_count', 1800, fn () => DB::table('price_histories')
+            ->where('created_at', '>=', $todayStart)
+            ->where('created_at', '<', $todayEnd)
+            ->distinct('listing_id')
+            ->count('listing_id')
         );
-        $newListingsCount = Cache::remember('top_new_listings_count', 1800, fn () =>
-            Listing::active()
-                ->where('listings.created_at', '>=', $todayStart)
-                ->where('listings.created_at', '<', $todayEnd)
-                ->count()
+        $newListingsCount = Cache::remember('top_new_listings_count', 1800, fn () => Listing::active()
+            ->where('listings.created_at', '>=', $todayStart)
+            ->where('listings.created_at', '<', $todayEnd)
+            ->count()
         );
 
         // 前日の販売台数
         $yesterday = today()->subDay();
-        $todaySoldCount = Cache::remember('top_yesterday_sold_v3', 3600, fn () =>
-            Listing::cappedSold($yesterday, $yesterday)->excludeBulkSold()->count()
+        $todaySoldCount = Cache::remember('top_yesterday_sold_v3', 3600, fn () => Listing::cappedSold($yesterday, $yesterday)->excludeBulkSold()->count()
         );
 
         // お買い得車両数
@@ -121,6 +117,7 @@ final class BikeController extends Controller
                         }
                     }
                 });
+
             return $count;
         });
 
@@ -142,6 +139,7 @@ final class BikeController extends Controller
 
             return $rows->map(function ($item) use ($models) {
                 $m = $models->get($item->bike_model_id);
+
                 return [
                     'bike_model_id' => $item->bike_model_id,
                     'name' => $m->name ?? '不明',
@@ -178,11 +176,15 @@ final class BikeController extends Controller
             $mapped = [];
             foreach ($raw as $pref => $cnt) {
                 $short = str_replace(['都', '道', '府', '県'], '', $pref);
-                if ($short === '北海') $short = '北海道';
+                if ($short === '北海') {
+                    $short = '北海道';
+                }
                 $mapped[$short] = ($mapped[$short] ?? 0) + $cnt;
             }
+
             return $mapped;
         });
+
         return view('bikes.prefectures', compact('regions', 'totalListings', 'prefCounts'));
     }
 
@@ -192,7 +194,7 @@ final class BikeController extends Controller
     public function areaIndex(string $prefecture): View
     {
         // v2: 車種(models)リンクを追加したためキー更新（旧キャッシュに models が無く未定義変数になるのを防ぐ）
-        $cacheKey = 'area_index_v2_' . md5($prefecture);
+        $cacheKey = 'area_index_v2_'.md5($prefecture);
 
         $data = Cache::remember($cacheKey, 3600, function () use ($prefecture) {
             $baseQuery = Listing::query()
@@ -248,9 +250,9 @@ final class BikeController extends Controller
                 'url' => route('bikes.landing', ['prefecture' => $prefecture, 'slug' => $modelNames->get($r->bike_model_id)]),
                 'count' => (int) $r->cnt,
             ])->filter(fn ($m) => $m['label'] !== null)
-              ->unique('label') // 同名重複モデルは在庫最多(先頭)のみ
-              ->take(24)
-              ->values();
+                ->unique('label') // 同名重複モデルは在庫最多(先頭)のみ
+                ->take(24)
+                ->values();
 
             // 排気量別
             $displacements = collect([
@@ -263,6 +265,7 @@ final class BikeController extends Controller
                 $cnt = (clone $baseQuery)
                     ->whereBetween('listings.displacement', [$d['min'], $d['max']])
                     ->count();
+
                 return [
                     'label' => $d['label'],
                     'url' => route('bikes.landing', ['prefecture' => $prefecture, 'slug' => $d['slug']]),
@@ -291,6 +294,7 @@ final class BikeController extends Controller
         try {
             if ($request->has('count_only')) {
                 $count = $this->listingSearchService->getFilteredCount($keyword, $prefecture, $filters);
+
                 return response()->json(['total' => $count]);
             }
 
@@ -302,9 +306,10 @@ final class BikeController extends Controller
                 foreach ($result['items'] as $listing) {
                     $html .= view('bikes.partials.bike_card', ['listing' => $listing])->render();
                 }
+
                 return response()->json([
                     'html' => $html,
-                    'next_url' => $result['pagination']['next_url']
+                    'next_url' => $result['pagination']['next_url'],
                 ]);
             }
 
@@ -313,11 +318,11 @@ final class BikeController extends Controller
             $recommendedModels = $this->listingSearchService->getRecommendedModels($result['filters'], $result['items']);
 
             return view('bikes.search', array_merge($result, [
-                'keyword'           => $keyword,
-                'prefecture'        => $prefecture,
-                'sort'              => $sort,
-                'pageTitle'         => $pageTitle,
-                'popularTags'       => $popularTags,
+                'keyword' => $keyword,
+                'prefecture' => $prefecture,
+                'sort' => $sort,
+                'pageTitle' => $pageTitle,
+                'popularTags' => $popularTags,
                 'recommendedModels' => $recommendedModels,
             ]));
         } catch (\Throwable $e) {
@@ -336,24 +341,24 @@ final class BikeController extends Controller
             }
 
             return view('bikes.search', [
-                'items'            => [],
-                'pagination'       => ['total' => 0, 'last_page' => 1, 'prev_url' => null, 'next_url' => null, 'pages' => []],
-                'stats'            => [],
-                'meta'             => [],
-                'facets'           => [],
+                'items' => [],
+                'pagination' => ['total' => 0, 'last_page' => 1, 'prev_url' => null, 'next_url' => null, 'pages' => []],
+                'stats' => [],
+                'meta' => [],
+                'facets' => [],
                 'relaxSuggestions' => [],
-                'manufacturers'    => collect(),
-                'models'           => collect(),
-                'categories'       => collect(),
-                'regions'          => config('bike.regions', []),
-                'prefectures'      => collect(config('bike.regions', []))->flatten()->toArray(),
-                'filters'          => $filters,
-                'sortOptions'      => [],
-                'keyword'          => $keyword,
-                'prefecture'       => $prefecture,
-                'sort'             => $sort,
-                'pageTitle'        => '検索結果',
-                'popularTags'      => $this->listingSearchService->getPopularTags(),
+                'manufacturers' => collect(),
+                'models' => collect(),
+                'categories' => collect(),
+                'regions' => config('bike.regions', []),
+                'prefectures' => collect(config('bike.regions', []))->flatten()->toArray(),
+                'filters' => $filters,
+                'sortOptions' => [],
+                'keyword' => $keyword,
+                'prefecture' => $prefecture,
+                'sort' => $sort,
+                'pageTitle' => '検索結果',
+                'popularTags' => $this->listingSearchService->getPopularTags(),
                 'recommendedModels' => collect(),
             ]);
         }
@@ -385,327 +390,329 @@ final class BikeController extends Controller
         $listing = $this->bikeService->getListingDetail($id);
 
         // レコード不在 → 404
-        if (!$listing) {
+        if (! $listing) {
             return response()->view('errors.404', [
-                'message'   => 'この車両は掲載終了しました',
+                'message' => 'この車両は掲載終了しました',
                 'searchUrl' => route('bikes.index'),
-                'bikeName'  => null,
+                'bikeName' => null,
             ], 404);
         }
 
         try {
-        $isSoldOut = (bool) $listing->is_sold_out;
+            $isSoldOut = (bool) $listing->is_sold_out;
 
-        if (!$isSoldOut) {
-            $this->bikeService->incrementViewCount($id);
-        }
+            if (! $isSoldOut) {
+                $this->bikeService->incrementViewCount($id);
+            }
 
-        $relatedRaw = $listing->bike_model_id 
-            ? $this->bikeService->getRelatedListings($listing->bike_model_id, $listing->id, 8) 
-            : collect();
-            
-        $similarRaw = $this->bikeService->getSimilarListings($listing->manufacturer_id, $listing->bike_model_id, 8);
+            $relatedRaw = $listing->bike_model_id
+                ? $this->bikeService->getRelatedListings($listing->bike_model_id, $listing->id, 8)
+                : collect();
 
-        $currentPrice = is_numeric($listing->total_price) ? (float)$listing->total_price : 0;
-        $stats = $this->priceStatsService->getModelStats((int)$listing->bike_model_id, $currentPrice);
+            $similarRaw = $this->bikeService->getSimilarListings($listing->manufacturer_id, $listing->bike_model_id, 8);
 
-        // パーセンタイル算出（distribution から計算、DB追加クエリなし）
-        $pricePercentile = null;
-        if ($currentPrice > 0 && !empty($stats['distribution']) && ($stats['count'] ?? 0) > 1) {
-            $cheaperCount = 0;
-            foreach ($stats['distribution'] as $bucket) {
-                if ($bucket['range_max'] <= $currentPrice) {
-                    $cheaperCount += $bucket['count'];
-                } elseif ($bucket['range_min'] < $currentPrice) {
-                    $range = $bucket['range_max'] - $bucket['range_min'];
-                    if ($range > 0) {
-                        $cheaperCount += (int) round($bucket['count'] * ($currentPrice - $bucket['range_min']) / $range);
+            $currentPrice = is_numeric($listing->total_price) ? (float) $listing->total_price : 0;
+            $stats = $this->priceStatsService->getModelStats((int) $listing->bike_model_id, $currentPrice);
+
+            // パーセンタイル算出（distribution から計算、DB追加クエリなし）
+            $pricePercentile = null;
+            if ($currentPrice > 0 && ! empty($stats['distribution']) && ($stats['count'] ?? 0) > 1) {
+                $cheaperCount = 0;
+                foreach ($stats['distribution'] as $bucket) {
+                    if ($bucket['range_max'] <= $currentPrice) {
+                        $cheaperCount += $bucket['count'];
+                    } elseif ($bucket['range_min'] < $currentPrice) {
+                        $range = $bucket['range_max'] - $bucket['range_min'];
+                        if ($range > 0) {
+                            $cheaperCount += (int) round($bucket['count'] * ($currentPrice - $bucket['range_min']) / $range);
+                        }
                     }
                 }
-            }
-            $pricePercentile = (int) round($cheaperCount / $stats['count'] * 100);
-        }
-
-        // 値下げ額の計算ロジック（コントローラー側で処理してビューへ渡す）
-        $priceDropDiff = null;
-        if ($listing->relationLoaded('priceHistories') && $listing->priceHistories->isNotEmpty()) {
-            $latestDrop = $listing->priceHistories->first();
-            if ($latestDrop->old_price > $latestDrop->new_price) {
-                // 万円単位に変換（例: 30000 → 3.0）
-                $priceDropDiff = number_format(($latestDrop->old_price - $latestDrop->new_price) / 10000, 1);
-            }
-        }
-
-        // お買い得割引率（相場平均より20%以上安い場合のみ）
-        $discountRate = null;
-        if ($currentPrice > 0 && isset($stats['avg']) && $stats['avg'] > 0 && ($stats['count'] ?? 0) >= 5) {
-            $currentPriceMan = $currentPrice / 10000;
-            $rate = (($stats['avg'] - $currentPriceMan) / $stats['avg']) * 100;
-            if ($rate >= 20) {
-                $discountRate = (int) round($rate);
-            }
-        }
-        
-        $reviews = $listing->bike_model_id 
-            ? $this->bikeService->getReviewsByModelId((int)$listing->bike_model_id, 3) 
-            : collect();
-
-        $data = (object) (new ListingResource($listing))->resolve();
-        $seoLinks = $this->bikeService->getSeoLinks($listing);
-        $dynamicLinks = $this->bikeService->generateDynamicLinks($data, $seoLinks, $listing->tags);
-
-        // 近くの駐車場・ショップ（店舗のlat/lngを使用）
-        $nearbyParkings = collect();
-        $nearbyShops = collect();
-        $shopLat = $listing->shop?->latitude;
-        $shopLng = $listing->shop?->longitude;
-        if ($shopLat && $shopLng) {
-            $nearbyParkings = $this->nearbyService->getNearbyParkings((float) $shopLat, (float) $shopLng);
-            $nearbyShops = $this->nearbyService->getNearbyShops((float) $shopLat, (float) $shopLng, $listing->shop->id);
-        }
-
-        $alsoViewed = collect();
-        if ($listing->bike_model_id && $listing->total_price) {
-            $alsoViewed = Cache::remember("also_viewed_{$listing->id}", 3600, function () use ($listing) {
-                return \App\Models\Listing::with('shop')
-                    ->where('is_sold_out', 0)
-                    ->where('id', '!=', $listing->id)
-                    ->where(function($query) use ($listing) {
-                        $query->where('category_id', $listing->category_id)
-                              ->orWhereBetween('total_price', [
-                                  $listing->total_price * 0.8,
-                                  $listing->total_price * 1.2
-                              ]);
-                    })
-                    ->whereNotNull('total_price')
-                    ->where('total_price', '>', 0)
-                    ->inRandomOrder()
-                    ->limit(6)
-                    ->get();
-            });
-        }
-
-        $crossLinks = [
-            ['label' => '中古バイク検索', 'url' => route('bikes.search'), 'icon' => 'search', 'description' => '全国の在庫を検索'],
-            ['label' => '車種カタログ', 'url' => route('bikes.models'), 'icon' => 'book-open', 'description' => '車種の相場を確認'],
-            ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => 'バイク駐車場を探す'],
-            ['label' => 'バイク診断', 'url' => route('shindan.index'), 'icon' => 'sparkles', 'description' => 'あなたにピッタリの1台'],
-            ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'car', 'description' => '愛車を登録・管理'],
-        ];
-
-        $relatedParts = $listing->bikeModel
-            ? app(BikePartsService::class)->fetchFlat($listing->bikeModel)
-            : [];
-
-        $makerName = $listing->bikeModel?->manufacturer?->name ?? '';
-        $modelName = $listing->bikeModel?->name ?? $listing->title ?? '';
-
-        $news = [];
-        if ($listing->bike_model_id) {
-            $news = \App\Models\BikeNews::where('bike_model_id', $listing->bike_model_id)
-                ->latest()
-                ->limit(3)
-                ->get()
-                ->toArray();
-        }
-        if (empty($news) && $listing->manufacturer_id) {
-            $news = \App\Models\BikeNews::where('manufacturer_id', $listing->manufacturer_id)
-                ->latest()
-                ->limit(3)
-                ->get()
-                ->toArray();
-        }
-
-        try {
-            $videos = (new BikeYouTubeService())->fetch("{$makerName} {$modelName} レビュー", 3, $listing->bike_model_id);
-        } catch (\Throwable) {
-            $videos = [];
-        }
-
-        // 施策B-H: コンテンツ差別化テキスト
-        $bikeHighlight = $this->getBikeHighlight($data);
-        $priceAnalysisText = $this->getPriceAnalysisText($data, $stats, $pricePercentile);
-        $modelComment = $this->getModelComment($data);
-        $regionComment = $this->getRegionComment($data);
-        $priceBandComment = $this->getPriceBandComment($data);
-
-        // 多角的比較指標（市場ポジション分析）
-        $marketPosition = $this->getMarketPosition($listing);
-
-        // 施策E: ブログ記事連携
-        $relatedBlogPosts = collect();
-        try {
-            $blogModelName = $listing->bikeModel?->name ?? '';
-            if ($blogModelName) {
-                $relatedBlogPosts = \App\Models\BlogPost::published()
-                    ->where(function ($q) use ($blogModelName, $data) {
-                        $q->where('title', 'like', "%{$blogModelName}%")
-                          ->orWhere('title', 'like', '%' . ($data->category ?? '____') . '%');
-                    })
-                    ->orderByDesc('published_at')
-                    ->limit(3)
-                    ->get();
-            }
-        } catch (\Throwable) {
-            $relatedBlogPosts = collect();
-        }
-
-        // 車種販売データ（ランキング連携）
-        $rankingStats = null;
-        if ($listing->bike_model_id) {
-            $rankingStats = Cache::remember("show_ranking_stats_{$listing->bike_model_id}", 604800, function () use ($listing) {
-                $lms = now()->subMonth()->startOfMonth();
-                $lme = now()->subMonth()->endOfMonth();
-                $three = now()->subMonths(3);
-
-                $sold = Listing::where('bike_model_id', $listing->bike_model_id)
-                    ->where('is_sold_out', true)
-                    ->whereBetween('updated_at', [$lms, $lme])
-                    ->count();
-
-                if ($sold === 0) return null;
-
-                $allSales = Listing::where('is_sold_out', true)
-                    ->whereBetween('updated_at', [$lms, $lme])
-                    ->whereNotNull('bike_model_id')
-                    ->select('bike_model_id', DB::raw('COUNT(*) as cnt'))
-                    ->groupBy('bike_model_id')
-                    ->orderByDesc('cnt')
-                    ->get();
-                $rank = $allSales->search(fn ($r) => $r->bike_model_id == $listing->bike_model_id);
-                $rank = $rank !== false ? $rank + 1 : null;
-
-                $avgDays = Listing::where('bike_model_id', $listing->bike_model_id)
-                    ->where('is_sold_out', true)
-                    ->whereBetween('updated_at', [$lms, $lme])
-                    ->selectRaw('AVG(DATEDIFF(updated_at, created_at)) as avg_days')
-                    ->value('avg_days');
-
-                $topPrice = Listing::where('bike_model_id', $listing->bike_model_id)
-                    ->where('is_sold_out', true)->where('updated_at', '>=', $three)
-                    ->whereNotNull('total_price')
-                    ->select(DB::raw("CASE WHEN total_price<200000 THEN '〜20万円' WHEN total_price<300000 THEN '20〜30万円' WHEN total_price<400000 THEN '30〜40万円' WHEN total_price<500000 THEN '40〜50万円' WHEN total_price<700000 THEN '50〜70万円' WHEN total_price<1000000 THEN '70〜100万円' ELSE '100万円〜' END as price_range"), DB::raw('COUNT(*) as cnt'))
-                    ->groupBy('price_range')->orderByDesc('cnt')->first();
-
-                $topRegion = Listing::where('listings.bike_model_id', $listing->bike_model_id)
-                    ->where('listings.is_sold_out', true)->where('listings.updated_at', '>=', $three)
-                    ->join('shops', 'listings.shop_id', '=', 'shops.id')
-                    ->whereNotNull('shops.prefecture')
-                    ->select('shops.prefecture', DB::raw('COUNT(*) as cnt'))
-                    ->groupBy('shops.prefecture')->orderByDesc('cnt')->first();
-
-                return [
-                    'sold' => $sold,
-                    'rank' => $rank,
-                    'totalModels' => $allSales->count(),
-                    'dailyAvg' => round($sold / 30, 1),
-                    'avgDays' => (int) round((float) ($avgDays ?? 0)),
-                    'topPrice' => $topPrice?->price_range,
-                    'topRegion' => $topRegion?->prefecture,
-                ];
-            });
-        }
-
-        // 売り切れ車両用データ
-        $soldOutData = null;
-        $activeSameModel = collect();
-        if ($isSoldOut) {
-            // 販売記録
-            $listingDays = $listing->created_at && $listing->updated_at
-                ? max(0, $listing->created_at->diffInDays($listing->updated_at))
-                : null;
-            $soldPrice = $listing->total_price
-                ? number_format((float) ($listing->total_price / 10000), 1)
-                : null;
-
-            // 同車種の販売中車両（最大6台）
-            if ($listing->bike_model_id) {
-                $activeSameModel = Listing::with('shop:id,name,prefecture')
-                    ->where('bike_model_id', $listing->bike_model_id)
-                    ->where('is_sold_out', false)
-                    ->orderBy('total_price')
-                    ->limit(6)
-                    ->get();
+                $pricePercentile = (int) round($cheaperCount / $stats['count'] * 100);
             }
 
-            // 車種の市場データ（販売中車両ベース）
-            $marketAvgPrice = null;
-            $marketActiveCount = 0;
-            if ($listing->bike_model_id) {
-                $marketData = Listing::where('bike_model_id', $listing->bike_model_id)
-                    ->where('is_sold_out', false)
-                    ->whereNotNull('total_price')
-                    ->where('total_price', '>', 0)
-                    ->selectRaw('AVG(total_price) as avg_price, COUNT(*) as cnt')
-                    ->first();
-                $marketAvgPrice = $marketData->avg_price ? number_format((float) ($marketData->avg_price / 10000), 1) : null;
-                $marketActiveCount = (int) $marketData->cnt;
+            // 値下げ額の計算ロジック（コントローラー側で処理してビューへ渡す）
+            $priceDropDiff = null;
+            if ($listing->relationLoaded('priceHistories') && $listing->priceHistories->isNotEmpty()) {
+                $latestDrop = $listing->priceHistories->first();
+                if ($latestDrop->old_price > $latestDrop->new_price) {
+                    // 万円単位に変換（例: 30000 → 3.0）
+                    $priceDropDiff = number_format(($latestDrop->old_price - $latestDrop->new_price) / 10000, 1);
+                }
             }
 
-            $soldOutData = [
-                'listing_days' => $listingDays,
-                'sold_price'   => $soldPrice,
-                'created_at'   => $listing->created_at?->format('Y年m月d日'),
-                'updated_at'   => $listing->updated_at?->format('Y年m月d日'),
-                'market_avg_price'   => $marketAvgPrice,
-                'market_active_count' => $marketActiveCount,
-                'ranking_rank'  => $rankingStats['rank'] ?? null,
-                'ranking_total' => $rankingStats['totalModels'] ?? null,
-                'avg_sell_days' => $rankingStats['avgDays'] ?? null,
+            // お買い得割引率（相場平均より20%以上安い場合のみ）
+            $discountRate = null;
+            if ($currentPrice > 0 && isset($stats['avg']) && $stats['avg'] > 0 && ($stats['count'] ?? 0) >= 5) {
+                $currentPriceMan = $currentPrice / 10000;
+                $rate = (($stats['avg'] - $currentPriceMan) / $stats['avg']) * 100;
+                if ($rate >= 20) {
+                    $discountRate = (int) round($rate);
+                }
+            }
+
+            $reviews = $listing->bike_model_id
+                ? $this->bikeService->getReviewsByModelId((int) $listing->bike_model_id, 3)
+                : collect();
+
+            $data = (object) (new ListingResource($listing))->resolve();
+            $seoLinks = $this->bikeService->getSeoLinks($listing);
+            $dynamicLinks = $this->bikeService->generateDynamicLinks($data, $seoLinks, $listing->tags);
+
+            // 近くの駐車場・ショップ（店舗のlat/lngを使用）
+            $nearbyParkings = collect();
+            $nearbyShops = collect();
+            $shopLat = $listing->shop?->latitude;
+            $shopLng = $listing->shop?->longitude;
+            if ($shopLat && $shopLng) {
+                $nearbyParkings = $this->nearbyService->getNearbyParkings((float) $shopLat, (float) $shopLng);
+                $nearbyShops = $this->nearbyService->getNearbyShops((float) $shopLat, (float) $shopLng, $listing->shop->id);
+            }
+
+            $alsoViewed = collect();
+            if ($listing->bike_model_id && $listing->total_price) {
+                $alsoViewed = Cache::remember("also_viewed_{$listing->id}", 3600, function () use ($listing) {
+                    return \App\Models\Listing::with('shop')
+                        ->where('is_sold_out', 0)
+                        ->where('id', '!=', $listing->id)
+                        ->where(function ($query) use ($listing) {
+                            $query->where('category_id', $listing->category_id)
+                                ->orWhereBetween('total_price', [
+                                    $listing->total_price * 0.8,
+                                    $listing->total_price * 1.2,
+                                ]);
+                        })
+                        ->whereNotNull('total_price')
+                        ->where('total_price', '>', 0)
+                        ->inRandomOrder()
+                        ->limit(6)
+                        ->get();
+                });
+            }
+
+            $crossLinks = [
+                ['label' => '中古バイク検索', 'url' => route('bikes.search'), 'icon' => 'search', 'description' => '全国の在庫を検索'],
+                ['label' => '車種カタログ', 'url' => route('bikes.models'), 'icon' => 'book-open', 'description' => '車種の相場を確認'],
+                ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => 'バイク駐車場を探す'],
+                ['label' => 'バイク診断', 'url' => route('shindan.index'), 'icon' => 'sparkles', 'description' => 'あなたにピッタリの1台'],
+                ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'car', 'description' => '愛車を登録・管理'],
             ];
-        }
 
-        // 項目別レビュー統計（車種モデルページと同じロジック）
-        $reviewDetailedStats = ['total' => 0, 'design' => ['avg' => null], 'engine' => ['avg' => null], 'handling' => ['avg' => null], 'fuel_economy' => ['avg' => null], 'cost_performance' => ['avg' => null]];
-        if ($listing->bike_model_id) {
-            $ratingFields = ['rating_design', 'rating_engine', 'rating_handling', 'rating_fuel_economy', 'rating_cost_performance'];
-            $fieldKeys = ['design', 'engine', 'handling', 'fuel_economy', 'cost_performance'];
-            $modelAvgs = DB::table('reviews')
-                ->where('bike_model_id', $listing->bike_model_id)
-                ->selectRaw('COUNT(*) as total, ' . implode(', ', array_map(fn($f) => "ROUND(AVG($f), 1) as avg_$f", $ratingFields)))
-                ->first();
-            $reviewDetailedStats['total'] = (int) ($modelAvgs->total ?? 0);
-            foreach ($ratingFields as $i => $field) {
-                $avg = $modelAvgs->{"avg_$field"} ?? null;
-                $reviewDetailedStats[$fieldKeys[$i]] = ['avg' => $avg ? (float) $avg : null];
+            $relatedParts = $listing->bikeModel
+                ? app(BikePartsService::class)->fetchFlat($listing->bikeModel)
+                : [];
+
+            $makerName = $listing->bikeModel?->manufacturer?->name ?? '';
+            $modelName = $listing->bikeModel?->name ?? $listing->title ?? '';
+
+            $news = [];
+            if ($listing->bike_model_id) {
+                $news = \App\Models\BikeNews::where('bike_model_id', $listing->bike_model_id)
+                    ->latest()
+                    ->limit(3)
+                    ->get()
+                    ->toArray();
             }
-        }
+            if (empty($news) && $listing->manufacturer_id) {
+                $news = \App\Models\BikeNews::where('manufacturer_id', $listing->manufacturer_id)
+                    ->latest()
+                    ->limit(3)
+                    ->get()
+                    ->toArray();
+            }
 
-        return view('bikes.show', [
-            'listing'           => $data,
-            'bikeModelForUrl'   => $listing->bikeModel,
-            'relatedListings'   => ListingResource::collection($relatedRaw)->resolve(),
-            'similarListings'   => ListingResource::collection($similarRaw)->resolve(),
-            'dynamicLinks'      => $dynamicLinks,
-            'seoLinks'          => $seoLinks,
-            'stats'             => $stats,
-            'histogram'         => $stats['distribution'] ?? [],
-            'tags'              => $listing->tags,
-            'reviews'           => $reviews,
-            'priceDropDiff'     => $priceDropDiff,
-            'discountRate'      => $discountRate,
-            'pricePercentile'   => $pricePercentile,
-            'nearbyParkings'    => $nearbyParkings,
-            'nearbyShops'       => $nearbyShops,
-            'crossLinks'        => $crossLinks,
-            'alsoViewed'        => $alsoViewed,
-            'shopLat'           => $shopLat,
-            'shopLng'           => $shopLng,
-            'relatedParts'      => $relatedParts,
-            'news'              => $news,
-            'videos'            => $videos,
-            'bikeHighlight'     => $bikeHighlight,
-            'priceAnalysisText' => $priceAnalysisText,
-            'modelComment'      => $modelComment,
-            'regionComment'     => $regionComment,
-            'priceBandComment'  => $priceBandComment,
-            'relatedBlogPosts'  => $relatedBlogPosts,
-            'marketPosition'    => $marketPosition,
-            'rankingStats'      => $rankingStats,
-            'soldOutData'       => $soldOutData,
-            'activeSameModel'   => $activeSameModel,
-            'reviewDetailedStats' => $reviewDetailedStats,
-        ]);
+            try {
+                $videos = (new BikeYouTubeService)->fetch("{$makerName} {$modelName} レビュー", 3, $listing->bike_model_id);
+            } catch (\Throwable) {
+                $videos = [];
+            }
+
+            // 施策B-H: コンテンツ差別化テキスト
+            $bikeHighlight = $this->getBikeHighlight($data);
+            $priceAnalysisText = $this->getPriceAnalysisText($data, $stats, $pricePercentile);
+            $modelComment = $this->getModelComment($data);
+            $regionComment = $this->getRegionComment($data);
+            $priceBandComment = $this->getPriceBandComment($data);
+
+            // 多角的比較指標（市場ポジション分析）
+            $marketPosition = $this->getMarketPosition($listing);
+
+            // 施策E: ブログ記事連携
+            $relatedBlogPosts = collect();
+            try {
+                $blogModelName = $listing->bikeModel?->name ?? '';
+                if ($blogModelName) {
+                    $relatedBlogPosts = \App\Models\BlogPost::published()
+                        ->where(function ($q) use ($blogModelName, $data) {
+                            $q->where('title', 'like', "%{$blogModelName}%")
+                                ->orWhere('title', 'like', '%'.($data->category ?? '____').'%');
+                        })
+                        ->orderByDesc('published_at')
+                        ->limit(3)
+                        ->get();
+                }
+            } catch (\Throwable) {
+                $relatedBlogPosts = collect();
+            }
+
+            // 車種販売データ（ランキング連携）
+            $rankingStats = null;
+            if ($listing->bike_model_id) {
+                $rankingStats = Cache::remember("show_ranking_stats_{$listing->bike_model_id}", 604800, function () use ($listing) {
+                    $lms = now()->subMonth()->startOfMonth();
+                    $lme = now()->subMonth()->endOfMonth();
+                    $three = now()->subMonths(3);
+
+                    $sold = Listing::where('bike_model_id', $listing->bike_model_id)
+                        ->where('is_sold_out', true)
+                        ->whereBetween('updated_at', [$lms, $lme])
+                        ->count();
+
+                    if ($sold === 0) {
+                        return null;
+                    }
+
+                    $allSales = Listing::where('is_sold_out', true)
+                        ->whereBetween('updated_at', [$lms, $lme])
+                        ->whereNotNull('bike_model_id')
+                        ->select('bike_model_id', DB::raw('COUNT(*) as cnt'))
+                        ->groupBy('bike_model_id')
+                        ->orderByDesc('cnt')
+                        ->get();
+                    $rank = $allSales->search(fn ($r) => $r->bike_model_id == $listing->bike_model_id);
+                    $rank = $rank !== false ? $rank + 1 : null;
+
+                    $avgDays = Listing::where('bike_model_id', $listing->bike_model_id)
+                        ->where('is_sold_out', true)
+                        ->whereBetween('updated_at', [$lms, $lme])
+                        ->selectRaw('AVG(DATEDIFF(updated_at, created_at)) as avg_days')
+                        ->value('avg_days');
+
+                    $topPrice = Listing::where('bike_model_id', $listing->bike_model_id)
+                        ->where('is_sold_out', true)->where('updated_at', '>=', $three)
+                        ->whereNotNull('total_price')
+                        ->select(DB::raw("CASE WHEN total_price<200000 THEN '〜20万円' WHEN total_price<300000 THEN '20〜30万円' WHEN total_price<400000 THEN '30〜40万円' WHEN total_price<500000 THEN '40〜50万円' WHEN total_price<700000 THEN '50〜70万円' WHEN total_price<1000000 THEN '70〜100万円' ELSE '100万円〜' END as price_range"), DB::raw('COUNT(*) as cnt'))
+                        ->groupBy('price_range')->orderByDesc('cnt')->first();
+
+                    $topRegion = Listing::where('listings.bike_model_id', $listing->bike_model_id)
+                        ->where('listings.is_sold_out', true)->where('listings.updated_at', '>=', $three)
+                        ->join('shops', 'listings.shop_id', '=', 'shops.id')
+                        ->whereNotNull('shops.prefecture')
+                        ->select('shops.prefecture', DB::raw('COUNT(*) as cnt'))
+                        ->groupBy('shops.prefecture')->orderByDesc('cnt')->first();
+
+                    return [
+                        'sold' => $sold,
+                        'rank' => $rank,
+                        'totalModels' => $allSales->count(),
+                        'dailyAvg' => round($sold / 30, 1),
+                        'avgDays' => (int) round((float) ($avgDays ?? 0)),
+                        'topPrice' => $topPrice?->price_range,
+                        'topRegion' => $topRegion?->prefecture,
+                    ];
+                });
+            }
+
+            // 売り切れ車両用データ
+            $soldOutData = null;
+            $activeSameModel = collect();
+            if ($isSoldOut) {
+                // 販売記録
+                $listingDays = $listing->created_at && $listing->updated_at
+                    ? max(0, $listing->created_at->diffInDays($listing->updated_at))
+                    : null;
+                $soldPrice = $listing->total_price
+                    ? number_format((float) ($listing->total_price / 10000), 1)
+                    : null;
+
+                // 同車種の販売中車両（最大6台）
+                if ($listing->bike_model_id) {
+                    $activeSameModel = Listing::with('shop:id,name,prefecture')
+                        ->where('bike_model_id', $listing->bike_model_id)
+                        ->where('is_sold_out', false)
+                        ->orderBy('total_price')
+                        ->limit(6)
+                        ->get();
+                }
+
+                // 車種の市場データ（販売中車両ベース）
+                $marketAvgPrice = null;
+                $marketActiveCount = 0;
+                if ($listing->bike_model_id) {
+                    $marketData = Listing::where('bike_model_id', $listing->bike_model_id)
+                        ->where('is_sold_out', false)
+                        ->whereNotNull('total_price')
+                        ->where('total_price', '>', 0)
+                        ->selectRaw('AVG(total_price) as avg_price, COUNT(*) as cnt')
+                        ->first();
+                    $marketAvgPrice = $marketData->avg_price ? number_format((float) ($marketData->avg_price / 10000), 1) : null;
+                    $marketActiveCount = (int) $marketData->cnt;
+                }
+
+                $soldOutData = [
+                    'listing_days' => $listingDays,
+                    'sold_price' => $soldPrice,
+                    'created_at' => $listing->created_at?->format('Y年m月d日'),
+                    'updated_at' => $listing->updated_at?->format('Y年m月d日'),
+                    'market_avg_price' => $marketAvgPrice,
+                    'market_active_count' => $marketActiveCount,
+                    'ranking_rank' => $rankingStats['rank'] ?? null,
+                    'ranking_total' => $rankingStats['totalModels'] ?? null,
+                    'avg_sell_days' => $rankingStats['avgDays'] ?? null,
+                ];
+            }
+
+            // 項目別レビュー統計（車種モデルページと同じロジック）
+            $reviewDetailedStats = ['total' => 0, 'design' => ['avg' => null], 'engine' => ['avg' => null], 'handling' => ['avg' => null], 'fuel_economy' => ['avg' => null], 'cost_performance' => ['avg' => null]];
+            if ($listing->bike_model_id) {
+                $ratingFields = ['rating_design', 'rating_engine', 'rating_handling', 'rating_fuel_economy', 'rating_cost_performance'];
+                $fieldKeys = ['design', 'engine', 'handling', 'fuel_economy', 'cost_performance'];
+                $modelAvgs = DB::table('reviews')
+                    ->where('bike_model_id', $listing->bike_model_id)
+                    ->selectRaw('COUNT(*) as total, '.implode(', ', array_map(fn ($f) => "ROUND(AVG($f), 1) as avg_$f", $ratingFields)))
+                    ->first();
+                $reviewDetailedStats['total'] = (int) ($modelAvgs->total ?? 0);
+                foreach ($ratingFields as $i => $field) {
+                    $avg = $modelAvgs->{"avg_$field"} ?? null;
+                    $reviewDetailedStats[$fieldKeys[$i]] = ['avg' => $avg ? (float) $avg : null];
+                }
+            }
+
+            return view('bikes.show', [
+                'listing' => $data,
+                'bikeModelForUrl' => $listing->bikeModel,
+                'relatedListings' => ListingResource::collection($relatedRaw)->resolve(),
+                'similarListings' => ListingResource::collection($similarRaw)->resolve(),
+                'dynamicLinks' => $dynamicLinks,
+                'seoLinks' => $seoLinks,
+                'stats' => $stats,
+                'histogram' => $stats['distribution'] ?? [],
+                'tags' => $listing->tags,
+                'reviews' => $reviews,
+                'priceDropDiff' => $priceDropDiff,
+                'discountRate' => $discountRate,
+                'pricePercentile' => $pricePercentile,
+                'nearbyParkings' => $nearbyParkings,
+                'nearbyShops' => $nearbyShops,
+                'crossLinks' => $crossLinks,
+                'alsoViewed' => $alsoViewed,
+                'shopLat' => $shopLat,
+                'shopLng' => $shopLng,
+                'relatedParts' => $relatedParts,
+                'news' => $news,
+                'videos' => $videos,
+                'bikeHighlight' => $bikeHighlight,
+                'priceAnalysisText' => $priceAnalysisText,
+                'modelComment' => $modelComment,
+                'regionComment' => $regionComment,
+                'priceBandComment' => $priceBandComment,
+                'relatedBlogPosts' => $relatedBlogPosts,
+                'marketPosition' => $marketPosition,
+                'rankingStats' => $rankingStats,
+                'soldOutData' => $soldOutData,
+                'activeSameModel' => $activeSameModel,
+                'reviewDetailedStats' => $reviewDetailedStats,
+            ]);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Listing show failed', [
                 'id' => $id,
@@ -713,9 +720,9 @@ final class BikeController extends Controller
             ]);
 
             return response()->view('errors.404', [
-                'message'   => 'この車両情報の表示中にエラーが発生しました',
+                'message' => 'この車両情報の表示中にエラーが発生しました',
                 'searchUrl' => route('bikes.index'),
-                'bikeName'  => null,
+                'bikeName' => null,
             ], 404);
         }
     }
@@ -723,6 +730,7 @@ final class BikeController extends Controller
     public function getModels(int $manufacturerId): JsonResponse
     {
         $models = $this->listingSearchService->getModelsByManufacturer($manufacturerId);
+
         return response()->json($models);
     }
 
@@ -738,10 +746,10 @@ final class BikeController extends Controller
 
         // 1. 車種のサジェスト（従来のテキストベース）
         $models = $this->bikeService->getSearchSuggestions($keyword);
-        
+
         // 2. 実際の車両のサジェスト（画像付きの直感的なUI用）
         // Meilisearchの爆速処理を利用して、キーワードに合致する「おすすめの3台」を引っ張る
-        $listingsRaw = tap($this->listingSearchService->search($keyword, null, 'latest', [], 3), function($res) {
+        $listingsRaw = tap($this->listingSearchService->search($keyword, null, 'latest', [], 3), function ($res) {
             return $res;
         })['items'];
 
@@ -758,7 +766,7 @@ final class BikeController extends Controller
                     'mileage' => $bike['mileage'],
                     'shop_name' => $bike['shop_name'],
                 ];
-            })
+            }),
         ]);
     }
 
@@ -766,6 +774,7 @@ final class BikeController extends Controller
     {
         $data = $this->bikeService->getManufacturersForIndex();
         $data['trendingBikes'] = $this->bikeService->getTrendingBikes(10);
+
         return view('bikes.models', $data);
     }
 
@@ -777,7 +786,7 @@ final class BikeController extends Controller
         $groups = $this->bikeService->getGroupedModelsForManufacturer($manufacturerId);
 
         // 空グループを除外
-        $groups = array_filter($groups, fn($list) => count($list) > 0);
+        $groups = array_filter($groups, fn ($list) => count($list) > 0);
 
         return response()->json(['groups' => $groups]);
     }
@@ -797,6 +806,7 @@ final class BikeController extends Controller
             ->whereIn('id', $ids)
             ->where('is_sold_out', false)
             ->get();
+
         return response()->json(ListingResource::collection($listings)->resolve());
     }
 
@@ -837,7 +847,9 @@ final class BikeController extends Controller
     public function catalog(string $slug): View|RedirectResponse
     {
         $pageInfo = $this->seoLandingService->resolveCatalogPage($slug);
-        if (empty($pageInfo)) return redirect('/bikes/search', 301);
+        if (empty($pageInfo)) {
+            return redirect('/bikes/search', 301);
+        }
 
         $result = $this->listingSearchService->search(null, null, 'latest', $pageInfo['filters']);
 
@@ -859,15 +871,15 @@ final class BikeController extends Controller
 
         // 排気量レンジの定義
         $ranges = [
-            50   => ['min' => 0,    'max' => 50,   'label' => '50cc以下（原付一種）'],
-            125  => ['min' => 51,   'max' => 125,  'label' => '51〜125cc（原付二種）'],
-            250  => ['min' => 126,  'max' => 250,  'label' => '126〜250cc（軽二輪）'],
-            400  => ['min' => 251,  'max' => 400,  'label' => '251〜400cc（普通二輪）'],
-            750  => ['min' => 401,  'max' => 750,  'label' => '401〜750cc'],
+            50 => ['min' => 0,    'max' => 50,   'label' => '50cc以下（原付一種）'],
+            125 => ['min' => 51,   'max' => 125,  'label' => '51〜125cc（原付二種）'],
+            250 => ['min' => 126,  'max' => 250,  'label' => '126〜250cc（軽二輪）'],
+            400 => ['min' => 251,  'max' => 400,  'label' => '251〜400cc（普通二輪）'],
+            750 => ['min' => 401,  'max' => 750,  'label' => '401〜750cc'],
             1000 => ['min' => 751,  'max' => null,  'label' => '751cc以上（大型）'],
         ];
 
-        if (!isset($ranges[$displacement])) {
+        if (! isset($ranges[$displacement])) {
             abort(404);
         }
 
@@ -901,12 +913,15 @@ final class BikeController extends Controller
     public function landing(string $prefecture, string $slug): View|RedirectResponse
     {
         $pageInfo = $this->seoLandingService->resolvePageInfo($prefecture, $slug);
-        if (empty($pageInfo)) return redirect("/bikes/area/{$prefecture}", 301);
+        if (empty($pageInfo)) {
+            return redirect("/bikes/area/{$prefecture}", 301);
+        }
 
         try {
             $result = $this->listingSearchService->search(null, $prefecture, 'latest', $pageInfo['filters']);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning("Landing search failed: {$prefecture}/{$slug}", ['error' => $e->getMessage()]);
+
             return redirect("/bikes/area/{$prefecture}", 301);
         }
 
@@ -938,9 +953,10 @@ final class BikeController extends Controller
         if (empty($pageInfo)) {
             // slugが実は都道府県レベルの有効なslugかチェック
             $fallback = $this->seoLandingService->resolvePageInfo($prefecture, $city);
-            if (!empty($fallback)) {
+            if (! empty($fallback)) {
                 return redirect("/bikes/area/{$prefecture}/{$city}", 301);
             }
+
             return redirect("/bikes/area/{$prefecture}", 301);
         }
 
@@ -950,7 +966,7 @@ final class BikeController extends Controller
             '東京' => '東京都',
             '大阪' => '大阪府',
             '京都' => '京都府',
-            default => $prefecture . '県',
+            default => $prefecture.'県',
         };
 
         $sort = request('sort', 'latest');
@@ -998,11 +1014,11 @@ final class BikeController extends Controller
 
         // Googleからの返答を配列として変数に格納する（★ここが抜けていた原因です）
         $recaptchaResult = $response->json();
-        
+
         // ★原因究明のため、Googleからの返事をログに書き出す
         \Illuminate\Support\Facades\Log::info('reCAPTCHA検証結果: ', $recaptchaResult);
 
-        if (!$response->json('success') || $response->json('score') < 0.5) {
+        if (! $response->json('success') || $response->json('score') < 0.5) {
             return response()->json(['message' => 'スパム判定されました。'], 403);
         }
 
@@ -1013,29 +1029,30 @@ final class BikeController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'レビューを投稿しました！',
-                'review'  => [
-                    'title'      => $validated['title'] ?? '無題',
-                    'body'       => $validated['body'] ?? '',
-                    'rating'     => $validated['rating'] ?? 5,
-                    'nickname'   => $validated['nickname'] ?? '匿名ユーザー',
+                'review' => [
+                    'title' => $validated['title'] ?? '無題',
+                    'body' => $validated['body'] ?? '',
+                    'rating' => $validated['rating'] ?? 5,
+                    'nickname' => $validated['nickname'] ?? '匿名ユーザー',
                     'created_at' => now()->format('Y年m月'),
-                    'rating_design'           => $validated['rating_design'] ?? null,
-                    'rating_engine'           => $validated['rating_engine'] ?? null,
-                    'rating_handling'         => $validated['rating_handling'] ?? null,
-                    'rating_fuel_economy'     => $validated['rating_fuel_economy'] ?? null,
+                    'rating_design' => $validated['rating_design'] ?? null,
+                    'rating_engine' => $validated['rating_engine'] ?? null,
+                    'rating_handling' => $validated['rating_handling'] ?? null,
+                    'rating_fuel_economy' => $validated['rating_fuel_economy'] ?? null,
                     'rating_cost_performance' => $validated['rating_cost_performance'] ?? null,
-                ]
+                ],
             ]);
         }
+
         return redirect()->route('bikes.model_detail', [
-            'mfrSlug'   => $model->manufacturer->slug ?? $model->manufacturer_id,
+            'mfrSlug' => $model->manufacturer->slug ?? $model->manufacturer_id,
             'modelSlug' => $model->slug ?? $model->id,
         ])->with('success', 'レビューを投稿しました！');
     }
 
     public function modelDetail($id, \App\Services\Bike\PriceStatsService $priceStatsService)
     {
-        return view('bikes.model_detail', $this->buildModelDetailData((int) $id));
+        return view('bikes.model_detail', $this->attachRelatedParts($this->buildModelDetailData((int) $id)));
     }
 
     /**
@@ -1049,7 +1066,7 @@ final class BikeController extends Controller
             ->active()
             ->limit(5)
             ->get()
-            ->map(function($listing) {
+            ->map(function ($listing) {
                 return [
                     'id' => $listing->id,
                     'name' => $listing->title ?? $listing->bikeModel->name,
@@ -1071,7 +1088,7 @@ final class BikeController extends Controller
         $ratingFields = ['rating_design', 'rating_engine', 'rating_handling', 'rating_fuel_economy', 'rating_cost_performance'];
         $modelAvgs = DB::table('reviews')
             ->where('bike_model_id', $id)
-            ->selectRaw(implode(', ', array_map(fn($f) => "ROUND(AVG($f), 1) as avg_$f, COUNT($f) as cnt_$f", $ratingFields)))
+            ->selectRaw(implode(', ', array_map(fn ($f) => "ROUND(AVG($f), 1) as avg_$f, COUNT($f) as cnt_$f", $ratingFields)))
             ->first();
 
         $categoryAvgs = null;
@@ -1079,7 +1096,7 @@ final class BikeController extends Controller
             $categoryModelIds = \App\Models\BikeModel::where('category_id', $model->category_id)->pluck('id');
             $categoryAvgs = DB::table('reviews')
                 ->whereIn('bike_model_id', $categoryModelIds)
-                ->selectRaw(implode(', ', array_map(fn($f) => "ROUND(AVG($f), 1) as avg_$f", $ratingFields)))
+                ->selectRaw(implode(', ', array_map(fn ($f) => "ROUND(AVG($f), 1) as avg_$f", $ratingFields)))
                 ->first();
         }
 
@@ -1091,14 +1108,16 @@ final class BikeController extends Controller
             $cntKey = "cnt_$field";
             $avg = $modelAvgs->$avgKey ?? null;
             $cnt = $modelAvgs->$cntKey ?? 0;
-            if ($cnt > 0) $hasAnyRatingDetail = true;
+            if ($cnt > 0) {
+                $hasAnyRatingDetail = true;
+            }
             $catAvg = $categoryAvgs ? ($categoryAvgs->$avgKey ?? null) : null;
             $categoryReviewStats[$fieldKeys[$i]] = [
-                'avg' => $avg ? (float)$avg : null,
-                'category_avg' => $catAvg ? (float)$catAvg : null,
+                'avg' => $avg ? (float) $avg : null,
+                'category_avg' => $catAvg ? (float) $catAvg : null,
             ];
         }
-        if (!$hasAnyRatingDetail) {
+        if (! $hasAnyRatingDetail) {
             $categoryReviewStats = [];
         }
 
@@ -1106,7 +1125,7 @@ final class BikeController extends Controller
             ->where('manufacturer_id', $model->manufacturer_id)
             ->where('id', '!=', $model->id)
             ->whereNotNull('slug')
-            ->withCount(['listings' => fn($q) => $q->active()])
+            ->withCount(['listings' => fn ($q) => $q->active()])
             ->orderByDesc('listings_count')
             ->limit(6)
             ->get();
@@ -1118,7 +1137,7 @@ final class BikeController extends Controller
                 ->where('manufacturer_id', '!=', $model->manufacturer_id)
                 ->whereBetween('displacement', [$model->displacement - 50, $model->displacement + 50])
                 ->whereNotNull('slug')
-                ->withCount(['listings' => fn($q) => $q->active()])
+                ->withCount(['listings' => fn ($q) => $q->active()])
                 ->orderByDesc('listings_count')
                 ->limit(6)
                 ->get();
@@ -1132,7 +1151,7 @@ final class BikeController extends Controller
                 ->where('manufacturer_id', '!=', $model->manufacturer_id)
                 ->whereNotIn('id', $excludeIds)
                 ->whereNotNull('slug')
-                ->withCount(['listings' => fn($q) => $q->active()])
+                ->withCount(['listings' => fn ($q) => $q->active()])
                 ->orderByDesc('listings_count')
                 ->limit(6)
                 ->get();
@@ -1150,13 +1169,13 @@ final class BikeController extends Controller
 
         $similarModels = \App\Models\BikeModel::with('manufacturer')
             ->where('id', '!=', $model->id)
-            ->where(function($query) use ($model) {
+            ->where(function ($query) use ($model) {
                 if ($model->category_id) {
                     $query->where('category_id', $model->category_id);
                 }
             })
-            ->whereHas('listings', fn($query) => $query->where('is_sold_out', 0))
-            ->withCount(['listings' => fn($query) => $query->where('is_sold_out', 0)])
+            ->whereHas('listings', fn ($query) => $query->where('is_sold_out', 0))
+            ->withCount(['listings' => fn ($query) => $query->where('is_sold_out', 0)])
             ->orderByDesc('listings_count')
             ->limit(6)
             ->get();
@@ -1171,24 +1190,25 @@ final class BikeController extends Controller
             ->get();
 
         $crossLinks = [
-            ['label' => $model->name . 'の在庫検索', 'url' => route('bikes.search', ['bike_model_id' => $model->id]), 'icon' => 'search', 'description' => '販売中の車両を探す'],
+            ['label' => $model->name.'の在庫検索', 'url' => route('bikes.search', ['bike_model_id' => $model->id]), 'icon' => 'search', 'description' => '販売中の車両を探す'],
             ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => 'バイク駐車場を探す'],
             ['label' => 'ショップマップ', 'url' => route('shops.map'), 'icon' => 'store', 'description' => 'バイクショップを探す'],
-            ['label' => $model->manufacturer->name . 'の車種一覧', 'url' => route('bikes.models'), 'icon' => 'list', 'description' => '同メーカーの他モデル'],
+            ['label' => $model->manufacturer->name.'の車種一覧', 'url' => route('bikes.models'), 'icon' => 'list', 'description' => '同メーカーの他モデル'],
             ['label' => 'バイク診断', 'url' => route('shindan.index'), 'icon' => 'sparkles', 'description' => 'あなたにピッタリの1台'],
             ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'car', 'description' => '愛車を登録・管理'],
         ];
 
-        $relatedParts = app(BikePartsService::class)->fetchForModel($model);
-
+        // ⚠️ parts は render path（楽天8連打）から分離済み。
+        // model_detailキャッシュ(7日)の blob には含めず、各エントリで read-only 注入する
+        // （attachRelatedParts）。ここに含めると空partsが7日凍結する。
         try {
-            $news = (new BikeNewsService())->fetch("{$model->manufacturer->name} {$model->name} バイク", 5, $model->id);
+            $news = (new BikeNewsService)->fetch("{$model->manufacturer->name} {$model->name} バイク", 5, $model->id);
         } catch (\Throwable) {
             $news = [];
         }
 
         try {
-            $videos = (new BikeYouTubeService())->fetch("{$model->manufacturer->name} {$model->name} レビュー", 5, $model->id);
+            $videos = (new BikeYouTubeService)->fetch("{$model->manufacturer->name} {$model->name} レビュー", 5, $model->id);
         } catch (\Throwable) {
             $videos = [];
         }
@@ -1217,10 +1237,10 @@ final class BikeController extends Controller
                 ->exists();
 
             $yearStats = [
-                'min'      => $yearDistribution->min('model_year'),
-                'max'      => $yearDistribution->max('model_year'),
-                'mode'     => $modeRow->model_year,
-                'has_new'  => $hasNew,
+                'min' => $yearDistribution->min('model_year'),
+                'max' => $yearDistribution->max('model_year'),
+                'mode' => $modeRow->model_year,
+                'has_new' => $hasNew,
                 'coverage' => $totalAll > 0 ? round($totalWithYear / $totalAll * 100) : 0,
             ];
         }
@@ -1229,9 +1249,20 @@ final class BikeController extends Controller
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'categoryReviewStats', 'relatedModels', 'similarDisplacementModels',
             'sameCategoryModels', 'activeCount', 'owners', 'similarModels', 'crossLinks',
-            'prefectureStocks', 'relatedParts', 'news', 'videos', 'rankingStats',
+            'prefectureStocks', 'news', 'videos', 'rankingStats',
             'yearDistribution', 'yearStats'
         );
+    }
+
+    /**
+     * パーツを model_detailキャッシュの外で read-only 注入する（楽天はライブで叩かない）。
+     * 既存blobに残る古い relatedParts も上書きで無効化する。
+     */
+    private function attachRelatedParts(array $viewData): array
+    {
+        $viewData['relatedParts'] = app(BikePartsService::class)->getForModel($viewData['model']);
+
+        return $viewData;
     }
 
     /**
@@ -1299,7 +1330,9 @@ final class BikeController extends Controller
     private function getPriceAnalysisText(object $listing, ?array $stats, ?int $pricePercentile): string
     {
         $price = $listing->total_price;
-        if (!$price || !$stats || ($stats['count'] ?? 0) <= 1) return '';
+        if (! $price || ! $stats || ($stats['count'] ?? 0) <= 1) {
+            return '';
+        }
 
         $modelName = $listing->bike_model_name ?? $listing->name;
 
@@ -1432,7 +1465,9 @@ final class BikeController extends Controller
     private function getPriceBandComment(object $listing): string
     {
         $price = $listing->total_price;
-        if (!$price || !is_numeric($price)) return '';
+        if (! $price || ! is_numeric($price)) {
+            return '';
+        }
 
         $priceYen = (float) $price * 10000;
 
@@ -1448,12 +1483,13 @@ final class BikeController extends Controller
 
     /**
      * 同車種在庫と比較した市場ポジション分析
-     * @param Listing $listing Raw Eloquent model
+     *
+     * @param  Listing  $listing  Raw Eloquent model
      * @return array{items: array, overall: string, count: int}|null
      */
     private function getMarketPosition(Listing $listing): ?array
     {
-        if (!$listing->bike_model_id) {
+        if (! $listing->bike_model_id) {
             return null;
         }
 
@@ -1474,7 +1510,7 @@ final class BikeController extends Controller
             }
         );
 
-        if (!$modelStats || $modelStats->cnt < 5) {
+        if (! $modelStats || $modelStats->cnt < 5) {
             return null;
         }
 
@@ -1502,8 +1538,8 @@ final class BikeController extends Controller
                 'icon' => $icon,
                 'label' => $label,
                 'rank' => $rank,
-                'value' => number_format((float)($listing->total_price / 10000), 1) . '万円',
-                'avg' => number_format((float)($modelStats->avg_price / 10000), 1) . '万円',
+                'value' => number_format((float) ($listing->total_price / 10000), 1).'万円',
+                'avg' => number_format((float) ($modelStats->avg_price / 10000), 1).'万円',
             ];
         }
 
@@ -1529,8 +1565,8 @@ final class BikeController extends Controller
                 'icon' => $icon,
                 'label' => $label,
                 'rank' => $rank,
-                'value' => number_format($listing->mileage) . 'km',
-                'avg' => number_format((int) round((float) $modelStats->avg_mileage)) . 'km',
+                'value' => number_format($listing->mileage).'km',
+                'avg' => number_format((int) round((float) $modelStats->avg_mileage)).'km',
             ];
         }
 
@@ -1556,8 +1592,8 @@ final class BikeController extends Controller
                 'icon' => $icon,
                 'label' => $label,
                 'rank' => $rank,
-                'value' => $listing->model_year . '年',
-                'avg' => round((float) $modelStats->avg_year) . '年',
+                'value' => $listing->model_year.'年',
+                'avg' => round((float) $modelStats->avg_year).'年',
             ];
         }
 
@@ -1587,8 +1623,8 @@ final class BikeController extends Controller
                 'icon' => $icon,
                 'label' => $label,
                 'rank' => $rank,
-                'value' => number_format((int) $thisExpenses) . '円',
-                'avg' => number_format((int) $modelStats->avg_expenses) . '円',
+                'value' => number_format((int) $thisExpenses).'円',
+                'avg' => number_format((int) $modelStats->avg_expenses).'円',
             ];
         }
 
@@ -1614,17 +1650,17 @@ final class BikeController extends Controller
         ];
     }
 
-   /**
-    * 車種詳細ページ（スラッグURL版）
-    * URL: /bikes/{mfrSlug}/{modelSlug}
-    *
-    * $modelSlug はスラッグ文字列 or 数値ID（日本語名フォールバック）
-    */
+    /**
+     * 車種詳細ページ（スラッグURL版）
+     * URL: /bikes/{mfrSlug}/{modelSlug}
+     *
+     * $modelSlug はスラッグ文字列 or 数値ID（日本語名フォールバック）
+     */
     public function modelDetailBySlug(string $mfrSlug, string $modelSlug)
     {
         $manufacturer = \App\Models\Manufacturer::where('slug', $mfrSlug)->first();
 
-        if (!$manufacturer) {
+        if (! $manufacturer) {
             abort(404);
         }
 
@@ -1640,7 +1676,9 @@ final class BikeController extends Controller
         // slugがnullの車種はIDをキーに含める（Observerのパージ処理と一致させ、キー衝突を防ぐ）
         $slugForKey = $model->slug ?? $model->id;
         $cacheKey = \App\Models\BikeModel::modelDetailCacheKey($mfrSlug, $slugForKey);
-        $viewData = Cache::remember($cacheKey, 604800, fn () => $this->buildModelDetailData($model->id));
+        $viewData = $this->attachRelatedParts(
+            Cache::remember($cacheKey, 604800, fn () => $this->buildModelDetailData($model->id))
+        );
 
         return view('bikes.model_detail', $viewData);
     }
@@ -1652,7 +1690,7 @@ final class BikeController extends Controller
     {
         $manufacturer = \App\Models\Manufacturer::where('slug', $mfrSlug)->first();
 
-        if (!$manufacturer) {
+        if (! $manufacturer) {
             abort(404);
         }
 
@@ -1663,7 +1701,9 @@ final class BikeController extends Controller
         // slugがnullの車種はIDをキーに含める（Observerのパージ処理と一致させ、キー衝突を防ぐ）
         $slugForKey = $model->slug ?? $model->id;
         $cacheKey = \App\Models\BikeModel::modelDetailCacheKey($mfrSlug, $slugForKey);
-        $viewData = Cache::remember($cacheKey, 604800, fn () => $this->buildModelDetailData($model->id));
+        $viewData = $this->attachRelatedParts(
+            Cache::remember($cacheKey, 604800, fn () => $this->buildModelDetailData($model->id))
+        );
         $viewData['reviewOgpMode'] = true;
         $viewData['scrollToReviewId'] = $reviewId;
 
@@ -1687,7 +1727,9 @@ final class BikeController extends Controller
         }
 
         $cacheKey = \App\Models\BikeModel::modelDetailCacheKey('id', $modelId);
-        $viewData = Cache::remember($cacheKey, 604800, fn () => $this->buildModelDetailData($modelId));
+        $viewData = $this->attachRelatedParts(
+            Cache::remember($cacheKey, 604800, fn () => $this->buildModelDetailData($modelId))
+        );
         $viewData['reviewOgpMode'] = true;
         $viewData['scrollToReviewId'] = $reviewId;
 

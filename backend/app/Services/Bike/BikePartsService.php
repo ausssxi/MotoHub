@@ -12,65 +12,91 @@ use Illuminate\Support\Facades\Http;
 class BikePartsService
 {
     private const API_URL = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20220601';
-    private const CACHE_TTL = 86400; // 24時間
+
+    private const CACHE_TTL = 86400; // 24時間（fetchFlat用）
+
+    // カテゴリ別パーツ(v2)のTTL。parts:refresh のローリング取得で全在庫車種を
+    // カバーしきる間キャッシュが生き続けるよう長め。空結果は別途24時間で再試行。
+    private const PARTS_CACHE_TTL = 604800; // 7日
 
     private const CATEGORIES = [
         'バッテリー' => 'battery',
-        'タイヤ'     => 'tire',
-        'チェーン'   => 'chain',
+        'タイヤ' => 'tire',
+        'チェーン' => 'chain',
         'ブレーキパッド' => 'brake',
-        'オイル'     => 'oil',
-        'プラグ'     => 'plug',
-        'マフラー'   => 'muffler',
-        'その他'     => 'other',
+        'オイル' => 'oil',
+        'プラグ' => 'plug',
+        'マフラー' => 'muffler',
+        'その他' => 'other',
     ];
 
     /**
-     * カテゴリ別にパーツを取得（model_detail用）
+     * カテゴリ別パーツのキャッシュキー（v2）
+     */
+    public static function cacheKey(BikeModel $model): string
+    {
+        return "parts:bike_model:{$model->id}:v2";
+    }
+
+    /**
+     * カテゴリ別パーツをキャッシュから読むだけ（render用・read-only）
+     *
+     * ミス時は [] を返し、楽天APIへは一切アクセスしない。
+     * 実fetchは parts:refresh コマンド（refreshForModel）が裏方で担う。
      *
      * @return array<string, array{name: string, items: array}>
      */
-    public function fetchForModel(BikeModel $model): array
+    public function getForModel(BikeModel $model): array
+    {
+        return Cache::get(self::cacheKey($model), []);
+    }
+
+    /**
+     * 楽天APIからカテゴリ別パーツを取得しキャッシュへ書き込む（ジョブ用）
+     *
+     * 8カテゴリ直列fetch＋sleep。render pathからは呼ばない（parts:refresh専用）。
+     *
+     * @return array<string, array{name: string, items: array}>
+     */
+    public function refreshForModel(BikeModel $model): array
     {
         $appId = config('services.rakuten.app_id');
         $accessKey = config('services.rakuten.access_key');
 
-        if (!$appId || !$accessKey) {
+        if (! $appId || ! $accessKey) {
             return [];
         }
 
-        try {
-            return Cache::remember("parts:bike_model:{$model->id}:v2", self::CACHE_TTL, function () use ($model, $appId, $accessKey) {
-                $affiliateId = config('services.rakuten.affiliate_id');
-                $result = [];
+        $affiliateId = config('services.rakuten.affiliate_id');
+        $result = [];
 
-                foreach (self::CATEGORIES as $categoryName => $categoryKey) {
-                    if ($categoryKey === 'other') {
-                        $keyword = 'バイク ' . $model->name;
-                        $hits = 6;
-                    } else {
-                        $keyword = $model->name . ' ' . $categoryName;
-                        $hits = 4;
-                    }
+        foreach (self::CATEGORIES as $categoryName => $categoryKey) {
+            if ($categoryKey === 'other') {
+                $keyword = 'バイク '.$model->name;
+                $hits = 6;
+            } else {
+                $keyword = $model->name.' '.$categoryName;
+                $hits = 4;
+            }
 
-                    $items = $this->searchRakuten($appId, $accessKey, $affiliateId, $keyword, $hits);
+            $items = $this->searchRakuten($appId, $accessKey, $affiliateId, $keyword, $hits);
 
-                    if (!empty($items)) {
-                        $result[$categoryKey] = [
-                            'name'  => $categoryName,
-                            'items' => $items,
-                        ];
-                    }
+            if (! empty($items)) {
+                $result[$categoryKey] = [
+                    'name' => $categoryName,
+                    'items' => $items,
+                ];
+            }
 
-                    // レート制限対策
-                    sleep(1);
-                }
-
-                return $result;
-            });
-        } catch (\Throwable) {
-            return [];
+            // レート制限対策
+            sleep(1);
         }
+
+        // 空結果（取得失敗/在庫無し）は24時間で再試行。取得できた分は7日保持。
+        $ttl = empty($result) ? self::CACHE_TTL : self::PARTS_CACHE_TTL;
+        Cache::put(self::cacheKey($model), $result, $ttl);
+
+        return $result;
     }
 
     /**
@@ -83,14 +109,15 @@ class BikePartsService
         $appId = config('services.rakuten.app_id');
         $accessKey = config('services.rakuten.access_key');
 
-        if (!$appId || !$accessKey) {
+        if (! $appId || ! $accessKey) {
             return [];
         }
 
         try {
             return Cache::remember("parts:bike_model:{$model->id}:flat", self::CACHE_TTL, function () use ($model, $appId, $accessKey, $limit) {
                 $affiliateId = config('services.rakuten.affiliate_id');
-                return $this->searchRakuten($appId, $accessKey, $affiliateId, 'バイク ' . $model->name, $limit);
+
+                return $this->searchRakuten($appId, $accessKey, $affiliateId, 'バイク '.$model->name, $limit);
             });
         } catch (\Throwable) {
             return [];
@@ -104,11 +131,11 @@ class BikePartsService
     {
         $params = [
             'applicationId' => $appId,
-            'accessKey'     => $accessKey,
-            'keyword'       => $keyword,
-            'hits'          => $hits,
-            'sort'          => '-reviewCount',
-            'format'        => 'json',
+            'accessKey' => $accessKey,
+            'keyword' => $keyword,
+            'hits' => $hits,
+            'sort' => '-reviewCount',
+            'format' => 'json',
         ];
 
         if ($affiliateId) {
@@ -117,8 +144,8 @@ class BikePartsService
 
         try {
             $response = Http::withHeaders([
-                'Origin'     => 'https://motohub.jp',
-                'Referer'    => 'https://motohub.jp',
+                'Origin' => 'https://motohub.jp',
+                'Referer' => 'https://motohub.jp',
                 'User-Agent' => 'MotoHub',
             ])->timeout(5)->get(self::API_URL, $params);
 
@@ -136,17 +163,17 @@ class BikePartsService
                 );
 
                 return [
-                    'name'           => $item['itemName'] ?? '',
-                    'price'          => $item['itemPrice'] ?? 0,
-                    'image'          => $item['mediumImageUrls'][0]['imageUrl'] ?? '',
-                    'url'            => $item['itemUrl'] ?? '',
-                    'jan_code'       => $codes['jan'],
-                    'part_number'    => $codes['partNumber'],
-                    'shopName'       => $item['shopName'] ?? '',
-                    'reviewCount'    => $item['reviewCount'] ?? 0,
-                    'reviewAverage'  => $item['reviewAverage'] ?? 0,
-                    'postageFlag'    => $item['postageFlag'] ?? 0,
-                    'pointRate'      => $item['pointRate'] ?? 1,
+                    'name' => $item['itemName'] ?? '',
+                    'price' => $item['itemPrice'] ?? 0,
+                    'image' => $item['mediumImageUrls'][0]['imageUrl'] ?? '',
+                    'url' => $item['itemUrl'] ?? '',
+                    'jan_code' => $codes['jan'],
+                    'part_number' => $codes['partNumber'],
+                    'shopName' => $item['shopName'] ?? '',
+                    'reviewCount' => $item['reviewCount'] ?? 0,
+                    'reviewAverage' => $item['reviewAverage'] ?? 0,
+                    'postageFlag' => $item['postageFlag'] ?? 0,
+                    'pointRate' => $item['pointRate'] ?? 1,
                 ];
             })->all();
         } catch (\Throwable) {
