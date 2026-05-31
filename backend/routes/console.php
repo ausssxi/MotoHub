@@ -17,8 +17,10 @@ Schedule::command('blog:publish-scheduled')->everyMinute();
 // ブログサイトマップ生成（毎日3:00）
 Schedule::command('blog:generate-sitemap')->dailyAt('03:00');
 
-// YouTube動画バッチ取得（毎日3:00）
-Schedule::command('youtube:fetch-videos --chunk=50')->dailyAt('03:00');
+// YouTube動画取得（毎日3:00・render pathから分離）
+// DB動画が無い在庫車種を人気順に最大80件/日 = 8,000 units でquota厳守。
+// 旧 youtube:fetch-videos --chunk=50 を置換（render pathがAPIを叩かなくなったため一本化）。
+Schedule::command('youtube:refresh')->dailyAt('03:00')->withoutOverlapping()->runInBackground();
 
 // YouTube動画リフレッシュ（毎週月曜3:30）
 Schedule::command('youtube:refresh-videos --days=30')->weeklyOn(1, '03:30');
@@ -29,6 +31,10 @@ Schedule::command('news:fetch')->hourly();
 // 楽天パーツ事前取得（在庫車種を日次ローテーション・render pathから分離）
 // 失効分のみ約800件/日 → 7日TTLで全在庫車種(~4300)をカバー。A案のためwarmとの順序不問。
 Schedule::command('parts:refresh')->dailyAt('02:00')->withoutOverlapping()->runInBackground();
+
+// 車種別ニュース事前取得（Google News RSS・render pathから分離）
+// RSSは1コール~2sと軽いので上限大きめ。7日TTLで在庫全車種を日次カバー。
+Schedule::command('news:refresh')->dailyAt('02:30')->withoutOverlapping()->runInBackground();
 
 // 一括sold_out除外IDの事前計算（ランキング集計前に実行）
 Schedule::command('ranking:compute-bulk-exclusions')->dailyAt('05:30');

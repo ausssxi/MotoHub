@@ -522,7 +522,7 @@ final class BikeController extends Controller
             }
 
             try {
-                $videos = (new BikeYouTubeService)->fetch("{$makerName} {$modelName} レビュー", 3, $listing->bike_model_id);
+                $videos = (new BikeYouTubeService)->getForModel((int) $listing->bike_model_id);
             } catch (\Throwable) {
                 $videos = [];
             }
@@ -1052,7 +1052,7 @@ final class BikeController extends Controller
 
     public function modelDetail($id, \App\Services\Bike\PriceStatsService $priceStatsService)
     {
-        return view('bikes.model_detail', $this->attachRelatedParts($this->buildModelDetailData((int) $id)));
+        return view('bikes.model_detail', $this->attachExternalContent($this->buildModelDetailData((int) $id)));
     }
 
     /**
@@ -1198,21 +1198,9 @@ final class BikeController extends Controller
             ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'car', 'description' => '愛車を登録・管理'],
         ];
 
-        // ⚠️ parts は render path（楽天8連打）から分離済み。
+        // ⚠️ parts / news / videos は render path（楽天・RSS・YouTube API）から分離済み。
         // model_detailキャッシュ(7日)の blob には含めず、各エントリで read-only 注入する
-        // （attachRelatedParts）。ここに含めると空partsが7日凍結する。
-        try {
-            $news = (new BikeNewsService)->fetch("{$model->manufacturer->name} {$model->name} バイク", 5, $model->id);
-        } catch (\Throwable) {
-            $news = [];
-        }
-
-        try {
-            $videos = (new BikeYouTubeService)->fetch("{$model->manufacturer->name} {$model->name} レビュー", 5, $model->id);
-        } catch (\Throwable) {
-            $videos = [];
-        }
-
+        // （attachExternalContent）。ここに含めると空データが7日凍結する。
         $rankingStats = app(RankingService::class)->getModelRankingStats($id, $model->category_id);
 
         $yearDistribution = DB::table('listings')
@@ -1249,18 +1237,22 @@ final class BikeController extends Controller
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'categoryReviewStats', 'relatedModels', 'similarDisplacementModels',
             'sameCategoryModels', 'activeCount', 'owners', 'similarModels', 'crossLinks',
-            'prefectureStocks', 'news', 'videos', 'rankingStats',
+            'prefectureStocks', 'rankingStats',
             'yearDistribution', 'yearStats'
         );
     }
 
     /**
-     * パーツを model_detailキャッシュの外で read-only 注入する（楽天はライブで叩かない）。
-     * 既存blobに残る古い relatedParts も上書きで無効化する。
+     * parts / news / videos を model_detailキャッシュの外で read-only 注入する。
+     * 外部API（楽天・RSS・YouTube）はライブで叩かず、各refreshコマンドが埋めた
+     * キャッシュ/DBのみを読む。既存blobに残る古い値も上書きで無効化する。
      */
-    private function attachRelatedParts(array $viewData): array
+    private function attachExternalContent(array $viewData): array
     {
-        $viewData['relatedParts'] = app(BikePartsService::class)->getForModel($viewData['model']);
+        $model = $viewData['model'];
+        $viewData['relatedParts'] = app(BikePartsService::class)->getForModel($model);
+        $viewData['news'] = app(BikeNewsService::class)->getForModel($model);
+        $viewData['videos'] = app(BikeYouTubeService::class)->getForModel((int) $model->id);
 
         return $viewData;
     }
@@ -1676,7 +1668,7 @@ final class BikeController extends Controller
         // slugがnullの車種はIDをキーに含める（Observerのパージ処理と一致させ、キー衝突を防ぐ）
         $slugForKey = $model->slug ?? $model->id;
         $cacheKey = \App\Models\BikeModel::modelDetailCacheKey($mfrSlug, $slugForKey);
-        $viewData = $this->attachRelatedParts(
+        $viewData = $this->attachExternalContent(
             Cache::remember($cacheKey, 604800, fn () => $this->buildModelDetailData($model->id))
         );
 
@@ -1701,7 +1693,7 @@ final class BikeController extends Controller
         // slugがnullの車種はIDをキーに含める（Observerのパージ処理と一致させ、キー衝突を防ぐ）
         $slugForKey = $model->slug ?? $model->id;
         $cacheKey = \App\Models\BikeModel::modelDetailCacheKey($mfrSlug, $slugForKey);
-        $viewData = $this->attachRelatedParts(
+        $viewData = $this->attachExternalContent(
             Cache::remember($cacheKey, 604800, fn () => $this->buildModelDetailData($model->id))
         );
         $viewData['reviewOgpMode'] = true;
@@ -1727,7 +1719,7 @@ final class BikeController extends Controller
         }
 
         $cacheKey = \App\Models\BikeModel::modelDetailCacheKey('id', $modelId);
-        $viewData = $this->attachRelatedParts(
+        $viewData = $this->attachExternalContent(
             Cache::remember($cacheKey, 604800, fn () => $this->buildModelDetailData($modelId))
         );
         $viewData['reviewOgpMode'] = true;
