@@ -177,11 +177,16 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/ranking_cache_warmer.log'));
 
-        // モデルページのキャッシュウォーマー (07:30 = market-stats更新後)
-        // 毎日 --all で全車種をv2キーで温め直す。差分判定は対象が全体の86%≈全件で意味が薄く脆いため廃止。
-        // sleep(1)で全件 約1.4時間。withoutOverlappingで翌日へのはみ出しを防止。
-        $schedule->command('cache:warm-models --all')
+        // モデルページのキャッシュウォーマー
+        // 毎日07:30: 変動分のみ（日曜除外） / 日曜14:00: 全件
+        $schedule->command('cache:warm-models')
                  ->dailyAt('07:30')
+                 ->skip(fn () => now()->isSunday())
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/cache_warmer.log'));
+
+        $schedule->command('cache:warm-models --all')
+                 ->weeklyOn(0, '14:00')
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/cache_warmer.log'));
 
