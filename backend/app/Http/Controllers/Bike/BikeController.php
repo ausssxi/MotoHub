@@ -36,6 +36,17 @@ use Illuminate\Support\Facades\DB;
  */
 final class BikeController extends Controller
 {
+    /**
+     * 旧ブログ/外部リンクに残る誤った /bikes/catalog/{slug} の救済マップ。
+     * bare-slug でも maker接頭辞剥がしでも解決できない著者の誤スラッグを、
+     * 正しい "mfrSlug/modelSlug" へ明示マッピングする（catalog()のフォールバックで使用）。
+     */
+    private const CATALOG_SLUG_ALIASES = [
+        'fat-boy-114' => 'harley-davidson/flfbs-softail-fat-boy-114',
+        'super-cub-110-lite' => 'honda/super-cub-110',
+        'burgman-street-125ex' => 'suzuki/125ex',
+    ];
+
     public function __construct(
         private readonly BikeService $bikeService,
         private readonly ListingSearchService $listingSearchService,
@@ -848,6 +859,12 @@ final class BikeController extends Controller
     {
         $pageInfo = $this->seoLandingService->resolveCatalogPage($slug);
         if (empty($pageInfo)) {
+            // フォールバック: 車種slugなら正規の車種ページへ301（旧ブログ/外部リンク救済）。
+            // resolveCatalogPageが先に走るので、正規カタログslug（{cc}cc/maker/maker-category）は侵食しない。
+            if ($model = $this->resolveModelBySlug($slug)) {
+                return redirect($model->seo_url, 301);
+            }
+
             return redirect('/bikes/search', 301);
         }
 
@@ -858,6 +875,66 @@ final class BikeController extends Controller
             'keyword' => '',
             'sort' => 'latest',
         ]));
+    }
+
+    /**
+     * カタログslugを車種に解決する（旧 /bikes/catalog/{slug} リンク救済用）。
+     * 1) エイリアスマップ（著者の誤スラッグ → 正しい mfr/slug）
+     * 2) bare slug（同名slugが複数なら最多active在庫を採用＝promotion）
+     * 3) maker接頭辞付き（例 bmw-g310r → bmw/g310r。[bikes]ショートコード同型の mfr/slug 解決）
+     */
+    private function resolveModelBySlug(string $slug): ?\App\Models\BikeModel
+    {
+        $slug = trim($slug);
+        if ($slug === '') {
+            return null;
+        }
+
+        // 1) 著者の誤スラッグ → 正しい mfr/slug へのエイリアス
+        if (isset(self::CATALOG_SLUG_ALIASES[$slug])
+            && ($aliased = $this->resolveModelByMfrSlug(self::CATALOG_SLUG_ALIASES[$slug]))) {
+            return $aliased;
+        }
+
+        // 2) bare slug（複数候補は最多active在庫を採用）
+        $model = \App\Models\BikeModel::with('manufacturer')
+            ->where('slug', $slug)
+            ->withCount(['listings' => fn ($q) => $q->active()])
+            ->orderByDesc('listings_count')
+            ->first();
+        if ($model && $model->manufacturer?->slug) {
+            return $model;
+        }
+
+        // 3) maker接頭辞付き（bmw-g310r → bmw/g310r）
+        if (str_contains($slug, '-')) {
+            [$mfrSlug, $rest] = explode('-', $slug, 2);
+
+            return $this->resolveModelByMfrSlug("{$mfrSlug}/{$rest}");
+        }
+
+        return null;
+    }
+
+    /**
+     * "mfrSlug/modelSlug" を車種に解決する（/bikes/{mfr}/{slug} ルートと同一ロジック）。
+     */
+    private function resolveModelByMfrSlug(string $token): ?\App\Models\BikeModel
+    {
+        if (! str_contains($token, '/')) {
+            return null;
+        }
+        [$mfrSlug, $modelSlug] = explode('/', $token, 2);
+
+        $manufacturer = \App\Models\Manufacturer::where('slug', trim($mfrSlug))->first();
+        if (! $manufacturer) {
+            return null;
+        }
+
+        return \App\Models\BikeModel::with('manufacturer')
+            ->where('manufacturer_id', $manufacturer->id)
+            ->where('slug', trim($modelSlug))
+            ->first();
     }
 
     /**
