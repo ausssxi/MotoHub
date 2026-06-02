@@ -36,8 +36,7 @@ Schedule::command('parts:refresh')->dailyAt('02:00')->withoutOverlapping()->runI
 // RSSは1コール~2sと軽いので上限大きめ。7日TTLで在庫全車種を日次カバー。
 Schedule::command('news:refresh')->dailyAt('02:30')->withoutOverlapping()->runInBackground();
 
-// 一括sold_out除外IDの事前計算（ランキング集計前に実行）
-Schedule::command('ranking:compute-bulk-exclusions')->dailyAt('05:30');
+// 一括sold_out除外IDの事前計算は bootstrap/app.php の 04:50 に一本化（cache:warm-ranking 05:10 の前）
 
 // ランキングニュース自動生成
 Schedule::command('news:generate-ranking --type=daily')->dailyAt('06:00');
@@ -54,9 +53,6 @@ Schedule::command('news:generate-weekly-report --publish')->weeklyOn(1, '08:30')
 
 // 新車発表→中古影響分析記事（X投稿は停止）
 Schedule::command('news:generate-new-model-impact --publish')->dailyAt('09:00');
-
-// 月次相場レポート（相場速報）生成（X投稿は停止）
-Schedule::command('news:generate-market-report --publish')->monthlyOn(1, '07:30');
 
 // 月次市場レポート生成（X投稿は停止）
 Schedule::command('news:generate-monthly-report --publish')->monthlyOn(1, '08:00');
