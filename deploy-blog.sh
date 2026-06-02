@@ -35,8 +35,12 @@ docker compose exec app php artisan config:clear
 # 注意: php artisan(CLI) の OPcache と fpm の OPcache は別物。
 # コンパイル済みビュー/PHPの更新を即時反映させるため、必ず fpm 側をリセットする。
 # opcache_reset.php は fpm 経由(HTTP)で叩いて初めて fpm の OPcache をクリアできる。
+# 注意: app コンテナは fpm 専用で HTTP を持たない(localhost を叩くと 000 で空振り)。
+# 必ず nginx(web) 経由で叩く。主: docker ネットワークの web サービス、
+# 副: 公開ドメイン。どちらも失敗したら app 再起動でフォールバック(保険)。
 echo "[7/7] php-fpm OPcache をリセット..."
-if docker compose exec -T app sh -c 'curl -fsS -k https://localhost/opcache_reset.php >/dev/null 2>&1 || curl -fsS http://localhost/opcache_reset.php >/dev/null 2>&1'; then
+if docker compose exec -T app sh -c 'curl -fsS http://web/opcache_reset.php >/dev/null 2>&1' \
+   || curl -fsS https://motohub.jp/opcache_reset.php >/dev/null 2>&1; then
     echo "  OPcache をリセットしました (opcache_reset.php)"
 else
     echo "  HTTP 経由のリセットに失敗。app コンテナを再起動して fpm OPcache をクリアします..."
