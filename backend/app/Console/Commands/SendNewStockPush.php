@@ -92,6 +92,8 @@ class SendNewStockPush extends Command
                         'p256dh' => $sub->p256dh,
                         'auth'   => $sub->auth,
                     ],
+                    // NOTE(所見): 'aesgcm' は旧方式。一部ブラウザは 'aes128gcm' を期待し配信失敗の温床になり得る。
+                    // 購読数が増えてから配信検証して切り替える方針のため、現時点では変更しない。
                     'contentEncoding' => 'aesgcm',
                 ]),
                 json_encode($payload),
@@ -140,6 +142,9 @@ class SendNewStockPush extends Command
         $url = ($bikeModel?->manufacturer?->slug && $bikeModel?->slug)
             ? 'https://www.motohub.jp/bikes/' . $bikeModel->manufacturer->slug . '/' . $bikeModel->slug
             : ($bikeModel ? ('https://www.motohub.jp' . $bikeModel->seo_url) : 'https://www.motohub.jp/bikes/search');
+
+        // GA4でプッシュ経由の再訪を計測（送信ロジックは変えずURLにクエリを付与するだけ）
+        $url .= (str_contains($url, '?') ? '&' : '?') . 'utm_source=push&utm_medium=webpush';
 
         return [
             'title' => "📦 {$name} 新着入荷！",

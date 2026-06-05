@@ -172,6 +172,10 @@ const RegistrationPromo = (() => {
 
     function _showPageViewPopup(views) {
         if (document.getElementById('promo-pageview-popup')) return;
+        // 通知系ポップアップ（プッシュ提案 / LINE再訪 / 詳細バナー）が表示中なら出さない（常に1枚）
+        if (document.getElementById('mh-push-soft-prompt')
+            || document.getElementById('return-trigger-sheet')
+            || document.getElementById('engagement-banner')) return;
 
         const popup = document.createElement('div');
         popup.id = 'promo-pageview-popup';

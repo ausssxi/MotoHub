@@ -57,6 +57,10 @@ var MotoHubPush = (function () {
         }).then(function (res) {
             if (!res.ok) throw new Error('サーバー登録失敗');
             saveLocal(bikeModelId, true);
+            // GA4: 購読成功イベント（露出箇所を問わず subscribe 経由で一括計測）
+            if (typeof gtag === 'function') {
+                try { gtag('event', 'push_subscribe', { bike_model_id: bikeModelId || null }); } catch (e) {}
+            }
             return true;
         });
     }

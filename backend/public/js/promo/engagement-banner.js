@@ -9,7 +9,7 @@
 
     var SESSION_KEY = 'motohub_engagement_banner_shown';
     var DISMISS_KEY = 'line_banner_dismissed_at';
-    var DISMISS_DAYS = 7;
+    var DISMISS_DAYS = 14; // プッシュ系ソフトプロンプトと抑制を共有（14日）
     var TIMER_MS = 30000;
     var SCROLL_THRESHOLD = 0.5;
 
@@ -21,17 +21,40 @@
         return (Date.now() - parseInt(ts, 10)) < DISMISS_DAYS * 24 * 60 * 60 * 1000;
     }
 
+    // プッシュが使える環境ではプッシュ側(push-soft-prompt)に優先権を譲る
+    function pushViable() {
+        try {
+            if (typeof MotoHubPush === 'undefined' || !MotoHubPush.getNotificationSupport) return false;
+            if (MotoHubPush.getNotificationSupport() !== 'supported') return false;
+            if (typeof Notification !== 'undefined' && Notification.permission === 'denied') return false;
+            var mid = window.__bikeModelId
+                ? parseInt(window.__bikeModelId, 10)
+                : (function () {
+                    var a = document.getElementById('push-area-listing') || document.getElementById('push-area-header');
+                    return a ? parseInt(a.dataset.modelId, 10) : 0;
+                })();
+            if (!mid) return false;
+            if (MotoHubPush.isSubscribed && MotoHubPush.isSubscribed(mid)) return false;
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
     function shouldShow() {
         if (!window.__bikeModelId) return false;
         if (document.body.dataset.loggedIn === 'true') return false;
         if (isDismissed()) return false;
         if (sessionStorage.getItem(SESSION_KEY)) return false;
         if (typeof MotoHubPush !== 'undefined' && MotoHubPush.isSubscribed(window.__bikeModelId)) return false;
+        if (pushViable()) return false; // プッシュが使えるならプッシュ側に任せる（LINEは出さない）
         return true;
     }
 
     function otherPromoVisible() {
-        return !!(document.getElementById('return-trigger-sheet') || document.getElementById('promo-pageview-popup'));
+        return !!(document.getElementById('return-trigger-sheet')
+            || document.getElementById('promo-pageview-popup')
+            || document.getElementById('mh-push-soft-prompt'));
     }
 
     // ---- スタイル注入 ----
@@ -102,8 +125,9 @@
         sub.textContent = '通知をオンにして、お得なタイミングを逃さない！';
         card.appendChild(sub);
 
-        // デバイス別コンテンツ
-        if (support === 'supported') {
+        // デバイス別コンテンツ（許可deniedはプッシュ不可なのでLINEへ）
+        var denied = (typeof Notification !== 'undefined' && Notification.permission === 'denied');
+        if (support === 'supported' && !denied) {
             var btn = createPushButton(bikeModelId, card, wrapper);
             card.appendChild(btn);
         } else if (support === 'ios-safari') {

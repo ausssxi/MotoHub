@@ -68,7 +68,8 @@
     {{-- サードパーティの重いJSに「defer(遅延)」をつけて画面描画を優先させる --}}
     <script src="https://unpkg.com/lucide@0.469.0" defer></script>
     <script src="{{ asset('js/push-manager.js') }}?v={{ asset_buster(public_path('js/push-manager.js')) }}" defer></script>
-    
+    <script src="{{ asset('js/push-soft-prompt.js') }}?v={{ asset_buster(public_path('js/push-soft-prompt.js')) }}" defer></script>
+
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
     <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">

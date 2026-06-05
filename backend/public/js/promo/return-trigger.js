@@ -8,7 +8,7 @@
 
     const COOLDOWN_KEY = 'motohub_return_trigger_ts';
     const DISMISS_KEY = 'line_banner_dismissed_at';
-    const DISMISS_DAYS = 7;
+    const DISMISS_DAYS = 14; // プッシュ系ソフトプロンプトと抑制を共有（14日）
     const COOLDOWN_DAYS = 3;
     const DELAY_MS = 8000;
 
@@ -17,12 +17,53 @@
         return ts && (Date.now() - parseInt(ts, 10)) < DISMISS_DAYS * 24 * 60 * 60 * 1000;
     }
 
+    // プッシュが使える環境ではプッシュ側(push-soft-prompt)に優先権を譲り、LINEは出さない
+    function pushViable() {
+        try {
+            if (typeof MotoHubPush === 'undefined' || !MotoHubPush.getNotificationSupport) return false;
+            if (MotoHubPush.getNotificationSupport() !== 'supported') return false;
+            if (typeof Notification !== 'undefined' && Notification.permission === 'denied') return false;
+            var area = document.getElementById('push-area-listing') || document.getElementById('push-area-header');
+            if (!area) return false; // 詳細/車種ページのみプッシュ対象
+            var mid = parseInt(area.dataset.modelId, 10);
+            if (!mid) return false;
+            if (MotoHubPush.isSubscribed && MotoHubPush.isSubscribed(mid)) return false;
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // この車種のプッシュを既に購読済みなら通知系は一切出さない（詳細/車種ページのみ判定可能）
+    function pushSubscribedHere() {
+        try {
+            if (typeof MotoHubPush === 'undefined' || !MotoHubPush.isSubscribed) return false;
+            var area = document.getElementById('push-area-listing') || document.getElementById('push-area-header');
+            if (!area) return false;
+            var mid = parseInt(area.dataset.modelId, 10);
+            return mid ? MotoHubPush.isSubscribed(mid) : false;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // 既に他のポップアップが出ているか（常に1枚に保つ）
+    function otherPopupOpen() {
+        return !!(document.getElementById('promo-pageview-popup')
+            || document.getElementById('engagement-banner')
+            || document.getElementById('mh-push-soft-prompt'));
+    }
+
     function shouldShow() {
         // ログイン済みなら非表示
         if (document.body.dataset.loggedIn === 'true') return false;
 
-        // line_banner_dismissed_at で7日間非表示
+        // 14日間非表示（プッシュ系と共有の抑制キー）
         if (isDismissed()) return false;
+
+        // プッシュが使える詳細ページではプッシュ側に譲る / 既にプッシュ購読済みなら出さない
+        if (pushViable()) return false;
+        if (pushSubscribedHere()) return false;
 
         // cooldownチェック
         const lastShown = localStorage.getItem(COOLDOWN_KEY);
@@ -31,8 +72,8 @@
             if (elapsed < COOLDOWN_DAYS * 24 * 60 * 60 * 1000) return false;
         }
 
-        // 会員登録ポップアップと同時表示しない
-        if (document.getElementById('promo-pageview-popup')) return false;
+        // 他のポップアップ（会員登録 / 詳細バナー / プッシュ提案）と同時表示しない
+        if (otherPopupOpen()) return false;
 
         // 2ページ目以降かチェック（sessionStorageでPVカウント）
         let pv = parseInt(sessionStorage.getItem('motohub_pv') || '0', 10);
@@ -88,8 +129,8 @@
     // エントリーポイント
     if (shouldShow()) {
         setTimeout(function() {
-            // 表示直前に再チェック（8秒の間にポップアップが出た可能性）
-            if (isDismissed() || document.getElementById('promo-pageview-popup')) return;
+            // 表示直前に再チェック（8秒の間に状況が変わった可能性）
+            if (isDismissed() || pushViable() || pushSubscribedHere() || otherPopupOpen()) return;
             createSheet();
         }, DELAY_MS);
     }

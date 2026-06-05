@@ -1636,6 +1636,13 @@
                                 @endif
                             </div>
 
+                            {{-- 🔔 この車種の新着入荷を通知（既存 MotoHubPush を流用 / iOS非PWAは自動でガイド表示） --}}
+                            @if($listing->bike_model_id)
+                            <div class="mt-3" id="push-area-listing"
+                                 data-model-id="{{ $listing->bike_model_id }}"
+                                 data-model-name="{{ $listing->bike_model_name ?? $listing->name }}"></div>
+                            @endif
+
                             @if(!$listing->is_sold_out)
                             <div class="mt-6 pt-6 border-t border-gray-100 text-center">
                                 <div class="text-[10px] font-bold text-gray-400">

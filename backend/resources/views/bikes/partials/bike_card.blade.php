@@ -42,7 +42,7 @@
         <button class="wishlist-btn absolute top-3 right-3 z-20 w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-400 shadow-sm border border-gray-100" data-id="{{ $listing['id'] }}">
             <i data-lucide="heart" class="w-5 h-5"></i>
         </button>
-        
+
         {{-- 掲載元サイトのバッジ --}}
         <div class="absolute bottom-3 right-3 z-20 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-sm">
             @if(isset($listing['source_icon_key']) && $listing['source_icon_key'] !== 'default')

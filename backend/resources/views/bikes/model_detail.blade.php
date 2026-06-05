@@ -301,6 +301,11 @@
                 {{ $model->manufacturer->name }}｜価格推移・リセールバリュー・オーナーレビュー
             </p>
 
+            {{-- 通知購読エリア（ファーストビュー内に前出し / iOS非PWAは自動でガイド表示） --}}
+            <div class="mt-5" id="push-area-header"
+                 data-model-id="{{ $model->id }}"
+                 data-model-name="{{ $model->name }}"></div>
+
             {{-- ★追加: ヘッダーに要約スタッツ --}}
             <div class="flex flex-wrap gap-4 mt-6">
                 @if(!empty($stats) && isset($stats['avg']) && $stats['count'] > 0)
@@ -337,8 +342,6 @@
                 @endif
             </div>
 
-            {{-- 通知購読エリア --}}
-            <div class="mt-4" id="push-area-header" data-model-id="{{ $model->id }}"></div>
         </div>
     </div>
 
