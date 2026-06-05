@@ -327,6 +327,10 @@ final class BikeController extends Controller
             $pageTitle = $this->listingSearchService->generatePageTitle($keyword, $prefecture, $filters);
             $popularTags = $this->listingSearchService->getPopularTags();
             $recommendedModels = $this->listingSearchService->getRecommendedModels($result['filters'], $result['items']);
+            // キーワード一致の車種ページ導線チップ（キャッシュ済み・キーワード無しなら空）
+            $modelChips = $this->listingSearchService->getModelChips($keyword);
+            // 単一車種(bike_model_id)絞り込み時の車種ページ導線CTA（キーワード時/未指定はnull）
+            $modelCta = $this->listingSearchService->getModelCta($keyword, $result['filters']);
 
             return view('bikes.search', array_merge($result, [
                 'keyword' => $keyword,
@@ -335,6 +339,8 @@ final class BikeController extends Controller
                 'pageTitle' => $pageTitle,
                 'popularTags' => $popularTags,
                 'recommendedModels' => $recommendedModels,
+                'modelChips' => $modelChips,
+                'modelCta' => $modelCta,
             ]));
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Search failed', [

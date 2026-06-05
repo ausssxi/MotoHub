@@ -575,6 +575,44 @@
                     </div>
                 </div>
 
+                {{-- 単一車種(bike_model_id)絞り込み時：その車種ページ(P2)への導線CTA。キーワード時はチップが出るので非表示 --}}
+                @if(isset($modelCta) && $modelCta)
+                <div class="mb-6">
+                    <a href="{{ $modelCta->seo_url }}"
+                       onclick="if(typeof gtag==='function'){gtag('event','model_cta_click',{model_id:{{ $modelCta->id }}});}"
+                       class="group flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 hover:border-blue-400 rounded-2xl pl-4 pr-4 py-3.5 transition shadow-sm hover:shadow">
+                        <span class="shrink-0 w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center">
+                            <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                        </span>
+                        <span class="flex-1 min-w-0">
+                            <span class="block text-sm font-black text-gray-900 truncate">{{ $modelCta->manufacturer?->name ? $modelCta->manufacturer->name . ' ' : '' }}{{ $modelCta->name }}の相場・解説・レビューを見る</span>
+                            <span class="block text-[11px] font-bold text-blue-600/80">価格推移・リセールバリュー・オーナーレビュー＋入荷通知</span>
+                        </span>
+                        <i data-lucide="arrow-right" class="w-5 h-5 text-blue-500 group-hover:translate-x-0.5 transition-transform shrink-0"></i>
+                    </a>
+                </div>
+                @endif
+
+                {{-- 車種ページ(相場・解説＋通知)への導線チップ：キーワード一致モデル --}}
+                @if(isset($modelChips) && $modelChips->isNotEmpty())
+                <div class="mb-6">
+                    <p class="text-[11px] font-black text-gray-400 uppercase tracking-widest italic mb-2">
+                        <i data-lucide="bar-chart-3" class="w-3.5 h-3.5 inline-block align-text-bottom text-blue-400"></i>
+                        この車種の相場・解説をチェック
+                    </p>
+                    <div class="flex gap-2 overflow-x-auto sm:flex-wrap pb-1 -mx-1 px-2 [-ms-overflow-style:none] [scrollbar-width:none]">
+                        @foreach($modelChips as $chip)
+                        <a href="{{ $chip->seo_url }}"
+                           onclick="if(typeof gtag==='function'){gtag('event','model_chip_click',{model_id:{{ $chip->id }}});}"
+                           class="flex-shrink-0 inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-blue-500 hover:bg-blue-50 rounded-full pl-4 pr-3 py-1.5 text-xs font-bold text-gray-700 hover:text-blue-600 transition shadow-sm">
+                            <span class="whitespace-nowrap">{{ $chip->manufacturer?->name ? $chip->manufacturer->name . ' ' : '' }}{{ $chip->name }}</span>
+                            <span class="text-[10px] font-black text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5 tabular-nums">{{ number_format($chip->listings_count) }}台</span>
+                        </a>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
                 {{-- 閲覧履歴ウィジェット --}}
                 @include('bikes.partials.history_widget', ['widgetId' => 'search-history-widget'])
 

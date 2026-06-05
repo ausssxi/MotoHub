@@ -268,6 +268,63 @@ final class ListingSearchService
     public function getSortOptions(): array { return ['bargain_desc' => 'お買い得', 'latest' => '新着', 'price_asc' => '価格の安い', 'price_desc' => '価格の高い', 'mileage_asc' => '走行距離が少ない', 'mileage_desc' => '走行距離が多い', 'year_desc' => '年式が新しい', 'year_asc' => '年式が古い']; }
     public function getActiveCount(): int { return $this->statsRepo->countActiveListings(); }
     public function getModelsByManufacturer(int $mid): Collection { return $this->modelRepo->getByManufacturerId($mid); }
+
+    /**
+     * キーワードに名前が一致する車種(モデル)チップを取得（検索結果ページ上部の「もしかして」導線用）。
+     *
+     * 性能ガード(過去のTOP 504事件の教訓):
+     * - モデル取得＋アクティブ在庫件数は withCount による単一クエリ（既存 getRecommendedModels と同方式）。
+     * - 必ず Redis に 6h キャッシュ。無効化はキー版数(v1) bump。
+     * - listing毎の計算・N+1・追加の相関サブクエリは一切行わない。
+     *
+     * @return Collection<int,\App\Models\BikeModel> name/slug/manufacturer/listings_count を持つモデル（最大8件）
+     */
+    public function getModelChips(?string $keyword): Collection
+    {
+        $kw = trim((string) $keyword);
+
+        // キーワード無し（絞り込みのみ）や極端に短い語は対象外
+        if ($kw === '' || mb_strlen($kw) < 2) {
+            return collect();
+        }
+
+        $cacheKey = 'search:model_chips:' . md5(mb_strtolower($kw)) . ':v1';
+
+        return Cache::store('redis')->remember($cacheKey, 21600, function () use ($kw) {
+            $like = '%' . addcslashes($kw, '%_\\') . '%';
+
+            return \App\Models\BikeModel::query()
+                ->with('manufacturer')
+                ->where('name', 'like', $like)
+                ->withCount(['listings' => fn ($q) => $q->active()])
+                ->having('listings_count', '>', 0) // アクティブ在庫のあるものを優先
+                ->orderByDesc('listings_count')     // listing件数の多い順
+                ->orderBy('name')
+                ->limit(8)
+                ->get();
+        });
+    }
+
+    /**
+     * 単一車種(bike_model_id)で絞り込んだ検索結果ページ用の、車種詳細ページ(P2)導線CTA。
+     *
+     * - キーワード検索（チップが出る方）や bike_model_id 無しでは null（チップとの二重表示を防ぐ）。
+     * - PK1件のみ取得＝軽量。URLは seo_url を流用（/bikes/{mfr}/{slug}、slug無しはid→301）。
+     */
+    public function getModelCta(?string $keyword, array $filters): ?\App\Models\BikeModel
+    {
+        // キーワードあり（チップ表示側）では出さない
+        if (trim((string) $keyword) !== '') {
+            return null;
+        }
+
+        $modelId = (int) ($filters['bike_model_id'] ?? 0);
+        if ($modelId <= 0) {
+            return null;
+        }
+
+        return \App\Models\BikeModel::with('manufacturer')->find($modelId);
+    }
     
     public function getFilteredCount($k, $p, $f): int { 
         $cacheKey = 'search_count_' . md5(json_encode([$k, $p, $f]));
