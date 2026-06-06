@@ -326,9 +326,11 @@ final class ListingSearchService
         return \App\Models\BikeModel::with('manufacturer')->find($modelId);
     }
     
-    public function getFilteredCount($k, $p, $f): int { 
+    public function getFilteredCount($k, $p, $f): int {
         $cacheKey = 'search_count_' . md5(json_encode([$k, $p, $f]));
-        return Cache::remember($cacheKey, 10800, function () use ($k, $p, $f) {
+        // Redisキャッシュ命中時に文字列が返り得るため、read(return)地点で必ずintへキャスト。
+        // 既にRedisへ入っている文字列キャッシュもこのキャストで救済できる(flush不要)。
+        return (int) Cache::remember($cacheKey, 10800, function () use ($k, $p, $f) {
             $paginated = $this->listingRepo->searchByKeyword($k, $p, 'latest', $f, 1);
             return (int) (method_exists($paginated, 'total') ? $paginated->total() : count($paginated->items()));
         });
