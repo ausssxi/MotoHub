@@ -16,6 +16,7 @@ use App\Http\Controllers\MyBike\GaragePublicController; // 公開ガレージ
 use App\Http\Controllers\Auth\GoogleLoginController;
 use App\Http\Controllers\Auth\LineAuthController;
 use App\Http\Controllers\Shindan\ShindanController;
+use App\Http\Controllers\Trouble\TroubleController;
 use App\Http\Controllers\Feature\FeatureController;
 use App\Http\Controllers\Parking\ParkingController;
 use App\Http\Controllers\Parking\ParkingAreaController;
@@ -480,6 +481,9 @@ Route::post('/shindan/diagnose', [ShindanController::class, 'diagnose'])
     ->name('shindan.diagnose')
     ->middleware('throttle:3,1');
 Route::get('/shindan/result', [ShindanController::class, 'result'])->name('shindan.result');
+
+// 症状自己診断ツール（トラブル診断）— ルールベース決定木。クライアント側で辿る
+Route::get('/trouble', [TroubleController::class, 'index'])->name('trouble.index');
 
 // Breezeの認証ルート読み込み (login, register等)
 require __DIR__.'/auth.php';
