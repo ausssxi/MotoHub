@@ -226,6 +226,9 @@
                 </div>
             </div>
 
+            {{-- 症状診断CTA（修理記事のみ自動表示・それ以外は何も描画しない） --}}
+            <x-trouble-cta :post="$post" />
+
             {{-- シリーズ全記事リスト --}}
             @if($seriesNav)
                 <details class="mt-8 bg-gray-50 rounded-xl border p-4">
