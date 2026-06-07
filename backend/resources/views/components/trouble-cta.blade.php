@@ -1,18 +1,9 @@
 @props(['post'])
 
 @php
-    // 「修理記事か」はタグではなく config('diagnosis.cards') の article から導出する。
-    // 診断ツールの答えカードが深掘り先として指す記事 ＝ 修理記事、という単一の真実に揃える。
-    $repairSlugs = collect(config('diagnosis.cards'))
-        ->pluck('article')
-        ->filter()
-        ->map(fn ($p) => ltrim(str_replace('/blog/', '', $p), '/'))
-        ->unique()
-        ->values()
-        ->all();
-
-    // 修理記事以外では何も描画しない（show.blade.php に無条件で差して安全）
-    if (! in_array($post->slug, $repairSlugs, true)) {
+    // 「修理記事か」はタグではなく config('diagnosis.cards') の article から導出する
+    // （diagnosis_repair_slugs() ＝ 単一の真実）。修理記事以外では何も描画しない。
+    if (! in_array($post->slug, diagnosis_repair_slugs(), true)) {
         return;
     }
 @endphp

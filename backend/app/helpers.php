@@ -19,6 +19,29 @@ if (! function_exists('asset_buster')) {
     }
 }
 
+if (! function_exists('diagnosis_repair_slugs')) {
+    /**
+     * 症状診断ツール（/trouble）の答えカードが深掘り先として指すブログ記事の
+     * slug 一覧を返す ＝「修理記事」の単一の真実。
+     *
+     * config('diagnosis.cards') の article（/blog/{slug}）から導出するため、
+     * タグやカラムに依存しない。trouble-cta / trouble-related コンポーネントと
+     * show.blade.php の重複除外で共有する。
+     *
+     * @return list<string>
+     */
+    function diagnosis_repair_slugs(): array
+    {
+        return collect(config('diagnosis.cards', []))
+            ->pluck('article')
+            ->filter()
+            ->map(fn ($p) => ltrim(str_replace('/blog/', '', (string) $p), '/'))
+            ->unique()
+            ->values()
+            ->all();
+    }
+}
+
 if (! function_exists('hit_count_cap')) {
     /**
      * Meilisearch の pagination.maxTotalHits（ヒット件数の上限）を返す。

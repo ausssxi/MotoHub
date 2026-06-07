@@ -229,6 +229,9 @@
             {{-- 症状診断CTA（修理記事のみ自動表示・それ以外は何も描画しない） --}}
             <x-trouble-cta :post="$post" />
 
+            {{-- 関連：ほかの症状の対処記事（修理記事のみ・公開済みの兄弟記事を列挙） --}}
+            <x-trouble-related :post="$post" />
+
             {{-- シリーズ全記事リスト --}}
             @if($seriesNav)
                 <details class="mt-8 bg-gray-50 rounded-xl border p-4">
@@ -287,11 +290,18 @@
         @endif
 
         {{-- 関連記事 --}}
-        @if($relatedPosts->isNotEmpty())
+        @php
+            // 修理記事ページでは、上の「ほかの症状の対処記事」と同じ記事が
+            // 汎用「関連記事」グリッドに重複表示されないよう除外する。
+            $relatedDisplay = in_array($post->slug, diagnosis_repair_slugs(), true)
+                ? $relatedPosts->reject(fn ($r) => in_array($r->slug, diagnosis_repair_slugs(), true))->values()
+                : $relatedPosts;
+        @endphp
+        @if($relatedDisplay->isNotEmpty())
             <section class="mt-12 pt-8 border-t">
                 <h2 class="text-xl font-bold mb-6">関連記事</h2>
                 <div class="related-posts-grid">
-                    @foreach($relatedPosts as $related)
+                    @foreach($relatedDisplay as $related)
                         <a href="{{ route('blog.show', $related->slug) }}" class="related-post-card bg-white rounded-lg border overflow-hidden hover:shadow-md transition">
                             @if($related->eyecatch_image)
                                 <img src="{{ $related->getEyecatchUrl() }}" alt="" class="rounded-t-lg" loading="lazy" onerror="handleImageError(this)">
