@@ -91,6 +91,9 @@ class LineAuthController extends Controller
             'email_verified_at' => $email ? now() : null, // メールがあれば認証済み扱い
         ]);
 
+        // GA4 sign_up 計測用（新規作成時のみ・既存ユーザーのログイン/連携では撃たない）
+        session()->flash('signup_method', 'line');
+
         Auth::login($user, remember: true);
         return redirect()->intended('/');
     }

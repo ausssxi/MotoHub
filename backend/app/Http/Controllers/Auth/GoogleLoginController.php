@@ -59,6 +59,9 @@ class GoogleLoginController extends Controller
             'email_verified_at' => now(),  // Googleで認証済みなのでメール確認不要
         ]);
 
+        // GA4 sign_up 計測用（新規作成時のみ・既存ユーザーのログイン/連携では撃たない）
+        session()->flash('signup_method', 'google');
+
         Auth::login($user, remember: true);
         return redirect()->intended('/');
     }
