@@ -57,6 +57,11 @@
         gtag('config', '{{ config('app.ga_id', 'G-2SMHVZK9WE') }}');
     </script>
 
+    @if(session('just_registered'))
+    {{-- GA4: 会員登録完了（登録直後の1回のみ・フラッシュなので次の遷移で消える） --}}
+    <script>gtag('event', 'sign_up', { method: 'email' });</script>
+    @endif
+
     {{-- Google Fontsの爆速・非同期読み込み --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

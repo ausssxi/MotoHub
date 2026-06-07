@@ -45,6 +45,9 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
+        // GA4 sign_up 計測用（共通レイアウトで1回だけ発火）
+        session()->flash('just_registered', true);
+
         return redirect(route('dashboard', absolute: false));
     }
 }
