@@ -55,13 +55,13 @@ return [
             'cause'   => '駆動系（ベルト・ウェイトローラー）',
             'verdict' => 'shop',
             'advice'  => '消耗品の摩耗。分解整備が必要なので店（または上級者）へ。',
-            'article' => null, // 記事TODO
+            'article' => '/blog/gentsuki-acceleration',
         ],
         'air_filter' => [
             'cause'   => 'エアクリーナー詰まり',
             'verdict' => 'diy_then_shop',
             'advice'  => 'エアクリを清掃／交換。汚れがひどい・改善しなければ店で点検。',
-            'article' => null, // 記事TODO
+            'article' => '/blog/gentsuki-acceleration',
         ],
         'tire' => [
             'cause'   => 'パンク・空気圧不足',
