@@ -155,6 +155,10 @@
                             <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
                             パーツ
                         </a>
+                        <a href="{{ route('trouble.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap" title="症状から原因を切り分け（バイク選びの「バイク診断」とは別）">
+                            <i data-lucide="stethoscope" class="w-3.5 h-3.5"></i>
+                            症状診断
+                        </a>
                         <a href="{{ route('bikes.identify') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors whitespace-nowrap">
                             <i data-lucide="scan-eye" class="w-3.5 h-3.5"></i>
                             車種判定AI

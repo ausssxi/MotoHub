@@ -296,6 +296,32 @@
     </div>
     @endif
 
+    {{-- 🔧 症状診断ツール導線（静的カード・控えめ／新規DBクエリなし） --}}
+    <div class="bg-gray-50 pb-10 sm:pb-16">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+                <div class="flex items-start gap-4 flex-1 min-w-0">
+                    <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg">
+                        <i data-lucide="wrench" class="w-6 h-6"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-black text-gray-900 mb-1">バイクの症状診断</h2>
+                        <p class="text-sm text-gray-600 leading-relaxed">バイクの調子が悪い？症状から無料で原因を切り分け。自分で直せるか・店に出すべきかの目安が約30秒でわかります。</p>
+                        <div class="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-blue-700">
+                            <span class="px-2.5 py-1 rounded-full bg-blue-50 border border-blue-100">⚡ 約30秒</span>
+                            <span class="px-2.5 py-1 rounded-full bg-blue-50 border border-blue-100">🆓 登録不要</span>
+                            <span class="px-2.5 py-1 rounded-full bg-blue-50 border border-blue-100">¥0 無料</span>
+                        </div>
+                    </div>
+                </div>
+                <a href="{{ route('trouble.index') }}" class="flex-shrink-0 inline-flex items-center justify-center gap-2 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-black text-sm px-6 py-3 rounded-xl transition active:scale-[0.99] whitespace-nowrap">
+                    症状を無料診断する
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
     {{-- 🎮 バイクゲーム --}}
     <div class="bg-gray-50 pb-10 sm:pb-16">
         <div class="max-w-7xl mx-auto px-4">
