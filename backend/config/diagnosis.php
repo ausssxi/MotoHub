@@ -87,6 +87,14 @@ return [
             'advice'  => '店へ。「セルが回る／回らない」など症状を具体的に伝えるとスムーズ。',
             'article' => '/blog/gentsuki-engine-wont-start',
         ],
+        // 電装・ヘッドライト。v1の6症状ツリーからは未到達の共有カード（oilと同じ扱い）。
+        // 主目的は gentsuki-headlight 記事を「修理記事」として登録し trouble-cta を出すこと。
+        'headlight' => [
+            'cause'   => 'ヘッドライト切れ・電装系',
+            'verdict' => 'diy_then_shop',
+            'advice'  => 'バルブ切れを確認して交換。ヒューズ・配線・接触も点検。改善しなければ電装系の点検で店へ。',
+            'article' => '/blog/gentsuki-headlight',
+        ],
         'unknown' => [
             'cause'   => '切り分けても原因不明・無反応',
             'verdict' => 'shop',
