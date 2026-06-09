@@ -3,6 +3,7 @@
     $isMenuActive = request()->is('shindan*')
         || request()->is('identify*')
         || request()->is('parts*')
+        || request()->is('trouble*')
         || request()->is('blog*')
         || request()->is('sell*')
         || request()->is('trends*')
@@ -88,6 +89,15 @@
                 <div>
                     <p class="text-sm font-black text-gray-900">パーツ検索</p>
                     <p class="text-[10px] text-gray-400">バイクパーツを探す</p>
+                </div>
+            </a>
+            <a href="{{ route('trouble.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="stethoscope" class="w-5 h-5 text-teal-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">症状診断</p>
+                    <p class="text-[10px] text-gray-400">故障・トラブルの原因を診断</p>
                 </div>
             </a>
             <a href="{{ route('ar.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
