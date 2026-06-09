@@ -95,6 +95,14 @@ return [
             'advice'  => 'バルブ切れを確認して交換。ヒューズ・配線・接触も点検。改善しなければ電装系の点検で店へ。',
             'article' => '/blog/gentsuki-headlight',
         ],
+        // エンジン焼き付き。v1の6症状ツリーからは未到達の共有カード（oil/headlightと同じ扱い）。
+        // 主目的は gentsuki-seizure 記事を「修理記事」として登録し trouble-cta を出すこと。
+        'seizure' => [
+            'cause'   => 'エンジン焼き付き（オイル切れ・過熱）',
+            'verdict' => 'shop',
+            'advice'  => 'オイル切れ・過熱が主因。無理に再始動すると被害が広がるため、レッカー等で店へ。',
+            'article' => '/blog/gentsuki-seizure',
+        ],
         'unknown' => [
             'cause'   => '切り分けても原因不明・無反応',
             'verdict' => 'shop',
