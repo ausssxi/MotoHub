@@ -103,6 +103,14 @@ return [
             'advice'  => 'オイル切れ・過熱が主因。無理に再始動すると被害が広がるため、レッカー等で店へ。',
             'article' => '/blog/gentsuki-seizure',
         ],
+        // 出先で動かない時の対処。v1の6症状ツリーからは未到達の共有カード（oil/headlight/seizureと同じ扱い）。
+        // 主目的は gentsuki-roadside 記事を「修理記事」として登録し trouble-cta を出すこと。
+        'roadside' => [
+            'cause'   => '出先でバイクが動かない（立ち往生）',
+            'verdict' => 'check_then_shop',
+            'advice'  => 'まず安全な場所へ退避。ガス欠・キルスイッチ・ヒューズ等の基本を確認し、直らなければJAF・ロードサービス・店へ。',
+            'article' => '/blog/gentsuki-roadside',
+        ],
         'unknown' => [
             'cause'   => '切り分けても原因不明・無反応',
             'verdict' => 'shop',
