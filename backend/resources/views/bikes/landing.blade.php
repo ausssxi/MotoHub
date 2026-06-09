@@ -349,6 +349,16 @@
                     </div>
                     @endif
 
+                    {{-- 車種ページ導線（モデルLPのみ・詳細/相場/スペックへ） --}}
+                    @if(($pageInfo['type'] ?? '') === 'model' && !empty($pageInfo['model_url']))
+                    <div class="mt-12">
+                        <a href="{{ $pageInfo['model_url'] }}" class="inline-flex items-center gap-2 text-sm font-black text-blue-600 hover:text-blue-800 hover:underline">
+                            ▶︎ {{ $pageInfo['target_name'] }}の詳細・相場・スペックを見る
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </a>
+                    </div>
+                    @endif
+
                     {{-- 関連リンクブロック（動的生成） --}}
                     @if(!empty($relatedLinks['same_area']) || !empty($relatedLinks['other_areas']))
                     <div class="mt-20 pt-10 border-t border-gray-200">

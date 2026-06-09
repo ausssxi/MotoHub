@@ -37,6 +37,7 @@ final class SeoLandingService
         $filters = ['prefecture' => $prefecture];
         $typeLabel = '';
         $type = 'unknown';
+        $modelUrl = null;
 
         // 1. メーカー判定 (例: ホンダ, Yamaha)
         $manufacturers = $this->manufacturerRepo->getAllSortedByName();
@@ -63,6 +64,8 @@ final class SeoLandingService
             $makerName = $model->manufacturer?->name ?? '';
             $typeLabel = "{$makerName} {$model->name}";
             $type = 'model';
+            // 車種ページ(/bikes/{maker}/{slug})へのURL。H1/関連リンクの導線に使う
+            $modelUrl = $model->seo_url;
         }
         // 4. ★追加: 排気量・免許区分判定 (例: 原付, 大型)
         elseif ($displacement = $this->findDisplacement($slug)) {
@@ -79,7 +82,7 @@ final class SeoLandingService
 
         return [
             'filters' => $filters,
-            'meta' => $this->generateMetaData($prefecture, $typeLabel, $type)
+            'meta' => $this->generateMetaData($prefecture, $typeLabel, $type, $modelUrl)
         ];
     }
 
@@ -652,7 +655,7 @@ final class SeoLandingService
     /**
      * タイプに応じたSEOメタデータを生成
      */
-    private function generateMetaData(string $prefecture, string $label, string $type): array
+    private function generateMetaData(string $prefecture, string $label, string $type, ?string $modelUrl = null): array
     {
         // デフォルト
         $title = "{$prefecture}の{$label} 中古バイク在庫一覧";
@@ -664,6 +667,10 @@ final class SeoLandingService
             case 'model': // 車種名の場合（一番購買意欲が高い）
                 $title = "{$prefecture}の{$label} 中古バイク・新車【相場・価格比較】";
                 $description = "{$prefecture}の{$label}の中古バイク・新車を掲載中。支払総額の安い順や走行距離の少ない順で比較。相場・価格推移もチェック！";
+                // H1の車種名を車種ページへのリンクに（アンカーテキスト＝車種名でSEO最適）
+                if ($modelUrl) {
+                    $h1 = "{$prefecture}の<a href='{$modelUrl}' class='text-blue-600 hover:underline'>{$label}</a>中古バイク在庫一覧";
+                }
                 break;
 
             case 'maker': // メーカーの場合
@@ -683,6 +690,7 @@ final class SeoLandingService
             'prefecture' => $prefecture,
             'target_name' => $label,
             'type' => $type,
+            'model_url' => $modelUrl,
         ];
     }
 }
