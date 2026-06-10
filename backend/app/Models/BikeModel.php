@@ -42,6 +42,7 @@ final class BikeModel extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'merged_into_id',
         'name',
         'display_name',
         'is_discontinued',
