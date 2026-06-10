@@ -65,15 +65,20 @@ final class DedupBikeModels extends Command
         // 3. 各グループを評価（canonical 提案・auto/manual 判定）
         $evaluated = $groups->map(function (Collection $g) {
             $canonical = $this->pickCanonical($g);
-            // false-positive ガード: 非null の displacement/category_id が割れたら別車種疑い→manual
             $distinctDisp = $g->pluck('displacement')->reject(fn ($v) => $v === null)->unique();
             $distinctCat = $g->pluck('category_id')->reject(fn ($v) => $v === null)->unique();
+
+            // ハードガード（manual）= 排気量不一致のみ（別車種疑い）。
+            // category_id はデータが不安定で、同名・同排気量でも分裂レコード間でズレることが多い
+            // （レブル250/セロー250 等）。よって category 不一致は manual ブロックにせず、
+            // ソフト注記（auto可・統合時に canonical のカテゴリへ寄せる）に降格する。
             $manualReasons = [];
             if ($distinctDisp->count() > 1) {
                 $manualReasons[] = '排気量不一致(' . $distinctDisp->sort()->implode('/') . ')';
             }
+            $softNotes = [];
             if ($distinctCat->count() > 1) {
-                $manualReasons[] = 'カテゴリ不一致(' . $distinctCat->sort()->implode('/') . ')';
+                $softNotes[] = 'カテゴリ統一(' . $distinctCat->sort()->implode('/') . '→cat' . ($canonical->category_id ?? '-') . ')';
             }
 
             return [
@@ -82,6 +87,7 @@ final class DedupBikeModels extends Command
                 'total_stock' => (int) $g->sum('listings_count'),
                 'auto' => $manualReasons === [],
                 'reasons' => $manualReasons,
+                'notes' => $softNotes,
             ];
         })->sortByDesc('total_stock')->values();
 
@@ -112,8 +118,9 @@ final class DedupBikeModels extends Command
         foreach ($evaluated->take($limit) as $e) {
             $tag = $e['auto'] ? 'AUTO ' : 'MANUAL';
             $reason = $e['reasons'] ? ' ['.implode(',', $e['reasons']).']' : '';
+            $note = ! empty($e['notes']) ? ' {'.implode(',', $e['notes']).'}' : '';
             $this->newLine();
-            $this->line("[{$tag}] 在庫合計 {$e['total_stock']}台{$reason}");
+            $this->line("[{$tag}] 在庫合計 {$e['total_stock']}台{$reason}{$note}");
             foreach ($e['members']->sortByDesc('listings_count') as $m) {
                 $mark = $m->id === $e['canonical']->id ? ' ★canonical提案' : '';
                 $this->line(sprintf(
