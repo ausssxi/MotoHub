@@ -34,6 +34,14 @@ final class ListingSearchService
      */
     public function search(?string $keyword, ?string $prefecture = null, string $sort = 'latest', array $filters = [], int $perPage = 30): array
     {
+        // 0. 統合済みモデル(merged_into_id)のフィルタは canonical へ寄せる（在庫はcanonicalに集約済み）
+        if (!empty($filters['bike_model_id'])) {
+            $bm = $this->modelRepo->find((int)$filters['bike_model_id']);
+            if ($bm && $bm->merged_into_id) {
+                $filters['bike_model_id'] = $bm->merged_into_id;
+            }
+        }
+
         // 1. 車種・メーカーの自動補完
         if (!empty($filters['bike_model_id']) && empty($filters['manufacturer_id'])) {
             $model = $this->modelRepo->find((int)$filters['bike_model_id']);
@@ -296,6 +304,7 @@ final class ListingSearchService
             return \App\Models\BikeModel::query()
                 ->with('manufacturer')
                 ->where('name', 'like', $like)
+                ->whereNull('merged_into_id')
                 ->withCount(['listings' => fn ($q) => $q->active()])
                 ->having('listings_count', '>', 0) // アクティブ在庫のあるものを優先
                 ->orderByDesc('listings_count')     // listing件数の多い順
@@ -359,6 +368,7 @@ final class ListingSearchService
                     ->where('manufacturer_id', $manufacturerId)
                     ->when($excludeModelId, fn($q, $id) => $q->where('id', '!=', $id))
                     ->whereNotNull('slug')
+                    ->whereNull('merged_into_id')
                     ->withCount(['listings' => fn($q) => $q->active()])
                     ->having('listings_count', '>', 0)
                     ->orderByDesc('listings_count')
@@ -377,6 +387,7 @@ final class ListingSearchService
                     ->where('category_id', $dominantCategoryId)
                     ->when($excludeModelId, fn($q, $id) => $q->where('id', '!=', $id))
                     ->whereNotNull('slug')
+                    ->whereNull('merged_into_id')
                     ->withCount(['listings' => fn($q) => $q->active()])
                     ->having('listings_count', '>', 0)
                     ->orderByDesc('listings_count')

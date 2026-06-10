@@ -44,6 +44,7 @@ final class BikeModelRepository
     public function getByManufacturerId(int $manufacturerId): Collection
     {
         return BikeModel::where('manufacturer_id', $manufacturerId)
+            ->whereNull('merged_into_id')
             ->with('representativeListing')
             ->withCount(['listings' => fn($q) => $q->active()])
             ->orderByDesc('listings_count')
@@ -58,6 +59,7 @@ final class BikeModelRepository
     {
         return BikeModel::query()
             ->where('name', 'like', "%{$keyword}%")
+            ->whereNull('merged_into_id')
             // ★変更: active() スコープを利用
             ->withCount(['listings' => fn($q) => $q->active()])
             ->orderBy('listings_count', 'desc')
@@ -71,6 +73,7 @@ final class BikeModelRepository
     public function getTopModels(int $limit = 16): Collection
     {
         return BikeModel::query()
+            ->whereNull('merged_into_id')
             ->with(['manufacturer', 'representativeListing'])
             ->withCount(['listings' => fn($q) => $q->active()])
             ->orderBy('listings_count', 'desc')
@@ -84,6 +87,7 @@ final class BikeModelRepository
     public function getTrendingModels(int $limit = 10): Collection
     {
         return BikeModel::query()
+            ->whereNull('merged_into_id')
             ->with('representativeListing')
             ->withCount(['listings' => fn($q) => $q->active()])
             // その車種に属する有効な車両の「本日の閲覧数」の合計を取得

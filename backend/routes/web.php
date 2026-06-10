@@ -155,6 +155,9 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     // seo_urlフォールバック: メーカーslugがないモデルの /bikes/model/{id} を処理
     Route::get('/model/{id}', function ($id) {
         $model = \App\Models\BikeModel::with('manufacturer')->findOrFail($id);
+        if ($model->merged_into_id) {
+            return redirect($model->canonicalModel()->seo_url, 301);
+        }
         $mfrSlug = $model->manufacturer?->slug;
         $modelSlug = $model->slug;
 
@@ -191,9 +194,12 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     // 車種別カタログページ
     Route::get('/models/{id}', function ($id) {
         $model = \App\Models\BikeModel::with('manufacturer')->findOrFail($id);
+        if ($model->merged_into_id) {
+            return redirect($model->canonicalModel()->seo_url, 301);
+        }
         $mfrSlug = $model->manufacturer?->slug;
         $modelSlug = $model->slug;
-    
+
         if ($mfrSlug && $modelSlug) {
             return redirect("/bikes/{$mfrSlug}/{$modelSlug}", 301);
         }

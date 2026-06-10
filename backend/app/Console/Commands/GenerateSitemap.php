@@ -877,6 +877,7 @@ class GenerateSitemap extends Command
         BikeModel::with('manufacturer')
             ->select('id', 'slug', 'manufacturer_id', 'updated_at')
             ->whereNotNull('slug')
+            ->whereNull('merged_into_id')
             ->whereHas('manufacturer', fn ($q) => $q->whereNotNull('slug'))
             ->orderBy('updated_at', 'desc')
             ->chunk(1000, function ($models) use ($handle, &$modelCount) {

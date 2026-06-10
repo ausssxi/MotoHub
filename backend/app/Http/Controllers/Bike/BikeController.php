@@ -874,7 +874,8 @@ final class BikeController extends Controller
             // フォールバック: 車種slugなら正規の車種ページへ301（旧ブログ/外部リンク救済）。
             // resolveCatalogPageが先に走るので、正規カタログslug（{cc}cc/maker/maker-category）は侵食しない。
             if ($model = $this->resolveModelBySlug($slug)) {
-                return redirect($model->seo_url, 301);
+                // 統合済みなら canonical へ直接301（二重ホップ回避）
+                return redirect($model->canonicalModel()->seo_url, 301);
             }
 
             return redirect('/bikes/search', 301);
@@ -1749,6 +1750,11 @@ final class BikeController extends Controller
             ? \App\Models\BikeModel::where('id', $modelSlug)->where('manufacturer_id', $manufacturer->id)->firstOrFail()
             : \App\Models\BikeModel::where('slug', $modelSlug)->where('manufacturer_id', $manufacturer->id)->firstOrFail();
 
+        // 統合済み(merged_into_id)なら canonical のURLへ301（id/slug どちらのアクセスもまとめて寄せる）
+        if ($model->merged_into_id) {
+            return redirect($model->canonicalModel()->seo_url, 301);
+        }
+
         // IDアクセスでslugがある場合は正規URLへ301リダイレクト
         if (is_numeric($modelSlug) && $model->slug) {
             return redirect("/bikes/{$mfrSlug}/{$model->slug}", 301);
@@ -1779,6 +1785,11 @@ final class BikeController extends Controller
             ->where('manufacturer_id', $manufacturer->id)
             ->firstOrFail();
 
+        // 統合済みなら canonical のモデルページへ301
+        if ($model->merged_into_id) {
+            return redirect($model->canonicalModel()->seo_url, 301);
+        }
+
         // slugがnullの車種はIDをキーに含める（Observerのパージ処理と一致させ、キー衝突を防ぐ）
         $slugForKey = $model->slug ?? $model->id;
         $cacheKey = \App\Models\BikeModel::modelDetailCacheKey($mfrSlug, $slugForKey);
@@ -1797,6 +1808,11 @@ final class BikeController extends Controller
     public function modelReviewsById(int $modelId, int $reviewId)
     {
         $model = \App\Models\BikeModel::with('manufacturer')->findOrFail($modelId);
+
+        // 統合済みなら canonical のモデルページへ301
+        if ($model->merged_into_id) {
+            return redirect($model->canonicalModel()->seo_url, 301);
+        }
 
         // slugがあればスラッグベースURLへリダイレクト
         if ($model->slug && $model->manufacturer?->slug) {
