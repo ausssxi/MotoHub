@@ -8,70 +8,86 @@ use App\Models\BikeModel;
 use App\Models\Manufacturer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
- * 重複 BikeModel の検出（Phase 0・read-only）。
+ * 重複 BikeModel の検出＋統合（dedup）。
  *
- * ⚠️ 本ビルドは「検出＋レポート」のみで DB を一切変更しない。
- *    付け替え/slug/301/無効化などの破壊的実行路は次スライスで実装する。
- *    スペックの鉄則: dry-run で規模確認 → レビュー → Phase 1 単体 → Phase 2 バッチ。
+ * 既定は read-only レポート。統合は破壊的なので二重ゲート:
+ *   - `--execute` を付けないと一切書き込まない（既定はレポート）。
+ *   - `--execute` には `--i-have-a-backup`（DBバックアップ取得済みの明示確認）が必須。
+ *   - さらに**グループ単位の手動承認**（y/スキップ/以降すべて/中止）。--limit/--group で範囲制限。
  *
  * 検出: 名前の表記ゆれ（全角/半角・空白）を畳んだ正規化キー × manufacturer_id でグルーピング。
  *   key = mb_strtolower( 全空白除去( mb_convert_kana(name,'as') ) )
- * これ以上は正規化しない（単語/サフィックスを削らない＝CB400 と CB400SF は別キーのまま）。
+ * これ以上は正規化しない（語/サフィックスは削らない＝CB400 と CB400SF は別キーのまま）。
+ * FPガード: 非null の displacement が割れたら別車種疑い＝manual（auto対象外）。
+ *           category_id 不一致はデータ不安定なため auto可・統合時に canonical のカテゴリへ寄せる。
  *
  * 使い方:
- *   php artisan model:dedup --dry-run            # 全体スコープ
- *   php artisan model:dedup --dry-run --group=590  # model 590 を含むグループだけ
- *   php artisan model:dedup --dry-run --limit=30   # 表示グループ数
+ *   php artisan model:dedup                                  # 検出レポート（read-only）
+ *   php artisan model:dedup --group=590                      # レブル群だけレポート
+ *   php artisan model:dedup --execute --i-have-a-backup --group=590   # Phase1: 単体統合（手動承認）
+ *   php artisan model:dedup --execute --i-have-a-backup --limit=20    # Phase2: 上位20群を順に承認
+ * 統合後: scout:sync-flagged / bikes:update-market-stats / cache:warm-models --all / comparison:generate-pairs
  */
 final class DedupBikeModels extends Command
 {
     protected $signature = 'model:dedup
-        {--dry-run : 検出のみ（本ビルドは常に非破壊。実行路は未実装）}
-        {--group= : 指定した bike_model_id を含むグループだけ表示}
-        {--limit=30 : 表示するグループ数の上限（在庫合計の多い順）}';
+        {--dry-run : 検出のみ（既定動作。明示用）}
+        {--execute : 実際に統合する（破壊的）。--i-have-a-backup 必須}
+        {--i-have-a-backup : DBバックアップ取得済みの明示確認（--execute の必須ゲート）}
+        {--force : 排気量不一致(manual)グループも統合許可（--group 指定時のみ推奨）}
+        {--group= : 指定した bike_model_id を含むグループだけ対象}
+        {--limit=30 : レポート表示数／execute時は処理グループ数の上限（在庫合計の多い順）}';
 
-    protected $description = '重複BikeModelの検出＋scopeレポート（Phase 0・read-only。統合は次スライス）';
+    protected $description = '重複BikeModelの検出＋統合（既定read-only。--execute+--i-have-a-backup+手動承認で統合）';
 
     /** canonical 選定のスペック充実度に使う列 */
     private const SPEC_FIELDS = ['displacement', 'weight', 'seat_height', 'max_power', 'engine_type', 'tank_capacity'];
 
     public function handle(): int
     {
-        if (! $this->option('dry-run')) {
-            $this->warn('⚠️ 本ビルドは検出のみ（統合の実行路は次スライス）。--dry-run と同じ動作でレポートします。');
+        $evaluated = $this->evaluateGroups();
+
+        if ($this->option('execute')) {
+            return $this->executeMerges($evaluated);
         }
 
-        // 1. 統合済みを除く全モデルを読み込み、active 在庫数を付与
+        $this->printReport($evaluated);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * 重複グループを評価（canonical 提案・auto/manual・notes）。在庫合計の多い順。
+     *
+     * @return Collection<int, array{members:Collection,canonical:BikeModel,total_stock:int,auto:bool,reasons:array,notes:array}>
+     */
+    private function evaluateGroups(): Collection
+    {
         $models = BikeModel::query()
             ->whereNull('merged_into_id')
             ->with('manufacturer:id,name,slug')
             ->withCount(['listings' => fn ($q) => $q->active()])
             ->get();
 
-        // 2. 正規化キーで manufacturer_id ごとにグルーピング → count>1
         $groups = $models
             ->groupBy(fn (BikeModel $m) => $m->manufacturer_id . '|' . $this->normalizeKey((string) $m->name))
             ->filter(fn (Collection $g) => $g->count() > 1);
 
-        // --group: 指定モデルを含むグループだけ
         if ($this->option('group') !== null) {
             $gid = (int) $this->option('group');
             $groups = $groups->filter(fn (Collection $g) => $g->contains(fn (BikeModel $m) => $m->id === $gid));
         }
 
-        // 3. 各グループを評価（canonical 提案・auto/manual 判定）
-        $evaluated = $groups->map(function (Collection $g) {
+        return $groups->map(function (Collection $g) {
             $canonical = $this->pickCanonical($g);
             $distinctDisp = $g->pluck('displacement')->reject(fn ($v) => $v === null)->unique();
             $distinctCat = $g->pluck('category_id')->reject(fn ($v) => $v === null)->unique();
 
-            // ハードガード（manual）= 排気量不一致のみ（別車種疑い）。
-            // category_id はデータが不安定で、同名・同排気量でも分裂レコード間でズレることが多い
-            // （レブル250/セロー250 等）。よって category 不一致は manual ブロックにせず、
-            // ソフト注記（auto可・統合時に canonical のカテゴリへ寄せる）に降格する。
             $manualReasons = [];
             if ($distinctDisp->count() > 1) {
                 $manualReasons[] = '排気量不一致(' . $distinctDisp->sort()->implode('/') . ')';
@@ -90,101 +106,222 @@ final class DedupBikeModels extends Command
                 'notes' => $softNotes,
             ];
         })->sortByDesc('total_stock')->values();
+    }
 
-        $autoGroups = $evaluated->where('auto', true)->values();
-        $manualGroups = $evaluated->where('auto', false)->values();
+    // ───────────────────────── 統合（破壊的） ─────────────────────────
 
-        // ── レポート ──────────────────────────────────────────
-        $this->newLine();
-        $this->line('===== model:dedup Phase 0 レポート（read-only・DB変更なし）=====');
-        $this->line('スキャン対象モデル（統合済み除く）: ' . $models->count());
-        $this->line('重複グループ                      : ' . $evaluated->count());
-        $this->line('  auto-merge 可                  : ' . $autoGroups->count());
-        $this->line('  manual review 必要             : ' . $manualGroups->count());
+    private function executeMerges(Collection $evaluated): int
+    {
+        if (! $this->option('i-have-a-backup')) {
+            $this->error('🚫 破壊的操作です。DBバックアップを取得のうえ --i-have-a-backup を付けて再実行してください。');
 
-        // maker 重複の兆候（別案件）
-        $this->reportMakerDuplicates();
+            return self::FAILURE;
+        }
 
-        // 付け替え影響（blast radius）: auto 対象の dupe(非survivor) id 群
-        $autoDupeIds = $autoGroups->flatMap(
-            fn ($e) => $e['members']->reject(fn (BikeModel $m) => $m->id === $e['canonical']->id)->pluck('id')
-        )->all();
-        $this->reportBlastRadius($autoDupeIds);
-
-        // 各グループ詳細（在庫合計の多い順・--limit）
         $limit = (int) $this->option('limit');
-        $this->newLine();
-        $this->line("----- グループ詳細（在庫合計の多い順・上位{$limit}）-----");
-        foreach ($evaluated->take($limit) as $e) {
-            $tag = $e['auto'] ? 'AUTO ' : 'MANUAL';
-            $reason = $e['reasons'] ? ' ['.implode(',', $e['reasons']).']' : '';
-            $note = ! empty($e['notes']) ? ' {'.implode(',', $e['notes']).'}' : '';
-            $this->newLine();
-            $this->line("[{$tag}] 在庫合計 {$e['total_stock']}台{$reason}{$note}");
-            foreach ($e['members']->sortByDesc('listings_count') as $m) {
-                $mark = $m->id === $e['canonical']->id ? ' ★canonical提案' : '';
-                $this->line(sprintf(
-                    '    id=%-6d 在庫%-5d slug=%-18s disp=%-5s cat=%-4s "%s"%s',
-                    $m->id,
-                    $m->listings_count,
-                    $m->slug ?? '(無)',
-                    $m->displacement ?? '-',
-                    $m->category_id ?? '-',
-                    $m->name,
-                    $mark
-                ));
+        $targets = $evaluated->take($limit);
+        $merged = 0;
+        $skipped = 0;
+        $approveAll = false;
+
+        foreach ($targets as $e) {
+            $canonical = $e['canonical'];
+            $dupes = $e['members']->reject(fn (BikeModel $m) => $m->id === $canonical->id)->values();
+
+            if (! $e['auto'] && ! $this->option('force')) {
+                $this->warn("スキップ(manual): {$canonical->name} [".implode(',', $e['reasons']).'] — --force で統合可');
+                $skipped++;
+                continue;
             }
+
+            $this->printGroupPlan($e, $dupes);
+
+            if (! $approveAll) {
+                $ans = $this->choice(
+                    'このグループを統合しますか？',
+                    ['y' => '統合する', 'n' => 'スキップ', 'a' => '以降すべて統合', 'q' => '中止'],
+                    'n'
+                );
+                if ($ans === 'q') {
+                    $this->warn('中止しました。');
+                    break;
+                }
+                if ($ans === 'n') {
+                    $skipped++;
+                    continue;
+                }
+                if ($ans === 'a') {
+                    $approveAll = true;
+                }
+            }
+
+            $this->mergeGroup($canonical, $dupes);
+            $merged++;
+            $this->info("✓ 統合: canonical id={$canonical->id} ← dupe ".$dupes->pluck('id')->implode(','));
         }
 
         $this->newLine();
-        $this->warn('※ 検出のみ。統合（付け替え/slug/301/無効化）は次スライス。実行前に必ず DB バックアップ。');
+        $this->info("完了: {$merged}群を統合 / {$skipped}群スキップ。");
+        $this->line('次の手順（本番コンテナ内）:');
+        $this->line('  php artisan scout:sync-flagged          # 付け替えlistingをMeilisearch差分同期');
+        $this->line('  php artisan bikes:update-market-stats   # canonicalの相場/在庫再計算');
+        $this->line('  php artisan cache:warm-models --all     # モデルページキャッシュ再生成');
+        $this->line('  php artisan comparison:generate-pairs   # 比較ペア再生成（canonical/slug反映）');
 
         return self::SUCCESS;
     }
 
     /**
-     * 表記ゆれ吸収の正規化キー。保守的（語の削除はしない）。
-     * 全角英数→半角・全角空白→半角 → 全空白除去 → 小文字。
+     * 1グループの統合を1トランザクションで実行（all-or-nothing）。
      */
-    private function normalizeKey(string $name): string
+    private function mergeGroup(BikeModel $canonical, Collection $dupes): void
     {
-        $s = mb_convert_kana($name, 'as');           // 全角英数/空白 → 半角
-        $s = preg_replace('/[\s　]+/u', '', $s) ?? $s; // 全空白除去（ASCII + 全角）
+        $dupeIds = $dupes->pluck('id')->all();
 
-        return mb_strtolower($s);
-    }
+        // キャッシュパージ用に統合前の (mfrSlug, slug/id) を控える
+        $mfrSlug = $canonical->manufacturer?->slug ?? 'id';
+        $cacheKeys = collect([$canonical])->merge($dupes)
+            ->flatMap(fn (BikeModel $m) => array_filter([
+                BikeModel::modelDetailCacheKey($mfrSlug, (string) $m->id),
+                $m->slug ? BikeModel::modelDetailCacheKey($mfrSlug, $m->slug) : null,
+            ]))
+            ->unique()->all();
 
-    private function pickCanonical(Collection $members): BikeModel
-    {
-        return $members->sort(function (BikeModel $a, BikeModel $b) {
-            if ($a->listings_count !== $b->listings_count) {
-                return $b->listings_count <=> $a->listings_count; // 在庫最多
+        DB::transaction(function () use ($canonical, $dupes, $dupeIds) {
+            // model_id に unique 無 → blind UPDATE。listings は再インデックスフラグも立てる
+            DB::table('listings')->whereIn('bike_model_id', $dupeIds)
+                ->update(['bike_model_id' => $canonical->id, 'needs_reindex' => true]);
+            foreach (['reviews', 'my_bikes', 'bike_news', 'bike_model_identifiers'] as $table) {
+                DB::table($table)->whereIn('bike_model_id', $dupeIds)->update(['bike_model_id' => $canonical->id]);
             }
-            $sa = $this->specScore($a);
-            $sb = $this->specScore($b);
-            if ($sa !== $sb) {
-                return $sb <=> $sa; // スペック充実
-            }
 
-            return $a->id <=> $b->id; // id小（安定）
-        })->first();
-    }
+            // bike_model_market_stats: UNIQUE(bike_model_id) → dupe行は削除（後で再計算）
+            DB::table('bike_model_market_stats')->whereIn('bike_model_id', $dupeIds)->delete();
 
-    private function specScore(BikeModel $m): int
-    {
-        $score = 0;
-        foreach (self::SPEC_FIELDS as $f) {
-            if ($m->{$f} !== null && $m->{$f} !== '') {
-                $score++;
-            }
+            // 複合uniqueのある関係: canonicalに既存ならスキップ削除、無ければ付け替え
+            $this->repointWithUnique('market_price_logs', ['recorded_at'], $dupeIds, $canonical->id);
+            $this->repointWithUnique('bike_model_videos', ['video_id'], $dupeIds, $canonical->id);
+            $this->repointWithUnique('push_subscriptions', ['endpoint_hash'], $dupeIds, $canonical->id);
+
+            // seo_compares: dupe参照ペアは無効化（§9 で comparison:generate-pairs が再生成）
+            DB::table('seo_compares')
+                ->where(fn ($q) => $q->whereIn('model1_id', $dupeIds)->orWhereIn('model2_id', $dupeIds))
+                ->update(['is_active' => false]);
+
+            // survivor に clean slug を寄せる（canonical が slug 無で dupe が持っている場合）
+            $this->assignSurvivorSlug($canonical, $dupes);
+
+            // dupe を統合済みに（= 301シグナル＋一覧除外）。slug は assignSurvivorSlug で必要分のみ空けた
+            BikeModel::whereIn('id', $dupeIds)->update(['merged_into_id' => $canonical->id]);
+        });
+
+        foreach ($cacheKeys as $key) {
+            Cache::forget($key);
         }
 
-        return $score;
+        Log::info('model:dedup merged', [
+            'canonical' => $canonical->id,
+            'dupes' => $dupeIds,
+        ]);
     }
 
     /**
-     * メーカー名の表記ゆれ重複の兆候を警告（dedup の前提が崩れる別案件）。
+     * 複合unique(bike_model_id + $keyCols)のテーブルを安全に付け替える。
+     * canonical に同じ $keyCols を持つ行が既にある dupe 行は削除し、残りを canonical へ UPDATE。
      */
+    private function repointWithUnique(string $table, array $keyCols, array $dupeIds, int $canonicalId): void
+    {
+        $collidingIds = DB::table("{$table} as d")
+            ->whereIn('d.bike_model_id', $dupeIds)
+            ->whereExists(function ($q) use ($table, $keyCols, $canonicalId) {
+                $q->from("{$table} as c")->where('c.bike_model_id', $canonicalId);
+                foreach ($keyCols as $col) {
+                    $q->whereColumn("c.{$col}", "d.{$col}");
+                }
+            })
+            ->pluck('d.id');
+
+        if ($collidingIds->isNotEmpty()) {
+            DB::table($table)->whereIn('id', $collidingIds)->delete();
+        }
+        DB::table($table)->whereIn('bike_model_id', $dupeIds)->update(['bike_model_id' => $canonicalId]);
+    }
+
+    /**
+     * survivor が slug を持たない場合、dupe の clean slug を譲渡（unique(mfr_id,slug)回避のため先に空ける）。
+     * `-N`（slug生成の連番衝突回避サフィックス）が付かない slug を優先。どの dupe も無ければ何もしない
+     * （= slug 無のまま。後で slug:generate-missing が KANA 辞書で付与可能）。
+     */
+    private function assignSurvivorSlug(BikeModel $canonical, Collection $dupes): void
+    {
+        if (! empty($canonical->slug)) {
+            return;
+        }
+        $donor = $dupes->filter(fn (BikeModel $m) => ! empty($m->slug))
+            ->sortBy(fn (BikeModel $m) => preg_match('/-\d+$/', (string) $m->slug) ? 1 : 0)
+            ->first();
+        if (! $donor) {
+            return;
+        }
+
+        DB::table('bike_models')->where('id', $donor->id)->update(['slug' => null]);
+        DB::table('bike_models')->where('id', $canonical->id)->update(['slug' => $donor->slug]);
+        $canonical->slug = $donor->slug; // 後続の seo_url 用に反映
+    }
+
+    // ───────────────────────── レポート（read-only） ─────────────────────────
+
+    private function printReport(Collection $evaluated): void
+    {
+        $autoGroups = $evaluated->where('auto', true)->values();
+        $manualGroups = $evaluated->where('auto', false)->values();
+
+        $this->newLine();
+        $this->line('===== model:dedup レポート（read-only・DB変更なし）=====');
+        $this->line('重複グループ          : ' . $evaluated->count());
+        $this->line('  auto-merge 可        : ' . $autoGroups->count());
+        $this->line('  manual review 必要   : ' . $manualGroups->count());
+
+        $this->reportMakerDuplicates();
+
+        $autoDupeIds = $autoGroups->flatMap(
+            fn ($e) => $e['members']->reject(fn (BikeModel $m) => $m->id === $e['canonical']->id)->pluck('id')
+        )->all();
+        $this->reportBlastRadius($autoDupeIds);
+
+        $limit = (int) $this->option('limit');
+        $this->newLine();
+        $this->line("----- グループ詳細（在庫合計の多い順・上位{$limit}）-----");
+        foreach ($evaluated->take($limit) as $e) {
+            $this->printGroupPlan($e, $e['members']->reject(fn (BikeModel $m) => $m->id === $e['canonical']->id));
+        }
+
+        $this->newLine();
+        $this->warn('※ 統合するには --execute --i-have-a-backup（＋グループ毎の手動承認）。実行前に必ず DB バックアップ。');
+    }
+
+    private function printGroupPlan(array $e, Collection $dupes): void
+    {
+        $tag = $e['auto'] ? 'AUTO ' : 'MANUAL';
+        $reason = $e['reasons'] ? ' ['.implode(',', $e['reasons']).']' : '';
+        $note = ! empty($e['notes']) ? ' {'.implode(',', $e['notes']).'}' : '';
+        $this->newLine();
+        $this->line("[{$tag}] 在庫合計 {$e['total_stock']}台{$reason}{$note}");
+        foreach ($e['members']->sortByDesc('listings_count') as $m) {
+            $mark = $m->id === $e['canonical']->id ? ' ★canonical' : '';
+            $this->line(sprintf(
+                '    id=%-6d 在庫%-5d slug=%-18s disp=%-5s cat=%-4s "%s"%s',
+                $m->id,
+                $m->listings_count,
+                $m->slug ?? '(無)',
+                $m->displacement ?? '-',
+                $m->category_id ?? '-',
+                $m->name,
+                $mark
+            ));
+        }
+    }
+
     private function reportMakerDuplicates(): void
     {
         $dupes = Manufacturer::query()
@@ -199,14 +336,11 @@ final class DedupBikeModels extends Command
             return;
         }
         $this->warn('⚠️ maker重複の兆候あり（別案件・本dedupの前提に影響）:');
-        foreach ($dupes as $key => $g) {
+        foreach ($dupes as $g) {
             $this->line('    ' . $g->map(fn ($m) => "id={$m->id}:{$m->name}")->implode(' / '));
         }
     }
 
-    /**
-     * auto対象 dupe id 群が各 FK テーブルから何行参照されているか（付け替え規模）。
-     */
     private function reportBlastRadius(array $dupeIds): void
     {
         $this->newLine();
@@ -217,27 +351,56 @@ final class DedupBikeModels extends Command
             return;
         }
 
-        // bike_model_id を参照する FK（live schema で確定した11カラム）
         $singleCol = [
-            'listings' => 'bike_model_id',
-            'reviews' => 'bike_model_id',
-            'my_bikes' => 'bike_model_id',
-            'push_subscriptions' => 'bike_model_id',
-            'bike_model_market_stats' => 'bike_model_id',
-            'market_price_logs' => 'bike_model_id',
-            'bike_model_videos' => 'bike_model_id',
-            'bike_news' => 'bike_model_id',
-            'bike_model_identifiers' => 'bike_model_id',
+            'listings', 'reviews', 'my_bikes', 'push_subscriptions', 'bike_model_market_stats',
+            'market_price_logs', 'bike_model_videos', 'bike_news', 'bike_model_identifiers',
         ];
-        foreach ($singleCol as $table => $col) {
-            $n = DB::table($table)->whereIn($col, $dupeIds)->count();
-            $this->line(sprintf('    %-26s %d', "{$table}.{$col}", $n));
+        foreach ($singleCol as $table) {
+            $n = DB::table($table)->whereIn('bike_model_id', $dupeIds)->count();
+            $this->line(sprintf('    %-26s %d', "{$table}.bike_model_id", $n));
         }
-        // seo_compares は model1_id / model2_id の両方
         $seo = DB::table('seo_compares')
             ->whereIn('model1_id', $dupeIds)
             ->orWhereIn('model2_id', $dupeIds)
             ->count();
         $this->line(sprintf('    %-26s %d', 'seo_compares.model1/2_id', $seo));
+    }
+
+    // ───────────────────────── 共通 ─────────────────────────
+
+    private function normalizeKey(string $name): string
+    {
+        $s = mb_convert_kana($name, 'as');
+        $s = preg_replace('/[\s　]+/u', '', $s) ?? $s;
+
+        return mb_strtolower($s);
+    }
+
+    private function pickCanonical(Collection $members): BikeModel
+    {
+        return $members->sort(function (BikeModel $a, BikeModel $b) {
+            if ($a->listings_count !== $b->listings_count) {
+                return $b->listings_count <=> $a->listings_count;
+            }
+            $sa = $this->specScore($a);
+            $sb = $this->specScore($b);
+            if ($sa !== $sb) {
+                return $sb <=> $sa;
+            }
+
+            return $a->id <=> $b->id;
+        })->first();
+    }
+
+    private function specScore(BikeModel $m): int
+    {
+        $score = 0;
+        foreach (self::SPEC_FIELDS as $f) {
+            if ($m->{$f} !== null && $m->{$f} !== '') {
+                $score++;
+            }
+        }
+
+        return $score;
     }
 }

@@ -238,4 +238,17 @@ final class BikeModel extends Model
         // メーカースラッグもない場合（レアケース）
         return "/bikes/model/{$this->id}";
     }
+
+    /**
+     * 統合済み(merged_into_id)なら canonical 側を返す（1ホップ／統合は直接 canonical を指すので連鎖しない）。
+     * 統合されていなければ自分自身。モデル解決時の 301・キャッシュパージで使う。
+     */
+    public function canonicalModel(): self
+    {
+        if ($this->merged_into_id === null) {
+            return $this;
+        }
+
+        return static::with('manufacturer')->find($this->merged_into_id) ?? $this;
+    }
 }
