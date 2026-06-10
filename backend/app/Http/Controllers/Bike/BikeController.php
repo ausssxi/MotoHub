@@ -836,12 +836,18 @@ final class BikeController extends Controller
      * 車種比較ページ（SEOプログラマティック）
      * URL: /bikes/compare/{slug}
      */
-    public function modelCompare(string $slug, SeoCompareService $compareService): View
+    public function modelCompare(string $slug, SeoCompareService $compareService): View|RedirectResponse
     {
-        $seoCompare = SeoCompare::active()
-            ->where('slug', $slug)
-            ->with(['model1.manufacturer', 'model1.categoryData', 'model1.representativeListing', 'model2.manufacturer', 'model2.categoryData', 'model2.representativeListing'])
-            ->firstOrFail();
+        // 並び順非依存で active な比較ペアを解決。生成対象外 → 404（薄いページを作らない）
+        $seoCompare = $compareService->findActiveBySlugAnyOrder($slug);
+        if (! $seoCompare) {
+            abort(404);
+        }
+
+        // 逆順/非正規アクセスは canonical（小さいid左）へ 301（重複インデックス防止）
+        if ($slug !== $seoCompare->slug) {
+            return redirect()->route('bikes.model_compare', $seoCompare->slug, 301);
+        }
 
         $model1 = $seoCompare->model1;
         $model2 = $seoCompare->model2;

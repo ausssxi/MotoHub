@@ -1,6 +1,7 @@
 <x-layout>
     <x-slot:title>{{ $model1->name }} vs {{ $model2->name }} 徹底比較 | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $model1->name }}と{{ $model2->name }}のスペック・中古相場を徹底比較。排気量・車両重量・シート高・価格帯分布を並べてチェック。あなたに合った1台を見つけましょう。</x-slot:metaDescription>
+    {{-- canonical は layout 既定の url()->current()。非canonicalは controller が 301 するため常に正規URLで描画される --}}
 
     <x-slot:navigation>
         <x-navigation :showSearch="true" />
@@ -147,23 +148,26 @@
                                 <td class="py-3 px-4 text-center font-black text-gray-900 bg-orange-50/50">{{ number_format($kpi['model2']['total_count']) }}<span class="text-xs text-gray-400 ml-1">台</span></td>
                             </tr>
                             <tr>
-                                <td class="py-3 px-4 font-bold text-gray-500">平均価格</td>
-                                <td class="py-3 px-4 text-center font-black text-blue-600 bg-blue-50/50">{{ $kpi['model1']['avg_price'] ?? '-' }}<span class="text-xs text-gray-400 ml-1">万円</span></td>
-                                <td class="py-3 px-4 text-center font-black text-blue-600 bg-orange-50/50">{{ $kpi['model2']['avg_price'] ?? '-' }}<span class="text-xs text-gray-400 ml-1">万円</span></td>
+                                <td class="py-3 px-4 font-bold text-gray-500">中古相場（中央値）</td>
+                                <td class="py-3 px-4 text-center font-black text-blue-600 bg-blue-50/50">{{ $kpi['model1']['median_price'] ?? '-' }}<span class="text-xs text-gray-400 ml-1">万円</span></td>
+                                <td class="py-3 px-4 text-center font-black text-blue-600 bg-orange-50/50">{{ $kpi['model2']['median_price'] ?? '-' }}<span class="text-xs text-gray-400 ml-1">万円</span></td>
                             </tr>
                             <tr>
-                                <td class="py-3 px-4 font-bold text-gray-500">最安値</td>
+                                <td class="py-3 px-4 font-bold text-gray-500">安値帯</td>
                                 <td class="py-3 px-4 text-center font-black text-green-600 bg-blue-50/50">{{ $kpi['model1']['min_price'] ?? '-' }}<span class="text-xs text-gray-400 ml-1">万円</span></td>
                                 <td class="py-3 px-4 text-center font-black text-green-600 bg-orange-50/50">{{ $kpi['model2']['min_price'] ?? '-' }}<span class="text-xs text-gray-400 ml-1">万円</span></td>
                             </tr>
                             <tr>
-                                <td class="py-3 px-4 font-bold text-gray-500">最高値</td>
+                                <td class="py-3 px-4 font-bold text-gray-500">高値帯</td>
                                 <td class="py-3 px-4 text-center font-black text-red-500 bg-blue-50/50">{{ $kpi['model1']['max_price'] ?? '-' }}<span class="text-xs text-gray-400 ml-1">万円</span></td>
                                 <td class="py-3 px-4 text-center font-black text-red-500 bg-orange-50/50">{{ $kpi['model2']['max_price'] ?? '-' }}<span class="text-xs text-gray-400 ml-1">万円</span></td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
+                <p class="text-[11px] text-gray-400 mt-3">
+                    ※ 現在の在庫データに基づく中古相場（中央値・外れ値除外）。安値帯/高値帯は概ね下位5%/上位5%水準。
+                </p>
             </div>
         </div>
         @endif

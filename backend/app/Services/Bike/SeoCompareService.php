@@ -19,7 +19,8 @@ final class SeoCompareService
      */
     public function computeCompareKpi(BikeModel $m1, BikeModel $m2): array
     {
-        $cacheKey = 'compare_kpi_v1_' . $m1->id . '_' . $m2->id;
+        // v2: AVG → 中央値/パーセンタイル＋excludeBulkSold＋外れ値除外に刷新（旧v1キャッシュを無効化）
+        $cacheKey = 'compare_kpi_v2_' . $m1->id . '_' . $m2->id;
 
         return Cache::remember($cacheKey, 3600, function () use ($m1, $m2) {
             return [
@@ -27,6 +28,43 @@ final class SeoCompareService
                 'model2' => $this->buildModelKpi($m2),
             ];
         });
+    }
+
+    /**
+     * 2車種の canonical 比較slug。小さい bike_model_id を必ず左（重複防止の正規順）。
+     */
+    public function canonicalSlugFor(BikeModel $a, BikeModel $b): string
+    {
+        [$m1, $m2] = $a->id <= $b->id ? [$a, $b] : [$b, $a];
+
+        return $this->makeSlug($m1, $m2);
+    }
+
+    /**
+     * リクエストslugから active な SeoCompare を解決（並び順非依存）。
+     * 生成側は canonical slug を保存するので、完全一致＝canonical、逆順一致＝301対象。
+     * 見つからなければ null（=404）。
+     */
+    public function findActiveBySlugAnyOrder(string $slug): ?SeoCompare
+    {
+        $eager = [
+            'model1.manufacturer', 'model1.categoryData', 'model1.representativeListing',
+            'model2.manufacturer', 'model2.categoryData', 'model2.representativeListing',
+        ];
+
+        $seo = SeoCompare::active()->with($eager)->where('slug', $slug)->first();
+        if ($seo) {
+            return $seo;
+        }
+
+        // 逆順（B-vs-A）でアクセスされた場合は canonical 行を引いて 301 用に返す
+        $parts = explode('-vs-', $slug);
+        if (count($parts) !== 2) {
+            return null;
+        }
+        $reversed = $parts[1] . '-vs-' . $parts[0];
+
+        return SeoCompare::active()->with($eager)->where('slug', $reversed)->first();
     }
 
     /**
@@ -57,26 +95,48 @@ final class SeoCompareService
      */
     private function buildModelKpi(BikeModel $model): array
     {
+        // active 在庫から bulk-sold を除外（信用に関わるので相場の母集団から外す）
         $query = Listing::query()
             ->where('bike_model_id', $model->id)
-            ->where('is_sold_out', false)
+            ->active()
+            ->excludeBulkSold()
             ->where('total_price', '>', 0);
 
         $totalCount = (clone $query)->count();
 
-        $priceStats = (clone $query)->selectRaw('
-            AVG(total_price) as avg_price,
-            MIN(total_price) as min_price,
-            MAX(total_price) as max_price
-        ')->first();
+        // 価格は中央値/パーセンタイルで集計（AVGは外れ値に弱い）。
+        // 異常に安い出品（部品取り・誤登録）を下限3万円で除外してから算出。
+        $prices = (clone $query)
+            ->where('total_price', '>=', 30000)
+            ->orderBy('total_price')
+            ->pluck('total_price')
+            ->map(fn ($p) => (int) $p)
+            ->values();
+
+        $man = fn (?int $yen) => $yen !== null ? number_format($yen / 10000, 1) : null;
 
         return [
             'total_count' => $totalCount,
-            'avg_price' => $priceStats->avg_price ? number_format((float) ($priceStats->avg_price / 10000), 1) : null,
-            'min_price' => $priceStats->min_price ? number_format((float) ($priceStats->min_price / 10000), 1) : null,
-            'max_price' => $priceStats->max_price ? number_format((float) ($priceStats->max_price / 10000), 1) : null,
+            // P50（中央値）＝相場の代表値。P5/P95 で外れ値に頑健なレンジを表示。
+            'median_price' => $man($this->percentile($prices, 0.50)),
+            'min_price' => $man($this->percentile($prices, 0.05)),
+            'max_price' => $man($this->percentile($prices, 0.95)),
             'price_distribution' => $this->buildPriceDistribution($query, $totalCount),
         ];
+    }
+
+    /**
+     * 昇順済みの価格コレクションから線形補間なしのパーセンタイル値を返す（空なら null）。
+     */
+    private function percentile(\Illuminate\Support\Collection $sorted, float $q): ?int
+    {
+        $n = $sorted->count();
+        if ($n === 0) {
+            return null;
+        }
+        $idx = (int) min($n - 1, max(0, (int) floor($q * ($n - 1))));
+
+        return (int) $sorted[$idx];
     }
 
     /**
