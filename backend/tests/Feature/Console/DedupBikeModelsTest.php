@@ -186,7 +186,7 @@ it('canonical が slug 無・dupe が slug 有なら clean slug を survivor へ
     expect($dupe->fresh()->slug)->toBeNull();
 });
 
-it('slug譲渡と同時に donor の category も survivor へ継ぐ（canonical が slug 無のとき）', function () {
+it('slug譲渡は slug のみ移し category_id は変更しない（canonical のカテゴリを保持）', function () {
     makeCategory(10, 'クルーザー');
     makeCategory(22, '未分類');
 
@@ -207,10 +207,10 @@ it('slug譲渡と同時に donor の category も survivor へ継ぐ（canonical
         ->expectsQuestion('このグループを統合しますか？', 'y')
         ->assertExitCode(0);
 
-    // survivor は slug だけでなく donor の curated な category_id も継ぐ
+    // slug だけ譲り受け、category_id は canonical の元値(22)のまま（donor の 10 は継がない）
     $fresh = $canonical->fresh();
     expect($fresh->slug)->toBe('rebel-250');
-    expect($fresh->category_id)->toBe(10);
+    expect($fresh->category_id)->toBe(22);
     expect($dupe->fresh()->merged_into_id)->toBe($canonical->id);
 });
 

@@ -265,19 +265,8 @@ final class DedupBikeModels extends Command
         }
 
         DB::table('bike_models')->where('id', $donor->id)->update(['slug' => null]);
-
-        // canonical は slug 無＝un-curated なスクレイパー record。slug を譲り受けると同時に、
-        // curated な donor のカテゴリも継ぐ（canonical が雑多/デフォルトのゴミ箱カテゴリの場合の救済）。
-        $survivorUpdate = ['slug' => $donor->slug];
-        if (! is_null($donor->category_id)) {
-            $survivorUpdate['category_id'] = $donor->category_id;
-        }
-        DB::table('bike_models')->where('id', $canonical->id)->update($survivorUpdate);
-
+        DB::table('bike_models')->where('id', $canonical->id)->update(['slug' => $donor->slug]);
         $canonical->slug = $donor->slug; // 後続の seo_url 用に反映
-        if (! is_null($donor->category_id)) {
-            $canonical->category_id = $donor->category_id; // 後続処理用に反映
-        }
     }
 
     // ───────────────────────── レポート（read-only） ─────────────────────────
