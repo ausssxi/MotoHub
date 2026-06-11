@@ -17,7 +17,7 @@ return new class extends Migration
         });
 
         // 既存のアクティブなリスティングを初期化
-        DB::statement('UPDATE listings SET last_seen_at = updated_at WHERE is_sold_out = false');
+        DB::statement('UPDATE listings SET last_seen_at = updated_at WHERE is_sold_out = 0');
     }
 
     /**
