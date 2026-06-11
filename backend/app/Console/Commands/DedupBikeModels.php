@@ -227,22 +227,39 @@ final class DedupBikeModels extends Command
 
     /**
      * 複合unique(bike_model_id + $keyCols)のテーブルを安全に付け替える。
-     * canonical に同じ $keyCols を持つ行が既にある dupe 行は削除し、残りを canonical へ UPDATE。
+     *
+     * canonical∪全dupe を $keyCols タプルで束ね、タプルごとに「最終的に canonical に残る行」を1行へ正規化:
+     *   - canonical 既存行があればそれを残し、同値の dupe 行を全削除。
+     *   - 無ければ dupe 行を1行だけ残し、同値の他 dupe 行を削除（dupe同士が共有しても衝突しない）。
+     * canonical 自身の行は決して削除しない。正規化後に残った dupe 行のみ bulk repoint する。
+     * （旧実装は canonical との衝突しか潰さず、canonical+複数dupeが同一ユニーク値を共有する群で
+     *   (bike_model_id,$keyCols) 違反を投げていた。例: ホークIICB400Tの 562+3537+4848 が同一 video_id 共有）。
      */
     private function repointWithUnique(string $table, array $keyCols, array $dupeIds, int $canonicalId): void
     {
-        $collidingIds = DB::table("{$table} as d")
-            ->whereIn('d.bike_model_id', $dupeIds)
-            ->whereExists(function ($q) use ($table, $keyCols, $canonicalId) {
-                $q->from("{$table} as c")->where('c.bike_model_id', $canonicalId);
-                foreach ($keyCols as $col) {
-                    $q->whereColumn("c.{$col}", "d.{$col}");
-                }
-            })
-            ->pluck('d.id');
+        $rows = DB::table($table)
+            ->whereIn('bike_model_id', array_merge([$canonicalId], $dupeIds))
+            ->get(array_merge(['id', 'bike_model_id'], $keyCols));
 
-        if ($collidingIds->isNotEmpty()) {
-            DB::table($table)->whereIn('id', $collidingIds)->delete();
+        $deleteIds = $rows
+            ->groupBy(function ($r) use ($keyCols) {
+                $vals = array_map(fn ($c) => $r->{$c}, $keyCols);
+
+                // null を含むタプルは MySQL のユニーク制約上どの行とも衝突しない → 行単位で一意化し正規化対象外に
+                return in_array(null, $vals, true) ? 'null:' . $r->id : implode("\0", $vals);
+            })
+            ->flatMap(function ($group) use ($canonicalId) {
+                $hasCanonical = $group->contains(fn ($r) => (int) $r->bike_model_id === $canonicalId);
+                $dupeRows = $group->reject(fn ($r) => (int) $r->bike_model_id === $canonicalId)
+                    ->sortBy('id')->values();
+
+                // canonical 既存ありなら dupe を全削除、無ければ先頭1行だけ残し他を削除
+                return ($hasCanonical ? $dupeRows : $dupeRows->slice(1))->pluck('id');
+            })
+            ->all();
+
+        if ($deleteIds !== []) {
+            DB::table($table)->whereIn('id', $deleteIds)->delete();
         }
         DB::table($table)->whereIn('bike_model_id', $dupeIds)->update(['bike_model_id' => $canonicalId]);
     }

@@ -47,6 +47,18 @@ function makeMarketLog(int $modelId, string $recordedAt, int $avgPrice): void
     ]);
 }
 
+/** bike_model_videos に1行作る（複合unique = bike_model_id + video_id）。 */
+function makeVideo(int $modelId, string $videoId, string $title = 'v'): void
+{
+    DB::table('bike_model_videos')->insert([
+        'bike_model_id' => $modelId,
+        'video_id' => $videoId,
+        'title' => $title,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+}
+
 /** categories に1行作る（bike_models.category_id の FK 先）。 */
 function makeCategory(int $id, string $name): void
 {
@@ -238,6 +250,34 @@ it('複合unique衝突: canonical既存と衝突する dupe行は削除し非衝
         ->where('bike_model_id', $canonical->id)->where('recorded_at', '2026-06-01')->value('avg_price'))->toBe(999999);
     expect((int) DB::table('market_price_logs')
         ->where('bike_model_id', $canonical->id)->where('recorded_at', '2026-05-01')->value('avg_price'))->toBe(222222);
+});
+
+it('複合unique衝突(dupe同士が同一video_id共有): 群全体で1行に正規化し例外を出さない', function () {
+    // canonical + 2 dupe の3メンバー群（同一正規化キー「レブル250」）
+    $canonical = BikeModel::create(['manufacturer_id' => $this->maker->id, 'name' => 'レブル 250', 'displacement' => 250]);
+    $d1 = BikeModel::create(['manufacturer_id' => $this->maker->id, 'name' => 'レブル２５０', 'displacement' => 250]);
+    $d2 = BikeModel::create(['manufacturer_id' => $this->maker->id, 'name' => 'レブル　２５０', 'displacement' => 250]);
+    makeListing($canonical->id, $this->siteId);
+    makeListing($canonical->id, $this->siteId);
+    makeListing($canonical->id, $this->siteId);
+    makeListing($d1->id, $this->siteId);
+    makeListing($d2->id, $this->siteId);
+
+    // canonical は別動画。2つの dupe が同一 video_id を共有（canonical は未保有）→ 旧実装は unique 違反を投げる
+    makeVideo($canonical->id, 'v-canon');
+    makeVideo($d1->id, 'v-shared');
+    makeVideo($d2->id, 'v-shared');
+
+    $this->artisan('model:dedup', ['--execute' => true, '--i-have-a-backup' => true])
+        ->expectsQuestion('このグループを統合しますか？', 'y')
+        ->assertExitCode(0);
+
+    // 例外なくマージ完了。canonical 配下は v-canon + v-shared の2行、shared は1行だけに正規化
+    expect(DB::table('bike_model_videos')->where('bike_model_id', $canonical->id)->count())->toBe(2);
+    expect(DB::table('bike_model_videos')->where('bike_model_id', $canonical->id)->where('video_id', 'v-shared')->count())->toBe(1);
+    expect(DB::table('bike_model_videos')->whereIn('bike_model_id', [$d1->id, $d2->id])->count())->toBe(0);
+    expect($d1->fresh()->merged_into_id)->toBe($canonical->id);
+    expect($d2->fresh()->merged_into_id)->toBe($canonical->id);
 });
 
 // ───────────────────────── manual ゲート（排気量不一致） ─────────────────────────
