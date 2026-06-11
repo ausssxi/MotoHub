@@ -47,6 +47,18 @@ function makeMarketLog(int $modelId, string $recordedAt, int $avgPrice): void
     ]);
 }
 
+/** categories に1行作る（bike_models.category_id の FK 先）。 */
+function makeCategory(int $id, string $name): void
+{
+    DB::table('categories')->insert([
+        'id' => $id,
+        'name' => $name,
+        'sort_order' => 999,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+}
+
 beforeEach(function () {
     // Manufacturer の $fillable は ['slug'] のみ。name は mass-assignment 対象外なので forceCreate。
     $this->maker = Manufacturer::forceCreate(['name' => 'ホンダ']);
@@ -172,6 +184,34 @@ it('canonical が slug 無・dupe が slug 有なら clean slug を survivor へ
     // slug は canonical に移り、dupe からは外れる（unique(mfr_id,slug) 衝突回避のため先に空ける）
     expect($canonical->fresh()->slug)->toBe('rebel-250');
     expect($dupe->fresh()->slug)->toBeNull();
+});
+
+it('slug譲渡と同時に donor の category も survivor へ継ぐ（canonical が slug 無のとき）', function () {
+    makeCategory(10, 'クルーザー');
+    makeCategory(22, '未分類');
+
+    // canonical(slug無・cat=22・在庫多) を donor(slug=rebel-250・cat=10・在庫少) で救済
+    $canonical = BikeModel::create([
+        'manufacturer_id' => $this->maker->id, 'name' => 'レブル 250',
+        'displacement' => 250, 'slug' => null, 'category_id' => 22,
+    ]);
+    $dupe = BikeModel::create([
+        'manufacturer_id' => $this->maker->id, 'name' => 'レブル２５０',
+        'displacement' => 250, 'slug' => 'rebel-250', 'category_id' => 10,
+    ]);
+    makeListing($canonical->id, $this->siteId);
+    makeListing($canonical->id, $this->siteId);
+    makeListing($dupe->id, $this->siteId);
+
+    $this->artisan('model:dedup', ['--execute' => true, '--i-have-a-backup' => true])
+        ->expectsQuestion('このグループを統合しますか？', 'y')
+        ->assertExitCode(0);
+
+    // survivor は slug だけでなく donor の curated な category_id も継ぐ
+    $fresh = $canonical->fresh();
+    expect($fresh->slug)->toBe('rebel-250');
+    expect($fresh->category_id)->toBe(10);
+    expect($dupe->fresh()->merged_into_id)->toBe($canonical->id);
 });
 
 // ───────────────────────── 複合unique衝突パス（repointWithUnique） ─────────────────────────
