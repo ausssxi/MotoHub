@@ -14,6 +14,9 @@ declare(strict_types=1);
 
 return [
 
+    // 車種比較ページの sitemap 提出ゲート。false=保留（Slice B まで sitemap-compare.xml を出さない）。
+    'sitemap_enabled' => env('COMPARISON_SITEMAP_ENABLED', false),
+
     // 各車種の active 在庫（excludeBulkSold 後）の下限。両車種が満たすペアのみ。
     'min_stock_each' => 3,
 
