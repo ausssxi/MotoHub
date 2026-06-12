@@ -64,6 +64,97 @@ final class SeoCompareService
     }
 
     /**
+     * スペック/価格データから定型FAQを機械的に生成（3〜5問）。
+     * データが揃わない質問は出さない（薄い・誤情報を避ける）。
+     * 返り値は表示用とFAQPage JSON-LDで同一に使う。
+     *
+     * @param  array<string, mixed>  $kpi  computeCompareKpi() の戻り値
+     * @return array<int, array{q: string, a: string}>
+     */
+    public function buildFaq(BikeModel $m1, BikeModel $m2, array $kpi): array
+    {
+        $faq = [];
+
+        // 1) どちらが安いか（中央値の差から）
+        $med1 = $this->parseMan($kpi['model1']['median_price'] ?? null);
+        $med2 = $this->parseMan($kpi['model2']['median_price'] ?? null);
+        if ($med1 !== null && $med2 !== null) {
+            if (abs($med1 - $med2) < 0.1) {
+                $a = "{$m1->name}と{$m2->name}の中古相場（中央値）はどちらも約" . $this->fmtMan($med1) . '万円で、ほぼ同水準です。';
+            } else {
+                [$cheap, $cheapV, $exp, $expV] = $med1 < $med2 ? [$m1, $med1, $m2, $med2] : [$m2, $med2, $m1, $med1];
+                $diff = round($expV - $cheapV, 1);
+                $a = "中古相場（中央値）は{$cheap->name}が約" . $this->fmtMan($cheapV) . "万円、{$exp->name}が約" . $this->fmtMan($expV)
+                    . "万円です。{$cheap->name}のほうが約" . $this->fmtMan($diff) . '万円安く購入できる傾向です。';
+            }
+            $faq[] = ['q' => "{$m1->name}と{$m2->name}はどちらが安いですか？", 'a' => $a];
+        }
+
+        // 2) 排気量・車検の違い（250cc境界で車検有無が分かれる）
+        if ($m1->displacement && $m2->displacement) {
+            $shaken1 = $m1->displacement <= 250 ? '不要' : '必要（2年ごと）';
+            $shaken2 = $m2->displacement <= 250 ? '不要' : '必要（2年ごと）';
+            $a = "{$m1->name}は{$m1->displacement}cc、{$m2->name}は{$m2->displacement}ccです。"
+                . "車検は{$m1->name}が{$shaken1}、{$m2->name}が{$shaken2}です。";
+            if (($m1->displacement <= 250) !== ($m2->displacement <= 250)) {
+                $a .= '250ccを境に車検の有無が分かれるため、維持費に差が出ます。';
+            }
+            $faq[] = ['q' => "{$m1->name}と{$m2->name}の排気量・車検の違いは？", 'a' => $a];
+        }
+
+        // 3) 初心者向け（シート高・車両重量から機械的に）
+        if ($m1->seat_height && $m2->seat_height && $m1->weight && $m2->weight
+            && ($m1->seat_height !== $m2->seat_height || $m1->weight !== $m2->weight)) {
+            $lowerSeat = $m1->seat_height < $m2->seat_height ? $m1 : ($m2->seat_height < $m1->seat_height ? $m2 : null);
+            $lighter = $m1->weight < $m2->weight ? $m1 : ($m2->weight < $m1->weight ? $m2 : null);
+
+            $a = "{$m1->name}はシート高{$m1->seat_height}mm・車両重量{$m1->weight}kg、"
+                . "{$m2->name}はシート高{$m2->seat_height}mm・車両重量{$m2->weight}kgです。";
+            if ($lowerSeat && $lighter && $lowerSeat->id === $lighter->id) {
+                $a .= "シート高が低く車両重量も軽い{$lowerSeat->name}のほうが、足つき・取り回しの面では扱いやすい傾向です。";
+            } else {
+                $parts = [];
+                if ($lowerSeat) {
+                    $parts[] = "足つき重視なら{$lowerSeat->name}（シート高が低い）";
+                }
+                if ($lighter) {
+                    $parts[] = "取り回し重視なら{$lighter->name}（車両重量が軽い）";
+                }
+                $a .= implode('、', $parts) . 'が扱いやすい傾向です。';
+            }
+            $a .= '（あくまでスペック上の目安です）';
+            $faq[] = ['q' => "{$m1->name}と{$m2->name}、初心者にはどちらが向いていますか？", 'a' => $a];
+        }
+
+        // 4) エンジン種類の違い（両方あり、かつ異なる場合のみ）
+        if ($m1->engine_type && $m2->engine_type && $m1->engine_type !== $m2->engine_type) {
+            $faq[] = [
+                'q' => "{$m1->name}と{$m2->name}のエンジンの違いは？",
+                'a' => "{$m1->name}は{$m1->engine_type}、{$m2->name}は{$m2->engine_type}を搭載しています。",
+            ];
+        }
+
+        return $faq;
+    }
+
+    /**
+     * 「45.0」「1,234.5」形式の万円文字列を float に。null/'-' は null。
+     */
+    private function parseMan(?string $value): ?float
+    {
+        if ($value === null || $value === '-' || $value === '') {
+            return null;
+        }
+
+        return (float) str_replace(',', '', $value);
+    }
+
+    private function fmtMan(float $value): string
+    {
+        return number_format($value, 1);
+    }
+
+    /**
      * 2車種の canonical 比較slug。小さい bike_model_id を必ず左（重複防止の正規順）。
      */
     public function canonicalSlugFor(BikeModel $a, BikeModel $b): string

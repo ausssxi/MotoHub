@@ -318,6 +318,32 @@
             </div>
         </div>
 
+        {{-- よくある質問（スペック/価格から機械生成。FAQPage JSON-LDと内容一致） --}}
+        @if(!empty($faq))
+        <div class="bg-white border-b border-gray-100">
+            <div class="max-w-5xl mx-auto px-4 py-8">
+                <h2 class="text-lg font-black text-gray-900 mb-5 flex items-center gap-2">
+                    <i data-lucide="help-circle" class="w-5 h-5 text-teal-500"></i>
+                    よくある質問
+                </h2>
+                <div class="space-y-3">
+                    @foreach($faq as $item)
+                    <div class="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+                        <p class="font-black text-gray-900 text-sm flex items-start gap-2">
+                            <span class="text-teal-500 font-black shrink-0">Q.</span>
+                            <span>{{ $item['q'] }}</span>
+                        </p>
+                        <p class="text-sm text-gray-600 leading-relaxed mt-2 flex items-start gap-2">
+                            <span class="text-gray-400 font-black shrink-0">A.</span>
+                            <span>{{ $item['a'] }}</span>
+                        </p>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+        @endif
+
         {{-- 関連比較 --}}
         @if(!empty($relatedComparisons))
         <div class="bg-white border-b border-gray-100">
@@ -364,5 +390,25 @@
             }
         }
         </script>
+
+        {{-- FAQPage 構造化データ（表示中のFAQと完全一致の内容のみ）。WebPage/BreadcrumbListとは別ブロックで衝突なし --}}
+        @if(!empty($faq))
+        <script type="application/ld+json">
+        @php
+            echo json_encode([
+                '@context' => 'https://schema.org',
+                '@type' => 'FAQPage',
+                'mainEntity' => array_map(fn ($f) => [
+                    '@type' => 'Question',
+                    'name' => $f['q'],
+                    'acceptedAnswer' => [
+                        '@type' => 'Answer',
+                        'text' => $f['a'],
+                    ],
+                ], $faq),
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        @endphp
+        </script>
+        @endif
     </div>
 </x-layout>
