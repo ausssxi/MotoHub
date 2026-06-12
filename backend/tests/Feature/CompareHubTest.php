@@ -9,7 +9,11 @@ use App\Services\Bike\SeoCompareService;
 
 function makeModel(string $name, int $displacement): BikeModel
 {
-    $mfr = Manufacturer::create(['name' => "MFR {$name}"]);
+    // Manufacturer::$fillable は ['slug'] のみなので create() では name が落ちる → forceCreate で必須カラムを明示
+    $mfr = Manufacturer::forceCreate([
+        'name' => "MFR {$name}",
+        'slug' => 'mfr-' . md5($name),
+    ]);
 
     return BikeModel::create([
         'manufacturer_id' => $mfr->id,

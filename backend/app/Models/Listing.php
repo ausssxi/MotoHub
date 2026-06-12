@@ -165,7 +165,10 @@ class Listing extends Model
         $from = $start->copy()->startOfDay();
         $to = $end->copy()->endOfDay();
 
-        return $query->whereRaw('listings.id IN (
+        // 「掲載3日以上」の日付演算はドライバ依存のため分岐（migrationと同じパターン）。
+        // mysql側のSQL文字列は従来のまま一切変更しない（本番影響ゼロの保証）。
+        if ($query->getConnection()->getDriverName() === 'mysql') {
+            return $query->whereRaw('listings.id IN (
             SELECT id FROM (
                 SELECT id, ROW_NUMBER() OVER (
                     PARTITION BY shop_id, bike_model_id, DATE(updated_at)
@@ -178,6 +181,22 @@ class Listing extends Model
             ) as capped
             WHERE rn <= 5
         )', [$from, $to]);
+        }
+
+        // sqlite等: INTERVAL 3 DAY の等価構文（テスト環境用）
+        return $query->whereRaw("listings.id IN (
+            SELECT id FROM (
+                SELECT id, ROW_NUMBER() OVER (
+                    PARTITION BY shop_id, bike_model_id, DATE(updated_at)
+                    ORDER BY updated_at
+                ) as rn
+                FROM listings
+                WHERE is_sold_out = 1
+                AND created_at <= datetime(updated_at, '-3 days')
+                AND updated_at BETWEEN ? AND ?
+            ) as capped
+            WHERE rn <= 5
+        )", [$from, $to]);
     }
 
     /**
