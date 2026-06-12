@@ -22,10 +22,10 @@ final class BikeModel extends Model
      * （BikeController::modelDetailBySlug 等と ListingObserver::purgeModelDetailCache が同じキーを共有）
      *
      * ⚠️ このバージョンを bump したら、デプロイ後に必ず1回 `php artisan cache:warm-models --all`
-     *    を実行して全車種をv2キーで再温めすること（バンプ直後は全ページがコールド＝TTFB悪化、
+     *    を実行して全車種を新キーで再温めすること（バンプ直後は全ページがコールド＝TTFB悪化、
      *    日次ウォーマーは07:30まで走らない）。cache:clear は使わない（上書きウォームのみ）。
      */
-    public const MODEL_DETAIL_CACHE_VERSION = 'v2';
+    public const MODEL_DETAIL_CACHE_VERSION = 'v3';
 
     /**
      * model_detail ページのキャッシュキーを生成する（生成側とパージ側で必ず一致させるための単一の正本）。

@@ -292,6 +292,14 @@
         </div>
         @endif
 
+        {{-- 比較一覧（ハブ）へ戻る --}}
+        <div class="max-w-5xl mx-auto px-4 py-8">
+            <a href="{{ route('bikes.model_compare_hub') }}" class="inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-indigo-600 transition-colors">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                車種比較一覧へ戻る
+            </a>
+        </div>
+
         {{-- JSON-LD 構造化データ --}}
         <script type="application/ld+json">
         {

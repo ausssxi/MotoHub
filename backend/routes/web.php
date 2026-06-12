@@ -149,6 +149,9 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     // カタログページ（地域なしプログラマティックSEO）
     Route::get('/catalog/{slug}', 'catalog')->name('catalog');
 
+    // 車種比較ハブ（200ペアの索引ページ）。静的パスを {slug} より先に登録。
+    Route::get('/compare', 'modelCompareHub')->name('model_compare_hub');
+
     // 車種比較ページ（SEOプログラマティック）
     Route::get('/compare/{slug}', 'modelCompare')->name('model_compare');
 

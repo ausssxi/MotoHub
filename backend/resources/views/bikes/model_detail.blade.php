@@ -1842,6 +1842,24 @@
                     </div>
                     @endif
 
+                    {{-- よく比較される車種 --}}
+                    @if(!empty($comparedPairs))
+                    <div class="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 mt-8">
+                        <h2 class="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                            <i data-lucide="git-compare" class="w-5 h-5 text-indigo-500"></i>
+                            {{ $model->name }}とよく比較される車種
+                        </h2>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            @foreach($comparedPairs as $pair)
+                            <a href="{{ $pair['url'] }}" class="flex items-center justify-between bg-gray-50 hover:bg-indigo-50 rounded-xl p-4 border border-gray-100 hover:border-indigo-200 transition-colors group">
+                                <span class="font-bold text-sm text-gray-700 group-hover:text-indigo-600 transition-colors">{{ $pair['label'] }}</span>
+                                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 group-hover:text-indigo-500 shrink-0"></i>
+                            </a>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
                     {{-- 駐車場エリアリンク --}}
                     <div class="bg-green-50 rounded-2xl p-5 border border-green-100 flex items-center justify-between hover:shadow-md transition-shadow">
                         <div class="flex items-center gap-3">

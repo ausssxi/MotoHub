@@ -833,6 +833,17 @@ final class BikeController extends Controller
     }
 
     /**
+     * 車種比較ハブ（200ペアの索引ページ）
+     * URL: /bikes/compare
+     */
+    public function modelCompareHub(SeoCompareService $compareService): View
+    {
+        return view('bikes.compare_hub', [
+            'groups' => $compareService->getHubGroups(),
+        ]);
+    }
+
+    /**
      * 車種比較ページ（SEOプログラマティック）
      * URL: /bikes/compare/{slug}
      */
@@ -1323,12 +1334,37 @@ final class BikeController extends Controller
             ];
         }
 
+        // よく比較される車種（SeoCompare active から当該モデルを含むペアを最大6件）。
+        // 相手モデルを eager load し、モデルページキャッシュ内に同梱（N+1防止）。
+        $comparedPairs = SeoCompare::active()
+            ->ordered()
+            ->where(function ($q) use ($id) {
+                $q->where('model1_id', $id)->orWhere('model2_id', $id);
+            })
+            ->with(['model1.manufacturer', 'model2.manufacturer'])
+            ->limit(6)
+            ->get()
+            ->map(function (SeoCompare $c) use ($id, $model) {
+                $other = $c->model1_id === $id ? $c->model2 : $c->model1;
+                if (! $other) {
+                    return null;
+                }
+
+                return [
+                    'label' => $model->name . ' vs ' . $other->name,
+                    'url' => $c->url,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+
         return compact(
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'categoryReviewStats', 'relatedModels', 'similarDisplacementModels',
             'sameCategoryModels', 'activeCount', 'owners', 'similarModels', 'crossLinks',
             'prefectureStocks', 'rankingStats',
-            'yearDistribution', 'yearStats'
+            'yearDistribution', 'yearStats', 'comparedPairs'
         );
     }
 

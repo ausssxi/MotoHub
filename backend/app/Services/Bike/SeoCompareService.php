@@ -68,6 +68,83 @@ final class SeoCompareService
     }
 
     /**
+     * 比較ハブ（/bikes/compare）用に、active な比較ペア全件を
+     * cc帯 × カテゴリでグルーピングして返す（1日キャッシュ）。
+     *
+     * @return array<int, array{cc_label: string, category: string, pairs: array<int, array{label: string, url: string}>}>
+     */
+    public function getHubGroups(): array
+    {
+        return Cache::remember('compare_hub_groups_v1', 86400, function () {
+            $ccBands = config('comparison.cc_bands');
+
+            $pairs = SeoCompare::active()
+                ->ordered()
+                ->with(['model1.manufacturer', 'model1.categoryData', 'model2.manufacturer'])
+                ->get();
+
+            $groups = [];
+            foreach ($pairs as $pair) {
+                $m1 = $pair->model1;
+                $m2 = $pair->model2;
+                if (! $m1 || ! $m2) {
+                    continue;
+                }
+
+                // 同クラス生成（cc帯 AND category 一致）なので model1 の属性で代表させる
+                $cc = (int) ($m1->displacement ?? 0);
+                $band = null;
+                foreach ($ccBands as $b) {
+                    if ($cc >= $b['min'] && $cc <= $b['max']) {
+                        $band = $b;
+                        break;
+                    }
+                }
+                $bandSlug = $band['slug'] ?? 'other';
+                $bandMin = $band['min'] ?? 999999;
+                $category = $m1->categoryData?->name ?? 'その他';
+                $key = $bandSlug . '|' . $category;
+
+                if (! isset($groups[$key])) {
+                    $groups[$key] = [
+                        'cc_label' => $this->ccBandLabel($bandSlug),
+                        'category' => $category,
+                        'sort' => $bandMin,
+                        'pairs' => [],
+                    ];
+                }
+                $groups[$key]['pairs'][] = [
+                    'label' => $m1->name . ' vs ' . $m2->name,
+                    'url' => $pair->url,
+                ];
+            }
+
+            // cc帯昇順 → カテゴリ名で安定ソート
+            usort($groups, function ($a, $b) {
+                return [$a['sort'], $a['category']] <=> [$b['sort'], $b['category']];
+            });
+
+            return array_map(function ($g) {
+                unset($g['sort']);
+
+                return $g;
+            }, $groups);
+        });
+    }
+
+    private function ccBandLabel(string $slug): string
+    {
+        return [
+            '50' => '50cc以下',
+            '125' => '51〜125cc',
+            '250' => '126〜250cc',
+            '400' => '251〜400cc',
+            '750' => '401〜750cc',
+            'over750' => '751cc以上',
+        ][$slug] ?? 'その他';
+    }
+
+    /**
      * 同排気量帯・同カテゴリの他の比較ペアを取得
      */
     public function getRelatedComparisons(BikeModel $m1, BikeModel $m2): array
