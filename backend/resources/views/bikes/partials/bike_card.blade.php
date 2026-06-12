@@ -28,7 +28,8 @@
             </div>
         @endif
 
-        @if($listing['bargain_score'] > 5)
+        @php $hideBargainBadge = $hideBargainBadge ?? false; @endphp
+        @if(!$hideBargainBadge && $listing['bargain_score'] > 5)
         <div class="absolute bottom-0 left-0 bg-red-600 text-white text-[10px] font-black px-2 py-1.5 rounded-tr-xl shadow-lg z-20 flex items-center gap-1 animate-pulse">
             <i data-lucide="trending-down" class="w-3.5 h-3.5"></i>
             相場より約{{ round($listing['bargain_score']) }}%お得！

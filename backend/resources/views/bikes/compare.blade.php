@@ -271,6 +271,53 @@
             </div>
         </div>
 
+        {{-- 販売中の車両（両モデル・安い順）＋入荷通知CTA --}}
+        <div class="bg-white border-b border-gray-100">
+            <div class="max-w-5xl mx-auto px-4 py-8">
+                <h2 class="text-lg font-black text-gray-900 mb-5 flex items-center gap-2">
+                    <i data-lucide="tag" class="w-5 h-5 text-red-500"></i>
+                    販売中の車両
+                </h2>
+
+                @php
+                    $inventoryBlocks = [
+                        ['model' => $model1, 'items' => $inventory1, 'accent' => 'blue'],
+                        ['model' => $model2, 'items' => $inventory2, 'accent' => 'orange'],
+                    ];
+                @endphp
+
+                <div class="space-y-8">
+                    @foreach($inventoryBlocks as $block)
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-base font-black text-gray-900">
+                                <span class="text-{{ $block['accent'] }}-600">{{ $block['model']->name }}</span>
+                                <span class="text-xs font-bold text-gray-400 ml-1">の販売中車両（安い順）</span>
+                            </h3>
+                            <a href="{{ route('bikes.search', ['bike_model_id' => $block['model']->id]) }}" class="text-xs font-bold text-{{ $block['accent'] }}-600 hover:underline shrink-0">すべて見る</a>
+                        </div>
+
+                        @if(!empty($block['items']))
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            @foreach($block['items'] as $card)
+                                {{-- お得バッジは既知の計算バグ保護のため比較ページでは必ず非表示 --}}
+                                @include('bikes.partials.bike_card', ['listing' => $card, 'hideBargainBadge' => true])
+                            @endforeach
+                        </div>
+                        @else
+                        <p class="text-sm font-bold text-gray-400 bg-gray-50 rounded-xl py-6 text-center">現在、販売中の在庫はありません。</p>
+                        @endif
+
+                        {{-- 入荷・値下げ通知CTA（push-manager.js が描画。bike_model_id 紐付け） --}}
+                        <div class="mt-4" id="push-area-compare-{{ $block['model']->id }}"
+                             data-model-id="{{ $block['model']->id }}"
+                             data-model-name="{{ $block['model']->name }}"></div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+
         {{-- 関連比較 --}}
         @if(!empty($relatedComparisons))
         <div class="bg-white border-b border-gray-100">

@@ -871,6 +871,8 @@ final class BikeController extends Controller
             'model2' => $model2,
             'kpi' => $kpi,
             'relatedComparisons' => $relatedComparisons,
+            'inventory1' => $compareService->getInventoryCards($model1),
+            'inventory2' => $compareService->getInventoryCards($model2),
         ]);
     }
 

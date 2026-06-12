@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Bike;
 
+use App\Http\Resources\Bike\ListingResource;
 use App\Models\BikeModel;
 use App\Models\Listing;
 use App\Models\SeoCompare;
@@ -27,6 +28,38 @@ final class SeoCompareService
                 'model1' => $this->buildModelKpi($m1),
                 'model2' => $this->buildModelKpi($m2),
             ];
+        });
+    }
+
+    /**
+     * 比較ページ用に、当該車種の販売中車両を安い順で取得（bike_card用の配列化済み）。
+     * marketStats は読み込まないため bargain_info は常に null（お得バッジはbladeで抑止）。
+     * KPIと同じくキャッシュに同梱（車種単位で1時間）。
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getInventoryCards(BikeModel $model, int $limit = 4): array
+    {
+        $cacheKey = 'compare_inventory_v1_' . $model->id . '_' . $limit;
+
+        return Cache::remember($cacheKey, 3600, function () use ($model, $limit) {
+            $listings = Listing::query()
+                ->where('bike_model_id', $model->id)
+                ->active()
+                ->excludeBulkSold()
+                ->where('total_price', '>', 0)
+                ->with([
+                    'bikeModel.manufacturer',
+                    'bikeModel.categoryData',
+                    'shop',
+                    'site',
+                    'tags:id,name',
+                ])
+                ->orderBy('total_price', 'asc')
+                ->limit($limit)
+                ->get();
+
+            return ListingResource::collection($listings)->resolve();
         });
     }
 
