@@ -30,7 +30,7 @@ final class RegionalPriceService
      */
     public function getForModel(BikeModel $model): array
     {
-        $empty = ['regions' => [], 'national' => null, 'headline' => null];
+        $empty = ['regions' => [], 'national' => null, 'headline' => null, 'spread' => null];
 
         $rows = ModelRegionPriceStat::where('bike_model_id', $model->id)
             ->get()
@@ -64,6 +64,39 @@ final class RegionalPriceService
             'regions' => $regions,
             'national' => $national,
             'headline' => $this->buildHeadline($model, $regions, $national),
+            'spread' => $this->buildSpread($regions, $national),
+        ];
+    }
+
+    /**
+     * 地域間の価格スプレッド（頑健ブロックのみ）。
+     * pct = (最高robust中央値 − 最安robust中央値) / 全国中央値 * 100。
+     * 「地域差が大きい車種」ページのゲート判定・表示に使う。robust2未満/全国行なしは null。
+     *
+     * @param  array<int, array{block: string, median: int, median_man: string, count: int, robust: bool}>  $regions
+     * @param  array{median: int, median_man: string, count: int}|null  $national
+     * @return array{pct: int, robust_block_count: int, high: array{block: string, median_man: string}, low: array{block: string, median_man: string}}|null
+     */
+    private function buildSpread(array $regions, ?array $national): ?array
+    {
+        if ($national === null || ($national['median'] ?? 0) <= 0) {
+            return null;
+        }
+
+        $robust = array_values(array_filter($regions, fn ($r) => $r['robust']));
+        if (count($robust) < self::MIN_BLOCKS) {
+            return null;
+        }
+
+        usort($robust, fn ($a, $b) => $a['median'] <=> $b['median']);
+        $low = $robust[0];
+        $high = $robust[count($robust) - 1];
+
+        return [
+            'pct' => (int) round(($high['median'] - $low['median']) / $national['median'] * 100),
+            'robust_block_count' => count($robust),
+            'high' => ['block' => $high['block'], 'median_man' => $high['median_man']],
+            'low' => ['block' => $low['block'], 'median_man' => $low['median_man']],
         ];
     }
 

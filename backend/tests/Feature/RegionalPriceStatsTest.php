@@ -194,3 +194,31 @@ it('excludes catch-all (name LIKE) and explicit non-bike model_ids from stats', 
     expect(ModelRegionPriceStat::where('bike_model_id', $catchAll->id)->exists())->toBeFalse();
     expect(ModelRegionPriceStat::where('bike_model_id', $nonBike->id)->exists())->toBeFalse();
 });
+
+it('derives spread from robust regions (high/low vs national median)', function () {
+    $model = regionTestModel();
+    seedBlock($model->id, '東京都', 4, 5, 1300000); // 関東 20台 robust median 130万
+    seedBlock($model->id, '大阪府', 4, 5, 1060000); // 近畿 20台 robust median 106万
+    // 全国 = 40台, median 118万 → spread=(130-106)/118=20%
+
+    $this->artisan('stats:regional-prices')->assertSuccessful();
+    $spread = app(RegionalPriceService::class)->getForModel($model)['spread'];
+
+    expect($spread)->not->toBeNull();
+    expect($spread['pct'])->toBe(20);
+    expect($spread['robust_block_count'])->toBe(2);
+    expect($spread['high']['block'])->toBe('関東');
+    expect($spread['low']['block'])->toBe('近畿');
+});
+
+it('returns null spread when fewer than 2 robust blocks (thin block ignored)', function () {
+    $model = regionTestModel();
+    seedBlock($model->id, '東京都', 4, 5, 1300000); // 関東 20台 robust
+    seedBlock($model->id, '大阪府', 2, 5, 1060000); // 近畿 10台 表示はされるが非robust
+
+    $this->artisan('stats:regional-prices')->assertSuccessful();
+    $display = app(RegionalPriceService::class)->getForModel($model);
+
+    expect($display['regions'])->toHaveCount(2); // 表示は2ブロック
+    expect($display['spread'])->toBeNull();      // robustは1つ → spreadなし
+});
