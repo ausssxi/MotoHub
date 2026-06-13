@@ -946,6 +946,13 @@
                             {{-- 値下げ・入荷通知CTA（push-manager.js が描画・bike_model_id紐付け） --}}
                             <div class="flex-1" id="push-area-spread-{{ $model->id }}" data-model-id="{{ $model->id }}" data-model-name="{{ $model->name }}"></div>
                         </div>
+                        {{-- 地域差ページへのクロスリンク（ゲート該当モデルのみ＝デッドリンク/薄ページ誘導を回避） --}}
+                        @if(!empty($regionPriceStats['spread']) && $regionPriceStats['spread']['robust_block_count'] >= 3 && $regionPriceStats['spread']['pct'] >= 20 && $model->slug)
+                        <a href="{{ route('bikes.region_price', $model->slug) }}" class="inline-flex items-center gap-1.5 mt-4 text-sm font-bold text-green-700 hover:text-green-900 transition-colors">
+                            {{ $model->name }}のエリア別相場をくわしく見る
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </a>
+                        @endif
                     </div>
                     @endif
 

@@ -882,6 +882,41 @@ final class BikeController extends Controller
     }
 
     /**
+     * 地域差・独立ページ（SEO）。URL: /bikes/region-price/{slug}
+     * ゲート: spread.robust_block_count≥3 かつ pct≥20。未達は abort(404)（薄ページ防止）。
+     */
+    public function regionPrice(string $slug, RegionalPriceService $regionalPriceService): View|RedirectResponse
+    {
+        $model = \App\Models\BikeModel::where('slug', $slug)->with('manufacturer')->orderBy('id')->firstOrFail();
+
+        if ($model->merged_into_id) {
+            return redirect($model->canonicalModel()->seo_url, 301);
+        }
+
+        $region = $regionalPriceService->getForModel($model);
+        $spread = $region['spread'] ?? null;
+        if ($spread === null || $spread['robust_block_count'] < 3 || $spread['pct'] < 20) {
+            abort(404);
+        }
+
+        return view('bikes.region_price', [
+            'model' => $model,
+            'region' => $region,
+        ]);
+    }
+
+    /**
+     * 地域差・独立ページの索引。URL: /bikes/region-price
+     * ゲート該当モデルを spread%降順で列挙（最小インデックス）。
+     */
+    public function regionPriceIndex(RegionalPriceService $regionalPriceService): View
+    {
+        return view('bikes.region_price_index', [
+            'models' => $regionalPriceService->gatedRegionPriceModels(3, 20),
+        ]);
+    }
+
+    /**
      * カタログページ（地域なしプログラマティックSEO）
      * URL: /bikes/catalog/{slug}
      */

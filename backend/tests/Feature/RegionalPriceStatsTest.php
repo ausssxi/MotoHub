@@ -263,3 +263,78 @@ it('exposes spread_narrative through getForModel (present when spread, null othe
     expect($d['spread_narrative'])->not->toBeNull();
     expect($d['spread_narrative'])->toContain($model->name);
 });
+
+// ---- 地域差・独立ページ (Task 3) ----
+
+function gatedRegionModel(): BikeModel
+{
+    $model = regionTestModel(); // Honda / PCX / slug=pcx
+    seedBlock($model->id, '東京都', 4, 5, 1300000); // 関東 20台 130万(高)
+    seedBlock($model->id, '大阪府', 4, 5, 1000000); // 近畿 20台 100万(安)
+    seedBlock($model->id, '愛知県', 4, 5, 1150000); // 中部 20台 115万 → robust3, spread26%
+    return $model;
+}
+
+it('diff_man uses display-rounded high/low medians', function () {
+    $model = gatedRegionModel();
+    $this->artisan('stats:regional-prices')->assertSuccessful();
+    $sp = app(RegionalPriceService::class)->getForModel($model)['spread'];
+
+    // 130.0 - 100.0 = 30.0（画面の引き算と一致）
+    expect($sp['diff_man'])->toBe('30.0');
+    $hi = (float) $sp['high']['median_man'];
+    $lo = (float) $sp['low']['median_man'];
+    expect((float) $sp['diff_man'])->toBe(round($hi - $lo, 1));
+});
+
+it('region-price page returns 200 with content for a gated model', function () {
+    $model = gatedRegionModel();
+    $this->artisan('stats:regional-prices')->assertSuccessful();
+
+    $this->get('/bikes/region-price/pcx')
+        ->assertOk()
+        ->assertSee('PCXの中古価格', false)
+        ->assertSee('エリア別 中古相場（中央値）')
+        ->assertSee('push-area-spread-' . $model->id, false)
+        ->assertSee('詳細・スペック・相場推移');
+});
+
+it('region-price page 404s when below gate (only 2 robust blocks)', function () {
+    $model = regionTestModel();
+    seedBlock($model->id, '東京都', 4, 5, 1300000);
+    seedBlock($model->id, '大阪府', 4, 5, 1250000); // robust2 <3 → ゲート外
+    $this->artisan('stats:regional-prices')->assertSuccessful();
+
+    $this->get('/bikes/region-price/pcx')->assertNotFound();
+});
+
+it('region-price page 404s when the model has no stats', function () {
+    regionTestModel(); // listingなし → spread null
+    $this->get('/bikes/region-price/pcx')->assertNotFound();
+});
+
+it('gatedRegionPriceModels returns gated models sorted by spread desc', function () {
+    \Illuminate\Support\Facades\Cache::flush();
+    $a = gatedRegionModel(); // spread 26%
+
+    $mfr2 = Manufacturer::forceCreate(['name' => 'Yamaha', 'slug' => 'yamaha']);
+    $b = BikeModel::create(['manufacturer_id' => $mfr2->id, 'name' => 'R1', 'slug' => 'r1']);
+    seedBlock($b->id, '東京都', 4, 5, 2000000); // 関東 200万
+    seedBlock($b->id, '大阪府', 4, 5, 1000000); // 近畿 100万
+    seedBlock($b->id, '愛知県', 4, 5, 1500000); // 中部 150万 → spread 67%
+
+    $this->artisan('stats:regional-prices')->assertSuccessful();
+    \Illuminate\Support\Facades\Cache::flush();
+
+    $gated = app(RegionalPriceService::class)->gatedRegionPriceModels(3, 20);
+
+    expect(count($gated))->toBe(2);
+    expect($gated[0]['model']->id)->toBe($b->id);  // 67% が先頭
+    expect($gated[1]['model']->id)->toBe($a->id);  // 26% が次
+    expect($gated[0]['spread']['pct'])->toBeGreaterThan($gated[1]['spread']['pct']);
+});
+
+// 注: model_detail 上のクロスリンク出/非出は spread(robust_block_count>=3 && pct>=20) 条件で
+// ゲートされ、その spread 判定は上のテストで網羅済み。model_detail ページ全体の HTTP 描画は
+// 既存の resale 集計が MySQL専用関数(DATEDIFF)を使い sqlite で落ちるためここでは描画しない
+// （クロスリンクの出/非出はローカル実機 curl で gated=1 / non-gated=0 を確認済み）。

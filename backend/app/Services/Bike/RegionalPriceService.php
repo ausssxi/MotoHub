@@ -40,25 +40,14 @@ final class RegionalPriceService
             return $empty;
         }
 
-        $blockOrder = (array) config('regions.block_order', []);
-        $nationalLabel = (string) config('regions.national_label', '全国');
-
-        $regions = [];
-        foreach ($blockOrder as $block) {
-            if (! isset($rows[$block])) {
-                continue;
-            }
-            $regions[] = $this->row($block, $rows[$block]);
-        }
+        $regions = $this->regionsFromRows($rows);
 
         // 地域比較が成立しない（ブロック1個以下）なら出さない
         if (count($regions) < self::MIN_BLOCKS) {
             return $empty;
         }
 
-        $national = isset($rows[$nationalLabel])
-            ? $this->row($nationalLabel, $rows[$nationalLabel])
-            : null;
+        $national = $this->nationalFromRows($rows);
 
         $spread = $this->buildSpread($regions, $national);
 
@@ -69,6 +58,85 @@ final class RegionalPriceService
             'spread' => $spread,
             'spread_narrative' => $this->buildSpreadNarrative($model->name, $spread, $national),
         ];
+    }
+
+    /**
+     * stat行（block→row）から表示順の地域ブロック配列を組む。
+     *
+     * @param  \Illuminate\Support\Collection<string, ModelRegionPriceStat>  $rowsByBlock
+     * @return array<int, array{block: string, median: int, median_man: string, count: int, robust: bool}>
+     */
+    private function regionsFromRows($rowsByBlock): array
+    {
+        $regions = [];
+        foreach ((array) config('regions.block_order', []) as $block) {
+            if (isset($rowsByBlock[$block])) {
+                $regions[] = $this->row($block, $rowsByBlock[$block]);
+            }
+        }
+
+        return $regions;
+    }
+
+    /**
+     * stat行から全国行を取り出す（無ければ null）。
+     *
+     * @param  \Illuminate\Support\Collection<string, ModelRegionPriceStat>  $rowsByBlock
+     * @return array{median: int, median_man: string, count: int}|null
+     */
+    private function nationalFromRows($rowsByBlock): ?array
+    {
+        $label = (string) config('regions.national_label', '全国');
+
+        return isset($rowsByBlock[$label]) ? $this->row($label, $rowsByBlock[$label]) : null;
+    }
+
+    /**
+     * 地域差ページのゲート該当モデル（spread.robust_block_count≥minRobust かつ pct≥minPct）を
+     * spread%降順で返す。全stat行を1クエリで取得しPHPで判定（モデル毎クエリなし＝N+1なし）。1日キャッシュ。
+     *
+     * @return array<int, array{model: BikeModel, spread: array{pct: int, diff_man: string, robust_block_count: int, high: array{block: string, median_man: string}, low: array{block: string, median_man: string}}}>
+     */
+    public function gatedRegionPriceModels(int $minRobust = 3, int $minPct = 20): array
+    {
+        return \Illuminate\Support\Facades\Cache::remember(
+            "region_price_gate_v1_{$minRobust}_{$minPct}",
+            86400,
+            function () use ($minRobust, $minPct) {
+                $byModel = ModelRegionPriceStat::all()->groupBy('bike_model_id');
+
+                $pass = [];
+                foreach ($byModel as $modelId => $rows) {
+                    $byBlock = $rows->keyBy('region_block');
+                    $regions = $this->regionsFromRows($byBlock);
+                    if (count($regions) < self::MIN_BLOCKS) {
+                        continue;
+                    }
+                    $spread = $this->buildSpread($regions, $this->nationalFromRows($byBlock));
+                    if ($spread === null || $spread['robust_block_count'] < $minRobust || $spread['pct'] < $minPct) {
+                        continue;
+                    }
+                    $pass[(int) $modelId] = $spread;
+                }
+
+                // slug を持つモデルのみ（URL化できないものは除外）
+                $models = BikeModel::with('manufacturer')
+                    ->whereIn('id', array_keys($pass))
+                    ->whereNotNull('slug')
+                    ->get()
+                    ->keyBy('id');
+
+                $out = [];
+                foreach ($pass as $id => $spread) {
+                    if (isset($models[$id])) {
+                        $out[] = ['model' => $models[$id], 'spread' => $spread];
+                    }
+                }
+                usort($out, fn ($a, $b) => $b['spread']['pct'] <=> $a['spread']['pct']);
+
+                return $out;
+            }
+        );
     }
 
     /**
@@ -95,9 +163,14 @@ final class RegionalPriceService
         $low = $robust[0];
         $high = $robust[count($robust) - 1];
 
+        // diff_man は「表示用に丸めた high/low median 同士の差」で算出する。
+        // 生値の差を丸めると画面の引き算(56.5−33.9)と一致しないため（例 トリシティ 22.7→22.6 が正）。
+        $highMan = round($high['median'] / 10000, 1);
+        $lowMan = round($low['median'] / 10000, 1);
+
         return [
             'pct' => (int) round(($high['median'] - $low['median']) / $national['median'] * 100),
-            'diff_man' => number_format(($high['median'] - $low['median']) / 10000, 1),
+            'diff_man' => number_format($highMan - $lowMan, 1),
             'robust_block_count' => count($robust),
             'high' => ['block' => $high['block'], 'median_man' => $high['median_man']],
             'low' => ['block' => $low['block'], 'median_man' => $low['median_man']],

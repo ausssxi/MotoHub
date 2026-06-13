@@ -155,6 +155,10 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     // 車種比較ページ（SEOプログラマティック）
     Route::get('/compare/{slug}', 'modelCompare')->name('model_compare');
 
+    // 地域差・独立ページ（SEO）。静的indexを {slug} より先に登録。
+    Route::get('/region-price', 'regionPriceIndex')->name('region_price_index');
+    Route::get('/region-price/{slug}', 'regionPrice')->name('region_price');
+
     // seo_urlフォールバック: メーカーslugがないモデルの /bikes/model/{id} を処理
     Route::get('/model/{id}', function ($id) {
         $model = \App\Models\BikeModel::with('manufacturer')->findOrFail($id);
