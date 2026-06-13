@@ -18,6 +18,7 @@ use App\Services\Bike\BikeYouTubeService;
 use App\Services\Bike\CityLandingService;
 use App\Services\Bike\ListingSearchService;
 use App\Services\Bike\PriceStatsService;
+use App\Services\Bike\RegionalBargainService;
 use App\Services\Bike\RegionalPriceService;
 use App\Services\Bike\SeoCompareService;
 use App\Services\Bike\SeoLandingService;
@@ -459,14 +460,15 @@ final class BikeController extends Controller
                 }
             }
 
-            // お買い得割引率（相場平均より20%以上安い場合のみ）
+            // お買い得割引率（全国中央値ベース・robust20・上限50%）。deal用途は20%以上のみ。
+            // 旧 avg ベース（外れ値で94%が出た）を撤去。eager-load 済みの全国statを再利用（追加クエリなし）。
             $discountRate = null;
-            if ($currentPrice > 0 && isset($stats['avg']) && $stats['avg'] > 0 && ($stats['count'] ?? 0) >= 5) {
-                $currentPriceMan = $currentPrice / 10000;
-                $rate = (($stats['avg'] - $currentPriceMan) / $stats['avg']) * 100;
-                if ($rate >= 20) {
-                    $discountRate = (int) round($rate);
-                }
+            $detailBargain = RegionalBargainService::fromStat(
+                $listing->bikeModel?->nationalPriceStat,
+                $currentPrice > 0 ? (int) $currentPrice : null
+            );
+            if ($detailBargain !== null && $detailBargain['pct'] >= 20) {
+                $discountRate = $detailBargain['pct'];
             }
 
             $reviews = $listing->bike_model_id

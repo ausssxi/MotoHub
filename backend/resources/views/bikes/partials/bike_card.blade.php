@@ -28,11 +28,12 @@
             </div>
         @endif
 
+        {{-- お得バッジ: 全国中央値(total_price)基準・robust20・10〜50%バンド（旧bargain_score=多因子/avgの暴れ値を撤去） --}}
         @php $hideBargainBadge = $hideBargainBadge ?? false; @endphp
-        @if(!$hideBargainBadge && $listing['bargain_score'] > 5)
+        @if(!$hideBargainBadge && !empty($listing['region_bargain']))
         <div class="absolute bottom-0 left-0 bg-red-600 text-white text-[10px] font-black px-2 py-1.5 rounded-tr-xl shadow-lg z-20 flex items-center gap-1 animate-pulse">
             <i data-lucide="trending-down" class="w-3.5 h-3.5"></i>
-            相場より約{{ round($listing['bargain_score']) }}%お得！
+            全国相場({{ $listing['region_bargain']['median_man'] }}万)より約{{ $listing['region_bargain']['pct'] }}%お得！
         </div>
         @endif
         

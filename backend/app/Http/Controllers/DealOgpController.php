@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Listing;
+use App\Services\Bike\RegionalBargainService;
 use App\Services\Twitter\DealChartService;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 final class DealOgpController extends Controller
@@ -19,7 +19,7 @@ final class DealOgpController extends Controller
 
     public function show(Listing $listing)
     {
-        $cachePath = self::CACHE_DIR . "/{$listing->id}.png";
+        $cachePath = self::CACHE_DIR."/{$listing->id}.png";
 
         if (Storage::disk('public')->exists($cachePath)) {
             return $this->imageResponse(Storage::disk('public')->path($cachePath));
@@ -27,26 +27,19 @@ final class DealOgpController extends Controller
 
         $listing->loadMissing(['bikeModel.manufacturer']);
 
-        // お買い得割引率を算出（TweetBargainsと同じロジック）
-        $percentOff = 0;
-        if ($listing->bike_model_id && $listing->total_price > 0) {
-            $averagePrice = (float) Listing::where('bike_model_id', $listing->bike_model_id)
-                ->where('is_sold_out', false)
-                ->where('id', '!=', $listing->id)
-                ->where('total_price', '>', 0)
-                ->avg('total_price');
-
-            if ($averagePrice > 0) {
-                $percentOff = (int) round((($averagePrice - $listing->total_price) / $averagePrice) * 100);
-            }
-        }
+        // お買い得割引率＝全国中央値ベース（robust20・上限50%）。旧 avg ベース（外れ値で94%が出た）を撤去。
+        $bargain = app(RegionalBargainService::class)->forListing(
+            $listing->bike_model_id,
+            $listing->total_price !== null ? (int) $listing->total_price : null
+        );
+        $percentOff = $bargain['pct'] ?? 0;
 
         // 20%以上安ければCombined画像（左テキスト＋右チャート）、それ以外はチャートのみ
         $png = $percentOff >= 20
             ? $this->chartService->generateCombinedImage($listing, $percentOff)
             : $this->chartService->generateChartImage($listing);
 
-        if (!$png) {
+        if (! $png) {
             abort(404);
         }
 

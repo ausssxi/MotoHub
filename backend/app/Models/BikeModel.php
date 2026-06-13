@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -33,7 +33,7 @@ final class BikeModel extends Model
      */
     public static function modelDetailCacheKey(string $mfrSlug, string|int $slugForKey): string
     {
-        return 'model_detail_' . self::MODEL_DETAIL_CACHE_VERSION . "_{$mfrSlug}_{$slugForKey}";
+        return 'model_detail_'.self::MODEL_DETAIL_CACHE_VERSION."_{$mfrSlug}_{$slugForKey}";
     }
 
     /**
@@ -97,15 +97,16 @@ final class BikeModel extends Model
                     $localPaths = is_string($listing->local_image_paths)
                         ? json_decode($listing->local_image_paths, true)
                         : $listing->local_image_paths;
-                    if (!empty($localPaths) && is_array($localPaths)) {
-                        return asset('storage/' . ltrim($localPaths[0], '/'));
+                    if (! empty($localPaths) && is_array($localPaths)) {
+                        return asset('storage/'.ltrim($localPaths[0], '/'));
                     }
                 }
 
                 // 2. BikeModel自身のローカル画像
-                if (is_array($this->local_image_path) && !empty($this->local_image_path)) {
+                if (is_array($this->local_image_path) && ! empty($this->local_image_path)) {
                     $path = ltrim($this->local_image_path[0], '/');
-                    return asset('storage/' . $path);
+
+                    return asset('storage/'.$path);
                 }
 
                 // 3. ローカル画像を持つ別のListingを探す
@@ -120,8 +121,8 @@ final class BikeModel extends Model
                     $altPaths = is_string($altListing->local_image_paths)
                         ? json_decode($altListing->local_image_paths, true)
                         : $altListing->local_image_paths;
-                    if (!empty($altPaths) && is_array($altPaths)) {
-                        return asset('storage/' . ltrim($altPaths[0], '/'));
+                    if (! empty($altPaths) && is_array($altPaths)) {
+                        return asset('storage/'.ltrim($altPaths[0], '/'));
                     }
                 }
 
@@ -130,7 +131,7 @@ final class BikeModel extends Model
                     $imageUrls = is_string($listing->image_urls)
                         ? json_decode($listing->image_urls, true)
                         : $listing->image_urls;
-                    if (!empty($imageUrls) && is_array($imageUrls)) {
+                    if (! empty($imageUrls) && is_array($imageUrls)) {
                         return $imageUrls[0];
                     }
                 }
@@ -148,7 +149,7 @@ final class BikeModel extends Model
     {
         return $this->hasOne(Listing::class)->ofMany(
             ['id' => 'max'],
-            fn(Builder $q) => $q->where('is_sold_out', false)
+            fn (Builder $q) => $q->where('is_sold_out', false)
         );
     }
 
@@ -191,13 +192,24 @@ final class BikeModel extends Model
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class)
-                    ->where('is_approved', true)
-                    ->orderBy('created_at', 'desc');
+            ->where('is_approved', true)
+            ->orderBy('created_at', 'desc');
     }
 
     public function marketStats(): HasOne
     {
         return $this->hasOne(BikeModelMarketStat::class);
+    }
+
+    /**
+     * 全国の地域別中古相場（中央値）行。お得バッジの基準値に使う。
+     * region_block='全国' を絞った hasOne なので、eager load 時は
+     * `WHERE bike_model_id IN (...) AND region_block='全国'` の一括取得＝N+1なし。
+     */
+    public function nationalPriceStat(): HasOne
+    {
+        return $this->hasOne(ModelRegionPriceStat::class)
+            ->where('region_block', config('regions.national_label', '全国'));
     }
 
     /**
@@ -249,6 +261,6 @@ final class BikeModel extends Model
             return $this;
         }
 
-        return static::with('manufacturer')->find($this->merged_into_id) ?? $this;
+        return self::with('manufacturer')->find($this->merged_into_id) ?? $this;
     }
 }

@@ -7,6 +7,8 @@ function sampleListingCard(): array
     return [
         'id' => 12345,
         'images' => [],
+        // バッジは全国中央値ベースの region_bargain で表示される（旧 bargain_score 廃止）
+        'region_bargain' => ['pct' => 20, 'median' => 562500, 'median_man' => '56.3', 'diff_man' => '11.3'],
         'bargain_score' => 20,
         'name' => 'テスト車両',
         'maker' => 'Honda',

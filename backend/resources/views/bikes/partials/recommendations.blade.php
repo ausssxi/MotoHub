@@ -25,11 +25,11 @@
                              class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 {{ empty($rel['images']) ? 'grayscale opacity-50' : '' }}" alt="{{ $rel['name'] }}"
                              loading="lazy" decoding="async">
                         
-                        {{-- お買い得バッジ --}}
-                        @if(isset($rel['bargain_score']) && $rel['bargain_score'] > 5)
+                        {{-- お買い得バッジ（全国中央値ベース） --}}
+                        @if(!empty($rel['region_bargain']))
                             <div class="absolute bottom-0 left-0 bg-red-600 text-white text-[9px] font-black px-1.5 py-1 rounded-tr-xl shadow-lg z-10 flex items-center gap-1">
                                 <i data-lucide="trending-down" class="w-3 h-3"></i>
-                                約{{ round($rel['bargain_score']) }}%お得！
+                                約{{ $rel['region_bargain']['pct'] }}%お得！
                             </div>
                         @endif
 
@@ -76,11 +76,11 @@
                              class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 {{ empty($sim['images']) ? 'grayscale opacity-50' : '' }}" alt="{{ $sim['name'] }}"
                              loading="lazy" decoding="async">
                         
-                        {{-- お買い得バッジ --}}
-                        @if(isset($sim['bargain_score']) && $sim['bargain_score'] > 5)
+                        {{-- お買い得バッジ（全国中央値ベース） --}}
+                        @if(!empty($sim['region_bargain']))
                             <div class="absolute bottom-0 left-0 bg-red-600 text-white text-[9px] font-black px-1.5 py-1 rounded-tr-xl shadow-lg z-10 flex items-center gap-1">
                                 <i data-lucide="trending-down" class="w-3 h-3"></i>
-                                約{{ round($sim['bargain_score']) }}%お得！
+                                約{{ $sim['region_bargain']['pct'] }}%お得！
                             </div>
                         @endif
 
