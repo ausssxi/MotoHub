@@ -108,6 +108,10 @@
                             <i data-lucide="trophy" class="w-3.5 h-3.5"></i>
                             相場ランキング
                         </a>
+                        <a href="{{ route('bikes.region_price_index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="map-pinned" class="w-3.5 h-3.5"></i>
+                            エリア別相場
+                        </a>
                         <a href="{{ route('sell.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-yellow-50 hover:text-yellow-600 transition-colors whitespace-nowrap">
                             <i data-lucide="coins" class="w-3.5 h-3.5"></i>
                             買取相場

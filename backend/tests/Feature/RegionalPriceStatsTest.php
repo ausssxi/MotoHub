@@ -296,7 +296,17 @@ it('region-price page returns 200 with content for a gated model', function () {
         ->assertSee('PCXの中古価格', false)
         ->assertSee('エリア別 中古相場（中央値）')
         ->assertSee('push-area-spread-' . $model->id, false)
-        ->assertSee('詳細・スペック・相場推移');
+        ->assertSee('詳細・スペック・相場推移')
+        // Task 6: パンくず/ナビからハブ(index)への実リンク
+        ->assertSee('href="' . route('bikes.region_price_index') . '"', false);
+});
+
+it('the global nav links to the region-price hub on every page (site-wide internal link)', function () {
+    // ハブと無関係なページ（トップ）にもナビのハブリンクが含まれる
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('href="' . route('bikes.region_price_index') . '"', false)
+        ->assertSee('エリア別相場');
 });
 
 it('region-price page 404s when below gate (only 2 robust blocks)', function () {
