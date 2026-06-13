@@ -168,3 +168,29 @@ it('headline falls back to national-only when fewer than 2 robust blocks', funct
     expect($display['headline'])->not->toContain('割安');
     expect($display['headline'])->toContain('全国の中央値');
 });
+
+it('excludes catch-all (name LIKE) and explicit non-bike model_ids from stats', function () {
+    $mfr = Manufacturer::forceCreate(['name' => 'Honda', 'slug' => 'honda']);
+
+    // 実車種（保存される）
+    $real = BikeModel::create(['manufacturer_id' => $mfr->id, 'name' => 'PCX', 'slug' => 'pcx']);
+    // キャッチオール（name LIKE 'その他' で除外）
+    $catchAll = BikeModel::create(['manufacturer_id' => $mfr->id, 'name' => 'ホンダ その他', 'slug' => 'honda-other']);
+    // 非バイク（明示 model_id で除外）
+    $nonBike = BikeModel::create(['manufacturer_id' => $mfr->id, 'name' => '除雪機', 'slug' => 'snow']);
+
+    // 明示idは実在テストidに差し替え（config既定の1536等はテストDBに無いため）
+    config(['regions.catch_all_exclusions' => ['name_like' => ['その他'], 'model_ids' => [$nonBike->id]]]);
+
+    // 3モデルとも保存ゲート(10台)を通る量を投入
+    foreach ([$real, $catchAll, $nonBike] as $m) {
+        seedBlock($m->id, '東京都', 2, 5, 300000); // 関東 10台
+        seedBlock($m->id, '大阪府', 2, 5, 300000); // 近畿 10台
+    }
+
+    $this->artisan('stats:regional-prices')->assertSuccessful();
+
+    expect(ModelRegionPriceStat::where('bike_model_id', $real->id)->exists())->toBeTrue();
+    expect(ModelRegionPriceStat::where('bike_model_id', $catchAll->id)->exists())->toBeFalse();
+    expect(ModelRegionPriceStat::where('bike_model_id', $nonBike->id)->exists())->toBeFalse();
+});

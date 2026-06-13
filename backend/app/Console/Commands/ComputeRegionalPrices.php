@@ -41,6 +41,10 @@ final class ComputeRegionalPrices extends Command
         $prefToBlock = $this->buildPrefToBlock();
         $nationalLabel = (string) config('regions.national_label', '全国');
 
+        // キャッチオール/非バイクのモデルを集計から除外（誤価格・異種混在の中央値混入を断つ）。
+        $excludedModelIds = $this->resolveExcludedModelIds();
+        $this->info('除外モデル（キャッチオール/非バイク）: '.count($excludedModelIds).'件');
+
         // per-shop×model キャップ後の (model, prefecture, price) をストリーム取得。
         // ROW_NUMBER は MySQL8 / sqlite3.25+ 双方対応のため driver 分岐不要。
         $sub = DB::table('listings as l')
@@ -49,6 +53,7 @@ final class ComputeRegionalPrices extends Command
             ->whereNotNull('l.total_price')
             ->where('l.total_price', '>', 0)
             ->whereNotNull('s.prefecture')
+            ->when($excludedModelIds !== [], fn ($q) => $q->whereNotIn('l.bike_model_id', $excludedModelIds))
             ->select(
                 'l.bike_model_id as bike_model_id',
                 's.prefecture as prefecture',
@@ -117,6 +122,28 @@ final class ComputeRegionalPrices extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * config/regions.php の catch_all_exclusions を解決し、除外する bike_model_id の集合を返す。
+     * 明示 model_ids ∪ (name LIKE name_like)。
+     *
+     * @return array<int, int>
+     */
+    private function resolveExcludedModelIds(): array
+    {
+        $conf = (array) config('regions.catch_all_exclusions', []);
+        $ids = array_map('intval', (array) ($conf['model_ids'] ?? []));
+
+        foreach ((array) ($conf['name_like'] ?? []) as $pattern) {
+            $matched = DB::table('bike_models')
+                ->where('name', 'like', '%'.$pattern.'%')
+                ->pluck('id')
+                ->all();
+            $ids = array_merge($ids, array_map('intval', $matched));
+        }
+
+        return array_values(array_unique($ids));
     }
 
     /**
