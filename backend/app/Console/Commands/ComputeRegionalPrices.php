@@ -17,7 +17,8 @@ use Illuminate\Support\Facades\DB;
  *   価格非依存のサンプル（total_price順だと安値5件採用で中央値が下方バイアスするため）。
  * - (bike_model_id × region_block) ごとに total_price の中央値・件数を算出。
  * - 全国行: 同モデルの全ブロック合算（同じキャップ適用）を region_block='全国' に。
- * - ゲート: listing_count >= 5 のセルのみ保存（5未満はページで非表示）。
+ * - ゲート: listing_count >= 10 のセルのみ保存（薄いブロックの中央値ノイズを表から除外。
+ *   ※これは「モデルページ表示」のコンテンツ品質ゲート。area×model LP の noindex閾値5とは別物）。
  * - 冪等: 全件 DELETE→再投入をトランザクションで（TRUNCATEはMySQLで暗黙コミットを起こすため不可）。
  */
 final class ComputeRegionalPrices extends Command
@@ -29,8 +30,11 @@ final class ComputeRegionalPrices extends Command
     /** per-shop×model の寄与上限。既存の area×model LP noindex閾値と同値。 */
     private const PER_SHOP_CAP = 5;
 
-    /** セル保存の最低台数ゲート。 */
-    private const MIN_LISTINGS = 5;
+    /**
+     * セル保存（=モデルページ表示）の最低台数ゲート。薄いブロックの中央値は振れやすいため10に設定。
+     * ⚠️ area×model LP の noindex閾値(5)とは独立。混同しないこと。
+     */
+    private const MIN_LISTINGS = 10;
 
     public function handle(): int
     {

@@ -33,7 +33,7 @@ function makeShop(string $prefecture): int
     ]);
 }
 
-/** 1つの shop に複数価格の active 在庫を作る */
+/** 1つの shop に複数価格の active 在庫を作る（投入順 = id順） */
 function seedListings(int $shopId, int $modelId, array $prices): void
 {
     foreach ($prices as $price) {
@@ -50,6 +50,17 @@ function seedListings(int $shopId, int $modelId, array $prices): void
     }
 }
 
+/**
+ * あるブロック(prefecture)に、shopCount店 × perShop台（全て同一価格）の在庫を作る。
+ * per-shopキャップ5があるため perShop<=5 で「キャップ後台数 = shopCount*perShop」を作れる。
+ */
+function seedBlock(int $modelId, string $prefecture, int $shopCount, int $perShop, int $price): void
+{
+    for ($i = 0; $i < $shopCount; $i++) {
+        seedListings(makeShop($prefecture), $modelId, array_fill(0, $perShop, $price));
+    }
+}
+
 function regionTestModel(): BikeModel
 {
     $mfr = Manufacturer::forceCreate(['name' => 'Honda', 'slug' => 'honda']);
@@ -57,48 +68,40 @@ function regionTestModel(): BikeModel
     return BikeModel::create(['manufacturer_id' => $mfr->id, 'name' => 'PCX', 'slug' => 'pcx']);
 }
 
-it('computes median/count with per-shop cap, gate and national row', function () {
+it('computes median/count with per-shop cap, gate(10) and national row', function () {
     $model = regionTestModel();
 
-    // 関東(東京都) 単一shopに6件を id順(=投入順)で作成: 100k..500k, 9.9M。
-    // per-shopキャップ5は id順で先頭5件を採用するため、6件目の 9.9M(外れ値)が除外される。
-    $kanto = makeShop('東京都');
-    seedListings($kanto, $model->id, [100000, 200000, 300000, 400000, 500000, 9900000]);
+    // 関東: 2店 → キャップ後10台、median=550k。外れ値9.9M(id6)はキャップで除外。
+    //   東京都の店: id順6件 [100k..500k, 9.9M] → 先頭5件 [100k..500k]
+    //   神奈川県の店: 5件すべて 600k
+    $tokyo = makeShop('東京都');
+    seedListings($tokyo, $model->id, [100000, 200000, 300000, 400000, 500000, 9900000]);
+    seedListings(makeShop('神奈川県'), $model->id, [600000, 600000, 600000, 600000, 600000]);
 
-    // 近畿(大阪府) 5件: 600k..1000k
-    $kinki = makeShop('大阪府');
-    seedListings($kinki, $model->id, [600000, 700000, 800000, 900000, 1000000]);
-
-    // 中国(広島県) 4件 → ゲート未達で保存されない（が全国には4件寄与）
-    $chugoku = makeShop('広島県');
-    seedListings($chugoku, $model->id, [100000, 100000, 100000, 100000]);
+    // 近畿: 9台（5+4）→ ゲート10未達で保存されない。が全国には9台寄与。価格すべて 700k
+    seedListings(makeShop('大阪府'), $model->id, [700000, 700000, 700000, 700000, 700000]);
+    seedListings(makeShop('京都府'), $model->id, [700000, 700000, 700000, 700000]);
 
     $this->artisan('stats:regional-prices')->assertSuccessful();
 
     $rows = ModelRegionPriceStat::where('bike_model_id', $model->id)->get()->keyBy('region_block');
 
-    // (d) per-shopキャップ: 関東は6件中先頭5件(id順)、6件目の9.9Mは除外 → median=300k, count=5
-    expect($rows['関東']->listing_count)->toBe(5);
-    expect((int) $rows['関東']->median_price)->toBe(300000);
+    // (d) per-shopキャップ + (a)(b): 関東は先頭5件(id順)で9.9M除外 → median=550k, count=10
+    expect($rows['関東']->listing_count)->toBe(10);
+    expect((int) $rows['関東']->median_price)->toBe(550000);
 
-    // (a)(b) 近畿: median=800k, count=5
-    expect($rows['近畿']->listing_count)->toBe(5);
-    expect((int) $rows['近畿']->median_price)->toBe(800000);
+    // (c) ゲート: 近畿(9台)は保存されない
+    expect($rows->has('近畿'))->toBeFalse();
 
-    // (c) ゲート: 中国(4件)は保存されない
-    expect($rows->has('中国'))->toBeFalse();
-
-    // (e) 全国: 関東5 + 近畿5 + 中国4 = 14件、median=(300k+400k)/2=350k
-    expect($rows['全国']->listing_count)->toBe(14);
-    expect((int) $rows['全国']->median_price)->toBe(350000);
+    // (e) 全国: 関東10 + 近畿9 = 19台（ゲート未達ブロックも全国には寄与）、median=600k
+    expect($rows['全国']->listing_count)->toBe(19);
+    expect((int) $rows['全国']->median_price)->toBe(600000);
 });
 
-it('is idempotent (truncate + reinsert) on repeated runs', function () {
+it('is idempotent (delete + reinsert) on repeated runs', function () {
     $model = regionTestModel();
-    $a = makeShop('東京都');
-    seedListings($a, $model->id, [100000, 200000, 300000, 400000, 500000]);
-    $b = makeShop('大阪府');
-    seedListings($b, $model->id, [100000, 200000, 300000, 400000, 500000]);
+    seedBlock($model->id, '東京都', 2, 5, 300000); // 関東 10台
+    seedBlock($model->id, '大阪府', 2, 5, 300000); // 近畿 10台
 
     $this->artisan('stats:regional-prices')->assertSuccessful();
     $first = ModelRegionPriceStat::count();
@@ -109,11 +112,10 @@ it('is idempotent (truncate + reinsert) on repeated runs', function () {
     expect($first)->toBeGreaterThan(0);
 });
 
-it('service hides the section when fewer than 2 blocks have data', function () {
+it('service hides the section when fewer than 2 blocks pass the display gate', function () {
     $model = regionTestModel();
-    // 関東のみ5件 → 1ブロックのみ
-    $only = makeShop('東京都');
-    seedListings($only, $model->id, [100000, 200000, 300000, 400000, 500000]);
+    seedBlock($model->id, '東京都', 2, 5, 300000); // 関東 10台 → 表示
+    seedBlock($model->id, '大阪府', 1, 5, 300000); // 近畿 5台 → ゲート10未達で非表示
 
     $this->artisan('stats:regional-prices')->assertSuccessful();
 
@@ -123,17 +125,46 @@ it('service hides the section when fewer than 2 blocks have data', function () {
     expect($display['headline'])->toBeNull();
 });
 
-it('service returns ordered blocks + headline when 2+ blocks have data', function () {
+it('headline picks high/low only from robust blocks (n>=20), ignoring thin noise blocks', function () {
     $model = regionTestModel();
-    seedListings(makeShop('東京都'), $model->id, [200000, 300000, 400000, 500000, 600000]); // 関東 median 400k
-    seedListings(makeShop('大阪府'), $model->id, [100000, 100000, 100000, 100000, 100000]); // 近畿 median 100k
+
+    // 頑健ブロック2つ（各20台）
+    seedBlock($model->id, '東京都', 4, 5, 1300000); // 関東 20台 median 130.0万（高値・頑健）
+    seedBlock($model->id, '大阪府', 4, 5, 1060000); // 近畿 20台 median 106.0万（安値・頑健）
+    // 薄いノイズブロック（10台・n<20）: CB1300四国の「156万 n=8」相当。表には出るが見出しには使わない
+    seedBlock($model->id, '香川県', 2, 5, 1560000); // 四国 10台 median 156.0万（参考）
 
     $this->artisan('stats:regional-prices')->assertSuccessful();
 
     $display = app(RegionalPriceService::class)->getForModel($model);
 
-    expect(collect($display['regions'])->pluck('block')->all())->toBe(['関東', '近畿']); // block_order順
-    expect($display['national'])->not->toBeNull();
-    expect($display['headline'])->toContain('関東'); // 高値ブロック
-    expect($display['headline'])->toContain('近畿'); // 安値ブロック
+    // 四国(10台)は表示されるが robust=false（参考値）
+    $blocks = collect($display['regions'])->keyBy('block');
+    expect($blocks->has('四国'))->toBeTrue();
+    expect($blocks['四国']['robust'])->toBeFalse();
+    expect($blocks['関東']['robust'])->toBeTrue();
+
+    // 見出しは頑健ブロックのみから選定 → 関東(高)/近畿(安)。四国(噪)は出ない
+    expect($display['headline'])->toContain('関東');
+    expect($display['headline'])->toContain('近畿');
+    expect($display['headline'])->not->toContain('四国');
+    expect($display['headline'])->toContain('130.0万円'); // 関東(高値・頑健)
+    expect($display['headline'])->toContain('106.0万円'); // 近畿(安値・頑健)
+});
+
+it('headline falls back to national-only when fewer than 2 robust blocks', function () {
+    $model = regionTestModel();
+
+    // 表示はされる(各10台)が、どちらも n<20 で非頑健 → 比較断定はしない
+    seedBlock($model->id, '東京都', 2, 5, 1200000); // 関東 10台（参考）
+    seedBlock($model->id, '大阪府', 2, 5, 1000000); // 近畿 10台（参考）
+
+    $this->artisan('stats:regional-prices')->assertSuccessful();
+
+    $display = app(RegionalPriceService::class)->getForModel($model);
+
+    expect($display['regions'])->toHaveCount(2);
+    expect($display['headline'])->not->toContain('高め');
+    expect($display['headline'])->not->toContain('割安');
+    expect($display['headline'])->toContain('全国の中央値');
 });

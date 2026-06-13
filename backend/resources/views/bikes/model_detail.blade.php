@@ -881,8 +881,9 @@
                         <p class="text-[10px] text-gray-400 mt-4 text-right">※MotoHub独自の過去データに基づく平均価格の推移です</p>
                     </div>
 
-                    {{-- 地域別中古相場（中央値）: 8地方ブロック。日次バッチ事前計算・最低5台ゲート --}}
+                    {{-- 地域別中古相場（中央値）: 8地方ブロック。日次バッチ事前計算・最低10台ゲート --}}
                     @if(!empty($regionPriceStats['regions']))
+                    @php $hasReference = collect($regionPriceStats['regions'])->contains(fn ($r) => empty($r['robust'])); @endphp
                     <div class="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                         <h2 class="text-lg font-black text-gray-900 mb-2 flex items-center gap-2">
                             <i data-lucide="map" class="w-5 h-5 text-green-500"></i>
@@ -904,7 +905,12 @@
                                 <tbody class="divide-y divide-gray-100">
                                     @foreach($regionPriceStats['regions'] as $r)
                                     <tr>
-                                        <td class="py-2.5 px-3 font-bold text-gray-700">{{ $r['block'] }}</td>
+                                        <td class="py-2.5 px-3 font-bold text-gray-700">
+                                            {{ $r['block'] }}
+                                            @if(empty($r['robust']))
+                                            <span class="ml-1 align-middle text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">参考</span>
+                                            @endif
+                                        </td>
                                         <td class="py-2.5 px-3 text-right font-black text-blue-600">{{ $r['median_man'] }}<span class="text-xs text-gray-400 ml-0.5">万円</span></td>
                                         <td class="py-2.5 px-3 text-right font-bold text-gray-500">{{ number_format($r['count']) }}<span class="text-xs text-gray-400 ml-0.5">台</span></td>
                                     </tr>
@@ -920,7 +926,7 @@
                             </table>
                         </div>
                         <p class="text-[10px] text-gray-400 mt-4">
-                            ※支払総額（total_price）の中央値。各セルは掲載台数5台以上のみ表示。1販売店あたりの寄与は最大5台に制限して算出（外れ値・水増し対策）。
+                            ※支払総額（total_price）の中央値。各セルは掲載台数10台以上のみ表示。1販売店あたりの寄与は最大5台に制限して算出（外れ値・水増し対策）。@if($hasReference)<span class="text-amber-600 font-bold">「参考」</span>は掲載台数が少なく中央値が振れやすい地域の目安値です。@endif
                         </p>
                     </div>
                     @endif
