@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\Storage;
 
 final class DealOgpController extends Controller
 {
-    private const CACHE_DIR = 'ogp/deals';
+    // v2: お得率を avg → 全国中央値ベースへ刷新。旧94%等のPNGキャッシュを破棄するためパスをbump。
+    private const CACHE_DIR = 'ogp/deals/v2';
 
     public function __construct(
         private readonly DealChartService $chartService,

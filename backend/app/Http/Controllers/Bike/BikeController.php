@@ -728,6 +728,7 @@ final class BikeController extends Controller
                 'priceBandComment' => $priceBandComment,
                 'relatedBlogPosts' => $relatedBlogPosts,
                 'marketPosition' => $marketPosition,
+                'regionBargain' => $detailBargain, // 全国中央値ベースのお得（og/ヒーロー用・null=非表示）
                 'rankingStats' => $rankingStats,
                 'soldOutData' => $soldOutData,
                 'activeSameModel' => $activeSameModel,

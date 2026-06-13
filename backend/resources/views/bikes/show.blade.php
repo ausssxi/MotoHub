@@ -25,13 +25,9 @@
         $descParts = [$listing->name . 'の詳細'];
         if ($priceMan) {
             $desc2 = '総額' . $priceMan . '万円';
-            if ($mpPriceItem) {
-                $avgVal = (float) str_replace(['万円', ','], '', $mpPriceItem['avg']);
-                $myVal = (float) $listing->total_price;
-                if ($avgVal > 0) {
-                    $diffPct = round(abs(($myVal - $avgVal) / $avgVal) * 100);
-                    $desc2 .= '（相場平均' . $mpPriceItem['avg'] . 'より' . $diffPct . '%' . ($myVal <= $avgVal ? 'お得' : '高め') . '）';
-                }
+            // 全国中央値ベース（robust20・10〜50%バンド）。旧avgベースの94%等の暴れ値を撤去。
+            if (!empty($regionBargain)) {
+                $desc2 .= '（全国相場' . $regionBargain['median_man'] . '万円より約' . $regionBargain['pct'] . '%お得）';
             }
             $descParts[] = $desc2;
         }
@@ -754,29 +750,15 @@
                             <h3 class="text-lg font-black text-gray-900">この車両の価格分析</h3>
                         </div>
 
-                        {{-- 相場分析テキスト（サイドバーから移動） --}}
-                        @if(isset($stats['avg']) && $stats['avg'] > 0 && is_numeric($listing->total_price) && ($stats['count'] ?? 0) > 1)
-                        @php
-                            $pMan = (float) $listing->total_price;
-                            $avg = $stats['avg'];
-                            $diffAbs = abs($stats['diff']);
-                            $diffPct = $avg > 0 ? (int) round($diffAbs / $avg * 100) : 0;
-                            $count = $stats['count'];
-                            $bikeName = $listing->name;
-                            $isCheaper = $stats['diff'] < 0;
-                        @endphp
-                        <div class="mb-6 rounded-2xl p-4 text-xs leading-relaxed font-bold {{ $isCheaper ? 'bg-blue-50 text-blue-800 border border-blue-100' : 'bg-gray-50 text-gray-700 border border-gray-200' }}">
+                        {{-- 相場分析テキスト: 全国中央値ベース（robust20・10〜50%バンド）。旧avgベースの94%等を撤去。 --}}
+                        @if(!empty($regionBargain))
+                        <div class="mb-6 rounded-2xl p-4 text-xs leading-relaxed font-bold bg-blue-50 text-blue-800 border border-blue-100">
                             <div class="flex items-start gap-2">
-                                <i data-lucide="{{ $isCheaper ? 'badge-check' : 'info' }}" class="w-4 h-4 mt-0.5 flex-shrink-0 {{ $isCheaper ? 'text-blue-500' : 'text-gray-400' }}"></i>
+                                <i data-lucide="badge-check" class="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500"></i>
                                 <p>
-                                    この{{ $bikeName }}は支払総額<strong>{{ $pMan }}万円</strong>で、同車種の相場平均<strong>{{ $avg }}万円</strong>より
-                                    @if($isCheaper)
-                                        約<strong>{{ $diffAbs }}万円（{{ $diffPct }}%）お得</strong>です。
-                                        @if($pricePercentile !== null && $pricePercentile <= 30)
-                                            現在流通中の{{ $count }}台中、価格の安さは<strong>上位{{ $pricePercentile > 0 ? $pricePercentile : 1 }}%</strong>に入ります。
-                                        @endif
-                                    @else
-                                        約<strong>{{ $diffAbs }}万円高め</strong>です。走行距離の少なさやコンディションを考慮すると妥当な価格帯です。
+                                    この{{ $listing->name }}は支払総額<strong>{{ $listing->total_price }}万円</strong>で、全国相場（中央値）<strong>{{ $regionBargain['median_man'] }}万円</strong>より約<strong>{{ $regionBargain['diff_man'] }}万円（{{ $regionBargain['pct'] }}%）お得</strong>です。
+                                    @if($pricePercentile !== null && $pricePercentile <= 30 && ($stats['count'] ?? 0) > 0)
+                                        現在流通中の{{ $stats['count'] }}台中、価格の安さは<strong>上位{{ $pricePercentile > 0 ? $pricePercentile : 1 }}%</strong>に入ります。
                                     @endif
                                 </p>
                             </div>
@@ -831,7 +813,7 @@
                         <div id="price-stats-content">
                             <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-8">
                                 <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
-                                    <div class="text-[10px] font-bold text-gray-400 mb-1">相場平均</div>
+                                    <div class="text-[10px] font-bold text-gray-400 mb-1">平均価格</div>
                                     <div class="text-base sm:text-xl font-black text-gray-800">{{ $stats['avg'] }}<span class="text-xs ml-0.5">万円</span></div>
                                 </div>
                                 <div class="bg-gray-50 rounded-xl p-3 sm:p-4 text-center border border-gray-100">
@@ -921,7 +903,7 @@
                                 $faqItems[] = ['q' => "{$faqBikeName}は初心者でも乗れる？", 'a' => $beginnerAnswer];
                             }
                             if (isset($stats['avg']) && $stats['avg'] > 0 && ($stats['count'] ?? 0) > 1) {
-                                $faqItems[] = ['q' => "{$faqBikeName}の相場はいくら？", 'a' => "現在の中古相場平均は{$stats['avg']}万円です（流通中{$stats['count']}台のデータより）。最安値は{$stats['min']}万円、最高値は{$stats['max']}万円です。"];
+                                $faqItems[] = ['q' => "{$faqBikeName}の相場はいくら？", 'a' => "現在の中古の平均価格は{$stats['avg']}万円です（流通中{$stats['count']}台のデータより）。最安値は{$stats['min']}万円、最高値は{$stats['max']}万円です。"];
                             }
                             if ($faqCc) {
                                 if ($faqCc <= 250) {
@@ -1474,7 +1456,7 @@
                                     $dealShareText = "🔥 激アツ車両発見！\n"
                                         . '🏍 ' . ($listing->name ?? '') . ' / ' . ($listing->maker ?? '') . "\n"
                                         . '💰 価格: ' . $priceMan . "万円\n"
-                                        . '（相場平均より ' . $discountRate . "% OFF✨）\n\n"
+                                        . '（全国相場より ' . $discountRate . "% OFF✨）\n\n"
                                         . $dealHashLine;
                                 @endphp
                                 <a href="https://twitter.com/intent/tweet?text={{ urlencode($dealShareText) }}&url={{ urlencode(route('bikes.show', $listing->id)) }}"

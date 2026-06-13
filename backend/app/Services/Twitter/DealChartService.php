@@ -9,16 +9,20 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
 use Intervention\Image\Typography\FontFactory;
 
 final class DealChartService
 {
     private const WIDTH = 1200;
+
     private const HEIGHT = 630;
+
     private const MINI_W = 570;
+
     private const MINI_H = 295;
+
     private const BG_COLOR = '#0f172a';
 
     /**
@@ -37,7 +41,7 @@ final class DealChartService
 
         if ($monthly->count() < 6) {
             $avgPrice = $this->getAveragePrice($listing) ?: $listingPrice;
-            if (!$avgPrice) {
+            if (! $avgPrice) {
                 return null;
             }
             $monthly = $this->generateDummyMonthlyData($avgPrice);
@@ -60,7 +64,7 @@ final class DealChartService
         $listing->loadMissing(['bikeModel.manufacturer', 'shop']);
 
         $bikeModelId = $listing->bike_model_id;
-        if (!$bikeModelId) {
+        if (! $bikeModelId) {
             return null;
         }
 
@@ -73,7 +77,7 @@ final class DealChartService
         $monthly = $this->getMonthlyAveragePrices($bikeModelId);
         if ($monthly->count() < 6) {
             $avgPrice = $this->getAveragePrice($listing) ?: $listingPrice;
-            if (!$avgPrice) {
+            if (! $avgPrice) {
                 return null;
             }
             $monthly = $this->generateDummyMonthlyData($avgPrice);
@@ -95,12 +99,12 @@ final class DealChartService
         ];
 
         // 全チャート生成成功チェック（最低限トレンドチャートは必須）
-        if (!$charts[0]) {
+        if (! $charts[0]) {
             return null;
         }
 
         // --- Intervention Image で合成 ---
-        $manager = new ImageManager(new Driver());
+        $manager = new ImageManager(new Driver);
         $canvas = $manager->create(self::WIDTH, self::HEIGHT)->fill(self::BG_COLOR);
 
         $positions = [
@@ -111,7 +115,7 @@ final class DealChartService
         ];
 
         foreach ($charts as $i => $png) {
-            if (!$png) {
+            if (! $png) {
                 continue;
             }
             $mini = $manager->read($png);
@@ -130,7 +134,7 @@ final class DealChartService
         $listing->loadMissing(['bikeModel.manufacturer']);
 
         $bikeModelId = $listing->bike_model_id;
-        if (!$bikeModelId) {
+        if (! $bikeModelId) {
             return null;
         }
 
@@ -143,7 +147,7 @@ final class DealChartService
         $monthly = $this->getMonthlyAveragePrices($bikeModelId);
         if ($monthly->count() < 6) {
             $avgPrice = $this->getAveragePrice($listing) ?: $listingPrice;
-            if (!$avgPrice) {
+            if (! $avgPrice) {
                 return null;
             }
             $monthly = $this->generateDummyMonthlyData($avgPrice);
@@ -158,12 +162,12 @@ final class DealChartService
             540, 380, 1,
         );
 
-        if (!$chartPng) {
+        if (! $chartPng) {
             return null;
         }
 
         // --- Intervention Image で合成 ---
-        $manager = new ImageManager(new Driver());
+        $manager = new ImageManager(new Driver);
         $canvas = $manager->create(self::WIDTH, self::HEIGHT)->fill(self::BG_COLOR);
 
         $fontBold = storage_path('app/fonts/NotoSansJP-Bold.ttf');
@@ -194,7 +198,7 @@ final class DealChartService
         }
 
         // 価格（大きく・緑）
-        $priceText = number_format($listingPriceMan, 1) . '万円';
+        $priceText = number_format($listingPriceMan, 1).'万円';
         $canvas->text($priceText, $leftCenter, 270, function (FontFactory $f) use ($fontBold) {
             $f->filename($fontBold);
             $f->size(64);
@@ -213,8 +217,8 @@ final class DealChartService
             $f->valign('middle');
         });
 
-        // 「相場平均より」補足テキスト
-        $canvas->text('相場平均より', $leftCenter, 330, function (FontFactory $f) use ($fontRegular) {
+        // 「全国相場より」補足テキスト
+        $canvas->text('全国相場より', $leftCenter, 330, function (FontFactory $f) use ($fontRegular) {
             $f->filename($fontRegular);
             $f->size(16);
             $f->color('#94a3b8');
@@ -418,7 +422,7 @@ final class DealChartService
 
         // この車両の都道府県がTOP5に入っていなければ追加
         $prefectures = $data->pluck('prefecture')->toArray();
-        if ($listingPrefecture && !in_array($listingPrefecture, $prefectures)) {
+        if ($listingPrefecture && ! in_array($listingPrefecture, $prefectures)) {
             $data->push((object) [
                 'prefecture' => $listingPrefecture,
                 'count' => 1,
@@ -493,7 +497,7 @@ final class DealChartService
         // この車両の年式がなければ追加
         if ($listingYear && $listingYear > 0) {
             $existingYears = $data->pluck('model_year')->map(fn ($v) => (int) $v)->toArray();
-            if (!in_array($listingYear, $existingYears)) {
+            if (! in_array($listingYear, $existingYears)) {
                 $data->push((object) [
                     'model_year' => $listingYear,
                     'year_label' => "{$listingYear}年",
@@ -725,7 +729,7 @@ final class DealChartService
             $rows[] = (object) [
                 'month' => $date->format('Y-m'),
                 'avg_price' => round($avgPrice + $variation),
-                'month_label' => $date->format('m') . '月',
+                'month_label' => $date->format('m').'月',
             ];
         }
 
@@ -734,7 +738,7 @@ final class DealChartService
 
     private function getAveragePrice(Listing $listing): ?float
     {
-        if (!$listing->bike_model_id) {
+        if (! $listing->bike_model_id) {
             return null;
         }
 
