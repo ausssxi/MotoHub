@@ -30,7 +30,7 @@ final class RegionalPriceService
      */
     public function getForModel(BikeModel $model): array
     {
-        $empty = ['regions' => [], 'national' => null, 'headline' => null, 'spread' => null];
+        $empty = ['regions' => [], 'national' => null, 'headline' => null, 'spread' => null, 'spread_narrative' => null];
 
         $rows = ModelRegionPriceStat::where('bike_model_id', $model->id)
             ->get()
@@ -60,11 +60,14 @@ final class RegionalPriceService
             ? $this->row($nationalLabel, $rows[$nationalLabel])
             : null;
 
+        $spread = $this->buildSpread($regions, $national);
+
         return [
             'regions' => $regions,
             'national' => $national,
             'headline' => $this->buildHeadline($model, $regions, $national),
-            'spread' => $this->buildSpread($regions, $national),
+            'spread' => $spread,
+            'spread_narrative' => $this->buildSpreadNarrative($model->name, $spread, $national),
         ];
     }
 
@@ -94,10 +97,44 @@ final class RegionalPriceService
 
         return [
             'pct' => (int) round(($high['median'] - $low['median']) / $national['median'] * 100),
+            'diff_man' => number_format(($high['median'] - $low['median']) / 10000, 1),
             'robust_block_count' => count($robust),
             'high' => ['block' => $high['block'], 'median_man' => $high['median_man']],
             'low' => ['block' => $low['block'], 'median_man' => $low['median_man']],
         ];
+    }
+
+    /**
+     * 地域差を買い手目線で解釈する短い本文（spread配列からのテンプレ生成・AI/クエリなし）。
+     * spread===null（robust<2）なら null＝本文を出さない（薄い断定を避ける／headlineと同じ頑健ゲート）。
+     *
+     * @param  array{pct: int, diff_man: string, high: array{block: string, median_man: string}, low: array{block: string, median_man: string}}|null  $spread
+     * @param  array{median: int, median_man: string, count: int}|null  $national
+     */
+    public function buildSpreadNarrative(string $modelName, ?array $spread, ?array $national): ?string
+    {
+        if ($spread === null) {
+            return null;
+        }
+
+        $pct = $spread['pct'];
+        $hi = $spread['high'];
+        $lo = $spread['low'];
+
+        if ($pct >= 20) {
+            return "{$modelName}の中古相場は地域差が大きい傾向です。最安は{$lo['block']}（約{$lo['median_man']}万円）、"
+                ."最高は{$hi['block']}（約{$hi['median_man']}万円）で、約{$spread['diff_man']}万円（{$pct}%）の開きがあります。"
+                ."{$lo['block']}周辺で探すと割安に見つかりやすいでしょう。";
+        }
+
+        if ($pct >= 10) {
+            return "やや地域差があります。{$lo['block']}が安め（約{$lo['median_man']}万円）、"
+                ."{$hi['block']}が高め（約{$hi['median_man']}万円）です。";
+        }
+
+        $natMan = $national['median_man'] ?? $hi['median_man'];
+
+        return "全国でほぼ一様（中央値 約{$natMan}万円前後）。地域による価格差は小さめです。";
     }
 
     /**

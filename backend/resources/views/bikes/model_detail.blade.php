@@ -931,6 +931,24 @@
                     </div>
                     @endif
 
+                    {{-- 地域差の解釈本文（spreadからテンプレ生成。robust<2はnullで非表示＝薄い断定を避ける） --}}
+                    @if(!empty($regionPriceStats['spread_narrative']))
+                    <div class="bg-green-50 rounded-2xl p-6 border border-green-100">
+                        <h3 class="text-base font-black text-gray-900 mb-2 flex items-center gap-2">
+                            <i data-lucide="map-pinned" class="w-5 h-5 text-green-600"></i>
+                            地域で見る {{ $model->name }} の買い方
+                        </h3>
+                        <p class="text-sm text-gray-600 leading-relaxed">{{ $regionPriceStats['spread_narrative'] }}</p>
+                        <div class="mt-4 flex flex-col sm:flex-row gap-3">
+                            <a href="{{ route('bikes.search', ['bike_model_id' => $model->id]) }}" class="inline-flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs px-5 py-3 rounded-xl transition-colors">
+                                <i data-lucide="search" class="w-4 h-4"></i> この車種の在庫を見る
+                            </a>
+                            {{-- 値下げ・入荷通知CTA（push-manager.js が描画・bike_model_id紐付け） --}}
+                            <div class="flex-1" id="push-area-spread-{{ $model->id }}" data-model-id="{{ $model->id }}" data-model-name="{{ $model->name }}"></div>
+                        </div>
+                    </div>
+                    @endif
+
                     </div>{{-- /tab-panel-market --}}
 
                     {{-- ===== タブ3: 在庫・エリア ===== --}}

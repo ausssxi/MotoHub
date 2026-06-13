@@ -222,3 +222,44 @@ it('returns null spread when fewer than 2 robust blocks (thin block ignored)', f
     expect($display['regions'])->toHaveCount(2); // 表示は2ブロック
     expect($display['spread'])->toBeNull();      // robustは1つ → spreadなし
 });
+
+it('builds a spread narrative per band (>=20 / 10-19 / <10) and null for robust<2', function () {
+    $svc = app(RegionalPriceService::class);
+    $national = ['median' => 1180000, 'median_man' => '118.0', 'count' => 40];
+
+    // pct>=20帯
+    $big = ['pct' => 22, 'diff_man' => '24.0', 'high' => ['block' => '関東', 'median_man' => '130.0'], 'low' => ['block' => '近畿', 'median_man' => '106.0']];
+    $t1 = $svc->buildSpreadNarrative('CB400SF', $big, $national);
+    expect($t1)->toContain('地域差が大きい');
+    expect($t1)->toContain('近畿（約106.0万円）');
+    expect($t1)->toContain('関東（約130.0万円）');
+    expect($t1)->toContain('24.0万円（22%）');
+
+    // 10<=pct<20帯
+    $mid = ['pct' => 13, 'diff_man' => '29.1', 'high' => ['block' => '近畿', 'median_man' => '231.8'], 'low' => ['block' => '九州沖縄', 'median_man' => '202.7']];
+    $t2 = $svc->buildSpreadNarrative('ハヤブサ', $mid, $national);
+    expect($t2)->toContain('やや地域差');
+    expect($t2)->toContain('九州沖縄が安め');
+    expect($t2)->toContain('近畿が高め');
+
+    // pct<10帯
+    $small = ['pct' => 7, 'diff_man' => '2.5', 'high' => ['block' => '九州沖縄', 'median_man' => '39.9'], 'low' => ['block' => '中国', 'median_man' => '37.4']];
+    $t3 = $svc->buildSpreadNarrative('PCX', $small, ['median' => 383000, 'median_man' => '38.3', 'count' => 760]);
+    expect($t3)->toContain('全国でほぼ一様');
+    expect($t3)->toContain('38.3万円前後');
+
+    // robust<2 → null
+    expect($svc->buildSpreadNarrative('Foo', null, $national))->toBeNull();
+});
+
+it('exposes spread_narrative through getForModel (present when spread, null otherwise)', function () {
+    $model = regionTestModel();
+    seedBlock($model->id, '東京都', 4, 5, 1300000); // 関東 robust
+    seedBlock($model->id, '大阪府', 4, 5, 1000000); // 近畿 robust（spread大）
+
+    $this->artisan('stats:regional-prices')->assertSuccessful();
+    $d = app(RegionalPriceService::class)->getForModel($model);
+
+    expect($d['spread_narrative'])->not->toBeNull();
+    expect($d['spread_narrative'])->toContain($model->name);
+});
