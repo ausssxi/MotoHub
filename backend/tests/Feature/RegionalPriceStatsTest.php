@@ -60,7 +60,8 @@ function regionTestModel(): BikeModel
 it('computes median/count with per-shop cap, gate and national row', function () {
     $model = regionTestModel();
 
-    // 関東(東京都) 単一shopに6件: 100k..500k + 9.9M。per-shopキャップ5で最安5件のみ採用
+    // 関東(東京都) 単一shopに6件を id順(=投入順)で作成: 100k..500k, 9.9M。
+    // per-shopキャップ5は id順で先頭5件を採用するため、6件目の 9.9M(外れ値)が除外される。
     $kanto = makeShop('東京都');
     seedListings($kanto, $model->id, [100000, 200000, 300000, 400000, 500000, 9900000]);
 
@@ -76,7 +77,7 @@ it('computes median/count with per-shop cap, gate and national row', function ()
 
     $rows = ModelRegionPriceStat::where('bike_model_id', $model->id)->get()->keyBy('region_block');
 
-    // (d) per-shopキャップ: 関東は6件中5件、9.9Mは除外 → median=300k, count=5
+    // (d) per-shopキャップ: 関東は6件中先頭5件(id順)、6件目の9.9Mは除外 → median=300k, count=5
     expect($rows['関東']->listing_count)->toBe(5);
     expect((int) $rows['関東']->median_price)->toBe(300000);
 

@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\DB;
  * - 母集団: active 在庫（is_sold_out=0 かつ total_price>0）。
  * - 地域: listing→shop join で shops.prefecture → config/regions.php で8ブロック解決。
  * - per-shopキャップ: 同一(shop×bike_model)の寄与を最大5件に制限（1業者の大量出品が
- *   中央値を引っ張るのを防ぐ。お得バッジ94%問題の二の舞回避）。
+ *   中央値を引っ張るのを防ぐ。お得バッジ94%問題の二の舞回避）。並びは l.id 順＝
+ *   価格非依存のサンプル（total_price順だと安値5件採用で中央値が下方バイアスするため）。
  * - (bike_model_id × region_block) ごとに total_price の中央値・件数を算出。
  * - 全国行: 同モデルの全ブロック合算（同じキャップ適用）を region_block='全国' に。
  * - ゲート: listing_count >= 5 のセルのみ保存（5未満はページで非表示）。
@@ -48,7 +49,7 @@ final class ComputeRegionalPrices extends Command
                 'l.bike_model_id as bike_model_id',
                 's.prefecture as prefecture',
                 'l.total_price as total_price',
-                DB::raw('ROW_NUMBER() OVER (PARTITION BY l.shop_id, l.bike_model_id ORDER BY l.total_price) as rn')
+                DB::raw('ROW_NUMBER() OVER (PARTITION BY l.shop_id, l.bike_model_id ORDER BY l.id) as rn')
             );
 
         $buckets = [];        // [bike_model_id][block] => int[] prices
