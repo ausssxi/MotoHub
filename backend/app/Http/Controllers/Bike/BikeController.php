@@ -1077,6 +1077,15 @@ final class BikeController extends Controller
             $slug,
         );
 
+        // 地域相場の一文＋region-priceリンク（モデルLPのみ・getForModel 1呼び出し＝N+1なし）
+        $regionalNote = null;
+        if (($pageInfo['meta']['type'] ?? null) === 'model' && ! empty($pageInfo['filters']['bike_model_id'])) {
+            $noteModel = \App\Models\BikeModel::find($pageInfo['filters']['bike_model_id']);
+            if ($noteModel) {
+                $regionalNote = app(RegionalPriceService::class)->landingNote($noteModel, $prefecture);
+            }
+        }
+
         return view('bikes.landing', array_merge($result, [
             'pageInfo' => $pageInfo['meta'],
             'keyword' => '',
@@ -1084,6 +1093,7 @@ final class BikeController extends Controller
             'sort' => 'latest',
             'landingKpi' => $landingKpi,
             'relatedLinks' => $relatedLinks,
+            'regionalNote' => $regionalNote,
         ]));
     }
 

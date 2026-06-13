@@ -338,3 +338,51 @@ it('gatedRegionPriceModels returns gated models sorted by spread desc', function
 // ゲートされ、その spread 判定は上のテストで網羅済み。model_detail ページ全体の HTTP 描画は
 // 既存の resale 集計が MySQL専用関数(DATEDIFF)を使い sqlite で落ちるためここでは描画しない
 // （クロスリンクの出/非出はローカル実機 curl で gated=1 / non-gated=0 を確認済み）。
+
+// ---- area×model LP の地域相場の一文 (Task 4) ----
+
+function landingNoteModel(): BikeModel
+{
+    $m = regionTestModel(); // Honda / PCX / slug=pcx
+    seedBlock($m->id, '東京都', 4, 5, 1300000); // 関東 130万（高）
+    seedBlock($m->id, '大阪府', 4, 5, 1000000); // 近畿 100万（安）
+    seedBlock($m->id, '広島県', 4, 5, 1150000); // 中国 115万（≒全国＝同程度）
+    seedBlock($m->id, '愛知県', 4, 5, 1150000); // 中部 115万 → 全国115万・robust4・spread26%=gated
+    return $m;
+}
+
+it('landingNote: robust block gives a 高め/安め/同程度 sentence + gated link', function () {
+    $m = landingNoteModel();
+    $this->artisan('stats:regional-prices')->assertSuccessful();
+    $svc = app(RegionalPriceService::class);
+
+    $tokyo = $svc->landingNote($m, '東京都');
+    expect($tokyo['text'])->toContain('関東');
+    expect($tokyo['text'])->toContain('130.0万円');
+    expect($tokyo['text'])->toContain('全国 約115.0万円より高め');
+    expect($tokyo['region_price_url'])->not->toBeNull(); // gated
+
+    expect($svc->landingNote($m, '大阪府')['text'])->toContain('全国 約115.0万円より安め'); // 近畿100万
+    expect($svc->landingNote($m, '広島県')['text'])->toContain('同程度');                  // 中国115万=全国
+});
+
+it('landingNote: non-robust block emits no price sentence (link may still show)', function () {
+    $m = landingNoteModel();
+    $this->artisan('stats:regional-prices')->assertSuccessful();
+
+    // 北海道はブロック行なし（seedしていない）→ 価格断定なし。リンクはgatedなので出る
+    $hokkaido = app(RegionalPriceService::class)->landingNote($m, '北海道');
+    expect($hokkaido['text'])->toBeNull();
+    expect($hokkaido['region_price_url'])->not->toBeNull();
+});
+
+it('landingNote: non-gated model shows the sentence but no region-price link', function () {
+    $m = regionTestModel();
+    seedBlock($m->id, '東京都', 4, 5, 1300000); // 関東 robust
+    seedBlock($m->id, '大阪府', 4, 5, 1250000); // 近畿 robust（robust2 <3 → 非ゲート）
+    $this->artisan('stats:regional-prices')->assertSuccessful();
+
+    $note = app(RegionalPriceService::class)->landingNote($m, '東京都');
+    expect($note['text'])->toContain('関東'); // robust県なので一文は出る
+    expect($note['region_price_url'])->toBeNull(); // 非ゲート → リンクなし
+});

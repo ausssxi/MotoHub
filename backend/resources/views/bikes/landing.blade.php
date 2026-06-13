@@ -349,6 +349,24 @@
                     </div>
                     @endif
 
+                    {{-- 地域相場の一文（モデルLP・県が属するブロックがrobustな時のみ。薄い断定は出さない） --}}
+                    @if(!empty($regionalNote['text']) || !empty($regionalNote['region_price_url']))
+                    <div class="mt-10 bg-green-50 rounded-2xl p-5 border border-green-100">
+                        @if(!empty($regionalNote['text']))
+                        <p class="text-sm text-gray-700 leading-relaxed flex items-start gap-2">
+                            <i data-lucide="map-pinned" class="w-4 h-4 mt-0.5 text-green-600 shrink-0"></i>
+                            <span>{{ $regionalNote['text'] }}</span>
+                        </p>
+                        @endif
+                        @if(!empty($regionalNote['region_price_url']))
+                        <a href="{{ $regionalNote['region_price_url'] }}" class="inline-flex items-center gap-1.5 mt-3 text-sm font-bold text-green-700 hover:text-green-900 transition-colors">
+                            エリア別相場をくわしく見る
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </a>
+                        @endif
+                    </div>
+                    @endif
+
                     {{-- 車種ページ導線（モデルLPのみ・詳細/相場/スペックへ） --}}
                     @if(($pageInfo['type'] ?? '') === 'model' && !empty($pageInfo['model_url']))
                     <div class="mt-12">

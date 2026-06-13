@@ -140,6 +140,54 @@ final class RegionalPriceService
     }
 
     /**
+     * area×model LP 用の「地域相場の一文」＋region-priceリンク。
+     * LP1枚につき getForModel 1呼び出し（N+1なし）。
+     * text: 県が属するブロックが robust(count≥20) かつ全国行ありのときだけ生成（薄い断定回避）。
+     * region_price_url: モデルが地域差ページのゲート(robust_block_count≥3 && pct≥20)該当時のみ。
+     *
+     * @return array{text: string|null, region_price_url: string|null}
+     */
+    public function landingNote(BikeModel $model, string $prefecture): array
+    {
+        $data = $this->getForModel($model);
+
+        $text = null;
+        $block = $this->blockForPrefecture($prefecture);
+        if ($block !== null && $data['national'] !== null) {
+            $row = collect($data['regions'])->firstWhere('block', $block);
+            if ($row !== null && $row['robust']) {
+                $natMedian = $data['national']['median'];
+                $ratio = $natMedian > 0 ? ($row['median'] - $natMedian) / $natMedian : 0;
+                $cmp = abs($ratio) <= 0.05 ? '同程度' : ($ratio > 0 ? '高め' : '安め');
+                $text = "{$prefecture}が属する{$block}での{$model->name}の中古相場は約{$row['median_man']}万円"
+                    ."（全国 約{$data['national']['median_man']}万円より{$cmp}）。";
+            }
+        }
+
+        $url = null;
+        $sp = $data['spread'];
+        if ($sp !== null && $sp['robust_block_count'] >= 3 && $sp['pct'] >= 20 && $model->slug) {
+            $url = route('bikes.region_price', $model->slug);
+        }
+
+        return ['text' => $text, 'region_price_url' => $url];
+    }
+
+    /**
+     * 都道府県（フルネーム）→ 所属8地方ブロック。未該当は null。
+     */
+    private function blockForPrefecture(string $prefecture): ?string
+    {
+        foreach ((array) config('regions.blocks', []) as $block => $prefectures) {
+            if (in_array($prefecture, (array) $prefectures, true)) {
+                return $block;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * 地域間の価格スプレッド（頑健ブロックのみ）。
      * pct = (最高robust中央値 − 最安robust中央値) / 全国中央値 * 100。
      * 「地域差が大きい車種」ページのゲート判定・表示に使う。robust2未満/全国行なしは null。
