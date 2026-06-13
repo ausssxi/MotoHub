@@ -67,6 +67,42 @@ final class RegionalBargainService
     }
 
     /**
+     * お買い得順ソート/ランキング用の連続スコア [0, MAX_PCT]。
+     * 表示バッジ(fromStat)と同じ正本（全国中央値・robust20・上限50%・下限5万）を共有しつつ、
+     * ソート向けに2点だけ異なる:
+     *   - 表示の「10%未満は非表示」は付けない（小割引も順位に反映）。
+     *   - 表示の「>50%は非表示(null)」に対し、ソートは「>50%は 0」。
+     *     ⚠️ clampして50にすると異常(94%)が最高値=上位固定で不満が再発するため、0で除外する。
+     * 割高(中央値超=負)も 0（中立）。値が連続なので Meilisearch の sortable/rankingRules にそのまま流せる。
+     */
+    public static function sortScore(?ModelRegionPriceStat $stat, ?int $totalPrice): float
+    {
+        if ($stat === null || $totalPrice === null) {
+            return 0.0;
+        }
+        if ($totalPrice < self::MIN_PRICE) {
+            return 0.0;
+        }
+        if ((int) $stat->listing_count < self::ROBUST_N) {
+            return 0.0;
+        }
+
+        $median = (int) $stat->median_price;
+        if ($median <= 0) {
+            return 0.0;
+        }
+
+        $pct = ($median - $totalPrice) / $median * 100;
+
+        // 異常(>50%)はランクさせない（clampしない＝最高値に居座らせない）。割高(<0)も中立。
+        if ($pct > self::MAX_PCT || $pct < 0) {
+            return 0.0;
+        }
+
+        return round($pct, 1);
+    }
+
+    /**
      * 単体listing用（OG画像・共有テキスト等）。全国行を1クエリ取得して算出する。
      *
      * @return array{pct: int, median: int, median_man: string, diff_man: string}|null

@@ -15,11 +15,15 @@ final class SyncFlaggedListings extends Command
 
     public function handle(): void
     {
-        $query = Listing::where('needs_reindex', true);
+        // toSearchableArray が読む relation を IN一括で eager-load（per-listingのN+1防止）。
+        // bargain_score accessor が bikeModel.nationalPriceStat（全国中央値）を使うため必須。
+        $query = Listing::where('needs_reindex', true)
+            ->with(['shop', 'bikeModel.manufacturer', 'bikeModel.marketStats', 'bikeModel.nationalPriceStat', 'tags']);
         $count = $query->count();
 
         if ($count === 0) {
             $this->info('同期対象なし');
+
             return;
         }
 
