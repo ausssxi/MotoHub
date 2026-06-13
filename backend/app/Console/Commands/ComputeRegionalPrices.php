@@ -93,10 +93,16 @@ final class ComputeRegionalPrices extends Command
                 if ($count < self::MIN_LISTINGS) {
                     continue; // ゲート未達は保存しない
                 }
+                // p10/p90 は全国行のみ（heterogeneity guard 用）。母集団は中央値と同じ
+                // per-shopキャップ済み価格。'全国'以外は null。
+                $isNational = $block === $nationalLabel;
+
                 $insertRows[] = [
                     'bike_model_id' => $modelId,
                     'region_block' => $block,
                     'median_price' => $this->median($prices),
+                    'p10' => $isNational ? $this->percentile($prices, 0.10) : null,
+                    'p90' => $isNational ? $this->percentile($prices, 0.90) : null,
                     'listing_count' => $count,
                     'computed_at' => $computedAt,
                 ];
@@ -179,5 +185,22 @@ final class ComputeRegionalPrices extends Command
         }
 
         return (int) round(($prices[$mid - 1] + $prices[$mid]) / 2);
+    }
+
+    /**
+     * 線形補間なしのパーセンタイル（0.0〜1.0）。空配列は0。
+     *
+     * @param  array<int, int>  $prices
+     */
+    private function percentile(array $prices, float $q): int
+    {
+        sort($prices);
+        $n = count($prices);
+        if ($n === 0) {
+            return 0;
+        }
+        $idx = (int) min($n - 1, max(0, (int) floor($q * ($n - 1))));
+
+        return (int) $prices[$idx];
     }
 }

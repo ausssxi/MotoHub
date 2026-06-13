@@ -40,6 +40,12 @@ final class RegionalPriceService
             return $empty;
         }
 
+        // heterogeneity guard: 混在バケット（p90/p10 過大）は地域価格を一切主張しない
+        $nat = $rows->get((string) config('regions.national_label', '全国'));
+        if ($nat !== null && $this->isHeterogeneous($nat)) {
+            return $empty;
+        }
+
         $regions = $this->regionsFromRows($rows);
 
         // 地域比較が成立しない（ブロック1個以下）なら出さない
@@ -106,8 +112,16 @@ final class RegionalPriceService
                 $byModel = ModelRegionPriceStat::all()->groupBy('bike_model_id');
 
                 $pass = [];
+                $nationalLabel = (string) config('regions.national_label', '全国');
                 foreach ($byModel as $modelId => $rows) {
                     $byBlock = $rows->keyBy('region_block');
+
+                    // heterogeneity guard: 混在バケットは featured からも除外
+                    $nat = $byBlock->get($nationalLabel);
+                    if ($nat !== null && $this->isHeterogeneous($nat)) {
+                        continue;
+                    }
+
                     $regions = $this->regionsFromRows($byBlock);
                     if (count($regions) < self::MIN_BLOCKS) {
                         continue;
@@ -171,6 +185,22 @@ final class RegionalPriceService
         }
 
         return ['text' => $text, 'region_price_url' => $url];
+    }
+
+    /**
+     * 混在バケット判定（単一の抑制点）。全国行の p90/p10 が config の倍率を超えたら true。
+     * 現行＋ヴィンテージ等が1モデル名に混ざり中央値が無意味な母集団を弾く。
+     * p10/p90 が null/0 のモデルはガード無効＝false（後方互換）。
+     */
+    private function isHeterogeneous(ModelRegionPriceStat $national): bool
+    {
+        $p10 = (int) ($national->p10 ?? 0);
+        $p90 = (int) ($national->p90 ?? 0);
+        if ($p10 <= 0 || $p90 <= 0) {
+            return false;
+        }
+
+        return ($p90 / $p10) > (float) config('region_price.heterogeneity_max_ratio', 3.0);
     }
 
     /**

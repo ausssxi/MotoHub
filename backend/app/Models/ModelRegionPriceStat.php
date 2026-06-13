@@ -19,12 +19,16 @@ final class ModelRegionPriceStat extends Model
         'bike_model_id',
         'region_block',
         'median_price',
+        'p10',
+        'p90',
         'listing_count',
         'computed_at',
     ];
 
     protected $casts = [
         'median_price' => 'integer',
+        'p10' => 'integer',
+        'p90' => 'integer',
         'listing_count' => 'integer',
         'computed_at' => 'datetime',
     ];

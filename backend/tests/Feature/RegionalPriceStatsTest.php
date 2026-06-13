@@ -386,3 +386,44 @@ it('landingNote: non-gated model shows the sentence but no region-price link', f
     expect($note['text'])->toContain('関東'); // robust県なので一文は出る
     expect($note['region_price_url'])->toBeNull(); // 非ゲート → リンクなし
 });
+
+// ---- heterogeneity guard (Task 5) ----
+
+it('suppresses region pricing for heterogeneous buckets (p90/p10 > ratio)', function () {
+    $m = regionTestModel();
+    // 全国母集団に 1.0M と 5.0M を混在 → p90/p10 = 5.0 > 3.0
+    seedBlock($m->id, '東京都', 4, 5, 1000000); // 関東
+    seedBlock($m->id, '大阪府', 4, 5, 5000000); // 近畿（5倍）
+    seedBlock($m->id, '愛知県', 4, 5, 1000000); // 中部
+    $this->artisan('stats:regional-prices')->assertSuccessful();
+
+    $d = app(RegionalPriceService::class)->getForModel($m);
+    expect($d['regions'])->toBe([]);
+    expect($d['national'])->toBeNull();
+    expect($d['spread'])->toBeNull();
+    expect($d['spread_narrative'])->toBeNull();
+
+    \Illuminate\Support\Facades\Cache::flush();
+    $gated = app(RegionalPriceService::class)->gatedRegionPriceModels(3, 20);
+    expect(collect($gated)->pluck('model.id'))->not->toContain($m->id); // featured 外
+});
+
+it('keeps region pricing for narrow buckets (p90/p10 within ratio)', function () {
+    $m = gatedRegionModel(); // 130/100/115万 → p90/p10 ≈ 1.3
+    $this->artisan('stats:regional-prices')->assertSuccessful();
+
+    $d = app(RegionalPriceService::class)->getForModel($m);
+    expect($d['regions'])->not->toBe([]);
+    expect($d['spread'])->not->toBeNull();
+});
+
+it('keeps the guard OFF when p10/p90 are null (backward compat)', function () {
+    $m = regionTestModel();
+    // p10/p90 を入れずに stat 行を直挿し（旧データ相当）
+    ModelRegionPriceStat::create(['bike_model_id' => $m->id, 'region_block' => '全国', 'median_price' => 1000000, 'listing_count' => 40, 'computed_at' => now()]);
+    ModelRegionPriceStat::create(['bike_model_id' => $m->id, 'region_block' => '関東', 'median_price' => 1300000, 'listing_count' => 20, 'computed_at' => now()]);
+    ModelRegionPriceStat::create(['bike_model_id' => $m->id, 'region_block' => '近畿', 'median_price' => 1000000, 'listing_count' => 20, 'computed_at' => now()]);
+
+    $d = app(RegionalPriceService::class)->getForModel($m);
+    expect($d['regions'])->not->toBe([]); // null p10/p90 → 抑制しない
+});
