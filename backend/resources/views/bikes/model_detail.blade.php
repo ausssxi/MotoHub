@@ -881,6 +881,50 @@
                         <p class="text-[10px] text-gray-400 mt-4 text-right">※MotoHub独自の過去データに基づく平均価格の推移です</p>
                     </div>
 
+                    {{-- 地域別中古相場（中央値）: 8地方ブロック。日次バッチ事前計算・最低5台ゲート --}}
+                    @if(!empty($regionPriceStats['regions']))
+                    <div class="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                        <h2 class="text-lg font-black text-gray-900 mb-2 flex items-center gap-2">
+                            <i data-lucide="map" class="w-5 h-5 text-green-500"></i>
+                            {{ $model->name }} の地域別中古相場（中央値）
+                        </h2>
+                        @if(!empty($regionPriceStats['headline']))
+                        <p class="text-sm text-gray-500 leading-relaxed mb-5">{{ $regionPriceStats['headline'] }}</p>
+                        @endif
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b-2 border-gray-200">
+                                        <th class="text-left py-2.5 px-3 font-bold text-gray-500">地域</th>
+                                        <th class="text-right py-2.5 px-3 font-bold text-gray-500">中古相場（中央値）</th>
+                                        <th class="text-right py-2.5 px-3 font-bold text-gray-500">掲載台数</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    @foreach($regionPriceStats['regions'] as $r)
+                                    <tr>
+                                        <td class="py-2.5 px-3 font-bold text-gray-700">{{ $r['block'] }}</td>
+                                        <td class="py-2.5 px-3 text-right font-black text-blue-600">{{ $r['median_man'] }}<span class="text-xs text-gray-400 ml-0.5">万円</span></td>
+                                        <td class="py-2.5 px-3 text-right font-bold text-gray-500">{{ number_format($r['count']) }}<span class="text-xs text-gray-400 ml-0.5">台</span></td>
+                                    </tr>
+                                    @endforeach
+                                    @if(!empty($regionPriceStats['national']))
+                                    <tr class="bg-gray-50">
+                                        <td class="py-2.5 px-3 font-black text-gray-800">全国</td>
+                                        <td class="py-2.5 px-3 text-right font-black text-gray-900">{{ $regionPriceStats['national']['median_man'] }}<span class="text-xs text-gray-400 ml-0.5">万円</span></td>
+                                        <td class="py-2.5 px-3 text-right font-bold text-gray-600">{{ number_format($regionPriceStats['national']['count']) }}<span class="text-xs text-gray-400 ml-0.5">台</span></td>
+                                    </tr>
+                                    @endif
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-[10px] text-gray-400 mt-4">
+                            ※支払総額（total_price）の中央値。各セルは掲載台数5台以上のみ表示。1販売店あたりの寄与は最大5台に制限して算出（外れ値・水増し対策）。
+                        </p>
+                    </div>
+                    @endif
+
                     </div>{{-- /tab-panel-market --}}
 
                     {{-- ===== タブ3: 在庫・エリア ===== --}}

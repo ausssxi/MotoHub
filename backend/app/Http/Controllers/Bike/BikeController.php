@@ -18,6 +18,7 @@ use App\Services\Bike\BikeYouTubeService;
 use App\Services\Bike\CityLandingService;
 use App\Services\Bike\ListingSearchService;
 use App\Services\Bike\PriceStatsService;
+use App\Services\Bike\RegionalPriceService;
 use App\Services\Bike\SeoCompareService;
 use App\Services\Bike\SeoLandingService;
 use App\Services\NearbyService;
@@ -1354,7 +1355,7 @@ final class BikeController extends Controller
                 }
 
                 return [
-                    'label' => $model->name . ' vs ' . $other->name,
+                    'label' => $model->name.' vs '.$other->name,
                     'url' => $c->url,
                 ];
             })
@@ -1382,6 +1383,9 @@ final class BikeController extends Controller
         $viewData['relatedParts'] = app(BikePartsService::class)->getForModel($model);
         $viewData['news'] = app(BikeNewsService::class)->getForModel($model);
         $viewData['videos'] = app(BikeYouTubeService::class)->getForModel((int) $model->id);
+        // 地域別中古相場（日次バッチ stats:regional-prices が埋めるテーブルを読む）。
+        // model_detailキャッシュ外なので、バッチ更新が即時反映される（TTL遅延なし）。
+        $viewData['regionPriceStats'] = app(RegionalPriceService::class)->getForModel($model);
 
         return $viewData;
     }

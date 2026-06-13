@@ -138,6 +138,12 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->withoutOverlapping()
                  ->appendOutputTo($tagsLog);
 
+        // 地域別中古相場（中央値）の事前計算 (05:20) — bulk除外(04:50)の後に実行
+        // active在庫×8地方ブロックの中央値をテーブル化。モデルページが読む（render pathで集計しない）
+        $schedule->command('stats:regional-prices')
+                 ->dailyAt('05:20')
+                 ->withoutOverlapping();
+
         // Meilisearch差分同期 (05:30)
         // PythonスクレイパーがセットしたFlaggedレコードのみ同期（フルインポート不要）
         // 手動フルインポート: php artisan scout:import 'App\Models\Listing'
