@@ -373,10 +373,13 @@
                 </h2>
                 <div class="flex flex-wrap gap-2">
                     @foreach($siblingCities as $sibling)
+                    {{-- city が空の兄弟は route 生成しない（prefecture はページ必須なので常に有り） --}}
+                    @if(!empty($sibling->city))
                     <a href="{{ route('parking.area.city', [$prefecture, $sibling->city]) }}"
                        class="px-3 py-1.5 rounded-lg bg-white border border-gray-100 text-xs font-bold text-gray-600 hover:bg-green-50 hover:border-green-200 hover:text-green-600 transition-colors">
                         {{ $sibling->city }} ({{ $sibling->count }}件)
                     </a>
+                    @endif
                     @endforeach
                 </div>
             </section>

@@ -91,7 +91,8 @@
                     <li><span class="text-gray-300">></span></li>
                     <li><a href="{{ route('parking.area.prefecture', $parking->prefecture) }}" class="hover:text-gray-600 transition-colors">{{ $parking->prefecture }}</a></li>
                     @endif
-                    @if($parking->city)
+                    {{-- prefecture が null だと route 生成が "Missing parameter: prefecture" で例外→ページ全体が500になるため両方必須 --}}
+                    @if($parking->prefecture && $parking->city)
                     <li><span class="text-gray-300">></span></li>
                     <li><a href="{{ route('parking.area.city', [$parking->prefecture, $parking->city]) }}" class="hover:text-gray-600 transition-colors">{{ $parking->city }}</a></li>
                     @endif

@@ -125,7 +125,9 @@
                 </h2>
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                     @foreach($cities as $cityData)
-                    <a href="{{ route('parking.area.city', [$prefecture, $cityData['name']]) }}"
+                    {{-- city 名が空の集計（未設定）はリンク化しない（空 city セグメントのcrawl汚染を防ぐ。prefecture はページ必須なので常に有り） --}}
+                    @php $cityUrl = !empty($cityData['name']) ? route('parking.area.city', [$prefecture, $cityData['name']]) : null; @endphp
+                    <a @if($cityUrl) href="{{ $cityUrl }}" @endif
                        class="bg-white rounded-xl border border-gray-100 p-4 hover:border-green-200 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 block">
                         <div class="text-sm font-black text-gray-800 mb-1">{{ $cityData['name'] ?: '（未設定）' }}</div>
                         <div class="flex items-center gap-2 text-xs">
