@@ -1,6 +1,7 @@
 {{--
-    構造化データ: Product + AggregateOffer + AggregateRating
+    構造化データ: Product + AggregateOffer
     車種詳細ページ（model_detail）専用
+    ※ AggregateRating は撤去（自作レビューの spammy structured data リスク回避）。
     
     ※ 既存の product.blade.php は個別車両（show）用の Offer スキーマ。
     ※ こちらは車種全体の AggregateOffer で「価格帯」をGoogle検索に表示させる。
@@ -69,16 +70,9 @@
         ]];
     }
 
-    // レビュー統計
-    if ($rs && ($rs->count ?? 0) > 0 && ($rs->avg_rating ?? 0) > 0) {
-        $schema['aggregateRating'] = [
-            '@type' => 'AggregateRating',
-            'ratingValue' => number_format($rs->avg_rating, 1),
-            'bestRating' => '5',
-            'worstRating' => '1',
-            'reviewCount' => (string)$rs->count,
-        ];
-    }
+    // ※ AggregateRating の構造化データは撤去（reviews が事実上自作＝spammy structured data /
+    //   自己宣伝レビュー違反リスク。画面上の★表示はUXとして残し、schemaのみ外す）。
+    //   $rs（reviewStats）は他の用途で渡されるが schema には載せない。
 @endphp
 
 <script type="application/ld+json">

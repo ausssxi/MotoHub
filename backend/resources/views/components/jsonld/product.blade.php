@@ -85,21 +85,8 @@
         ]
     ];
 
-    // 7. aggregateRating（レビューが1件以上ある場合のみ）
-    $rs = is_array($reviewStats) ? $reviewStats : null;
-    if ($rs && ($rs['total'] ?? 0) > 0) {
-        $cats = ['design', 'engine', 'handling', 'fuel_economy', 'cost_performance'];
-        $vals = array_filter(array_map(fn($k) => $rs[$k]['avg'] ?? null, $cats));
-        if (count($vals) > 0) {
-            $schema['aggregateRating'] = [
-                '@type' => 'AggregateRating',
-                'ratingValue' => number_format(array_sum($vals) / count($vals), 1),
-                'bestRating' => '5',
-                'worstRating' => '1',
-                'reviewCount' => (string)$rs['total'],
-            ];
-        }
-    }
+    // 7. aggregateRating は撤去（reviews が事実上自作＝spammy structured data /
+    //    自己宣伝レビュー違反リスク。画面上の★表示はUXとして残し、schemaのみ外す）。
 @endphp
 
 <script type="application/ld+json">
