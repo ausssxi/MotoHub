@@ -48,8 +48,8 @@
                         <a href="{{ route('mybikes.show', $bike->id) }}" class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition group block relative">
                             
                             <div class="relative h-48 bg-gray-900 overflow-hidden">
-                                @if($bike->display_image)
-                                    <img src="{{ $bike->display_image }}" class="w-full h-full object-cover opacity-70 group-hover:scale-105 transition-transform duration-700" loading="lazy" decoding="async">
+                                @if($bike->private_cover_image)
+                                    <img src="{{ $bike->private_cover_image }}" class="w-full h-full object-cover opacity-70 group-hover:scale-105 transition-transform duration-700" loading="lazy" decoding="async">
                                 @else
                                     <div class="flex items-center justify-center h-full text-white/30">
                                         <i data-lucide="bike" class="w-12 h-12"></i>
