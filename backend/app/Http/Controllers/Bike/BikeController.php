@@ -882,6 +882,36 @@ final class BikeController extends Controller
     }
 
     /**
+     * レビュー一覧ハブ（車種軸・最新フィード＋メーカー/排気量ブラウズ）。URL: /bikes/reviews
+     * 個別 Review/Rating の JSON-LD は付けない（自演レビューを増幅しない）。
+     */
+    public function reviewsIndex(\Illuminate\Http\Request $request, \App\Repositories\Bike\ReviewRepository $reviewRepo): View
+    {
+        $maker = $request->integer('maker') ?: null;
+        $ccSlug = (string) $request->query('cc', '');
+
+        $ccBands = (array) config('comparison.cc_bands', []);
+        $filters = ['maker' => $maker];
+        $selectedCc = null;
+        foreach ($ccBands as $band) {
+            if ($ccSlug !== '' && ($band['slug'] ?? null) === $ccSlug) {
+                $filters['cc_min'] = $band['min'];
+                $filters['cc_max'] = $band['max'];
+                $selectedCc = $ccSlug;
+                break;
+            }
+        }
+
+        return view('bikes.reviews_index', [
+            'reviews' => $reviewRepo->getFeed($filters, 20)->withQueryString(),
+            'makers' => $reviewRepo->reviewMakerCounts(),
+            'ccBands' => $ccBands,
+            'selectedMaker' => $maker,
+            'selectedCc' => $selectedCc,
+        ]);
+    }
+
+    /**
      * 地域差・独立ページ（SEO）。URL: /bikes/region-price/{slug}
      * ゲート: spread.robust_block_count≥3 かつ pct≥20。未達は abort(404)（薄ページ防止）。
      */

@@ -159,6 +159,9 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     Route::get('/region-price', 'regionPriceIndex')->name('region_price_index');
     Route::get('/region-price/{slug}', 'regionPrice')->name('region_price');
 
+    // レビュー一覧ハブ（車種軸）
+    Route::get('/reviews', 'reviewsIndex')->name('reviews_index');
+
     // seo_urlフォールバック: メーカーslugがないモデルの /bikes/model/{id} を処理
     Route::get('/model/{id}', function ($id) {
         $model = \App\Models\BikeModel::with('manufacturer')->findOrFail($id);

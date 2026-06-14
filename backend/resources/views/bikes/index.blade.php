@@ -865,6 +865,14 @@
                         </a>
                     @endforeach
                 </div>
+
+                {{-- レビュー一覧ハブへの導線 --}}
+                <div class="mt-8 text-center">
+                    <a href="{{ route('bikes.reviews_index') }}" class="inline-flex items-center gap-2 text-sm font-black text-blue-600 hover:text-blue-800 hover:underline">
+                        すべてのレビューを見る
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </a>
+                </div>
             </section>
             @endif
 

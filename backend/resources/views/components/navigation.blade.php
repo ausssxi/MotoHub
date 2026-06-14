@@ -130,6 +130,12 @@
                     <div x-show="open" x-transition
                          class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
                          style="display: none;">
+                        {{-- コンテンツ --}}
+                        <a href="{{ route('bikes.reviews_index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="star" class="w-3.5 h-3.5"></i>
+                            レビュー
+                        </a>
+                        <div class="my-1 border-t border-gray-100"></div>
                         {{-- ゲームセクション --}}
                         <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-widest">ゲーム</p>
                         <a href="{{ route('games.subaracity') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors whitespace-nowrap">

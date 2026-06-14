@@ -5,13 +5,62 @@ declare(strict_types=1);
 namespace App\Repositories\Bike;
 
 use App\Models\Review;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * レビューデータの操作を担当
  */
 final class ReviewRepository
 {
+    /**
+     * レビュー一覧ハブ用の最新フィード（承認済み・"テスト"系シードを除外・車種情報付き）。
+     * maker(manufacturer_id) / cc(帯 min-max) でブラウズ絞り込み。N+1なし。
+     *
+     * @param  array{maker?: int|null, cc_min?: int|null, cc_max?: int|null}  $filters
+     */
+    public function getFeed(array $filters = [], int $perPage = 20): LengthAwarePaginator
+    {
+        $query = Review::query()
+            ->with(['bikeModel.manufacturer'])
+            ->where('is_approved', true)
+            // "テスト"系の明らかなシードはハブ表示から除外（DBは消さない・前方一致）
+            ->where('nickname', 'not like', 'テスト%')
+            ->where('title', 'not like', 'テスト%')
+            ->whereHas('bikeModel'); // 車種が無いものは出さない
+
+        if (! empty($filters['maker'])) {
+            $maker = (int) $filters['maker'];
+            $query->whereHas('bikeModel', fn ($q) => $q->where('manufacturer_id', $maker));
+        }
+
+        if (isset($filters['cc_min'], $filters['cc_max'])) {
+            $min = (int) $filters['cc_min'];
+            $max = (int) $filters['cc_max'];
+            $query->whereHas('bikeModel', fn ($q) => $q->whereBetween('displacement', [$min, $max]));
+        }
+
+        return $query->orderByDesc('created_at')->paginate($perPage);
+    }
+
+    /**
+     * ハブのメーカー絞り込みチップ用：レビューのある（"テスト"除外後）メーカーと件数。
+     */
+    public function reviewMakerCounts(): Collection
+    {
+        return DB::table('reviews')
+            ->join('bike_models', 'reviews.bike_model_id', '=', 'bike_models.id')
+            ->join('manufacturers', 'bike_models.manufacturer_id', '=', 'manufacturers.id')
+            ->where('reviews.is_approved', true)
+            ->where('reviews.nickname', 'not like', 'テスト%')
+            ->where('reviews.title', 'not like', 'テスト%')
+            ->select('manufacturers.id', 'manufacturers.name', DB::raw('COUNT(*) as c'))
+            ->groupBy('manufacturers.id', 'manufacturers.name')
+            ->orderByDesc('c')
+            ->get();
+    }
+
     /**
      * レビューを新規作成
      */

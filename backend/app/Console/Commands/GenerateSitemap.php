@@ -99,6 +99,9 @@ class GenerateSitemap extends Command
             // 絶版バイク一覧
             ['route' => 'bikes.discontinued', 'priority' => '0.8', 'freq' => 'weekly'],
 
+            // レビュー一覧ハブ（単一ハブ・低リスク）
+            ['route' => 'bikes.reviews_index', 'priority' => '0.7', 'freq' => 'daily'],
+
             // パーツ検索
             ['route' => 'parts.index',       'priority' => '0.7', 'freq' => 'weekly'],
 
