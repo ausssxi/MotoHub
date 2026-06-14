@@ -75,6 +75,38 @@ it('owner can stream the image but a non-owner gets 404 (private delivery)', fun
         ->assertNotFound();
 });
 
+/*
+ * cross-user leak の回帰テスト（必須）。配信ルートは必ず所有者スコープで解決すること：
+ * auth user の bike({id}) を所有スコープ取得 → その bike の image({image}) → 無ければ404。
+ * これにより「非所有者」「他人の画像ID」「別bikeのimage id混在」「未ログイン」がすべて弾かれる。
+ */
+it('image delivery is owner-scoped against every cross-user variant', function () {
+    fakeGarageDisk();
+
+    // 被害者の bike + 画像
+    $victim = User::factory()->create();
+    $victimBike = imageBike($victim);
+    $this->actingAs($victim)->post("/garage/{$victimBike->id}/images", ['image' => UploadedFile::fake()->image('v.jpg', 500, 500)]);
+    $victimImage = MyBikeImage::where('my_bike_id', $victimBike->id)->firstOrFail();
+
+    // 攻撃者（別のログイン済みユーザー）が自分の bike を持つ
+    $attacker = User::factory()->create();
+    $attackerBike = MyBike::create(['user_id' => $attacker->id, 'bike_model_id' => $victimBike->bike_model_id, 'name' => '攻撃者バイク', 'current_odometer' => 1]);
+
+    // (1) 被害者本人 → 200
+    $this->actingAs($victim)->get("/garage/{$victimBike->id}/images/{$victimImage->id}")->assertOk();
+
+    // (2) 別ログインユーザーが被害者の URL を直叩き → 404（存在も漏らさない）
+    $this->actingAs($attacker)->get("/garage/{$victimBike->id}/images/{$victimImage->id}")->assertNotFound();
+
+    // (3) 攻撃者が「自分の bike id」＋「被害者の image id」を混ぜる → 404（cross-bike 混在）
+    $this->actingAs($attacker)->get("/garage/{$attackerBike->id}/images/{$victimImage->id}")->assertNotFound();
+
+    // (4) 未ログイン → auth で弾かれログインへ（画像は返さない）
+    auth()->logout();
+    $this->get("/garage/{$victimBike->id}/images/{$victimImage->id}")->assertRedirect(route('login'));
+});
+
 it('owner can update a caption', function () {
     fakeGarageDisk();
     $user = User::factory()->create();

@@ -203,7 +203,10 @@ class MyBikeController extends Controller
      */
     public function showImage($id, $imageId)
     {
-        $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id); // 非所有者は 404
+        // cross-user leak 防止：必ず所有者スコープで解決する。
+        // (1) auth user の bike({id}) を所有スコープ取得（$user->myBikes()）→ 非所有者は 404。
+        // (2) その bike の images() から image({image}) を取得 → 他人/別bikeの image id は 404。
+        $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id);
         $image = $myBike->images()->findOrFail((int) $imageId);
 
         $disk = Storage::disk(config('garage.image_disk'));
