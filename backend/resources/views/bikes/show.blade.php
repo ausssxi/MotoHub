@@ -1204,6 +1204,14 @@
                                 </div>
                             @endforelse
                         </div>
+
+                        {{-- レビュー一覧ハブへの導線（cluster双方向化） --}}
+                        <div class="mt-4 text-center">
+                            <a href="{{ route('bikes.reviews_index') }}" class="inline-flex items-center gap-1.5 text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline">
+                                みんなのレビュー一覧を見る
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </a>
+                        </div>
                     </div>
                     @endif
 

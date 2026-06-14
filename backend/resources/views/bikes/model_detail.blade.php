@@ -1467,6 +1467,14 @@
                             @endforelse
                         </div>
 
+                        {{-- レビュー一覧ハブへの導線（cluster双方向化） --}}
+                        <div class="mt-4 text-center">
+                            <a href="{{ route('bikes.reviews_index') }}" class="inline-flex items-center gap-1.5 text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline">
+                                他の車種のレビューを見る
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+
                         {{-- 投稿フォーム --}}
                         <div id="review-form" class="bg-gray-50 rounded-2xl p-6 border border-gray-100">
                             <h3 class="text-base font-black text-gray-900 mb-4">レビューを投稿する</h3>
