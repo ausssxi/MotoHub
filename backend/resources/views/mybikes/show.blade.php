@@ -19,6 +19,59 @@
                 </div>
             </div>
 
+            {{-- 公開設定（consent + identity）。デフォルト非公開・台ごとopt-in・本名は出さない --}}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="font-black text-gray-900 flex items-center gap-2"><i data-lucide="globe" class="w-4 h-4 text-blue-500"></i> 公開設定</h3>
+                    @if($myBike->is_public)
+                    <span class="text-xs font-black text-green-600 bg-green-50 px-2 py-1 rounded">公開中</span>
+                    @else
+                    <span class="text-xs font-black text-gray-500 bg-gray-100 px-2 py-1 rounded">非公開（自分のみ）</span>
+                    @endif
+                </div>
+
+                @if($myBike->is_public)
+                    <p class="text-xs text-gray-500 leading-relaxed mb-3">
+                        このガレージは公開URLで誰でも閲覧できます。表示名は「<span class="font-bold text-gray-700">{{ auth()->user()->review_display_name ?? '名無しライダー' }}</span>」です（本名は表示されません）。
+                    </p>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <a href="{{ route('garage.public.show', $myBike->id) }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800">
+                            <i data-lucide="external-link" class="w-3.5 h-3.5"></i> 公開ページを見る
+                        </a>
+                        <form action="{{ route('mybikes.visibility', $myBike->id) }}" method="POST">
+                            @csrf
+                            <input type="hidden" name="is_public" value="0">
+                            <button type="submit" class="inline-flex items-center gap-1.5 text-xs font-black text-gray-600 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors">
+                                <i data-lucide="lock" class="w-3.5 h-3.5"></i> 非公開に戻す
+                            </button>
+                        </form>
+                    </div>
+                @else
+                    <p class="text-xs text-gray-600 mb-2">公開すると、次の項目が公開URLで<strong>誰でも</strong>見られるようになります：</p>
+                    <ul class="text-xs text-gray-500 list-disc list-inside mb-4 space-y-0.5">
+                        <li>車種（モデル）・年式・総走行距離</li>
+                        <li>整備・カスタム履歴（日付・内容・費用・走行距離）</li>
+                        <li>給油記録（日付・燃費・費用・メモ）</li>
+                        <li>公開表示名 @if(auth()->user()->review_display_name)「<span class="font-bold">{{ auth()->user()->review_display_name }}</span>」@else（下で設定）@endif（<strong>本名は表示されません</strong>）</li>
+                    </ul>
+                    <form action="{{ route('mybikes.visibility', $myBike->id) }}" method="POST" class="space-y-3" onsubmit="return confirm('上記の項目を公開URLで誰でも閲覧できるようにします。よろしいですか？');">
+                        @csrf
+                        <input type="hidden" name="is_public" value="1">
+                        @if(empty(auth()->user()->review_display_name))
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">公開表示名 <span class="text-[10px] font-normal text-gray-400">（公開されます・設定後は変更できません・本名で prefill しません）</span></label>
+                            <input type="text" name="review_handle" value="{{ old('review_handle') }}" required maxlength="30" placeholder="公開用の表示名（例: rider_x）"
+                                   class="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            @error('review_handle')<p class="text-red-500 text-xs font-bold mt-1">{{ $message }}</p>@enderror
+                        </div>
+                        @endif
+                        <button type="submit" class="inline-flex items-center gap-1.5 text-sm font-black text-white bg-blue-600 hover:bg-blue-700 px-5 py-2.5 rounded-lg transition-colors">
+                            <i data-lucide="globe" class="w-4 h-4"></i> このガレージを公開する
+                        </button>
+                    </form>
+                @endif
+            </div>
+
             <div x-data="{ tab: '{{ $errors->has('maintained_at') || $errors->has('title') ? 'maintenance' : 'fuel' }}' }" class="space-y-6">
                 
                 {{-- タブ切り替え --}}

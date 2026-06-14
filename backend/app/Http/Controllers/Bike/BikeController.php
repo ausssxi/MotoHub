@@ -74,8 +74,9 @@ final class BikeController extends Controller
         $features = $this->bikeService->getFeaturesForTopPage();
         $seoFeatures = SeoFeature::active()->latest()->limit(4)->get();
 
-        // 最近登録された愛車
-        $latestMyBikes = \App\Models\MyBike::with(['bikeModel.manufacturer', 'user'])
+        // 最近登録された愛車（公開 opt-in 済みのみ）
+        $latestMyBikes = \App\Models\MyBike::where('is_public', true)
+            ->with(['bikeModel.manufacturer', 'user'])
             ->latest()
             ->limit(6)
             ->get();

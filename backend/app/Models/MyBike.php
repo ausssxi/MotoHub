@@ -13,6 +13,7 @@ class MyBike extends Model
     protected $fillable = [
         'user_id',
         'bike_model_id',
+        'is_public',
         'name',
         'model_year',     // 年式
         'purchased_at',   // 購入日
@@ -22,6 +23,7 @@ class MyBike extends Model
 
     protected $casts = [
         'purchased_at' => 'date',
+        'is_public' => 'boolean',
     ];
 
     // アクセサ: 表示用の名前
@@ -49,7 +51,7 @@ class MyBike extends Model
             ->whereNotNull('efficiency') // 燃費が計算されていない(null)記録を除外
             ->first(); // 先頭（最新）を取得
 
-        return $latestLog ? (float)$latestLog->efficiency : null;
+        return $latestLog ? (float) $latestLog->efficiency : null;
     }
 
     public function bikeModel(): BelongsTo

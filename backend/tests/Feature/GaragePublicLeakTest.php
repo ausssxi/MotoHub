@@ -13,7 +13,8 @@ function garageBike(?string $handle): MyBike
     $model = BikeModel::create(['manufacturer_id' => $mfr->id, 'name' => 'PCX', 'slug' => 'pcx']);
     $user = User::factory()->create(['name' => '本名太郎', 'review_display_name' => $handle]);
 
-    return MyBike::create(['user_id' => $user->id, 'bike_model_id' => $model->id, 'name' => 'マイPCX', 'current_odometer' => 1000]);
+    // 公開表示のリークを検証するため is_public=true（Phase1で台ごとopt-inが入ったため明示）
+    return MyBike::create(['user_id' => $user->id, 'bike_model_id' => $model->id, 'name' => 'マイPCX', 'current_odometer' => 1000, 'is_public' => true]);
 }
 
 it('public garage index never leaks user->name; shows handle or 名無しライダー; noindex', function () {
