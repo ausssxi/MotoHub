@@ -72,6 +72,17 @@
                 @endif
             </div>
 
+            {{-- 初回オンボーディング: ログ0件のとき「最初の給油」へ誘導（hook=燃費） --}}
+            @if($myBike->fuelLogs->isEmpty() && $myBike->maintenanceLogs->isEmpty())
+            <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-6 flex items-start gap-3">
+                <i data-lucide="fuel" class="w-6 h-6 text-blue-500 shrink-0 mt-0.5"></i>
+                <div>
+                    <p class="text-sm font-black text-gray-900 mb-1">最初の給油を記録してみよう</p>
+                    <p class="text-xs text-gray-600 leading-relaxed">給油を記録するだけで、この{{ $myBike->bikeModel->name ?? '愛車' }}の平均燃費が見えるようになります。下の「給油を記録」から、いつもの給油を1回入力してみましょう。</p>
+                </div>
+            </div>
+            @endif
+
             {{-- retention核ダッシュボード（private・本人のみ） --}}
             <div class="space-y-6 mb-6">
                 {{-- 維持費 --}}
@@ -117,8 +128,11 @@
                     </div>
                     @if(count($dashboard['fuelChart']['data']) > 0)
                     <div class="relative h-56"><canvas id="fuelChart"></canvas></div>
+                    @elseif($myBike->fuelLogs->isNotEmpty())
+                    {{-- 1件は記録済み・燃費計算は2回目から（報酬予告コピー） --}}
+                    <p class="text-xs text-blue-600 font-bold text-center py-8">あと<strong>もう1回</strong>給油を記録すると、平均燃費が表示されます。🏍️</p>
                     @else
-                    <p class="text-xs text-gray-400 font-bold text-center py-8">満タン給油を2回以上記録すると燃費グラフが表示されます。</p>
+                    <p class="text-xs text-gray-400 font-bold text-center py-8">満タン給油を2回記録すると、平均燃費の推移が表示されます。</p>
                     @endif
                 </div>
 

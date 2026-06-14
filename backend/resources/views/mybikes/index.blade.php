@@ -31,10 +31,12 @@
                     <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
                         <i data-lucide="bike" class="w-10 h-10 text-gray-300"></i>
                     </div>
-                    <h2 class="text-lg font-black text-gray-800 mb-2">まだ愛車が登録されていません</h2>
-                    <p class="text-gray-400 text-xs font-bold mb-8">
-                        あなたのバイクを登録して、燃費やメンテナンスを記録しましょう。<br>
-                        車種を選ぶだけでカンタンに登録できます。
+                    <h2 class="text-lg font-black text-gray-800 mb-2">給油を記録するだけ。平均燃費が見える。</h2>
+                    <p class="text-gray-500 text-sm font-bold mb-3">
+                        愛車を登録して給油を記録するだけで、あなたのバイクの平均燃費が自動で見えるようになります。
+                    </p>
+                    <p class="text-gray-400 text-[11px] font-bold mb-8">
+                        ＋ 維持費（整備・給油）が自動で貯まる／オイル交換などの時期に気づける
                     </p>
                     <button onclick="document.getElementById('add-bike-modal').showModal()" class="inline-block bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-500 transition-colors shadow-md">
                         愛車を登録する
@@ -190,6 +192,16 @@
                     }
                 });
             }
+
+            {{-- ?bike_model_id= prefill（レビュー投稿後の導線など）: 該当車種を選択済みで登録モーダルを開く --}}
+            @if($prefillModel ?? null)
+            (function () {
+                if (hiddenInput) hiddenInput.value = {{ (int) $prefillModel['id'] }};
+                if (searchInput) searchInput.value = @json($prefillModel['name']);
+                const modal = document.getElementById('add-bike-modal');
+                if (modal && modal.showModal) modal.showModal();
+            })();
+            @endif
         });
         
         if (typeof lucide !== 'undefined') lucide.createIcons();

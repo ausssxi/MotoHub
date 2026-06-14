@@ -22,11 +22,23 @@ class MyBikeController extends Controller
     /**
      * ガレージ（愛車一覧）
      */
-    public function index()
+    public function index(Request $request)
     {
         $myBikes = $this->service->getGarageData(Auth::user());
 
-        return view('mybikes.index', compact('myBikes'));
+        // レビュー投稿後の導線などからの prefill（?bike_model_id=）。該当モデルを選択済みで登録モーダルを開く。
+        $prefillModel = null;
+        if ($request->filled('bike_model_id')) {
+            $model = \App\Models\BikeModel::with('manufacturer')->find($request->integer('bike_model_id'));
+            if ($model) {
+                $prefillModel = [
+                    'id' => $model->id,
+                    'name' => trim(($model->manufacturer?->name ? $model->manufacturer->name.' ' : '').$model->name),
+                ];
+            }
+        }
+
+        return view('mybikes.index', compact('myBikes', 'prefillModel'));
     }
 
     /**

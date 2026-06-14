@@ -1997,7 +1997,16 @@
                         <i data-lucide="check" class="w-8 h-8"></i>
                     </div>
                     <h4 class="text-lg font-black text-gray-900 mb-2">投稿ありがとうございました！</h4>
-                    <p class="text-xs text-gray-500 font-bold">あなたの声が次のオーナーの参考になります。</p>
+                    <p class="text-xs text-gray-500 font-bold mb-5">あなたの声が次のオーナーの参考になります。</p>
+                    {{-- レビュー投稿後の導線: ガレージへ（bike_model_id prefill・控えめに1枚） --}}
+                    @if($listing->bike_model_id)
+                    <div class="max-w-sm mx-auto bg-blue-50 border border-blue-100 rounded-xl p-4">
+                        <p class="text-xs font-bold text-gray-700 mb-3">この{{ $listing->bike_model_name ?? '車種' }}をガレージに登録して、燃費・維持費を記録しませんか？</p>
+                        <a href="{{ route('mybikes.index', ['bike_model_id' => $listing->bike_model_id]) }}" class="inline-flex items-center gap-1.5 text-xs font-black text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors">
+                            <i data-lucide="bike" class="w-3.5 h-3.5"></i>@auth ガレージに登録 @else ログインして記録 @endauth
+                        </a>
+                    </div>
+                    @endif
                 </div>
 
                 {{-- 投稿フォーム --}}

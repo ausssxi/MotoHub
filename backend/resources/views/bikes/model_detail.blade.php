@@ -1483,6 +1483,13 @@
                                 <div class="mb-4 p-4 bg-green-100 text-green-700 text-sm font-bold rounded-xl border border-green-200">
                                     {{ session('success') }}
                                 </div>
+                                {{-- レビュー投稿後の導線: ガレージへ（bike_model_id prefill・押し売りしない1枚） --}}
+                                <div class="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between gap-3">
+                                    <p class="text-xs font-bold text-gray-700">この{{ $model->name }}をガレージに登録して、燃費・維持費を記録しませんか？</p>
+                                    <a href="{{ route('mybikes.index', ['bike_model_id' => $model->id]) }}" class="shrink-0 inline-flex items-center gap-1.5 text-xs font-black text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors">
+                                        <i data-lucide="bike" class="w-3.5 h-3.5"></i>@auth 記録する @else ログインして記録 @endauth
+                                    </a>
+                                </div>
                             @endif
 
                             @if ($errors->any())
