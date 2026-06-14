@@ -71,7 +71,20 @@
             {{-- レビューカード --}}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 @forelse($reviews as $review)
-                <a href="{{ $review->bikeModel->seo_url }}#reviews" class="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all flex flex-col">
+                <a href="{{ $review->bikeModel->seo_url }}#reviews" class="group bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all flex flex-col overflow-hidden">
+                    {{-- 車種サムネ（固定アスペクト比でCLS防止・lazy）。画像が無ければ汎用シルエット --}}
+                    @php $thumb = $review->bikeModel->image_url; @endphp
+                    <div class="aspect-[4/3] bg-gray-50 overflow-hidden flex items-center justify-center">
+                        @if($thumb)
+                            <img src="{{ $thumb }}" alt="{{ $review->bikeModel->name }}" width="400" height="300" loading="lazy" decoding="async"
+                                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div class="w-full h-full items-center justify-center text-gray-300" style="display:none;"><i data-lucide="bike" class="w-10 h-10"></i></div>
+                        @else
+                            <div class="flex w-full h-full items-center justify-center text-gray-300"><i data-lucide="bike" class="w-10 h-10"></i></div>
+                        @endif
+                    </div>
+                    <div class="p-5 flex flex-col flex-grow">
                     <div class="flex items-start justify-between mb-3">
                         <div class="min-w-0">
                             <span class="text-[9px] font-bold text-gray-400 block mb-0.5">{{ $review->bikeModel->manufacturer?->name }}</span>
@@ -90,6 +103,7 @@
                         <span class="truncate">{{ $review->nickname }}</span>
                         <span class="shrink-0 ml-2">{{ $review->created_at?->format('Y/m/d') }}</span>
                     </div>
+                    </div>{{-- /p-5 wrapper --}}
                 </a>
                 @empty
                 <div class="col-span-full bg-white rounded-2xl p-12 text-center border border-gray-100">

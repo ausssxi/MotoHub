@@ -23,7 +23,8 @@ final class ReviewRepository
     public function getFeed(array $filters = [], int $perPage = 20): LengthAwarePaginator
     {
         $query = Review::query()
-            ->with(['bikeModel.manufacturer'])
+            // representativeListing も eager load（image_url accessor がカード毎に引かないよう N+1防止）
+            ->with(['bikeModel.manufacturer', 'bikeModel.representativeListing'])
             ->where('is_approved', true)
             // "テスト"系の明らかなシードはハブ表示から除外（DBは消さない・前方一致）
             ->where('nickname', 'not like', 'テスト%')

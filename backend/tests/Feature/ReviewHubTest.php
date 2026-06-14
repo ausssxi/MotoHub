@@ -67,3 +67,18 @@ it('home page links to the reviews hub (nav + TOP section)', function () {
         ->assertSee('href="'.route('bikes.reviews_index').'"', false) // ナビ＋TOP導線
         ->assertSee('すべてのレビューを見る'); // TOP のハブ導線
 });
+
+it('review hub cards show a model thumbnail with lazy/fixed-ratio, and a fallback when no image', function () {
+    $mfr = Manufacturer::forceCreate(['name' => 'Honda', 'slug' => 'honda']);
+    $withImg = BikeModel::create(['manufacturer_id' => $mfr->id, 'name' => 'PCX', 'slug' => 'pcx', 'displacement' => 125, 'local_image_path' => ['bikes/pcx.jpg']]);
+    $noImg = BikeModel::create(['manufacturer_id' => $mfr->id, 'name' => 'CB400', 'slug' => 'cb400', 'displacement' => 400]);
+    makeReview($withImg->id, 'a', '画像ありレビュー');
+    makeReview($noImg->id, 'b', '画像なしレビュー');
+
+    $this->get('/bikes/reviews')
+        ->assertOk()
+        ->assertSee('loading="lazy"', false)      // サムネ img
+        ->assertSee('aspect-[4/3]', false)        // CLS防止の固定アスペクト比
+        ->assertSee('bikes/pcx.jpg', false)       // 画像ありモデルのサムネ
+        ->assertSee('data-lucide="bike"', false); // 画像なしモデルのフォールバック
+});
