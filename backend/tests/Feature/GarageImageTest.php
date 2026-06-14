@@ -76,11 +76,11 @@ it('owner can stream the image but a non-owner gets 404 (private delivery)', fun
 });
 
 /*
- * cross-user leak の回帰テスト（必須）。配信ルートは必ず所有者スコープで解決すること：
- * auth user の bike({id}) を所有スコープ取得 → その bike の image({image}) → 無ければ404。
- * これにより「非所有者」「他人の画像ID」「別bikeのimage id混在」「未ログイン」がすべて弾かれる。
+ * cross-user leak の回帰テスト（必須）。非公開ガレージの画像は owner 以外すべて404であること。
+ * 配信ルートは auth 不要だが、非所有者は「is_public ガレージのカバー」以外404。
+ * ここでは private な bike を使うので「非所有者」「別bikeのimage id混在」「未ログイン」が全て404。
  */
-it('image delivery is owner-scoped against every cross-user variant', function () {
+it('private garage images are owner-only against every cross-user variant', function () {
     fakeGarageDisk();
 
     // 被害者の bike + 画像
@@ -102,9 +102,9 @@ it('image delivery is owner-scoped against every cross-user variant', function (
     // (3) 攻撃者が「自分の bike id」＋「被害者の image id」を混ぜる → 404（cross-bike 混在）
     $this->actingAs($attacker)->get("/garage/{$attackerBike->id}/images/{$victimImage->id}")->assertNotFound();
 
-    // (4) 未ログイン → auth で弾かれログインへ（画像は返さない）
+    // (4) 未ログイン → 非公開ガレージの画像は404（配信ルートはpublicだが owner 以外不可）
     auth()->logout();
-    $this->get("/garage/{$victimBike->id}/images/{$victimImage->id}")->assertRedirect(route('login'));
+    $this->get("/garage/{$victimBike->id}/images/{$victimImage->id}")->assertNotFound();
 });
 
 it('owner can update a caption', function () {
@@ -168,20 +168,44 @@ it('deleting the bike cascades image rows and deletes their files', function () 
     Storage::disk($disk)->assertMissing($image->path);
 });
 
-it('the public garage page never exposes the private gallery', function () {
+/*
+ * 公開ガレージの配信許可（確定仕様）。
+ *  - is_public ガレージのカバー(=1枚目) → 未ログイン/別ユーザーでも 200
+ *  - is_public でも「非カバー写真」は owner 以外 404（公開はカバー1枚だけ）
+ *  - キャプション等の private 情報は公開面に出ない
+ */
+it('public garage: cover is served to everyone but non-cover photos stay owner-only', function () {
     fakeGarageDisk();
-    $user = User::factory()->create(['review_display_name' => 'rider_x']);
-    $bike = imageBike($user);
+    $owner = User::factory()->create(['review_display_name' => 'rider_x']);
+    $bike = imageBike($owner);
     $bike->update(['is_public' => true]);
-    $this->actingAs($user)->post("/garage/{$bike->id}/images", [
-        'image' => UploadedFile::fake()->image('secret.jpg', 500, 500),
+
+    // 1枚目（カバー）＋2枚目（非カバー）
+    $this->actingAs($owner)->post("/garage/{$bike->id}/images", ['image' => UploadedFile::fake()->image('cover.jpg', 500, 500)]);
+    $this->actingAs($owner)->post("/garage/{$bike->id}/images", [
+        'image' => UploadedFile::fake()->image('second.jpg', 500, 500),
         'caption' => '自宅ガレージ',
     ]);
-    $image = MyBikeImage::where('my_bike_id', $bike->id)->firstOrFail();
+    $images = MyBikeImage::where('my_bike_id', $bike->id)->orderBy('sort_order')->orderBy('id')->get();
+    $cover = $images[0];
+    $second = $images[1];
 
+    $other = User::factory()->create();
+
+    // カバー: 未ログイン・別ユーザーでも 200
     auth()->logout();
+    $this->get("/garage/{$bike->id}/images/{$cover->id}")->assertOk();
+    $this->actingAs($other)->get("/garage/{$bike->id}/images/{$cover->id}")->assertOk();
+
+    // 非カバー(2枚目): owner のみ200、別ユーザー/未ログインは 404
+    $this->actingAs($owner)->get("/garage/{$bike->id}/images/{$second->id}")->assertOk();
+    $this->actingAs($other)->get("/garage/{$bike->id}/images/{$second->id}")->assertNotFound();
+    auth()->logout();
+    $this->get("/garage/{$bike->id}/images/{$second->id}")->assertNotFound();
+
+    // 公開ページにはカバーが出るが、非カバーのキャプション等 private 情報は出ない
     $this->get("/garage/public/{$bike->id}")
         ->assertOk()
-        ->assertDontSee("/images/{$image->id}")  // 配信ルートが漏れない
-        ->assertDontSee('自宅ガレージ');           // キャプションも出ない
+        ->assertSee("/garage/{$bike->id}/images/{$cover->id}", false)
+        ->assertDontSee('自宅ガレージ');
 });

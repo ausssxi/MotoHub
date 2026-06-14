@@ -49,6 +49,7 @@
                 @else
                     <p class="text-xs text-gray-600 mb-2">公開すると、次の項目が公開URLで<strong>誰でも</strong>見られるようになります：</p>
                     <ul class="text-xs text-gray-500 list-disc list-inside mb-4 space-y-0.5">
+                        <li>カバー写真（ギャラリーの1枚目）</li>
                         <li>車種（モデル）・年式・総走行距離</li>
                         <li>整備・カスタム履歴（日付・内容・費用・走行距離）</li>
                         <li>給油記録（日付・燃費・費用・メモ）</li>

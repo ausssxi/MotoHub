@@ -76,7 +76,7 @@ final class BikeController extends Controller
 
         // 最近登録された愛車（公開 opt-in 済みのみ）
         $latestMyBikes = \App\Models\MyBike::where('is_public', true)
-            ->with(['bikeModel.manufacturer', 'user'])
+            ->with(['bikeModel.manufacturer', 'user', 'images'])
             ->latest()
             ->limit(6)
             ->get();
@@ -1370,8 +1370,11 @@ final class BikeController extends Controller
             return \App\Models\Listing::where('bike_model_id', $id)->active()->count();
         });
 
-        $owners = \App\Models\MyBike::with('user')
+        // 公開モデル詳細の「オーナー」一覧は is_public のガレージのみ（カバーは公開配信＝200／
+        // 非公開を混ぜるとカバーが404割れ＝壊れアイコンになるため）。
+        $owners = \App\Models\MyBike::with(['user', 'images'])
             ->where('bike_model_id', $model->id)
+            ->where('is_public', true)
             ->latest()
             ->limit(6)
             ->get();

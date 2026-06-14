@@ -203,11 +203,21 @@ class MyBikeController extends Controller
      */
     public function showImage($id, $imageId)
     {
-        // cross-user leak 防止：必ず所有者スコープで解決する。
-        // (1) auth user の bike({id}) を所有スコープ取得（$user->myBikes()）→ 非所有者は 404。
-        // (2) その bike の images() から image({image}) を取得 → 他人/別bikeの image id は 404。
-        $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id);
+        // bike と image を取得（image の my_bike_id 整合も担保＝別bikeのimage idは404）。
+        $myBike = MyBike::findOrFail((int) $id);
         $image = $myBike->images()->findOrFail((int) $imageId);
+
+        $user = Auth::user();
+        $isOwner = $user !== null && (int) $myBike->user_id === (int) $user->id;
+
+        // 許可ルール（leak防止の肝）:
+        //  - 所有者 → 全画像200。
+        //  - 非所有者 → 「is_public ガレージのカバー(=1枚目)」のみ200。それ以外は404。
+        //    （非公開ガレージの画像、is_publicでも非カバー写真は404。存在も漏らさない）
+        if (! $isOwner) {
+            $cover = $myBike->images()->first(); // sort_order asc, id asc 先頭＝カバー
+            abort_unless($myBike->is_public && $cover !== null && (int) $cover->id === (int) $image->id, 404);
+        }
 
         $disk = Storage::disk(config('garage.image_disk'));
         abort_unless($disk->exists($image->path), 404);

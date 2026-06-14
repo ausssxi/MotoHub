@@ -41,26 +41,22 @@ class MyBike extends Model
         return $this->name ?? $this->bikeModel->name;
     }
 
-    // アクセサ: 表示用の画像URL（public-safe）。
-    // ★public面（public_show / public_index / みんなの愛車 / オーナー一覧）はこれを使う。
-    // 解決順は「明示カバー(image_url) → カタログ画像」のみ。private なギャラリー写真は
-    // ここでは一切返さない（private-only配信のため public で採用すると漏れる/割れる）。
+    // アクセサ: カバー画像URL（private/public 共通）。
+    // 解決順は「明示カバー(image_url) → ギャラリー1枚目 → カタログ画像」、無ければ null（→プレースホルダ）。
+    // ギャラリー1枚目は owner-check 配信ルートのURL。配信側の許可で
+    //  - 所有者は全画像200
+    //  - 非所有者は is_public ガレージのカバー(=1枚目)のみ200
+    // となるため、public面（public_show / public_index / みんなの愛車 / オーナー一覧）には
+    // is_public のガレージだけを並べる前提（各クエリで is_public フィルタ済み）であれば
+    // カバーは常に200で表示できる。
     public function getDisplayImageAttribute(): ?string
-    {
-        return $this->image_url ?: $this->bikeModel?->image_url;
-    }
-
-    // アクセサ: private面のカバー画像（本人のガレージカード／詳細など、owner専用画面）。
-    // 解決順は「明示カバー(image_url) → ギャラリー1枚目 → カタログ画像」。
-    // ギャラリー写真は owner-check 配信ルート経由のURLで返す（本人閲覧なので200）。
-    public function getPrivateCoverImageAttribute(): ?string
     {
         if ($this->image_url) {
             return $this->image_url;
         }
 
-        // images() は sort_order asc, id asc 済み → 先頭が「1枚目」。
-        $first = $this->images->first();
+        // images() は sort_order asc, id asc 済み → 先頭が「1枚目（カバー）」。
+        $first = $this->relationLoaded('images') ? $this->images->first() : $this->images()->first();
         if ($first) {
             return route('mybikes.images.show', [$this->id, $first->id]);
         }

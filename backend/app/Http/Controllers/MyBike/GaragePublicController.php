@@ -13,7 +13,7 @@ class GaragePublicController extends Controller
     {
         // 公開 opt-in 済みの愛車のみ
         $bikes = MyBike::where('is_public', true)
-            ->with(['user', 'bikeModel.manufacturer'])
+            ->with(['user', 'bikeModel.manufacturer', 'images'])
             ->latest()
             ->paginate(20);
 
@@ -25,7 +25,7 @@ class GaragePublicController extends Controller
         // 非公開の愛車は公開URLで一切描画しない（情報漏洩防止）
         abort_unless($myBike->is_public, 404);
 
-        $myBike->load(['user', 'bikeModel.manufacturer', 'fuelLogs', 'maintenanceLogs']);
+        $myBike->load(['user', 'bikeModel.manufacturer', 'fuelLogs', 'maintenanceLogs', 'images']);
 
         return view('mybikes.public_show', compact('myBike'));
     }

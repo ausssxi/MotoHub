@@ -1,47 +1,47 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Illuminate\Http\Request;
-// コントローラーの読み込み
-use App\Http\Controllers\Bike\BikeController;
-use App\Http\Controllers\PageController;
+use App\Http\Controllers\Api\AiSearchController;
 use App\Http\Controllers\Api\BikeApiController;
-use App\Http\Controllers\Shop\ShopController;
-use App\Http\Controllers\Bike\TrendController;
-use App\Http\Controllers\ProfileController; // Breeze用
-use App\Http\Controllers\Api\StatsApiController; // 統計情報API
-use App\Http\Controllers\Page\SellController; // 買取査定LP
-use App\Http\Controllers\MyBike\MyBikeController; // 愛車ログ機能
-use App\Http\Controllers\MyBike\GaragePublicController; // 公開ガレージ
-use App\Http\Controllers\Auth\GoogleLoginController;
-use App\Http\Controllers\Auth\LineAuthController;
-use App\Http\Controllers\Shindan\ShindanController;
-use App\Http\Controllers\Trouble\TroubleController;
-use App\Http\Controllers\Feature\FeatureController;
-use App\Http\Controllers\Parking\ParkingController;
-use App\Http\Controllers\Parking\ParkingAreaController;
-use App\Http\Controllers\Parking\StationParkingController;
-use App\Http\Controllers\Shop\ShopAreaController;
-use App\Http\Controllers\RidersMapController;
+// コントローラーの読み込み
 use App\Http\Controllers\Api\PoiApiController;
 use App\Http\Controllers\Api\RoadsideStationApiController;
 use App\Http\Controllers\Ar\ArController;
-use App\Http\Controllers\Bike\BikeIdentifierController;
+use App\Http\Controllers\Auth\GoogleLoginController;
+use App\Http\Controllers\Auth\LineAuthController;
+use App\Http\Controllers\Bike\BargainsController; // Breeze用
+// 統計情報API
+use App\Http\Controllers\Bike\BargainsOgpController; // 買取査定LP
+use App\Http\Controllers\Bike\BikeController; // 愛車ログ機能
+use App\Http\Controllers\Bike\BikeIdentifierController; // 公開ガレージ
 use App\Http\Controllers\Bike\CategoryLandingController;
+use App\Http\Controllers\Bike\DiscontinuedController;
 use App\Http\Controllers\Bike\NewArrivalsController;
 use App\Http\Controllers\Bike\NewArrivalsOgpController;
+use App\Http\Controllers\Bike\OverseasBikeController;
 use App\Http\Controllers\Bike\PriceDropsController;
 use App\Http\Controllers\Bike\PriceDropsOgpController;
 use App\Http\Controllers\Bike\ReviewOgpController;
-use App\Http\Controllers\Bike\OverseasBikeController;
-use App\Http\Controllers\Bike\BargainsController;
-use App\Http\Controllers\Bike\BargainsOgpController;
-use App\Http\Controllers\Bike\DiscontinuedController;
-use App\Http\Controllers\Parts\PartsController;
-use App\Http\Controllers\NewsController;
-use App\Http\Controllers\RankingController;
-use App\Http\Controllers\Api\AiSearchController;
+use App\Http\Controllers\Bike\TrendController;
 use App\Http\Controllers\DealOgpController;
+use App\Http\Controllers\Feature\FeatureController;
+use App\Http\Controllers\MyBike\GaragePublicController;
+use App\Http\Controllers\MyBike\MyBikeController;
+use App\Http\Controllers\NewsController;
+use App\Http\Controllers\Page\SellController;
+use App\Http\Controllers\PageController;
+use App\Http\Controllers\Parking\ParkingAreaController;
+use App\Http\Controllers\Parking\ParkingController;
+use App\Http\Controllers\Parking\StationParkingController;
+use App\Http\Controllers\Parts\PartsController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RankingController;
+use App\Http\Controllers\RidersMapController;
+use App\Http\Controllers\Shindan\ShindanController;
+use App\Http\Controllers\Shop\ShopAreaController;
+use App\Http\Controllers\Shop\ShopController;
+use App\Http\Controllers\Trouble\TroubleController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 /**
  * MotoHub Route Definitions
@@ -81,6 +81,7 @@ Route::get('/bikes', function (Request $request) {
     if ($sort === 'bargain_desc') {
         return redirect()->route('bikes.price_drops', [], 301);
     }
+
     return redirect()->route('bikes.search', $request->except('sort'), 301);
 });
 
@@ -134,9 +135,10 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
         $firstSegment = explode('/', $extra)[0];
         $seoService = app(\App\Services\Bike\SeoLandingService::class);
         $pageInfo = $seoService->resolvePageInfo($prefecture, $firstSegment);
-        if (!empty($pageInfo)) {
+        if (! empty($pageInfo)) {
             return redirect("/bikes/area/{$prefecture}/{$firstSegment}", 301);
         }
+
         return redirect("/bikes/area/{$prefecture}", 301);
     })->where('extra', '.+/.+');
 
@@ -179,6 +181,7 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
         }
         $controller = app(\App\Http\Controllers\Bike\BikeController::class);
         $priceStats = app(\App\Services\Bike\PriceStatsService::class);
+
         return $controller->modelDetail($id, $priceStats);
     })->where('id', '[0-9]+')->name('model_detail.fallback');
 
@@ -218,9 +221,10 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
         }
         $controller = app(\App\Http\Controllers\Bike\BikeController::class);
         $priceStats = app(\App\Services\Bike\PriceStatsService::class);
+
         return $controller->modelDetail($id, $priceStats);
     })->where('id', '[0-9]+')->name('model_detail.legacy');
-    
+
     // レビュー投稿（★スパム対策：1分間に3回までのレート制限を追加）
     Route::post('/models/{id}/reviews', 'storeReview')
         ->name('model_detail.review')
@@ -273,7 +277,7 @@ Route::get('/riders-map', [RidersMapController::class, 'index'])->name('riders.m
 
 Route::prefix('shops')->name('shops.')->group(function () {
     // マップページ → ライダーズマップへ301リダイレクト
-    Route::get('/map', fn(Request $request) => redirect()->route('riders.map', $request->query(), 301))->name('map');
+    Route::get('/map', fn (Request $request) => redirect()->route('riders.map', $request->query(), 301))->name('map');
     // エリア検索API (※公開APIなので一旦ここに残します)
     Route::get('/api/area', [ShopController::class, 'area'])->name('api.area');
 
@@ -296,6 +300,13 @@ Route::prefix('garage/public')->name('garage.public.')->controller(GaragePublicC
     Route::get('/', 'index')->name('index');
     Route::get('/{myBike}', 'show')->name('show')->where('myBike', '[0-9]+');
 });
+
+// ギャラリー画像の配信（auth不要）。許可はメソッド内で判定：
+// 「所有者」OR「is_public ガレージのカバー(=1枚目)」なら200、それ以外は404。
+// 非公開ガレージの画像・is_publicの非カバー写真は owner 以外404（leak防止）。
+Route::get('/garage/{myBike}/images/{image}', [MyBikeController::class, 'showImage'])
+    ->name('mybikes.images.show')
+    ->where(['myBike' => '[0-9]+', 'image' => '[0-9]+']);
 
 // 駐車場マップ（公開）
 Route::prefix('parking')->name('parking.')->controller(ParkingController::class)->group(function () {
@@ -452,6 +463,7 @@ Route::middleware('auth')->group(function () {
         $spots = \App\Models\UserSavedSpot::where('user_id', auth()->id())
             ->orderByDesc('created_at')
             ->get();
+
         return view('mypage.saved-spots', compact('spots'));
     })->name('mypage.saved_spots');
 
@@ -470,9 +482,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/{myBike}/export', 'exportCsv')->name('export')->where('myBike', '[0-9]+');
         Route::post('/{myBike}/fuel', 'storeFuel')->name('fuel.store');
         Route::post('/{myBike}/maintenance', 'storeMaintenance')->name('maintenance.store');
-        // ギャラリー画像（private・owner-only）。配信もowner-checkルート経由のみ。
+        // ギャラリー画像の操作（owner-only）。アップロード/キャプション/削除は本人のみ。
         Route::post('/{myBike}/images', 'storeImage')->name('images.store')->where('myBike', '[0-9]+');
-        Route::get('/{myBike}/images/{image}', 'showImage')->name('images.show')->where(['myBike' => '[0-9]+', 'image' => '[0-9]+']);
         Route::patch('/{myBike}/images/{image}', 'updateImageCaption')->name('images.caption')->where(['myBike' => '[0-9]+', 'image' => '[0-9]+']);
         Route::delete('/{myBike}/images/{image}', 'destroyImage')->name('images.destroy')->where(['myBike' => '[0-9]+', 'image' => '[0-9]+']);
         Route::get('/api/search-models', 'searchModels')->name('api.search_models');
