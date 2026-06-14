@@ -72,6 +72,88 @@
                 @endif
             </div>
 
+            {{-- 写真ギャラリー（private・本人のみ）。公開面には一切出さない。 --}}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6"
+                 x-data="{ lightbox: null }">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-black text-gray-900 flex items-center gap-2">
+                        <i data-lucide="image" class="w-4 h-4 text-blue-500"></i> 写真ギャラリー
+                    </h3>
+                    <span class="text-[11px] font-bold text-gray-400">{{ $myBike->images->count() }} / {{ (int) config('garage.max_images') }} 枚</span>
+                </div>
+
+                @error('image')
+                    <div class="mb-4 p-3 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-100">{{ $message }}</div>
+                @enderror
+
+                @if($myBike->images->isEmpty())
+                    <p class="text-xs text-gray-500 mb-4">愛車の写真を追加できます（あなただけが見られます）。</p>
+                @else
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                        @foreach($myBike->images as $image)
+                            <div class="group relative">
+                                <button type="button"
+                                        @click="lightbox = '{{ route('mybikes.images.show', [$myBike->id, $image->id]) }}'"
+                                        class="block w-full aspect-square rounded-xl overflow-hidden bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <img src="{{ route('mybikes.images.show', [$myBike->id, $image->id]) }}"
+                                         alt="{{ $image->caption ?? '愛車の写真' }}"
+                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                         loading="lazy" decoding="async">
+                                </button>
+
+                                {{-- 削除（owner-only） --}}
+                                <form action="{{ route('mybikes.images.destroy', [$myBike->id, $image->id]) }}" method="POST"
+                                      onsubmit="return confirm('この写真を削除しますか？');"
+                                      class="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="w-7 h-7 bg-black/60 hover:bg-red-600 text-white rounded-full flex items-center justify-center backdrop-blur-sm" aria-label="写真を削除">
+                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                </form>
+
+                                {{-- キャプション（インライン編集・owner-only） --}}
+                                <form action="{{ route('mybikes.images.caption', [$myBike->id, $image->id]) }}" method="POST" class="mt-1.5">
+                                    @csrf
+                                    @method('PATCH')
+                                    <input type="text" name="caption" value="{{ $image->caption }}" maxlength="100"
+                                           placeholder="キャプションを追加"
+                                           onchange="this.form.requestSubmit()"
+                                           class="w-full bg-gray-50 border border-transparent hover:border-gray-200 focus:border-blue-500 focus:bg-white rounded-lg px-2 py-1 text-[11px] font-bold text-gray-700 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors">
+                                </form>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                {{-- アップロード（上限未満のときのみ） --}}
+                @if($myBike->images->count() < (int) config('garage.max_images'))
+                    <form action="{{ route('mybikes.images.store', $myBike->id) }}" method="POST" enctype="multipart/form-data"
+                          class="flex flex-col sm:flex-row sm:items-center gap-3 pt-4 border-t border-gray-100">
+                        @csrf
+                        <input type="file" name="image" accept="image/jpeg,image/png,image/webp" required
+                               class="block w-full text-xs text-gray-600 font-bold file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-gray-900 file:text-white hover:file:bg-gray-700 file:cursor-pointer">
+                        <input type="text" name="caption" maxlength="100" placeholder="キャプション（任意）"
+                               class="w-full sm:w-48 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <button type="submit" class="shrink-0 inline-flex items-center justify-center gap-1.5 text-xs font-black text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors">
+                            <i data-lucide="upload" class="w-3.5 h-3.5"></i> 追加
+                        </button>
+                    </form>
+                @else
+                    <p class="text-[11px] font-bold text-gray-400 pt-4 border-t border-gray-100">写真は上限（{{ (int) config('garage.max_images') }}枚）に達しています。追加するには既存の写真を削除してください。</p>
+                @endif
+
+                {{-- ライトボックス --}}
+                <div x-show="lightbox" x-cloak @keydown.escape.window="lightbox = null"
+                     @click="lightbox = null"
+                     class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4" style="display:none;">
+                    <img :src="lightbox" alt="愛車の写真" class="max-w-full max-h-full rounded-lg object-contain">
+                    <button type="button" @click="lightbox = null" class="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center" aria-label="閉じる">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
             {{-- 初回オンボーディング: ログ0件のとき「最初の給油」へ誘導（hook=燃費） --}}
             @if($myBike->fuelLogs->isEmpty() && $myBike->maintenanceLogs->isEmpty())
             <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-6 flex items-start gap-3">

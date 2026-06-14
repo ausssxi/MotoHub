@@ -26,6 +26,15 @@ class MyBike extends Model
         'is_public' => 'boolean',
     ];
 
+    protected static function booted(): void
+    {
+        // 愛車削除時にギャラリー画像を「モデル経由」で削除し実ファイルも消す。
+        // （FKのDBカスケードはMyBikeImage::deletingを発火させないため、ここで明示的にループする）
+        static::deleting(function (MyBike $myBike): void {
+            $myBike->images()->get()->each->delete();
+        });
+    }
+
     // アクセサ: 表示用の名前
     public function getDisplayNameAttribute(): string
     {
@@ -76,5 +85,13 @@ class MyBike extends Model
     public function maintenanceLogs(): HasMany
     {
         return $this->hasMany(MaintenanceLog::class)->orderBy('maintained_at', 'desc');
+    }
+
+    // ギャラリー画像（private・本人のみ表示）。並び順 → 登録順。
+    public function images(): HasMany
+    {
+        return $this->hasMany(MyBikeImage::class)
+            ->orderBy('sort_order')
+            ->orderBy('id');
     }
 }

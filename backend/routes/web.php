@@ -470,6 +470,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/{myBike}/export', 'exportCsv')->name('export')->where('myBike', '[0-9]+');
         Route::post('/{myBike}/fuel', 'storeFuel')->name('fuel.store');
         Route::post('/{myBike}/maintenance', 'storeMaintenance')->name('maintenance.store');
+        // ギャラリー画像（private・owner-only）。配信もowner-checkルート経由のみ。
+        Route::post('/{myBike}/images', 'storeImage')->name('images.store')->where('myBike', '[0-9]+');
+        Route::get('/{myBike}/images/{image}', 'showImage')->name('images.show')->where(['myBike' => '[0-9]+', 'image' => '[0-9]+']);
+        Route::patch('/{myBike}/images/{image}', 'updateImageCaption')->name('images.caption')->where(['myBike' => '[0-9]+', 'image' => '[0-9]+']);
+        Route::delete('/{myBike}/images/{image}', 'destroyImage')->name('images.destroy')->where(['myBike' => '[0-9]+', 'image' => '[0-9]+']);
         Route::get('/api/search-models', 'searchModels')->name('api.search_models');
     });
 });

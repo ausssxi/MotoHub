@@ -7,16 +7,20 @@ namespace App\Http\Controllers\MyBike;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\MyBike\StoreFuelLogRequest;
 use App\Http\Requests\MyBike\StoreMaintenanceLogRequest;
+use App\Http\Requests\MyBike\StoreMyBikeImageRequest;
 use App\Http\Requests\MyBike\StoreMyBikeRequest;
 use App\Models\MyBike;
+use App\Services\MyBike\MyBikeImageService;
 use App\Services\MyBike\MyBikeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class MyBikeController extends Controller
 {
     public function __construct(
-        private readonly MyBikeService $service
+        private readonly MyBikeService $service,
+        private readonly MyBikeImageService $imageService,
     ) {}
 
     /**
@@ -147,6 +151,69 @@ class MyBikeController extends Controller
         $this->service->recordMaintenance($myBike, $request->validated());
 
         return back()->with('success', '整備記録を保存しました！');
+    }
+
+    /**
+     * ギャラリー画像のアップロード（owner-only・private）。最適化して非公開ディスクへ保存。
+     */
+    public function storeImage(StoreMyBikeImageRequest $request, $id)
+    {
+        $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id); // 非所有者は 404
+
+        if ($this->imageService->atLimit($myBike)) {
+            return back()->withErrors([
+                'image' => '画像は1台あたり最大'.(int) config('garage.max_images').'枚までです。',
+            ]);
+        }
+
+        $this->imageService->add($myBike, $request->file('image'), $request->input('caption'));
+
+        return back()->with('success', '写真を追加しました。');
+    }
+
+    /**
+     * ギャラリー画像のキャプション更新（owner-only）。
+     */
+    public function updateImageCaption(Request $request, $id, $imageId)
+    {
+        $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id); // 非所有者は 404
+        $validated = $request->validate([
+            'caption' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $this->imageService->updateCaption($myBike, (int) $imageId, $validated['caption'] ?? null);
+
+        return back()->with('success', 'キャプションを更新しました。');
+    }
+
+    /**
+     * ギャラリー画像の削除（owner-only・行＋実ファイル）。
+     */
+    public function destroyImage($id, $imageId)
+    {
+        $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id); // 非所有者は 404
+        $this->imageService->delete($myBike, (int) $imageId);
+
+        return back()->with('success', '写真を削除しました。');
+    }
+
+    /**
+     * ギャラリー画像の配信（owner-only）。非公開ディスクからストリーム配信。
+     * URL直叩きでも非所有者は 404（getBikeDetail）／他愛車の画像IDも 404。
+     */
+    public function showImage($id, $imageId)
+    {
+        $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id); // 非所有者は 404
+        $image = $myBike->images()->findOrFail((int) $imageId);
+
+        $disk = Storage::disk(config('garage.image_disk'));
+        abort_unless($disk->exists($image->path), 404);
+
+        return $disk->response(
+            $image->path,
+            null,
+            ['Cache-Control' => 'private, max-age=86400'],
+        );
     }
 
     /**

@@ -20,7 +20,7 @@ final class MyBikeRepository
     public function getByUser(User $user, int $logLimit = 5): Collection
     {
         return $user->myBikes()
-            ->with(['bikeModel.manufacturer', 'fuelLogs' => function($q) use ($logLimit) {
+            ->with(['bikeModel.manufacturer', 'fuelLogs' => function ($q) use ($logLimit) {
                 $q->limit($logLimit);
             }])
             ->orderBy('created_at', 'desc')
@@ -34,7 +34,7 @@ final class MyBikeRepository
     public function findByUserAndIdOrFail(User $user, int $id): MyBike
     {
         return $user->myBikes()
-            ->with(['bikeModel.manufacturer', 'fuelLogs', 'maintenanceLogs'])
+            ->with(['bikeModel.manufacturer', 'fuelLogs', 'maintenanceLogs', 'images'])
             ->findOrFail($id);
     }
 
