@@ -1,6 +1,8 @@
 <x-layout>
     <x-slot:title>みんなの愛車ガレージ - オーナーのバイクライフ | MotoHub</x-slot:title>
     <x-slot:metaDescription>MotoHubユーザーの愛車コレクション。燃費記録・整備ログ・カスタム写真を公開中。</x-slot:metaDescription>
+    {{-- 暫定 noindex（本格版が固まるまで半端な公開面を index させない） --}}
+    <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
 
     <x-slot:navigation>
         <x-navigation :showSearch="true" />
@@ -49,7 +51,7 @@
                                 <div class="flex items-center justify-between">
                                     <p class="text-[10px] font-bold text-gray-400">
                                         <i data-lucide="user" class="w-3 h-3 inline"></i>
-                                        {{ $bike->user->name ?? '名無しライダー' }}
+                                        {{ $bike->user->review_display_name ?? '名無しライダー' }}
                                     </p>
                                     @if($bike->model_year)
                                         <span class="text-[10px] text-gray-400">{{ $bike->model_year }}年式</span>

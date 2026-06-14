@@ -1,6 +1,9 @@
 <x-layout>
-    <x-slot:title>{{ $myBike->user->name ?? '名無しライダー' }}の{{ $myBike->bikeModel->name ?? $myBike->name }} | 愛車ガレージ | MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $myBike->user->name ?? '名無しライダー' }}の愛車「{{ $myBike->display_name }}」。燃費記録・整備ログを公開中。</x-slot:metaDescription>
+    {{-- 公開表示は本人設定の公開ハンドルのみ。user->name(本名) は絶対に出さない。未設定は「名無しライダー」 --}}
+    <x-slot:title>{{ $myBike->user->review_display_name ?? '名無しライダー' }}の{{ $myBike->bikeModel->name ?? $myBike->name }} | 愛車ガレージ | MotoHub</x-slot:title>
+    <x-slot:metaDescription>{{ $myBike->user->review_display_name ?? '名無しライダー' }}の愛車「{{ $myBike->display_name }}」。燃費記録・整備ログを公開中。</x-slot:metaDescription>
+    {{-- 暫定 noindex（本格版＝公開opt-in＋ハンドル＋中身充実 が固まるまで半端な公開面を index させない） --}}
+    <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
 
     <x-slot:navigation>
         <x-navigation :showSearch="true" />
@@ -42,7 +45,7 @@
                             <i data-lucide="user" class="w-5 h-5 text-gray-400"></i>
                         </div>
                         <div>
-                            <p class="text-sm font-black text-gray-900">{{ $myBike->user->name ?? '名無しライダー' }}</p>
+                            <p class="text-sm font-black text-gray-900">{{ $myBike->user->review_display_name ?? '名無しライダー' }}</p>
                             <p class="text-[10px] text-gray-400 font-bold">オーナー</p>
                         </div>
                     </div>
