@@ -11,6 +11,7 @@ class Review extends Model
 {
     protected $fillable = [
         'bike_model_id',
+        'user_id',
         'nickname',
         'title',
         'body',
@@ -37,5 +38,10 @@ class Review extends Model
     public function bikeModel(): BelongsTo
     {
         return $this->belongsTo(BikeModel::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

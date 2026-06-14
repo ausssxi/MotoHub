@@ -1412,7 +1412,7 @@
                                     @endif
                                     <p class="text-sm text-gray-600 leading-relaxed mb-2 whitespace-pre-wrap">{{ $review->body }}</p>
                                     <div class="flex items-center justify-between">
-                                        <p class="text-xs text-gray-400 font-bold">by {{ $review->nickname }}</p>
+                                        <p class="text-xs text-gray-400 font-bold flex items-center gap-1">by {{ $review->nickname }}@if($review->user_id)<span class="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded"><i data-lucide="badge-check" class="w-3 h-3"></i>ログインユーザー</span>@endif</p>
                                         @if($showReviewShare)
                                         @php
                                             $rvTags = ['#MotoHub', '#バイクレビュー', '#中古バイク', '#バイク乗りと繋がりたい', '#バイク好きと繋がりたい', '#バイクのある生活', '#ツーリング'];
@@ -1491,10 +1491,10 @@
                                 @csrf
                                 <input type="hidden" name="recaptcha_token" id="recaptcha-token">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-500 mb-1">ニックネーム</label>
-                                        <input type="text" name="nickname" value="{{ old('nickname') }}" class="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="名無しライダー">
-                                    </div>
+                                    @include('bikes.partials.review_author_field', [
+                                        'inputClass' => 'w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none',
+                                        'labelClass' => 'block text-xs font-bold text-gray-500 mb-1',
+                                    ])
                                     <div>
                                         <label class="block text-xs font-bold text-gray-500 mb-1">評価</label>
                                         <input type="hidden" name="rating" id="rating-value" value="{{ old('rating', 5) }}">

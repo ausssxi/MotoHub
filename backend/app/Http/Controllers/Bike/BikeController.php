@@ -1189,25 +1189,49 @@ final class BikeController extends Controller
 
     public function storeReview(StoreReviewRequest $request, int $id)
     {
-        // === 1. reCAPTCHAの検証 ===
-        $response = \Illuminate\Support\Facades\Http::asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
-            'secret' => config('services.recaptcha.secret_key'),
-            'response' => $request->recaptcha_token, // フロントから送られてきたトークン
-        ]);
+        $user = $request->user();
 
-        // Googleからの返答を配列として変数に格納する（★ここが抜けていた原因です）
-        $recaptchaResult = $response->json();
+        // === reCAPTCHA はゲストのみ必須（ログイン済みは accountability があるため任意・throttle は維持）===
+        if (! $user) {
+            $response = \Illuminate\Support\Facades\Http::asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
+                'secret' => config('services.recaptcha.secret_key'),
+                'response' => $request->recaptcha_token,
+            ]);
 
-        // ★原因究明のため、Googleからの返事をログに書き出す
-        \Illuminate\Support\Facades\Log::info('reCAPTCHA検証結果: ', $recaptchaResult);
-
-        if (! $response->json('success') || $response->json('score') < 0.5) {
-            return response()->json(['message' => 'スパム判定されました。'], 403);
+            if (! $response->json('success') || $response->json('score') < 0.5) {
+                return response()->json(['message' => 'スパム判定されました。'], 403);
+            }
         }
 
         $validated = $request->validated();
         $model = $this->bikeService->getBikeModelDetail($id);
-        $this->bikeService->createReview($model->id, $validated);
+
+        // === ログインユーザー帰属（公開ハンドルのみ使用・User->name は絶対に使わない）===
+        $userId = null;
+        if ($user) {
+            $userId = $user->id;
+            $handle = $user->review_display_name;
+
+            if (empty($handle)) {
+                // 初回: 公開ハンドルを検証して保存（以降固定・タグ除去）
+                $handle = trim(strip_tags((string) $request->input('review_handle')));
+                if ($handle === '' || mb_strlen($handle) > 30) {
+                    $msg = '公開表示名を1〜30文字で入力してください。';
+                    if ($request->wantsJson()) {
+                        return response()->json(['message' => $msg, 'errors' => ['review_handle' => [$msg]]], 422);
+                    }
+
+                    return back()->withErrors(['review_handle' => $msg])->withInput();
+                }
+                $user->review_display_name = $handle;
+                $user->save();
+            }
+
+            // 表示名は公開ハンドルのスナップショット（本名 name は入れない）
+            $validated['nickname'] = $handle;
+        }
+
+        $this->bikeService->createReview($model->id, $validated, $userId);
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
@@ -1216,7 +1240,8 @@ final class BikeController extends Controller
                     'title' => $validated['title'] ?? '無題',
                     'body' => $validated['body'] ?? '',
                     'rating' => $validated['rating'] ?? 5,
-                    'nickname' => $validated['nickname'] ?? '匿名ユーザー',
+                    'nickname' => $validated['nickname'] ?? '名無しライダー',
+                    'is_user' => $userId !== null,
                     'created_at' => now()->format('Y年m月'),
                     'rating_design' => $validated['rating_design'] ?? null,
                     'rating_engine' => $validated['rating_engine'] ?? null,

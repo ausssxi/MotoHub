@@ -100,7 +100,12 @@
                         <p class="text-[11px] text-gray-500 leading-relaxed line-clamp-3">{{ $review->body }}</p>
                     </div>
                     <div class="flex items-center justify-between text-[10px] font-bold text-gray-400 pt-2 border-t border-gray-100">
-                        <span class="truncate">{{ $review->nickname }}</span>
+                        <span class="truncate flex items-center gap-1">
+                            {{ $review->nickname }}
+                            @if($review->user_id)
+                            <span class="inline-flex items-center gap-0.5 text-[9px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded shrink-0"><i data-lucide="badge-check" class="w-2.5 h-2.5"></i>ログイン</span>
+                            @endif
+                        </span>
                         <span class="shrink-0 ml-2">{{ $review->created_at?->format('Y/m/d') }}</span>
                     </div>
                     </div>{{-- /p-5 wrapper --}}

@@ -1998,8 +1998,10 @@
                     
                     <div class="grid grid-cols-2 gap-4">
                         <div class="col-span-2 sm:col-span-1">
-                            <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">ニックネーム</label>
-                            <input type="text" name="nickname" required maxlength="50" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-yellow-400 focus:bg-white outline-none transition placeholder:text-gray-300" placeholder="例：モト太郎">
+                            @include('bikes.partials.review_author_field', [
+                                'inputClass' => 'w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-yellow-400 focus:bg-white outline-none transition placeholder:text-gray-300',
+                                'labelClass' => 'block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5',
+                            ])
                         </div>
                         <div class="col-span-2 sm:col-span-1">
                             <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">総合評価</label>

@@ -3,15 +3,14 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-
-// Filament用のクラスをインポート
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+// Filament用のクラスをインポート
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -25,6 +24,7 @@ class User extends Authenticatable implements FilamentUser
      */
     protected $fillable = [
         'name',
+        'review_display_name', // レビュー公開ハンドル（name=本名とは別・公開表示はこれのみ）
         'email',
         'password',
         'is_admin',
@@ -62,7 +62,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function isGoogleUser(): bool
     {
-        return !is_null($this->google_id);
+        return ! is_null($this->google_id);
     }
 
     /**
@@ -72,7 +72,7 @@ class User extends Authenticatable implements FilamentUser
     public function favorites(): BelongsToMany
     {
         return $this->belongsToMany(Listing::class, 'favorites', 'user_id', 'listing_id')
-                    ->withTimestamps();
+            ->withTimestamps();
     }
 
     /**
@@ -81,8 +81,8 @@ class User extends Authenticatable implements FilamentUser
     public function browsingHistories(): BelongsToMany
     {
         return $this->belongsToMany(Listing::class, 'browsing_histories', 'user_id', 'listing_id')
-                    ->withTimestamps()
-                    ->orderByPivot('updated_at', 'desc');
+            ->withTimestamps()
+            ->orderByPivot('updated_at', 'desc');
     }
 
     /**
@@ -112,11 +112,11 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
-    * LINE連携済みか判定
-    */
+     * LINE連携済みか判定
+     */
     public function hasLineLinked(): bool
     {
-        return !is_null($this->line_id);
+        return ! is_null($this->line_id);
     }
 
     /**

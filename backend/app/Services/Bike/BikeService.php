@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Services\Bike;
 
-use App\Repositories\Bike\BikeModelRepository;
-use App\Repositories\Bike\ListingRepository;
-use App\Repositories\Bike\ManufacturerRepository;
-use App\Repositories\Bike\CategoryRepository;
-use App\Repositories\Bike\ReviewRepository;
 use App\Models\BikeModel;
 use App\Models\Listing;
 use App\Models\Review;
+use App\Repositories\Bike\BikeModelRepository;
+use App\Repositories\Bike\CategoryRepository;
+use App\Repositories\Bike\ListingRepository;
+use App\Repositories\Bike\ManufacturerRepository;
+use App\Repositories\Bike\ReviewRepository;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Session;
 
 /**
  * 車種マスタ・メーカー情報のビジネスロジック
@@ -34,21 +34,21 @@ final class BikeService
         // クローラー（Bot）からのアクセスはカウントしない
         $userAgent = request()->userAgent() ?? '';
         $isBot = preg_match('/bot|crawler|spider|slurp|facebook|twitter|line|insomnia|curl|wget/i', strtolower($userAgent));
-        
+
         if ($isBot) {
             return;
         }
 
         $viewed = Session::get('viewed_listings', []);
 
-        if (!in_array($id, $viewed)) {
+        if (! in_array($id, $viewed)) {
             $this->listingRepo->incrementViewCount($id);
 
             array_unshift($viewed, $id);
             if (count($viewed) > 50) {
                 $viewed = array_slice($viewed, 0, 50);
             }
-            
+
             Session::put('viewed_listings', $viewed);
         }
     }
@@ -67,31 +67,35 @@ final class BikeService
     {
         $allMakers = $this->manufacturerRepo->getAllSortedByName();
         $targetNames = ['ホンダ', 'ヤマハ', 'スズキ', 'カワサキ', 'ハーレーダビッドソン'];
-        $results = new Collection();
+        $results = new Collection;
 
         foreach ($targetNames as $name) {
             $found = $allMakers->first(function ($m) use ($name) {
                 return str_contains($m->name, $name) || str_contains(strtolower($m->name), strtolower($name));
             });
-            if ($found) $results->push($found);
+            if ($found) {
+                $results->push($found);
+            }
         }
+
         return $results;
     }
 
-    public function createReview(int $bikeModelId, array $data): Review
+    public function createReview(int $bikeModelId, array $data, ?int $userId = null): Review
     {
         return $this->reviewRepo->create([
-            'bike_model_id'          => $bikeModelId,
-            'nickname'               => $data['nickname'] ?: '名無しライダー',
-            'rating'                 => $data['rating'],
-            'title'                  => $data['title'],
-            'body'                   => $data['body'],
-            'rating_design'          => $data['rating_design'] ?? null,
-            'rating_engine'          => $data['rating_engine'] ?? null,
-            'rating_handling'        => $data['rating_handling'] ?? null,
-            'rating_fuel_economy'    => $data['rating_fuel_economy'] ?? null,
+            'bike_model_id' => $bikeModelId,
+            'user_id' => $userId,
+            'nickname' => ($data['nickname'] ?? null) ?: '名無しライダー',
+            'rating' => $data['rating'],
+            'title' => $data['title'],
+            'body' => $data['body'],
+            'rating_design' => $data['rating_design'] ?? null,
+            'rating_engine' => $data['rating_engine'] ?? null,
+            'rating_handling' => $data['rating_handling'] ?? null,
+            'rating_fuel_economy' => $data['rating_fuel_economy'] ?? null,
             'rating_cost_performance' => $data['rating_cost_performance'] ?? null,
-            'is_approved'            => true,
+            'is_approved' => true,
         ]);
     }
 
@@ -134,9 +138,10 @@ final class BikeService
     public function getSearchSuggestions(string $keyword): array
     {
         $models = $this->modelRepo->searchByName($keyword, 10);
-        return $models->map(fn($m) => [
-            'id'    => $m->id,
-            'name'  => $m->name,
+
+        return $models->map(fn ($m) => [
+            'id' => $m->id,
+            'name' => $m->name,
             'count' => $m->listings_count,
         ])->toArray();
     }
@@ -148,13 +153,15 @@ final class BikeService
             $totalModelsCount = 0;
 
             $formattedManufacturers = $manufacturersRaw->map(function ($maker) use (&$totalModelsCount) {
-                $models = $this->modelRepo->getByManufacturerId((int)$maker->id);
+                $models = $this->modelRepo->getByManufacturerId((int) $maker->id);
                 $count = $models->count();
                 $totalModelsCount += $count;
 
-                if ($count === 0) return null;
+                if ($count === 0) {
+                    return null;
+                }
 
-                $topModel = $models->sortByDesc('listings_count')->first(fn($m) => !empty($m->image_url))
+                $topModel = $models->sortByDesc('listings_count')->first(fn ($m) => ! empty($m->image_url))
                             ?? $models->sortByDesc('listings_count')->first();
                 $makerImage = $topModel?->image_url;
 
@@ -171,7 +178,7 @@ final class BikeService
 
             return [
                 'manufacturers' => $formattedManufacturers,
-                'totalModelsCount' => $totalModelsCount
+                'totalModelsCount' => $totalModelsCount,
             ];
         });
     }
@@ -186,13 +193,15 @@ final class BikeService
             $totalModelsCount = 0;
 
             $formattedManufacturers = $manufacturersRaw->map(function ($maker) use (&$totalModelsCount) {
-                $models = $this->modelRepo->getByManufacturerId((int)$maker->id);
+                $models = $this->modelRepo->getByManufacturerId((int) $maker->id);
                 $count = $models->count();
                 $totalModelsCount += $count;
 
-                if ($count === 0) return null;
+                if ($count === 0) {
+                    return null;
+                }
 
-                $topModel = $models->sortByDesc('listings_count')->first(fn($m) => !empty($m->image_url))
+                $topModel = $models->sortByDesc('listings_count')->first(fn ($m) => ! empty($m->image_url))
                             ?? $models->sortByDesc('listings_count')->first();
 
                 return [
@@ -217,6 +226,7 @@ final class BikeService
     {
         return Cache::remember("models_for_manufacturer_{$manufacturerId}", 86400, function () use ($manufacturerId) {
             $models = $this->modelRepo->getByManufacturerId($manufacturerId);
+
             return $this->groupModelsByName($models);
         });
     }
@@ -224,8 +234,12 @@ final class BikeService
     private function groupModelsByName(Collection $models): array
     {
         $groups = [];
-        foreach (range('A', 'Z') as $char) $groups[$char] = [];
-        foreach (['あ行', 'か行', 'さ行', 'た行', 'な行', 'は行', 'ま行', 'や行', 'ら行', 'わ行'] as $row) $groups[$row] = [];
+        foreach (range('A', 'Z') as $char) {
+            $groups[$char] = [];
+        }
+        foreach (['あ行', 'か行', 'さ行', 'た行', 'な行', 'は行', 'ま行', 'や行', 'ら行', 'わ行'] as $row) {
+            $groups[$row] = [];
+        }
         $groups['0-9'] = [];
         $groups['その他'] = [];
 
@@ -329,11 +343,15 @@ final class BikeService
         $defaultStats = ['avg' => 0, 'min' => 0, 'max' => 0, 'count' => 0, 'rank' => 'unknown', 'diff' => 0];
         $defaultHistogram = ['labels' => [], 'data' => []];
 
-        if (!$bikeModelId) return ['stats' => $defaultStats, 'histogram' => $defaultHistogram];
+        if (! $bikeModelId) {
+            return ['stats' => $defaultStats, 'histogram' => $defaultHistogram];
+        }
 
         $prices = $this->listingRepo->findValidPricesByModelId($bikeModelId);
         $count = count($prices);
-        if ($count === 0) return ['stats' => $defaultStats, 'histogram' => $defaultHistogram];
+        if ($count === 0) {
+            return ['stats' => $defaultStats, 'histogram' => $defaultHistogram];
+        }
 
         $avg = round(array_sum($prices) / $count, 1);
         $min = min($prices);
@@ -343,21 +361,28 @@ final class BikeService
 
         $rank = 'unknown';
         if ($currentPrice > 0) {
-            if ($currentPrice < $avg * 0.9) $rank = 'S';
-            elseif ($currentPrice < $avg) $rank = 'A';
-            elseif ($currentPrice < $avg * 1.1) $rank = 'B';
-            else $rank = 'C';
+            if ($currentPrice < $avg * 0.9) {
+                $rank = 'S';
+            } elseif ($currentPrice < $avg) {
+                $rank = 'A';
+            } elseif ($currentPrice < $avg * 1.1) {
+                $rank = 'B';
+            } else {
+                $rank = 'C';
+            }
         }
 
         return [
             'stats' => ['avg' => $avg, 'min' => $min, 'max' => $max, 'count' => $count, 'rank' => $rank, 'diff' => $diff],
-            'histogram' => $this->generateHistogram($prices)
+            'histogram' => $this->generateHistogram($prices),
         ];
     }
 
     private function generateHistogram(array $prices): array
     {
-        if (empty($prices)) return ['labels' => [], 'data' => []];
+        if (empty($prices)) {
+            return ['labels' => [], 'data' => []];
+        }
         $min = floor(min($prices) / 10) * 10;
         $max = ceil(max($prices) / 10) * 10;
         $step = 10;
@@ -366,21 +391,25 @@ final class BikeService
             $max = $max + $step;
         }
 
-        $labels = []; $data = [];
+        $labels = [];
+        $data = [];
         for ($i = $min; $i <= $max; $i += $step) {
-            $labels[] = $i . '万円台';
+            $labels[] = $i.'万円台';
             $count = 0;
             foreach ($prices as $p) {
-                if ($p >= $i && $p < $i + $step) $count++;
+                if ($p >= $i && $p < $i + $step) {
+                    $count++;
+                }
             }
             $data[] = $count;
         }
+
         return ['labels' => $labels, 'data' => $data];
     }
 
     public function getLatestReviews(): Collection
     {
-        return $this->reviewRepo->getLatest(6); 
+        return $this->reviewRepo->getLatest(6);
     }
 
     public function getReviewsByModelId(int $modelId, int $limit = 3): Collection
@@ -393,8 +422,8 @@ final class BikeService
         $now = now();
         $hour = $now->hour;
         $isWeekend = $now->isWeekend() || ($now->isFriday() && $hour >= 18);
-        
-        $cacheKey = "top_features_h{$hour}_w" . ($isWeekend ? '1' : '0');
+
+        $cacheKey = "top_features_h{$hour}_w".($isWeekend ? '1' : '0');
 
         return Cache::remember($cacheKey, 3600, function () use ($hour, $isWeekend) {
             $featurePool = [
@@ -475,51 +504,59 @@ final class BikeService
             $currentTimings = ['all'];
             $currentTimings[] = $isWeekend ? 'weekend' : 'weekday';
 
-            if ($hour >= 5 && $hour < 10) $currentTimings[] = 'morning';
-            elseif ($hour >= 10 && $hour < 17) $currentTimings[] = 'daytime';
-            elseif ($hour >= 17 && $hour < 22) $currentTimings[] = 'evening';
-            else {
+            if ($hour >= 5 && $hour < 10) {
+                $currentTimings[] = 'morning';
+            } elseif ($hour >= 10 && $hour < 17) {
+                $currentTimings[] = 'daytime';
+            } elseif ($hour >= 17 && $hour < 22) {
+                $currentTimings[] = 'evening';
+            } else {
                 $currentTimings[] = 'night';
-                if ($hour >= 0 && $hour < 5) $currentTimings[] = 'midnight';
+                if ($hour >= 0 && $hour < 5) {
+                    $currentTimings[] = 'midnight';
+                }
             }
 
             return collect($featurePool)->map(function ($feature) use ($currentTimings) {
                 $score = $feature['base_score'];
                 $matchingTimings = array_intersect($currentTimings, $feature['boost_timing']);
-                if (count($matchingTimings) > 0) $score += (count($matchingTimings) * 15);
+                if (count($matchingTimings) > 0) {
+                    $score += (count($matchingTimings) * 15);
+                }
                 $score += rand(0, 25);
                 $feature['final_score'] = $score;
+
                 return $feature;
             })
-            ->sortByDesc('final_score')
-            ->take(3)
-            ->values()
-            ->map(function ($f) {
-                return [
-                    'title' => $f['title'], 'icon' => $f['icon'],
-                    'color' => $f['color'], 'url' => $f['url'],
-                ];
-            })
-            ->toArray();
+                ->sortByDesc('final_score')
+                ->take(3)
+                ->values()
+                ->map(function ($f) {
+                    return [
+                        'title' => $f['title'], 'icon' => $f['icon'],
+                        'color' => $f['color'], 'url' => $f['url'],
+                    ];
+                })
+                ->toArray();
         });
     }
-    
+
     public function generateDynamicLinks($listing, array $baseSeoLinks, $tags): array
     {
         $dynamicLinks = [];
-        
+
         foreach ($baseSeoLinks as $link) {
             $dynamicLinks[] = [
-                'icon'  => 'chevron-right',
+                'icon' => 'chevron-right',
                 'label' => $link['label'] ?? '関連車両',
-                'url'   => $link['url'] ?? '#'
+                'url' => $link['url'] ?? '#',
             ];
         }
 
         $maker = $listing->maker ?? '';
         $pref = $listing->prefecture ?? '';
         $cat = $listing->category ?? '';
-        
+
         // ★こちらも相対パスに変更
         if ($maker && $pref) {
             $dynamicLinks[] = ['icon' => 'map-pin', 'label' => "{$pref} × {$maker} のバイク", 'url' => route('bikes.search', ['prefecture' => $pref, 'keyword' => $maker], false)];
@@ -527,24 +564,32 @@ final class BikeService
         if ($cat && $pref) {
             $dynamicLinks[] = ['icon' => 'map-pin', 'label' => "{$pref} × {$cat}", 'url' => route('bikes.search', ['prefecture' => $pref, 'keyword' => $cat], false)];
         }
-        
+
         if ($tags && is_iterable($tags)) {
             $count = 0;
             foreach ($tags as $tag) {
-                if ($count >= 6) break;
-                
+                if ($count >= 6) {
+                    break;
+                }
+
                 $tagName = $tag->name ?? '';
                 $tagSlug = $tag->slug ?? '';
-                if (!$tagName) continue;
+                if (! $tagName) {
+                    continue;
+                }
 
                 $dynamicLinks[] = ['icon' => 'hash', 'label' => "{$tagName} のバイク", 'url' => route('bikes.search', ['tag' => $tagSlug], false)];
 
-                if ($cat) $dynamicLinks[] = ['icon' => 'hash', 'label' => "{$tagName} × {$cat}", 'url' => route('bikes.search', ['tag' => $tagSlug, 'keyword' => $cat], false)];
-                if ($maker) $dynamicLinks[] = ['icon' => 'hash', 'label' => "{$tagName} × {$maker}", 'url' => route('bikes.search', ['tag' => $tagSlug, 'keyword' => $maker], false)];
+                if ($cat) {
+                    $dynamicLinks[] = ['icon' => 'hash', 'label' => "{$tagName} × {$cat}", 'url' => route('bikes.search', ['tag' => $tagSlug, 'keyword' => $cat], false)];
+                }
+                if ($maker) {
+                    $dynamicLinks[] = ['icon' => 'hash', 'label' => "{$tagName} × {$maker}", 'url' => route('bikes.search', ['tag' => $tagSlug, 'keyword' => $maker], false)];
+                }
                 $count++;
             }
         }
-        
+
         return collect($dynamicLinks)->unique('url')->values()->toArray();
     }
 }
