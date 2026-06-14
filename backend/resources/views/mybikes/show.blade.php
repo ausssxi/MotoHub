@@ -72,6 +72,79 @@
                 @endif
             </div>
 
+            {{-- retention核ダッシュボード（private・本人のみ） --}}
+            <div class="space-y-6 mb-6">
+                {{-- 維持費 --}}
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-black text-gray-900 flex items-center gap-2"><i data-lucide="wallet" class="w-4 h-4 text-green-500"></i> 維持費</h3>
+                        <a href="{{ route('mybikes.export', $myBike->id) }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors">
+                            <i data-lucide="download" class="w-3.5 h-3.5"></i> CSV出力
+                        </a>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div class="bg-green-50 rounded-xl p-4">
+                            <div class="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">この1年</div>
+                            <div class="text-xl font-black text-gray-900">{{ number_format($dashboard['cost']['last12']) }}<span class="text-xs text-gray-400 ml-0.5">円</span></div>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-4">
+                            <div class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">累計</div>
+                            <div class="text-xl font-black text-gray-900">{{ number_format($dashboard['cost']['total']) }}<span class="text-xs text-gray-400 ml-0.5">円</span></div>
+                            <div class="text-[10px] font-bold text-gray-400 mt-1">整備 {{ number_format($dashboard['cost']['maintenance_total']) }}円 ／ 給油 {{ number_format($dashboard['cost']['fuel_total']) }}円</div>
+                        </div>
+                    </div>
+                    @if(!empty($dashboard['cost']['by_year']))
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs">
+                            <thead><tr class="border-b border-gray-100 text-gray-400 font-bold"><th class="text-left py-1.5">年</th><th class="text-right py-1.5">整備</th><th class="text-right py-1.5">給油</th><th class="text-right py-1.5">合計</th></tr></thead>
+                            <tbody class="divide-y divide-gray-50">
+                                @foreach($dashboard['cost']['by_year'] as $year => $row)
+                                <tr><td class="py-1.5 font-bold text-gray-700">{{ $year }}年</td><td class="py-1.5 text-right text-gray-500">{{ number_format($row['maintenance']) }}</td><td class="py-1.5 text-right text-gray-500">{{ number_format($row['fuel']) }}</td><td class="py-1.5 text-right font-black text-gray-900">{{ number_format($row['total']) }}</td></tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    @endif
+                </div>
+
+                {{-- 燃費グラフ --}}
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-black text-gray-900 flex items-center gap-2"><i data-lucide="trending-up" class="w-4 h-4 text-blue-500"></i> 燃費の推移</h3>
+                        @if($dashboard['fuelChart']['average'] !== null)
+                        <span class="text-xs font-black text-blue-600">平均 {{ $dashboard['fuelChart']['average'] }} km/L</span>
+                        @endif
+                    </div>
+                    @if(count($dashboard['fuelChart']['data']) > 0)
+                    <div class="relative h-56"><canvas id="fuelChart"></canvas></div>
+                    @else
+                    <p class="text-xs text-gray-400 font-bold text-center py-8">満タン給油を2回以上記録すると燃費グラフが表示されます。</p>
+                    @endif
+                </div>
+
+                {{-- 整備リマインダー（距離ベース） --}}
+                @if(!empty($dashboard['reminders']))
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                    <h3 class="font-black text-gray-900 flex items-center gap-2 mb-4"><i data-lucide="bell" class="w-4 h-4 text-orange-500"></i> 整備リマインダー</h3>
+                    <div class="space-y-2">
+                        @foreach($dashboard['reminders'] as $r)
+                        <div class="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-2.5">
+                            <div class="min-w-0">
+                                <span class="text-sm font-bold text-gray-800">{{ $r['title'] }}</span>
+                                @if($r['over'])<span class="ml-2 text-[10px] font-black text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded">目安超過</span>@endif
+                            </div>
+                            <div class="text-right shrink-0 ml-2">
+                                <div class="text-sm font-black text-gray-900">前回から {{ number_format($r['distance']) }} km</div>
+                                @if($r['guideline'])<div class="text-[10px] font-bold text-gray-400">目安 {{ number_format($r['guideline']) }} km</div>@endif
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                    <p class="text-[10px] text-gray-400 mt-3">※「目安」は一般的な交換時期の参考値です。実際の交換時期は車種・使用状況により異なります。</p>
+                </div>
+                @endif
+            </div>
+
             <div x-data="{ tab: '{{ $errors->has('maintained_at') || $errors->has('title') ? 'maintenance' : 'fuel' }}' }" class="space-y-6">
                 
                 {{-- タブ切り替え --}}
@@ -291,6 +364,31 @@
         </div>
     </div>
     
+    @if(count($dashboard['fuelChart']['data']) > 0)
+    {{-- 燃費グラフ（Chart.js CDN・データがある時だけ読込） --}}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script>
+        (function () {
+            var el = document.getElementById('fuelChart');
+            if (!el || typeof Chart === 'undefined') return;
+            new Chart(el, {
+                type: 'line',
+                data: {
+                    labels: @json($dashboard['fuelChart']['labels']),
+                    datasets: [{
+                        label: '燃費 (km/L)',
+                        data: @json($dashboard['fuelChart']['data']),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59,130,246,0.1)',
+                        fill: true, tension: 0.3, pointRadius: 3,
+                    }],
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false } } },
+            });
+        })();
+    </script>
+    @endif
+
     <script>
         if (typeof lucide !== 'undefined') lucide.createIcons();
     </script>

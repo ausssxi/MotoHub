@@ -467,6 +467,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/{myBike}', 'show')->name('show')->where('myBike', '[0-9]+');
         Route::delete('/{myBike}', 'destroy')->name('destroy');
         Route::post('/{myBike}/visibility', 'updateVisibility')->name('visibility')->where('myBike', '[0-9]+');
+        Route::get('/{myBike}/export', 'exportCsv')->name('export')->where('myBike', '[0-9]+');
         Route::post('/{myBike}/fuel', 'storeFuel')->name('fuel.store');
         Route::post('/{myBike}/maintenance', 'storeMaintenance')->name('maintenance.store');
         Route::get('/api/search-models', 'searchModels')->name('api.search_models');

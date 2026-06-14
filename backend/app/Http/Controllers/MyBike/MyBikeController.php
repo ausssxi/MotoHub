@@ -35,8 +35,33 @@ class MyBikeController extends Controller
     public function show($id)
     {
         $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id);
+        $dashboard = $this->service->buildDashboard($myBike);
 
-        return view('mybikes.show', compact('myBike'));
+        return view('mybikes.show', compact('myBike', 'dashboard'));
+    }
+
+    /**
+     * 整備＋給油ログのCSV出力（本人のみ＝所有者チェック・private）。記録の持ち出し。
+     */
+    public function exportCsv($id)
+    {
+        $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id); // 非所有者は 404
+
+        $filename = 'garage_'.$myBike->id.'_logs.csv';
+
+        return response()->streamDownload(function () use ($myBike) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF"); // UTF-8 BOM（Excel文字化け防止）
+            fputcsv($out, ['種別', '日付', '走行距離(km)', '内容', '費用(円)', '給油量(L)', '燃費(km/L)']);
+
+            foreach ($myBike->maintenanceLogs as $m) {
+                fputcsv($out, ['整備', optional($m->maintained_at)->format('Y-m-d'), $m->odometer, trim($m->title.' '.($m->note ?? '')), $m->cost, '', '']);
+            }
+            foreach ($myBike->fuelLogs as $f) {
+                fputcsv($out, ['給油', optional($f->filled_at)->format('Y-m-d'), $f->odometer, $f->memo, $f->cost, $f->quantity, $f->efficiency]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     /**
