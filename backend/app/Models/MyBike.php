@@ -79,6 +79,50 @@ class MyBike extends Model
         return $latestLog ? (float) $latestLog->efficiency : null;
     }
 
+    /**
+     * 走行距離の前回比 妥当性チェック（OCR/voice/手入力 共通の安全ネット）。
+     * 前回 L = current_odometer（running max）。今回値が L未満／L×倍率超 のとき確認文を返す。
+     * ★ブロックはしない・例外も投げない。問題なければ null。
+     *
+     * @return string|null 警告文（前回Lと今回newを必ず含む）or null
+     */
+    public function odometerPlausibilityWarning(int|float|null $newOdometer): ?string
+    {
+        if ($newOdometer === null) {
+            return null;
+        }
+
+        $last = (float) $this->current_odometer;
+        if ($last <= 0) {
+            return null; // 初回・履歴なし
+        }
+
+        $new = (float) $newOdometer;
+        $mult = (float) config('garage.odometer_jump_multiplier', 5);
+        $lastFmt = $this->formatKm($last);
+        $newFmt = $this->formatKm($new);
+
+        if ($new < $last) {
+            return "前回 {$lastFmt} km → 今回 {$newFmt} km。走行距離が前回より小さくなっています。確認してください。";
+        }
+
+        if ($new > $last * $mult) {
+            $msg = "前回 {$lastFmt} km → 今回 {$newFmt} km。前回より大幅に増えています。確認してください。";
+            if ($new >= $last * 9.5 && $new <= $last * 10.5) {
+                $msg .= '（末尾に端数桁(0.1km)が混ざっていませんか？）';
+            }
+
+            return $msg;
+        }
+
+        return null;
+    }
+
+    private function formatKm(float $v): string
+    {
+        return $v == floor($v) ? (string) (int) $v : (string) $v;
+    }
+
     public function bikeModel(): BelongsTo
     {
         return $this->belongsTo(BikeModel::class);

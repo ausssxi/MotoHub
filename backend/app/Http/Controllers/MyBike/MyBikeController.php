@@ -148,7 +148,7 @@ class MyBikeController extends Controller
         }
 
         // 所有者チェック（非所有者は 404）。OCR自体はbike非依存だが auth+owner ゲートに使う。
-        $this->service->getBikeDetail(Auth::user(), (int) $id);
+        $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id);
 
         $validated = $request->validate([
             'image' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:'.(int) config('garage.max_upload_kb')],
@@ -163,7 +163,7 @@ class MyBikeController extends Controller
             return response()->json(['error' => '画像の解析に失敗しました。手入力で記録できます。'], 502);
         }
 
-        return response()->json($result);
+        return response()->json($this->withOdometerGuard($myBike, $result));
     }
 
     /**
@@ -178,7 +178,7 @@ class MyBikeController extends Controller
         }
 
         // 所有者チェック（非所有者は 404）
-        $this->service->getBikeDetail(Auth::user(), (int) $id);
+        $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id);
 
         $validated = $request->validate([
             'transcript' => ['required', 'string', 'max:500'],
@@ -192,7 +192,23 @@ class MyBikeController extends Controller
             return response()->json(['error' => '音声の解析に失敗しました。手入力で記録できます。'], 502);
         }
 
-        return response()->json($result);
+        return response()->json($this->withOdometerGuard($myBike, $result));
+    }
+
+    /**
+     * 抽出結果に走行距離の前回比ガード情報を付与（既存キーは不変）。
+     * last_odometer(int|null) と odometer_warning(string|null) を追加する。
+     *
+     * @param  array{values: array<string, mixed>, confidence: string}  $result
+     * @return array<string, mixed>
+     */
+    private function withOdometerGuard(MyBike $myBike, array $result): array
+    {
+        $newOdometer = $result['values']['odometer'] ?? null;
+        $result['last_odometer'] = $myBike->current_odometer > 0 ? (int) $myBike->current_odometer : null;
+        $result['odometer_warning'] = $myBike->odometerPlausibilityWarning($newOdometer);
+
+        return $result;
     }
 
     /**

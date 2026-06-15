@@ -260,17 +260,31 @@
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
                         <h3 class="font-black text-gray-900 mb-4 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-blue-500"></i> 給油を記録</h3>
                         
-                        <form action="{{ route('mybikes.fuel.store', $myBike->id) }}" method="POST" class="space-y-4">
+                        <form action="{{ route('mybikes.fuel.store', $myBike->id) }}" method="POST" class="space-y-4"
+                              data-last-odometer="{{ $myBike->current_odometer }}"
+                              data-odo-multiplier="{{ config('garage.odometer_jump_multiplier', 5) }}"
+                              onsubmit="return (function(f){
+                                  var L = parseFloat(f.dataset.lastOdometer || '0');
+                                  var m = parseFloat(f.dataset.odoMultiplier || '5');
+                                  var el = f.querySelector('[name=odometer]');
+                                  var n = parseFloat(el && el.value || '');
+                                  if (!isFinite(n) || !(L > 0)) return true;
+                                  if (n < L || n > L * m) {
+                                      var note = (n >= L * 9.5 && n <= L * 10.5) ? '\n（末尾に端数桁(0.1km)が混ざっていませんか？）' : '';
+                                      return confirm('前回 ' + L + ' km → 今回 ' + n + ' km。' + (n < L ? '前回より小さくなっています。' : '前回より大幅に増えています。') + note + '\nこのまま記録しますか？');
+                                  }
+                                  return true;
+                              })(this)">
                             @csrf
 
                             {{-- OCR入力補完: レシート/メーターを撮影→抽出→フォームに充填（★自動保存しない・確認して保存） --}}
                             @if(config('garage.ocr_enabled'))
                             <div x-data="{
-                                    loading: false, msg: '', err: '',
+                                    loading: false, msg: '', err: '', warn: '',
                                     async run(type, input) {
                                         const file = input.files[0];
                                         if (!file) return;
-                                        this.msg = ''; this.err = ''; this.loading = true;
+                                        this.msg = ''; this.err = ''; this.warn = ''; this.loading = true;
                                         try {
                                             const form = input.closest('form');
                                             const fd = new FormData();
@@ -292,6 +306,7 @@
                                             }
                                             if (filled.length) { this.msg = '読み取り（確度: ' + (data.confidence || '-') + '）→ ' + filled.join('・') + 'を入力しました。内容を確認して保存してください。'; }
                                             else { this.err = '読み取れませんでした。手入力で記録できます。'; }
+                                            this.warn = (data && data.odometer_warning) || '';
                                         } catch (e) { this.err = '解析に失敗しました。手入力で記録できます。'; }
                                         finally { this.loading = false; input.value = ''; }
                                     }
@@ -310,6 +325,7 @@
                                 <input type="file" x-ref="receipt" accept="image/*" capture="environment" class="hidden" @change="run('receipt', $event.target)">
                                 <input type="file" x-ref="odometer" accept="image/*" capture="environment" class="hidden" @change="run('odometer', $event.target)">
                                 <p x-show="msg" x-cloak class="text-[11px] font-bold text-blue-700 mt-2" x-text="msg"></p>
+                                <p x-show="warn" x-cloak class="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mt-2 flex items-start gap-1.5"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0 mt-0.5"></i><span x-text="warn"></span></p>
                                 <p x-show="err" x-cloak class="text-[11px] font-bold text-red-600 mt-2" x-text="err"></p>
                                 <p class="text-[10px] text-gray-400 mt-2">撮影画像はAI解析のため送信されます（位置情報は除去）。読み取り結果は自動保存されません。</p>
                             </div>
@@ -319,7 +335,7 @@
                             @if(config('garage.voice_enabled'))
                             <div x-data="{
                                     supported: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
-                                    rec: null, recording: false, loading: false, msg: '', err: '', interim: '', finalText: '',
+                                    rec: null, recording: false, loading: false, msg: '', err: '', warn: '', interim: '', finalText: '',
                                     init() {
                                         if (!this.supported) return;
                                         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -347,7 +363,7 @@
                                         try { this.rec.start(); this.recording = true; } catch (e) { /* already started */ }
                                     },
                                     async submit(transcript) {
-                                        this.loading = true;
+                                        this.loading = true; this.warn = '';
                                         try {
                                             const form = $el.closest('form');
                                             const fd = new FormData();
@@ -368,6 +384,7 @@
                                             }
                                             if (filled.length) { this.msg = '「' + transcript + '」→ ' + filled.join('・') + 'を入力しました。内容を確認して保存してください。'; }
                                             else { this.err = '「' + transcript + '」から数値を読み取れませんでした。手入力で記録できます。'; }
+                                            this.warn = (data && data.odometer_warning) || '';
                                         } catch (e) { this.err = '解析に失敗しました。手入力で記録できます。'; }
                                         finally { this.loading = false; }
                                     }
@@ -387,6 +404,7 @@
                                 </div>
                                 <p x-show="recording && interim" x-cloak class="text-[11px] text-gray-500 mt-2" x-text="interim"></p>
                                 <p x-show="msg" x-cloak class="text-[11px] font-bold text-indigo-700 mt-2" x-text="msg"></p>
+                                <p x-show="warn" x-cloak class="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mt-2 flex items-start gap-1.5"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0 mt-0.5"></i><span x-text="warn"></span></p>
                                 <p x-show="err" x-cloak class="text-[11px] font-bold text-red-600 mt-2" x-text="err"></p>
                                 <p class="text-[10px] text-gray-400 mt-2">「走行距離・給油量・金額」を読み上げてください（例: 6万キロ 10リットル 1500円）。音声はお使いのブラウザの音声認識（例: Google）で文字化され、その文字をAI解析に送信します（音声自体は当サイトに送信されません）。結果は自動保存されません。</p>
                             </div>
