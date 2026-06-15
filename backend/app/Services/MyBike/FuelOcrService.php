@@ -35,12 +35,39 @@ final class FuelOcrService
      */
     public function extract(UploadedFile $file, string $type): array
     {
+        $base64 = $this->preprocess($file);
+
+        return $this->dispatch($this->systemPrompt($type), [
+            ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => 'image/jpeg', 'data' => $base64]],
+            ['type' => 'text', 'text' => $this->userInstruction($type)],
+        ]);
+    }
+
+    /**
+     * 音声の書き起こし（自由文）から給油項目を抽出する（engine A: Web Speech→Haiku のパース層）。
+     * 日付は音声に載らない前提（today デフォルト）なので filled_at は埋めない。
+     *
+     * @return array{values: array<string, mixed>, confidence: string}
+     */
+    public function parseText(string $transcript): array
+    {
+        return $this->dispatch($this->voiceSystemPrompt(), [
+            ['type' => 'text', 'text' => "次の音声書き起こしから給油項目を抽出してください:\n".$transcript],
+        ]);
+    }
+
+    /**
+     * Anthropic /v1/messages を叩き、content.0.text を normalize して返す（vision/text 共通）。
+     *
+     * @param  array<int, array<string, mixed>>  $content
+     * @return array{values: array<string, mixed>, confidence: string}
+     */
+    private function dispatch(string $system, array $content): array
+    {
         $apiKey = config('services.anthropic.api_key');
         if (! $apiKey) {
             throw new RuntimeException('Anthropic API key is not configured.');
         }
-
-        $base64 = $this->preprocess($file);
 
         $response = Http::withHeaders([
             'x-api-key' => $apiKey,
@@ -49,14 +76,8 @@ final class FuelOcrService
         ])->timeout(40)->post(self::API_ENDPOINT, [
             'model' => (string) config('garage.ocr_model'),
             'max_tokens' => 300,
-            'system' => $this->systemPrompt($type),
-            'messages' => [[
-                'role' => 'user',
-                'content' => [
-                    ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => 'image/jpeg', 'data' => $base64]],
-                    ['type' => 'text', 'text' => $this->userInstruction($type)],
-                ],
-            ]],
+            'system' => $system,
+            'messages' => [['role' => 'user', 'content' => $content]],
         ]);
 
         if (! $response->successful()) {
@@ -118,6 +139,30 @@ PROMPT;
         return $type === self::TYPE_RECEIPT
             ? 'このレシート画像から給油量・金額・日付を抽出してください。'
             : 'このメーター画像から総走行距離を抽出してください。';
+    }
+
+    private function voiceSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+あなたは日本のバイク給油記録の音声入力補助AIです。ユーザーが給油時に読み上げた自由文の書き起こしから、
+走行距離・給油量・金額を抽出し、JSONのみを返します。説明文やマークダウンは付けないこと。
+
+読み取りルール:
+- 自由な言い回しに対応すること（例:「6万キロ、1500円、10リットル」「ろくまんきろ せんごひゃくえん じゅうりっとる」「満タン 12.3リットル 2000円」）。
+- 漢数字・ひらがな読み・全角も算用数字へ変換すること（例: 六万→60000、千五百→1500、じゅう→10）。
+- 単位語（キロ/km、リットル/L、円/¥）で項目を判別すること。走行距離=km、給油量=L、金額=円。
+- 明示されていない・確信が持てない項目は必ず null にすること（推測で埋めない）。
+- 日付は扱わない（date は常に null）。
+
+出力スキーマ（このキーだけ）:
+{
+  "odometer": 走行距離(km, 数値) or null,
+  "quantity": 給油量(L, 数値) or null,
+  "cost": 金額(円, 整数) or null,
+  "date": null,
+  "confidence": "高" or "中" or "低"
+}
+PROMPT;
     }
 
     /**

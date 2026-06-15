@@ -78,6 +78,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('ocr-extract', fn (Request $request) => Limit::perDay((int) config('garage.ocr_max_per_day', 20))
             ->by(optional($request->user())->id ?: $request->ip()));
 
+        // 給油 音声入力補完（auth+owner）。パース(Haiku)叩きの1ユーザー1日上限（config化）。
+        RateLimiter::for('voice-extract', fn (Request $request) => Limit::perDay((int) config('garage.voice_max_per_day', 40))
+            ->by(optional($request->user())->id ?: $request->ip()));
+
         Shop::observe(ShopObserver::class);
         Listing::observe(ListingObserver::class);
         Review::observe(ReviewObserver::class);

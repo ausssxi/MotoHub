@@ -41,4 +41,21 @@ return [
 
     // OCR送信前のリサイズ長辺（送信容量削減・精度確保のバランス）
     'ocr_max_edge' => 1600,
+
+    /*
+    |--------------------------------------------------------------------------
+    | 給油フォームの音声入力補完（喋る→文字化→パース→確認→保存）
+    |--------------------------------------------------------------------------
+    | engine A = ブラウザの Web Speech API で文字化 → Claude（ocr_model）でパース。
+    | ★音声そのものは当社サーバへ送られない（ブラウザの音声認識＝例:Google が文字化）。
+    | ★抽出値は自動保存しない（フォーム充填→ユーザー確認→保存）。
+    | 和文数字が弱ければ voice_engine を 'cloud_stt'（B案）へ差し替えられるよう config 化。
+    */
+    'voice_enabled' => (bool) env('GARAGE_VOICE_ENABLED', true),
+
+    // STTエンジン: 'web_speech'（A・既定）/ 将来 'cloud_stt'（B）。パースは ocr_model を流用。
+    'voice_engine' => env('GARAGE_VOICE_ENGINE', 'web_speech'),
+
+    // パース(Haiku)叩きの 1ユーザー1日上限（音声は短時間に複数回叩きうるので OCR より緩め）
+    'voice_max_per_day' => (int) env('GARAGE_VOICE_MAX_PER_DAY', 40),
 ];

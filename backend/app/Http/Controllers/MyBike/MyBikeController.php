@@ -167,6 +167,35 @@ class MyBikeController extends Controller
     }
 
     /**
+     * 給油フォームの音声入力補完（owner-only・throttle）。engine A: Web Speech→Haiku。
+     * フロントの音声認識で得たテキストを Haiku でパースし {走行距離,給油量,金額} を JSON で返す。
+     * ★抽出値は保存しない。フロントで給油フォームに充填し、ユーザーが確認・修正してから保存する。
+     */
+    public function parseFuelVoice(Request $request, $id)
+    {
+        if (! config('garage.voice_enabled')) {
+            return response()->json(['error' => 'この機能は現在利用できません。'], 404);
+        }
+
+        // 所有者チェック（非所有者は 404）
+        $this->service->getBikeDetail(Auth::user(), (int) $id);
+
+        $validated = $request->validate([
+            'transcript' => ['required', 'string', 'max:500'],
+        ]);
+
+        try {
+            $result = $this->ocrService->parseText($validated['transcript']);
+        } catch (\Throwable $e) {
+            Log::error('FuelVoice パース失敗', ['error' => $e->getMessage()]);
+
+            return response()->json(['error' => '音声の解析に失敗しました。手入力で記録できます。'], 502);
+        }
+
+        return response()->json($result);
+    }
+
+    /**
      * 給油記録の保存
      */
     public function storeFuel(StoreFuelLogRequest $request, MyBike $myBike)

@@ -315,6 +315,83 @@
                             </div>
                             @endif
 
+                            {{-- 音声入力補完: 喋る→文字化(ブラウザ)→Haikuパース→充填（★自動保存しない・確認して保存） --}}
+                            @if(config('garage.voice_enabled'))
+                            <div x-data="{
+                                    supported: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+                                    rec: null, recording: false, loading: false, msg: '', err: '', interim: '', finalText: '',
+                                    init() {
+                                        if (!this.supported) return;
+                                        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+                                        this.rec = new SR();
+                                        this.rec.lang = 'ja-JP';
+                                        this.rec.interimResults = true;
+                                        this.rec.continuous = false;
+                                        this.rec.onresult = (e) => {
+                                            let t = '';
+                                            for (let i = 0; i < e.results.length; i++) { t += e.results[i][0].transcript; }
+                                            this.interim = t;
+                                            if (e.results[e.results.length - 1].isFinal) { this.finalText = t; }
+                                        };
+                                        this.rec.onerror = () => { this.err = '音声を認識できませんでした。手入力で記録できます。'; this.recording = false; };
+                                        this.rec.onend = () => {
+                                            this.recording = false;
+                                            const t = (this.finalText || this.interim || '').trim();
+                                            if (t) this.submit(t);
+                                        };
+                                    },
+                                    toggle() {
+                                        if (!this.rec) return;
+                                        if (this.recording) { this.rec.stop(); return; }
+                                        this.msg = ''; this.err = ''; this.interim = ''; this.finalText = '';
+                                        try { this.rec.start(); this.recording = true; } catch (e) { /* already started */ }
+                                    },
+                                    async submit(transcript) {
+                                        this.loading = true;
+                                        try {
+                                            const form = $el.closest('form');
+                                            const fd = new FormData();
+                                            fd.append('transcript', transcript);
+                                            fd.append('_token', form.querySelector('input[name=_token]').value);
+                                            const res = await fetch('{{ route('mybikes.voice.fuel', $myBike->id) }}', { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } });
+                                            if (res.status === 429) { this.err = '本日の音声入力の上限に達しました。手入力で記録できます。'; return; }
+                                            const data = await res.json();
+                                            if (!res.ok) { this.err = (data && data.error) || '解析に失敗しました。手入力で記録できます。'; return; }
+                                            const v = (data && data.values) || {};
+                                            const labels = { odometer: '走行距離', quantity: '給油量', cost: '金額' };
+                                            const filled = [];
+                                            for (const k in labels) {
+                                                if (v[k] !== undefined && v[k] !== null && v[k] !== '') {
+                                                    const el = form.querySelector('[name=' + k + ']');
+                                                    if (el) { el.value = v[k]; el.classList.add('ring-2', 'ring-blue-400'); filled.push(labels[k]); }
+                                                }
+                                            }
+                                            if (filled.length) { this.msg = '「' + transcript + '」→ ' + filled.join('・') + 'を入力しました。内容を確認して保存してください。'; }
+                                            else { this.err = '「' + transcript + '」から数値を読み取れませんでした。手入力で記録できます。'; }
+                                        } catch (e) { this.err = '解析に失敗しました。手入力で記録できます。'; }
+                                        finally { this.loading = false; }
+                                    }
+                                }" x-show="supported" x-cloak class="mb-5 p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl">
+                                <p class="text-xs font-black text-gray-700 mb-2 flex items-center gap-1.5"><i data-lucide="mic" class="w-3.5 h-3.5 text-indigo-500"></i> 音声で入力</p>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <button type="button" :disabled="loading" @click="toggle()"
+                                        :class="recording ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'"
+                                        class="inline-flex items-center gap-1.5 text-xs font-bold text-white disabled:opacity-50 px-3 py-2 rounded-lg transition-colors">
+                                        <i data-lucide="mic" class="w-3.5 h-3.5"></i>
+                                        <span x-text="recording ? '停止' : '音声で記録'"></span>
+                                    </button>
+                                    <span x-show="recording" x-cloak class="inline-flex items-center gap-1.5 text-xs font-bold text-red-600">
+                                        <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> 聞き取り中…
+                                    </span>
+                                    <span x-show="loading" x-cloak class="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600"><i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> 解析中…</span>
+                                </div>
+                                <p x-show="recording && interim" x-cloak class="text-[11px] text-gray-500 mt-2" x-text="interim"></p>
+                                <p x-show="msg" x-cloak class="text-[11px] font-bold text-indigo-700 mt-2" x-text="msg"></p>
+                                <p x-show="err" x-cloak class="text-[11px] font-bold text-red-600 mt-2" x-text="err"></p>
+                                <p class="text-[10px] text-gray-400 mt-2">「走行距離・給油量・金額」を読み上げてください（例: 6万キロ 10リットル 1500円）。音声はお使いのブラウザの音声認識（例: Google）で文字化され、その文字をAI解析に送信します（音声自体は当サイトに送信されません）。結果は自動保存されません。</p>
+                            </div>
+                            @endif
+
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">給油日</label>
