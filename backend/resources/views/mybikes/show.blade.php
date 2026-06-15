@@ -262,6 +262,59 @@
                         
                         <form action="{{ route('mybikes.fuel.store', $myBike->id) }}" method="POST" class="space-y-4">
                             @csrf
+
+                            {{-- OCR入力補完: レシート/メーターを撮影→抽出→フォームに充填（★自動保存しない・確認して保存） --}}
+                            @if(config('garage.ocr_enabled'))
+                            <div x-data="{
+                                    loading: false, msg: '', err: '',
+                                    async run(type, input) {
+                                        const file = input.files[0];
+                                        if (!file) return;
+                                        this.msg = ''; this.err = ''; this.loading = true;
+                                        try {
+                                            const form = input.closest('form');
+                                            const fd = new FormData();
+                                            fd.append('image', file);
+                                            fd.append('type', type);
+                                            fd.append('_token', form.querySelector('input[name=_token]').value);
+                                            const res = await fetch('{{ route('mybikes.ocr.fuel', $myBike->id) }}', { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } });
+                                            if (res.status === 429) { this.err = '本日の解析回数が上限に達しました。手入力で記録できます。'; return; }
+                                            const data = await res.json();
+                                            if (!res.ok) { this.err = (data && data.error) || '解析に失敗しました。手入力で記録できます。'; return; }
+                                            const v = (data && data.values) || {};
+                                            const labels = { filled_at: '給油日', odometer: '走行距離', quantity: '給油量', cost: '金額' };
+                                            const filled = [];
+                                            for (const k in labels) {
+                                                if (v[k] !== undefined && v[k] !== null && v[k] !== '') {
+                                                    const el = form.querySelector('[name=' + k + ']');
+                                                    if (el) { el.value = v[k]; el.classList.add('ring-2', 'ring-blue-400'); filled.push(labels[k]); }
+                                                }
+                                            }
+                                            if (filled.length) { this.msg = '読み取り（確度: ' + (data.confidence || '-') + '）→ ' + filled.join('・') + 'を入力しました。内容を確認して保存してください。'; }
+                                            else { this.err = '読み取れませんでした。手入力で記録できます。'; }
+                                        } catch (e) { this.err = '解析に失敗しました。手入力で記録できます。'; }
+                                        finally { this.loading = false; input.value = ''; }
+                                    }
+                                }" class="mb-5 p-3 bg-blue-50/60 border border-blue-100 rounded-xl">
+                                <p class="text-xs font-black text-gray-700 mb-2 flex items-center gap-1.5"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-blue-500"></i> 撮影して自動入力</p>
+                                <div class="flex flex-wrap gap-2">
+                                    <button type="button" :disabled="loading" @click="$refs.receipt.click()" class="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-3 py-2 rounded-lg transition-colors">
+                                        <i data-lucide="receipt" class="w-3.5 h-3.5"></i> レシートを撮る
+                                    </button>
+                                    <button type="button" :disabled="loading" @click="$refs.odometer.click()" class="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-gray-800 hover:bg-gray-900 disabled:opacity-50 px-3 py-2 rounded-lg transition-colors">
+                                        <i data-lucide="gauge" class="w-3.5 h-3.5"></i> メーターを撮る
+                                    </button>
+                                    <span x-show="loading" x-cloak class="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600"><i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> 解析中…</span>
+                                </div>
+                                {{-- name無し＝給油フォーム送信には含まれない（JSからのみ読む） --}}
+                                <input type="file" x-ref="receipt" accept="image/*" capture="environment" class="hidden" @change="run('receipt', $event.target)">
+                                <input type="file" x-ref="odometer" accept="image/*" capture="environment" class="hidden" @change="run('odometer', $event.target)">
+                                <p x-show="msg" x-cloak class="text-[11px] font-bold text-blue-700 mt-2" x-text="msg"></p>
+                                <p x-show="err" x-cloak class="text-[11px] font-bold text-red-600 mt-2" x-text="err"></p>
+                                <p class="text-[10px] text-gray-400 mt-2">撮影画像はAI解析のため送信されます（位置情報は除去）。読み取り結果は自動保存されません。</p>
+                            </div>
+                            @endif
+
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">給油日</label>

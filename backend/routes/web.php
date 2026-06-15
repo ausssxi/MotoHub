@@ -482,6 +482,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/{myBike}/export', 'exportCsv')->name('export')->where('myBike', '[0-9]+');
         Route::post('/{myBike}/fuel', 'storeFuel')->name('fuel.store');
         Route::post('/{myBike}/maintenance', 'storeMaintenance')->name('maintenance.store');
+        // 給油フォームのOCR入力補完（owner-only・コスト無防備を防ぐため throttle 必須）
+        Route::post('/{myBike}/ocr/fuel', 'extractFuelOcr')->name('ocr.fuel')->where('myBike', '[0-9]+')->middleware('throttle:ocr-extract');
         // ギャラリー画像の操作（owner-only）。アップロード/キャプション/削除は本人のみ。
         Route::post('/{myBike}/images', 'storeImage')->name('images.store')->where('myBike', '[0-9]+');
         Route::patch('/{myBike}/images/{image}', 'updateImageCaption')->name('images.caption')->where(['myBike' => '[0-9]+', 'image' => '[0-9]+']);

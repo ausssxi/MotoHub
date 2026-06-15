@@ -10,10 +10,12 @@ use App\Http\Requests\MyBike\StoreMaintenanceLogRequest;
 use App\Http\Requests\MyBike\StoreMyBikeImageRequest;
 use App\Http\Requests\MyBike\StoreMyBikeRequest;
 use App\Models\MyBike;
+use App\Services\MyBike\FuelOcrService;
 use App\Services\MyBike\MyBikeImageService;
 use App\Services\MyBike\MyBikeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class MyBikeController extends Controller
@@ -21,6 +23,7 @@ class MyBikeController extends Controller
     public function __construct(
         private readonly MyBikeService $service,
         private readonly MyBikeImageService $imageService,
+        private readonly FuelOcrService $ocrService,
     ) {}
 
     /**
@@ -131,6 +134,36 @@ class MyBikeController extends Controller
         $myBike->save();
 
         return back()->with('success', 'このガレージを非公開（自分のみ）に戻しました。');
+    }
+
+    /**
+     * 給油フォームの OCR 入力補完（owner-only・throttle）。
+     * レシート/メーター画像から {走行距離,給油量,金額,日付} を抽出して JSON で返す。
+     * ★抽出値は保存しない。フロントで給油フォームに充填し、ユーザーが確認・修正してから保存する。
+     */
+    public function extractFuelOcr(Request $request, $id)
+    {
+        if (! config('garage.ocr_enabled')) {
+            return response()->json(['error' => 'この機能は現在利用できません。'], 404);
+        }
+
+        // 所有者チェック（非所有者は 404）。OCR自体はbike非依存だが auth+owner ゲートに使う。
+        $this->service->getBikeDetail(Auth::user(), (int) $id);
+
+        $validated = $request->validate([
+            'image' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:'.(int) config('garage.max_upload_kb')],
+            'type' => ['required', 'in:'.FuelOcrService::TYPE_RECEIPT.','.FuelOcrService::TYPE_ODOMETER],
+        ]);
+
+        try {
+            $result = $this->ocrService->extract($request->file('image'), $validated['type']);
+        } catch (\Throwable $e) {
+            Log::error('FuelOcr 抽出失敗', ['error' => $e->getMessage()]);
+
+            return response()->json(['error' => '画像の解析に失敗しました。手入力で記録できます。'], 502);
+        }
+
+        return response()->json($result);
     }
 
     /**
