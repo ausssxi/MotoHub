@@ -11,6 +11,7 @@ use App\Repositories\Bike\BikeModelRepository;
 use App\Repositories\MyBike\FuelLogRepository;
 use App\Repositories\MyBike\MaintenanceLogRepository;
 use App\Repositories\MyBike\MyBikeRepository;
+use Illuminate\Support\Facades\DB;
 
 final class MyBikeService
 {
@@ -179,44 +180,70 @@ final class MyBikeService
      */
     public function recordFuel(MyBike $myBike, array $data): void
     {
-        // 今回のオドメーターを数値化
         $currentOdometer = (float) $data['odometer'];
+        $isFull = ! empty($data['is_full_tank']) && $data['is_full_tank'];
 
-        // 燃費計算ロジック
-        if (! empty($data['is_full_tank']) && $data['is_full_tank']) {
-            // 1. 直近の「満タン給油」を探す
-            $prevFullLog = $this->fuelLogRepo->findLatestFullLogBefore($myBike, $currentOdometer);
+        // 燃費は共通ヘルパで算出（挿入時＝再計算時で同一式を保証）。
+        $data['efficiency'] = $this->computeEfficiency($myBike, $currentOdometer, (float) $data['quantity'], $isFull);
 
-            if ($prevFullLog) {
-                // DBの値を数値化 (ここがエラーの原因でした)
-                $prevOdometer = (float) $prevFullLog->odometer;
+        $this->fuelLogRepo->create($myBike, $data);
+        $this->myBikeRepo->updateOdometerIfGreater($myBike, $currentOdometer);
+    }
 
-                // 2. その間の「ちょい足し給油」の量を合計
-                $additions = $this->fuelLogRepo->sumQuantityBetween(
-                    $myBike,
-                    $prevOdometer,
-                    $currentOdometer
-                );
-
-                // 3. 総消費量
-                $currentQuantity = (float) $data['quantity'];
-                $totalQuantity = $currentQuantity + $additions;
-
-                // 4. 走行距離の差分
-                $distance = $currentOdometer - $prevOdometer;
-
-                // 5. 燃費計算
-                if ($distance > 0 && $totalQuantity > 0) {
-                    $data['efficiency'] = round($distance / $totalQuantity, 2);
-                }
-            }
+    /**
+     * 燃費（満タン基準）を算出する単一の真実の式。recordFuel と recomputeFuelEfficiency が共用。
+     * 満タン行のみ、直近の満タン行を基準に「間のちょい足し量」を合算して距離/総量で算出。
+     * 該当しなければ null（partial行・最初の満タン行・距離0等）。
+     */
+    private function computeEfficiency(MyBike $myBike, float $odometer, float $quantity, bool $isFull): ?float
+    {
+        if (! $isFull) {
+            return null;
         }
 
-        // 保存（計算された efficiency もここで $data に入っているため保存されます）
-        $this->fuelLogRepo->create($myBike, $data);
+        $prevFull = $this->fuelLogRepo->findLatestFullLogBefore($myBike, $odometer);
+        if (! $prevFull) {
+            return null;
+        }
 
-        // オドメーター更新
-        $this->myBikeRepo->updateOdometerIfGreater($myBike, $currentOdometer);
+        $prevOdometer = (float) $prevFull->odometer;
+        $additions = $this->fuelLogRepo->sumQuantityBetween($myBike, $prevOdometer, $odometer);
+        $totalQuantity = $quantity + $additions;
+        $distance = $odometer - $prevOdometer;
+
+        return ($distance > 0 && $totalQuantity > 0) ? round($distance / $totalQuantity, 2) : null;
+    }
+
+    /**
+     * 給油の派生状態を再計算（削除/編集後の整合）。
+     * 全給油の efficiency を「既存と同一の式」で計算し直す（中間削除の再リンクを反映）。
+     * 各行は odometer 照会で独立計算＝順序非依存。個人ログ規模なので全件再計算でよい。
+     */
+    public function recomputeFuelEfficiency(MyBike $myBike): void
+    {
+        foreach ($myBike->fuelLogs()->get() as $log) {
+            $new = $this->computeEfficiency($myBike, (float) $log->odometer, (float) $log->quantity, (bool) $log->is_full_tank);
+            $old = $log->efficiency === null ? null : (float) $log->efficiency;
+            if ($old !== $new) {
+                $log->efficiency = $new;
+                $log->save();
+            }
+        }
+    }
+
+    /**
+     * current_odometer(running-max) を再計算。
+     * max( 残り fuel_logs.odometer ∪ maintenance_logs.odometer〔全type〕 ∪ 登録初期odometer )。
+     * 登録初期を下回らない（max に含めることで担保）。
+     */
+    public function recomputeCurrentOdometer(MyBike $myBike): void
+    {
+        $maxFuel = (float) ($myBike->fuelLogs()->max('odometer') ?? 0);
+        $maxRecord = (float) (MaintenanceLog::where('my_bike_id', $myBike->id)->max('odometer') ?? 0);
+        $initial = (float) ($myBike->initial_odometer ?? 0);
+
+        $myBike->current_odometer = max($maxFuel, $maxRecord, $initial);
+        $myBike->save(); // MyBikeObserver が model_detail キャッシュを purge（既存パターン）
     }
 
     /**
@@ -260,11 +287,28 @@ final class MyBikeService
     }
 
     /**
+     * 給油記録を削除し、派生状態（efficiency／current_odometer）を再計算する。
+     * トランザクション内で 行削除 → efficiency再計算 → current_odometer再計算。
+     */
+    public function deleteFuelLog(MyBike $myBike, int $fuelLogId): void
+    {
+        DB::transaction(function () use ($myBike, $fuelLogId) {
+            $myBike->fuelLogs()->findOrFail($fuelLogId)->delete();
+            $this->recomputeFuelEfficiency($myBike);
+            $this->recomputeCurrentOdometer($myBike);
+        });
+    }
+
+    /**
      * 記録（整備/カスタム）を削除（owner所有の bike に属する行のみ・type非依存）。
+     * 最大odometerの記録削除で running-max が stale にならないよう current_odometer も再計算。
      */
     public function deleteRecord(MyBike $myBike, int $recordId): void
     {
-        MaintenanceLog::where('my_bike_id', $myBike->id)->findOrFail($recordId)->delete();
+        DB::transaction(function () use ($myBike, $recordId) {
+            MaintenanceLog::where('my_bike_id', $myBike->id)->findOrFail($recordId)->delete();
+            $this->recomputeCurrentOdometer($myBike);
+        });
     }
 
     private function odometerValue(array $data): ?float

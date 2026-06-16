@@ -481,6 +481,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/{myBike}/visibility', 'updateVisibility')->name('visibility')->where('myBike', '[0-9]+');
         Route::get('/{myBike}/export', 'exportCsv')->name('export')->where('myBike', '[0-9]+');
         Route::post('/{myBike}/fuel', 'storeFuel')->name('fuel.store');
+        // 給油記録の削除（owner-only・削除後に燃費/総走行距離を再計算）
+        Route::delete('/{myBike}/fuel/{fuelLog}', 'destroyFuel')->name('fuel.destroy')->where(['myBike' => '[0-9]+', 'fuelLog' => '[0-9]+']);
         Route::post('/{myBike}/maintenance', 'storeMaintenance')->name('maintenance.store')->where('myBike', '[0-9]+');
         // カスタム記録の保存／記録（整備・カスタム）の削除（owner-only）
         Route::post('/{myBike}/custom', 'storeCustom')->name('custom.store')->where('myBike', '[0-9]+');

@@ -234,6 +234,17 @@ class MyBikeController extends Controller
     }
 
     /**
+     * 給油記録の削除（owner-only）。削除後に燃費・総走行距離を再計算する（派生状態の整合）。
+     */
+    public function destroyFuel($myBike, $fuelLog)
+    {
+        $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
+        $this->service->deleteFuelLog($bike, (int) $fuelLog);
+
+        return back()->with('success', '給油記録を削除しました。燃費と総走行距離を再計算しました。');
+    }
+
+    /**
      * カスタム（パーツ装着等）記録の保存（owner-only）。
      */
     public function storeCustom(StoreCustomRecordRequest $request, $myBike)

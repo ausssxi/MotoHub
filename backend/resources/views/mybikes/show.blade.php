@@ -488,13 +488,24 @@
                                     <div class="text-[10px] font-bold text-gray-400 mb-0.5">{{ $log->filled_at->format('Y/m/d') }}</div>
                                     <div class="text-sm font-black text-gray-800">{{ number_format($log->odometer) }} km</div>
                                 </div>
-                                <div class="text-right">
-                                    <div class="text-lg font-black text-blue-600">
-                                        {{ $log->efficiency ? $log->efficiency . ' km/L' : '-' }}
+                                <div class="flex items-center gap-3">
+                                    <div class="text-right">
+                                        <div class="text-lg font-black text-blue-600">
+                                            {{ $log->efficiency ? $log->efficiency . ' km/L' : '-' }}
+                                        </div>
+                                        <div class="text--[10px] font-bold text-gray-400">
+                                            {{ $log->quantity }}L / {{ number_format($log->cost) }}円
+                                        </div>
                                     </div>
-                                    <div class="text--[10px] font-bold text-gray-400">
-                                        {{ $log->quantity }}L / {{ number_format($log->cost) }}円
-                                    </div>
+                                    {{-- 削除（owner-only・ハード削除・燃費/総走行距離を再計算） --}}
+                                    <form action="{{ route('mybikes.fuel.destroy', [$myBike->id, $log->id]) }}" method="POST"
+                                          onsubmit="return confirm('この給油記録を削除しますか？\n燃費と総走行距離が再計算されます。');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="w-7 h-7 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg flex items-center justify-center transition-colors" aria-label="給油記録を削除">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
                             
