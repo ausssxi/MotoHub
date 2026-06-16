@@ -123,13 +123,14 @@ final class FuelOcrService
   "quantity": 給油量(L, 数値) or null,
   "cost": 金額(円, 整数) or null,
   "date": 給油日("YYYY-MM-DD") or null,
+  "store_name": 給油店舗名/ブランド名(人が手書きする短い表記) or null,
   "confidence": "高" or "中" or "低"
 }
 PROMPT;
 
         $meterHint = <<<'PROMPT'
 この画像はバイクのメーター(走行距離計)です。総走行距離計(ODO/積算計)の数値だけを odometer(km整数) として読み取ってください。
-リセット可能なトリップ(区間距離)や速度の針は読まないこと。給油量・金額・日付は null。
+リセット可能なトリップ(区間距離)や速度の針は読まないこと。給油量・金額・日付・店舗名(store_name)は null。
 
 端数(0.1km/100m)桁の扱い（画像ごとに見て判断・一律仮定しない）:
 - 右端の桁が「視覚的に別ドラム・別枠・別色」（例:他桁は白地に黒なのに右端だけ黒地に白やオレンジ等）なら、
@@ -138,9 +139,19 @@ PROMPT;
 - どちらか確信が持てなければ推測せず confidence を下げること（手入力に委ねる）。
 PROMPT;
 
-        $hint = $type === self::TYPE_RECEIPT
-            ? 'この画像はガソリンスタンドのレシートです。給油量(L)・金額(円)・日付を読み取ってください。走行距離は通常レシートに無いので null にしてください。'
-            : $meterHint;
+        $receiptHint = <<<'PROMPT'
+この画像はガソリンスタンドのレシートです。給油量(L)・金額(円)・日付を読み取ってください。走行距離は通常レシートに無いので null。
+
+store_name（給油店舗名）の抽出ルール:
+- 取得するのは「給油した店舗名・ブランド名」のみ。人が手書きするような短い表記にすること。
+  良い例: 「apollo セルフ横山台」「セルフ横山台」「ENEOS 〇〇SS」「コスモ石油 〇〇店」。
+  入れない: 運営会社の法人名(例: 出光リテール販売株式会社)、住所、支店の正式長文名。
+- ★個人情報(PII)は絶対に出力に含めてはならない: 氏名・クレジットカード番号・登録番号(インボイス番号 Txxxxで始まる13桁)・
+  電話番号・承認番号・端末識別番号・住所。これらは store_name にも他のどのキーにも一切含めないこと。
+- 店舗名・ブランド名が判別できなければ store_name は null（推測しない）。
+PROMPT;
+
+        $hint = $type === self::TYPE_RECEIPT ? $receiptHint : $meterHint;
 
         return $base."\n\n".$hint;
     }
@@ -214,6 +225,20 @@ PROMPT;
             // 未来日は誤読の可能性が高いので落とす（手入力に委ねる）
             if ($raw['date'] <= date('Y-m-d')) {
                 $values['filled_at'] = $raw['date'];
+            }
+        }
+        if (isset($raw['store_name']) && is_string($raw['store_name'])) {
+            $name = trim($raw['store_name']);
+            // PII セーフティネット（プロンプトのPII除外指示を二重化）。privacy優先で、疑わしきは破棄。
+            // カード番号/電話/承認番号/登録番号は区切り(空白・ハイフン)が入るので「合計の数字桁数」で判定する
+            // （「246号店」=3桁は許容、カード16桁/電話10桁/登録13桁は破棄）。長すぎ＝住所/法人正式名も破棄。
+            $digitCount = preg_match_all('/\d/', $name);
+            $looksLikePii = $name !== '' && (
+                $digitCount >= 6
+                || mb_strlen($name) > 60
+            );
+            if ($name !== '' && ! $looksLikePii) {
+                $values['store_name'] = mb_substr($name, 0, 60);
             }
         }
 

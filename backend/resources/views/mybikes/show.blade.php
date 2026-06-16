@@ -304,6 +304,11 @@
                                                     if (el) { el.value = v[k]; el.classList.add('ring-2', 'ring-blue-400'); filled.push(labels[k]); }
                                                 }
                                             }
+                                            // 店舗名はメモ欄へ（空のときだけ＝ユーザー入力を尊重して上書きしない）
+                                            if (v.store_name) {
+                                                const memo = form.querySelector('[name=memo]');
+                                                if (memo && !memo.value) { memo.value = v.store_name; memo.classList.add('ring-2', 'ring-blue-400'); filled.push('店舗(メモ)'); }
+                                            }
                                             if (filled.length) { this.msg = '読み取り（確度: ' + (data.confidence || '-') + '）→ ' + filled.join('・') + 'を入力しました。内容を確認して保存してください。'; }
                                             else { this.err = '読み取れませんでした。手入力で記録できます。'; }
                                             this.warn = (data && data.odometer_warning) || '';

@@ -42,6 +42,66 @@ it('owner can extract receipt fields (quantity/cost/date), odometer stays null',
         ->assertJsonMissingPath('values.odometer');
 });
 
+it('receipt extracts a short store_name into values (memo source)', function () {
+    fakeAnthropic(['quantity' => 10, 'cost' => 1500, 'date' => '2026-06-10', 'store_name' => 'apollo セルフ横山台', 'confidence' => '高']);
+    $user = User::factory()->create();
+    $bike = ocrBike($user);
+
+    $this->actingAs($user)->postJson("/garage/{$bike->id}/ocr/fuel", [
+        'image' => UploadedFile::fake()->image('receipt.jpg', 800, 1000),
+        'type' => 'receipt',
+    ])
+        ->assertOk()
+        ->assertJsonPath('values.store_name', 'apollo セルフ横山台');
+});
+
+it('omits store_name when null (no memo fill), contract stays intact', function () {
+    fakeAnthropic(['quantity' => 8.5, 'cost' => 1200, 'date' => null, 'store_name' => null, 'confidence' => '中']);
+    $user = User::factory()->create();
+    $bike = ocrBike($user);
+
+    $this->actingAs($user)->postJson("/garage/{$bike->id}/ocr/fuel", [
+        'image' => UploadedFile::fake()->image('receipt.jpg', 800, 1000),
+        'type' => 'receipt',
+    ])
+        ->assertOk()
+        ->assertJsonPath('values.quantity', 8.5)
+        ->assertJsonMissingPath('values.store_name');
+});
+
+it('PII safety-net drops store_name that looks like card/phone/registration or is too long', function () {
+    $user = User::factory()->create();
+    $bike = ocrBike($user);
+
+    // カード番号風（長い数字列）→ 破棄
+    fakeAnthropic(['quantity' => 5, 'store_name' => '1234 5678 9012 3456', 'confidence' => '高']);
+    $this->actingAs($user)->postJson("/garage/{$bike->id}/ocr/fuel", [
+        'image' => UploadedFile::fake()->image('r.jpg', 400, 400), 'type' => 'receipt',
+    ])->assertOk()->assertJsonMissingPath('values.store_name');
+
+    // インボイス登録番号 Txxxx → 破棄
+    fakeAnthropic(['quantity' => 5, 'store_name' => 'T1234567890123', 'confidence' => '高']);
+    $this->actingAs($user)->postJson("/garage/{$bike->id}/ocr/fuel", [
+        'image' => UploadedFile::fake()->image('r.jpg', 400, 400), 'type' => 'receipt',
+    ])->assertOk()->assertJsonMissingPath('values.store_name');
+
+    // 電話番号風 → 破棄
+    fakeAnthropic(['quantity' => 5, 'store_name' => 'TEL 03-1234-5678', 'confidence' => '高']);
+    $this->actingAs($user)->postJson("/garage/{$bike->id}/ocr/fuel", [
+        'image' => UploadedFile::fake()->image('r.jpg', 400, 400), 'type' => 'receipt',
+    ])->assertOk()->assertJsonMissingPath('values.store_name');
+});
+
+it('keeps a normal store_name that contains a short number (e.g. 246号店)', function () {
+    fakeAnthropic(['quantity' => 5, 'store_name' => 'ENEOS 246号店', 'confidence' => '高']);
+    $user = User::factory()->create();
+    $bike = ocrBike($user);
+
+    $this->actingAs($user)->postJson("/garage/{$bike->id}/ocr/fuel", [
+        'image' => UploadedFile::fake()->image('r.jpg', 400, 400), 'type' => 'receipt',
+    ])->assertOk()->assertJsonPath('values.store_name', 'ENEOS 246号店');
+});
+
 it('owner can extract odometer from a meter photo', function () {
     fakeAnthropic(['odometer' => 12345, 'quantity' => null, 'cost' => null, 'date' => null, 'confidence' => '中']);
     $user = User::factory()->create();
