@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\MyBike;
 
+use App\Models\MaintenanceLog;
 use App\Models\MyBike;
 use App\Models\User;
 use App\Repositories\Bike\BikeModelRepository;
@@ -40,19 +41,22 @@ final class MyBikeService
      * retention核ダッシュボード（per-bike・private・読み込み済みログから集計＝N+1なし）。
      * 維持費（累計/直近12ヶ月/年別・内訳）／燃費グラフ用データ／整備リマインダー（距離ベース）。
      *
-     * @return array{cost: array, fuelChart: array, reminders: array<int, array>}
+     * @return array{cost: array, fuelChart: array, reminders: array<int, array>, installed_parts: \Illuminate\Support\Collection}
      */
     public function buildDashboard(MyBike $myBike): array
     {
-        $maint = $myBike->maintenanceLogs;   // 既に eager load 済み
+        $maint = $myBike->maintenanceLogs;   // type=maintenance（scoped）。リマインダーに使う
+        $custom = $myBike->customRecords;    // type=custom。費用は維持費へ合算
         $fuel = $myBike->fuelLogs;
         $oneYearAgo = now()->subYear();
 
-        // --- 1) 維持費 ---
+        // --- 1) 維持費（整備＋カスタム＋給油） ---
         $maintTotal = (int) $maint->sum('cost');
+        $customTotal = (int) $custom->sum('cost');
         $fuelTotal = (int) $fuel->sum('cost');
         $last12 = (int) (
             $maint->filter(fn ($m) => $m->maintained_at && $m->maintained_at->gte($oneYearAgo))->sum('cost')
+            + $custom->filter(fn ($c) => $c->maintained_at && $c->maintained_at->gte($oneYearAgo))->sum('cost')
             + $fuel->filter(fn ($f) => $f->filled_at && $f->filled_at->gte($oneYearAgo))->sum('cost')
         );
 
@@ -61,6 +65,12 @@ final class MyBikeService
             if ($m->maintained_at) {
                 $y = $m->maintained_at->format('Y');
                 $byYear[$y]['maintenance'] = ($byYear[$y]['maintenance'] ?? 0) + (int) $m->cost;
+            }
+        }
+        foreach ($custom as $c) {
+            if ($c->maintained_at) {
+                $y = $c->maintained_at->format('Y');
+                $byYear[$y]['custom'] = ($byYear[$y]['custom'] ?? 0) + (int) $c->cost;
             }
         }
         foreach ($fuel as $f) {
@@ -72,14 +82,16 @@ final class MyBikeService
         krsort($byYear);
         foreach ($byYear as $y => &$row) {
             $row['maintenance'] = $row['maintenance'] ?? 0;
+            $row['custom'] = $row['custom'] ?? 0;
             $row['fuel'] = $row['fuel'] ?? 0;
-            $row['total'] = $row['maintenance'] + $row['fuel'];
+            $row['total'] = $row['maintenance'] + $row['custom'] + $row['fuel'];
         }
         unset($row);
 
         $cost = [
-            'total' => $maintTotal + $fuelTotal,
+            'total' => $maintTotal + $customTotal + $fuelTotal,
             'maintenance_total' => $maintTotal,
+            'custom_total' => $customTotal,
             'fuel_total' => $fuelTotal,
             'last12' => $last12,
             'by_year' => $byYear,
@@ -115,7 +127,10 @@ final class MyBikeService
         }
         usort($reminders, fn ($a, $b) => $b['distance'] <=> $a['distance']);
 
-        return ['cost' => $cost, 'fuelChart' => $fuelChart, 'reminders' => $reminders];
+        // --- 4) 今ついてる装備（custom・装着中）---
+        $installedParts = $custom->where('is_installed', true)->values();
+
+        return ['cost' => $cost, 'fuelChart' => $fuelChart, 'reminders' => $reminders, 'installed_parts' => $installedParts];
     }
 
     /**
@@ -205,15 +220,58 @@ final class MyBikeService
     }
 
     /**
-     * 整備を記録する
+     * 整備を記録する。odometer の前回比ガード（既存ヘルパ再利用）を計算して返す（hard blockしない）。
+     *
+     * @return string|null odometer 警告（前回比10倍/逆行）or null
      */
-    public function recordMaintenance(MyBike $myBike, array $data): void
+    public function recordMaintenance(MyBike $myBike, array $data): ?string
     {
+        // 警告は「前回(=現 current_odometer)」基準なので、ODO更新の前に算出する。
+        $warning = $myBike->odometerPlausibilityWarning($this->odometerValue($data));
+
+        $data['type'] = MaintenanceLog::TYPE_MAINTENANCE;
         $this->maintenanceLogRepo->create($myBike, $data);
 
         if (! empty($data['odometer'])) {
             $this->myBikeRepo->updateOdometerIfGreater($myBike, (float) $data['odometer']);
         }
+
+        return $warning;
+    }
+
+    /**
+     * カスタム（パーツ装着等）を記録する。title は part_name を流用（既存NOT NULLと一覧の互換）。
+     *
+     * @return string|null odometer 警告 or null
+     */
+    public function recordCustom(MyBike $myBike, array $data): ?string
+    {
+        $warning = $myBike->odometerPlausibilityWarning($this->odometerValue($data));
+
+        $data['type'] = MaintenanceLog::TYPE_CUSTOM;
+        $data['title'] = $data['part_name'] ?? null;
+        $myBike->customRecords()->create($data);
+
+        if (! empty($data['odometer'])) {
+            $this->myBikeRepo->updateOdometerIfGreater($myBike, (float) $data['odometer']);
+        }
+
+        return $warning;
+    }
+
+    /**
+     * 記録（整備/カスタム）を削除（owner所有の bike に属する行のみ・type非依存）。
+     */
+    public function deleteRecord(MyBike $myBike, int $recordId): void
+    {
+        MaintenanceLog::where('my_bike_id', $myBike->id)->findOrFail($recordId)->delete();
+    }
+
+    private function odometerValue(array $data): ?float
+    {
+        return isset($data['odometer']) && $data['odometer'] !== null && $data['odometer'] !== ''
+            ? (float) $data['odometer']
+            : null;
     }
 
     /**

@@ -481,7 +481,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/{myBike}/visibility', 'updateVisibility')->name('visibility')->where('myBike', '[0-9]+');
         Route::get('/{myBike}/export', 'exportCsv')->name('export')->where('myBike', '[0-9]+');
         Route::post('/{myBike}/fuel', 'storeFuel')->name('fuel.store');
-        Route::post('/{myBike}/maintenance', 'storeMaintenance')->name('maintenance.store');
+        Route::post('/{myBike}/maintenance', 'storeMaintenance')->name('maintenance.store')->where('myBike', '[0-9]+');
+        // カスタム記録の保存／記録（整備・カスタム）の削除（owner-only）
+        Route::post('/{myBike}/custom', 'storeCustom')->name('custom.store')->where('myBike', '[0-9]+');
+        Route::delete('/{myBike}/records/{record}', 'destroyRecord')->name('records.destroy')->where(['myBike' => '[0-9]+', 'record' => '[0-9]+']);
         // 給油フォームのOCR入力補完（owner-only・コスト無防備を防ぐため throttle 必須）
         Route::post('/{myBike}/ocr/fuel', 'extractFuelOcr')->name('ocr.fuel')->where('myBike', '[0-9]+')->middleware('throttle:ocr-extract');
         // 給油フォームの音声入力補完（owner-only・throttle 必須）

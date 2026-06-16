@@ -34,7 +34,7 @@ final class MyBikeRepository
     public function findByUserAndIdOrFail(User $user, int $id): MyBike
     {
         return $user->myBikes()
-            ->with(['bikeModel.manufacturer', 'fuelLogs', 'maintenanceLogs', 'images'])
+            ->with(['bikeModel.manufacturer', 'fuelLogs', 'maintenanceLogs', 'customRecords', 'images'])
             ->findOrFail($id);
     }
 

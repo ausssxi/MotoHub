@@ -141,10 +141,21 @@ class MyBike extends Model
             ->orderBy('id', 'desc');       // 同日の場合は登録順（ID順）で並べる
     }
 
-    // 整備記録
+    // 整備記録（type=maintenance のみ）。リマインダー/維持費/CSV/public_show はこれを使う＝
+    // custom はリマインダーに混入せず public にも漏れない（既存挙動を保ったまま custom を同居）。
     public function maintenanceLogs(): HasMany
     {
-        return $this->hasMany(MaintenanceLog::class)->orderBy('maintained_at', 'desc');
+        return $this->hasMany(MaintenanceLog::class)
+            ->where('type', MaintenanceLog::TYPE_MAINTENANCE)
+            ->orderBy('maintained_at', 'desc');
+    }
+
+    // カスタム記録（type=custom）。「今ついてる装備」等で使用。
+    public function customRecords(): HasMany
+    {
+        return $this->hasMany(MaintenanceLog::class)
+            ->where('type', MaintenanceLog::TYPE_CUSTOM)
+            ->orderBy('maintained_at', 'desc');
     }
 
     // ギャラリー画像（private・本人のみ表示）。並び順 → 登録順。

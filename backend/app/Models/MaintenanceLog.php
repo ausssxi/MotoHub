@@ -4,25 +4,63 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * 整備・カスタム記録の統合モデル（1テーブル maintenance_logs ＋ type）。
+ * 給油は別テーブル fuel_logs のまま分離。将来 type=expense を追加予定。
+ *
+ * 公開ルール（visibilityフック・今回サーフェス無し）:
+ *   記録が公開されるのは将来 bike.is_public && record.is_public の AND のときのみ。
+ *   （カバー公開と同じ防御的既定。is_public は default false。）
+ */
 class MaintenanceLog extends Model
 {
+    public const TYPE_MAINTENANCE = 'maintenance';
+
+    public const TYPE_CUSTOM = 'custom';
+
     protected $fillable = [
         'my_bike_id',
-        'maintained_at',
+        'type',
+        'maintained_at',  // = 実施日(recorded_at)
         'odometer',
-        'title',
+        'title',          // maintenance: 整備内容（リマインダーの項目キー）/ custom: part_name を流用
         'cost',
+        'vendor',
+        'payment_method',
         'note',
+        'is_public',
+        // custom 専用
+        'part_name',
+        'brand',
+        'category',
+        'is_installed',
     ];
 
     protected $casts = [
         'maintained_at' => 'date',
         'odometer' => 'integer',
         'cost' => 'integer',
+        'is_public' => 'boolean',
+        'is_installed' => 'boolean',
     ];
+
+    protected $attributes = [
+        'type' => self::TYPE_MAINTENANCE,
+    ];
+
+    public function scopeMaintenance(Builder $query): Builder
+    {
+        return $query->where('type', self::TYPE_MAINTENANCE);
+    }
+
+    public function scopeCustom(Builder $query): Builder
+    {
+        return $query->where('type', self::TYPE_CUSTOM);
+    }
 
     public function myBike(): BelongsTo
     {

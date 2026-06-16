@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\MyBike;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\MyBike\StoreCustomRecordRequest;
 use App\Http\Requests\MyBike\StoreFuelLogRequest;
 use App\Http\Requests\MyBike\StoreMaintenanceLogRequest;
 use App\Http\Requests\MyBike\StoreMyBikeImageRequest;
@@ -222,13 +223,36 @@ class MyBikeController extends Controller
     }
 
     /**
-     * 整備記録の保存
+     * 整備記録の保存（owner-only）。odometer 前回比ガードは警告のみ（保存は止めない）。
      */
-    public function storeMaintenance(StoreMaintenanceLogRequest $request, MyBike $myBike)
+    public function storeMaintenance(StoreMaintenanceLogRequest $request, $myBike)
     {
-        $this->service->recordMaintenance($myBike, $request->validated());
+        $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
+        $warning = $this->service->recordMaintenance($bike, $request->validated());
 
-        return back()->with('success', '整備記録を保存しました！');
+        return back()->with('success', '整備記録を保存しました！')->with('odometer_warning', $warning);
+    }
+
+    /**
+     * カスタム（パーツ装着等）記録の保存（owner-only）。
+     */
+    public function storeCustom(StoreCustomRecordRequest $request, $myBike)
+    {
+        $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
+        $warning = $this->service->recordCustom($bike, $request->validated());
+
+        return back()->with('success', 'カスタム記録を保存しました！')->with('odometer_warning', $warning);
+    }
+
+    /**
+     * 記録（整備/カスタム）の削除（owner-only）。
+     */
+    public function destroyRecord($myBike, $record)
+    {
+        $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
+        $this->service->deleteRecord($bike, (int) $record);
+
+        return back()->with('success', '記録を削除しました。');
     }
 
     /**

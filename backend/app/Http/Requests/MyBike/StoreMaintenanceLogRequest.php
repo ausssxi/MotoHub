@@ -5,21 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Requests\MyBike;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\Auth;
-use App\Models\MyBike;
 
 class StoreMaintenanceLogRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // ★修正: route('my_bike') -> route('myBike')
-        $myBike = $this->route('myBike');
-
-        if (!($myBike instanceof MyBike)) {
-            $myBike = MyBike::find($myBike);
-        }
-
-        return $myBike && $myBike->user_id === Auth::id();
+        // 所有者チェックはコントローラ（getBikeDetail＝非所有者404）で実施＝全ガレージ系で404に統一。
+        return true;
     }
 
     public function rules(): array
