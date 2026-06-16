@@ -143,7 +143,8 @@ final class MyBikeService
         if (str_contains($title, 'オイル') && (str_contains($title, 'フィルター') || str_contains($title, 'エレメント'))) {
             return 6000;
         }
-        if (str_contains($title, 'オイル')) {
+        // エンジンオイルのみ 3000km。フォークオイル等は別物なので除外（誤発火防止＝安全側で interval 無し）。
+        if (str_contains($title, 'オイル') && ! str_contains($title, 'フォーク')) {
             return 3000;
         }
         if (str_contains($title, 'タイヤ')) {

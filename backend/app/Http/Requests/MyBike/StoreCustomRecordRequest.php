@@ -19,7 +19,7 @@ final class StoreCustomRecordRequest extends FormRequest
         return [
             'part_name' => ['required', 'string', 'max:100'],
             'brand' => ['nullable', 'string', 'max:100'],
-            'category' => ['nullable', 'string', 'in:外装,排気,吸気,電装,足回り,その他'],
+            'category' => ['nullable', 'string', 'in:'.implode(',', config('garage.custom_categories', []))],
             'maintained_at' => ['required', 'date', 'before_or_equal:today'],
             'odometer' => ['nullable', 'numeric', 'min:0'],
             'cost' => ['nullable', 'integer', 'min:0'],

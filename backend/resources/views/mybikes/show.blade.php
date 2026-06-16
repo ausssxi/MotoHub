@@ -520,89 +520,230 @@
                     </div>
                 </div>
 
-                {{-- 2. 整備記録セクション --}}
-                <div x-show="tab === 'maintenance'" class="hidden animate-in fade-in slide-in-from-bottom-2">
-                    {{-- 入力フォーム --}}
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-                        <h3 class="font-black text-gray-900 mb-4 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-orange-500"></i> 整備を記録</h3>
-                        
+                {{-- 2. 整備・カスタム記録セクション --}}
+                @php $remByTitle = collect($dashboard['reminders'] ?? [])->keyBy('title'); @endphp
+                <div x-show="tab === 'maintenance'" class="hidden animate-in fade-in slide-in-from-bottom-2"
+                     x-data="{
+                        mode: 'maintenance', title: '', category: '',
+                        L: {{ (float) $myBike->current_odometer }}, mult: {{ (float) config('garage.odometer_jump_multiplier', 5) }}, odoWarn: '',
+                        checkOdo(v) {
+                            const n = parseFloat(v);
+                            if (!isFinite(n) || !(this.L > 0)) { this.odoWarn = ''; return; }
+                            if (n < this.L) { this.odoWarn = '前回 ' + this.L + ' km より小さい値です。確認してください。'; }
+                            else if (n > this.L * this.mult) {
+                                const note = (n >= this.L * 9.5 && n <= this.L * 10.5) ? '（末尾に端数桁(0.1km)が混ざっていませんか？）' : '';
+                                this.odoWarn = '前回 ' + this.L + ' km → 今回 ' + n + ' km。大きく増えています。' + note;
+                            } else { this.odoWarn = ''; }
+                        },
+                        pickPreset(name) { this.title = (name === 'その他') ? '' : name; if (name === 'その他') this.$nextTick(() => document.getElementById('m_title')?.focus()); },
+                        setV(id, val) { const el = document.getElementById(id); if (el) el.value = (val ?? ''); },
+                        scrollTop() { this.$refs.formTop?.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+                        copyMaint(b) { const d = b.dataset; this.mode = 'maintenance'; this.title = d.title;
+                            this.setV('m_title', d.title); this.setV('m_cost', d.cost); this.setV('m_vendor', d.vendor); this.setV('m_note', d.note);
+                            this.setV('m_odometer', this.L); this.setV('m_maintained_at', '{{ date('Y-m-d') }}'); this.checkOdo(this.L); this.scrollTop(); },
+                        copyCustom(b) { const d = b.dataset; this.mode = 'custom'; this.category = d.category || '';
+                            this.setV('c_part', d.part); this.setV('c_brand', d.brand); this.setV('c_cost', d.cost); this.setV('c_vendor', d.vendor); this.setV('c_note', d.note);
+                            this.setV('c_odometer', this.L); this.setV('c_maintained_at', '{{ date('Y-m-d') }}'); this.checkOdo(this.L); this.scrollTop(); }
+                     }">
+                    <div x-ref="formTop"></div>
+
+                    {{-- 整備 / カスタム トグル --}}
+                    <div class="bg-white p-1 rounded-xl inline-flex border border-gray-100 shadow-sm mb-4">
+                        <button type="button" @click="mode = 'maintenance'; odoWarn=''" :class="mode === 'maintenance' ? 'bg-orange-100 text-orange-700' : 'text-gray-500'" class="px-5 py-2 rounded-lg text-xs font-black transition-colors flex items-center gap-1.5"><i data-lucide="wrench" class="w-3.5 h-3.5"></i> 整備</button>
+                        <button type="button" @click="mode = 'custom'; odoWarn=''" :class="mode === 'custom' ? 'bg-purple-100 text-purple-700' : 'text-gray-500'" class="px-5 py-2 rounded-lg text-xs font-black transition-colors flex items-center gap-1.5"><i data-lucide="sparkles" class="w-3.5 h-3.5"></i> カスタム</button>
+                    </div>
+
+                    {{-- 整備フォーム --}}
+                    <div x-show="mode === 'maintenance'" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+                        <h3 class="font-black text-gray-900 mb-3 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-orange-500"></i> 整備を記録</h3>
+                        {{-- プリセット（タップ選択） --}}
+                        <div class="flex flex-wrap gap-1.5 mb-4">
+                            @foreach(config('garage.maintenance_presets', []) as $preset)
+                            <button type="button" @click="pickPreset(@js($preset))" :class="title === @js($preset) ? 'bg-orange-600 text-white border-orange-600' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-orange-300'" class="text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors">{{ $preset }}</button>
+                            @endforeach
+                        </div>
                         <form action="{{ route('mybikes.maintenance.store', $myBike->id) }}" method="POST" class="space-y-4">
                             @csrf
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">整備日</label>
-                                    <input type="date" name="maintained_at" value="{{ old('maintained_at', date('Y-m-d')) }}" required 
+                                    <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">内容</label>
+                                    <input type="text" id="m_title" name="title" x-model="title" value="{{ old('title') }}" placeholder="プリセット選択 or 自由入力" required
                                         class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition">
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">内容</label>
-                                    <input type="text" name="title" value="{{ old('title') }}" placeholder="例: オイル交換" required 
+                                    <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">整備日</label>
+                                    <input type="date" id="m_maintained_at" name="maintained_at" value="{{ old('maintained_at', date('Y-m-d')) }}" required
                                         class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition">
                                 </div>
                             </div>
-                            
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">費用 (円) <span class="font-normal text-gray-300">任意</span></label>
-                                    <input type="number" name="cost" value="{{ old('cost') }}" placeholder="例: 3000" 
+                                    <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">時走行距離 (km) <span class="font-normal text-gray-300">任意</span></label>
+                                    <input type="number" step="0.1" id="m_odometer" name="odometer" value="{{ old('odometer', $myBike->current_odometer) }}" @input="checkOdo($event.target.value)"
                                         class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition">
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">時走行距離 (km) <span class="font-normal text-gray-300">任意</span></label>
-                                    <input type="number" name="odometer" value="{{ old('odometer') }}" placeholder="例: {{ $myBike->current_odometer }}" 
+                                    <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">費用 (円) <span class="font-normal text-gray-300">任意</span></label>
+                                    <input type="number" id="m_cost" name="cost" value="{{ old('cost') }}" placeholder="例: 3000"
                                         class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition">
                                 </div>
                             </div>
-
+                            <p x-show="odoWarn" x-cloak class="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 flex items-start gap-1.5"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0 mt-0.5"></i><span x-text="odoWarn"></span></p>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">場所 <span class="font-normal text-gray-300">任意（店名 or DIY）</span></label>
+                                <input type="text" id="m_vendor" name="vendor" value="{{ old('vendor') }}" placeholder="例: ナップス / DIY"
+                                    class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition">
+                            </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">詳細メモ <span class="font-normal text-gray-400">任意</span></label>
-                                <textarea name="note" placeholder="使用オイル: ホンダG2 10W-40" rows="2" 
+                                <textarea id="m_note" name="note" placeholder="使用オイル: ホンダG2 10W-40" rows="2"
                                     class="appearance-none block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition">{{ old('note') }}</textarea>
                             </div>
-
                             @if ($errors->any() && $errors->has('maintained_at'))
-                                <div class="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl border border-red-100">
-                                    <ul class="list-disc list-inside">
-                                        @foreach ($errors->all() as $error)
-                                            <li>{{ $error }}</li>
-                                        @endforeach
-                                    </ul>
-                                </div>
+                                <div class="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl border border-red-100"><ul class="list-disc list-inside">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
                             @endif
-
-                            <div class="pt-2 text-right">
-                                <button type="submit" class="w-full bg-orange-600 hover:bg-orange-500 text-white font-black py-3 rounded-xl shadow-lg transition transform active:scale-95">
-                                    記録する
-                                </button>
-                            </div>
+                            <button type="submit" class="w-full bg-orange-600 hover:bg-orange-500 text-white font-black py-3 rounded-xl shadow-lg transition transform active:scale-95">記録する</button>
                         </form>
                     </div>
 
-                    {{-- 履歴リスト --}}
-                    <div class="space-y-3">
-                        @forelse($myBike->maintenanceLogs as $log)
-                        <div class="bg-white rounded-xl p-4 border border-gray-100">
-                            <div class="flex justify-between items-start mb-2">
+                    {{-- カスタムフォーム --}}
+                    <div x-show="mode === 'custom'" x-cloak class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+                        <h3 class="font-black text-gray-900 mb-3 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-purple-500"></i> カスタムを記録</h3>
+                        <form action="{{ route('mybikes.custom.store', $myBike->id) }}" method="POST" class="space-y-4">
+                            @csrf
+                            <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <div class="text-[10px] font-bold text-gray-400 mb-0.5">{{ $log->maintained_at->format('Y/m/d') }}</div>
+                                    <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">パーツ名</label>
+                                    <input type="text" id="c_part" name="part_name" value="{{ old('part_name') }}" placeholder="例: ヨシムラ マフラー" required
+                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 outline-none transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">ブランド <span class="font-normal text-gray-300">任意</span></label>
+                                    <input type="text" id="c_brand" name="brand" value="{{ old('brand') }}" placeholder="例: YOSHIMURA"
+                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 outline-none transition">
+                                </div>
+                            </div>
+                            {{-- カテゴリ（タップ選択） --}}
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">カテゴリ <span class="font-normal text-gray-300">任意</span></label>
+                                <input type="hidden" name="category" x-model="category">
+                                <div class="flex flex-wrap gap-1.5">
+                                    @foreach(config('garage.custom_categories', []) as $cat)
+                                    <button type="button" @click="category = (category === @js($cat) ? '' : @js($cat))" :class="category === @js($cat) ? 'bg-purple-600 text-white border-purple-600' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-purple-300'" class="text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors">{{ $cat }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">装着日</label>
+                                    <input type="date" id="c_maintained_at" name="maintained_at" value="{{ old('maintained_at', date('Y-m-d')) }}" required
+                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 outline-none transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">時走行距離 (km) <span class="font-normal text-gray-300">任意</span></label>
+                                    <input type="number" step="0.1" id="c_odometer" name="odometer" value="{{ old('odometer', $myBike->current_odometer) }}" @input="checkOdo($event.target.value)"
+                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 outline-none transition">
+                                </div>
+                            </div>
+                            <p x-show="odoWarn" x-cloak class="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 flex items-start gap-1.5"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0 mt-0.5"></i><span x-text="odoWarn"></span></p>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">費用 (円) <span class="font-normal text-gray-300">任意</span></label>
+                                    <input type="number" id="c_cost" name="cost" value="{{ old('cost') }}" placeholder="例: 80000"
+                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 outline-none transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">場所 <span class="font-normal text-gray-300">任意</span></label>
+                                    <input type="text" id="c_vendor" name="vendor" value="{{ old('vendor') }}" placeholder="例: 2りんかん / DIY"
+                                        class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 outline-none transition">
+                                </div>
+                            </div>
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="hidden" name="is_installed" value="0">
+                                <input type="checkbox" name="is_installed" value="1" checked class="w-5 h-5 rounded text-purple-600 focus:ring-purple-500 border-gray-300">
+                                <span class="text-xs font-bold text-gray-600">現在も装着中</span>
+                            </label>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">メモ <span class="font-normal text-gray-400">任意</span></label>
+                                <textarea id="c_note" name="note" placeholder="例: バッフル外し / 純正は保管" rows="2"
+                                    class="appearance-none block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 outline-none transition">{{ old('note') }}</textarea>
+                            </div>
+                            <button type="submit" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-3 rounded-xl shadow-lg transition transform active:scale-95">記録する</button>
+                        </form>
+                    </div>
+
+                    {{-- 今ついてる装備（custom・装着中） --}}
+                    @if(!empty($dashboard['installed_parts']) && count($dashboard['installed_parts']) > 0)
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
+                        <h4 class="text-xs font-black text-gray-700 mb-3 flex items-center gap-1.5"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-500"></i> 今ついてる装備</h4>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($dashboard['installed_parts'] as $part)
+                            <span class="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-purple-100">
+                                @if($part->category)<span class="text-purple-400">{{ $part->category }}</span>@endif
+                                {{ $part->part_name }}@if($part->brand)<span class="text-purple-400">/ {{ $part->brand }}</span>@endif
+                            </span>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- 整備履歴 --}}
+                    <div class="space-y-3 mb-6">
+                        @forelse($myBike->maintenanceLogs as $log)
+                        @php $rem = $remByTitle->get($log->title); @endphp
+                        <div class="bg-white rounded-xl p-4 border border-gray-100">
+                            <div class="flex justify-between items-start gap-3">
+                                <div class="min-w-0">
+                                    <div class="text-[10px] font-bold text-gray-400 mb-0.5">{{ $log->maintained_at->format('Y/m/d') }}@if($log->odometer) ・ {{ number_format($log->odometer) }}km @endif</div>
                                     <div class="text-sm font-black text-gray-900">{{ $log->title }}</div>
+                                    @if($rem && $rem['guideline'])
+                                        @php $remain = (int) round($rem['guideline'] - $rem['distance']); @endphp
+                                        <div class="text-[10px] font-bold mt-0.5 {{ $remain > 0 ? 'text-gray-400' : 'text-red-500' }}">{{ $remain > 0 ? '次回まで あと'.number_format($remain).'km' : number_format(abs($remain)).'km 超過' }}</div>
+                                    @endif
+                                    @if($log->vendor)<div class="text-[10px] text-gray-400 mt-0.5">{{ $log->vendor }}</div>@endif
                                 </div>
-                                <div class="text-right">
-                                    <div class="text-sm font-black text-orange-600">{{ number_format($log->cost) }}円</div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    @if($log->cost)<div class="text-sm font-black text-orange-600">{{ number_format($log->cost) }}円</div>@endif
+                                    <button type="button" @click="copyMaint($el)" data-title="{{ $log->title }}" data-cost="{{ $log->cost }}" data-vendor="{{ $log->vendor }}" data-note="{{ $log->note }}" class="text-gray-300 hover:text-orange-600 hover:bg-orange-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" title="前回と同じで記録"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+                                    <form action="{{ route('mybikes.records.destroy', [$myBike->id, $log->id]) }}" method="POST" onsubmit="return confirm('この整備記録を削除しますか？\n総走行距離が再計算されます。');">
+                                        @csrf @method('DELETE')
+                                        <button type="submit" class="text-gray-300 hover:text-red-600 hover:bg-red-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" aria-label="削除"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                                    </form>
                                 </div>
                             </div>
-                            @if($log->note)
-                            <div class="text-xs text-gray-500 bg-gray-50 p-2 rounded-lg">
-                                {{ $log->note }}
-                            </div>
-                            @endif
+                            @if($log->note)<div class="text-xs text-gray-500 bg-gray-50 p-2 rounded-lg mt-2 break-words">{{ $log->note }}</div>@endif
                         </div>
                         @empty
-                        <div class="text-center py-10 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 font-bold text-sm">
-                            まだ整備記録がありません
-                        </div>
+                        <div class="text-center py-8 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 font-bold text-sm">まだ整備記録がありません。上のプリセットから1タップで記録できます。</div>
                         @endforelse
                     </div>
+
+                    {{-- カスタム履歴 --}}
+                    @if($myBike->customRecords->isNotEmpty())
+                    <div class="space-y-3">
+                        <h4 class="text-xs font-black text-gray-500 px-1">カスタム履歴</h4>
+                        @foreach($myBike->customRecords as $c)
+                        <div class="bg-white rounded-xl p-4 border border-gray-100">
+                            <div class="flex justify-between items-start gap-3">
+                                <div class="min-w-0">
+                                    <div class="text-[10px] font-bold text-gray-400 mb-0.5">{{ $c->maintained_at->format('Y/m/d') }}@if($c->category) ・ {{ $c->category }}@endif @if(!$c->is_installed)<span class="text-gray-300">(取外し済)</span>@endif</div>
+                                    <div class="text-sm font-black text-gray-900">{{ $c->part_name }}@if($c->brand)<span class="text-gray-400 font-bold"> / {{ $c->brand }}</span>@endif</div>
+                                    @if($c->vendor)<div class="text-[10px] text-gray-400 mt-0.5">{{ $c->vendor }}</div>@endif
+                                </div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    @if($c->cost)<div class="text-sm font-black text-purple-600">{{ number_format($c->cost) }}円</div>@endif
+                                    <button type="button" @click="copyCustom($el)" data-part="{{ $c->part_name }}" data-brand="{{ $c->brand }}" data-category="{{ $c->category }}" data-cost="{{ $c->cost }}" data-vendor="{{ $c->vendor }}" data-note="{{ $c->note }}" class="text-gray-300 hover:text-purple-600 hover:bg-purple-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" title="前回と同じで記録"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+                                    <form action="{{ route('mybikes.records.destroy', [$myBike->id, $c->id]) }}" method="POST" onsubmit="return confirm('このカスタム記録を削除しますか？');">
+                                        @csrf @method('DELETE')
+                                        <button type="submit" class="text-gray-300 hover:text-red-600 hover:bg-red-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" aria-label="削除"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                                    </form>
+                                </div>
+                            </div>
+                            @if($c->note)<div class="text-xs text-gray-500 bg-gray-50 p-2 rounded-lg mt-2 break-words">{{ $c->note }}</div>@endif
+                        </div>
+                        @endforeach
+                    </div>
+                    @endif
                 </div>
 
                 <div class="mt-16 pt-10 border-t border-gray-200">

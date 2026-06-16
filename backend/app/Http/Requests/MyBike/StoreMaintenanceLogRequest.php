@@ -21,6 +21,7 @@ class StoreMaintenanceLogRequest extends FormRequest
             'title' => ['required', 'string', 'max:50'],
             'cost' => ['nullable', 'integer', 'min:0'],
             'odometer' => ['nullable', 'numeric', 'min:0'],
+            'vendor' => ['nullable', 'string', 'max:100'],
             'note' => ['nullable', 'string', 'max:1000'],
         ];
     }
