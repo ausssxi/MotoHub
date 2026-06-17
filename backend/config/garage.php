@@ -16,6 +16,12 @@ return [
     // 1台あたりのギャラリー画像上限
     'max_images' => (int) env('GARAGE_MAX_IMAGES', 20),
 
+    // 1記録(整備/カスタム)あたりの添付写真 上限
+    'max_record_images' => (int) env('GARAGE_MAX_RECORD_IMAGES', 10),
+
+    // 記録写真機能の有効/無効
+    'record_photos_enabled' => (bool) env('GARAGE_RECORD_PHOTOS_ENABLED', true),
+
     // アップロード許容サイズ（KB）。スマホ写真を見込んで広め。
     'max_upload_kb' => (int) env('GARAGE_MAX_UPLOAD_KB', 8192),
 

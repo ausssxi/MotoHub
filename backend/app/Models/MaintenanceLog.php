@@ -7,6 +7,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * 整備・カスタム記録の統合モデル（1テーブル maintenance_logs ＋ type）。
@@ -51,6 +52,21 @@ class MaintenanceLog extends Model
     protected $attributes = [
         'type' => self::TYPE_MAINTENANCE,
     ];
+
+    protected static function booted(): void
+    {
+        // 記録削除時に添付写真を「モデル経由」で削除し実ファイルも消す。
+        // （FKのDBカスケードは MyBikeImage::deleting を発火させないため明示的にループ）
+        static::deleting(function (MaintenanceLog $record): void {
+            $record->images()->get()->each->delete();
+        });
+    }
+
+    // 添付写真（記録の前後/ビルド写真・複数可・owner-only表示）。
+    public function images(): HasMany
+    {
+        return $this->hasMany(MyBikeImage::class)->orderBy('sort_order')->orderBy('id');
+    }
 
     public function scopeMaintenance(Builder $query): Builder
     {

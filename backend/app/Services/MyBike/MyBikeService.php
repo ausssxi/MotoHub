@@ -248,43 +248,43 @@ final class MyBikeService
     }
 
     /**
-     * 整備を記録する。odometer の前回比ガード（既存ヘルパ再利用）を計算して返す（hard blockしない）。
-     *
-     * @return string|null odometer 警告（前回比10倍/逆行）or null
+     * 整備を記録し、作成した記録を返す（odometer の running-max 更新込み）。
+     * odometer 前回比ガードは odometerWarningFor() で別途取得（保存は止めない）。
      */
-    public function recordMaintenance(MyBike $myBike, array $data): ?string
+    public function recordMaintenance(MyBike $myBike, array $data): MaintenanceLog
     {
-        // 警告は「前回(=現 current_odometer)」基準なので、ODO更新の前に算出する。
-        $warning = $myBike->odometerPlausibilityWarning($this->odometerValue($data));
-
         $data['type'] = MaintenanceLog::TYPE_MAINTENANCE;
-        $this->maintenanceLogRepo->create($myBike, $data);
+        $record = $this->maintenanceLogRepo->create($myBike, $data);
 
         if (! empty($data['odometer'])) {
             $this->myBikeRepo->updateOdometerIfGreater($myBike, (float) $data['odometer']);
         }
 
-        return $warning;
+        return $record;
     }
 
     /**
-     * カスタム（パーツ装着等）を記録する。title は part_name を流用（既存NOT NULLと一覧の互換）。
-     *
-     * @return string|null odometer 警告 or null
+     * カスタム（パーツ装着等）を記録し、作成した記録を返す。title は part_name を流用（既存NOT NULLと一覧の互換）。
      */
-    public function recordCustom(MyBike $myBike, array $data): ?string
+    public function recordCustom(MyBike $myBike, array $data): MaintenanceLog
     {
-        $warning = $myBike->odometerPlausibilityWarning($this->odometerValue($data));
-
         $data['type'] = MaintenanceLog::TYPE_CUSTOM;
         $data['title'] = $data['part_name'] ?? null;
-        $myBike->customRecords()->create($data);
+        $record = $myBike->customRecords()->create($data);
 
         if (! empty($data['odometer'])) {
             $this->myBikeRepo->updateOdometerIfGreater($myBike, (float) $data['odometer']);
         }
 
-        return $warning;
+        return $record;
+    }
+
+    /**
+     * odometer 前回比ガードの警告文（保存前＝current_odometer 更新前に呼ぶこと）。
+     */
+    public function odometerWarningFor(MyBike $myBike, array $data): ?string
+    {
+        return $myBike->odometerPlausibilityWarning($this->odometerValue($data));
     }
 
     /**

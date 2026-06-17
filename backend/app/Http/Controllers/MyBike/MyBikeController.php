@@ -230,7 +230,10 @@ class MyBikeController extends Controller
     public function storeMaintenance(StoreMaintenanceLogRequest $request, $myBike)
     {
         $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
-        $warning = $this->service->recordMaintenance($bike, $request->validated());
+        $validated = $request->validated();
+        $warning = $this->service->odometerWarningFor($bike, $validated); // 保存前に算出
+        $record = $this->service->recordMaintenance($bike, $validated);
+        $this->attachRecordImages($record, $request->file('images', []));
 
         return back()->with('success', '整備記録を保存しました！')->with('odometer_warning', $warning);
     }
@@ -307,9 +310,80 @@ class MyBikeController extends Controller
     public function storeCustom(StoreCustomRecordRequest $request, $myBike)
     {
         $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
-        $warning = $this->service->recordCustom($bike, $request->validated());
+        $validated = $request->validated();
+        $warning = $this->service->odometerWarningFor($bike, $validated); // 保存前に算出
+        $record = $this->service->recordCustom($bike, $validated);
+        $this->attachRecordImages($record, $request->file('images', []));
 
         return back()->with('success', 'カスタム記録を保存しました！')->with('odometer_warning', $warning);
+    }
+
+    /**
+     * 記録作成時の添付画像をパイプライン（EXIF/GPS除去・private保存）で保存。上限超過・不正画像はスキップ。
+     *
+     * @param  array<int, \Illuminate\Http\UploadedFile>  $images
+     */
+    private function attachRecordImages(\App\Models\MaintenanceLog $record, array $images): void
+    {
+        foreach ($images as $file) {
+            if ($this->imageService->recordAtLimit($record)) {
+                break;
+            }
+            try {
+                $this->imageService->addToRecord($record, $file);
+            } catch (\Throwable $e) {
+                Log::warning('記録写真の保存に失敗', ['error' => $e->getMessage()]);
+            }
+        }
+    }
+
+    /**
+     * 記録に写真を後付け（owner-only）。
+     */
+    public function storeRecordImage(Request $request, $myBike, $record)
+    {
+        if (! config('garage.record_photos_enabled')) {
+            return back()->withErrors(['images' => 'この機能は現在利用できません。']);
+        }
+        $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
+        $rec = \App\Models\MaintenanceLog::where('my_bike_id', $bike->id)->findOrFail((int) $record);
+
+        $request->validate([
+            'images' => ['required', 'array', 'max:'.(int) config('garage.max_record_images')],
+            'images.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:'.(int) config('garage.max_upload_kb')],
+        ]);
+
+        $this->attachRecordImages($rec, $request->file('images', []));
+
+        return back()->with('success', '写真を追加しました。');
+    }
+
+    /**
+     * 記録写真の削除（owner-only・行＋実ファイル）。
+     */
+    public function destroyRecordImage($myBike, $record, $image)
+    {
+        $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
+        $rec = \App\Models\MaintenanceLog::where('my_bike_id', $bike->id)->findOrFail((int) $record);
+        $this->imageService->deleteRecordImage($rec, (int) $image);
+
+        return back()->with('success', '写真を削除しました。');
+    }
+
+    /**
+     * 記録写真の配信（owner-only・private disk からストリーム）。公開しない。
+     * 非所有者・他人の bike/record/image は 404（存在も漏らさない）。
+     */
+    public function showRecordImage($myBike, $record, $image)
+    {
+        $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
+        $rec = \App\Models\MaintenanceLog::where('my_bike_id', $bike->id)->findOrFail((int) $record);
+        $img = $rec->images()->findOrFail((int) $image);
+
+        $disk = Storage::disk(config('garage.image_disk'));
+        abort_unless($disk->exists($img->path), 404);
+
+        return $disk->response($img->path, null, ['Cache-Control' => 'private, max-age=86400']);
     }
 
     /**

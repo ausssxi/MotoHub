@@ -625,7 +625,7 @@
                             <button type="button" @click="pickPreset(@js($preset))" :class="title === @js($preset) ? 'bg-orange-600 text-white border-orange-600' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-orange-300'" class="text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors">{{ $preset }}</button>
                             @endforeach
                         </div>
-                        <form id="m_form" action="{{ route('mybikes.maintenance.store', $myBike->id) }}" method="POST" class="space-y-4">
+                        <form id="m_form" action="{{ route('mybikes.maintenance.store', $myBike->id) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
                             @csrf
                             @if(config('garage.ocr_enabled') || config('garage.voice_enabled'))
                             <div class="p-3 bg-orange-50/60 border border-orange-100 rounded-xl">
@@ -680,6 +680,13 @@
                                 <textarea id="m_note" name="note" placeholder="使用オイル: ホンダG2 10W-40" rows="2"
                                     class="appearance-none block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition">{{ old('note') }}</textarea>
                             </div>
+                            @if(config('garage.record_photos_enabled'))
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">写真 <span class="font-normal text-gray-300">任意・複数（JPEG/PNG/WebP）</span></label>
+                                <input type="file" name="images[]" multiple accept="image/jpeg,image/png,image/webp"
+                                    class="block w-full text-xs text-gray-600 font-bold file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-gray-800 file:text-white hover:file:bg-gray-700 file:cursor-pointer">
+                            </div>
+                            @endif
                             @if ($errors->any() && $errors->has('maintained_at'))
                                 <div class="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl border border-red-100"><ul class="list-disc list-inside">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
                             @endif
@@ -690,7 +697,7 @@
                     {{-- カスタムフォーム --}}
                     <div x-show="mode === 'custom'" x-cloak class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
                         <h3 class="font-black text-gray-900 mb-3 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-purple-500"></i> カスタムを記録</h3>
-                        <form id="c_form" action="{{ route('mybikes.custom.store', $myBike->id) }}" method="POST" class="space-y-4">
+                        <form id="c_form" action="{{ route('mybikes.custom.store', $myBike->id) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
                             @csrf
                             @if(config('garage.ocr_enabled') || config('garage.voice_enabled'))
                             <div class="p-3 bg-purple-50/60 border border-purple-100 rounded-xl">
@@ -767,6 +774,13 @@
                                 <textarea id="c_note" name="note" placeholder="例: バッフル外し / 純正は保管" rows="2"
                                     class="appearance-none block w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 outline-none transition">{{ old('note') }}</textarea>
                             </div>
+                            @if(config('garage.record_photos_enabled'))
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">写真 <span class="font-normal text-gray-300">任意・複数（JPEG/PNG/WebP）</span></label>
+                                <input type="file" name="images[]" multiple accept="image/jpeg,image/png,image/webp"
+                                    class="block w-full text-xs text-gray-600 font-bold file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-gray-800 file:text-white hover:file:bg-gray-700 file:cursor-pointer">
+                            </div>
+                            @endif
                             <button type="submit" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-3 rounded-xl shadow-lg transition transform active:scale-95">記録する</button>
                         </form>
                     </div>
@@ -811,6 +825,7 @@
                                 </div>
                             </div>
                             @if($log->note)<div class="text-xs text-gray-500 bg-gray-50 p-2 rounded-lg mt-2 break-words">{{ $log->note }}</div>@endif
+                            @include('mybikes._record-photos', ['myBike' => $myBike, 'record' => $log])
                         </div>
                         @empty
                         <div class="text-center py-8 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 font-bold text-sm">まだ整備記録がありません。上のプリセットから1タップで記録できます。</div>
@@ -839,6 +854,7 @@
                                 </div>
                             </div>
                             @if($c->note)<div class="text-xs text-gray-500 bg-gray-50 p-2 rounded-lg mt-2 break-words">{{ $c->note }}</div>@endif
+                            @include('mybikes._record-photos', ['myBike' => $myBike, 'record' => $c])
                         </div>
                         @endforeach
                     </div>

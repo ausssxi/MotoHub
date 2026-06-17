@@ -12,6 +12,7 @@ class MyBikeImage extends Model
 {
     protected $fillable = [
         'my_bike_id',
+        'maintenance_log_id', // null=ギャラリー / notnull=記録(整備/カスタム)の添付写真
         'path',
         'caption',
         'sort_order',
@@ -31,5 +32,10 @@ class MyBikeImage extends Model
     public function myBike(): BelongsTo
     {
         return $this->belongsTo(MyBike::class);
+    }
+
+    public function maintenanceLog(): BelongsTo
+    {
+        return $this->belongsTo(MaintenanceLog::class);
     }
 }

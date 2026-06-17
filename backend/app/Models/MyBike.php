@@ -28,10 +28,10 @@ class MyBike extends Model
 
     protected static function booted(): void
     {
-        // 愛車削除時にギャラリー画像を「モデル経由」で削除し実ファイルも消す。
+        // 愛車削除時に全画像（ギャラリー＋記録添付）を「モデル経由」で削除し実ファイルも消す。
         // （FKのDBカスケードはMyBikeImage::deletingを発火させないため、ここで明示的にループする）
         static::deleting(function (MyBike $myBike): void {
-            $myBike->images()->get()->each->delete();
+            MyBikeImage::where('my_bike_id', $myBike->id)->get()->each->delete();
         });
     }
 
@@ -158,10 +158,11 @@ class MyBike extends Model
             ->orderBy('maintained_at', 'desc');
     }
 
-    // ギャラリー画像（private・本人のみ表示）。並び順 → 登録順。
+    // ギャラリー画像（private・本人のみ表示・カバー/公開で使用）。記録添付写真は除外。
     public function images(): HasMany
     {
         return $this->hasMany(MyBikeImage::class)
+            ->whereNull('maintenance_log_id')
             ->orderBy('sort_order')
             ->orderBy('id');
     }
