@@ -44,6 +44,17 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
 # Redis 拡張のインストール
 RUN pecl install redis && docker-php-ext-enable redis
 
+# ImageMagick + libheif（iPhone の HEIC 写真を JPEG へデコードするため）と imagick 拡張。
+# GD は HEIC 非対応のため、HEIC のみ Imagick でデコードして既存の再エンコード(EXIF全除去)パスへ合流する。
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libmagickwand-dev \
+    imagemagick \
+    libheif1 \
+    libde265-0 \
+    && pecl install imagick \
+    && docker-php-ext-enable imagick \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Composer のインストール
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

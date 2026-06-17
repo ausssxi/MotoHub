@@ -6,8 +6,6 @@ namespace App\Services\MyBike;
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
-use Intervention\Image\Drivers\Gd\Driver;
-use Intervention\Image\ImageManager;
 use RuntimeException;
 
 /**
@@ -22,13 +20,15 @@ final class GarageAiExtractor
 {
     private const API_ENDPOINT = 'https://api.anthropic.com/v1/messages';
 
+    public function __construct(private readonly ImageReader $reader) {}
+
     /**
      * EXIF回転を焼き込み、長辺リサイズし、JPEG再エンコード（EXIF/GPS除去）して base64 化。
+     * HEIC（ライブラリ選択のレシート等）は ImageReader が Imagick でデコードして合流。
      */
     public function preprocessImage(UploadedFile $file): string
     {
-        $manager = new ImageManager(new Driver);
-        $image = $manager->read($file->getRealPath());
+        $image = $this->reader->read($file->getRealPath());
         $image->orient(); // 斜め/回転撮影をピクセルへ反映（OCR精度）
 
         $maxEdge = (int) config('garage.ocr_max_edge', 1600);

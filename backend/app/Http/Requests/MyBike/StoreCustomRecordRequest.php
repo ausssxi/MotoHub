@@ -29,9 +29,9 @@ final class StoreCustomRecordRequest extends FormRequest
             'is_installed' => ['boolean'],
             // visibilityフック（今回サーフェス無し・既定 false）
             'is_public' => ['boolean'],
-            // 添付写真（任意・複数）。HEIC は GD非対応のため mimes で弾く（2b-3でインフラ対応）。
+            // 添付写真（任意・複数）。HEIC は Imagick でデコードして受理（2b-3）。
             'images' => ['nullable', 'array', 'max:'.(int) config('garage.max_record_images', 10)],
-            'images.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:'.(int) config('garage.max_upload_kb', 8192)],
+            'images.*' => ['file', 'mimes:jpeg,jpg,png,webp,heic,heif', 'max:'.(int) config('garage.max_upload_kb', 8192)],
         ];
     }
 }

@@ -154,7 +154,7 @@ class MyBikeController extends Controller
         $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id);
 
         $validated = $request->validate([
-            'image' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:'.(int) config('garage.max_upload_kb')],
+            'image' => ['required', 'file', 'mimes:jpeg,jpg,png,webp,heic,heif', 'max:'.(int) config('garage.max_upload_kb')],
             'type' => ['required', 'in:'.FuelOcrService::TYPE_RECEIPT.','.FuelOcrService::TYPE_ODOMETER],
         ]);
 
@@ -262,7 +262,7 @@ class MyBikeController extends Controller
         $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id); // 非所有者は 404
 
         $validated = $request->validate([
-            'image' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:'.(int) config('garage.max_upload_kb')],
+            'image' => ['required', 'file', 'mimes:jpeg,jpg,png,webp,heic,heif', 'max:'.(int) config('garage.max_upload_kb')],
             'type' => ['required', 'in:'.RecordOcrService::TYPE_MAINTENANCE.','.RecordOcrService::TYPE_CUSTOM],
         ]);
 
@@ -350,7 +350,7 @@ class MyBikeController extends Controller
 
         $request->validate([
             'images' => ['required', 'array', 'max:'.(int) config('garage.max_record_images')],
-            'images.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:'.(int) config('garage.max_upload_kb')],
+            'images.*' => ['file', 'mimes:jpeg,jpg,png,webp,heic,heif', 'max:'.(int) config('garage.max_upload_kb')],
         ]);
 
         $this->attachRecordImages($rec, $request->file('images', []));

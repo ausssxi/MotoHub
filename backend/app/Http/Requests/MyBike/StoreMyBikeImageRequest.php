@@ -19,8 +19,8 @@ final class StoreMyBikeImageRequest extends FormRequest
         return [
             'image' => [
                 'required',
-                'image',
-                'mimes:jpeg,jpg,png,webp',
+                'file',
+                'mimes:jpeg,jpg,png,webp,heic,heif',
                 'max:'.(int) config('garage.max_upload_kb'),
             ],
             'caption' => ['nullable', 'string', 'max:100'],

@@ -102,15 +102,15 @@ it('record delete removes attached image rows and physical files', function () {
     Storage::disk($disk)->assertMissing($img->path);
 });
 
-it('rejects HEIC and oversized/too-many images with 422', function () {
+it('rejects unsupported formats and oversized/too-many images with 422', function () {
     Storage::fake(diskName());
     $user = User::factory()->create();
     $bike = photoBike($user);
 
-    // HEIC（GD非対応）→ mimes で 422
+    // 非対応形式（gif）→ mimes で 422
     $this->actingAs($user)->post("/garage/{$bike->id}/maintenance", [
         'maintained_at' => now()->format('Y-m-d'), 'title' => 'x',
-        'images' => [UploadedFile::fake()->create('iphone.heic', 100, 'image/heic')],
+        'images' => [UploadedFile::fake()->create('anim.gif', 100, 'image/gif')],
     ])->assertSessionHasErrors('images.0');
 
     // 枚数超過 → 422

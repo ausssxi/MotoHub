@@ -10,9 +10,6 @@ use App\Models\MyBikeImage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Intervention\Image\Drivers\Gd\Driver;
-use Intervention\Image\ImageManager;
-use RuntimeException;
 
 /**
  * 愛車ギャラリー画像（private）の保存・最適化・削除。
@@ -21,6 +18,8 @@ use RuntimeException;
  */
 final class MyBikeImageService
 {
+    public function __construct(private readonly ImageReader $reader) {}
+
     private function disk(): string
     {
         return (string) config('garage.image_disk');
@@ -90,18 +89,14 @@ final class MyBikeImageService
      */
     private function encodeStripped(UploadedFile $file): string
     {
-        try {
-            $manager = new ImageManager(new Driver);
-            $image = $manager->read($file->getRealPath());
-        } catch (\Throwable $e) {
-            // GD は HEIC をデコードできない。対応形式に変換して再アップロードを促す（呼び出し側で422）。
-            throw new RuntimeException('画像を読み込めませんでした（対応形式: JPEG / PNG / WebP）。', 0, $e);
-        }
+        // HEIC は ImageReader が Imagick でデコードして GD パスへ合流。読込不可は RuntimeException。
+        $image = $this->reader->read($file->getRealPath());
 
         $image->orient(); // EXIF回転を実ピクセルへ適用（スマホ写真の横倒れ防止）
         $maxEdge = (int) config('garage.resize_max_edge');
         $image->scaleDown($maxEdge, $maxEdge); // 長辺を箱に収める（アスペクト維持・拡大なし）
 
+        // 再エンコードで EXIF/GPS は完全に除去される（HEIC 由来でも同様＝privacy の一本化点）
         return (string) $image->toJpeg((int) config('garage.jpeg_quality'));
     }
 
