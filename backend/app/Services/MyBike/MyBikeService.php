@@ -135,6 +135,143 @@ final class MyBikeService
     }
 
     /**
+     * 会計簿（維持費の数値レポート）。オンザフライ集計（個人データ・少量・ログイン必須）。
+     * 総維持費＝整備＋カスタム＋燃料／費目別内訳／km単価（累計総費用÷累計走行距離）／月別・年別・累計。
+     * 記録の追加/削除で次表示時に再計算される（current_odometer も recompute 済＝整合）。
+     *
+     * @return array<string, mixed>
+     */
+    public function buildLedger(MyBike $myBike): array
+    {
+        $maint = $myBike->maintenanceLogs;   // type=maintenance
+        $custom = $myBike->customRecords;    // type=custom
+        $fuel = $myBike->fuelLogs;
+
+        $maintTotal = (int) $maint->sum('cost');
+        $customTotal = (int) $custom->sum('cost');
+        $fuelTotal = (int) $fuel->sum('cost');
+        $total = $maintTotal + $customTotal + $fuelTotal;
+
+        // --- 費目別内訳（整備は title から費目へ分類＋カスタム＋燃料）---
+        $byCategory = [];
+        foreach ($maint as $m) {
+            if (! $m->cost) {
+                continue;
+            }
+            $cat = $this->maintenanceCostCategory((string) $m->title);
+            $byCategory[$cat] = ($byCategory[$cat] ?? 0) + (int) $m->cost;
+        }
+        if ($customTotal > 0) {
+            $byCategory['カスタム'] = $customTotal;
+        }
+        if ($fuelTotal > 0) {
+            $byCategory['燃料'] = $fuelTotal;
+        }
+        arsort($byCategory);
+        $categories = [];
+        foreach ($byCategory as $label => $amount) {
+            $categories[] = [
+                'label' => $label,
+                'amount' => $amount,
+                'percent' => $total > 0 ? (int) round($amount / $total * 100) : 0,
+            ];
+        }
+
+        // --- km単価（累計）＝総費用 ÷ 走行距離(current − initial)。ゼロ除算は null ---
+        $distance = max(0.0, (float) $myBike->current_odometer - (float) $myBike->initial_odometer);
+        $perKm = $distance > 0 ? round($total / $distance, 1) : null;
+
+        // --- 期間別（年別・月別=直近12ヶ月）---
+        $byYear = $this->ledgerByPeriod($maint, $custom, $fuel, 'Y');
+        $byMonth = $this->ledgerByPeriod($maint, $custom, $fuel, 'Y-m', 12);
+
+        // --- 対象期間 ---
+        $dates = $maint->pluck('maintained_at')
+            ->merge($custom->pluck('maintained_at'))
+            ->merge($fuel->pluck('filled_at'))
+            ->filter()
+            ->sort()
+            ->values();
+
+        return [
+            'total' => $total,
+            'maintenance_total' => $maintTotal,
+            'custom_total' => $customTotal,
+            'fuel_total' => $fuelTotal,
+            'categories' => $categories,
+            'distance' => $distance,
+            'per_km' => $perKm,
+            'by_year' => $byYear,
+            'by_month' => $byMonth,
+            'from' => $dates->first(),
+            'to' => $dates->last(),
+            'record_count' => $maint->count() + $custom->count() + $fuel->count(),
+        ];
+    }
+
+    /**
+     * 期間別の費用集計（maintenance/custom/fuel/total）。$fmt='Y'|'Y-m'。$limit 指定で直近Nのみ。
+     *
+     * @return array<string, array<string, int>>
+     */
+    private function ledgerByPeriod($maint, $custom, $fuel, string $fmt, ?int $limit = null): array
+    {
+        $rows = [];
+        $add = function ($date, string $bucket, int $cost) use (&$rows, $fmt) {
+            if (! $date) {
+                return;
+            }
+            $k = $date->format($fmt);
+            $rows[$k][$bucket] = ($rows[$k][$bucket] ?? 0) + $cost;
+        };
+
+        foreach ($maint as $m) {
+            $add($m->maintained_at, 'maintenance', (int) $m->cost);
+        }
+        foreach ($custom as $c) {
+            $add($c->maintained_at, 'custom', (int) $c->cost);
+        }
+        foreach ($fuel as $f) {
+            $add($f->filled_at, 'fuel', (int) $f->cost);
+        }
+
+        krsort($rows);
+        foreach ($rows as $k => &$r) {
+            $r['maintenance'] = $r['maintenance'] ?? 0;
+            $r['custom'] = $r['custom'] ?? 0;
+            $r['fuel'] = $r['fuel'] ?? 0;
+            $r['total'] = $r['maintenance'] + $r['custom'] + $r['fuel'];
+        }
+        unset($r);
+
+        return $limit !== null ? array_slice($rows, 0, $limit, true) : $rows;
+    }
+
+    /**
+     * 整備 title を会計簿の費目へ分類する（単一の真実）。custom→カスタム/fuel→燃料は呼び出し側。
+     */
+    private function maintenanceCostCategory(string $title): string
+    {
+        if (str_contains($title, 'オイル')) {
+            return 'オイル';
+        }
+        if (str_contains($title, 'タイヤ')) {
+            return 'タイヤ';
+        }
+        if (str_contains($title, 'ブレーキ')) {
+            return 'ブレーキ';
+        }
+        if (str_contains($title, 'チェーン') || str_contains($title, 'スプロケ')) {
+            return 'チェーン';
+        }
+        if (str_contains($title, '車検')) {
+            return '車検';
+        }
+
+        return 'その他整備';
+    }
+
+    /**
      * 整備種別名から「よくある交換目安(km)」を返す（断定でなく目安）。該当なしは null。
      * title は自由文のため部分一致で判定。
      */

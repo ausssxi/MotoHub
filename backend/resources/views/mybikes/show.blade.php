@@ -245,12 +245,15 @@
             <div x-data="{ tab: '{{ $errors->has('maintained_at') || $errors->has('title') ? 'maintenance' : 'fuel' }}' }" class="space-y-6">
                 
                 {{-- タブ切り替え --}}
-                <div class="bg-white p-1 rounded-xl inline-flex border border-gray-100 shadow-sm">
-                    <button @click="tab = 'fuel'" :class="tab === 'fuel' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'" class="px-6 py-2 rounded-lg text-xs font-black transition-colors flex items-center gap-2">
+                <div class="bg-white p-1 rounded-xl inline-flex flex-wrap border border-gray-100 shadow-sm">
+                    <button @click="tab = 'fuel'" :class="tab === 'fuel' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'" class="px-5 py-2 rounded-lg text-xs font-black transition-colors flex items-center gap-2">
                         <i data-lucide="fuel" class="w-4 h-4"></i> 給油・燃費
                     </button>
-                    <button @click="tab = 'maintenance'" :class="tab === 'maintenance' ? 'bg-orange-100 text-orange-700' : 'text-gray-500 hover:text-gray-700'" class="px-6 py-2 rounded-lg text-xs font-black transition-colors flex items-center gap-2">
+                    <button @click="tab = 'maintenance'" :class="tab === 'maintenance' ? 'bg-orange-100 text-orange-700' : 'text-gray-500 hover:text-gray-700'" class="px-5 py-2 rounded-lg text-xs font-black transition-colors flex items-center gap-2">
                         <i data-lucide="wrench" class="w-4 h-4"></i> 整備・カスタム
+                    </button>
+                    <button @click="tab = 'ledger'" :class="tab === 'ledger' ? 'bg-emerald-100 text-emerald-700' : 'text-gray-500 hover:text-gray-700'" class="px-5 py-2 rounded-lg text-xs font-black transition-colors flex items-center gap-2">
+                        <i data-lucide="wallet" class="w-4 h-4"></i> 会計簿
                     </button>
                 </div>
 
@@ -857,6 +860,94 @@
                             @include('mybikes._record-photos', ['myBike' => $myBike, 'record' => $c])
                         </div>
                         @endforeach
+                    </div>
+                    @endif
+                </div>
+
+                {{-- 3. 会計簿セクション（維持費の数値レポート・private） --}}
+                <div x-show="tab === 'ledger'" x-cloak class="animate-in fade-in slide-in-from-bottom-2">
+                    @if($ledger['record_count'] === 0)
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
+                        <i data-lucide="wallet" class="w-10 h-10 text-gray-200 mx-auto mb-3"></i>
+                        <p class="text-sm font-black text-gray-700 mb-1">まだ記録がありません</p>
+                        <p class="text-xs text-gray-500">給油・整備・カスタムを記録すると、維持費の合計やkm単価が自動で集計されます。</p>
+                    </div>
+                    @else
+                    {{-- サマリー --}}
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 col-span-2 sm:col-span-1">
+                            <p class="text-[10px] font-bold text-gray-400 mb-1">総維持費</p>
+                            <p class="text-2xl font-black text-emerald-600">{{ number_format($ledger['total']) }}<span class="text-sm">円</span></p>
+                            <p class="text-[10px] font-bold text-gray-400 mt-1">
+                                @if($ledger['from'])対象: {{ $ledger['from']->format('Y/m/d') }} 〜 {{ optional($ledger['to'])->format('Y/m/d') }}@endif
+                            </p>
+                        </div>
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                            <p class="text-[10px] font-bold text-gray-400 mb-1">km単価</p>
+                            @if($ledger['per_km'] !== null)
+                            <p class="text-2xl font-black text-gray-900">{{ number_format($ledger['per_km'], 1) }}<span class="text-sm">円/km</span></p>
+                            <p class="text-[10px] font-bold text-gray-400 mt-1">走行 {{ number_format($ledger['distance']) }} km</p>
+                            @else
+                            <p class="text-2xl font-black text-gray-300">—</p>
+                            <p class="text-[10px] font-bold text-gray-400 mt-1">走行距離の記録待ち</p>
+                            @endif
+                        </div>
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                            <p class="text-[10px] font-bold text-gray-400 mb-1">内訳</p>
+                            <div class="text-[11px] font-bold text-gray-600 space-y-0.5">
+                                <div class="flex justify-between"><span>整備</span><span>{{ number_format($ledger['maintenance_total']) }}円</span></div>
+                                <div class="flex justify-between"><span>カスタム</span><span>{{ number_format($ledger['custom_total']) }}円</span></div>
+                                <div class="flex justify-between"><span>燃料</span><span>{{ number_format($ledger['fuel_total']) }}円</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- 費目別内訳 --}}
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
+                        <h4 class="text-xs font-black text-gray-700 mb-4 flex items-center gap-1.5"><i data-lucide="pie-chart" class="w-3.5 h-3.5 text-emerald-500"></i> 費目別内訳</h4>
+                        <div class="space-y-3">
+                            @foreach($ledger['categories'] as $cat)
+                            <div>
+                                <div class="flex justify-between items-baseline mb-1">
+                                    <span class="text-xs font-black text-gray-700">{{ $cat['label'] }}</span>
+                                    <span class="text-xs font-bold text-gray-500">{{ number_format($cat['amount']) }}円 <span class="text-[10px] text-gray-400">({{ $cat['percent'] }}%)</span></span>
+                                </div>
+                                <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                    <div class="h-full bg-emerald-400 rounded-full" style="width: {{ max(2, $cat['percent']) }}%"></div>
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    {{-- 月別（直近12ヶ月） --}}
+                    @if(!empty($ledger['by_month']))
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
+                        <h4 class="text-xs font-black text-gray-700 mb-3 flex items-center gap-1.5"><i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-500"></i> 月別（直近12ヶ月）</h4>
+                        <div class="space-y-1.5">
+                            @foreach($ledger['by_month'] as $month => $row)
+                            <div class="flex items-center justify-between text-[11px] font-bold py-1 border-b border-gray-50 last:border-0">
+                                <span class="text-gray-500">{{ $month }}</span>
+                                <span class="text-gray-400">整備{{ number_format($row['maintenance']) }} / カスタム{{ number_format($row['custom']) }} / 燃料{{ number_format($row['fuel']) }}</span>
+                                <span class="text-gray-900 font-black w-20 text-right">{{ number_format($row['total']) }}円</span>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- 年別 --}}
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                        <h4 class="text-xs font-black text-gray-700 mb-3 flex items-center gap-1.5"><i data-lucide="calendar-range" class="w-3.5 h-3.5 text-emerald-500"></i> 年別</h4>
+                        <div class="space-y-1.5">
+                            @foreach($ledger['by_year'] as $year => $row)
+                            <div class="flex items-center justify-between text-[11px] font-bold py-1 border-b border-gray-50 last:border-0">
+                                <span class="text-gray-500">{{ $year }}年</span>
+                                <span class="text-gray-400">整備{{ number_format($row['maintenance']) }} / カスタム{{ number_format($row['custom']) }} / 燃料{{ number_format($row['fuel']) }}</span>
+                                <span class="text-gray-900 font-black w-20 text-right">{{ number_format($row['total']) }}円</span>
+                            </div>
+                            @endforeach
+                        </div>
                     </div>
                     @endif
                 </div>
