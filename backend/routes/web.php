@@ -491,6 +491,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/{myBike}/ocr/fuel', 'extractFuelOcr')->name('ocr.fuel')->where('myBike', '[0-9]+')->middleware('throttle:ocr-extract');
         // 給油フォームの音声入力補完（owner-only・throttle 必須）
         Route::post('/{myBike}/voice/fuel', 'parseFuelVoice')->name('voice.fuel')->where('myBike', '[0-9]+')->middleware('throttle:voice-extract');
+        // 整備・カスタム記録の OCR/voice 入力補完（owner-only・throttle は給油と共有＝合算）
+        Route::post('/{myBike}/ocr/record', 'extractRecordOcr')->name('ocr.record')->where('myBike', '[0-9]+')->middleware('throttle:ocr-extract');
+        Route::post('/{myBike}/voice/record', 'parseRecordVoice')->name('voice.record')->where('myBike', '[0-9]+')->middleware('throttle:voice-extract');
         // ギャラリー画像の操作（owner-only）。アップロード/キャプション/削除は本人のみ。
         Route::post('/{myBike}/images', 'storeImage')->name('images.store')->where('myBike', '[0-9]+');
         Route::patch('/{myBike}/images/{image}', 'updateImageCaption')->name('images.caption')->where(['myBike' => '[0-9]+', 'image' => '[0-9]+']);

@@ -14,6 +14,7 @@ use App\Models\MyBike;
 use App\Services\MyBike\FuelOcrService;
 use App\Services\MyBike\MyBikeImageService;
 use App\Services\MyBike\MyBikeService;
+use App\Services\MyBike\RecordOcrService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -25,6 +26,7 @@ class MyBikeController extends Controller
         private readonly MyBikeService $service,
         private readonly MyBikeImageService $imageService,
         private readonly FuelOcrService $ocrService,
+        private readonly RecordOcrService $recordOcrService,
     ) {}
 
     /**
@@ -242,6 +244,61 @@ class MyBikeController extends Controller
         $this->service->deleteFuelLog($bike, (int) $fuelLog);
 
         return back()->with('success', '給油記録を削除しました。燃費と総走行距離を再計算しました。');
+    }
+
+    /**
+     * 整備・カスタム記録の OCR 入力補完（owner-only・throttle 共有）。
+     * type別に画像から記録項目を抽出して JSON で返す。★保存しない（フォーム充填→確認）。
+     */
+    public function extractRecordOcr(Request $request, $id)
+    {
+        if (! config('garage.ocr_enabled')) {
+            return response()->json(['error' => 'この機能は現在利用できません。'], 404);
+        }
+
+        $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id); // 非所有者は 404
+
+        $validated = $request->validate([
+            'image' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:'.(int) config('garage.max_upload_kb')],
+            'type' => ['required', 'in:'.RecordOcrService::TYPE_MAINTENANCE.','.RecordOcrService::TYPE_CUSTOM],
+        ]);
+
+        try {
+            $result = $this->recordOcrService->extract($request->file('image'), $validated['type']);
+        } catch (\Throwable $e) {
+            Log::error('RecordOcr 抽出失敗', ['error' => $e->getMessage()]);
+
+            return response()->json(['error' => '画像の解析に失敗しました。手入力で記録できます。'], 502);
+        }
+
+        return response()->json($this->withOdometerGuard($myBike, $result));
+    }
+
+    /**
+     * 整備・カスタム記録の音声入力補完（owner-only・throttle 共有）。
+     */
+    public function parseRecordVoice(Request $request, $id)
+    {
+        if (! config('garage.voice_enabled')) {
+            return response()->json(['error' => 'この機能は現在利用できません。'], 404);
+        }
+
+        $myBike = $this->service->getBikeDetail(Auth::user(), (int) $id); // 非所有者は 404
+
+        $validated = $request->validate([
+            'transcript' => ['required', 'string', 'max:500'],
+            'type' => ['required', 'in:'.RecordOcrService::TYPE_MAINTENANCE.','.RecordOcrService::TYPE_CUSTOM],
+        ]);
+
+        try {
+            $result = $this->recordOcrService->parseText($validated['transcript'], $validated['type']);
+        } catch (\Throwable $e) {
+            Log::error('RecordVoice パース失敗', ['error' => $e->getMessage()]);
+
+            return response()->json(['error' => '音声の解析に失敗しました。手入力で記録できます。'], 502);
+        }
+
+        return response()->json($this->withOdometerGuard($myBike, $result));
     }
 
     /**

@@ -5,27 +5,24 @@ declare(strict_types=1);
 namespace App\Services\MyBike;
 
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Http;
-use Intervention\Image\Drivers\Gd\Driver;
-use Intervention\Image\ImageManager;
-use RuntimeException;
 
 /**
  * 給油フォームの OCR 入力補完。
  * レシート/メーター画像を Claude vision に渡し {走行距離, 給油量, 金額, 日付} を抽出する。
+ * 下回り（画像前処理・API呼び出し・PII除去）は GarageAiExtractor に委譲し、ここは給油の
+ * スキーマ/プロンプト/field mapping のみ持つ。
  *
  * 重要:
  *  - 抽出値は「自動入力の候補」であり自動保存しない（呼び出し側でフォームに充填→ユーザー確認）。
- *  - 送信前に Intervention で再エンコードし EXIF/GPS メタを除去する（プライバシー）。
- *  - 読めない項目は null（手入力フォールバック）。
+ *  - 送信前に EXIF/GPS メタを除去（GarageAiExtractor）。読めない項目は null（手入力フォールバック）。
  */
 final class FuelOcrService
 {
-    private const API_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-
     public const TYPE_RECEIPT = 'receipt';
 
     public const TYPE_ODOMETER = 'odometer';
+
+    public function __construct(private readonly GarageAiExtractor $ai) {}
 
     /**
      * 画像から給油項目を抽出する。
@@ -35,12 +32,13 @@ final class FuelOcrService
      */
     public function extract(UploadedFile $file, string $type): array
     {
-        $base64 = $this->preprocess($file);
+        $raw = $this->ai->vision(
+            $this->systemPrompt($type),
+            $this->ai->preprocessImage($file),
+            $this->userInstruction($type),
+        );
 
-        return $this->dispatch($this->systemPrompt($type), [
-            ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => 'image/jpeg', 'data' => $base64]],
-            ['type' => 'text', 'text' => $this->userInstruction($type)],
-        ]);
+        return $this->normalize($raw);
     }
 
     /**
@@ -51,63 +49,12 @@ final class FuelOcrService
      */
     public function parseText(string $transcript): array
     {
-        return $this->dispatch($this->voiceSystemPrompt(), [
-            ['type' => 'text', 'text' => "次の音声書き起こしから給油項目を抽出してください:\n".$transcript],
-        ]);
-    }
+        $raw = $this->ai->text(
+            $this->voiceSystemPrompt(),
+            "次の音声書き起こしから給油項目を抽出してください:\n".$transcript,
+        );
 
-    /**
-     * Anthropic /v1/messages を叩き、content.0.text を normalize して返す（vision/text 共通）。
-     *
-     * @param  array<int, array<string, mixed>>  $content
-     * @return array{values: array<string, mixed>, confidence: string}
-     */
-    private function dispatch(string $system, array $content): array
-    {
-        $apiKey = config('services.anthropic.api_key');
-        if (! $apiKey) {
-            throw new RuntimeException('Anthropic API key is not configured.');
-        }
-
-        $response = Http::withHeaders([
-            'x-api-key' => $apiKey,
-            'anthropic-version' => '2023-06-01',
-            'content-type' => 'application/json',
-        ])->timeout(40)->post(self::API_ENDPOINT, [
-            'model' => (string) config('garage.ocr_model'),
-            'max_tokens' => 300,
-            'system' => $system,
-            'messages' => [['role' => 'user', 'content' => $content]],
-        ]);
-
-        if (! $response->successful()) {
-            throw new RuntimeException("OCR API error: {$response->status()} - {$response->body()}");
-        }
-
-        $text = $response->json('content.0.text');
-        if (! is_string($text) || $text === '') {
-            throw new RuntimeException('OCR API returned empty content.');
-        }
-
-        return $this->normalize($this->parseJson($text));
-    }
-
-    /**
-     * EXIF回転を焼き込み、長辺リサイズし、JPEG再エンコード（EXIF/GPS除去）して base64 化。
-     */
-    private function preprocess(UploadedFile $file): string
-    {
-        $manager = new ImageManager(new Driver);
-        $image = $manager->read($file->getRealPath());
-        $image->orient(); // 斜め/回転撮影をピクセルへ反映（OCR精度）
-
-        $maxEdge = (int) config('garage.ocr_max_edge', 1600);
-        $image->scaleDown($maxEdge, $maxEdge);
-
-        // 再エンコードで EXIF/GPS は除去される
-        $encoded = $image->toJpeg((int) config('garage.jpeg_quality', 82));
-
-        return base64_encode((string) $encoded);
+        return $this->normalize($raw);
     }
 
     private function systemPrompt(string $type): string
@@ -188,21 +135,6 @@ PROMPT;
     }
 
     /**
-     * @return array<string, mixed>
-     */
-    private function parseJson(string $text): array
-    {
-        if (preg_match('/\{[\s\S]*\}/', $text, $m)) {
-            $decoded = json_decode($m[0], true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                return $decoded;
-            }
-        }
-
-        throw new RuntimeException('OCR result JSON could not be parsed.');
-    }
-
-    /**
      * モデル出力をフォームのフィールド名へマップ（非nullのみ）。
      *
      * @param  array<string, mixed>  $raw
@@ -227,19 +159,10 @@ PROMPT;
                 $values['filled_at'] = $raw['date'];
             }
         }
-        if (isset($raw['store_name']) && is_string($raw['store_name'])) {
-            $name = trim($raw['store_name']);
-            // PII セーフティネット（プロンプトのPII除外指示を二重化）。privacy優先で、疑わしきは破棄。
-            // カード番号/電話/承認番号/登録番号は区切り(空白・ハイフン)が入るので「合計の数字桁数」で判定する
-            // （「246号店」=3桁は許容、カード16桁/電話10桁/登録13桁は破棄）。長すぎ＝住所/法人正式名も破棄。
-            $digitCount = preg_match_all('/\d/', $name);
-            $looksLikePii = $name !== '' && (
-                $digitCount >= 6
-                || mb_strlen($name) > 60
-            );
-            if ($name !== '' && ! $looksLikePii) {
-                $values['store_name'] = mb_substr($name, 0, 60);
-            }
+        // 店名は PII セーフティネット（カード/電話/住所等を破棄）を通す
+        $store = $this->ai->sanitizeFreeText($raw['store_name'] ?? null);
+        if ($store !== null) {
+            $values['store_name'] = $store;
         }
 
         $confidence = in_array($raw['confidence'] ?? null, ['高', '中', '低'], true) ? $raw['confidence'] : '低';

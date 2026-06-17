@@ -543,7 +543,70 @@
                             this.setV('m_odometer', this.L); this.setV('m_maintained_at', '{{ date('Y-m-d') }}'); this.checkOdo(this.L); this.scrollTop(); },
                         copyCustom(b) { const d = b.dataset; this.mode = 'custom'; this.category = d.category || '';
                             this.setV('c_part', d.part); this.setV('c_brand', d.brand); this.setV('c_cost', d.cost); this.setV('c_vendor', d.vendor); this.setV('c_note', d.note);
-                            this.setV('c_odometer', this.L); this.setV('c_maintained_at', '{{ date('Y-m-d') }}'); this.checkOdo(this.L); this.scrollTop(); }
+                            this.setV('c_odometer', this.L); this.setV('c_maintained_at', '{{ date('Y-m-d') }}'); this.checkOdo(this.L); this.scrollTop(); },
+                        {{-- OCR/voice 入力補完（給油と同じ流儀・type別） --}}
+                        aiLoading: false, aiMsg: '', aiErr: '',
+                        voiceOn: false, voiceRec: null,
+                        voiceSupported: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+                        recordLabels(type) {
+                            return type === 'custom'
+                                ? { maintained_at: '日付', odometer: '走行距離', cost: '費用', vendor: '場所', part_name: 'パーツ名', brand: 'ブランド' }
+                                : { maintained_at: '日付', odometer: '走行距離', cost: '費用', vendor: '場所', title: '内容' };
+                        },
+                        fillForm(form, data) {
+                            const v = (data && data.values) || {}; const labels = this.recordLabels(this.mode); const filled = [];
+                            for (const k in labels) {
+                                if (v[k] !== undefined && v[k] !== null && v[k] !== '') {
+                                    const el = form.querySelector('[name=' + k + ']');
+                                    if (el) { el.value = v[k]; el.dispatchEvent(new Event('input', { bubbles: true })); el.classList.add('ring-2', 'ring-orange-400'); filled.push(labels[k]); }
+                                }
+                            }
+                            if (data && data.odometer_warning) this.odoWarn = data.odometer_warning;
+                            return filled;
+                        },
+                        async runOcr(type, input) {
+                            const file = input.files[0]; if (!file) return;
+                            this.aiMsg = ''; this.aiErr = ''; this.aiLoading = true;
+                            try {
+                                const form = input.closest('form'); const fd = new FormData();
+                                fd.append('image', file); fd.append('type', type); fd.append('_token', form.querySelector('input[name=_token]').value);
+                                const res = await fetch('{{ route('mybikes.ocr.record', $myBike->id) }}', { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } });
+                                if (res.status === 429) { this.aiErr = '本日の解析回数が上限に達しました。手入力で記録できます。'; return; }
+                                const data = await res.json();
+                                if (!res.ok) { this.aiErr = (data && data.error) || '解析に失敗しました。手入力で記録できます。'; return; }
+                                const filled = this.fillForm(form, data);
+                                if (filled.length) { this.aiMsg = '読み取り→ ' + filled.join('・') + 'を入力しました。確認して保存してください。'; }
+                                else { this.aiErr = '読み取れませんでした。手入力で記録できます。'; }
+                            } catch (e) { this.aiErr = '解析に失敗しました。手入力で記録できます。'; }
+                            finally { this.aiLoading = false; input.value = ''; }
+                        },
+                        startVoice(type) {
+                            if (this.voiceOn) { this.voiceRec?.stop(); return; }
+                            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+                            if (!SR) { this.aiErr = 'このブラウザは音声入力に対応していません。'; return; }
+                            this.aiMsg = ''; this.aiErr = '';
+                            this.voiceRec = new SR(); this.voiceRec.lang = 'ja-JP'; this.voiceRec.interimResults = false; this.voiceRec.continuous = false;
+                            let finalText = '';
+                            this.voiceRec.onresult = (e) => { for (let i = 0; i < e.results.length; i++) { if (e.results[i].isFinal) finalText += e.results[i][0].transcript; } };
+                            this.voiceRec.onerror = () => { this.aiErr = '音声を認識できませんでした。手入力で記録できます。'; this.voiceOn = false; };
+                            this.voiceRec.onend = () => { this.voiceOn = false; const t = finalText.trim(); if (t) this.submitVoice(type, t); };
+                            try { this.voiceRec.start(); this.voiceOn = true; } catch (e) { /* already started */ }
+                        },
+                        async submitVoice(type, transcript) {
+                            this.aiLoading = true;
+                            try {
+                                const form = document.getElementById(type === 'custom' ? 'c_form' : 'm_form'); const fd = new FormData();
+                                fd.append('transcript', transcript); fd.append('type', type); fd.append('_token', form.querySelector('input[name=_token]').value);
+                                const res = await fetch('{{ route('mybikes.voice.record', $myBike->id) }}', { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } });
+                                if (res.status === 429) { this.aiErr = '本日の音声入力が上限に達しました。手入力で記録できます。'; return; }
+                                const data = await res.json();
+                                if (!res.ok) { this.aiErr = (data && data.error) || '解析に失敗しました。手入力で記録できます。'; return; }
+                                const filled = this.fillForm(form, data);
+                                if (filled.length) { this.aiMsg = '「' + transcript + '」→ ' + filled.join('・') + 'を入力しました。確認して保存してください。'; }
+                                else { this.aiErr = '「' + transcript + '」から読み取れませんでした。手入力で記録できます。'; }
+                            } catch (e) { this.aiErr = '解析に失敗しました。手入力で記録できます。'; }
+                            finally { this.aiLoading = false; }
+                        }
                      }">
                     <div x-ref="formTop"></div>
 
@@ -562,8 +625,26 @@
                             <button type="button" @click="pickPreset(@js($preset))" :class="title === @js($preset) ? 'bg-orange-600 text-white border-orange-600' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-orange-300'" class="text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors">{{ $preset }}</button>
                             @endforeach
                         </div>
-                        <form action="{{ route('mybikes.maintenance.store', $myBike->id) }}" method="POST" class="space-y-4">
+                        <form id="m_form" action="{{ route('mybikes.maintenance.store', $myBike->id) }}" method="POST" class="space-y-4">
                             @csrf
+                            @if(config('garage.ocr_enabled') || config('garage.voice_enabled'))
+                            <div class="p-3 bg-orange-50/60 border border-orange-100 rounded-xl">
+                                <p class="text-xs font-black text-gray-700 mb-2 flex items-center gap-1.5"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-orange-500"></i> 撮影・音声で自動入力</p>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    @if(config('garage.ocr_enabled'))
+                                    <button type="button" :disabled="aiLoading" @click="$refs.m_receipt.click()" class="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-50 px-3 py-2 rounded-lg transition-colors"><i data-lucide="receipt" class="w-3.5 h-3.5"></i> 伝票を撮る</button>
+                                    @endif
+                                    @if(config('garage.voice_enabled'))
+                                    <button type="button" x-show="voiceSupported" :disabled="aiLoading" @click="startVoice('maintenance')" :class="voiceOn ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-800 hover:bg-gray-900'" class="inline-flex items-center gap-1.5 text-xs font-bold text-white disabled:opacity-50 px-3 py-2 rounded-lg transition-colors"><i data-lucide="mic" class="w-3.5 h-3.5"></i><span x-text="voiceOn ? '停止' : '音声で入力'"></span></button>
+                                    @endif
+                                    <span x-show="aiLoading" x-cloak class="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600"><i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> 解析中…</span>
+                                </div>
+                                <input type="file" x-ref="m_receipt" accept="image/*" capture="environment" class="hidden" @change="runOcr('maintenance', $event.target)">
+                                <p x-show="aiMsg" x-cloak class="text-[11px] font-bold text-orange-700 mt-2" x-text="aiMsg"></p>
+                                <p x-show="aiErr" x-cloak class="text-[11px] font-bold text-red-600 mt-2" x-text="aiErr"></p>
+                                <p class="text-[10px] text-gray-400 mt-2">画像/音声はAI解析に送信されます（位置情報除去・保存しません）。結果は自動保存されません。</p>
+                            </div>
+                            @endif
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">内容</label>
@@ -609,8 +690,26 @@
                     {{-- カスタムフォーム --}}
                     <div x-show="mode === 'custom'" x-cloak class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
                         <h3 class="font-black text-gray-900 mb-3 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-purple-500"></i> カスタムを記録</h3>
-                        <form action="{{ route('mybikes.custom.store', $myBike->id) }}" method="POST" class="space-y-4">
+                        <form id="c_form" action="{{ route('mybikes.custom.store', $myBike->id) }}" method="POST" class="space-y-4">
                             @csrf
+                            @if(config('garage.ocr_enabled') || config('garage.voice_enabled'))
+                            <div class="p-3 bg-purple-50/60 border border-purple-100 rounded-xl">
+                                <p class="text-xs font-black text-gray-700 mb-2 flex items-center gap-1.5"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-500"></i> 撮影・音声で自動入力</p>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    @if(config('garage.ocr_enabled'))
+                                    <button type="button" :disabled="aiLoading" @click="$refs.c_receipt.click()" class="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 px-3 py-2 rounded-lg transition-colors"><i data-lucide="receipt" class="w-3.5 h-3.5"></i> レシートを撮る</button>
+                                    @endif
+                                    @if(config('garage.voice_enabled'))
+                                    <button type="button" x-show="voiceSupported" :disabled="aiLoading" @click="startVoice('custom')" :class="voiceOn ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-800 hover:bg-gray-900'" class="inline-flex items-center gap-1.5 text-xs font-bold text-white disabled:opacity-50 px-3 py-2 rounded-lg transition-colors"><i data-lucide="mic" class="w-3.5 h-3.5"></i><span x-text="voiceOn ? '停止' : '音声で入力'"></span></button>
+                                    @endif
+                                    <span x-show="aiLoading" x-cloak class="inline-flex items-center gap-1.5 text-xs font-bold text-purple-600"><i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> 解析中…</span>
+                                </div>
+                                <input type="file" x-ref="c_receipt" accept="image/*" capture="environment" class="hidden" @change="runOcr('custom', $event.target)">
+                                <p x-show="aiMsg" x-cloak class="text-[11px] font-bold text-purple-700 mt-2" x-text="aiMsg"></p>
+                                <p x-show="aiErr" x-cloak class="text-[11px] font-bold text-red-600 mt-2" x-text="aiErr"></p>
+                                <p class="text-[10px] text-gray-400 mt-2">画像/音声はAI解析に送信されます（位置情報除去・保存しません）。結果は自動保存されません。</p>
+                            </div>
+                            @endif
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">パーツ名</label>
