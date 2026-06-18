@@ -101,6 +101,25 @@ it('the garage page renders presets, the custom form, installed parts, delete + 
         ->assertSee('前回と同じで記録', false);     // 前回複製ボタン
 });
 
+it('each tab toggles via x-show, and the maintenance block is NOT hidden by the .hidden class (Alpine x-show cannot override it)', function () {
+    $user = User::factory()->create();
+    $bike = uiBike($user);
+
+    $html = $this->actingAs($user)->get("/garage/{$bike->id}")->assertOk()->getContent();
+
+    // 3タブとも x-show で出し分けられている
+    expect($html)->toContain("x-show=\"tab === 'fuel'\"")
+        ->toContain("x-show=\"tab === 'maintenance'\"")
+        ->toContain("x-show=\"tab === 'ledger'\"");
+
+    // ★回帰防止: 整備・カスタムブロックを Tailwind の .hidden で隠してはならない。
+    //  x-show は inline の display を切り替えるだけで .hidden(display:none) を上書きできず、
+    //  「表示」に切り替えても class が残って永久に隠れる（本バグの根本原因）。
+    //  fuel と同様に inline style で隠し、Alpine が表示時に display を外せるようにする。
+    expect($html)->not->toContain("x-show=\"tab === 'maintenance'\" class=\"hidden")
+        ->toContain("x-show=\"tab === 'maintenance'\" style=\"display: none;\"");
+});
+
 it('maintenance store persists vendor (場所)', function () {
     $user = User::factory()->create();
     $bike = uiBike($user);

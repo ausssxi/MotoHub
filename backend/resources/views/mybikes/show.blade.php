@@ -525,7 +525,7 @@
 
                 {{-- 2. 整備・カスタム記録セクション --}}
                 @php $remByTitle = collect($dashboard['reminders'] ?? [])->keyBy('title'); @endphp
-                <div x-show="tab === 'maintenance'" class="hidden animate-in fade-in slide-in-from-bottom-2"
+                <div x-show="tab === 'maintenance'" style="display: none;" class="animate-in fade-in slide-in-from-bottom-2"
                      x-data="{
                         mode: 'maintenance', title: '', category: '',
                         L: {{ (float) $myBike->current_odometer }}, mult: {{ (float) config('garage.odometer_jump_multiplier', 5) }}, odoWarn: '',
