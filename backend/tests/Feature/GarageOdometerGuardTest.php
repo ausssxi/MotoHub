@@ -68,6 +68,78 @@ it('respects a config-tuned multiplier', function () {
     expect($bike->odometerPlausibilityWarning(110000))->not->toBeNull(); // 11x → warn
 });
 
+// ---- 日付文脈ガード（問題1: 過去日付の誤発火修正） ----
+
+use App\Models\FuelLog;
+use App\Models\MaintenanceLog;
+
+function seedFuel(MyBike $bike, string $date, float $odo): FuelLog
+{
+    return FuelLog::create(['my_bike_id' => $bike->id, 'filled_at' => $date, 'odometer' => $odo, 'quantity' => 5, 'is_full_tank' => true]);
+}
+
+function seedMaint(MyBike $bike, string $date, ?float $odo): MaintenanceLog
+{
+    return MaintenanceLog::create(['my_bike_id' => $bike->id, 'maintained_at' => $date, 'title' => '整備', 'odometer' => $odo, 'type' => MaintenanceLog::TYPE_MAINTENANCE]);
+}
+
+it('does NOT warn for a past-dated record with a smaller odometer (symptom of 問題1)', function () {
+    // running-max は給油6/15・62663km。過去日付6/06に62533kmは時系列的に正常。
+    $bike = guardBike(User::factory()->create(), 62663);
+    seedFuel($bike, '2026-06-15', 62663);
+
+    expect($bike->odometerPlausibilityWarning(62533, '2026-06-06'))->toBeNull();
+});
+
+it('warns on a true time-series regression (a value smaller than an earlier-dated record)', function () {
+    $bike = guardBike(User::factory()->create(), 62663);
+    seedFuel($bike, '2026-06-01', 62000); // 入力日より前
+
+    // 6/10 に 61000km は 6/1(62000km) を下回る＝逆行
+    expect($bike->odometerPlausibilityWarning(61000, '2026-06-10'))
+        ->not->toBeNull()
+        ->toContain('前の記録');
+});
+
+it('warns when a value exceeds a later-dated record (inserting backwards in time)', function () {
+    $bike = guardBike(User::factory()->create(), 70000);
+    seedFuel($bike, '2026-06-20', 70000); // 入力日より後
+
+    // 6/10 に 80000km は 6/20(70000km) を上回る＝時系列矛盾
+    expect($bike->odometerPlausibilityWarning(80000, '2026-06-10'))
+        ->not->toBeNull()
+        ->toContain('後の記録');
+});
+
+it('warns on a ~10x jump in date context (hints at fractional digits)', function () {
+    $bike = guardBike(User::factory()->create(), 62663);
+    seedFuel($bike, '2026-06-01', 62663); // 直前
+
+    expect($bike->odometerPlausibilityWarning(626634, '2026-06-10'))
+        ->not->toBeNull()
+        ->toContain('端数');
+});
+
+it('does NOT warn at the same-day boundary, nor on the very first record', function () {
+    $bike = guardBike(User::factory()->create(), 62663);
+    seedFuel($bike, '2026-06-10', 62663);
+
+    // 同日は前後どちらにも含めない＝警告しない
+    expect($bike->odometerPlausibilityWarning(50000, '2026-06-10'))->toBeNull();
+
+    // 初回（前後に記録なし）も警告しない
+    $fresh = guardBike(User::factory()->create(), 0);
+    expect($fresh->odometerPlausibilityWarning(80000, '2026-06-10'))->toBeNull();
+});
+
+it('excludes the edited record itself from the bounds (edit reuse)', function () {
+    $bike = guardBike(User::factory()->create(), 62663);
+    $log = seedMaint($bike, '2026-06-10', 62663);
+
+    // 自分自身を除外しなければ「同値の自分」とぶつかるが、除外すれば前後に他記録なし＝警告なし
+    expect($bike->odometerPlausibilityWarning(62000, '2026-06-10', null, $log->id))->toBeNull();
+});
+
 // ---- B-2 response contract (voice + ocr) ----
 
 it('voice response carries last_odometer and odometer_warning', function () {

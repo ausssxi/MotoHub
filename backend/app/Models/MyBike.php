@@ -80,35 +80,91 @@ class MyBike extends Model
     }
 
     /**
-     * 走行距離の前回比 妥当性チェック（OCR/voice/手入力 共通の安全ネット）。
-     * 前回 L = current_odometer（running max）。今回値が L未満／L×倍率超 のとき確認文を返す。
+     * 走行距離の妥当性チェック（OCR/voice/手入力 共通の安全ネット）。
      * ★ブロックはしない・例外も投げない。問題なければ null。
      *
-     * @return string|null 警告文（前回Lと今回newを必ず含む）or null
+     * $onDate を渡すと「入力日の時系列文脈」で逆行のみ警告する（推奨）。
+     *   入力日より前の記録の最大odometer ≤ 入力値 ≤ 入力日より後の記録の最小odometer を満たさないとき警告。
+     *   過去日付に小さい値は正常＝警告しない。10倍異常は「直前(=入力日より前の最大)」基準で見直す。
+     * $onDate が null の場合のみ従来の running-max(current_odometer) 比較にフォールバックする
+     *   （OCR/voice の即時フィードバック等、日付未確定の文脈用）。
+     * 編集時は自分自身を $excludeFuelId / $excludeRecordId で除外する。
+     *
+     * @return string|null 警告文 or null
      */
-    public function odometerPlausibilityWarning(int|float|null $newOdometer): ?string
-    {
+    public function odometerPlausibilityWarning(
+        int|float|null $newOdometer,
+        ?string $onDate = null,
+        ?int $excludeFuelId = null,
+        ?int $excludeRecordId = null
+    ): ?string {
         if ($newOdometer === null) {
             return null;
         }
 
-        $last = (float) $this->current_odometer;
-        if ($last <= 0) {
-            return null; // 初回・履歴なし
-        }
-
         $new = (float) $newOdometer;
         $mult = (float) config('garage.odometer_jump_multiplier', 5);
-        $lastFmt = $this->formatKm($last);
-        $newFmt = $this->formatKm($new);
 
-        if ($new < $last) {
-            return "前回 {$lastFmt} km → 今回 {$newFmt} km。走行距離が前回より小さくなっています。確認してください。";
+        // 日付文脈なし＝従来の running-max 比較（後方互換の安全ネット）。
+        if ($onDate === null) {
+            $last = (float) $this->current_odometer;
+            if ($last <= 0) {
+                return null; // 初回・履歴なし
+            }
+
+            return $this->odometerJumpText($last, $new, $mult, true);
         }
 
-        if ($new > $last * $mult) {
-            $msg = "前回 {$lastFmt} km → 今回 {$newFmt} km。前回より大幅に増えています。確認してください。";
-            if ($new >= $last * 9.5 && $new <= $last * 10.5) {
+        // 日付文脈あり＝時系列の逆行のみ警告。
+        [$maxBefore, $minAfter] = $this->odometerBoundsByDate($onDate, $excludeFuelId, $excludeRecordId);
+
+        // 前後に記録が無い場合の扱い：
+        //  - 記録が1件も無い（登録時の current_odometer のみ）＝running-max にフォールバック（store時の10倍検知）。
+        //  - 同日のみ等で前後制約が無い＝時系列の制約なし＝警告しない（境界＝同日は許容）。
+        //  - 編集中（自分を除外）の current_odometer は編集対象自身を含み信頼できないためフォールバックしない。
+        if ($maxBefore === null && $minAfter === null) {
+            if ($excludeFuelId !== null || $excludeRecordId !== null) {
+                return null;
+            }
+            if ($this->hasDatedOdometerRecord()) {
+                return null;
+            }
+            $last = (float) $this->current_odometer;
+
+            return $last > 0 ? $this->odometerJumpText($last, $new, $mult, true) : null;
+        }
+
+        if ($minAfter !== null && $new > $minAfter) {
+            return '入力日より後の記録（'.$this->formatKm($minAfter).' km）より今回 '.$this->formatKm($new).' km が大きくなっています。確認してください。';
+        }
+
+        if ($maxBefore !== null && $new < $maxBefore) {
+            return '入力日より前の記録（'.$this->formatKm($maxBefore).' km）より今回 '.$this->formatKm($new).' km が小さくなっています。確認してください。';
+        }
+
+        if ($maxBefore !== null && $maxBefore > 0) {
+            return $this->odometerJumpText($maxBefore, $new, $mult, false);
+        }
+
+        return null;
+    }
+
+    /**
+     * 走行距離の逆行/大幅増の文言。$backward=true のとき「前回より小さい」も警告する（running-max 用）。
+     * 日付文脈では逆行は呼び出し側で判定済みのため $backward=false（10倍異常のみ）。
+     */
+    private function odometerJumpText(float $base, float $new, float $mult, bool $backward): ?string
+    {
+        $baseFmt = $this->formatKm($base);
+        $newFmt = $this->formatKm($new);
+
+        if ($backward && $new < $base) {
+            return "前回 {$baseFmt} km → 今回 {$newFmt} km。走行距離が前回より小さくなっています。確認してください。";
+        }
+
+        if ($new > $base * $mult) {
+            $msg = "前回 {$baseFmt} km → 今回 {$newFmt} km。前回より大幅に増えています。確認してください。";
+            if ($new >= $base * 9.5 && $new <= $base * 10.5) {
                 $msg .= '（末尾に端数桁(0.1km)が混ざっていませんか？）';
             }
 
@@ -116,6 +172,56 @@ class MyBike extends Model
         }
 
         return null;
+    }
+
+    /**
+     * 入力日 $onDate 文脈での走行距離の上下限を返す（全記録: 給油 + 整備/カスタム）。
+     * maxBefore = $onDate「より前」の記録の最大 odometer（null=該当なし）。
+     * minAfter  = $onDate「より後」の記録の最小 odometer（null=該当なし）。
+     * 同日の記録は前後どちらにも含めない（境界＝同日は警告しない）。
+     * 編集時は自分自身を除外する。
+     *
+     * @return array{0: ?float, 1: ?float} [maxBefore, minAfter]
+     */
+    private function odometerBoundsByDate(string $onDate, ?int $excludeFuelId, ?int $excludeRecordId): array
+    {
+        $date = \Illuminate\Support\Carbon::parse($onDate)->toDateString();
+
+        $fuelBefore = FuelLog::where('my_bike_id', $this->id)
+            ->whereDate('filled_at', '<', $date)
+            ->when($excludeFuelId, fn ($q) => $q->where('id', '!=', $excludeFuelId))
+            ->max('odometer');
+        $recBefore = MaintenanceLog::where('my_bike_id', $this->id)
+            ->whereDate('maintained_at', '<', $date)
+            ->when($excludeRecordId, fn ($q) => $q->where('id', '!=', $excludeRecordId))
+            ->max('odometer');
+
+        $fuelAfter = FuelLog::where('my_bike_id', $this->id)
+            ->whereDate('filled_at', '>', $date)
+            ->when($excludeFuelId, fn ($q) => $q->where('id', '!=', $excludeFuelId))
+            ->min('odometer');
+        $recAfter = MaintenanceLog::where('my_bike_id', $this->id)
+            ->whereDate('maintained_at', '>', $date)
+            ->when($excludeRecordId, fn ($q) => $q->where('id', '!=', $excludeRecordId))
+            ->min('odometer');
+
+        $befores = array_filter([$fuelBefore, $recBefore], fn ($v) => $v !== null);
+        $afters = array_filter([$fuelAfter, $recAfter], fn ($v) => $v !== null);
+
+        return [
+            $befores === [] ? null : (float) max($befores),
+            $afters === [] ? null : (float) min($afters),
+        ];
+    }
+
+    /**
+     * odometer を持つ記録（給油 or 整備/カスタム）が1件でも存在するか。
+     * running-max フォールバックを「記録ゼロ＝登録時 current_odometer のみ」の場合に限定するための判定。
+     */
+    private function hasDatedOdometerRecord(): bool
+    {
+        return FuelLog::where('my_bike_id', $this->id)->whereNotNull('odometer')->exists()
+            || MaintenanceLog::where('my_bike_id', $this->id)->whereNotNull('odometer')->exists();
     }
 
     private function formatKm(float $v): string

@@ -447,11 +447,15 @@ final class MyBikeService
     }
 
     /**
-     * odometer 前回比ガードの警告文（保存前＝current_odometer 更新前に呼ぶこと）。
+     * odometer ガードの警告文（時系列文脈・保存前に呼ぶこと）。
+     * 入力日（maintained_at / filled_at）の文脈で逆行のみ警告する。日付が無ければ running-max にフォールバック。
+     * 編集時は自分自身を $excludeFuelId / $excludeRecordId で除外する。
      */
-    public function odometerWarningFor(MyBike $myBike, array $data): ?string
+    public function odometerWarningFor(MyBike $myBike, array $data, ?int $excludeFuelId = null, ?int $excludeRecordId = null): ?string
     {
-        return $myBike->odometerPlausibilityWarning($this->odometerValue($data));
+        $onDate = $data['maintained_at'] ?? $data['filled_at'] ?? null;
+
+        return $myBike->odometerPlausibilityWarning($this->odometerValue($data), $onDate, $excludeFuelId, $excludeRecordId);
     }
 
     /**

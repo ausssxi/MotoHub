@@ -524,19 +524,39 @@
                 </div>
 
                 {{-- 2. 整備・カスタム記録セクション --}}
-                @php $remByTitle = collect($dashboard['reminders'] ?? [])->keyBy('title'); @endphp
+                @php
+                    $remByTitle = collect($dashboard['reminders'] ?? [])->keyBy('title');
+                    // 走行距離の時系列ガード（クライアント即時フィードバック用）。給油+整備+カスタムの {date, odo}。
+                    $odoRecords = collect()
+                        ->concat($myBike->fuelLogs->map(fn ($l) => ['date' => optional($l->filled_at)->format('Y-m-d'), 'odo' => $l->odometer !== null ? (float) $l->odometer : null]))
+                        ->concat($myBike->maintenanceLogs->map(fn ($l) => ['date' => optional($l->maintained_at)->format('Y-m-d'), 'odo' => $l->odometer !== null ? (float) $l->odometer : null]))
+                        ->concat($myBike->customRecords->map(fn ($l) => ['date' => optional($l->maintained_at)->format('Y-m-d'), 'odo' => $l->odometer !== null ? (float) $l->odometer : null]))
+                        ->filter(fn ($r) => $r['date'] !== null && $r['odo'] !== null)
+                        ->values();
+                @endphp
                 <div x-show="tab === 'maintenance'" style="display: none;" class="animate-in fade-in slide-in-from-bottom-2"
                      x-data="{
                         mode: 'maintenance', title: '', category: '',
                         L: {{ (float) $myBike->current_odometer }}, mult: {{ (float) config('garage.odometer_jump_multiplier', 5) }}, odoWarn: '',
+                        records: @json($odoRecords),
+                        {{-- 入力日の時系列文脈でのみ警告（過去日付に小さい値は正常＝警告しない）。サーバ側 odometerPlausibilityWarning と同じ判定。 --}}
                         checkOdo(v) {
                             const n = parseFloat(v);
-                            if (!isFinite(n) || !(this.L > 0)) { this.odoWarn = ''; return; }
-                            if (n < this.L) { this.odoWarn = '前回 ' + this.L + ' km より小さい値です。確認してください。'; }
-                            else if (n > this.L * this.mult) {
-                                const note = (n >= this.L * 9.5 && n <= this.L * 10.5) ? '（末尾に端数桁(0.1km)が混ざっていませんか？）' : '';
-                                this.odoWarn = '前回 ' + this.L + ' km → 今回 ' + n + ' km。大きく増えています。' + note;
-                            } else { this.odoWarn = ''; }
+                            if (!isFinite(n)) { this.odoWarn = ''; return; }
+                            const date = document.getElementById(this.mode === 'custom' ? 'c_maintained_at' : 'm_maintained_at')?.value || '';
+                            if (!date) { this.odoWarn = ''; return; }
+                            let maxBefore = null, minAfter = null;
+                            for (const r of this.records) {
+                                if (r.date < date) { if (maxBefore === null || r.odo > maxBefore) maxBefore = r.odo; }
+                                else if (r.date > date) { if (minAfter === null || r.odo < minAfter) minAfter = r.odo; }
+                            }
+                            if (minAfter !== null && n > minAfter) { this.odoWarn = '入力日より後の記録（' + minAfter + ' km）より大きい値です。確認してください。'; return; }
+                            if (maxBefore !== null && n < maxBefore) { this.odoWarn = '入力日より前の記録（' + maxBefore + ' km）より小さい値です。確認してください。'; return; }
+                            if (maxBefore !== null && maxBefore > 0 && n > maxBefore * this.mult) {
+                                const note = (n >= maxBefore * 9.5 && n <= maxBefore * 10.5) ? '（末尾に端数桁(0.1km)が混ざっていませんか？）' : '';
+                                this.odoWarn = '前回 ' + maxBefore + ' km → 今回 ' + n + ' km。大きく増えています。' + note; return;
+                            }
+                            this.odoWarn = '';
                         },
                         pickPreset(name) { this.title = (name === 'その他') ? '' : name; if (name === 'その他') this.$nextTick(() => document.getElementById('m_title')?.focus()); },
                         setV(id, val) { const el = document.getElementById(id); if (el) el.value = (val ?? ''); },
@@ -656,7 +676,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">整備日</label>
-                                    <input type="date" id="m_maintained_at" name="maintained_at" value="{{ old('maintained_at', date('Y-m-d')) }}" required
+                                    <input type="date" id="m_maintained_at" name="maintained_at" value="{{ old('maintained_at', date('Y-m-d')) }}" required @change="checkOdo(document.getElementById('m_odometer')?.value)"
                                         class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 outline-none transition">
                                 </div>
                             </div>
@@ -745,7 +765,7 @@
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">装着日</label>
-                                    <input type="date" id="c_maintained_at" name="maintained_at" value="{{ old('maintained_at', date('Y-m-d')) }}" required
+                                    <input type="date" id="c_maintained_at" name="maintained_at" value="{{ old('maintained_at', date('Y-m-d')) }}" required @change="checkOdo(document.getElementById('c_odometer')?.value)"
                                         class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 outline-none transition">
                                 </div>
                                 <div>
