@@ -101,6 +101,42 @@ it('the garage page renders presets, the custom form, installed parts, delete + 
         ->assertSee('前回と同じで記録', false);     // 前回複製ボタン
 });
 
+it('the records x-data attribute survives HTML parsing with real data (no raw JSON breaks the attribute, so Alpine can parse it)', function () {
+    // ★回帰防止: x-data 属性内に @json（生の " を含む）を埋めると、最初の " で属性が途切れ、
+    //   以降の JS が本文テキストへ漏れて Alpine が全滅する（assertSee では検出不能）。
+    //   records が非空＝壊れる条件で、DOMで属性が末尾まで無傷か＋本文へ漏れていないかを検証する。
+    $user = User::factory()->create();
+    $bike = uiBike($user);
+    app(MyBikeService::class)->recordFuel($bike, ['filled_at' => now()->format('Y-m-d'), 'odometer' => 10000, 'quantity' => 5, 'is_full_tank' => 1]);
+    app(MyBikeService::class)->recordMaintenance($bike, ['maintained_at' => now()->format('Y-m-d'), 'title' => 'オイル交換', 'odometer' => 10001]);
+
+    $html = $this->actingAs($user)->get("/garage/{$bike->id}")->assertOk()->getContent();
+
+    $doc = new DOMDocument;
+    @$doc->loadHTML('<?xml encoding="UTF-8">'.$html);
+    $xp = new DOMXPath($doc);
+
+    $node = null;
+    foreach ($xp->query('//div[@x-data]') as $n) {
+        if (str_contains($n->getAttribute('x-data'), 'records:')) {
+            $node = $n;
+            break;
+        }
+    }
+    expect($node)->not->toBeNull();
+
+    // 属性が JSON の " で途切れていれば、末尾側の定義（checkOdo/editCustom/submitVoice）は属性に残らない。
+    $xd = $node->getAttribute('x-data');
+    expect($xd)->toContain('checkOdo(v)')
+        ->toContain('editCustom(b)')
+        ->toContain('submitVoice');
+
+    // 生の JS が本文テキストへ漏れていない（漏れると画面に素のコードが見える＝本不具合の症状）。
+    $body = $xp->query('//body')->item(0);
+    expect($body->textContent)->not->toContain('maxBefore')
+        ->not->toContain('this.odoWarn');
+});
+
 it('each tab toggles via x-show, and the maintenance block is NOT hidden by the .hidden class (Alpine x-show cannot override it)', function () {
     $user = User::factory()->create();
     $bike = uiBike($user);

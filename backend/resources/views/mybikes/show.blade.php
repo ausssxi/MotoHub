@@ -264,8 +264,8 @@
                          x-data="{
                             editId: null,
                             editFuel(b) { const d = b.dataset; this.editId = d.id; const f = this.$refs.fuelForm;
-                                f.filled_at.value = d.date; f.odometer.value = d.odometer; f.quantity.value = d.quantity;
-                                f.cost.value = d.cost || ''; f.memo.value = d.memo || '';
+                                const set = (n, v) => { const el = f.querySelector('[name=' + n + ']'); if (el) el.value = (v ?? ''); };
+                                set('filled_at', d.date); set('odometer', d.odometer); set('quantity', d.quantity); set('cost', d.cost); set('memo', d.memo);
                                 const chk = f.querySelector('input[type=checkbox][name=is_full_tank]'); if (chk) chk.checked = (d.full === '1');
                                 f.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
                             cancelEdit() { this.editId = null; this.$refs.fuelForm.reset(); },
@@ -552,7 +552,7 @@
                      x-data="{
                         mode: 'maintenance', title: '', category: '',
                         L: {{ (float) $myBike->current_odometer }}, mult: {{ (float) config('garage.odometer_jump_multiplier', 5) }}, odoWarn: '',
-                        records: @json($odoRecords),
+                        records: @js($odoRecords),
                         {{-- 入力日の時系列文脈でのみ警告（過去日付に小さい値は正常＝警告しない）。サーバ側 odometerPlausibilityWarning と同じ判定。 --}}
                         checkOdo(v) {
                             const n = parseFloat(v);
