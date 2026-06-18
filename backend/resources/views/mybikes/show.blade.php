@@ -34,7 +34,19 @@
                     <p class="text-xs text-gray-500 leading-relaxed mb-3">
                         このガレージは公開URLで誰でも閲覧できます。表示名は「<span class="font-bold text-gray-700">{{ auth()->user()->review_display_name ?? '名無しライダー' }}</span>」です（本名は表示されません）。
                     </p>
-                    <div class="flex flex-wrap items-center gap-3">
+                    @php
+                        $gShareUrl = route('garage.public.show', $myBike->id);
+                        $gAvg = $dashboard['fuelChart']['average'] ?? null;
+                        $gShareText = (auth()->user()->review_display_name ?? '名無しライダー').'の'.$myBike->display_name.'｜走行'.number_format($myBike->current_odometer).'km・累計維持費¥'.number_format($dashboard['cost']['total'] ?? 0).($gAvg !== null ? '・平均燃費'.$gAvg.'km/L' : '').' #MotoHub 愛車ガレージ';
+                        $gXIntent = 'https://twitter.com/intent/tweet?text='.rawurlencode($gShareText).'&url='.rawurlencode($gShareUrl);
+                    @endphp
+                    <div class="flex flex-wrap items-center gap-3" x-data="{ copied: false, copy() { navigator.clipboard?.writeText(@js($gShareUrl)).then(() => { this.copied = true; setTimeout(() => this.copied = false, 1800); }); } }">
+                        <a href="{{ $gXIntent }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-gray-900 hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors">
+                            <i data-lucide="twitter" class="w-3.5 h-3.5"></i> Xでシェア
+                        </a>
+                        <button type="button" @click="copy()" class="inline-flex items-center gap-1.5 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors">
+                            <i data-lucide="link" class="w-3.5 h-3.5"></i> <span x-text="copied ? 'コピーしました' : 'リンクをコピー'">リンクをコピー</span>
+                        </button>
                         <a href="{{ route('garage.public.show', $myBike->id) }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800">
                             <i data-lucide="external-link" class="w-3.5 h-3.5"></i> 公開ページを見る
                         </a>

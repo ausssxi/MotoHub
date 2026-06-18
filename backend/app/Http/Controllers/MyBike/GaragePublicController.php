@@ -6,9 +6,14 @@ namespace App\Http\Controllers\MyBike;
 
 use App\Http\Controllers\Controller;
 use App\Models\MyBike;
+use App\Services\MyBike\MyBikeService;
 
 class GaragePublicController extends Controller
 {
+    public function __construct(
+        private readonly MyBikeService $service,
+    ) {}
+
     public function index()
     {
         // 公開 opt-in 済みの愛車のみ
@@ -25,8 +30,11 @@ class GaragePublicController extends Controller
         // 非公開の愛車は公開URLで一切描画しない（情報漏洩防止）
         abort_unless($myBike->is_public, 404);
 
-        $myBike->load(['user', 'bikeModel.manufacturer', 'fuelLogs', 'maintenanceLogs', 'images']);
+        $myBike->load(['user', 'bikeModel.manufacturer', 'fuelLogs', 'maintenanceLogs', 'customRecords', 'images']);
 
-        return view('mybikes.public_show', compact('myBike'));
+        // シェア文言用の集計（OGP画像と同じ単一ソース・本名は含めない）
+        $share = $this->service->garageShareStats($myBike);
+
+        return view('mybikes.public_show', compact('myBike', 'share'));
     }
 }

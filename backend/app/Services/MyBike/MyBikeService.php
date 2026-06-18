@@ -135,6 +135,27 @@ final class MyBikeService
     }
 
     /**
+     * 外部シェア（OGP画像／シェア文言）用の集計（公開ガレージの集計のみ・本名や個別記録の詳細は含めない）。
+     * 表示名は公開ハンドル（review_display_name）。本名（user->name）は絶対に使わない。
+     *
+     * @return array{handle: string, bike_name: string, manufacturer: string, odometer: int, total_cost: int, last12_cost: int, avg_efficiency: ?float}
+     */
+    public function garageShareStats(MyBike $myBike): array
+    {
+        $d = $this->buildDashboard($myBike);
+
+        return [
+            'handle' => $myBike->user->review_display_name ?? '名無しライダー',
+            'bike_name' => $myBike->display_name,
+            'manufacturer' => $myBike->bikeModel->manufacturer->name ?? '',
+            'odometer' => (int) $myBike->current_odometer,
+            'total_cost' => (int) $d['cost']['total'],
+            'last12_cost' => (int) $d['cost']['last12'],
+            'avg_efficiency' => $d['fuelChart']['average'],
+        ];
+    }
+
+    /**
      * 会計簿（維持費の数値レポート）。オンザフライ集計（個人データ・少量・ログイン必須）。
      * 総維持費＝整備＋カスタム＋燃料／費目別内訳／km単価（累計総費用÷累計走行距離）／月別・年別・累計。
      * 記録の追加/削除で次表示時に再計算される（current_odometer も recompute 済＝整合）。

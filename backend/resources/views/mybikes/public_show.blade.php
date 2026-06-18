@@ -1,8 +1,11 @@
 <x-layout>
     {{-- 公開表示は本人設定の公開ハンドルのみ。user->name(本名) は絶対に出さない。未設定は「名無しライダー」 --}}
     <x-slot:title>{{ $myBike->user->review_display_name ?? '名無しライダー' }}の{{ $myBike->bikeModel->name ?? $myBike->name }} | 愛車ガレージ | MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $myBike->user->review_display_name ?? '名無しライダー' }}の愛車「{{ $myBike->display_name }}」。燃費記録・整備ログを公開中。</x-slot:metaDescription>
-    {{-- 暫定 noindex（本格版＝公開opt-in＋ハンドル＋中身充実 が固まるまで半端な公開面を index させない） --}}
+    <x-slot:metaDescription>{{ $myBike->user->review_display_name ?? '名無しライダー' }}の愛車「{{ $myBike->display_name }}」。走行{{ number_format($myBike->current_odometer) }}km・累計維持費¥{{ number_format($share['total_cost']) }}{{ $share['avg_efficiency'] !== null ? '・平均燃費'.$share['avg_efficiency'].'km/L' : '' }}。燃費記録・整備ログを公開中。</x-slot:metaDescription>
+    {{-- 動的OGP画像（バイク名＋走行距離＋維持費＋平均燃費＋カバー写真を合成したカード） --}}
+    <x-slot:ogImage>{{ route('garage.public.ogp', $myBike->id) }}</x-slot:ogImage>
+    {{-- 暫定 noindex（本格版＝公開opt-in＋ハンドル＋中身充実 が固まるまで半端な公開面を index させない）。
+         ※noindex でも X/Facebook 等のカード取得は og: タグを読むため影響しない。 --}}
     <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
 
     <x-slot:navigation>
@@ -68,6 +71,24 @@
                             @endif
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {{-- 外部シェア（X / リンクコピー） --}}
+            @php
+                $shareUrl = route('garage.public.show', $myBike->id);
+                $shareText = $share['handle'].'の'.$share['bike_name'].'｜走行'.number_format($share['odometer']).'km・累計維持費¥'.number_format($share['total_cost']).($share['avg_efficiency'] !== null ? '・平均燃費'.$share['avg_efficiency'].'km/L' : '').' #MotoHub 愛車ガレージ';
+                $xIntent = 'https://twitter.com/intent/tweet?text='.rawurlencode($shareText).'&url='.rawurlencode($shareUrl);
+            @endphp
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 mb-6" x-data="{ copied: false, copy() { navigator.clipboard?.writeText(@js($shareUrl)).then(() => { this.copied = true; setTimeout(() => this.copied = false, 1800); }); } }">
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="text-xs font-black text-gray-500 mr-1">このガレージをシェア</span>
+                    <a href="{{ $xIntent }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-gray-900 hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors">
+                        <i data-lucide="twitter" class="w-3.5 h-3.5"></i> Xでシェア
+                    </a>
+                    <button type="button" @click="copy()" class="inline-flex items-center gap-1.5 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors">
+                        <i data-lucide="link" class="w-3.5 h-3.5"></i> <span x-text="copied ? 'コピーしました' : 'リンクをコピー'">リンクをコピー</span>
+                    </button>
                 </div>
             </div>
 
