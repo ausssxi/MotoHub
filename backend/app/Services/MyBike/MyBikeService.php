@@ -210,6 +210,36 @@ final class MyBikeService
     }
 
     /**
+     * 会計簿のグラフ入力に整形する（純粋変換・再集計しない）。
+     * 月次/年別は時系列「昇順」（by_month/by_year は新しい順なので反転）、費目別は 3a の降順を踏襲。
+     * 空データは labels/values 空配列（描画側でフォールバック）。
+     *
+     * @param  array<string, mixed>  $ledger  buildLedger() の戻り値
+     * @return array{monthly: array{labels: array<int,string>, values: array<int,int>}, yearly: array{labels: array<int,string>, values: array<int,int>}, category: array{labels: array<int,string>, values: array<int,int>}}
+     */
+    public function ledgerChartData(array $ledger): array
+    {
+        $months = array_reverse($ledger['by_month'] ?? [], true); // 古い順へ
+        $monthly = [
+            'labels' => array_keys($months),
+            'values' => array_map(fn ($r) => (int) $r['total'], array_values($months)),
+        ];
+
+        $years = array_reverse($ledger['by_year'] ?? [], true);   // 古い順へ
+        $yearly = [
+            'labels' => array_map(fn ($y) => $y.'年', array_keys($years)),
+            'values' => array_map(fn ($r) => (int) $r['total'], array_values($years)),
+        ];
+
+        $category = [
+            'labels' => array_map(fn ($c) => (string) $c['label'], $ledger['categories'] ?? []),
+            'values' => array_map(fn ($c) => (int) $c['amount'], $ledger['categories'] ?? []),
+        ];
+
+        return ['monthly' => $monthly, 'yearly' => $yearly, 'category' => $category];
+    }
+
+    /**
      * 期間別の費用集計（maintenance/custom/fuel/total）。$fmt='Y'|'Y-m'。$limit 指定で直近Nのみ。
      *
      * @return array<string, array<string, int>>

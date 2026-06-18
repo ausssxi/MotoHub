@@ -252,7 +252,7 @@
                     <button @click="tab = 'maintenance'" :class="tab === 'maintenance' ? 'bg-orange-100 text-orange-700' : 'text-gray-500 hover:text-gray-700'" class="px-5 py-2 rounded-lg text-xs font-black transition-colors flex items-center gap-2">
                         <i data-lucide="wrench" class="w-4 h-4"></i> 整備・カスタム
                     </button>
-                    <button @click="tab = 'ledger'" :class="tab === 'ledger' ? 'bg-emerald-100 text-emerald-700' : 'text-gray-500 hover:text-gray-700'" class="px-5 py-2 rounded-lg text-xs font-black transition-colors flex items-center gap-2">
+                    <button @click="tab = 'ledger'; $nextTick(() => window.drawLedgerCharts && window.drawLedgerCharts())" :class="tab === 'ledger' ? 'bg-emerald-100 text-emerald-700' : 'text-gray-500 hover:text-gray-700'" class="px-5 py-2 rounded-lg text-xs font-black transition-colors flex items-center gap-2">
                         <i data-lucide="wallet" class="w-4 h-4"></i> 会計簿
                     </button>
                 </div>
@@ -902,9 +902,20 @@
                         </div>
                     </div>
 
+                    {{-- 月次推移グラフ --}}
+                    @if(count($ledgerChart['monthly']['labels']) > 0)
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
+                        <h4 class="text-xs font-black text-gray-700 mb-3 flex items-center gap-1.5"><i data-lucide="bar-chart-3" class="w-3.5 h-3.5 text-emerald-500"></i> 月次推移</h4>
+                        <div class="relative h-48"><canvas id="ledgerMonthChart"></canvas></div>
+                    </div>
+                    @endif
+
                     {{-- 費目別内訳 --}}
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
                         <h4 class="text-xs font-black text-gray-700 mb-4 flex items-center gap-1.5"><i data-lucide="pie-chart" class="w-3.5 h-3.5 text-emerald-500"></i> 費目別内訳</h4>
+                        @if(count($ledgerChart['category']['labels']) > 0)
+                        <div class="relative h-56 mb-4"><canvas id="ledgerCategoryChart"></canvas></div>
+                        @endif
                         <div class="space-y-3">
                             @foreach($ledger['categories'] as $cat)
                             <div>
@@ -939,6 +950,9 @@
                     {{-- 年別 --}}
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
                         <h4 class="text-xs font-black text-gray-700 mb-3 flex items-center gap-1.5"><i data-lucide="calendar-range" class="w-3.5 h-3.5 text-emerald-500"></i> 年別</h4>
+                        @if(count($ledgerChart['yearly']['labels']) > 0)
+                        <div class="relative h-44 mb-4"><canvas id="ledgerYearChart"></canvas></div>
+                        @endif
                         <div class="space-y-1.5">
                             @foreach($ledger['by_year'] as $year => $row)
                             <div class="flex items-center justify-between text-[11px] font-bold py-1 border-b border-gray-50 last:border-0">
@@ -972,9 +986,13 @@
         </div>
     </div>
     
-    @if(count($dashboard['fuelChart']['data']) > 0)
-    {{-- 燃費グラフ（Chart.js CDN・データがある時だけ読込） --}}
+    {{-- Chart.js（燃費グラフ or 会計簿にデータがある時だけ CDN 読込） --}}
+    @php $needChartJs = count($dashboard['fuelChart']['data']) > 0 || $ledger['record_count'] > 0; @endphp
+    @if($needChartJs)
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    @endif
+
+    @if(count($dashboard['fuelChart']['data']) > 0)
     <script>
         (function () {
             var el = document.getElementById('fuelChart');
@@ -993,6 +1011,40 @@
                 },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false } } },
             });
+        })();
+    </script>
+    @endif
+
+    @if($ledger['record_count'] > 0)
+    {{-- 会計簿グラフ（タブが隠れているため、会計簿タブを開いた時に遅延描画＝サイズ崩れ防止） --}}
+    <script>
+        (function () {
+            var data = @json($ledgerChart);
+            var drawn = false;
+            var yen = function (v) { return '¥' + Number(v).toLocaleString('ja-JP'); };
+            var palette = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#9ca3af', '#f97316'];
+            window.drawLedgerCharts = function () {
+                if (drawn || typeof Chart === 'undefined') return;
+                drawn = true;
+                var m = document.getElementById('ledgerMonthChart');
+                if (m && data.monthly.labels.length) {
+                    new Chart(m, { type: 'bar',
+                        data: { labels: data.monthly.labels, datasets: [{ label: '維持費', data: data.monthly.values, backgroundColor: '#34d399' }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (c) { return yen(c.parsed.y); } } } }, scales: { y: { beginAtZero: true, ticks: { callback: function (v) { return Number(v).toLocaleString('ja-JP'); } } } } } });
+                }
+                var c = document.getElementById('ledgerCategoryChart');
+                if (c && data.category.labels.length) {
+                    new Chart(c, { type: 'doughnut',
+                        data: { labels: data.category.labels, datasets: [{ data: data.category.values, backgroundColor: palette }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, tooltip: { callbacks: { label: function (c2) { return c2.label + ': ' + yen(c2.parsed); } } } } } });
+                }
+                var y = document.getElementById('ledgerYearChart');
+                if (y && data.yearly.labels.length) {
+                    new Chart(y, { type: 'bar',
+                        data: { labels: data.yearly.labels, datasets: [{ label: '維持費', data: data.yearly.values, backgroundColor: '#60a5fa' }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (c3) { return yen(c3.parsed.y); } } } }, scales: { y: { beginAtZero: true } } } });
+                }
+            };
         })();
     </script>
     @endif
