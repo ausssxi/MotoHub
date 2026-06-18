@@ -4,21 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\MyBike;
 
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\Auth;
 use App\Models\MyBike;
+use Illuminate\Foundation\Http\FormRequest;
 
 class StoreFuelLogRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $myBike = $this->route('myBike');
-        
-        if (!($myBike instanceof MyBike)) {
-            $myBike = MyBike::find($myBike);
-        }
-
-        return $myBike && $myBike->user_id === Auth::id();
+        // 所有者チェックはコントローラ（getBikeDetail＝非所有者404）で実施＝全ガレージ系で404に統一。
+        return true;
     }
 
     public function rules(): array
@@ -51,19 +45,19 @@ class StoreFuelLogRequest extends FormRequest
             'filled_at.required' => '給油日は必須です。',
             'filled_at.date' => '給油日は正しい日付形式で入力してください。',
             'filled_at.before_or_equal' => '給油日は今日までの日付を入力してください。',
-            
+
             'odometer.required' => '総走行距離は必須です。',
             'odometer.numeric' => '総走行距離は数値で入力してください。',
             'odometer.min' => '総走行距離は0以上の数値を入力してください。',
-            
+
             'quantity.required' => '給油量は必須です。',
             'quantity.numeric' => '給油量は数値で入力してください。',
             'quantity.min' => '給油量は0.1L以上で入力してください。',
             'quantity.max' => '給油量は100L以下で入力してください。',
-            
+
             'cost.integer' => '金額は整数で入力してください。',
             'cost.min' => '金額は0円以上の数値を入力してください。',
-            
+
             'memo.max' => 'メモは255文字以内で入力してください。',
         ];
     }
@@ -72,31 +66,37 @@ class StoreFuelLogRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             $data = $this->validated();
-            
+
             $myBike = $this->route('myBike');
-            
-            if (!($myBike instanceof MyBike)) {
+
+            if (! ($myBike instanceof MyBike)) {
                 $myBike = MyBike::find($myBike);
             }
 
-            if (!$myBike) return;
+            if (! $myBike) {
+                return;
+            }
+
+            // 編集（fuel.update）時は対象行を整合性チェックから除外する。ルートパラメータ {fuelLog} の id。
+            $excludeId = $this->route('fuelLog');
+            $excludeId = $excludeId instanceof \App\Models\FuelLog ? $excludeId->id : ($excludeId !== null ? (int) $excludeId : null);
 
             // ----------------------------------------------------
             // 購入時の走行距離（初期値）を下回っていないかチェック
             // ----------------------------------------------------
             // number_format に渡す前に (float) でキャストする
-            if ((float)$data['odometer'] < (float)$myBike->initial_odometer) {
-                $validator->errors()->add('odometer', "購入時の走行距離（" . number_format((float)$myBike->initial_odometer, 1) . "km）より少ない値は入力できません。");
+            if ((float) $data['odometer'] < (float) $myBike->initial_odometer) {
+                $validator->errors()->add('odometer', '購入時の走行距離（'.number_format((float) $myBike->initial_odometer, 1).'km）より少ない値は入力できません。');
             }
 
             // ----------------------------------------------------
             // 1. 走行距離の整合性チェック
             // ----------------------------------------------------
-            
+
             // 入力日より「前」の最新記録を取得
             $prevLog = $myBike->fuelLogs()
                 ->where('filled_at', '<=', $data['filled_at'])
-                ->where('id', '!=', $this->route('fuel_log')?->id)
+                ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
                 ->orderBy('filled_at', 'desc')
                 ->orderBy('odometer', 'desc')
                 ->first();
@@ -108,6 +108,7 @@ class StoreFuelLogRequest extends FormRequest
             // 入力日より「後」の記録がある場合
             $nextLog = $myBike->fuelLogs()
                 ->where('filled_at', '>', $data['filled_at'])
+                ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
                 ->orderBy('filled_at', 'asc')
                 ->orderBy('odometer', 'asc')
                 ->first();
@@ -119,10 +120,10 @@ class StoreFuelLogRequest extends FormRequest
             // ----------------------------------------------------
             // 2. ガソリン価格チェック
             // ----------------------------------------------------
-            if (!empty($data['cost']) && !empty($data['quantity']) && $data['quantity'] > 0) {
+            if (! empty($data['cost']) && ! empty($data['quantity']) && $data['quantity'] > 0) {
                 $unitPrice = $data['cost'] / $data['quantity'];
                 if ($unitPrice < 100 || $unitPrice > 250) {
-                    $validator->errors()->add('cost', "計算された単価（約".round($unitPrice)."円/L）が相場から大きく外れています。");
+                    $validator->errors()->add('cost', '計算された単価（約'.round($unitPrice).'円/L）が相場から大きく外れています。');
                 }
             }
         });

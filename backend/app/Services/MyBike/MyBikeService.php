@@ -483,6 +483,75 @@ final class MyBikeService
         });
     }
 
+    /**
+     * 給油記録を編集し、派生状態（efficiency／current_odometer）を再計算する（削除時 recompute を流用）。
+     * owner所有の bike に属する行のみ（findOrFail＝非所有は404）。
+     */
+    public function updateFuelLog(MyBike $myBike, int $fuelLogId, array $data): void
+    {
+        DB::transaction(function () use ($myBike, $fuelLogId, $data) {
+            $log = $myBike->fuelLogs()->findOrFail($fuelLogId);
+            $log->update([
+                'filled_at' => $data['filled_at'],
+                'odometer' => $data['odometer'],
+                'quantity' => $data['quantity'],
+                'cost' => $data['cost'] ?? null,
+                'is_full_tank' => ! empty($data['is_full_tank']) && $data['is_full_tank'],
+                'memo' => $data['memo'] ?? null,
+            ]);
+            // 走行距離/満タン/量の変更は前後の燃費に波及するため全件再計算（削除時と同一）。
+            $this->recomputeFuelEfficiency($myBike);
+            $this->recomputeCurrentOdometer($myBike);
+        });
+    }
+
+    /**
+     * 整備記録を編集する（type=maintenance の行のみ＝type検証込み・findOrFail で非所有/型違いは404）。
+     * 維持費/リマインダーはオンザフライ集計のため次回表示で自動反映。current_odometer のみ再計算。
+     */
+    public function updateMaintenance(MyBike $myBike, int $recordId, array $data): MaintenanceLog
+    {
+        return DB::transaction(function () use ($myBike, $recordId, $data) {
+            $record = MaintenanceLog::where('my_bike_id', $myBike->id)->maintenance()->findOrFail($recordId);
+            $record->update([
+                'maintained_at' => $data['maintained_at'],
+                'title' => $data['title'],
+                'odometer' => $data['odometer'] ?? null,
+                'cost' => $data['cost'] ?? null,
+                'vendor' => $data['vendor'] ?? null,
+                'note' => $data['note'] ?? null,
+            ]);
+            $this->recomputeCurrentOdometer($myBike);
+
+            return $record;
+        });
+    }
+
+    /**
+     * カスタム記録を編集する（type=custom の行のみ＝type検証込み）。title は part_name を流用（一覧の互換）。
+     */
+    public function updateCustom(MyBike $myBike, int $recordId, array $data): MaintenanceLog
+    {
+        return DB::transaction(function () use ($myBike, $recordId, $data) {
+            $record = MaintenanceLog::where('my_bike_id', $myBike->id)->custom()->findOrFail($recordId);
+            $record->update([
+                'maintained_at' => $data['maintained_at'],
+                'part_name' => $data['part_name'],
+                'title' => $data['part_name'] ?? null,
+                'brand' => $data['brand'] ?? null,
+                'category' => $data['category'] ?? null,
+                'odometer' => $data['odometer'] ?? null,
+                'cost' => $data['cost'] ?? null,
+                'vendor' => $data['vendor'] ?? null,
+                'note' => $data['note'] ?? null,
+                'is_installed' => ! empty($data['is_installed']) && $data['is_installed'],
+            ]);
+            $this->recomputeCurrentOdometer($myBike);
+
+            return $record;
+        });
+    }
+
     private function odometerValue(array $data): ?float
     {
         return isset($data['odometer']) && $data['odometer'] !== null && $data['odometer'] !== ''

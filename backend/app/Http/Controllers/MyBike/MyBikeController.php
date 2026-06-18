@@ -219,11 +219,51 @@ class MyBikeController extends Controller
     /**
      * 給油記録の保存
      */
-    public function storeFuel(StoreFuelLogRequest $request, MyBike $myBike)
+    public function storeFuel(StoreFuelLogRequest $request, $myBike)
     {
-        $this->service->recordFuel($myBike, $request->validated());
+        $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
+        $this->service->recordFuel($bike, $request->validated());
 
         return back()->with('success', '給油記録を保存しました！');
+    }
+
+    /**
+     * 給油記録の編集（owner-only）。更新後に燃費・総走行距離を再計算する。
+     */
+    public function updateFuel(StoreFuelLogRequest $request, $myBike, $fuelLog)
+    {
+        $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
+        $this->service->updateFuelLog($bike, (int) $fuelLog, $request->validated());
+
+        return back()->with('success', '給油記録を更新しました。燃費と総走行距離を再計算しました。');
+    }
+
+    /**
+     * 整備記録の編集（owner-only・type検証は service の typed findOrFail）。日付文脈ガードは自己除外で算出。
+     */
+    public function updateMaintenance(StoreMaintenanceLogRequest $request, $myBike, $record)
+    {
+        $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
+        $validated = $request->validated();
+        $warning = $this->service->odometerWarningFor($bike, $validated, null, (int) $record); // 編集対象を除外
+        $rec = $this->service->updateMaintenance($bike, (int) $record, $validated);
+        $this->attachRecordImages($rec, $request->file('images', []));
+
+        return back()->with('success', '整備記録を更新しました！')->with('odometer_warning', $warning);
+    }
+
+    /**
+     * カスタム記録の編集（owner-only・type検証は service の typed findOrFail）。
+     */
+    public function updateCustom(StoreCustomRecordRequest $request, $myBike, $record)
+    {
+        $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
+        $validated = $request->validated();
+        $warning = $this->service->odometerWarningFor($bike, $validated, null, (int) $record); // 編集対象を除外
+        $rec = $this->service->updateCustom($bike, (int) $record, $validated);
+        $this->attachRecordImages($rec, $request->file('images', []));
+
+        return back()->with('success', 'カスタム記録を更新しました！')->with('odometer_warning', $warning);
     }
 
     /**

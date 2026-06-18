@@ -481,11 +481,15 @@ Route::middleware('auth')->group(function () {
         Route::post('/{myBike}/visibility', 'updateVisibility')->name('visibility')->where('myBike', '[0-9]+');
         Route::get('/{myBike}/export', 'exportCsv')->name('export')->where('myBike', '[0-9]+');
         Route::post('/{myBike}/fuel', 'storeFuel')->name('fuel.store');
-        // 給油記録の削除（owner-only・削除後に燃費/総走行距離を再計算）
+        // 給油記録の編集／削除（owner-only・更新/削除後に燃費・総走行距離を再計算）
+        Route::put('/{myBike}/fuel/{fuelLog}', 'updateFuel')->name('fuel.update')->where(['myBike' => '[0-9]+', 'fuelLog' => '[0-9]+']);
         Route::delete('/{myBike}/fuel/{fuelLog}', 'destroyFuel')->name('fuel.destroy')->where(['myBike' => '[0-9]+', 'fuelLog' => '[0-9]+']);
         Route::post('/{myBike}/maintenance', 'storeMaintenance')->name('maintenance.store')->where('myBike', '[0-9]+');
-        // カスタム記録の保存／記録（整備・カスタム）の削除（owner-only）
+        // 整備記録の編集（owner-only・type検証・走行距離/維持費は次回表示で再集計）
+        Route::put('/{myBike}/maintenance/{record}', 'updateMaintenance')->name('maintenance.update')->where(['myBike' => '[0-9]+', 'record' => '[0-9]+']);
+        // カスタム記録の保存／編集／記録（整備・カスタム）の削除（owner-only）
         Route::post('/{myBike}/custom', 'storeCustom')->name('custom.store')->where('myBike', '[0-9]+');
+        Route::put('/{myBike}/custom/{record}', 'updateCustom')->name('custom.update')->where(['myBike' => '[0-9]+', 'record' => '[0-9]+']);
         Route::delete('/{myBike}/records/{record}', 'destroyRecord')->name('records.destroy')->where(['myBike' => '[0-9]+', 'record' => '[0-9]+']);
         // 記録(整備/カスタム)の添付写真（owner-only・private配信）。後付け追加/配信/削除。
         Route::post('/{myBike}/records/{record}/images', 'storeRecordImage')->name('records.images.store')->where(['myBike' => '[0-9]+', 'record' => '[0-9]+']);

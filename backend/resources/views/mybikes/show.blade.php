@@ -260,13 +260,23 @@
                 {{-- 1. 給油記録セクション --}}
                 <div x-show="tab === 'fuel'" class="animate-in fade-in slide-in-from-bottom-2" style="display: none;">
                     {{-- 入力フォーム --}}
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-                        <h3 class="font-black text-gray-900 mb-4 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-blue-500"></i> 給油を記録</h3>
-                        
-                        <form action="{{ route('mybikes.fuel.store', $myBike->id) }}" method="POST" class="space-y-4"
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6"
+                         x-data="{
+                            editId: null,
+                            editFuel(b) { const d = b.dataset; this.editId = d.id; const f = this.$refs.fuelForm;
+                                f.filled_at.value = d.date; f.odometer.value = d.odometer; f.quantity.value = d.quantity;
+                                f.cost.value = d.cost || ''; f.memo.value = d.memo || '';
+                                const chk = f.querySelector('input[type=checkbox][name=is_full_tank]'); if (chk) chk.checked = (d.full === '1');
+                                f.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+                            cancelEdit() { this.editId = null; this.$refs.fuelForm.reset(); },
+                         }">
+                        <h3 class="font-black text-gray-900 mb-4 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-blue-500"></i> <span x-text="editId ? '給油記録を編集' : '給油を記録'">給油を記録</span></h3>
+
+                        <form x-ref="fuelForm" :action="editId ? '{{ url('garage/'.$myBike->id.'/fuel') }}/' + editId : '{{ route('mybikes.fuel.store', $myBike->id) }}'" :data-edit-id="editId" method="POST" class="space-y-4"
                               data-last-odometer="{{ $myBike->current_odometer }}"
                               data-odo-multiplier="{{ config('garage.odometer_jump_multiplier', 5) }}"
                               onsubmit="return (function(f){
+                                  if (f.dataset.editId) return true; {{-- 編集時は時系列をサーバ側で検証（running-max 確認はスキップ） --}}
                                   var L = parseFloat(f.dataset.lastOdometer || '0');
                                   var m = parseFloat(f.dataset.odoMultiplier || '5');
                                   var el = f.querySelector('[name=odometer]');
@@ -279,6 +289,7 @@
                                   return true;
                               })(this)">
                             @csrf
+                            <input type="hidden" name="_method" :value="editId ? 'PUT' : 'POST'">
 
                             {{-- OCR入力補完: レシート/メーターを撮影→抽出→フォームに充填（★自動保存しない・確認して保存） --}}
                             @if(config('garage.ocr_enabled'))
@@ -474,9 +485,10 @@
                                         ※チェックを入れると燃費が計算されます
                                     </p>
                                 </div>
-                                <button type="submit" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-black px-8 py-3 rounded-xl shadow-lg transition transform active:scale-95 text-center">
-                                    記録する
-                                </button>
+                                <div class="w-full sm:w-auto flex items-center gap-3">
+                                    <button type="submit" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-500 text-white font-black px-8 py-3 rounded-xl shadow-lg transition transform active:scale-95 text-center"><span x-text="editId ? '更新する' : '記録する'">記録する</span></button>
+                                    <button type="button" x-show="editId" @click="cancelEdit()" class="shrink-0 text-xs font-bold text-gray-500 hover:text-gray-700 px-4 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">編集をやめる</button>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -500,6 +512,8 @@
                                             {{ $log->quantity }}L / {{ number_format($log->cost) }}円
                                         </div>
                                     </div>
+                                    {{-- 編集（owner-only・更新後に燃費/総走行距離を再計算） --}}
+                                    <button type="button" @click="editFuel($el)" data-id="{{ $log->id }}" data-date="{{ $log->filled_at->format('Y-m-d') }}" data-odometer="{{ $log->odometer }}" data-quantity="{{ $log->quantity }}" data-cost="{{ $log->cost }}" data-memo="{{ $log->memo }}" data-full="{{ $log->is_full_tank ? '1' : '0' }}" class="w-7 h-7 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg flex items-center justify-center transition-colors" aria-label="給油記録を編集" title="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
                                     {{-- 削除（owner-only・ハード削除・燃費/総走行距離を再計算） --}}
                                     <form action="{{ route('mybikes.fuel.destroy', [$myBike->id, $log->id]) }}" method="POST"
                                           onsubmit="return confirm('この給油記録を削除しますか？\n燃費と総走行距離が再計算されます。');">
@@ -561,12 +575,23 @@
                         pickPreset(name) { this.title = (name === 'その他') ? '' : name; if (name === 'その他') this.$nextTick(() => document.getElementById('m_title')?.focus()); },
                         setV(id, val) { const el = document.getElementById(id); if (el) el.value = (val ?? ''); },
                         scrollTop() { this.$refs.formTop?.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
-                        copyMaint(b) { const d = b.dataset; this.mode = 'maintenance'; this.title = d.title;
+                        copyMaint(b) { const d = b.dataset; this.mode = 'maintenance'; this.editId = null; this.title = d.title;
                             this.setV('m_title', d.title); this.setV('m_cost', d.cost); this.setV('m_vendor', d.vendor); this.setV('m_note', d.note);
                             this.setV('m_odometer', this.L); this.setV('m_maintained_at', '{{ date('Y-m-d') }}'); this.checkOdo(this.L); this.scrollTop(); },
-                        copyCustom(b) { const d = b.dataset; this.mode = 'custom'; this.category = d.category || '';
+                        copyCustom(b) { const d = b.dataset; this.mode = 'custom'; this.editId = null; this.category = d.category || '';
                             this.setV('c_part', d.part); this.setV('c_brand', d.brand); this.setV('c_cost', d.cost); this.setV('c_vendor', d.vendor); this.setV('c_note', d.note);
                             this.setV('c_odometer', this.L); this.setV('c_maintained_at', '{{ date('Y-m-d') }}'); this.checkOdo(this.L); this.scrollTop(); },
+                        {{-- 編集: 既存記録をフォームに prefill し、PUT で更新（editId が action/_method を切替） --}}
+                        editId: null,
+                        editMaint(b) { const d = b.dataset; this.mode = 'maintenance'; this.editId = d.id; this.title = d.title;
+                            this.setV('m_title', d.title); this.setV('m_cost', d.cost); this.setV('m_vendor', d.vendor); this.setV('m_note', d.note);
+                            this.setV('m_odometer', d.odometer); this.setV('m_maintained_at', d.date); this.checkOdo(d.odometer); this.scrollTop(); },
+                        editCustom(b) { const d = b.dataset; this.mode = 'custom'; this.editId = d.id; this.category = d.category || '';
+                            this.setV('c_part', d.part); this.setV('c_brand', d.brand); this.setV('c_cost', d.cost); this.setV('c_vendor', d.vendor); this.setV('c_note', d.note);
+                            this.setV('c_odometer', d.odometer); this.setV('c_maintained_at', d.date);
+                            const ci = document.getElementById('c_installed'); if (ci) ci.checked = (d.installed === '1');
+                            this.checkOdo(d.odometer); this.scrollTop(); },
+                        cancelEdit() { this.editId = null; },
                         {{-- OCR/voice 入力補完（給油と同じ流儀・type別） --}}
                         aiLoading: false, aiMsg: '', aiErr: '',
                         voiceOn: false, voiceRec: null,
@@ -635,21 +660,22 @@
 
                     {{-- 整備 / カスタム トグル --}}
                     <div class="bg-white p-1 rounded-xl inline-flex border border-gray-100 shadow-sm mb-4">
-                        <button type="button" @click="mode = 'maintenance'; odoWarn=''" :class="mode === 'maintenance' ? 'bg-orange-100 text-orange-700' : 'text-gray-500'" class="px-5 py-2 rounded-lg text-xs font-black transition-colors flex items-center gap-1.5"><i data-lucide="wrench" class="w-3.5 h-3.5"></i> 整備</button>
-                        <button type="button" @click="mode = 'custom'; odoWarn=''" :class="mode === 'custom' ? 'bg-purple-100 text-purple-700' : 'text-gray-500'" class="px-5 py-2 rounded-lg text-xs font-black transition-colors flex items-center gap-1.5"><i data-lucide="sparkles" class="w-3.5 h-3.5"></i> カスタム</button>
+                        <button type="button" @click="mode = 'maintenance'; odoWarn=''; editId=null" :class="mode === 'maintenance' ? 'bg-orange-100 text-orange-700' : 'text-gray-500'" class="px-5 py-2 rounded-lg text-xs font-black transition-colors flex items-center gap-1.5"><i data-lucide="wrench" class="w-3.5 h-3.5"></i> 整備</button>
+                        <button type="button" @click="mode = 'custom'; odoWarn=''; editId=null" :class="mode === 'custom' ? 'bg-purple-100 text-purple-700' : 'text-gray-500'" class="px-5 py-2 rounded-lg text-xs font-black transition-colors flex items-center gap-1.5"><i data-lucide="sparkles" class="w-3.5 h-3.5"></i> カスタム</button>
                     </div>
 
                     {{-- 整備フォーム --}}
                     <div x-show="mode === 'maintenance'" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-                        <h3 class="font-black text-gray-900 mb-3 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-orange-500"></i> 整備を記録</h3>
+                        <h3 class="font-black text-gray-900 mb-3 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-orange-500"></i> <span x-text="editId ? '整備記録を編集' : '整備を記録'">整備を記録</span></h3>
                         {{-- プリセット（タップ選択） --}}
                         <div class="flex flex-wrap gap-1.5 mb-4">
                             @foreach(config('garage.maintenance_presets', []) as $preset)
                             <button type="button" @click="pickPreset(@js($preset))" :class="title === @js($preset) ? 'bg-orange-600 text-white border-orange-600' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-orange-300'" class="text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors">{{ $preset }}</button>
                             @endforeach
                         </div>
-                        <form id="m_form" action="{{ route('mybikes.maintenance.store', $myBike->id) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                        <form id="m_form" :action="editId ? '{{ url('garage/'.$myBike->id.'/maintenance') }}/' + editId : '{{ route('mybikes.maintenance.store', $myBike->id) }}'" method="POST" enctype="multipart/form-data" class="space-y-4">
                             @csrf
+                            <input type="hidden" name="_method" :value="editId ? 'PUT' : 'POST'">
                             @if(config('garage.ocr_enabled') || config('garage.voice_enabled'))
                             <div class="p-3 bg-orange-50/60 border border-orange-100 rounded-xl">
                                 <p class="text-xs font-black text-gray-700 mb-2 flex items-center gap-1.5"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-orange-500"></i> 撮影・音声で自動入力</p>
@@ -713,15 +739,19 @@
                             @if ($errors->any() && $errors->has('maintained_at'))
                                 <div class="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl border border-red-100"><ul class="list-disc list-inside">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
                             @endif
-                            <button type="submit" class="w-full bg-orange-600 hover:bg-orange-500 text-white font-black py-3 rounded-xl shadow-lg transition transform active:scale-95">記録する</button>
+                            <div class="flex items-center gap-3">
+                                <button type="submit" class="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-black py-3 rounded-xl shadow-lg transition transform active:scale-95"><span x-text="editId ? '更新する' : '記録する'">記録する</span></button>
+                                <button type="button" x-show="editId" @click="cancelEdit()" class="shrink-0 text-xs font-bold text-gray-500 hover:text-gray-700 px-4 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">編集をやめる</button>
+                            </div>
                         </form>
                     </div>
 
                     {{-- カスタムフォーム --}}
                     <div x-show="mode === 'custom'" x-cloak class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-                        <h3 class="font-black text-gray-900 mb-3 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-purple-500"></i> カスタムを記録</h3>
-                        <form id="c_form" action="{{ route('mybikes.custom.store', $myBike->id) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                        <h3 class="font-black text-gray-900 mb-3 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-purple-500"></i> <span x-text="editId ? 'カスタム記録を編集' : 'カスタムを記録'">カスタムを記録</span></h3>
+                        <form id="c_form" :action="editId ? '{{ url('garage/'.$myBike->id.'/custom') }}/' + editId : '{{ route('mybikes.custom.store', $myBike->id) }}'" method="POST" enctype="multipart/form-data" class="space-y-4">
                             @csrf
+                            <input type="hidden" name="_method" :value="editId ? 'PUT' : 'POST'">
                             @if(config('garage.ocr_enabled') || config('garage.voice_enabled'))
                             <div class="p-3 bg-purple-50/60 border border-purple-100 rounded-xl">
                                 <p class="text-xs font-black text-gray-700 mb-2 flex items-center gap-1.5"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-500"></i> 撮影・音声で自動入力</p>
@@ -789,7 +819,7 @@
                             </div>
                             <label class="flex items-center gap-2 cursor-pointer select-none">
                                 <input type="hidden" name="is_installed" value="0">
-                                <input type="checkbox" name="is_installed" value="1" checked class="w-5 h-5 rounded text-purple-600 focus:ring-purple-500 border-gray-300">
+                                <input type="checkbox" id="c_installed" name="is_installed" value="1" checked class="w-5 h-5 rounded text-purple-600 focus:ring-purple-500 border-gray-300">
                                 <span class="text-xs font-bold text-gray-600">現在も装着中</span>
                             </label>
                             <div>
@@ -804,7 +834,10 @@
                                     class="block w-full text-xs text-gray-600 font-bold file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-gray-800 file:text-white hover:file:bg-gray-700 file:cursor-pointer">
                             </div>
                             @endif
-                            <button type="submit" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-3 rounded-xl shadow-lg transition transform active:scale-95">記録する</button>
+                            <div class="flex items-center gap-3">
+                                <button type="submit" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-black py-3 rounded-xl shadow-lg transition transform active:scale-95"><span x-text="editId ? '更新する' : '記録する'">記録する</span></button>
+                                <button type="button" x-show="editId" @click="cancelEdit()" class="shrink-0 text-xs font-bold text-gray-500 hover:text-gray-700 px-4 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">編集をやめる</button>
+                            </div>
                         </form>
                     </div>
 
@@ -840,6 +873,7 @@
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
                                     @if($log->cost)<div class="text-sm font-black text-orange-600">{{ number_format($log->cost) }}円</div>@endif
+                                    <button type="button" @click="editMaint($el)" data-id="{{ $log->id }}" data-title="{{ $log->title }}" data-cost="{{ $log->cost }}" data-vendor="{{ $log->vendor }}" data-note="{{ $log->note }}" data-odometer="{{ $log->odometer }}" data-date="{{ $log->maintained_at->format('Y-m-d') }}" class="text-gray-300 hover:text-blue-600 hover:bg-blue-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" title="編集"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
                                     <button type="button" @click="copyMaint($el)" data-title="{{ $log->title }}" data-cost="{{ $log->cost }}" data-vendor="{{ $log->vendor }}" data-note="{{ $log->note }}" class="text-gray-300 hover:text-orange-600 hover:bg-orange-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" title="前回と同じで記録"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
                                     <form action="{{ route('mybikes.records.destroy', [$myBike->id, $log->id]) }}" method="POST" onsubmit="return confirm('この整備記録を削除しますか？\n総走行距離が再計算されます。');">
                                         @csrf @method('DELETE')
@@ -869,6 +903,7 @@
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
                                     @if($c->cost)<div class="text-sm font-black text-purple-600">{{ number_format($c->cost) }}円</div>@endif
+                                    <button type="button" @click="editCustom($el)" data-id="{{ $c->id }}" data-part="{{ $c->part_name }}" data-brand="{{ $c->brand }}" data-category="{{ $c->category }}" data-cost="{{ $c->cost }}" data-vendor="{{ $c->vendor }}" data-note="{{ $c->note }}" data-odometer="{{ $c->odometer }}" data-date="{{ $c->maintained_at->format('Y-m-d') }}" data-installed="{{ $c->is_installed ? '1' : '0' }}" class="text-gray-300 hover:text-blue-600 hover:bg-blue-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" title="編集"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
                                     <button type="button" @click="copyCustom($el)" data-part="{{ $c->part_name }}" data-brand="{{ $c->brand }}" data-category="{{ $c->category }}" data-cost="{{ $c->cost }}" data-vendor="{{ $c->vendor }}" data-note="{{ $c->note }}" class="text-gray-300 hover:text-purple-600 hover:bg-purple-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" title="前回と同じで記録"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
                                     <form action="{{ route('mybikes.records.destroy', [$myBike->id, $c->id]) }}" method="POST" onsubmit="return confirm('このカスタム記録を削除しますか？');">
                                         @csrf @method('DELETE')
