@@ -10,6 +10,7 @@ use App\Http\Requests\MyBike\StoreFuelLogRequest;
 use App\Http\Requests\MyBike\StoreMaintenanceLogRequest;
 use App\Http\Requests\MyBike\StoreMyBikeImageRequest;
 use App\Http\Requests\MyBike\StoreMyBikeRequest;
+use App\Http\Requests\MyBike\UpdateMyBikeRequest;
 use App\Models\MyBike;
 use App\Services\MyBike\FuelOcrService;
 use App\Services\MyBike\MyBikeImageService;
@@ -99,6 +100,25 @@ class MyBikeController extends Controller
         return redirect()->route('mybikes.index')
             ->with('success', '愛車をガレージに登録しました！')
             ->with('ga_garage_bike_add', true);
+    }
+
+    /**
+     * 愛車情報の編集（愛称＋走行距離=初期値・owner-only）。車種・公開設定は変更しない。
+     * 走行距離の矛盾（既存記録より大きい）は警告のみ＝保存は止めない。
+     */
+    public function update(UpdateMyBikeRequest $request, $myBike)
+    {
+        $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
+        $validated = $request->validated();
+        $warning = $this->service->initialOdometerWarning($bike, isset($validated['initial_odometer']) ? (float) $validated['initial_odometer'] : null);
+        $this->service->updateBike($bike, $validated);
+
+        $redirect = redirect()->route('mybikes.index')->with('success', '愛車情報を更新しました。');
+        if ($warning !== null) {
+            $redirect->with('odometer_warning', $warning); // 矛盾時のみ警告（hard block しない）
+        }
+
+        return $redirect;
     }
 
     /**

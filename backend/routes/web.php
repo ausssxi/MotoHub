@@ -483,6 +483,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/', 'store')->name('store');
         Route::get('/{myBike}', 'show')->name('show')->where('myBike', '[0-9]+');
+        // 愛車情報の編集（愛称＋走行距離・owner-only。車種変更/公開設定は対象外）
+        Route::put('/{myBike}', 'update')->name('update')->where('myBike', '[0-9]+');
         Route::delete('/{myBike}', 'destroy')->name('destroy');
         Route::post('/{myBike}/visibility', 'updateVisibility')->name('visibility')->where('myBike', '[0-9]+');
         Route::get('/{myBike}/export', 'exportCsv')->name('export')->where('myBike', '[0-9]+');

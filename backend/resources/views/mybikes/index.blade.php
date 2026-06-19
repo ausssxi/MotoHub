@@ -26,6 +26,13 @@
                 </div>
             @endif
 
+            @if(session('odometer_warning'))
+                <div class="mb-6 p-4 bg-amber-50 text-amber-700 text-sm font-bold rounded-xl border border-amber-200 flex items-start gap-2 animate-in fade-in slide-in-from-top-2">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0 mt-0.5"></i>
+                    <span>{{ session('odometer_warning') }}</span>
+                </div>
+            @endif
+
             @if($myBikes->isEmpty())
                 <div class="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm">
                     <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -43,10 +50,13 @@
                     </button>
                 </div>
             @else
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6"
+                     x-data="{ open: false, action: '', name: '', odo: '', label: '',
+                        openEdit(b) { const d = b.dataset; this.action = d.action; this.name = d.name; this.odo = d.odo; this.label = d.label; this.open = true; } }">
                     @foreach($myBikes as $bike)
-                        <a href="{{ route('mybikes.show', $bike->id) }}" class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition group block relative">
-                            
+                        <div class="relative group">
+                        <a href="{{ route('mybikes.show', $bike->id) }}" class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition block">
+
                             <div class="relative h-48 bg-gray-900 overflow-hidden">
                                 @if($bike->display_image)
                                     <img src="{{ $bike->display_image }}" class="w-full h-full object-cover opacity-70 group-hover:scale-105 transition-transform duration-700" loading="lazy" decoding="async">
@@ -83,7 +93,46 @@
                                 </div>
                             </div>
                         </a>
+                        {{-- 愛車情報の編集（愛称＋走行距離）。カードのリンクとは別ボタン＝aの入れ子を避ける --}}
+                        <button type="button" @click="openEdit($el)"
+                                data-action="{{ route('mybikes.update', $bike->id) }}"
+                                data-name="{{ $bike->name }}"
+                                data-odo="{{ $bike->initial_odometer }}"
+                                data-label="{{ $bike->display_name }}"
+                                class="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
+                                title="愛車情報を編集" aria-label="愛車情報を編集">
+                            <i data-lucide="pencil" class="w-4 h-4"></i>
+                        </button>
+                        </div>
                     @endforeach
+
+                    {{-- 愛車情報 編集モーダル（共有・Alpine。@js等の属性埋め込みは使わずdatasetで渡す） --}}
+                    <div x-show="open" x-cloak @keydown.escape.window="open = false" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display: none;">
+                        <div class="absolute inset-0 bg-black/50" @click="open = false"></div>
+                        <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md p-6">
+                            <h2 class="text-lg font-black text-gray-900 mb-1 flex items-center gap-2"><i data-lucide="pencil" class="w-5 h-5 text-blue-600"></i> 愛車情報を編集</h2>
+                            <p class="text-xs text-gray-400 font-bold mb-5" x-text="label"></p>
+                            <form :action="action" method="POST" class="space-y-4">
+                                @csrf
+                                @method('PUT')
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 mb-1">愛称 <span class="text-[10px] font-normal text-gray-400">（未入力なら車種名）</span></label>
+                                    <input type="text" name="name" x-model="name" maxlength="50" placeholder="例: 通勤号"
+                                           class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 h-12 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 mb-1">走行距離 (km)</label>
+                                    <input type="number" step="0.1" min="0" name="initial_odometer" x-model="odo" placeholder="例: 12000"
+                                           class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 h-12 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition">
+                                    <p class="text-[10px] text-gray-400 mt-1">※km単価の計算に使われます。給油・整備の記録より小さい値が基本です。</p>
+                                </div>
+                                <div class="flex items-center gap-3 pt-2">
+                                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl shadow-lg transition active:scale-95">更新する</button>
+                                    <button type="button" @click="open = false" class="shrink-0 text-xs font-bold text-gray-500 hover:text-gray-700 px-4 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">キャンセル</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             @endif
         </div>

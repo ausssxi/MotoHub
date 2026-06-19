@@ -391,6 +391,55 @@ final class MyBikeService
     }
 
     /**
+     * 愛車情報（愛称＋走行距離=初期値）を編集する。車種・公開設定は変更しない。
+     * km単価は buildLedger がオンザフライで再計算（current − initial）＝次回表示で反映。
+     * current_odometer(running-max) は initial を含む max なので recompute で整合させる
+     *（新 initial が記録最大より大きければ current も引き上げられる）。
+     */
+    public function updateBike(MyBike $myBike, array $data): void
+    {
+        DB::transaction(function () use ($myBike, $data) {
+            // name カラムは NOT NULL かつ「ニックネームまたは車種名」を保持する設計。
+            // 愛称が空なら車種名にフォールバック（登録時と同じ＝display_name は車種名表示になる）。
+            $name = trim((string) ($data['name'] ?? ''));
+            $myBike->name = $name !== '' ? $name : ($myBike->bikeModel->name ?? $myBike->name);
+            $myBike->initial_odometer = $data['initial_odometer'] ?? 0;
+            // recomputeCurrentOdometer が save() するため dirty な name/initial も併せて永続化される。
+            $this->recomputeCurrentOdometer($myBike);
+        });
+    }
+
+    /**
+     * 走行距離(初期値)の妥当性警告。既存記録のいずれかが新 initial より小さい＝時系列矛盾のとき確認文を返す。
+     * ★hard block しない（問題1の距離ガードと同じ流儀・保存は可）。問題なければ null。
+     */
+    public function initialOdometerWarning(MyBike $myBike, ?float $newInitial): ?string
+    {
+        if ($newInitial === null) {
+            return null;
+        }
+
+        $minFuel = $myBike->fuelLogs()->min('odometer');
+        $minRecord = MaintenanceLog::where('my_bike_id', $myBike->id)->whereNotNull('odometer')->min('odometer');
+        $mins = array_filter([$minFuel, $minRecord], fn ($v) => $v !== null);
+        if ($mins === []) {
+            return null; // 記録なし＝矛盾しようがない
+        }
+
+        $minRecorded = (float) min($mins);
+        if ($newInitial > $minRecorded) {
+            return '入力した走行距離 '.$this->formatKmValue($newInitial).' km より小さい記録（最小 '.$this->formatKmValue($minRecorded).' km）があります。確認してください。';
+        }
+
+        return null;
+    }
+
+    private function formatKmValue(float $v): string
+    {
+        return $v == floor($v) ? (string) (int) $v : (string) $v;
+    }
+
+    /**
      * 愛車を削除
      */
     public function deleteBike(MyBike $myBike): void
