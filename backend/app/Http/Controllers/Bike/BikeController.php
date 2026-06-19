@@ -1371,13 +1371,11 @@ final class BikeController extends Controller
         });
 
         // 公開モデル詳細の「オーナー」一覧は is_public のガレージのみ（カバーは公開配信＝200／
-        // 非公開を混ぜるとカバーが404割れ＝壊れアイコンになるため）。
-        $owners = \App\Models\MyBike::with(['user', 'images'])
-            ->where('bike_model_id', $model->id)
-            ->where('is_public', true)
-            ->latest()
-            ->limit(6)
-            ->get();
+        // 非公開を混ぜるとカバーが404割れ＝壊れアイコンになるため）。本名は出さず公開ハンドルのみ。
+        // 走行距離/維持費/燃費（シェアと同一ソース）入りの軽量カードをキャッシュ blob に焼く。
+        $ownerCards = app(\App\Services\MyBike\MyBikeService::class)->publicGarageCardsForModel($model->id);
+        $owners = $ownerCards['cards'];
+        $ownersTotal = $ownerCards['total'];
 
         $similarModels = \App\Models\BikeModel::with('manufacturer')
             ->where('id', '!=', $model->id)
@@ -1473,7 +1471,7 @@ final class BikeController extends Controller
         return compact(
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'categoryReviewStats', 'relatedModels', 'similarDisplacementModels',
-            'sameCategoryModels', 'activeCount', 'owners', 'similarModels', 'crossLinks',
+            'sameCategoryModels', 'activeCount', 'owners', 'ownersTotal', 'similarModels', 'crossLinks',
             'prefectureStocks', 'rankingStats',
             'yearDistribution', 'yearStats', 'comparedPairs'
         );

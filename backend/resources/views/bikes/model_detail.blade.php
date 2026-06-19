@@ -1715,24 +1715,25 @@
                         </script>
                     </div>
 
-                    {{-- この車種のオーナー --}}
+                    {{-- この車種のオーナー（実オーナーの公開ガレージ＝維持費・燃費・走行距離が購入判断に効く） --}}
                     @if(isset($owners) && $owners->count() > 0)
                     <div class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
-                        <h2 class="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
+                        <h2 class="text-xl font-black text-gray-900 mb-2 flex items-center gap-2">
                             <span class="bg-pink-100 text-pink-600 p-2 rounded-lg">
                                 <i data-lucide="users" class="w-5 h-5"></i>
                             </span>
-                            {{ $model->name }} のオーナー
-                            <span class="text-sm text-gray-400 font-bold">({{ $owners->count() }}人)</span>
+                            {{ $model->name }} のオーナーのガレージ
+                            <span class="text-sm text-gray-400 font-bold">({{ number_format($ownersTotal ?? $owners->count()) }}人)</span>
                         </h2>
+                        <p class="text-xs text-gray-500 mb-6">実オーナーの走行距離・維持費・燃費を見て購入の参考に。</p>
 
                         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
                             @foreach($owners as $owner)
-                            <a href="{{ route('garage.public.show', $owner->id) }}"
+                            <a href="{{ route('garage.public.show', $owner['id']) }}"
                                class="group block bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-pink-300 hover:shadow-md transition-all">
                                 <div class="aspect-[4/3] rounded-lg bg-gray-200 overflow-hidden mb-3">
-                                    @if($owner->display_image)
-                                        <img src="{{ $owner->display_image }}" alt="{{ $owner->display_name }}"
+                                    @if($owner['image'])
+                                        <img src="{{ $owner['image'] }}" alt="{{ $owner['bike_name'] }}"
                                              class="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                              loading="lazy" decoding="async">
                                     @else
@@ -1741,11 +1742,23 @@
                                         </div>
                                     @endif
                                 </div>
-                                <p class="text-xs font-bold text-gray-500">{{ $owner->user->name ?? '名無しライダー' }}</p>
-                                <p class="text-sm font-black text-gray-800">{{ $owner->display_name }}</p>
-                                @if($owner->model_year)
-                                    <span class="text-[10px] text-gray-400">{{ $owner->model_year }}年式</span>
-                                @endif
+                                {{-- 公開ハンドルのみ（本名は出さない） --}}
+                                <p class="text-xs font-bold text-gray-500 truncate">{{ $owner['handle'] }}</p>
+                                <p class="text-sm font-black text-gray-800 truncate">{{ $owner['bike_name'] }}@if($owner['model_year'])<span class="text-[10px] text-gray-400 font-bold ml-1">{{ $owner['model_year'] }}年式</span>@endif</p>
+                                <div class="mt-2 pt-2 border-t border-gray-100 grid grid-cols-3 gap-1 text-center">
+                                    <div>
+                                        <div class="text-[9px] text-gray-400 font-bold">走行</div>
+                                        <div class="text-[11px] font-black text-gray-700 leading-tight">{{ number_format($owner['odometer']) }}<span class="text-[8px] font-bold text-gray-400">km</span></div>
+                                    </div>
+                                    <div>
+                                        <div class="text-[9px] text-gray-400 font-bold">維持費</div>
+                                        <div class="text-[11px] font-black text-emerald-600 leading-tight">¥{{ number_format($owner['total_cost']) }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-[9px] text-gray-400 font-bold">燃費</div>
+                                        <div class="text-[11px] font-black text-blue-600 leading-tight">{{ $owner['avg_efficiency'] !== null ? $owner['avg_efficiency'] : '—' }}<span class="text-[8px] font-bold text-gray-400">km/L</span></div>
+                                    </div>
+                                </div>
                             </a>
                             @endforeach
                         </div>
@@ -1758,7 +1771,7 @@
                     </div>
                     @endif
 
-                    {{-- オーナーがいなくても登録を促すCTA --}}
+                    {{-- オーナーがいなくても登録を促すCTA（cold-start） --}}
                     @if(!isset($owners) || $owners->count() === 0)
                     <div class="bg-gradient-to-r from-pink-50 to-rose-50 rounded-3xl p-6 sm:p-8 border border-pink-100 text-center">
                         <i data-lucide="heart" class="w-8 h-8 text-pink-400 mx-auto mb-2"></i>

@@ -135,6 +135,40 @@ final class MyBikeService
     }
 
     /**
+     * 車種ページ「この車種のオーナーのガレージ」用カード。is_public のガレージのみ・本名は出さない（ハンドル）。
+     * 各カードに走行距離/累計維持費/平均燃費（garageShareStats＝シェアと同一ソース）を添える。
+     * model_detail のキャッシュ blob に焼くため軽量配列で返す。
+     *
+     * @return array{cards: \Illuminate\Support\Collection<int, array<string, mixed>>, total: int}
+     */
+    public function publicGarageCardsForModel(int $bikeModelId, int $limit = 6): array
+    {
+        $base = MyBike::where('bike_model_id', $bikeModelId)->where('is_public', true);
+
+        $cards = (clone $base)
+            ->with(['user', 'images', 'bikeModel.manufacturer', 'fuelLogs', 'maintenanceLogs', 'customRecords'])
+            ->latest()
+            ->limit($limit)
+            ->get()
+            ->map(function (MyBike $bike) {
+                $s = $this->garageShareStats($bike);
+
+                return [
+                    'id' => $bike->id,
+                    'image' => $bike->display_image,
+                    'bike_name' => $bike->display_name,
+                    'model_year' => $bike->model_year,
+                    'handle' => $s['handle'],
+                    'odometer' => $s['odometer'],
+                    'total_cost' => $s['total_cost'],
+                    'avg_efficiency' => $s['avg_efficiency'],
+                ];
+            });
+
+        return ['cards' => $cards, 'total' => (clone $base)->count()];
+    }
+
+    /**
      * 外部シェア（OGP画像／シェア文言）用の集計（公開ガレージの集計のみ・本名や個別記録の詳細は含めない）。
      * 表示名は公開ハンドル（review_display_name）。本名（user->name）は絶対に使わない。
      *
