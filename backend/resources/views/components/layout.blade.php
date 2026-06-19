@@ -54,12 +54,23 @@
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        gtag('config', '{{ config('app.ga_id', 'G-2SMHVZK9WE') }}');
+        {{-- user_id はGA4の独自IDのみ（内部の数値ユーザID）＝再訪/クロスデバイス用。本名・メールは送らない。 --}}
+        gtag('config', '{{ config('app.ga_id', 'G-2SMHVZK9WE') }}'@auth, { 'user_id': '{{ auth()->id() }}' }@endauth);
     </script>
 
     @if(session('signup_method'))
     {{-- GA4: 会員登録完了（登録直後の1回のみ・フラッシュなので次の遷移で消える）。method=email/google/line --}}
     <script>gtag('event', 'sign_up', { method: '{{ session('signup_method') }}' });</script>
+    @endif
+
+    @if(session('ga_garage_bike_add'))
+    {{-- GA4: 愛車登録完了（アクティベーション・ファネル・フラッシュ1回） --}}
+    <script>gtag('event', 'garage_bike_add');</script>
+    @endif
+
+    @if(session('ga_garage_record_add'))
+    {{-- GA4: 記録の保存（給油/整備/カスタム・アクティベーション・ファネル・フラッシュ1回） --}}
+    <script>gtag('event', 'garage_record_add', { record_type: '{{ session('ga_garage_record_add') }}' });</script>
     @endif
 
     {{-- Google Fontsの爆速・非同期読み込み --}}

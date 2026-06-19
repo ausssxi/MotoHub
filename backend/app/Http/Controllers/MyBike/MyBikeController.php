@@ -95,7 +95,10 @@ class MyBikeController extends Controller
     {
         $this->service->registerBike(Auth::user(), $request->validated());
 
-        return redirect()->route('mybikes.index')->with('success', '愛車をガレージに登録しました！');
+        // GA4: 愛車登録完了（アクティベーション・ファネル）。フラッシュ＝次画面で1回のみ発火。
+        return redirect()->route('mybikes.index')
+            ->with('success', '愛車をガレージに登録しました！')
+            ->with('ga_garage_bike_add', true);
     }
 
     /**
@@ -224,7 +227,8 @@ class MyBikeController extends Controller
         $bike = $this->service->getBikeDetail(Auth::user(), (int) $myBike); // 非所有者は 404
         $this->service->recordFuel($bike, $request->validated());
 
-        return back()->with('success', '給油記録を保存しました！');
+        // GA4: 記録の保存（アクティベーション・ファネル）。新規保存時のみ（編集 updateFuel では発火しない）。
+        return back()->with('success', '給油記録を保存しました！')->with('ga_garage_record_add', 'fuel');
     }
 
     /**
@@ -277,7 +281,7 @@ class MyBikeController extends Controller
         $record = $this->service->recordMaintenance($bike, $validated);
         $this->attachRecordImages($record, $request->file('images', []));
 
-        return back()->with('success', '整備記録を保存しました！')->with('odometer_warning', $warning);
+        return back()->with('success', '整備記録を保存しました！')->with('odometer_warning', $warning)->with('ga_garage_record_add', 'maintenance');
     }
 
     /**
@@ -357,7 +361,7 @@ class MyBikeController extends Controller
         $record = $this->service->recordCustom($bike, $validated);
         $this->attachRecordImages($record, $request->file('images', []));
 
-        return back()->with('success', 'カスタム記録を保存しました！')->with('odometer_warning', $warning);
+        return back()->with('success', 'カスタム記録を保存しました！')->with('odometer_warning', $warning)->with('ga_garage_record_add', 'custom');
     }
 
     /**
