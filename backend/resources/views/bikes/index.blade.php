@@ -905,7 +905,8 @@
                         </div>
                         <p class="text-[10px] font-bold text-gray-400">{{ $myBike->bikeModel->manufacturer->name ?? '' }}</p>
                         <p class="text-sm font-black text-gray-800 line-clamp-1 group-hover:text-pink-600 transition-colors">{{ $myBike->display_name }}</p>
-                        <p class="text-[10px] text-gray-400">{{ $myBike->user->name ?? '名無しライダー' }}</p>
+                        {{-- 公開ハンドルのみ（本名 user->name は出さない） --}}
+                        <p class="text-[10px] text-gray-400">{{ $myBike->user->review_display_name ?? '名無しライダー' }}</p>
                     </a>
                     @endforeach
                 </div>

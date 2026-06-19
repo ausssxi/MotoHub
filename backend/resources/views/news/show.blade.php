@@ -151,7 +151,8 @@
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 mb-1">
-                            <span class="text-xs font-bold text-gray-800">{{ $comment->user->name }}</span>
+                            {{-- 公開ハンドルのみ（本名 user->name は出さない） --}}
+                            <span class="text-xs font-bold text-gray-800">{{ $comment->user->review_display_name ?? '名無しライダー' }}</span>
                             <span class="text-[10px] text-gray-400">{{ $comment->created_at->diffForHumans() }}</span>
                         </div>
                         <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line break-words">{{ $comment->body }}</p>

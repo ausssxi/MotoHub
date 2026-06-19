@@ -15,7 +15,6 @@ use App\Services\Bike\BikePartsService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 
 final class NewsController extends Controller
 {
@@ -65,7 +64,7 @@ final class NewsController extends Controller
 
         // 注目ニュース（1ページ目のみ、コメント+ピック数上位3件）
         $featured = collect();
-        if (!$request->filled('page') || (int) $request->query('page') === 1) {
+        if (! $request->filled('page') || (int) $request->query('page') === 1) {
             $featuredQuery = BikeNews::selectRaw('*, (comments_count + picks_count) as engagement')
                 ->where(function ($q) {
                     $q->where('comments_count', '>', 0)->orWhere('picks_count', '>', 0);
@@ -203,7 +202,7 @@ final class NewsController extends Controller
         $comment = NewsComment::create([
             'news_id' => $newsId,
             'user_id' => auth()->id(),
-            'body'    => $request->input('body'),
+            'body' => $request->input('body'),
         ]);
 
         $newsItem->increment('comments_count');
@@ -213,12 +212,13 @@ final class NewsController extends Controller
         return response()->json([
             'success' => true,
             'comment' => [
-                'id'         => $comment->id,
-                'body'       => $comment->body,
+                'id' => $comment->id,
+                'body' => $comment->body,
                 'likes_count' => 0,
                 'created_at' => $comment->created_at->format('Y/m/d H:i'),
-                'user'       => [
-                    'name'   => $comment->user->name,
+                'user' => [
+                    // 公開ハンドルのみ（本名 user->name は出さない）
+                    'name' => $comment->user->review_display_name ?? '名無しライダー',
                     'avatar' => $comment->user->avatar,
                 ],
             ],
@@ -243,8 +243,8 @@ final class NewsController extends Controller
             $picked = false;
         } else {
             NewsPick::create([
-                'news_id'    => $newsId,
-                'user_id'    => $userId,
+                'news_id' => $newsId,
+                'user_id' => $userId,
                 'created_at' => now(),
             ]);
             $newsItem->increment('picks_count');
@@ -252,8 +252,8 @@ final class NewsController extends Controller
         }
 
         return response()->json([
-            'success'     => true,
-            'picked'      => $picked,
+            'success' => true,
+            'picked' => $picked,
             'picks_count' => $newsItem->fresh()->picks_count,
         ]);
     }
@@ -277,7 +277,7 @@ final class NewsController extends Controller
         } else {
             NewsCommentLike::create([
                 'comment_id' => $commentId,
-                'user_id'    => $userId,
+                'user_id' => $userId,
                 'created_at' => now(),
             ]);
             $comment->increment('likes_count');
@@ -285,10 +285,9 @@ final class NewsController extends Controller
         }
 
         return response()->json([
-            'success'     => true,
-            'liked'       => $liked,
+            'success' => true,
+            'liked' => $liked,
             'likes_count' => $comment->fresh()->likes_count,
         ]);
     }
-
 }
