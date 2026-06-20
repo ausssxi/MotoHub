@@ -892,22 +892,29 @@
                 </div>
                 <div class="flex gap-4 overflow-x-auto pb-4 snap-x scrollbar-hide">
                     @foreach($latestMyBikes as $myBike)
-                    <a href="{{ route('garage.public.show', $myBike->id) }}" class="snap-start shrink-0 w-48 group">
-                        <div class="aspect-[4/3] rounded-xl bg-gray-100 overflow-hidden mb-2">
-                            @if($myBike->display_image)
-                                <img src="{{ $myBike->display_image }}" alt="{{ $myBike->display_name }}"
-                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" decoding="async">
-                            @else
-                                <div class="w-full h-full flex items-center justify-center text-gray-300">
-                                    <i data-lucide="bike" class="w-6 h-6"></i>
-                                </div>
-                            @endif
-                        </div>
-                        <p class="text-[10px] font-bold text-gray-400">{{ $myBike->bikeModel->manufacturer->name ?? '' }}</p>
-                        <p class="text-sm font-black text-gray-800 line-clamp-1 group-hover:text-pink-600 transition-colors">{{ $myBike->display_name }}</p>
-                        {{-- 公開ハンドルのみ（本名 user->name は出さない） --}}
-                        <p class="text-[10px] text-gray-400">{{ $myBike->user->review_display_name ?? '名無しライダー' }}</p>
-                    </a>
+                    {{-- カード→公開ガレージ。ハンドルは別リンク→プロフィール（aの入れ子回避） --}}
+                    <div class="snap-start shrink-0 w-48 group">
+                        <a href="{{ route('garage.public.show', $myBike->id) }}" class="block">
+                            <div class="aspect-[4/3] rounded-xl bg-gray-100 overflow-hidden mb-2">
+                                @if($myBike->display_image)
+                                    <img src="{{ $myBike->display_image }}" alt="{{ $myBike->display_name }}"
+                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" decoding="async">
+                                @else
+                                    <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                        <i data-lucide="bike" class="w-6 h-6"></i>
+                                    </div>
+                                @endif
+                            </div>
+                            <p class="text-[10px] font-bold text-gray-400">{{ $myBike->bikeModel->manufacturer->name ?? '' }}</p>
+                            <p class="text-sm font-black text-gray-800 line-clamp-1 group-hover:text-pink-600 transition-colors">{{ $myBike->display_name }}</p>
+                        </a>
+                        {{-- 公開ハンドルのみ（本名 user->name は出さない）→プロフィール --}}
+                        @if($myBike->user->public_token)
+                            <a href="{{ route('riders.profile', $myBike->user->public_token) }}" class="text-[10px] text-gray-400 hover:text-pink-600 transition-colors inline-block">{{ $myBike->user->review_display_name ?? '名無しライダー' }}</a>
+                        @else
+                            <p class="text-[10px] text-gray-400">{{ $myBike->user->review_display_name ?? '名無しライダー' }}</p>
+                        @endif
+                    </div>
                     @endforeach
                 </div>
             </section>
