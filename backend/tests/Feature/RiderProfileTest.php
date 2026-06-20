@@ -142,3 +142,103 @@ it('publishing a garage assigns the owner a public token', function () {
 
     expect($user->fresh()->public_token)->not->toBeNull();
 });
+
+// ---- 第1段集約: 車種レビュー ----
+
+use App\Models\BikeNews;
+use App\Models\NewsComment;
+use App\Models\Review;
+
+it('aggregates the users approved reviews with handle + link, hides unapproved', function () {
+    $user = profUser('本名タロウ', 'rider_x');
+    $token = $user->ensurePublicToken();
+    profBike($user, true); // プロフィール公開条件（公開ガレージ1台）
+    $model = profModel();
+
+    Review::create(['bike_model_id' => $model->id, 'user_id' => $user->id, 'nickname' => '旧ニック', 'title' => '良いバイク', 'body' => '最高でした', 'rating' => 5, 'is_approved' => true]);
+    Review::create(['bike_model_id' => $model->id, 'user_id' => $user->id, 'nickname' => '旧ニック', 'title' => '未承認レビュー', 'body' => 'pending', 'rating' => 3, 'is_approved' => false]);
+
+    $html = $this->get(route('riders.profile', $token))->assertOk()
+        ->assertSee('良いバイク')
+        ->assertSee($model->seo_url, false)   // 車種ページへリンク
+        ->getContent();
+
+    // 未承認は出ない／保存済み nickname でなく現ハンドルを表示／本名は出ない
+    expect($html)->not->toContain('未承認レビュー')
+        ->not->toContain('旧ニック')
+        ->not->toContain('本名タロウ')
+        ->toContain('rider_x');
+});
+
+it('does not show another users reviews on the profile', function () {
+    $a = profUser('Aさん', 'rider_a');
+    $token = $a->ensurePublicToken();
+    profBike($a, true);
+    $b = profUser('Bさん', 'rider_b', 'b@example.com');
+    $model = profModel();
+    Review::create(['bike_model_id' => $model->id, 'user_id' => $b->id, 'nickname' => 'x', 'title' => 'Bのレビュー', 'body' => 'b', 'rating' => 4, 'is_approved' => true]);
+
+    $html = $this->get(route('riders.profile', $token))->assertOk()->getContent();
+    expect($html)->not->toContain('Bのレビュー');
+});
+
+// ---- 第1段集約: ニュースコメント ----
+
+function profNews(string $title): BikeNews
+{
+    return BikeNews::create(['title' => $title, 'url' => 'https://example.com/'.uniqid(), 'source' => 'test', 'published_at' => now()]);
+}
+
+it('aggregates the users news comments with handle + link', function () {
+    $user = profUser('本名タロウ', 'rider_x');
+    $token = $user->ensurePublicToken();
+    profBike($user, true);
+    $news = profNews('新型発表');
+    NewsComment::create(['news_id' => $news->id, 'user_id' => $user->id, 'body' => 'かっこいい']);
+
+    $html = $this->get(route('riders.profile', $token))->assertOk()
+        ->assertSee('かっこいい')
+        ->assertSee('新型発表')
+        ->assertSee(route('news.show', $news->id), false)
+        ->getContent();
+    expect($html)->not->toContain('本名タロウ')->toContain('rider_x');
+});
+
+it('does not show another users news comments', function () {
+    $a = profUser('Aさん', 'rider_a');
+    $token = $a->ensurePublicToken();
+    profBike($a, true);
+    $b = profUser('Bさん', 'rider_b', 'b2@example.com');
+    $news = profNews('ニュース');
+    NewsComment::create(['news_id' => $news->id, 'user_id' => $b->id, 'body' => 'Bのコメント']);
+
+    $html = $this->get(route('riders.profile', $token))->assertOk()->getContent();
+    expect($html)->not->toContain('Bのコメント');
+});
+
+it('paginates news comments (20 per page) and exposes page 2', function () {
+    $user = profUser();
+    $token = $user->ensurePublicToken();
+    profBike($user, true);
+    $news = profNews('まとめ記事');
+    foreach (range(1, 25) as $i) {
+        NewsComment::create(['news_id' => $news->id, 'user_id' => $user->id, 'body' => "コメント番号{$i}"]);
+    }
+
+    // 1ページ目: 20件。2ページ目: 残り5件。（同一timestampで順序は不定なので件数で検証）
+    $p1 = $this->get(route('riders.profile', $token))->assertOk()->getContent();
+    expect(substr_count($p1, 'コメント番号'))->toBe(20)
+        ->and($p1)->toContain('comments=2'); // 次ページへのページネーションリンク
+    $p2 = $this->get(route('riders.profile', $token).'?comments=2')->assertOk()->getContent();
+    expect(substr_count($p2, 'コメント番号'))->toBe(5);
+});
+
+it('profile renders gracefully with zero reviews and zero comments (sections hidden)', function () {
+    $user = profUser();
+    $token = $user->ensurePublicToken();
+    profBike($user, true);
+
+    $html = $this->get(route('riders.profile', $token))->assertOk()->getContent();
+    expect($html)->not->toContain('のレビュー')      // セクション見出し非表示
+        ->not->toContain('のニュースコメント');
+});

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\MyBike;
 
 use App\Http\Controllers\Controller;
+use App\Models\NewsComment;
+use App\Models\Review;
 use App\Models\User;
 use App\Services\MyBike\MyBikeService;
 
@@ -31,10 +33,27 @@ final class RiderProfileController extends Controller
 
         $handle = $user->review_display_name ?? '名無しライダー';
 
+        // 第1段集約（位置リスク低・PII整合済み）：本人の公開済みレビュー＋ニュースコメント。
+        // 表示名は保存済み nickname ではなく現 review_display_name(=$handle) を使う（handle変更時も一貫）。
+        $reviews = Review::where('user_id', $user->id)
+            ->where('is_approved', true)            // 承認済みのみ（未承認・下書きは出さない）
+            ->with('bikeModel.manufacturer')
+            ->latest()
+            ->get();
+
+        // ニュースコメントは規模が大きい（1ユーザ159件規模）ためページング必須。
+        $comments = NewsComment::where('user_id', $user->id)
+            ->with('news')
+            ->latest()
+            ->paginate(20, ['*'], 'comments')
+            ->withQueryString();
+
         return view('mybikes.rider_profile', [
             'handle' => $handle,
             'garages' => $garages,
             'token' => $token,
+            'reviews' => $reviews,
+            'comments' => $comments,
         ]);
     }
 }

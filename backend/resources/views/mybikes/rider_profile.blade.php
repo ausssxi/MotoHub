@@ -63,6 +63,47 @@
                     </a>
                 @endforeach
             </div>
+
+            {{-- 投稿したレビュー（公開・承認済みのみ・表示名は現ハンドル） --}}
+            @if($reviews->isNotEmpty())
+            <h2 class="text-lg font-black text-gray-900 mt-12 mb-5 flex items-center gap-2">
+                <i data-lucide="star" class="w-5 h-5 text-pink-600"></i> {{ $handle }} のレビュー
+                <span class="text-sm text-gray-400 font-bold">({{ $reviews->count() }})</span>
+            </h2>
+            <div class="space-y-3">
+                @foreach($reviews as $review)
+                    <a href="{{ $review->bikeModel->seo_url }}" class="block bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:shadow-md hover:border-pink-200 transition-all">
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="text-xs font-bold text-gray-500">{{ $review->bikeModel->manufacturer->name ?? '' }} {{ $review->bikeModel->name ?? '' }}</p>
+                            <span class="text-[11px] font-black text-amber-500 shrink-0 ml-2">{{ str_repeat('★', (int) $review->rating) }}{{ str_repeat('☆', 5 - (int) $review->rating) }}</span>
+                        </div>
+                        @if($review->title)<p class="text-sm font-black text-gray-800 line-clamp-1 mb-0.5">{{ $review->title }}</p>@endif
+                        @if($review->body)<p class="text-xs text-gray-500 line-clamp-2">{{ $review->body }}</p>@endif
+                        <p class="text-[10px] text-gray-400 font-bold mt-1.5">{{ $handle }} ・ {{ $review->created_at->format('Y/m/d') }}</p>
+                    </a>
+                @endforeach
+            </div>
+            @endif
+
+            {{-- ニュースコメント（公開・ページング） --}}
+            @if($comments->isNotEmpty())
+            <h2 class="text-lg font-black text-gray-900 mt-12 mb-5 flex items-center gap-2">
+                <i data-lucide="message-circle" class="w-5 h-5 text-pink-600"></i> {{ $handle }} のニュースコメント
+                <span class="text-sm text-gray-400 font-bold">({{ number_format($comments->total()) }})</span>
+            </h2>
+            <div class="space-y-3">
+                @foreach($comments as $comment)
+                    <a href="{{ route('news.show', $comment->news_id) }}" class="block bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:shadow-md hover:border-pink-200 transition-all">
+                        @if($comment->news)<p class="text-[11px] font-bold text-pink-600 line-clamp-1 mb-1"><i data-lucide="newspaper" class="w-3 h-3 inline"></i> {{ $comment->news->title }}</p>@endif
+                        <p class="text-sm text-gray-700 line-clamp-3 break-words">{{ $comment->body }}</p>
+                        <p class="text-[10px] text-gray-400 font-bold mt-1.5">{{ $handle }} ・ {{ $comment->created_at->format('Y/m/d') }}</p>
+                    </a>
+                @endforeach
+            </div>
+            <div class="mt-6">
+                {{ $comments->links() }}
+            </div>
+            @endif
         </div>
     </div>
 
