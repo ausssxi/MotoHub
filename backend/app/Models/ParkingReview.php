@@ -32,4 +32,19 @@ final class ParkingReview extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * 公開表示名。★本名(user->name)は絶対に出さない。
+     * ログイン投稿(user_id 有り)は公開ハンドル(review_display_name)を優先（保存済み nickname は本名が
+     * 混入しうるため使わない）。ゲスト投稿は自由入力 nickname を表示。未設定は「名無しライダー」。
+     * ※既存データを書き換えずに表示側で本名露出を止めるフォールバック。
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        if ($this->user_id) {
+            return $this->user?->review_display_name ?? '名無しライダー';
+        }
+
+        return $this->nickname ?: '名無しライダー';
+    }
 }

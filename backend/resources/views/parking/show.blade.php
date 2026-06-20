@@ -815,7 +815,8 @@
                     <div class="border-b border-gray-50 pb-4 last:border-b-0 last:pb-0">
                         <div class="flex items-center justify-between mb-2">
                             <div class="flex items-center gap-2">
-                                <span class="text-sm font-bold text-gray-800">{{ $review->nickname }}</span>
+                                {{-- 公開表示名（本名は出さない。ログイン投稿はハンドル・ゲストはニックネーム） --}}
+                                <span class="text-sm font-bold text-gray-800">{{ $review->display_name }}</span>
                                 <div class="flex items-center gap-0.5">
                                     @for($i = 1; $i <= 5; $i++)
                                     <i data-lucide="star" class="w-3 h-3 {{ $i <= $review->rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200' }}"></i>
@@ -890,7 +891,8 @@
                                 placeholder="停めやすさ、見つけやすさ、周辺の雰囲気など...">{{ old('body') }}</textarea>
                         </div>
                         <div class="flex gap-2">
-                            <input type="text" name="nickname" value="{{ old('nickname', auth()->user()?->name ?? '') }}" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="ニックネーム（任意）">
+                            {{-- ★本名(user->name)で prefill しない。公開ハンドルのみ・未設定は空 --}}
+                            <input type="text" name="nickname" value="{{ old('nickname', auth()->user()?->review_display_name ?? '') }}" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="ニックネーム（任意）">
                             <button type="submit" class="bg-blue-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">投稿</button>
                         </div>
                     </form>

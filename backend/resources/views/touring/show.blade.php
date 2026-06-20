@@ -22,7 +22,7 @@
             "dateModified": "{{ $guide->updated_at->toIso8601String() }}",
             "author": {
                 "@@type": "Person",
-                "name": "{{ e($guide->author->name ?? 'MotoHub') }}"
+                "name": "{{ e($guide->author_display_name) }}"
             },
             "publisher": {
                 "@@type": "Organization",
@@ -141,7 +141,8 @@
                 </div>
 
                 <div class="flex items-center gap-4 text-sm text-gray-500">
-                    <span>{{ $guide->author->name ?? 'MotoHub' }}</span>
+                    {{-- 公開バイライン（本名は出さない・ハンドル or ブランド名） --}}
+                    <span>{{ $guide->author_display_name }}</span>
                     <span>{{ $guide->published_at->format('Y年m月d日') }}</span>
                     <span>{{ $guide->reading_time_minutes }}分で読める</span>
                 </div>

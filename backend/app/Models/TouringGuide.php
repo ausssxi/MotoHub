@@ -50,7 +50,7 @@ class TouringGuide extends Model
 
             $guide->reading_time_minutes = max(1, (int) ceil(mb_strlen(strip_tags($guide->body)) / 500));
 
-            if (empty($guide->excerpt) && !empty($guide->body)) {
+            if (empty($guide->excerpt) && ! empty($guide->body)) {
                 $guide->excerpt = Str::limit(BlogPost::stripMarkdown($guide->body), 150);
             }
         });
@@ -69,6 +69,16 @@ class TouringGuide extends Model
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');
+    }
+
+    /**
+     * 公開バイライン。★本名(author->name)は出さない。
+     * 著者の公開ハンドル(review_display_name)を使い、未設定はブランド名「MotoHub」にフォールバック
+     * （ガイドは編集/writer コンテンツのため）。専用ペンネーム列は無いので review_display_name を流用。
+     */
+    public function getAuthorDisplayNameAttribute(): string
+    {
+        return $this->author?->review_display_name ?: 'MotoHub';
     }
 
     public function scopePublished($query)
