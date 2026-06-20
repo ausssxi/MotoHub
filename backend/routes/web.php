@@ -27,6 +27,7 @@ use App\Http\Controllers\Feature\FeatureController;
 use App\Http\Controllers\MyBike\GarageOgpController;
 use App\Http\Controllers\MyBike\GaragePublicController;
 use App\Http\Controllers\MyBike\MyBikeController;
+use App\Http\Controllers\MyBike\RiderProfileController;
 use App\Http\Controllers\NewsController;
 use App\Http\Controllers\Page\SellController;
 use App\Http\Controllers\PageController;
@@ -306,6 +307,11 @@ Route::prefix('garage/public')->name('garage.public.')->controller(GaragePublicC
 Route::get('/garage/public/{myBike}/ogp.png', [GarageOgpController::class, 'show'])
     ->name('garage.public.ogp')
     ->where('myBike', '[0-9]+');
+
+// 公開ライダープロフィール（auth不要・非連番トークンキー・公開ハンドル＋公開ガレージのみ）
+Route::get('/riders/{token}', [RiderProfileController::class, 'show'])
+    ->name('riders.profile')
+    ->where('token', '[A-Za-z0-9]+');
 
 // ギャラリー画像の配信（auth不要）。許可はメソッド内で判定：
 // 「所有者」OR「is_public ガレージのカバー(=1枚目)」なら200、それ以外は404。

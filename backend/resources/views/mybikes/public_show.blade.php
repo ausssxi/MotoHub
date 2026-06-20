@@ -48,7 +48,12 @@
                             <i data-lucide="user" class="w-5 h-5 text-gray-400"></i>
                         </div>
                         <div>
-                            <p class="text-sm font-black text-gray-900">{{ $myBike->user->review_display_name ?? '名無しライダー' }}</p>
+                            {{-- 公開ハンドルのみ→公開プロフィールへリンク（本名は出さない） --}}
+                            @if($myBike->user->public_token)
+                                <a href="{{ route('riders.profile', $myBike->user->public_token) }}" class="text-sm font-black text-gray-900 hover:text-pink-600 transition-colors">{{ $myBike->user->review_display_name ?? '名無しライダー' }}</a>
+                            @else
+                                <p class="text-sm font-black text-gray-900">{{ $myBike->user->review_display_name ?? '名無しライダー' }}</p>
+                            @endif
                             <p class="text-[10px] text-gray-400 font-bold">オーナー</p>
                         </div>
                     </div>

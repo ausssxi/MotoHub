@@ -33,32 +33,42 @@
             @else
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                     @foreach($bikes as $bike)
-                        <a href="{{ route('garage.public.show', $bike->id) }}" class="group block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg hover:border-pink-200 transition-all duration-300">
-                            <div class="aspect-[4/3] bg-gray-100 overflow-hidden relative">
-                                @if($bike->display_image)
-                                    <img src="{{ $bike->display_image }}" alt="{{ $bike->display_name }}"
-                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                         loading="lazy" decoding="async">
+                        {{-- カード→公開ガレージ。オーナー名は別リンク→プロフィール（aの入れ子回避） --}}
+                        <div class="group relative bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg hover:border-pink-200 transition-all duration-300">
+                            <a href="{{ route('garage.public.show', $bike->id) }}" class="block">
+                                <div class="aspect-[4/3] bg-gray-100 overflow-hidden relative">
+                                    @if($bike->display_image)
+                                        <img src="{{ $bike->display_image }}" alt="{{ $bike->display_name }}"
+                                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                             loading="lazy" decoding="async">
+                                    @else
+                                        <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                            <i data-lucide="bike" class="w-8 h-8"></i>
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="px-4 pt-4 pb-1">
+                                    <p class="text-[10px] font-bold text-gray-400 mb-0.5">{{ $bike->bikeModel->manufacturer->name ?? '' }}</p>
+                                    <h2 class="text-sm font-black text-gray-800 group-hover:text-pink-600 transition-colors line-clamp-1 mb-1">{{ $bike->display_name }}</h2>
+                                </div>
+                            </a>
+                            <div class="px-4 pb-4 flex items-center justify-between">
+                                @if($bike->user->public_token)
+                                    <a href="{{ route('riders.profile', $bike->user->public_token) }}" class="text-[10px] font-bold text-gray-400 hover:text-pink-600 transition-colors">
+                                        <i data-lucide="user" class="w-3 h-3 inline"></i>
+                                        {{ $bike->user->review_display_name ?? '名無しライダー' }}
+                                    </a>
                                 @else
-                                    <div class="w-full h-full flex items-center justify-center text-gray-300">
-                                        <i data-lucide="bike" class="w-8 h-8"></i>
-                                    </div>
-                                @endif
-                            </div>
-                            <div class="p-4">
-                                <p class="text-[10px] font-bold text-gray-400 mb-0.5">{{ $bike->bikeModel->manufacturer->name ?? '' }}</p>
-                                <h2 class="text-sm font-black text-gray-800 group-hover:text-pink-600 transition-colors line-clamp-1 mb-1">{{ $bike->display_name }}</h2>
-                                <div class="flex items-center justify-between">
                                     <p class="text-[10px] font-bold text-gray-400">
                                         <i data-lucide="user" class="w-3 h-3 inline"></i>
                                         {{ $bike->user->review_display_name ?? '名無しライダー' }}
                                     </p>
-                                    @if($bike->model_year)
-                                        <span class="text-[10px] text-gray-400">{{ $bike->model_year }}年式</span>
-                                    @endif
-                                </div>
+                                @endif
+                                @if($bike->model_year)
+                                    <span class="text-[10px] text-gray-400">{{ $bike->model_year }}年式</span>
+                                @endif
                             </div>
-                        </a>
+                        </div>
                     @endforeach
                 </div>
 

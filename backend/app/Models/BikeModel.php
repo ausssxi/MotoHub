@@ -25,7 +25,7 @@ final class BikeModel extends Model
      *    を実行して全車種を新キーで再温めすること（バンプ直後は全ページがコールド＝TTFB悪化、
      *    日次ウォーマーは07:30まで走らない）。cache:clear は使わない（上書きウォームのみ）。
      */
-    public const MODEL_DETAIL_CACHE_VERSION = 'v4';
+    public const MODEL_DETAIL_CACHE_VERSION = 'v5';
 
     /**
      * model_detail ページのキャッシュキーを生成する（生成側とパージ側で必ず一致させるための単一の正本）。

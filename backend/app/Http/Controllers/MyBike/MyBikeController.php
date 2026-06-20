@@ -153,6 +153,7 @@ class MyBikeController extends Controller
                 $user->review_display_name = $handle;
                 $user->save();
             }
+            $user->ensurePublicToken(); // 公開プロフィール /riders/{token} のURLキーを保証
             $myBike->is_public = true;
             $myBike->save();
 

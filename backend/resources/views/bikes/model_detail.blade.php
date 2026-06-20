@@ -1729,37 +1729,45 @@
 
                         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
                             @foreach($owners as $owner)
-                            <a href="{{ route('garage.public.show', $owner['id']) }}"
-                               class="group block bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-pink-300 hover:shadow-md transition-all">
-                                <div class="aspect-[4/3] rounded-lg bg-gray-200 overflow-hidden mb-3">
-                                    @if($owner['image'])
-                                        <img src="{{ $owner['image'] }}" alt="{{ $owner['bike_name'] }}"
-                                             class="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                             loading="lazy" decoding="async">
-                                    @else
-                                        <div class="w-full h-full flex items-center justify-center text-gray-400">
-                                            <i data-lucide="bike" class="w-8 h-8"></i>
+                            {{-- カード→公開ガレージ。オーナー名は別リンク→プロフィール（aの入れ子回避） --}}
+                            <div class="group bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-pink-300 hover:shadow-md transition-all">
+                                <a href="{{ route('garage.public.show', $owner['id']) }}" class="block">
+                                    <div class="aspect-[4/3] rounded-lg bg-gray-200 overflow-hidden mb-3">
+                                        @if($owner['image'])
+                                            <img src="{{ $owner['image'] }}" alt="{{ $owner['bike_name'] }}"
+                                                 class="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                                 loading="lazy" decoding="async">
+                                        @else
+                                            <div class="w-full h-full flex items-center justify-center text-gray-400">
+                                                <i data-lucide="bike" class="w-8 h-8"></i>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </a>
+                                {{-- 公開ハンドルのみ（本名は出さない）→プロフィール --}}
+                                @if(!empty($owner['profile_token']))
+                                    <a href="{{ route('riders.profile', $owner['profile_token']) }}" class="block text-xs font-bold text-gray-500 hover:text-pink-600 transition-colors truncate">{{ $owner['handle'] }}</a>
+                                @else
+                                    <p class="text-xs font-bold text-gray-500 truncate">{{ $owner['handle'] }}</p>
+                                @endif
+                                <a href="{{ route('garage.public.show', $owner['id']) }}" class="block">
+                                    <p class="text-sm font-black text-gray-800 truncate">{{ $owner['bike_name'] }}@if($owner['model_year'])<span class="text-[10px] text-gray-400 font-bold ml-1">{{ $owner['model_year'] }}年式</span>@endif</p>
+                                    <div class="mt-2 pt-2 border-t border-gray-100 grid grid-cols-3 gap-1 text-center">
+                                        <div>
+                                            <div class="text-[9px] text-gray-400 font-bold">走行</div>
+                                            <div class="text-[11px] font-black text-gray-700 leading-tight">{{ number_format($owner['odometer']) }}<span class="text-[8px] font-bold text-gray-400">km</span></div>
                                         </div>
-                                    @endif
-                                </div>
-                                {{-- 公開ハンドルのみ（本名は出さない） --}}
-                                <p class="text-xs font-bold text-gray-500 truncate">{{ $owner['handle'] }}</p>
-                                <p class="text-sm font-black text-gray-800 truncate">{{ $owner['bike_name'] }}@if($owner['model_year'])<span class="text-[10px] text-gray-400 font-bold ml-1">{{ $owner['model_year'] }}年式</span>@endif</p>
-                                <div class="mt-2 pt-2 border-t border-gray-100 grid grid-cols-3 gap-1 text-center">
-                                    <div>
-                                        <div class="text-[9px] text-gray-400 font-bold">走行</div>
-                                        <div class="text-[11px] font-black text-gray-700 leading-tight">{{ number_format($owner['odometer']) }}<span class="text-[8px] font-bold text-gray-400">km</span></div>
+                                        <div>
+                                            <div class="text-[9px] text-gray-400 font-bold">維持費</div>
+                                            <div class="text-[11px] font-black text-emerald-600 leading-tight">¥{{ number_format($owner['total_cost']) }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-[9px] text-gray-400 font-bold">燃費</div>
+                                            <div class="text-[11px] font-black text-blue-600 leading-tight">{{ $owner['avg_efficiency'] !== null ? $owner['avg_efficiency'] : '—' }}<span class="text-[8px] font-bold text-gray-400">km/L</span></div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <div class="text-[9px] text-gray-400 font-bold">維持費</div>
-                                        <div class="text-[11px] font-black text-emerald-600 leading-tight">¥{{ number_format($owner['total_cost']) }}</div>
-                                    </div>
-                                    <div>
-                                        <div class="text-[9px] text-gray-400 font-bold">燃費</div>
-                                        <div class="text-[11px] font-black text-blue-600 leading-tight">{{ $owner['avg_efficiency'] !== null ? $owner['avg_efficiency'] : '—' }}<span class="text-[8px] font-bold text-gray-400">km/L</span></div>
-                                    </div>
-                                </div>
-                            </a>
+                                </a>
+                            </div>
                             @endforeach
                         </div>
 

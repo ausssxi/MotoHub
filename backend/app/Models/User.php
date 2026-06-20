@@ -102,6 +102,26 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * 公開プロフィールURLキー（/riders/{token}）を保証する。未設定なら一意なランダムトークンを発番して保存。
+     * ガレージ公開時に呼ぶ＝公開面を持つユーザーだけがトークンを持つ（連番idは露出しない）。
+     */
+    public function ensurePublicToken(): string
+    {
+        if ($this->public_token) {
+            return $this->public_token;
+        }
+
+        do {
+            $token = \Illuminate\Support\Str::random(16);
+        } while (self::where('public_token', $token)->exists());
+
+        $this->public_token = $token;
+        $this->save();
+
+        return $token;
+    }
+
+    /**
      * Filament管理画面へのアクセス権限判定
      * これがないと本番環境で403エラーになります
      */

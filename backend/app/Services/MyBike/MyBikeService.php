@@ -159,6 +159,7 @@ final class MyBikeService
                     'bike_name' => $bike->display_name,
                     'model_year' => $bike->model_year,
                     'handle' => $s['handle'],
+                    'profile_token' => $bike->user->public_token, // 公開プロフィールへのリンク用（null可）
                     'odometer' => $s['odometer'],
                     'total_cost' => $s['total_cost'],
                     'avg_efficiency' => $s['avg_efficiency'],
@@ -166,6 +167,28 @@ final class MyBikeService
             });
 
         return ['cards' => $cards, 'total' => (clone $base)->count()];
+    }
+
+    /**
+     * 公開ライダープロフィール用：そのユーザーの公開ガレージ（is_public）の軽量カード一覧。
+     * 本名は出さず公開情報のみ（カードは公開ガレージページへリンク）。
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    public function publicGarageCardsForUser(User $user): \Illuminate\Support\Collection
+    {
+        return $user->myBikes()
+            ->where('is_public', true)
+            ->with(['images', 'bikeModel.manufacturer'])
+            ->get()
+            ->map(fn (MyBike $bike) => [
+                'id' => $bike->id,
+                'image' => $bike->display_image,
+                'manufacturer' => $bike->bikeModel->manufacturer->name ?? '',
+                'bike_name' => $bike->display_name,
+                'model_year' => $bike->model_year,
+                'odometer' => (int) $bike->current_odometer,
+            ]);
     }
 
     /**
