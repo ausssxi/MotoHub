@@ -969,6 +969,142 @@
                         </div>
                     </div>
 
+                    {{-- ===== タイプ別 詳細レポート（Drivvo型・3c）===== --}}
+                    {{-- 総括 --}}
+                    <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-sm p-5 mb-4 text-white">
+                        <h4 class="text-xs font-black text-gray-300 mb-3 flex items-center gap-1.5"><i data-lucide="gauge" class="w-3.5 h-3.5 text-emerald-400"></i> 総括</h4>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div>
+                                <p class="text-[10px] font-bold text-gray-400 mb-0.5">所有期間</p>
+                                <p class="text-lg font-black">{{ $ledgerReport['summary']['months_owned'] ? number_format($ledgerReport['summary']['months_owned']).'ヶ月' : '—' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-bold text-gray-400 mb-0.5">総支出</p>
+                                <p class="text-lg font-black text-emerald-400">¥{{ number_format($ledgerReport['summary']['total']) }}</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-bold text-gray-400 mb-0.5">月平均維持費</p>
+                                <p class="text-lg font-black">{{ $ledgerReport['summary']['monthly_avg'] !== null ? '¥'.number_format($ledgerReport['summary']['monthly_avg']) : '—' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-bold text-gray-400 mb-0.5">km単価</p>
+                                <p class="text-lg font-black">{{ $ledgerReport['summary']['per_km'] !== null ? number_format($ledgerReport['summary']['per_km'], 1).'円' : '—' }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- タイプ別カード（折りたたみ・モバイルファースト。data-* で渡す＝属性エスケープ崩れ回避） --}}
+                    <div class="space-y-3 mb-6" x-data="{ open: 'fuel' }">
+                        {{-- 燃料 --}}
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <button type="button" @click="open = (open === 'fuel' ? '' : 'fuel')" class="w-full flex items-center justify-between p-4 text-left">
+                                <span class="text-sm font-black text-gray-800 flex items-center gap-2"><i data-lucide="fuel" class="w-4 h-4 text-blue-500"></i> 燃料</span>
+                                <span class="flex items-center gap-2">
+                                    <span class="text-xs font-bold text-gray-500">¥{{ number_format($ledgerReport['fuel']['total']) }} ・ {{ $ledgerReport['fuel']['count'] }}回</span>
+                                    <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" ::class="open === 'fuel' && 'rotate-180'"></i>
+                                </span>
+                            </button>
+                            <div x-show="open === 'fuel'" x-cloak x-transition.opacity>
+                                <div class="px-4 pb-4">
+                                    @if($ledgerReport['fuel']['count'] === 0)
+                                    <p class="text-xs text-gray-400 font-bold py-3 text-center">給油記録がありません</p>
+                                    @else
+                                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+                                        <div class="bg-gray-50 rounded-xl p-3"><p class="text-[10px] font-bold text-gray-400">平均燃費</p><p class="text-base font-black text-blue-600">{{ $ledgerReport['fuel']['avg_efficiency'] !== null ? $ledgerReport['fuel']['avg_efficiency'].' km/L' : '—' }}</p></div>
+                                        <div class="bg-gray-50 rounded-xl p-3"><p class="text-[10px] font-bold text-gray-400">平均給油量</p><p class="text-base font-black text-gray-800">{{ $ledgerReport['fuel']['avg_quantity'] !== null ? $ledgerReport['fuel']['avg_quantity'].' L' : '—' }}</p></div>
+                                        <div class="bg-gray-50 rounded-xl p-3"><p class="text-[10px] font-bold text-gray-400">平均給油額</p><p class="text-base font-black text-gray-800">{{ $ledgerReport['fuel']['avg_cost'] !== null ? '¥'.number_format($ledgerReport['fuel']['avg_cost']) : '—' }}</p></div>
+                                        <div class="bg-gray-50 rounded-xl p-3"><p class="text-[10px] font-bold text-gray-400">給油間隔</p><p class="text-base font-black text-gray-800">{{ $ledgerReport['fuel']['days_per_fill'] !== null ? $ledgerReport['fuel']['days_per_fill'].'日' : '—' }}</p></div>
+                                        <div class="bg-gray-50 rounded-xl p-3"><p class="text-[10px] font-bold text-gray-400">給油あたり走行</p><p class="text-base font-black text-gray-800">{{ $ledgerReport['fuel']['km_per_fill'] !== null ? number_format($ledgerReport['fuel']['km_per_fill']).' km' : '—' }}</p></div>
+                                        <div class="bg-gray-50 rounded-xl p-3"><p class="text-[10px] font-bold text-gray-400">最終給油</p><p class="text-base font-black text-gray-800">{{ $ledgerReport['fuel']['last_at'] ? $ledgerReport['fuel']['last_at']->format('Y/m/d') : '—' }}</p></div>
+                                    </div>
+                                    @if(count($dashboard['fuelChart']['data']) > 0)
+                                    <p class="text-[10px] font-bold text-gray-400 mb-1">燃費推移</p>
+                                    <div class="relative h-40"><canvas id="reportFuelChart"></canvas></div>
+                                    @endif
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- 整備（費目別） --}}
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <button type="button" @click="open = (open === 'maint' ? '' : 'maint')" class="w-full flex items-center justify-between p-4 text-left">
+                                <span class="text-sm font-black text-gray-800 flex items-center gap-2"><i data-lucide="wrench" class="w-4 h-4 text-orange-500"></i> 整備</span>
+                                <span class="flex items-center gap-2">
+                                    <span class="text-xs font-bold text-gray-500">¥{{ number_format($ledgerReport['maintenance']['total']) }} ・ {{ $ledgerReport['maintenance']['count'] }}回</span>
+                                    <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" ::class="open === 'maint' && 'rotate-180'"></i>
+                                </span>
+                            </button>
+                            <div x-show="open === 'maint'" x-cloak x-transition.opacity>
+                                <div class="px-4 pb-4">
+                                    @if($ledgerReport['maintenance']['count'] === 0)
+                                    <p class="text-xs text-gray-400 font-bold py-3 text-center">整備記録がありません</p>
+                                    @else
+                                    {{-- 費目別 --}}
+                                    <div class="space-y-2 mb-4">
+                                        @foreach($ledgerReport['maintenance']['categories'] as $cat)
+                                        <div class="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
+                                            <div>
+                                                <span class="text-xs font-black text-gray-700">{{ $cat['label'] }}</span>
+                                                <span class="text-[10px] text-gray-400 font-bold ml-1">{{ $cat['count'] }}回@if($cat['last_at']) ・ 最終{{ $cat['last_at']->format('Y/m/d') }}@endif</span>
+                                            </div>
+                                            <span class="text-xs font-black text-orange-600">¥{{ number_format($cat['total']) }}</span>
+                                        </div>
+                                        @endforeach
+                                    </div>
+                                    {{-- 次回予定（リマインダー統合） --}}
+                                    @if(!empty($ledgerReport['maintenance']['reminders']))
+                                    <p class="text-[10px] font-bold text-gray-400 mb-1.5">次回予定（目安）</p>
+                                    <div class="space-y-1.5">
+                                        @foreach($ledgerReport['maintenance']['reminders'] as $rem)
+                                        @if($rem['guideline'])
+                                        @php $remain = (int) round($rem['guideline'] - $rem['distance']); @endphp
+                                        <div class="flex items-center justify-between text-[11px] font-bold">
+                                            <span class="text-gray-600">{{ $rem['title'] }}</span>
+                                            <span class="{{ $remain > 0 ? 'text-gray-400' : 'text-red-500' }}">{{ $remain > 0 ? 'あと'.number_format($remain).'km' : number_format(abs($remain)).'km 超過' }}</span>
+                                        </div>
+                                        @endif
+                                        @endforeach
+                                    </div>
+                                    @endif
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- カスタム --}}
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <button type="button" @click="open = (open === 'custom' ? '' : 'custom')" class="w-full flex items-center justify-between p-4 text-left">
+                                <span class="text-sm font-black text-gray-800 flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4 text-purple-500"></i> カスタム</span>
+                                <span class="flex items-center gap-2">
+                                    <span class="text-xs font-bold text-gray-500">¥{{ number_format($ledgerReport['custom']['total']) }} ・ {{ $ledgerReport['custom']['count'] }}回</span>
+                                    <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" ::class="open === 'custom' && 'rotate-180'"></i>
+                                </span>
+                            </button>
+                            <div x-show="open === 'custom'" x-cloak x-transition.opacity>
+                                <div class="px-4 pb-4">
+                                    @if($ledgerReport['custom']['count'] === 0)
+                                    <p class="text-xs text-gray-400 font-bold py-3 text-center">カスタム記録がありません</p>
+                                    @else
+                                    <p class="text-[10px] font-bold text-gray-400 mb-2">累計カスタム費 <span class="text-purple-600 font-black">¥{{ number_format($ledgerReport['custom']['total']) }}</span> ／ 装着中 {{ $ledgerReport['custom']['installed_count'] }}点</p>
+                                    @if($ledgerReport['custom']['installed_count'] > 0)
+                                    <div class="flex flex-wrap gap-2">
+                                        @foreach($ledgerReport['custom']['installed'] as $part)
+                                        <span class="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-purple-100">
+                                            @if($part->category)<span class="text-purple-400">{{ $part->category }}</span>@endif
+                                            {{ $part->part_name }}@if($part->brand)<span class="text-purple-400">/ {{ $part->brand }}</span>@endif
+                                        </span>
+                                        @endforeach
+                                    </div>
+                                    @else
+                                    <p class="text-xs text-gray-400 font-bold">現在装着中のカスタムはありません</p>
+                                    @endif
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {{-- 月次推移グラフ --}}
                     @if(count($ledgerChart['monthly']['labels']) > 0)
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
@@ -1087,6 +1223,7 @@
     <script>
         (function () {
             var data = @json($ledgerChart);
+            var fuelEff = { labels: @json($dashboard['fuelChart']['labels']), data: @json($dashboard['fuelChart']['data']) }; {{-- 3c: タイプ別レポートの燃費推移（既存fuelChart流用） --}}
             var drawn = false;
             var yen = function (v) { return '¥' + Number(v).toLocaleString('ja-JP'); };
             var palette = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#9ca3af', '#f97316'];
@@ -1110,6 +1247,13 @@
                     new Chart(y, { type: 'bar',
                         data: { labels: data.yearly.labels, datasets: [{ label: '維持費', data: data.yearly.values, backgroundColor: '#60a5fa' }] },
                         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (c3) { return yen(c3.parsed.y); } } } }, scales: { y: { beginAtZero: true } } } });
+                }
+                {{-- 3c: タイプ別レポート内の燃費推移（既存 fuelChart データを流用） --}}
+                var rf = document.getElementById('reportFuelChart');
+                if (rf && fuelEff.data.length) {
+                    new Chart(rf, { type: 'line',
+                        data: { labels: fuelEff.labels, datasets: [{ label: '燃費 (km/L)', data: fuelEff.data, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.3, pointRadius: 2 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (c4) { return c4.parsed.y + ' km/L'; } } } }, scales: { y: { beginAtZero: false } } } });
                 }
             };
         })();

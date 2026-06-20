@@ -61,8 +61,9 @@ class MyBikeController extends Controller
         $dashboard = $this->service->buildDashboard($myBike);
         $ledger = $this->service->buildLedger($myBike);
         $ledgerChart = $this->service->ledgerChartData($ledger);
+        $ledgerReport = $this->service->buildLedgerReport($myBike, $ledger, $dashboard);
 
-        return view('mybikes.show', compact('myBike', 'dashboard', 'ledger', 'ledgerChart'));
+        return view('mybikes.show', compact('myBike', 'dashboard', 'ledger', 'ledgerChart', 'ledgerReport'));
     }
 
     /**

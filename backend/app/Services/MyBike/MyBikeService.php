@@ -265,6 +265,84 @@ final class MyBikeService
     }
 
     /**
+     * Drivvo型「タイプ別 詳細レポート」。buildLedger / buildDashboard の出力を集約・深掘りする
+     * （重い再集計はせず、既に計算済みの集計値と eager-load 済みコレクションを使う）。
+     * 編集後も buildLedger 同様オンザフライで自動整合。
+     *
+     * @param  array<string, mixed>  $ledger  buildLedger() の戻り値
+     * @param  array<string, mixed>  $dashboard  buildDashboard() の戻り値（fuelChart / reminders 再利用）
+     * @return array<string, mixed>
+     */
+    public function buildLedgerReport(MyBike $myBike, array $ledger, array $dashboard): array
+    {
+        $maint = $myBike->maintenanceLogs;
+        $custom = $myBike->customRecords;
+        $fuel = $myBike->fuelLogs;
+
+        // --- 総括（所有期間・月平均維持費・km単価）---
+        $start = $myBike->purchased_at ?? $ledger['from']; // 購入日優先・無ければ最初の記録
+        $monthsOwned = $start ? max(1, (int) $start->diffInMonths(now()) + 1) : null;
+        $summary = [
+            'from' => $start,
+            'months_owned' => $monthsOwned,
+            'total' => $ledger['total'],
+            'monthly_avg' => $monthsOwned ? (int) round($ledger['total'] / $monthsOwned) : null,
+            'per_km' => $ledger['per_km'],
+            'distance' => $ledger['distance'],
+        ];
+
+        // --- 燃料レポート（既存 fuelChart の平均燃費を再利用＝無回帰）---
+        $fuelCount = $fuel->count();
+        $fuelWithCost = $fuel->filter(fn ($f) => $f->cost !== null && $f->cost > 0);
+        $fuelDates = $fuel->pluck('filled_at')->filter()->sort()->values();
+        $fuelOdos = $fuel->pluck('odometer')->filter(fn ($v) => $v !== null)->map(fn ($v) => (float) $v);
+        $fuelReport = [
+            'count' => $fuelCount,
+            'total' => $ledger['fuel_total'],
+            'avg_quantity' => $fuelCount > 0 ? round((float) $fuel->sum('quantity') / $fuelCount, 2) : null,
+            'avg_cost' => $fuelWithCost->count() > 0 ? (int) round((float) $fuelWithCost->sum('cost') / $fuelWithCost->count()) : null,
+            'avg_efficiency' => $dashboard['fuelChart']['average'] ?? null,
+            'last_at' => $fuelDates->last(),
+            'days_per_fill' => $fuelDates->count() >= 2 ? round($fuelDates->first()->diffInDays($fuelDates->last()) / ($fuelDates->count() - 1), 1) : null,
+            'km_per_fill' => $fuelOdos->count() >= 2 ? round(($fuelOdos->max() - $fuelOdos->min()) / ($fuelOdos->count() - 1)) : null,
+        ];
+
+        // --- 整備レポート（費目別＝3aと同じ分類で合計/回数/最終記録）＋ 次回予定（既存 reminders 再利用）---
+        $maintCats = [];
+        foreach ($maint as $m) {
+            $cat = $this->maintenanceCostCategory((string) $m->title);
+            $maintCats[$cat] ??= ['label' => $cat, 'total' => 0, 'count' => 0, 'last_at' => null];
+            $maintCats[$cat]['total'] += (int) $m->cost;
+            $maintCats[$cat]['count']++;
+            if ($m->maintained_at && (! $maintCats[$cat]['last_at'] || $m->maintained_at->gt($maintCats[$cat]['last_at']))) {
+                $maintCats[$cat]['last_at'] = $m->maintained_at;
+            }
+        }
+        uasort($maintCats, fn ($a, $b) => $b['total'] <=> $a['total']);
+        $maintReport = [
+            'count' => $maint->count(),
+            'total' => $ledger['maintenance_total'],
+            'categories' => array_values($maintCats),
+            'reminders' => $dashboard['reminders'], // 次回予定＝既存リマインダーをそのまま統合（再計算しない）
+        ];
+
+        // --- カスタムレポート（装着中スペック＝2aの installed_parts 再利用）---
+        $customReport = [
+            'count' => $custom->count(),
+            'total' => $ledger['custom_total'],
+            'installed' => $dashboard['installed_parts'],
+            'installed_count' => $dashboard['installed_parts']->count(),
+        ];
+
+        return [
+            'summary' => $summary,
+            'fuel' => $fuelReport,
+            'maintenance' => $maintReport,
+            'custom' => $customReport,
+        ];
+    }
+
+    /**
      * 会計簿のグラフ入力に整形する（純粋変換・再集計しない）。
      * 月次/年別は時系列「昇順」（by_month/by_year は新しい順なので反転）、費目別は 3a の降順を踏襲。
      * 空データは labels/values 空配列（描画側でフォールバック）。
