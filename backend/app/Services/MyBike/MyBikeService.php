@@ -188,6 +188,7 @@ final class MyBikeService
                 'bike_name' => $bike->display_name,
                 'model_year' => $bike->model_year,
                 'odometer' => (int) $bike->current_odometer,
+                'like_count' => (int) $bike->like_count,
             ]);
     }
 

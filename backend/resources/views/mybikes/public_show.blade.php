@@ -47,7 +47,7 @@
                         <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
                             <i data-lucide="user" class="w-5 h-5 text-gray-400"></i>
                         </div>
-                        <div>
+                        <div class="flex-1 min-w-0">
                             {{-- 公開ハンドルのみ→公開プロフィールへリンク（本名は出さない） --}}
                             @if($myBike->user->public_token)
                                 <a href="{{ route('riders.profile', $myBike->user->public_token) }}" class="text-sm font-black text-gray-900 hover:text-pink-600 transition-colors">{{ $myBike->user->review_display_name ?? '名無しライダー' }}</a>
@@ -56,6 +56,8 @@
                             @endif
                             <p class="text-[10px] text-gray-400 font-bold">オーナー</p>
                         </div>
+                        {{-- いいね（このガレージへ） --}}
+                        @include('mybikes._garage-like-button', ['bikeId' => $myBike->id, 'likeCount' => $myBike->like_count, 'liked' => $liked, 'isOwner' => $isOwner])
                     </div>
 
                     <div class="grid grid-cols-3 gap-4 bg-gray-50 rounded-xl p-4">

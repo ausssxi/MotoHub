@@ -24,6 +24,7 @@ class MyBike extends Model
     protected $casts = [
         'purchased_at' => 'date',
         'is_public' => 'boolean',
+        'like_count' => 'integer',
     ];
 
     protected static function booted(): void

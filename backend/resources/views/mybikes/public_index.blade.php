@@ -68,6 +68,10 @@
                                     <span class="text-[10px] text-gray-400">{{ $bike->model_year }}年式</span>
                                 @endif
                             </div>
+                            {{-- いいね（aの入れ子回避＝カード本体リンクの外） --}}
+                            <div class="px-4 pb-3 -mt-1">
+                                @include('mybikes._garage-like-button', ['bikeId' => $bike->id, 'likeCount' => $bike->like_count, 'liked' => in_array($bike->id, $likedGarageIds), 'isOwner' => $bike->user_id === $viewerId])
+                            </div>
                         </div>
                     @endforeach
                 </div>

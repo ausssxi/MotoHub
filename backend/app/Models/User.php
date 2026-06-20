@@ -59,6 +59,8 @@ class User extends Authenticatable implements FilamentUser
             'is_admin' => 'boolean',
             'notify_price_drop' => 'boolean',
             'profile_show_parking_reviews' => 'boolean',
+            'followers_count' => 'integer',
+            'following_count' => 'integer',
         ];
     }
 
@@ -121,6 +123,16 @@ class User extends Authenticatable implements FilamentUser
         $this->save();
 
         return $token;
+    }
+
+    /**
+     * このユーザー（=ログイン中）が $other をフォロー済みか。
+     */
+    public function isFollowing(User $other): bool
+    {
+        return Follow::where('follower_id', $this->id)
+            ->where('followee_id', $other->id)
+            ->exists();
     }
 
     /**

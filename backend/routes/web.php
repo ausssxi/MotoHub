@@ -374,6 +374,14 @@ Route::middleware('auth')->prefix('news')->name('news.')->controller(NewsControl
     Route::post('/comment/{commentId}/like', 'toggleCommentLike')->name('comment.like')->middleware('throttle:10,1');
 });
 
+// ソーシャル②: フォロー / ガレージいいね（ログイン必須・トグル）
+Route::middleware('auth')->group(function () {
+    Route::post('/riders/{token}/follow', [\App\Http\Controllers\Social\FollowController::class, 'toggle'])
+        ->name('riders.follow')->where('token', '[A-Za-z0-9]+')->middleware('throttle:30,1');
+    Route::post('/garage/{myBike}/like', [\App\Http\Controllers\Social\GarageLikeController::class, 'toggle'])
+        ->name('garage.like')->where('myBike', '[0-9]+')->middleware('throttle:30,1');
+});
+
 // 売れ筋ランキング
 Route::prefix('ranking')->name('ranking.')->controller(RankingController::class)->group(function () {
     Route::get('/', 'index')->name('index');

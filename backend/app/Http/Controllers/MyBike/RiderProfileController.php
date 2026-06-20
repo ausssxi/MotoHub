@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Http\Controllers\MyBike;
 
 use App\Http\Controllers\Controller;
+use App\Models\GarageLike;
 use App\Models\NewsComment;
 use App\Models\ParkingReview;
 use App\Models\Review;
 use App\Models\TouringGuide;
 use App\Models\User;
 use App\Services\MyBike\MyBikeService;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * 公開ライダープロフィール（/riders/{token}）。
@@ -65,6 +67,12 @@ final class RiderProfileController extends Controller
             ->latest('published_at')
             ->get();
 
+        // ソーシャル②: フォロー状態＋ガレージいいね状態（一覧の liked は一括取得＝N+1防止）。
+        $viewer = Auth::user();
+        $isSelf = $viewer !== null && $viewer->id === $user->id;
+        $isFollowing = $viewer !== null && ! $isSelf && $viewer->isFollowing($user);
+        $likedGarageIds = GarageLike::likedIdsFor($viewer?->id, $garages->pluck('id')->all());
+
         return view('mybikes.rider_profile', [
             'handle' => $handle,
             'garages' => $garages,
@@ -73,6 +81,13 @@ final class RiderProfileController extends Controller
             'comments' => $comments,
             'parkingReviews' => $parkingReviews,
             'guides' => $guides,
+            // social②
+            'followersCount' => (int) $user->followers_count,
+            'followingCount' => (int) $user->following_count,
+            'isSelf' => $isSelf,
+            'isFollowing' => $isFollowing,
+            'likedGarageIds' => $likedGarageIds,
+            'isOwnProfile' => $isSelf, // プロフィール上の全ガレージは $user 所有＝自分なら全ていいね不可
         ]);
     }
 }

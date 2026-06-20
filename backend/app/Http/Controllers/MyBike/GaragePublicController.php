@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\MyBike;
 
 use App\Http\Controllers\Controller;
+use App\Models\GarageLike;
 use App\Models\MyBike;
 use App\Services\MyBike\MyBikeService;
+use Illuminate\Support\Facades\Auth;
 
 class GaragePublicController extends Controller
 {
@@ -22,7 +24,11 @@ class GaragePublicController extends Controller
             ->latest()
             ->paginate(20);
 
-        return view('mybikes.public_index', compact('bikes'));
+        // いいね済み判定を一括取得（N+1防止）
+        $likedGarageIds = GarageLike::likedIdsFor(Auth::id(), $bikes->pluck('id')->all());
+        $viewerId = Auth::id();
+
+        return view('mybikes.public_index', compact('bikes', 'likedGarageIds', 'viewerId'));
     }
 
     public function show(MyBike $myBike)
@@ -35,6 +41,10 @@ class GaragePublicController extends Controller
         // シェア文言用の集計（OGP画像と同じ単一ソース・本名は含めない）
         $share = $this->service->garageShareStats($myBike);
 
-        return view('mybikes.public_show', compact('myBike', 'share'));
+        // ソーシャル②: いいね状態（自分のガレージはボタン非表示）
+        $liked = Auth::check() && GarageLike::where('user_id', Auth::id())->where('my_bike_id', $myBike->id)->exists();
+        $isOwner = Auth::id() === $myBike->user_id;
+
+        return view('mybikes.public_show', compact('myBike', 'share', 'liked', 'isOwner'));
     }
 }

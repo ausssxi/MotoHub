@@ -18,7 +18,28 @@
                 </div>
                 <p class="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-1">Rider Profile</p>
                 <h1 class="text-2xl sm:text-3xl font-black mb-2">{{ $handle }}</h1>
-                <p class="text-xs sm:text-sm text-white/80 font-medium">公開ガレージ {{ $garages->count() }} 台</p>
+                <p class="text-xs sm:text-sm text-white/80 font-medium mb-4">公開ガレージ {{ $garages->count() }} 台</p>
+
+                {{-- フォロー（数は公開・一覧は非公開）。inline Alpine + fetch（@json不使用＝リテラル補間のみ） --}}
+                <div x-data="{ following: {{ $isFollowing ? 'true' : 'false' }}, followers: {{ (int) $followersCount }}, loading: false }"
+                     class="inline-flex items-center gap-4">
+                    <span class="text-xs font-bold text-white/90">フォロワー <span class="font-black" x-text="followers">{{ (int) $followersCount }}</span></span>
+                    <span class="text-xs font-bold text-white/90">フォロー中 <span class="font-black">{{ (int) $followingCount }}</span></span>
+
+                    @auth
+                        @unless($isSelf)
+                            <button type="button"
+                                    @click="if(!loading){ loading=true; fetch('{{ route('riders.follow', $token) }}', { method:'POST', headers:{ 'X-CSRF-TOKEN':'{{ csrf_token() }}', 'Accept':'application/json' } }).then(r => { if(r.status===401||r.status===419){ window.location='{{ route('login') }}'; return null; } return r.json(); }).then(d => { if(d){ following=d.following; followers=d.followers_count; } loading=false; }).catch(() => { loading=false; }) }"
+                                    :class="following ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-white text-pink-600 hover:bg-white/90'"
+                                    class="text-xs font-black px-5 py-2 rounded-full transition-colors"
+                                    :aria-pressed="following">
+                                <span x-text="following ? 'フォロー中' : '＋ フォロー'">＋ フォロー</span>
+                            </button>
+                        @endunless
+                    @else
+                        <a href="{{ route('login') }}" class="text-xs font-black px-5 py-2 rounded-full bg-white text-pink-600 hover:bg-white/90 transition-colors">＋ フォロー</a>
+                    @endauth
+                </div>
             </div>
         </div>
 
@@ -38,29 +59,35 @@
 
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                 @foreach($garages as $g)
-                    <a href="{{ route('garage.public.show', $g['id']) }}" class="group block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg hover:border-pink-200 transition-all duration-300">
-                        <div class="aspect-[4/3] bg-gray-100 overflow-hidden relative">
-                            @if($g['image'])
-                                <img src="{{ $g['image'] }}" alt="{{ $g['bike_name'] }}"
-                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                     loading="lazy" decoding="async">
-                            @else
-                                <div class="w-full h-full flex items-center justify-center text-gray-300">
-                                    <i data-lucide="bike" class="w-8 h-8"></i>
-                                </div>
-                            @endif
-                        </div>
-                        <div class="p-4">
-                            <p class="text-[10px] font-bold text-gray-400 mb-0.5">{{ $g['manufacturer'] }}</p>
-                            <h3 class="text-sm font-black text-gray-800 group-hover:text-pink-600 transition-colors line-clamp-1 mb-1">{{ $g['bike_name'] }}</h3>
-                            <div class="flex items-center justify-between">
-                                <p class="text-[10px] font-bold text-gray-400">{{ number_format($g['odometer']) }} km</p>
-                                @if($g['model_year'])
-                                    <span class="text-[10px] text-gray-400">{{ $g['model_year'] }}年式</span>
+                    {{-- カード→公開ガレージ。いいねは別ボタン＝aの入れ子回避 --}}
+                    <div class="group bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg hover:border-pink-200 transition-all duration-300">
+                        <a href="{{ route('garage.public.show', $g['id']) }}" class="block">
+                            <div class="aspect-[4/3] bg-gray-100 overflow-hidden relative">
+                                @if($g['image'])
+                                    <img src="{{ $g['image'] }}" alt="{{ $g['bike_name'] }}"
+                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                         loading="lazy" decoding="async">
+                                @else
+                                    <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                        <i data-lucide="bike" class="w-8 h-8"></i>
+                                    </div>
                                 @endif
                             </div>
+                            <div class="px-4 pt-4 pb-1">
+                                <p class="text-[10px] font-bold text-gray-400 mb-0.5">{{ $g['manufacturer'] }}</p>
+                                <h3 class="text-sm font-black text-gray-800 group-hover:text-pink-600 transition-colors line-clamp-1 mb-1">{{ $g['bike_name'] }}</h3>
+                                <div class="flex items-center justify-between">
+                                    <p class="text-[10px] font-bold text-gray-400">{{ number_format($g['odometer']) }} km</p>
+                                    @if($g['model_year'])
+                                        <span class="text-[10px] text-gray-400">{{ $g['model_year'] }}年式</span>
+                                    @endif
+                                </div>
+                            </div>
+                        </a>
+                        <div class="px-4 pb-3">
+                            @include('mybikes._garage-like-button', ['bikeId' => $g['id'], 'likeCount' => $g['like_count'], 'liked' => in_array($g['id'], $likedGarageIds), 'isOwner' => $isOwnProfile])
                         </div>
-                    </a>
+                    </div>
                 @endforeach
             </div>
 
