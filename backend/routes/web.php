@@ -482,6 +482,8 @@ Route::middleware('auth')->group(function () {
     // プロフィール編集 (Breeze標準)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    // プロフィール表示設定（駐車場レビュー等のオプトアウト）。名前/メール更新とは別フォーム。
+    Route::patch('/profile/visibility', [ProfileController::class, 'updateVisibility'])->name('profile.visibility');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // 愛車ログ機能

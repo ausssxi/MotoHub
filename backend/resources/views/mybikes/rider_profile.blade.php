@@ -85,6 +85,26 @@
             </div>
             @endif
 
+            {{-- 駐車場レビュー（公開・表示設定ONのときのみ・display_name で本名を出さない） --}}
+            @if($parkingReviews->isNotEmpty())
+            <h2 class="text-lg font-black text-gray-900 mt-12 mb-5 flex items-center gap-2">
+                <i data-lucide="square-parking" class="w-5 h-5 text-pink-600"></i> {{ $handle }} の駐車場レビュー
+                <span class="text-sm text-gray-400 font-bold">({{ $parkingReviews->count() }})</span>
+            </h2>
+            <div class="space-y-3">
+                @foreach($parkingReviews as $pr)
+                    <a href="{{ route('parking.show', $pr->bike_parking_id) }}" class="block bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:shadow-md hover:border-pink-200 transition-all">
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="text-xs font-bold text-gray-500 line-clamp-1"><i data-lucide="map-pin" class="w-3 h-3 inline"></i> {{ $pr->bikeParking->name ?? '駐車場' }}</p>
+                            <span class="text-[11px] font-black text-amber-500 shrink-0 ml-2">{{ str_repeat('★', (int) $pr->rating) }}{{ str_repeat('☆', 5 - (int) $pr->rating) }}</span>
+                        </div>
+                        @if($pr->body)<p class="text-xs text-gray-500 line-clamp-2">{{ $pr->body }}</p>@endif
+                        <p class="text-[10px] text-gray-400 font-bold mt-1.5">{{ $pr->display_name }} ・ {{ $pr->created_at->format('Y/m/d') }}</p>
+                    </a>
+                @endforeach
+            </div>
+            @endif
+
             {{-- ニュースコメント（公開・ページング） --}}
             @if($comments->isNotEmpty())
             <h2 class="text-lg font-black text-gray-900 mt-12 mb-5 flex items-center gap-2">
@@ -102,6 +122,23 @@
             </div>
             <div class="mt-6">
                 {{ $comments->links() }}
+            </div>
+            @endif
+
+            {{-- 執筆記事（TouringGuide・published のみ・著者=writer のときだけ非空） --}}
+            @if($guides->isNotEmpty())
+            <h2 class="text-lg font-black text-gray-900 mt-12 mb-5 flex items-center gap-2">
+                <i data-lucide="pen-line" class="w-5 h-5 text-pink-600"></i> {{ $handle }} の執筆記事
+                <span class="text-sm text-gray-400 font-bold">({{ $guides->count() }})</span>
+            </h2>
+            <div class="space-y-3">
+                @foreach($guides as $guide)
+                    <a href="{{ route('touring.show', $guide->slug) }}" class="block bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:shadow-md hover:border-pink-200 transition-all">
+                        <p class="text-sm font-black text-gray-800 line-clamp-1 mb-0.5">{{ $guide->title }}</p>
+                        @if($guide->excerpt)<p class="text-xs text-gray-500 line-clamp-2">{{ $guide->excerpt }}</p>@endif
+                        <p class="text-[10px] text-gray-400 font-bold mt-1.5">@if($guide->prefecture){{ $guide->prefecture }} ・ @endif{{ optional($guide->published_at)->format('Y/m/d') }}</p>
+                    </a>
+                @endforeach
             </div>
             @endif
         </div>

@@ -38,6 +38,19 @@ class ProfileController extends Controller
     }
 
     /**
+     * プロフィール表示設定の更新（公開プロフィールへの集約オプトアウト）。
+     * チェックボックスは未チェック時に送信されないため boolean() で false 既定にする。
+     */
+    public function updateVisibility(Request $request): RedirectResponse
+    {
+        $request->user()->update([
+            'profile_show_parking_reviews' => $request->boolean('profile_show_parking_reviews'),
+        ]);
+
+        return Redirect::route('profile.edit')->with('status', 'visibility-updated');
+    }
+
+    /**
      * Delete the user's account.
      */
     public function destroy(Request $request): RedirectResponse
@@ -49,7 +62,7 @@ class ProfileController extends Controller
         $user = $request->user();
 
         // Googleのみのユーザーはパスワード確認をスキップ
-        if (!($user->isGoogleUser() && is_null($user->password))) {
+        if (! ($user->isGoogleUser() && is_null($user->password))) {
             $request->validateWithBag('userDeletion', [
                 'password' => ['required', 'current_password'],
             ]);

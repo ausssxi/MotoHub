@@ -29,6 +29,7 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            'profile_show_parking_reviews' => true, // DB default(true) と一致させ in-memory も既定ON
         ];
     }
 

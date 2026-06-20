@@ -242,3 +242,131 @@ it('profile renders gracefully with zero reviews and zero comments (sections hid
     expect($html)->not->toContain('のレビュー')      // セクション見出し非表示
         ->not->toContain('のニュースコメント');
 });
+
+// ---- C: 駐車場レビュー集約＋オプトアウト ----
+
+use App\Models\BikeParking;
+use App\Models\ParkingReview;
+use App\Models\TouringGuide;
+
+function profParking(): BikeParking
+{
+    return BikeParking::create([
+        'name' => 'テスト駐車場', 'address' => '東京都港区1-1', 'prefecture' => '東京都', 'city' => '港区',
+        'latitude' => 35.66, 'longitude' => 139.75, 'is_active' => true,
+    ]);
+}
+
+it('aggregates the users parking reviews (default ON) with display_name + link, no real name', function () {
+    $user = profUser('本名タロウ', 'rider_x');
+    $token = $user->ensurePublicToken();
+    profBike($user, true);
+    $parking = profParking();
+    // 既存データ相当: nickname に本名が入っていても display_name で出さない
+    ParkingReview::create(['bike_parking_id' => $parking->id, 'user_id' => $user->id, 'nickname' => '本名タロウ', 'rating' => 5, 'body' => '停めやすい駐車場']);
+
+    expect($user->profile_show_parking_reviews)->toBeTrue(); // 既定ON
+    $html = $this->get(route('riders.profile', $token))->assertOk()
+        ->assertSee('駐車場レビュー')
+        ->assertSee('停めやすい駐車場')
+        ->assertSee('テスト駐車場')
+        ->assertSee(route('parking.show', $parking->id), false)
+        ->getContent();
+    expect($html)->not->toContain('本名タロウ')->toContain('rider_x');
+});
+
+it('hides the parking section entirely when the user opts out', function () {
+    $user = profUser();
+    $user->update(['profile_show_parking_reviews' => false]);
+    $token = $user->ensurePublicToken();
+    profBike($user, true);
+    $parking = profParking();
+    ParkingReview::create(['bike_parking_id' => $parking->id, 'user_id' => $user->id, 'nickname' => 'x', 'rating' => 4, 'body' => '秘密の駐車場メモ']);
+
+    $html = $this->get(route('riders.profile', $token))->assertOk()->getContent();
+    expect($html)->not->toContain('駐車場レビュー')   // セクション見出し非表示
+        ->not->toContain('秘密の駐車場メモ');
+});
+
+it('does not show another users parking reviews', function () {
+    $a = profUser('Aさん', 'rider_a');
+    $token = $a->ensurePublicToken();
+    profBike($a, true);
+    $b = profUser('Bさん', 'rider_b', 'pb@example.com');
+    $parking = profParking();
+    ParkingReview::create(['bike_parking_id' => $parking->id, 'user_id' => $b->id, 'nickname' => 'x', 'rating' => 3, 'body' => 'Bの駐車場レビュー']);
+
+    $html = $this->get(route('riders.profile', $token))->assertOk()->getContent();
+    expect($html)->not->toContain('Bの駐車場レビュー');
+});
+
+it('parking section is hidden when there are zero reviews (graceful)', function () {
+    $user = profUser();
+    $token = $user->ensurePublicToken();
+    profBike($user, true);
+
+    $html = $this->get(route('riders.profile', $token))->assertOk()->getContent();
+    expect($html)->not->toContain('駐車場レビュー');
+});
+
+// ---- C: 表示設定の保存（オプトアウトUI） ----
+
+it('user can toggle off the parking reviews visibility setting', function () {
+    $user = profUser();
+    expect($user->profile_show_parking_reviews)->toBeTrue();
+
+    // チェックボックス未送信＝OFF
+    $this->actingAs($user)->patch(route('profile.visibility'), [])->assertRedirect();
+    expect($user->fresh()->profile_show_parking_reviews)->toBeFalse();
+
+    // 再度ON
+    $this->actingAs($user)->patch(route('profile.visibility'), ['profile_show_parking_reviews' => '1'])->assertRedirect();
+    expect($user->fresh()->profile_show_parking_reviews)->toBeTrue();
+});
+
+it('profile settings page shows the visibility toggle reflecting current state', function () {
+    $user = profUser();
+
+    $this->actingAs($user)->get(route('profile.edit'))
+        ->assertOk()
+        ->assertSee('プロフィール表示設定')
+        ->assertSee('駐車場レビューをプロフィールに表示する');
+});
+
+// ---- D: 執筆記事（writer のみ） ----
+
+function profGuide(?User $author, string $status = 'published', string $title = 'テストガイド'): TouringGuide
+{
+    return TouringGuide::create([
+        'author_id' => $author?->id, 'title' => $title, 'slug' => 'g-'.uniqid(), 'body' => '本文',
+        'latitude' => 36.2, 'longitude' => 138.0, 'zoom_level' => 10, 'difficulty' => '初級',
+        'prefecture' => '長野県', 'status' => $status, 'published_at' => now(), 'reading_time_minutes' => 3,
+    ]);
+}
+
+it('shows the writing section for an author with published guides, linking to each guide', function () {
+    $user = profUser('本名タロウ', 'writer_x');
+    $token = $user->ensurePublicToken();
+    profBike($user, true);
+    $guide = profGuide($user, 'published', '奥多摩ツーリング');
+    profGuide($user, 'draft', '下書きガイド'); // 下書きは出さない
+
+    $html = $this->get(route('riders.profile', $token))->assertOk()
+        ->assertSee('執筆記事')
+        ->assertSee('奥多摩ツーリング')
+        ->assertSee(route('touring.show', $guide->slug), false)
+        ->getContent();
+    expect($html)->not->toContain('下書きガイド')->not->toContain('本名タロウ');
+});
+
+it('does not show the writing section for a normal user (not an author)', function () {
+    $user = profUser();           // 著者でない一般ユーザー
+    $token = $user->ensurePublicToken();
+    profBike($user, true);
+    // 別ユーザーが書いた記事は出ない
+    $other = profUser('Wさん', 'writer_other', 'w@example.com');
+    profGuide($other, 'published', '他人の記事');
+
+    $html = $this->get(route('riders.profile', $token))->assertOk()->getContent();
+    expect($html)->not->toContain('執筆記事')->not->toContain('他人の記事');
+});

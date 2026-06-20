@@ -30,6 +30,7 @@ class User extends Authenticatable implements FilamentUser
         'is_admin',
         'role',
         'notify_price_drop',
+        'profile_show_parking_reviews',
         'google_id',
         'avatar',
         'line_id',
@@ -57,6 +58,7 @@ class User extends Authenticatable implements FilamentUser
             'password' => 'hashed',
             'is_admin' => 'boolean',
             'notify_price_drop' => 'boolean',
+            'profile_show_parking_reviews' => 'boolean',
         ];
     }
 

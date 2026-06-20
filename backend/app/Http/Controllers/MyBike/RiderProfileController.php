@@ -6,7 +6,9 @@ namespace App\Http\Controllers\MyBike;
 
 use App\Http\Controllers\Controller;
 use App\Models\NewsComment;
+use App\Models\ParkingReview;
 use App\Models\Review;
+use App\Models\TouringGuide;
 use App\Models\User;
 use App\Services\MyBike\MyBikeService;
 
@@ -48,12 +50,29 @@ final class RiderProfileController extends Controller
             ->paginate(20, ['*'], 'comments')
             ->withQueryString();
 
+        // 駐車場レビュー（位置に紐づく＝オプトアウト可）。設定OFFのユーザーは集約しない。
+        // 表示名は display_name アクセサ（本名を出さない・e96a2849）。
+        $parkingReviews = $user->profile_show_parking_reviews
+            ? ParkingReview::where('user_id', $user->id)
+                ->with(['user', 'bikeParking'])
+                ->latest()
+                ->get()
+            : collect();
+
+        // 執筆記事（TouringGuide）。著者(author_id)かつ published のみ＝writer のみ非空。
+        $guides = TouringGuide::published()
+            ->where('author_id', $user->id)
+            ->latest('published_at')
+            ->get();
+
         return view('mybikes.rider_profile', [
             'handle' => $handle,
             'garages' => $garages,
             'token' => $token,
             'reviews' => $reviews,
             'comments' => $comments,
+            'parkingReviews' => $parkingReviews,
+            'guides' => $guides,
         ]);
     }
 }
