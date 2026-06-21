@@ -126,6 +126,18 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * ★ログイン中（本人が自分を見る）UI 専用の表示名。公開ハンドル(review_display_name)を主、
+     * 未設定時は name にフォールバック（自分の名前なので空欄回避でOK）、いずれも空なら「名無しライダー」。
+     * ナビ・ダッシュ等のログイン中UIはこれを使い名前の混在を防ぐ。
+     * ⚠️公開面（他人が見る面）では使わないこと＝name へフォールバックすると本名露出になる。
+     * 公開面は従来どおり review_display_name ?? '名無しライダー' を使う。
+     */
+    public function displayName(): string
+    {
+        return $this->review_display_name ?: ($this->name ?: '名無しライダー');
+    }
+
+    /**
      * このユーザー（=ログイン中）が $other をフォロー済みか。
      */
     public function isFollowing(User $other): bool

@@ -16,12 +16,23 @@
         @csrf
         @method('patch')
 
-        {{-- 修正: 適切なパディングとリングの設定で文字被りを防止 --}}
+        {{-- 公開表示名（ハンドル）＝主役。サイト全体・公開ページでこの名前が表示される。いつでも変更可。 --}}
         <div>
-            <x-input-label for="name" :value="__('ニックネーム')" class="font-bold text-gray-500 ml-1 mb-1" />
-            <x-text-input id="name" name="name" type="text" 
-                class="mt-1 block w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 text-base font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50" 
-                :value="old('name', $user->name)" required autofocus autocomplete="name" />
+            <x-input-label for="review_display_name" :value="__('公開表示名')" class="font-bold text-gray-500 ml-1 mb-1" />
+            <x-text-input id="review_display_name" name="review_display_name" type="text" maxlength="30"
+                class="mt-1 block w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 text-base font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                :value="old('review_display_name', $user->review_display_name)" placeholder="例: rider_x" autofocus autocomplete="off" />
+            <p class="text-[11px] text-gray-400 font-bold mt-1 ml-1">サイト内の表示・公開ページ（ガレージ/レビュー等）で使われます。本名は表示されません。</p>
+            <x-input-error class="mt-2" :messages="$errors->get('review_display_name')" />
+        </div>
+
+        {{-- お名前＝従。メールの宛名にのみ使用（公開されない）。 --}}
+        <div>
+            <x-input-label for="name" :value="__('お名前')" class="font-bold text-gray-500 ml-1 mb-1" />
+            <x-text-input id="name" name="name" type="text"
+                class="mt-1 block w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 text-base font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                :value="old('name', $user->name)" required autocomplete="name" />
+            <p class="text-[11px] text-gray-400 font-bold mt-1 ml-1">通知メールの宛名に使います（公開されません）。</p>
             <x-input-error class="mt-2" :messages="$errors->get('name')" />
         </div>
 

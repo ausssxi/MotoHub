@@ -49,7 +49,7 @@
                     <i data-lucide="layout-dashboard" class="w-6 h-6 text-blue-600"></i>
                     マイページ
                 </h1>
-                <p class="text-xs font-bold text-gray-500 mt-1 ml-8">ようこそ、{{ Auth::user()->name }} さん</p>
+                <p class="text-xs font-bold text-gray-500 mt-1 ml-8">ようこそ、{{ Auth::user()->displayName() }} さん</p>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">

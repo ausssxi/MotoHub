@@ -329,7 +329,7 @@
                                     <i data-lucide="user" class="w-4 h-4"></i>
                                 @endif
                             </div>
-                            <span class="text-xs font-bold text-gray-700 hidden sm:block max-w-[100px] truncate">{{ auth()->user()->name }}</span>
+                            <span class="text-xs font-bold text-gray-700 hidden sm:block max-w-[100px] truncate">{{ auth()->user()->displayName() }}</span>
                             <i data-lucide="chevron-down" class="w-3 h-3 text-gray-400"></i>
                         </button>
 
