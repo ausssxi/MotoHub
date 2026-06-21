@@ -168,6 +168,11 @@
                 @endforeach
             </div>
             @endif
+
+            {{-- 登録CTA（未ログインのみ・Xからの着地→登録導線） --}}
+            <div class="mt-12">
+                @include('mybikes._register-cta')
+            </div>
         </div>
     </div>
 

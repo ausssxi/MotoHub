@@ -183,15 +183,8 @@
             </div>
             @endif
 
-            {{-- CTA --}}
-            <div class="bg-gradient-to-r from-pink-50 to-rose-50 rounded-3xl p-6 border border-pink-100 text-center">
-                <i data-lucide="heart" class="w-8 h-8 text-pink-400 mx-auto mb-2"></i>
-                <h3 class="text-lg font-black text-gray-900 mb-2">あなたも愛車を登録しませんか？</h3>
-                <p class="text-xs text-gray-500 mb-4">燃費記録・整備ログを管理して、バイクライフをもっと楽しく</p>
-                <a href="{{ route('mybikes.index') }}" class="inline-block bg-pink-600 text-white font-bold text-sm px-6 py-3 rounded-xl hover:bg-pink-700 transition-colors">
-                    愛車を登録する
-                </a>
-            </div>
+            {{-- 登録CTA（未ログインのみ） --}}
+            @include('mybikes._register-cta')
 
         </div>
     </div>
