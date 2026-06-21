@@ -25,14 +25,25 @@ final class MyBikeObserver
         $this->purgeModelDetailCache($myBike);
     }
 
+    public function restored(MyBike $myBike): void
+    {
+        // 復元したガレージが車種ページのオーナー欄に再表示されるようキャッシュをパージ
+        $this->purgeModelDetailCache($myBike);
+    }
+
+    public function forceDeleted(MyBike $myBike): void
+    {
+        $this->purgeModelDetailCache($myBike);
+    }
+
     private function purgeModelDetailCache(MyBike $myBike): void
     {
-        if (!$myBike->bike_model_id) {
+        if (! $myBike->bike_model_id) {
             return;
         }
 
         $bikeModel = $myBike->bikeModel()->with('manufacturer')->first();
-        if (!$bikeModel || !$bikeModel->manufacturer) {
+        if (! $bikeModel || ! $bikeModel->manufacturer) {
             return;
         }
 

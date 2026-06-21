@@ -83,7 +83,7 @@ it('removes EXIF/GPS metadata on save (privacy core)', function () {
         ->and($saved)->not->toContain('Exif');          // EXIF APP1 も無い（再エンコード）
 });
 
-it('record delete removes attached image rows and physical files', function () {
+it('record delete soft-deletes attached image rows and KEEPS files (recoverable; purged on forceDelete)', function () {
     $disk = diskName();
     Storage::fake($disk);
     $user = User::factory()->create();
@@ -98,8 +98,10 @@ it('record delete removes attached image rows and physical files', function () {
 
     $this->actingAs($user)->delete("/garage/{$bike->id}/records/{$rec->id}")->assertRedirect();
 
-    expect(MyBikeImage::find($img->id))->toBeNull();
-    Storage::disk($disk)->assertMissing($img->path);
+    // 記録の論理削除＝添付画像行もソフト削除（default scope から消える）・ファイルは復元のため保持
+    expect(MyBikeImage::find($img->id))->toBeNull()
+        ->and(MyBikeImage::withTrashed()->find($img->id))->not->toBeNull();
+    Storage::disk($disk)->assertExists($img->path);
 });
 
 it('rejects unsupported formats and oversized/too-many images with 422', function () {

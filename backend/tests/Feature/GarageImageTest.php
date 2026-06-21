@@ -121,7 +121,7 @@ it('owner can update a caption', function () {
     expect($image->fresh()->caption)->toBe('箱根ツーリング');
 });
 
-it('owner delete removes the row and the file', function () {
+it('owner delete soft-deletes the row and KEEPS the file (recoverable; file purged only on forceDelete)', function () {
     $disk = fakeGarageDisk();
     $user = User::factory()->create();
     $bike = imageBike($user);
@@ -133,7 +133,13 @@ it('owner delete removes the row and the file', function () {
         ->delete("/garage/{$bike->id}/images/{$image->id}")
         ->assertRedirect();
 
-    expect(MyBikeImage::find($image->id))->toBeNull();
+    // 論理削除＝default scope から消えるが行とファイルは残る（復元可能）
+    expect(MyBikeImage::find($image->id))->toBeNull()
+        ->and(MyBikeImage::withTrashed()->find($image->id))->not->toBeNull();
+    Storage::disk($disk)->assertExists($image->path);
+
+    // forceDelete でのみ実ファイルも削除
+    MyBikeImage::withTrashed()->find($image->id)->forceDelete();
     Storage::disk($disk)->assertMissing($image->path);
 });
 
@@ -154,7 +160,7 @@ it('enforces the per-bike image limit', function () {
     expect(MyBikeImage::where('my_bike_id', $bike->id)->count())->toBe(2);
 });
 
-it('deleting the bike cascades image rows and deletes their files', function () {
+it('soft-deleting the bike cascades image rows (soft) and KEEPS files for restore', function () {
     $disk = fakeGarageDisk();
     $user = User::factory()->create();
     $bike = imageBike($user);
@@ -164,8 +170,10 @@ it('deleting the bike cascades image rows and deletes their files', function () 
 
     $this->actingAs($user)->delete("/garage/{$bike->id}")->assertRedirect();
 
-    expect(MyBikeImage::where('my_bike_id', $bike->id)->count())->toBe(0);
-    Storage::disk($disk)->assertMissing($image->path);
+    // 子の画像行はソフト削除（default scope から消える）・ファイルは復元のため保持
+    expect(MyBikeImage::where('my_bike_id', $bike->id)->count())->toBe(0)
+        ->and(MyBikeImage::withTrashed()->where('my_bike_id', $bike->id)->count())->toBe(1);
+    Storage::disk($disk)->assertExists($image->path);
 });
 
 /*

@@ -6,10 +6,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
 class MyBikeImage extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'my_bike_id',
         'maintenance_log_id', // null=ギャラリー / notnull=記録(整備/カスタム)の添付写真
@@ -20,10 +23,10 @@ class MyBikeImage extends Model
 
     protected static function booted(): void
     {
-        // 行削除時に実ファイルも削除（owner個別削除・愛車削除カスケードの両方で発火）。
+        // ★実ファイル削除は「物理削除(forceDelete)」のときだけ。論理削除では復元のためファイルを残す。
         // FKのDBカスケードはEloquentイベントを発火しないため、削除はモデル経由で行うこと。
         static::deleting(function (MyBikeImage $image): void {
-            if ($image->path) {
+            if ($image->isForceDeleting() && $image->path) {
                 Storage::disk(config('garage.image_disk'))->delete($image->path);
             }
         });

@@ -7,9 +7,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MyBike extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'user_id',
         'bike_model_id',
@@ -29,10 +32,37 @@ class MyBike extends Model
 
     protected static function booted(): void
     {
-        // 愛車削除時に全画像（ギャラリー＋記録添付）を「モデル経由」で削除し実ファイルも消す。
-        // （FKのDBカスケードはMyBikeImage::deletingを発火させないため、ここで明示的にループする）
+        // 物理削除(forceDelete)時：子（給油/整備/画像）も物理削除し画像実ファイルも消す。
+        // FK の DB カスケードは Eloquent イベントを発火しないため、ここで明示的に行う。
         static::deleting(function (MyBike $myBike): void {
-            MyBikeImage::where('my_bike_id', $myBike->id)->get()->each->delete();
+            if (! $myBike->isForceDeleting()) {
+                return; // 論理削除のカスケードは deleted フックで（親の deleted_at 確定後）
+            }
+            // 画像はモデル経由で forceDelete（MyBikeImage::deleting が isForceDeleting で実ファイル削除）
+            MyBikeImage::withTrashed()->where('my_bike_id', $myBike->id)->get()->each->forceDelete();
+            FuelLog::withTrashed()->where('my_bike_id', $myBike->id)->forceDelete();
+            MaintenanceLog::withTrashed()->where('my_bike_id', $myBike->id)->forceDelete();
+        });
+
+        // 論理削除時：未削除の子だけを親と同一 deleted_at でソフト削除（restore で正確に戻すため）。
+        // ※実ファイルは消さない（復元用に保持）。
+        static::deleted(function (MyBike $myBike): void {
+            if ($myBike->isForceDeleting()) {
+                return;
+            }
+            $ts = $myBike->deleted_at;
+            FuelLog::where('my_bike_id', $myBike->id)->whereNull('deleted_at')->update(['deleted_at' => $ts]);
+            MaintenanceLog::where('my_bike_id', $myBike->id)->whereNull('deleted_at')->update(['deleted_at' => $ts]);
+            MyBikeImage::where('my_bike_id', $myBike->id)->whereNull('deleted_at')->update(['deleted_at' => $ts]);
+        });
+
+        // 復元時：このカスケードで一緒に消えた子（deleted_at が親と一致）だけを復元。
+        // ＝親削除より前に個別削除された子は復元しない。
+        static::restoring(function (MyBike $myBike): void {
+            $ts = $myBike->deleted_at; // restore で null 化される前の値
+            FuelLog::withTrashed()->where('my_bike_id', $myBike->id)->where('deleted_at', $ts)->update(['deleted_at' => null]);
+            MaintenanceLog::withTrashed()->where('my_bike_id', $myBike->id)->where('deleted_at', $ts)->update(['deleted_at' => null]);
+            MyBikeImage::withTrashed()->where('my_bike_id', $myBike->id)->where('deleted_at', $ts)->update(['deleted_at' => null]);
         });
     }
 

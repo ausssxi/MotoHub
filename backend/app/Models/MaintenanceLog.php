@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * 整備・カスタム記録の統合モデル（1テーブル maintenance_logs ＋ type）。
@@ -19,6 +20,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class MaintenanceLog extends Model
 {
+    use SoftDeletes;
+
     public const TYPE_MAINTENANCE = 'maintenance';
 
     public const TYPE_CUSTOM = 'custom';
