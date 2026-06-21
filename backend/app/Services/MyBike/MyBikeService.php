@@ -550,59 +550,76 @@ final class MyBikeService
     }
 
     /**
-     * 給油を記録する（燃費計算ロジック込み）
+     * 給油を記録する。距離は「ソフト必須」＝距離不明時は odometer=null 可。
+     * 燃費は recomputeFuelEfficiency（単一の真実）で一括算出（挿入時=再計算時で完全一致・
+     * バックデート挿入時も後続記録を整合させる）。
      */
     public function recordFuel(MyBike $myBike, array $data): void
     {
-        $currentOdometer = (float) $data['odometer'];
-        $isFull = ! empty($data['is_full_tank']) && $data['is_full_tank'];
+        DB::transaction(function () use ($myBike, $data) {
+            $odometer = $this->nullableOdometer($data['odometer'] ?? null);
+            $data['odometer'] = $odometer;
+            $data['efficiency'] = null; // recompute が決める
 
-        // 燃費は共通ヘルパで算出（挿入時＝再計算時で同一式を保証）。
-        $data['efficiency'] = $this->computeEfficiency($myBike, $currentOdometer, (float) $data['quantity'], $isFull);
+            $this->fuelLogRepo->create($myBike, $data);
 
-        $this->fuelLogRepo->create($myBike, $data);
-        $this->myBikeRepo->updateOdometerIfGreater($myBike, $currentOdometer);
+            // running-max は距離ありのときだけ更新（距離なしは無視）
+            if ($odometer !== null) {
+                $this->myBikeRepo->updateOdometerIfGreater($myBike, $odometer);
+            }
+
+            $this->recomputeFuelEfficiency($myBike);
+        });
     }
 
     /**
-     * 燃費（満タン基準）を算出する単一の真実の式。recordFuel と recomputeFuelEfficiency が共用。
-     * 満タン行のみ、直近の満タン行を基準に「間のちょい足し量」を合算して距離/総量で算出。
-     * 該当しなければ null（partial行・最初の満タン行・距離0等）。
-     */
-    private function computeEfficiency(MyBike $myBike, float $odometer, float $quantity, bool $isFull): ?float
-    {
-        if (! $isFull) {
-            return null;
-        }
-
-        $prevFull = $this->fuelLogRepo->findLatestFullLogBefore($myBike, $odometer);
-        if (! $prevFull) {
-            return null;
-        }
-
-        $prevOdometer = (float) $prevFull->odometer;
-        $additions = $this->fuelLogRepo->sumQuantityBetween($myBike, $prevOdometer, $odometer);
-        $totalQuantity = $quantity + $additions;
-        $distance = $odometer - $prevOdometer;
-
-        return ($distance > 0 && $totalQuantity > 0) ? round($distance / $totalQuantity, 2) : null;
-    }
-
-    /**
-     * 給油の派生状態を再計算（削除/編集後の整合）。
-     * 全給油の efficiency を「既存と同一の式」で計算し直す（中間削除の再リンクを反映）。
-     * 各行は odometer 照会で独立計算＝順序非依存。個人ログ規模なので全件再計算でよい。
+     * 給油の燃費を時系列順（給油日→id）で一括再計算する（満タン法）。
+     * 基準点＝「満タン かつ 距離あり」の記録。partial・距離なしは基準点にしないが、その給油量は
+     * pending に残し次の基準点の分母に含める（＝距離なし給油の量も燃費に反映）。
+     * 順序は filled_at→id で安定（同日複数・バックデート挿入でもブレない）。
      */
     public function recomputeFuelEfficiency(MyBike $myBike): void
     {
-        foreach ($myBike->fuelLogs()->get() as $log) {
-            $new = $this->computeEfficiency($myBike, (float) $log->odometer, (float) $log->quantity, (bool) $log->is_full_tank);
+        // ★リレーション既定の降順を必ず打ち消す（reorder）。時系列昇順 filled_at→id で安定走査。
+        $logs = $myBike->fuelLogs()
+            ->reorder()
+            ->orderBy('filled_at')
+            ->orderBy('id')
+            ->get();
+
+        $lastBasisOdo = null; // 直近の基準点（満タン＋距離あり）の odometer
+        $pending = 0.0;       // 基準点以降の給油量累計（次の基準点の分母）
+
+        foreach ($logs as $log) {
+            $odo = $log->odometer === null ? null : (float) $log->odometer;
+            $isFull = (bool) $log->is_full_tank;
+            $pending += (float) $log->quantity;
+
+            $new = null;
+            if ($isFull && $odo !== null) {
+                if ($lastBasisOdo !== null) {
+                    $distance = $odo - $lastBasisOdo;
+                    $new = ($distance > 0 && $pending > 0) ? round($distance / $pending, 2) : null;
+                }
+                // この記録が新しい基準点。pending は消費済みなのでリセット。
+                $lastBasisOdo = $odo;
+                $pending = 0.0;
+            }
+
             $old = $log->efficiency === null ? null : (float) $log->efficiency;
             if ($old !== $new) {
                 $log->efficiency = $new;
                 $log->save();
             }
         }
+    }
+
+    /**
+     * odometer 入力を nullable に正規化（空文字・null・"距離不明" → null）。
+     */
+    private function nullableOdometer(mixed $value): ?float
+    {
+        return ($value === null || $value === '') ? null : (float) $value;
     }
 
     /**
@@ -699,7 +716,7 @@ final class MyBikeService
             $log = $myBike->fuelLogs()->findOrFail($fuelLogId);
             $log->update([
                 'filled_at' => $data['filled_at'],
-                'odometer' => $data['odometer'],
+                'odometer' => $this->nullableOdometer($data['odometer'] ?? null), // 距離不明は null（編集で埋め直せる）
                 'quantity' => $data['quantity'],
                 'cost' => $data['cost'] ?? null,
                 'is_full_tank' => ! empty($data['is_full_tank']) && $data['is_full_tank'],

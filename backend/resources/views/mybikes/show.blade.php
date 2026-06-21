@@ -275,12 +275,15 @@
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6"
                          x-data="{
                             editId: null,
+                            odoUnknown: false,
                             editFuel(b) { const d = b.dataset; this.editId = d.id; const f = this.$refs.fuelForm;
                                 const set = (n, v) => { const el = f.querySelector('[name=' + n + ']'); if (el) el.value = (v ?? ''); };
                                 set('filled_at', d.date); set('odometer', d.odometer); set('quantity', d.quantity); set('cost', d.cost); set('memo', d.memo);
+                                this.odoUnknown = !d.odometer; {{-- 距離なし記録の編集は「距離不明」トグルON --}}
                                 const chk = f.querySelector('input[type=checkbox][name=is_full_tank]'); if (chk) chk.checked = (d.full === '1');
                                 f.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
-                            cancelEdit() { this.editId = null; this.$refs.fuelForm.reset(); },
+                            onToggleOdo(el) { if (this.odoUnknown) { const inp = el.closest('form').querySelector('[name=odometer]'); if (inp) inp.value = ''; } },
+                            cancelEdit() { this.editId = null; this.odoUnknown = false; this.$refs.fuelForm.reset(); },
                          }">
                         <h3 class="font-black text-gray-900 mb-4 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-blue-500"></i> <span x-text="editId ? '給油記録を編集' : '給油を記録'">給油を記録</span></h3>
 
@@ -450,8 +453,16 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">総走行距離 (km)</label>
-                                    <input type="number" step="0.1" name="odometer" value="{{ old('odometer') }}" placeholder="例: {{ $myBike->current_odometer }}" required 
+                                    {{-- ソフト必須：基本は入力。距離不明トグルON時のみ無効化＋空送信（hidden で odometer_unknown=1） --}}
+                                    <input type="hidden" name="odometer_unknown" :value="odoUnknown ? '1' : '0'">
+                                    <input type="number" step="0.1" name="odometer" value="{{ old('odometer') }}" placeholder="例: {{ $myBike->current_odometer }}"
+                                        :required="!odoUnknown" :disabled="odoUnknown"
+                                        :class="odoUnknown ? 'opacity-40 cursor-not-allowed' : ''"
                                         class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 outline-none transition">
+                                    <label class="flex items-center gap-1.5 mt-1.5 ml-1 cursor-pointer select-none">
+                                        <input type="checkbox" x-model="odoUnknown" @change="onToggleOdo($el)" class="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-gray-300">
+                                        <span class="text-[10px] font-bold text-gray-400">距離が分からない（後で編集で入力できます）</span>
+                                    </label>
                                 </div>
                             </div>
                             
@@ -513,7 +524,11 @@
                             <div class="flex items-center justify-between">
                                 <div>
                                     <div class="text-[10px] font-bold text-gray-400 mb-0.5">{{ $log->filled_at->format('Y/m/d') }}</div>
-                                    <div class="text-sm font-black text-gray-800">{{ number_format($log->odometer) }} km</div>
+                                    @if($log->odometer !== null)
+                                        <div class="text-sm font-black text-gray-800">{{ number_format($log->odometer) }} km</div>
+                                    @else
+                                        <div class="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5"><i data-lucide="help-circle" class="w-3 h-3"></i>距離未入力</div>
+                                    @endif
                                 </div>
                                 <div class="flex items-center gap-3">
                                     <div class="text-right">
