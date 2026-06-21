@@ -349,6 +349,12 @@
                             <a href="{{ route('dashboard') }}" class="block px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-2">
                                 <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i> マイページ
                             </a>
+                            {{-- 自分の公開プロフィール（自分の public_token のみ・公開ガレージがある時だけ表示） --}}
+                            @if(auth()->user()->public_token)
+                            <a href="{{ route('riders.profile', auth()->user()->public_token) }}" target="_blank" rel="noopener" class="block px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-2">
+                                <i data-lucide="user-circle" class="w-3.5 h-3.5"></i> 公開プロフィールを見る
+                            </a>
+                            @endif
                             <a href="{{ route('profile.edit') }}" class="block px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-2">
                                 <i data-lucide="settings" class="w-3.5 h-3.5"></i> アカウント設定
                             </a>

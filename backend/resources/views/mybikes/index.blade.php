@@ -19,25 +19,6 @@
                 </button>
             </div>
 
-            {{-- 自分の公開プロフィール導線（自分の public_token のみ・公開ガレージがある時だけ存在） --}}
-            @if(auth()->user()->public_token)
-                <a href="{{ route('riders.profile', auth()->user()->public_token) }}" target="_blank" rel="noopener"
-                   class="mb-6 flex items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-pink-200 hover:shadow-md transition-all group">
-                    <span class="flex items-center gap-2.5">
-                        <span class="bg-pink-100 text-pink-600 p-2 rounded-lg"><i data-lucide="user-circle" class="w-4 h-4"></i></span>
-                        <span>
-                            <span class="block text-sm font-black text-gray-900 group-hover:text-pink-600 transition-colors">自分の公開プロフィールを見る</span>
-                            <span class="block text-[10px] text-gray-400 font-bold">公開中のガレージ・活動が他の人にどう見えるか確認できます</span>
-                        </span>
-                    </span>
-                    <i data-lucide="external-link" class="w-4 h-4 text-gray-400 shrink-0"></i>
-                </a>
-            @else
-                <div class="mb-6 flex items-center gap-2.5 p-4 bg-gray-50 rounded-2xl border border-gray-100 text-gray-500">
-                    <i data-lucide="info" class="w-4 h-4 shrink-0"></i>
-                    <span class="text-xs font-bold">愛車のガレージを公開すると、あなたの公開プロフィールページが作られます。</span>
-                </div>
-            @endif
 
             @if(session('success'))
                 <div class="mb-6 p-4 bg-green-100 text-green-700 text-sm font-bold rounded-xl border border-green-200 flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
