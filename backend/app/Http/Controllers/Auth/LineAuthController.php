@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
 
 class LineAuthController extends Controller
@@ -14,7 +15,14 @@ class LineAuthController extends Controller
      */
     public function redirect()
     {
-        return Socialite::driver('line')->redirect();
+        // bot_prompt=aggressive: 認可画面に「MotoHub公式アカウントを友だち追加」を
+        // デフォルトチェック済みで表示し、登録・連携と同時に友だちを増やす。
+        // ※LINE Developers Console側でログインチャネルに公式アカウントを
+        //   リンクしておく必要がある（片方だけでは表示されない）。
+        // 登録(未ログイン)・連携(ログイン済み)の両経路がこのメソッドを通る。
+        return Socialite::driver('line')
+            ->with(['bot_prompt' => 'aggressive'])
+            ->redirect();
     }
 
     /**
@@ -22,6 +30,16 @@ class LineAuthController extends Controller
      */
     public function callback()
     {
+        // 友だち追加オプションの結果を計測（bot_prompt由来）。
+        // true=この認可で友だち追加された / false=追加されなかった or 変化なし。
+        $friendshipStatusChanged = request()->query('friendship_status_changed');
+        if ($friendshipStatusChanged !== null) {
+            Log::info('LINE friendship_status_changed', [
+                'changed'        => $friendshipStatusChanged,
+                'authenticated'  => Auth::check(),
+            ]);
+        }
+
         try {
             $lineUser = Socialite::driver('line')->user();
         } catch (\Exception $e) {
