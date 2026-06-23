@@ -14,7 +14,7 @@ function sortStat(int $median, int $count): ModelRegionPriceStat
     return new ModelRegionPriceStat(['region_block' => '全国', 'median_price' => $median, 'listing_count' => $count]);
 }
 
-// ---- sortScore: 連続値 [0,50]、表示バッジとの差別化（10%下限なし／>50は0） ----
+// ---- sortScore: 連続値、表示バッジとの差別化（10%下限なし／上限超は0）。上限は中央値で二段階 ----
 
 it('returns the discount pct for a robust 45% deal', function () {
     expect(RegionalBargainService::sortScore(sortStat(1000000, 30), 550000))->toBe(45.0);
@@ -29,9 +29,22 @@ it('REGRESSION: a 94% anomaly scores 0, NOT clamped to 50', function () {
     expect(RegionalBargainService::sortScore(sortStat(1000000, 30), 60000))->toBe(0.0);
 });
 
-it('keeps the exact 50% boundary but drops just over it', function () {
+it('LOW tier (median <= 100万): keeps up to 75%, drops just over', function () {
+    // 中央値100万 = LOW帯（<=100万）→ 上限75%
     expect(RegionalBargainService::sortScore(sortStat(1000000, 30), 500000))->toBe(50.0); // 50%
-    expect(RegionalBargainService::sortScore(sortStat(1000000, 30), 499000))->toBe(0.0);  // 50.1% → 0
+    expect(RegionalBargainService::sortScore(sortStat(1000000, 30), 250000))->toBe(75.0); // 75%（境界）
+    expect(RegionalBargainService::sortScore(sortStat(1000000, 30), 249000))->toBe(0.0);  // 75.1% → 0
+});
+
+it('HIGH tier (median > 100万): keeps up to 50%, drops just over (旧車大型の誤価格ガード)', function () {
+    // 中央値200万 = HIGH帯（>100万）→ 上限50%
+    expect(RegionalBargainService::sortScore(sortStat(2000000, 30), 1000000))->toBe(50.0); // 50%（境界）
+    expect(RegionalBargainService::sortScore(sortStat(2000000, 30), 980000))->toBe(0.0);   // 51% → 0
+});
+
+it('LOW tier rescues deep discounts the old flat 50% cap killed (アドレス110 ~61%)', function () {
+    // 中央値25.5万・支払9.9万 = 61% → 旧50%capでは0、新LOW(75)で復活
+    expect(RegionalBargainService::sortScore(sortStat(255000, 30), 99000))->toBe(61.2);
 });
 
 it('scores 0 when above the median (割高 is neutral)', function () {
