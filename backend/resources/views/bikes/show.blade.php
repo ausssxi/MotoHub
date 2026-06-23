@@ -43,11 +43,9 @@
 
     <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
 
-    @if(!empty($discountRate))
+    {{-- OGP画像は常に自動生成の相場比較グラフ（deal_ogp）を使う。
+         販売店写真（$listing->images）は販売店の著作物のためOGP/SNSカードには使わない。 --}}
     <x-slot:ogImage>{{ route('bikes.deal_ogp', ['listing' => $listing->id]) }}</x-slot:ogImage>
-    @elseif(!empty($listing->images) && isset($listing->images[0]))
-    <x-slot:ogImage>{{ $listing->images[0] }}</x-slot:ogImage>
-    @endif
 
     @if(!empty($discountRate) && $discountRate >= 20)
     <x-slot:styles>
@@ -322,6 +320,23 @@
                                 @endif
                             </div>
                             
+                            {{-- Xシェアボタン（この車両をPOSTする） --}}
+                            <div class="flex items-center gap-3">
+                                @php
+                                    $sharePrice = $priceMan ? $priceMan . '万円' : '';
+                                    $shareMaker = $listing->maker ?? '';
+                                    $shareBikeName = $listing->bike_model_name ?? $listing->name;
+                                    $shareTextBike = $shareBikeName . ($sharePrice ? ' ' . $sharePrice : '') . ' | MotoHub #中古バイク #MotoHub #バイク好きと繋がりたい #バイクのある生活 #ツーリング #バイク乗りと繋がりたい #' . str_replace(' ', '', $shareBikeName) . ' #' . $shareMaker . ' #バイク #お買い得バイク #バイク探し #ツーリング仲間';
+                                    $shareUrlBike = url()->current();
+                                @endphp
+                                <a href="https://twitter.com/intent/tweet?text={{ urlencode($shareTextBike) }}&url={{ urlencode($shareUrlBike) }}"
+                                   target="_blank" rel="noopener noreferrer"
+                                   class="inline-flex items-center gap-1.5 px-3 py-2 bg-black text-white text-xs font-bold rounded-full hover:bg-gray-800 transition shadow-sm">
+                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                                    シェア
+                                </a>
+                            </div>
+
                             {{-- ★修正: イベントバブリングを阻害しないようJS直接呼び出しに変更 --}}
                             <div class="flex items-center gap-3">
                                 <div class="compare-btn flex items-center gap-3 bg-gray-50 pl-4 pr-1.5 py-1.5 rounded-full border border-gray-200 cursor-pointer hover:bg-blue-50 hover:border-blue-200 group transition-colors" data-id="{{ $listing->id }}">

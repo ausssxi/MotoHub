@@ -41,7 +41,9 @@ final class DealOgpController extends Controller
             : $this->chartService->generateChartImage($listing);
 
         if (! $png) {
-            abort(404);
+            // チャート生成不可（価格データ皆無など稀なケース）でも販売店写真は使わない。
+            // サイト共通のOGP画像にフォールバックし、OGPカードが必ず有効になるようにする。
+            return $this->imageResponse(public_path('images/about-ogp.png'));
         }
 
         Storage::disk('public')->makeDirectory(self::CACHE_DIR);
