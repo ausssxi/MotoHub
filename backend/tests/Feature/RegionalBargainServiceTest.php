@@ -43,6 +43,23 @@ it('includes exact 10% and 50% boundaries', function () {
     expect(RegionalBargainService::fromStat(bargainStat(1000000, 30), 500000)['pct'])->toBe(50);
 });
 
+it('LOW tier (median <= 100万): allows deep discounts up to 75% (rescues genuine deals)', function () {
+    // アドレス110相当: 中央値25.5万・支払9.9万 = 61% → 旧50%capでは非表示、新LOW(75)で表示
+    $r = RegionalBargainService::fromStat(bargainStat(255000, 30), 99000);
+    expect($r)->not->toBeNull();
+    expect($r['pct'])->toBe(61);
+    expect($r['median_man'])->toBe('25.5');
+    // 75%超は LOW帯でも異常として非表示
+    expect(RegionalBargainService::fromStat(bargainStat(255000, 30), 60000))->toBeNull(); // 76.5%
+});
+
+it('HIGH tier (median > 100万): keeps the strict 50% cap (旧車大型の誤価格ガード)', function () {
+    // 中央値200万・支払80万 = 60% → HIGH帯では異常として非表示
+    expect(RegionalBargainService::fromStat(bargainStat(2000000, 30), 800000))->toBeNull(); // 60%
+    // 50%以内は表示
+    expect(RegionalBargainService::fromStat(bargainStat(2000000, 30), 1000000)['pct'])->toBe(50);
+});
+
 it('suppresses the badge when the national row is not robust (n < 20)', function () {
     expect(RegionalBargainService::fromStat(bargainStat(1000000, 19), 800000))->toBeNull();
 });
