@@ -170,9 +170,9 @@
 
     {{-- スティッキータブナビゲーション --}}
     <div id="top-tab-bar" class="sticky top-16 z-40 bg-white border-b border-gray-200">
-        <div class="max-w-7xl mx-auto px-4">
-            {{-- 6タブ。スマホは横スクロール(overflow-x-auto+whitespace-nowrap)、PCは中央寄せ。各タブはshrink-0でタップ領域維持 --}}
-            <div class="flex items-center overflow-x-auto scrollbar-hide whitespace-nowrap justify-start sm:justify-center">
+        {{-- 外側=画面幅いっぱいのスクロール領域(w-full overflow-x-auto)。内側flexをPC中央寄せ/スマホ左起点で出し分け。各タブshrink-0でタップ領域維持 --}}
+        <div class="w-full overflow-x-auto scrollbar-hide">
+            <div class="flex items-center whitespace-nowrap justify-start sm:justify-center px-4">
                 <button type="button" data-tab-target="section-ranking"
                     class="shrink-0 px-4 sm:px-6 py-3 text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-all text-center whitespace-nowrap">
                     🏆 ランキング
