@@ -460,6 +460,7 @@
             </section>
         </div>
     </div>
+    @endif
 
     {{-- 最近見た車両（パーソナルコンテンツ / タブセクションの上に常時表示） --}}
     <section id="top-history-section" class="bg-gray-50 hidden">
