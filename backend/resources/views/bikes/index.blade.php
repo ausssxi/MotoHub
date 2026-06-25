@@ -172,7 +172,7 @@
     <div id="top-tab-bar" class="sticky top-16 z-40 bg-white border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4">
             {{-- 6タブ。スマホは横スクロール(overflow-x-auto+whitespace-nowrap)、PCは中央寄せ。各タブはshrink-0でタップ領域維持 --}}
-            <div class="flex items-center overflow-x-auto scrollbar-hide whitespace-nowrap sm:justify-center">
+            <div class="flex items-center overflow-x-auto scrollbar-hide whitespace-nowrap justify-start sm:justify-center">
                 <button type="button" data-tab-target="section-ranking"
                     class="shrink-0 px-4 sm:px-6 py-3 text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-all text-center whitespace-nowrap">
                     🏆 ランキング
@@ -203,13 +203,63 @@
 
 
     {{-- ======================= --}}
-    {{-- 🏆 ランキング セクション（タブ先頭）--}}
+    {{-- 🏆 ランキング セクション（タブ先頭）。人気車種→売れ筋ランキングの順 --}}
     {{-- ======================= --}}
-
-    {{-- 🏆 売れ筋ランキング TOP5 --}}
-    @if($rankingTop5->isNotEmpty())
     <div id="section-ranking" class="bg-gray-50 pt-10 sm:pt-16 pb-10 sm:pb-16">
         <div class="max-w-7xl mx-auto px-4">
+
+            {{-- 🔍 人気車種（旧・探す先頭→ランキングタブ先頭へ移動。タブ「ランキング」のスクロール先） --}}
+            <section class="mb-20">
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            人気車種
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Popular Models</p>
+                    </div>
+                    <a href="{{ route('bikes.models') }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 group">
+                        すべて見る <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+                    </a>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    @foreach($popularBikes as $bike)
+                        <a href="{{ $bike->seo_url }}"
+                           class="group flex items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-300">
+
+                            <div class="w-14 h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 border border-gray-50 relative">
+                                @if($bike->image_url)
+                                    <img src="{{ $bike->image_url }}" alt="{{ $bike->name }}"
+                                         class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
+                                         loading="lazy" decoding="async"
+                                         onerror="handleImageError(this)">
+                                @else
+                                    <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                        <i data-lucide="bike" class="w-6 h-6"></i>
+                                    </div>
+                                @endif
+                            </div>
+
+                            <div class="ml-3 flex-1 min-w-0">
+                                <p class="text-[9px] font-bold text-gray-400 mb-0.5">{{ $bike->manufacturer?->name }}</p>
+                                <h3 class="text-sm font-black text-gray-800 leading-tight truncate group-hover:text-blue-600 transition-colors">
+                                    {{ $bike->name }}
+                                </h3>
+                                <div class="mt-1">
+                                    <span class="inline-flex items-center text-[9px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
+                                        {{ number_format($bike->listings_count) }}台
+                                    </span>
+                                </div>
+                            </div>
+
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-blue-400 group-hover:translate-x-1 transition-all"></i>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+
+            {{-- 🏆 売れ筋ランキング TOP5 --}}
+            @if($rankingTop5->isNotEmpty())
             <section>
                 <div class="flex items-end justify-between mb-8 px-2">
                     <div>
@@ -249,9 +299,10 @@
                     @endforeach
                 </div>
             </section>
+            @endif
+
         </div>
     </div>
-    @endif
 
     {{-- 🔧 症状診断ツール導線（静的カード・控えめ／新規DBクエリなし）／タブ＝診断 --}}
     <div id="section-shindan" class="bg-gray-50 pb-10 sm:pb-16">
@@ -507,66 +558,11 @@
     </section>
 
     {{-- ======================= --}}
-    {{-- 🔍 探す セクション（タブ＝探す。人気車種＋探すサブ導線）--}}
+    {{-- 🔍 探す セクション（タブ＝探す。トレンド/メーカー＋探すサブ導線。人気車種はランキングタブ先頭へ移動）--}}
     {{-- ======================= --}}
 
-    {{-- お得な車両カルーセル（人気車種）--}}
-    <div id="section-search" class="bg-gray-50 pt-10 sm:pt-16 pb-6">
-        <div class="max-w-7xl mx-auto px-4">
-            {{-- 🔍探す: 人気車種 --}}
-            <section>
-                <div class="flex items-end justify-between mb-8 px-2">
-                    <div>
-                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
-                            人気車種
-                        </h2>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Popular Models</p>
-                    </div>
-                    <a href="{{ route('bikes.models') }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 group">
-                        すべて見る <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    @foreach($popularBikes as $bike)
-                        <a href="{{ $bike->seo_url }}"
-                           class="group flex items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-300">
-
-                            <div class="w-14 h-14 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0 border border-gray-50 relative">
-                                @if($bike->image_url)
-                                    <img src="{{ $bike->image_url }}" alt="{{ $bike->name }}"
-                                         class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
-                                         loading="lazy" decoding="async"
-                                         onerror="handleImageError(this)">
-                                @else
-                                    <div class="w-full h-full flex items-center justify-center text-gray-300">
-                                        <i data-lucide="bike" class="w-6 h-6"></i>
-                                    </div>
-                                @endif
-                            </div>
-
-                            <div class="ml-3 flex-1 min-w-0">
-                                <p class="text-[9px] font-bold text-gray-400 mb-0.5">{{ $bike->manufacturer?->name }}</p>
-                                <h3 class="text-sm font-black text-gray-800 leading-tight truncate group-hover:text-blue-600 transition-colors">
-                                    {{ $bike->name }}
-                                </h3>
-                                <div class="mt-1">
-                                    <span class="inline-flex items-center text-[9px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
-                                        {{ number_format($bike->listings_count) }}台
-                                    </span>
-                                </div>
-                            </div>
-
-                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-blue-400 group-hover:translate-x-1 transition-all"></i>
-                        </a>
-                    @endforeach
-                </div>
-            </section>
-        </div>
-    </div>
-
-    {{-- トレンドタグ & メーカーリンク --}}
-    <div class="bg-gray-50 border-b border-gray-100 py-6">
+    {{-- トレンドタグ & メーカーリンク（探すアンカー＝section-search） --}}
+    <div id="section-search" class="bg-gray-50 border-b border-gray-100 pt-10 sm:pt-16 pb-6">
         <div class="max-w-7xl mx-auto px-4 space-y-4">
             {{-- トレンドタグ --}}
             <div class="flex flex-wrap justify-center items-center gap-2">
