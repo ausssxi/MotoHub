@@ -207,7 +207,7 @@
                     <i data-lucide="bike" class="w-5 h-5 text-pink-600"></i>
                 </div>
                 <div>
-                    <p class="text-sm font-black text-gray-900">ガレージ</p>
+                    <p class="text-sm font-black text-gray-900">愛車ガレージ</p>
                     <p class="text-[10px] text-gray-400">愛車を登録・管理</p>
                 </div>
             </a>

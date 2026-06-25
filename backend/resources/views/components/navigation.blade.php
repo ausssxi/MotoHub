@@ -175,7 +175,7 @@
                         </a>
                         <a href="{{ route('garage.public.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors whitespace-nowrap">
                             <i data-lucide="bike" class="w-3.5 h-3.5"></i>
-                            ガレージ
+                            愛車ガレージ
                         </a>
                         <a href="{{ route('ar.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors whitespace-nowrap">
                             <i data-lucide="camera" class="w-3.5 h-3.5"></i>
@@ -537,7 +537,7 @@
                     <div class="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center">
                         <i data-lucide="bike" class="w-4 h-4 text-pink-600"></i>
                     </div>
-                    <p class="text-xs font-black text-gray-800">ガレージ</p>
+                    <p class="text-xs font-black text-gray-800">愛車ガレージ</p>
                 </div>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
             </a>

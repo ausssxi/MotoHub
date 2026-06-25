@@ -408,6 +408,60 @@
         </div>
     </div>
 
+    {{-- 👤 みんなの愛車（OWNER'S GARAGE）／愛車ガレージへの自然な導線。実例カードが誘導になる --}}
+    @if(isset($latestMyBikes) && $latestMyBikes->isNotEmpty())
+    <div class="bg-gray-50 pb-10 sm:pb-16">
+        <div class="max-w-7xl mx-auto px-4">
+            <section>
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            みんなの愛車
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Owner's Garage</p>
+                        {{-- 控えめな誘い文（押し売りしない・既存トーンに合わせる） --}}
+                        <p class="text-xs text-gray-500 leading-relaxed mt-2">あなたの愛車も記録してみませんか？　給油レシートを撮るだけで燃費が自動でわかります。</p>
+                    </div>
+                    <a href="{{ route('garage.public.index') }}" class="text-xs font-bold text-pink-600 hover:underline whitespace-nowrap shrink-0">
+                        もっと見る →
+                    </a>
+                </div>
+                <div class="flex gap-4 overflow-x-auto pb-4 snap-x scrollbar-hide">
+                    @foreach($latestMyBikes as $myBike)
+                    {{-- カード→公開ガレージ。ハンドルは別リンク→プロフィール（aの入れ子回避） --}}
+                    <div class="snap-start shrink-0 w-48 group">
+                        <a href="{{ route('garage.public.show', $myBike->id) }}" class="block">
+                            <div class="aspect-[4/3] rounded-xl bg-gray-100 overflow-hidden mb-2">
+                                @if($myBike->display_image)
+                                    <img src="{{ $myBike->display_image }}" alt="{{ $myBike->display_name }}"
+                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" decoding="async">
+                                @else
+                                    <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                        <i data-lucide="bike" class="w-6 h-6"></i>
+                                    </div>
+                                @endif
+                            </div>
+                            <p class="text-[10px] font-bold text-gray-400">{{ $myBike->bikeModel->manufacturer->name ?? '' }}</p>
+                            <p class="text-sm font-black text-gray-800 line-clamp-1 group-hover:text-pink-600 transition-colors">{{ $myBike->display_name }}</p>
+                        </a>
+                        {{-- 公開ハンドルのみ（本名 user->name は出さない）→プロフィール --}}
+                        @if($myBike->user->public_token)
+                            <a href="{{ route('riders.profile', $myBike->user->public_token) }}" class="text-[10px] text-gray-400 hover:text-pink-600 transition-colors inline-block">{{ $myBike->user->review_display_name ?? '名無しライダー' }}</a>
+                        @else
+                            <p class="text-[10px] text-gray-400">{{ $myBike->user->review_display_name ?? '名無しライダー' }}</p>
+                        @endif
+                    </div>
+                    @endforeach
+                </div>
+                {{-- セクション末尾の控えめなテキストリンク --}}
+                <div class="mt-2 px-2">
+                    <a href="{{ route('mybikes.index') }}" class="text-xs font-bold text-pink-600 hover:underline">→ 自分の愛車を登録する</a>
+                </div>
+            </section>
+        </div>
+    </div>
+    @endif
+
     {{-- 最近見た車両（パーソナルコンテンツ / タブセクションの上に常時表示） --}}
     <section id="top-history-section" class="bg-gray-50 hidden">
         <div class="max-w-7xl mx-auto px-4 pt-10 sm:pt-16 pb-6">
@@ -872,50 +926,6 @@
                         すべてのレビューを見る
                         <i data-lucide="arrow-right" class="w-4 h-4"></i>
                     </a>
-                </div>
-            </section>
-            @endif
-
-            {{-- みんなの愛車 --}}
-            @if(isset($latestMyBikes) && $latestMyBikes->isNotEmpty())
-            <section class="mb-20">
-                <div class="flex items-end justify-between mb-8 px-2">
-                    <div>
-                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
-                            みんなの愛車
-                        </h2>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Owner's Garage</p>
-                    </div>
-                    <a href="{{ route('garage.public.index') }}" class="text-xs font-bold text-pink-600 hover:underline">
-                        もっと見る →
-                    </a>
-                </div>
-                <div class="flex gap-4 overflow-x-auto pb-4 snap-x scrollbar-hide">
-                    @foreach($latestMyBikes as $myBike)
-                    {{-- カード→公開ガレージ。ハンドルは別リンク→プロフィール（aの入れ子回避） --}}
-                    <div class="snap-start shrink-0 w-48 group">
-                        <a href="{{ route('garage.public.show', $myBike->id) }}" class="block">
-                            <div class="aspect-[4/3] rounded-xl bg-gray-100 overflow-hidden mb-2">
-                                @if($myBike->display_image)
-                                    <img src="{{ $myBike->display_image }}" alt="{{ $myBike->display_name }}"
-                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" decoding="async">
-                                @else
-                                    <div class="w-full h-full flex items-center justify-center text-gray-300">
-                                        <i data-lucide="bike" class="w-6 h-6"></i>
-                                    </div>
-                                @endif
-                            </div>
-                            <p class="text-[10px] font-bold text-gray-400">{{ $myBike->bikeModel->manufacturer->name ?? '' }}</p>
-                            <p class="text-sm font-black text-gray-800 line-clamp-1 group-hover:text-pink-600 transition-colors">{{ $myBike->display_name }}</p>
-                        </a>
-                        {{-- 公開ハンドルのみ（本名 user->name は出さない）→プロフィール --}}
-                        @if($myBike->user->public_token)
-                            <a href="{{ route('riders.profile', $myBike->user->public_token) }}" class="text-[10px] text-gray-400 hover:text-pink-600 transition-colors inline-block">{{ $myBike->user->review_display_name ?? '名無しライダー' }}</a>
-                        @else
-                            <p class="text-[10px] text-gray-400">{{ $myBike->user->review_display_name ?? '名無しライダー' }}</p>
-                        @endif
-                    </div>
-                    @endforeach
                 </div>
             </section>
             @endif
