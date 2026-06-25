@@ -38,7 +38,7 @@
                 if (!tabBar) return;
 
                 var tabs = tabBar.querySelectorAll('[data-tab-target]');
-                var sectionIds = ['section-search', 'section-market', 'section-community'];
+                var sectionIds = ['section-ranking', 'section-shindan', 'section-games', 'section-community', 'section-search', 'section-market'];
                 var sections = sectionIds.map(function(id) { return document.getElementById(id); }).filter(Boolean);
                 if (sections.length === 0) return;
 
@@ -170,19 +170,32 @@
 
     {{-- スティッキータブナビゲーション --}}
     <div id="top-tab-bar" class="sticky top-16 z-40 bg-white border-b border-gray-200">
-        <div class="max-w-7xl mx-auto px-4">
-            <div class="flex items-center justify-center">
+        {{-- 外側=画面幅いっぱいのスクロール領域(w-full overflow-x-auto)。内側flexをPC中央寄せ/スマホ左起点で出し分け。各タブshrink-0でタップ領域維持 --}}
+        <div class="w-full overflow-x-auto scrollbar-hide">
+            <div class="flex items-center whitespace-nowrap justify-start sm:justify-center px-4">
+                <button type="button" data-tab-target="section-ranking"
+                    class="shrink-0 px-4 sm:px-6 py-3 text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-all text-center whitespace-nowrap">
+                    🏆 ランキング
+                </button>
+                <button type="button" data-tab-target="section-shindan"
+                    class="shrink-0 px-4 sm:px-6 py-3 text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-all text-center whitespace-nowrap">
+                    🔧 診断
+                </button>
+                <button type="button" data-tab-target="section-games"
+                    class="shrink-0 px-4 sm:px-6 py-3 text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-all text-center whitespace-nowrap">
+                    🎮 ゲーム
+                </button>
+                <button type="button" data-tab-target="section-community"
+                    class="shrink-0 px-4 sm:px-6 py-3 text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-all text-center whitespace-nowrap">
+                    👥 コミュニティ
+                </button>
                 <button type="button" data-tab-target="section-search"
-                    class="flex-1 sm:flex-none px-6 py-3 text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-all text-center whitespace-nowrap">
+                    class="shrink-0 px-4 sm:px-6 py-3 text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-all text-center whitespace-nowrap">
                     🔍 探す
                 </button>
                 <button type="button" data-tab-target="section-market"
-                    class="flex-1 sm:flex-none px-6 py-3 text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-all text-center whitespace-nowrap">
+                    class="shrink-0 px-4 sm:px-6 py-3 text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-all text-center whitespace-nowrap">
                     📊 相場
-                </button>
-                <button type="button" data-tab-target="section-community"
-                    class="flex-1 sm:flex-none px-6 py-3 text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-all text-center whitespace-nowrap">
-                    👥 コミュニティ
                 </button>
             </div>
         </div>
@@ -190,14 +203,12 @@
 
 
     {{-- ======================= --}}
-    {{-- 🔍 探す セクション      --}}
+    {{-- 🏆 ランキング セクション（タブ先頭）。人気車種→売れ筋ランキングの順 --}}
     {{-- ======================= --}}
-
-
-    {{-- お得な車両カルーセル（人気車種）--}}
-    <div id="section-search" class="bg-gray-50 py-10 sm:py-16">
+    <div id="section-ranking" class="bg-gray-50 pt-10 sm:pt-16 pb-10 sm:pb-16">
         <div class="max-w-7xl mx-auto px-4">
-            {{-- 🔍探す: 人気車種 --}}
+
+            {{-- 🔍 人気車種（旧・探す先頭→ランキングタブ先頭へ移動。タブ「ランキング」のスクロール先） --}}
             <section class="mb-20">
                 <div class="flex items-end justify-between mb-8 px-2">
                     <div>
@@ -246,13 +257,9 @@
                     @endforeach
                 </div>
             </section>
-        </div>
-    </div>
 
-    {{-- 🏆 売れ筋ランキング TOP5 --}}
-    @if($rankingTop5->isNotEmpty())
-    <div class="bg-gray-50 pb-10 sm:pb-16">
-        <div class="max-w-7xl mx-auto px-4">
+            {{-- 🏆 売れ筋ランキング TOP5 --}}
+            @if($rankingTop5->isNotEmpty())
             <section>
                 <div class="flex items-end justify-between mb-8 px-2">
                     <div>
@@ -292,12 +299,13 @@
                     @endforeach
                 </div>
             </section>
+            @endif
+
         </div>
     </div>
-    @endif
 
-    {{-- 🔧 症状診断ツール導線（静的カード・控えめ／新規DBクエリなし） --}}
-    <div class="bg-gray-50 pb-10 sm:pb-16">
+    {{-- 🔧 症状診断ツール導線（静的カード・控えめ／新規DBクエリなし）／タブ＝診断 --}}
+    <div id="section-shindan" class="bg-gray-50 pb-10 sm:pb-16">
         <div class="max-w-7xl mx-auto px-4">
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
                 <div class="flex items-start gap-4 flex-1 min-w-0">
@@ -322,8 +330,8 @@
         </div>
     </div>
 
-    {{-- 🎮 バイクゲーム --}}
-    <div class="bg-gray-50 pb-10 sm:pb-16">
+    {{-- 🎮 バイクゲーム／タブ＝ゲーム --}}
+    <div id="section-games" class="bg-gray-50 pb-10 sm:pb-16">
         <div class="max-w-7xl mx-auto px-4">
             <section>
                 <div class="flex items-end justify-between mb-8 px-2">
@@ -408,11 +416,15 @@
         </div>
     </div>
 
-    {{-- 👤 みんなの愛車（OWNER'S GARAGE）／愛車ガレージへの自然な導線。実例カードが誘導になる --}}
-    @if(isset($latestMyBikes) && $latestMyBikes->isNotEmpty())
-    <div class="bg-gray-50 pb-10 sm:pb-16">
+    {{-- ======================= --}}
+    {{-- 👥 コミュニティ セクション（愛車ガレージ＋レビュー）／タブ＝コミュニティ --}}
+    {{-- ======================= --}}
+    <div id="section-community" class="bg-gray-50 pt-10 sm:pt-16 pb-10 sm:pb-16">
         <div class="max-w-7xl mx-auto px-4">
-            <section>
+
+            {{-- 👤 みんなの愛車（OWNER'S GARAGE）／愛車ガレージへの自然な導線。実例カードが誘導になる --}}
+            @if(isset($latestMyBikes) && $latestMyBikes->isNotEmpty())
+            <section class="mb-20">
                 <div class="flex items-end justify-between mb-8 px-2">
                     <div>
                         <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
@@ -458,9 +470,75 @@
                     <a href="{{ route('mybikes.index') }}" class="text-xs font-bold text-pink-600 hover:underline">→ 自分の愛車を登録する</a>
                 </div>
             </section>
+            @endif
+
+            {{-- 新着ユーザーレビュー --}}
+            @if($latestReviews->isNotEmpty())
+            <section class="mb-20">
+                <div class="flex items-end justify-between mb-8 px-2">
+                    <div>
+                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
+                            新着レビュー
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">User Reviews</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @foreach($latestReviews as $review)
+                        <a href="{{ $review->bikeModel->seo_url }}#reviews"
+                           class="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col h-full">
+
+                            {{-- ヘッダー: 車種名と評価 --}}
+                            <div class="flex items-start justify-between mb-3">
+                                <div>
+                                    <span class="text-[9px] font-bold text-gray-400 block mb-0.5">
+                                        {{ $review->bikeModel->manufacturer->name }}
+                                    </span>
+                                    <h3 class="text-sm font-black text-gray-800 group-hover:text-blue-600 transition-colors">
+                                        {{ $review->bikeModel->name }}
+                                    </h3>
+                                </div>
+                                <div class="flex text-yellow-400 shrink-0">
+                                    <i data-lucide="star" class="w-4 h-4 fill-current"></i>
+                                    <span class="ml-1 text-sm font-black text-gray-700">{{ $review->rating }}</span>
+                                </div>
+                            </div>
+
+                            {{-- 本文 --}}
+                            <div class="mb-4 flex-grow">
+                                <h4 class="text-xs font-bold text-gray-900 mb-1 line-clamp-1">
+                                    {{ $review->title }}
+                                </h4>
+                                <p class="text-[11px] text-gray-500 leading-relaxed line-clamp-3">
+                                    {{ $review->body }}
+                                </p>
+                            </div>
+
+                            {{-- フッター: 投稿者と日付 --}}
+                            <div class="pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">
+                                <span class="font-bold flex items-center gap-1">
+                                    <i data-lucide="user" class="w-3 h-3"></i>
+                                    {{ $review->nickname }}
+                                </span>
+                                <span>{{ $review->created_at->diffForHumans() }}</span>
+                            </div>
+                        </a>
+                    @endforeach
+                </div>
+
+                {{-- レビュー一覧ハブへの導線 --}}
+                <div class="mt-8 text-center">
+                    <a href="{{ route('bikes.reviews_index') }}" class="inline-flex items-center gap-2 text-sm font-black text-blue-600 hover:text-blue-800 hover:underline">
+                        すべてのレビューを見る
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </a>
+                </div>
+            </section>
+            @endif
+
         </div>
     </div>
-    @endif
 
     {{-- 最近見た車両（パーソナルコンテンツ / タブセクションの上に常時表示） --}}
     <section id="top-history-section" class="bg-gray-50 hidden">
@@ -479,8 +557,12 @@
         </div>
     </section>
 
-    {{-- トレンドタグ & メーカーリンク --}}
-    <div class="bg-gray-50 border-b border-gray-100 py-6">
+    {{-- ======================= --}}
+    {{-- 🔍 探す セクション（タブ＝探す。トレンド/メーカー＋探すサブ導線。人気車種はランキングタブ先頭へ移動）--}}
+    {{-- ======================= --}}
+
+    {{-- トレンドタグ & メーカーリンク（探すアンカー＝section-search） --}}
+    <div id="section-search" class="bg-gray-50 border-b border-gray-100 pt-10 sm:pt-16 pb-6">
         <div class="max-w-7xl mx-auto px-4 space-y-4">
             {{-- トレンドタグ --}}
             <div class="flex flex-wrap justify-center items-center gap-2">
@@ -859,78 +941,6 @@
             </section>
 
             </div>{{-- /section-market --}}
-
-            {{-- ======================= --}}
-            {{-- 👥 コミュ セクション    --}}
-            {{-- ======================= --}}
-            <div id="section-community">
-
-            {{-- 新着ユーザーレビュー --}}
-            @if($latestReviews->isNotEmpty())
-            <section class="mb-20">
-                <div class="flex items-end justify-between mb-8 px-2">
-                    <div>
-                        <h2 class="text-2xl font-black text-black tracking-tighter mb-1">
-                            新着レビュー
-                        </h2>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">User Reviews</p>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    @foreach($latestReviews as $review)
-                        <a href="{{ $review->bikeModel->seo_url }}#reviews"
-                           class="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300 flex flex-col h-full">
-
-                            {{-- ヘッダー: 車種名と評価 --}}
-                            <div class="flex items-start justify-between mb-3">
-                                <div>
-                                    <span class="text-[9px] font-bold text-gray-400 block mb-0.5">
-                                        {{ $review->bikeModel->manufacturer->name }}
-                                    </span>
-                                    <h3 class="text-sm font-black text-gray-800 group-hover:text-blue-600 transition-colors">
-                                        {{ $review->bikeModel->name }}
-                                    </h3>
-                                </div>
-                                <div class="flex text-yellow-400 shrink-0">
-                                    <i data-lucide="star" class="w-4 h-4 fill-current"></i>
-                                    <span class="ml-1 text-sm font-black text-gray-700">{{ $review->rating }}</span>
-                                </div>
-                            </div>
-
-                            {{-- 本文 --}}
-                            <div class="mb-4 flex-grow">
-                                <h4 class="text-xs font-bold text-gray-900 mb-1 line-clamp-1">
-                                    {{ $review->title }}
-                                </h4>
-                                <p class="text-[11px] text-gray-500 leading-relaxed line-clamp-3">
-                                    {{ $review->body }}
-                                </p>
-                            </div>
-
-                            {{-- フッター: 投稿者と日付 --}}
-                            <div class="pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">
-                                <span class="font-bold flex items-center gap-1">
-                                    <i data-lucide="user" class="w-3 h-3"></i>
-                                    {{ $review->nickname }}
-                                </span>
-                                <span>{{ $review->created_at->diffForHumans() }}</span>
-                            </div>
-                        </a>
-                    @endforeach
-                </div>
-
-                {{-- レビュー一覧ハブへの導線 --}}
-                <div class="mt-8 text-center">
-                    <a href="{{ route('bikes.reviews_index') }}" class="inline-flex items-center gap-2 text-sm font-black text-blue-600 hover:text-blue-800 hover:underline">
-                        すべてのレビューを見る
-                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                    </a>
-                </div>
-            </section>
-            @endif
-
-            </div>{{-- /section-community --}}
 
         </div>
     </div>
