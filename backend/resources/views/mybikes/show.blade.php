@@ -639,7 +639,9 @@
                                 this.productErr = '商品の取得に失敗しました。時間をおいて再度お試しください';
                             } finally { this.productLoading = false; this.$nextTick(() => window.lucide && window.lucide.createIcons()); }
                         },
-                        pickProduct(p) { this.product = p; this.productResults = []; this.productOpen = false; this.productErr = ''; },
+                        pickProduct(p) { this.product = p; this.productResults = []; this.productOpen = false; this.productErr = '';
+                            {{-- 選択商品の価格を費用欄(c_cost)へ自動入力(初期値の補助・後から手で書換可)。価格不明(0)は触らない。 --}}
+                            if (p && p.price > 0) { this.setV('c_cost', p.price); } },
                         clearProduct() { this.product = null; this.productResults = []; this.productOpen = false; this.productErr = ''; },
                         setProductFromData(d) {
                             if (d && d.productId && d.productMall) {
