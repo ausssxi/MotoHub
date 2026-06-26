@@ -555,4 +555,20 @@ class MyBikeController extends Controller
 
         return response()->json($models);
     }
+
+    /**
+     * カスタム記録のパーツ名 / ブランド サジェストAPI（第1段階＝自前完結・外部API不使用）。
+     * GET garage/api/parts-suggest?q=...&field=part|brand → 文字列フラット配列を返す。
+     */
+    public function partsSuggest(Request $request)
+    {
+        $q = (string) $request->query('q', '');
+        if (mb_strlen(trim($q)) < 1) {
+            return response()->json([]);
+        }
+
+        $field = $request->query('field') === 'brand' ? 'brand' : 'part';
+
+        return response()->json($this->service->suggestParts($field, $q));
+    }
 }

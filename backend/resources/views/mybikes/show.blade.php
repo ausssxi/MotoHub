@@ -797,16 +797,22 @@
                                 <p class="text-[10px] text-gray-400 mt-2">画像/音声はAI解析に送信されます（位置情報除去・保存しません）。結果は自動保存されません。</p>
                             </div>
                             @endif
+                            {{-- パーツ名/ブランドは入力補助サジェスト付き（自前データのみ・外部API不使用）。
+                                 候補描画は public/js/garage/parts-suggest.js。入力の妨げにはならない補助。 --}}
                             <div class="grid grid-cols-2 gap-4">
-                                <div>
+                                <div class="relative">
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">パーツ名</label>
                                     <input type="text" id="c_part" name="part_name" value="{{ old('part_name') }}" placeholder="例: ヨシムラ マフラー" required
+                                        autocomplete="off" data-parts-suggest="part"
                                         class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 outline-none transition">
+                                    <div data-parts-suggest-box class="hidden absolute left-0 right-0 top-full mt-1 z-30 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden max-h-56 overflow-y-auto"></div>
                                 </div>
-                                <div>
+                                <div class="relative">
                                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">ブランド <span class="font-normal text-gray-300">任意</span></label>
                                     <input type="text" id="c_brand" name="brand" value="{{ old('brand') }}" placeholder="例: YOSHIMURA"
+                                        autocomplete="off" data-parts-suggest="brand"
                                         class="appearance-none block w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 outline-none transition">
+                                    <div data-parts-suggest-box class="hidden absolute left-0 right-0 top-full mt-1 z-30 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden max-h-56 overflow-y-auto"></div>
                                 </div>
                             </div>
                             {{-- カテゴリ（タップ選択） --}}
@@ -1209,6 +1215,9 @@
     @if($needChartJs)
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
     @endif
+
+    {{-- カスタム記録「パーツ名/ブランド」サジェスト（自前データのみ・外部API不使用・入力補助） --}}
+    <script src="{{ asset('js/garage/parts-suggest.js') }}?v={{ asset_buster(public_path('js/garage/parts-suggest.js')) }}" defer></script>
 
     @if(count($dashboard['fuelChart']['data']) > 0)
     <script>

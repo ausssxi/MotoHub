@@ -531,6 +531,8 @@ Route::middleware('auth')->group(function () {
         Route::patch('/{myBike}/images/{image}', 'updateImageCaption')->name('images.caption')->where(['myBike' => '[0-9]+', 'image' => '[0-9]+']);
         Route::delete('/{myBike}/images/{image}', 'destroyImage')->name('images.destroy')->where(['myBike' => '[0-9]+', 'image' => '[0-9]+']);
         Route::get('/api/search-models', 'searchModels')->name('api.search_models');
+        // カスタム記録のパーツ名/ブランド サジェスト（自前データのみ・外部API不使用・軽量）。乱用防止に軽くthrottle。
+        Route::get('/api/parts-suggest', 'partsSuggest')->name('api.parts_suggest')->middleware('throttle:60,1');
     });
 });
 

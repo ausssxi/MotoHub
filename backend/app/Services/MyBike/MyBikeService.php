@@ -11,6 +11,7 @@ use App\Repositories\Bike\BikeModelRepository;
 use App\Repositories\MyBike\FuelLogRepository;
 use App\Repositories\MyBike\MaintenanceLogRepository;
 use App\Repositories\MyBike\MyBikeRepository;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 final class MyBikeService
@@ -794,5 +795,60 @@ final class MyBikeService
             'text' => "{$m->manufacturer->name} {$m->name}",
             'image' => $m->image_url,
         ])->toArray();
+    }
+
+    /**
+     * カスタム記録「パーツ名 / ブランド」サジェスト（第1段階＝自前完結・外部API不使用）。
+     *
+     * (a) config/parts-suggest.php の定番リスト ＋ (b) ユーザーが過去に記録した値
+     * （maintenance_logs の type='custom' の distinct）をマージし、入力 $q に
+     * 前方一致→部分一致の順で最大 $limit 件返す。
+     * (b) は10分キャッシュ＋上限500で、毎キーストロークでDBを叩かない（軽量）。
+     *
+     * @param  string  $field  'part'|'brand'
+     * @return array<int, string>
+     */
+    public function suggestParts(string $field, string $q, int $limit = 8): array
+    {
+        $q = trim($q);
+        if ($q === '') {
+            return [];
+        }
+
+        $column = $field === 'brand' ? 'brand' : 'part_name';
+        $configKey = $field === 'brand' ? 'parts-suggest.brands' : 'parts-suggest.parts';
+
+        // (a) 定番リスト（config・即時／インメモリ）
+        $seed = config($configKey, []);
+
+        // (b) ユーザー記録の distinct（type=custom・10分キャッシュ・上限500＝軽量化）
+        $userValues = Cache::remember("garage_parts_suggest_{$column}", 600, function () use ($column) {
+            return MaintenanceLog::query()
+                ->where('type', 'custom')
+                ->whereNotNull($column)
+                ->where($column, '!=', '')
+                ->distinct()
+                ->limit(500)
+                ->pluck($column)
+                ->all();
+        });
+
+        // マージ＋重複除去（順序維持）
+        $pool = array_values(array_unique(array_merge($seed, $userValues)));
+
+        // 前方一致を優先し、その後に部分一致（どちらも大文字小文字を無視）
+        $needle = mb_strtolower($q);
+        $prefix = [];
+        $partial = [];
+        foreach ($pool as $cand) {
+            $pos = mb_strpos(mb_strtolower((string) $cand), $needle);
+            if ($pos === 0) {
+                $prefix[] = $cand;
+            } elseif ($pos !== false) {
+                $partial[] = $cand;
+            }
+        }
+
+        return array_slice(array_merge($prefix, $partial), 0, $limit);
     }
 }
