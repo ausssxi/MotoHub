@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\BikeModel;
-use App\Models\Listing;
+use App\Services\Bike\ClassRankingService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
 use Intervention\Image\Geometry\Factories\CircleFactory;
@@ -43,19 +41,11 @@ final class GenerateClassRankingImage extends Command
 
     private const HEIGHT = 1080;
 
-    /** 排気量帯定義（site 既存の $ccRanges / comparison.php と一致＝126-250 を 250クラスとする） */
-    private const RANGES = [
-        '125' => [0, 125],
-        '250' => [126, 250],
-        '400' => [251, 400],
-        '大型' => [401, null],
-    ];
-
     private string $fontPath;
 
     private bool $hasFont;
 
-    public function handle(): int
+    public function handle(ClassRankingService $ranking): int
     {
         $this->fontPath = storage_path('app/fonts/NotoSansJP-Bold.ttf');
         $this->hasFont = file_exists($this->fontPath);
@@ -63,71 +53,33 @@ final class GenerateClassRankingImage extends Command
             $this->warn('フォント未検出（NotoSansJP-Bold.ttf）。GDビットマップfontで描画します（日本語が化ける可能性あり）。');
         }
 
-        $displacement = (string) $this->option('displacement');
-        if (! isset(self::RANGES[$displacement])) {
-            $this->error("無効な排気量帯: {$displacement}（125 / 250 / 400 / 大型）");
+        $input = (string) $this->option('displacement');
+        $class = ClassRankingService::normalizeClass($input);
+        if ($class === null) {
+            $this->error("無効な排気量帯: {$input}（125 / 250 / 400 / 大型）");
 
             return self::FAILURE;
         }
 
         $limit = max(3, min(15, (int) $this->option('limit')));
-        [$min, $max] = self::RANGES[$displacement];
         // --min/--max が指定されたら排気量範囲を上書き（厳密な 226-250 等を出したい時）。
-        if ($this->option('min') !== null && $this->option('min') !== '') {
-            $min = (int) $this->option('min');
-        }
-        if ($this->option('max') !== null && $this->option('max') !== '') {
-            $max = (int) $this->option('max');
-        }
-        $rangeText = $max !== null ? "{$min}-{$max}cc" : "{$min}cc〜";
-        $this->info("対象排気量: {$rangeText} / 上位{$limit}車種 / 在庫(売り切れ除外)");
+        $min = ($this->option('min') !== null && $this->option('min') !== '') ? (int) $this->option('min') : null;
+        $max = ($this->option('max') !== null && $this->option('max') !== '') ? (int) $this->option('max') : null;
+        $this->info("対象クラス: {$class} / 上位{$limit}車種 / 在庫(売り切れ除外)".($min !== null || $max !== null ? "（範囲上書き min={$min} max={$max}）" : ''));
 
-        // 在庫(is_sold_out=false)を車種別に COUNT・降順。売り切れ(cappedSold/excludeBulkSold)は使わない。
-        $query = Listing::where('listings.is_sold_out', false)
-            ->whereNotNull('listings.bike_model_id')
-            ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
-            ->whereNotNull('bike_models.displacement')
-            ->where('bike_models.displacement', '>', 0)
-            ->where('bike_models.displacement', '>=', $min);
-        if ($max !== null) {
-            $query->where('bike_models.displacement', '<=', $max);
-        }
-
-        $rankings = $query
-            ->select('listings.bike_model_id', DB::raw('COUNT(*) as stock_count'), DB::raw('AVG(listings.total_price) as avg_price'))
-            ->groupBy('listings.bike_model_id')
-            ->orderByDesc('stock_count')
-            ->limit($limit)
-            ->get();
-
-        if ($rankings->count() < 3) {
-            $this->error("{$displacement}クラスのデータが不足しています（{$rankings->count()}件・最低3件必要）。");
+        // 集計は画像コマンドとデータAPIで共有（ClassRankingService）。
+        $rows = $ranking->classRanking($class, $limit, $min, $max);
+        if (count($rows) < 3) {
+            $this->error("{$input}クラスのデータが不足しています（".count($rows).'件・最低3件必要）。');
 
             return self::FAILURE;
         }
 
-        $models = BikeModel::with('manufacturer')
-            ->whereIn('id', $rankings->pluck('bike_model_id'))
-            ->get()
-            ->keyBy('id');
-
-        $rows = [];
-        foreach ($rankings->values() as $i => $row) {
-            $model = $models->get($row->bike_model_id);
-            $rows[] = [
-                'rank' => $i + 1,
-                'name' => $model?->displayLabel() ?? '不明',
-                'maker' => $model?->manufacturer?->name ?? '',
-                'count' => (int) $row->stock_count,
-                'avg' => $row->avg_price ? (int) round($row->avg_price / 10000) : null,
-            ];
-        }
-
-        $label = $displacement === '大型' ? '大型バイク（401cc〜）' : "{$displacement}ccクラス";
-        $path = $this->render($rows, $label, $displacement);
+        $label = $class === 'large' ? '大型バイク（401cc〜）' : "{$class}ccクラス";
+        $path = $this->render($rows, $label, $class);
 
         $full = Storage::disk('public')->path($path);
-        $this->info("掲載台数ランキング画像を生成しました（{$rankings->count()}車種）:");
+        $this->info('掲載台数ランキング画像を生成しました（'.count($rows).'車種）:');
         $this->line($full);
         $this->line('※画像内の台数・相場が実データと一致するか目視確認してください。');
 
@@ -135,9 +87,9 @@ final class GenerateClassRankingImage extends Command
     }
 
     /**
-     * @param  array<int, array{rank:int,name:string,maker:string,count:int,avg:?int}>  $rows
+     * @param  array<int, array{rank:int,model:string,maker:string,count:int,avg_price_man:?int}>  $rows
      */
-    private function render(array $rows, string $label, string $displacement): string
+    private function render(array $rows, string $label, string $class): string
     {
         $manager = new ImageManager(new GdDriver);
         $image = $manager->create(self::WIDTH, self::HEIGHT);
@@ -167,7 +119,7 @@ final class GenerateClassRankingImage extends Command
         $this->drawText($image, 'MotoHub（motohub.jp）', (int) (self::WIDTH / 2), self::HEIGHT - 52, 26, '#ffffff', 'center');
 
         $date = now()->format('Y-m-d');
-        $path = "x-images/class-ranking-{$displacement}-{$date}.png";
+        $path = "x-images/class-ranking-{$class}-{$date}.png";
         Storage::disk('public')->makeDirectory('x-images');
         Storage::disk('public')->put($path, $image->toPng()->toString());
 
@@ -175,20 +127,20 @@ final class GenerateClassRankingImage extends Command
     }
 
     /**
-     * @param  array{rank:int,name:string,maker:string,count:int,avg:?int}  $row
+     * @param  array{rank:int,model:string,maker:string,count:int,avg_price_man:?int}  $row
      */
     private function drawRow(\Intervention\Image\Image $image, array $row, int $y): void
     {
         $this->drawMedal($image, $row['rank'], 78, $y + 8);
 
-        $this->drawText($image, $row['name'], 150, $y + 2, 28, '#ffffff', 'left');
+        $this->drawText($image, $row['model'], 150, $y + 2, 28, '#ffffff', 'left');
         if ($row['maker'] !== '') {
             $this->drawText($image, $row['maker'], 150, $y + 40, 15, '#9aa3b2', 'left');
         }
 
         $this->drawText($image, number_format($row['count']).'台', self::WIDTH - 70, $y + 2, 30, '#3b82f6', 'right');
-        if ($row['avg'] !== null) {
-            $this->drawText($image, '平均'.number_format($row['avg']).'万円', self::WIDTH - 70, $y + 42, 15, '#9aa3b2', 'right');
+        if ($row['avg_price_man'] !== null) {
+            $this->drawText($image, '平均'.number_format($row['avg_price_man']).'万円', self::WIDTH - 70, $y + 42, 15, '#9aa3b2', 'right');
         }
     }
 
