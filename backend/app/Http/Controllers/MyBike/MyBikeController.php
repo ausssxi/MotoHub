@@ -16,6 +16,7 @@ use App\Services\MyBike\FuelOcrService;
 use App\Services\MyBike\MyBikeImageService;
 use App\Services\MyBike\MyBikeService;
 use App\Services\MyBike\RecordOcrService;
+use App\Services\Parts\ProductSearchService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -554,5 +555,36 @@ class MyBikeController extends Controller
         $models = $this->service->searchModels($keyword);
 
         return response()->json($models);
+    }
+
+    /**
+     * カスタム記録のパーツ名 / ブランド サジェストAPI（第1段階＝自前完結・外部API不使用）。
+     * GET garage/api/parts-suggest?q=...&field=part|brand → 文字列フラット配列を返す。
+     */
+    public function partsSuggest(Request $request)
+    {
+        $q = (string) $request->query('q', '');
+        if (mb_strlen(trim($q)) < 1) {
+            return response()->json([]);
+        }
+
+        $field = $request->query('field') === 'brand' ? 'brand' : 'part';
+
+        return response()->json($this->service->suggestParts($field, $q));
+    }
+
+    /**
+     * カスタム記録の商品検索API（2a・「商品を探す」押下時のみ呼ばれる）。
+     * GET garage/api/parts-products?q=... → 楽天/Yahooの正規化済み商品候補。
+     * ProductSearchService がグレースフル（失敗時[]）なので 5xx を出さない。
+     */
+    public function partsProducts(Request $request, ProductSearchService $productSearch)
+    {
+        $q = trim((string) $request->query('q', ''));
+        if (mb_strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        return response()->json($productSearch->searchProducts($q, 20));
     }
 }

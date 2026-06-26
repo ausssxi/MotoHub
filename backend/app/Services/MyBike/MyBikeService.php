@@ -11,6 +11,7 @@ use App\Repositories\Bike\BikeModelRepository;
 use App\Repositories\MyBike\FuelLogRepository;
 use App\Repositories\MyBike\MaintenanceLogRepository;
 use App\Repositories\MyBike\MyBikeRepository;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 final class MyBikeService
@@ -660,6 +661,8 @@ final class MyBikeService
     {
         $data['type'] = MaintenanceLog::TYPE_CUSTOM;
         $data['title'] = $data['part_name'] ?? null;
+        // 商品連携フィールドを正規化（取得日時はサーバ側で付与）。
+        $data = array_merge($data, $this->productFields($data));
         $record = $myBike->customRecords()->create($data);
 
         if (! empty($data['odometer'])) {
@@ -667,6 +670,40 @@ final class MyBikeService
         }
 
         return $record;
+    }
+
+    /**
+     * カスタム記録の商品連携フィールドを正規化する（2a）。
+     * 商品が選ばれていれば取得日時を now() で付与。無ければ全て null
+     * （編集で商品を外した場合も確実にクリアされる）。
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function productFields(array $data): array
+    {
+        $hasProduct = ! empty($data['product_id']) && ! empty($data['product_mall']);
+        if (! $hasProduct) {
+            return [
+                'product_mall' => null,
+                'product_id' => null,
+                'product_name' => null,
+                'product_image_url' => null,
+                'product_price' => null,
+                'product_url' => null,
+                'product_price_fetched_at' => null,
+            ];
+        }
+
+        return [
+            'product_mall' => $data['product_mall'],
+            'product_id' => $data['product_id'],
+            'product_name' => $data['product_name'] ?? null,
+            'product_image_url' => $data['product_image_url'] ?? null,
+            'product_price' => isset($data['product_price']) && $data['product_price'] !== '' ? (int) $data['product_price'] : null,
+            'product_url' => $data['product_url'] ?? null,
+            'product_price_fetched_at' => now(),
+        ];
     }
 
     /**
@@ -757,7 +794,8 @@ final class MyBikeService
     {
         return DB::transaction(function () use ($myBike, $recordId, $data) {
             $record = MaintenanceLog::where('my_bike_id', $myBike->id)->custom()->findOrFail($recordId);
-            $record->update([
+            // 商品連携は明示ホワイトリストに含めないと更新時に消えるため array_merge で必ず反映。
+            $record->update(array_merge([
                 'maintained_at' => $data['maintained_at'],
                 'part_name' => $data['part_name'],
                 'title' => $data['part_name'] ?? null,
@@ -768,7 +806,7 @@ final class MyBikeService
                 'vendor' => $data['vendor'] ?? null,
                 'note' => $data['note'] ?? null,
                 'is_installed' => ! empty($data['is_installed']) && $data['is_installed'],
-            ]);
+            ], $this->productFields($data)));
             $this->recomputeCurrentOdometer($myBike);
 
             return $record;
@@ -794,5 +832,60 @@ final class MyBikeService
             'text' => "{$m->manufacturer->name} {$m->name}",
             'image' => $m->image_url,
         ])->toArray();
+    }
+
+    /**
+     * カスタム記録「パーツ名 / ブランド」サジェスト（第1段階＝自前完結・外部API不使用）。
+     *
+     * (a) config/parts-suggest.php の定番リスト ＋ (b) ユーザーが過去に記録した値
+     * （maintenance_logs の type='custom' の distinct）をマージし、入力 $q に
+     * 前方一致→部分一致の順で最大 $limit 件返す。
+     * (b) は10分キャッシュ＋上限500で、毎キーストロークでDBを叩かない（軽量）。
+     *
+     * @param  string  $field  'part'|'brand'
+     * @return array<int, string>
+     */
+    public function suggestParts(string $field, string $q, int $limit = 8): array
+    {
+        $q = trim($q);
+        if ($q === '') {
+            return [];
+        }
+
+        $column = $field === 'brand' ? 'brand' : 'part_name';
+        $configKey = $field === 'brand' ? 'parts-suggest.brands' : 'parts-suggest.parts';
+
+        // (a) 定番リスト（config・即時／インメモリ）
+        $seed = config($configKey, []);
+
+        // (b) ユーザー記録の distinct（type=custom・10分キャッシュ・上限500＝軽量化）
+        $userValues = Cache::remember("garage_parts_suggest_{$column}", 600, function () use ($column) {
+            return MaintenanceLog::query()
+                ->where('type', 'custom')
+                ->whereNotNull($column)
+                ->where($column, '!=', '')
+                ->distinct()
+                ->limit(500)
+                ->pluck($column)
+                ->all();
+        });
+
+        // マージ＋重複除去（順序維持）
+        $pool = array_values(array_unique(array_merge($seed, $userValues)));
+
+        // 前方一致を優先し、その後に部分一致（どちらも大文字小文字を無視）
+        $needle = mb_strtolower($q);
+        $prefix = [];
+        $partial = [];
+        foreach ($pool as $cand) {
+            $pos = mb_strpos(mb_strtolower((string) $cand), $needle);
+            if ($pos === 0) {
+                $prefix[] = $cand;
+            } elseif ($pos !== false) {
+                $partial[] = $cand;
+            }
+        }
+
+        return array_slice(array_merge($prefix, $partial), 0, $limit);
     }
 }
