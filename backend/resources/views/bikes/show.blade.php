@@ -41,7 +41,16 @@
 
     <x-slot:metaDescription>{{ implode('。', array_filter($descParts)) }}。</x-slot:metaDescription>
 
-    <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
+    {{-- meta robots を UA で出し分け（車両詳細）。
+         Bingbot のみ index,follow（Bing は車両系で上位・評価が高いため開放）。
+         Google含むその他の bot と人間は従来どおり noindex,follow を維持。
+         ※本文HTMLは全UA共通でクローキングではない（変えるのは robots 指示値だけ）。
+         ※UA詐称対策(reverse DNS による正規Bingbot検証)は未実装。必要になれば
+           ここを controller 側のフラグ＋RDNS検証へ差し替える設計余地を残す。 --}}
+    @php
+        $isBingbot = str_contains(strtolower(request()->userAgent() ?? ''), 'bingbot');
+    @endphp
+    <x-slot:robotsMeta>{{ $isBingbot ? 'index, follow' : 'noindex, follow' }}</x-slot:robotsMeta>
 
     {{-- OGP画像は常に自動生成の相場比較グラフ（deal_ogp）を使う。
          販売店写真（$listing->images）は販売店の著作物のためOGP/SNSカードには使わない。 --}}
