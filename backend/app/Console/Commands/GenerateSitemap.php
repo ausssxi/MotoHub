@@ -1090,6 +1090,41 @@ class GenerateSitemap extends Command
         $this->info(" -> {$newsCount} URL (Original News)");
 
         // =========================================================
+        // 6.11. 在庫あり車両詳細サイトマップ (sitemap-listings-1.xml)
+        //   目的: Bing向けに車両詳細 /bikes/{数字} を発見させる（Googleはrobots.txtで
+        //   /bikes/0..9 を遮断済みのため、このURLはBing用。Google側はサイトマップに
+        //   載っても robots ブロックでクロールせず「ブロック済み」警告になるだけで実害なし）。
+        //   段階リリース: bargain_score 降順の上限 N 件のみ。売り切れ(is_sold_out=true)は対象外。
+        //   先頭の glob クリーンアップ(sitemap-listings-*.xml)で毎回再生成される。
+        // =========================================================
+        $this->info('在庫あり車両詳細サイトマップを生成中...');
+        $listingFileName = 'sitemap-listings-1.xml';
+        $handle = $this->openSitemap($listingFileName);
+        $sitemapFiles[] = $listingFileName;
+        $listingCount = 0;
+
+        // 上限N件(段階リリース)。idx_active_bargain(is_sold_out, bargain_score)を利用。
+        $listingSitemapLimit = 2000;
+        Listing::where('is_sold_out', false)
+            ->whereNotNull('bargain_score')
+            ->orderByDesc('bargain_score')
+            ->limit($listingSitemapLimit)
+            ->get(['id', 'updated_at'])
+            ->each(function ($listing) use ($handle, &$listingCount) {
+                $this->writeUrl(
+                    $handle,
+                    route('bikes.show', $listing->id),
+                    $listing->updated_at->toDateString(),
+                    'daily',
+                    '0.5'
+                );
+                $listingCount++;
+            });
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$listingCount} URL (In-stock Listings, bargain_score上位{$listingSitemapLimit})");
+
+        // =========================================================
         // 7. サイトマップインデックス (目次) の生成
         // =========================================================
         $this->info('インデックスファイル (sitemap.xml) を生成中...');

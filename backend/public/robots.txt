@@ -21,6 +21,44 @@ Disallow: /pages/widget
 Disallow: /shops/map
 Disallow: /riders-map
 
+# Googlebot専用グループ。
+# 重要: robotsはUA毎に「最も具体的な1グループ」だけが適用され *グループは継承されない。
+# そのため上の User-agent:* の共通Disallowをここに複製している(複製しないとGoogleがadmin/api等を再クロールしてしまう)。
+# 追加目的: 数字ID個別の車両詳細 /bikes/{数字} のみGoogleのクロールを遮断しクロールバジェットを節約。
+#   - /bikes/{メーカー}/{モデル} 等のモデルページは mfrSlug が [a-z] 始まり制約(routes/web.php:274 ほか)のため
+#     数字始まりになり得ず巻き込まない。/bikes/area・catalog・cc・type 等のLPも全て英字始まりで不該当。
+#   - 該当は /bikes/{数字}(車両詳細, web.php:236) と /bikes/{数字}/ogp.png(web.php:239) のみ。
+#   - Bingには開放する(Bingbotは下の User-agent:* に従い未ブロックのまま)。meta robotsでBingのみindex,follow。
+User-agent: Googlebot
+Disallow: /admin
+Disallow: /api/
+Disallow: /auth/
+Disallow: /login
+Disallow: /register
+Disallow: /password
+Disallow: /email/
+Disallow: /bikes/search
+Disallow: /bikes?
+Disallow: /bikes/compare?*
+Disallow: /wishlist
+Disallow: /parts/search
+Disallow: /bikes/new-arrivals/
+Disallow: /bikes/price-drops/
+Disallow: /pages/widget
+Disallow: /shops/map
+Disallow: /riders-map
+# ↓Google専用追加: 数字ID始まりの車両詳細ページのみ遮断(0-9の各先頭文字を列挙)
+Disallow: /bikes/0
+Disallow: /bikes/1
+Disallow: /bikes/2
+Disallow: /bikes/3
+Disallow: /bikes/4
+Disallow: /bikes/5
+Disallow: /bikes/6
+Disallow: /bikes/7
+Disallow: /bikes/8
+Disallow: /bikes/9
+
 User-agent: YandexBot
 Disallow: /
 
