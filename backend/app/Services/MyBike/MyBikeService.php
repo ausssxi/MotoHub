@@ -661,6 +661,8 @@ final class MyBikeService
     {
         $data['type'] = MaintenanceLog::TYPE_CUSTOM;
         $data['title'] = $data['part_name'] ?? null;
+        // 商品連携フィールドを正規化（取得日時はサーバ側で付与）。
+        $data = array_merge($data, $this->productFields($data));
         $record = $myBike->customRecords()->create($data);
 
         if (! empty($data['odometer'])) {
@@ -668,6 +670,40 @@ final class MyBikeService
         }
 
         return $record;
+    }
+
+    /**
+     * カスタム記録の商品連携フィールドを正規化する（2a）。
+     * 商品が選ばれていれば取得日時を now() で付与。無ければ全て null
+     * （編集で商品を外した場合も確実にクリアされる）。
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function productFields(array $data): array
+    {
+        $hasProduct = ! empty($data['product_id']) && ! empty($data['product_mall']);
+        if (! $hasProduct) {
+            return [
+                'product_mall' => null,
+                'product_id' => null,
+                'product_name' => null,
+                'product_image_url' => null,
+                'product_price' => null,
+                'product_url' => null,
+                'product_price_fetched_at' => null,
+            ];
+        }
+
+        return [
+            'product_mall' => $data['product_mall'],
+            'product_id' => $data['product_id'],
+            'product_name' => $data['product_name'] ?? null,
+            'product_image_url' => $data['product_image_url'] ?? null,
+            'product_price' => isset($data['product_price']) && $data['product_price'] !== '' ? (int) $data['product_price'] : null,
+            'product_url' => $data['product_url'] ?? null,
+            'product_price_fetched_at' => now(),
+        ];
     }
 
     /**
@@ -758,7 +794,8 @@ final class MyBikeService
     {
         return DB::transaction(function () use ($myBike, $recordId, $data) {
             $record = MaintenanceLog::where('my_bike_id', $myBike->id)->custom()->findOrFail($recordId);
-            $record->update([
+            // 商品連携は明示ホワイトリストに含めないと更新時に消えるため array_merge で必ず反映。
+            $record->update(array_merge([
                 'maintained_at' => $data['maintained_at'],
                 'part_name' => $data['part_name'],
                 'title' => $data['part_name'] ?? null,
@@ -769,7 +806,7 @@ final class MyBikeService
                 'vendor' => $data['vendor'] ?? null,
                 'note' => $data['note'] ?? null,
                 'is_installed' => ! empty($data['is_installed']) && $data['is_installed'],
-            ]);
+            ], $this->productFields($data)));
             $this->recomputeCurrentOdometer($myBike);
 
             return $record;

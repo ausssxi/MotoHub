@@ -607,7 +607,7 @@
                             this.setV('m_odometer', this.L); this.setV('m_maintained_at', '{{ date('Y-m-d') }}'); this.checkOdo(this.L); this.scrollTop(); },
                         copyCustom(b) { const d = b.dataset; this.mode = 'custom'; this.editId = null; this.category = d.category || '';
                             this.setV('c_part', d.part); this.setV('c_brand', d.brand); this.setV('c_cost', d.cost); this.setV('c_vendor', d.vendor); this.setV('c_note', d.note);
-                            this.setV('c_odometer', this.L); this.setV('c_maintained_at', '{{ date('Y-m-d') }}'); this.checkOdo(this.L); this.scrollTop(); },
+                            this.setV('c_odometer', this.L); this.setV('c_maintained_at', '{{ date('Y-m-d') }}'); this.setProductFromData(d); this.checkOdo(this.L); this.scrollTop(); },
                         {{-- 編集: 既存記録をフォームに prefill し、PUT で更新（editId が action/_method を切替） --}}
                         editId: null,
                         editMaint(b) { const d = b.dataset; this.mode = 'maintenance'; this.editId = d.id; this.title = d.title;
@@ -617,8 +617,36 @@
                             this.setV('c_part', d.part); this.setV('c_brand', d.brand); this.setV('c_cost', d.cost); this.setV('c_vendor', d.vendor); this.setV('c_note', d.note);
                             this.setV('c_odometer', d.odometer); this.setV('c_maintained_at', d.date);
                             const ci = document.getElementById('c_installed'); if (ci) ci.checked = (d.installed === '1');
+                            this.setProductFromData(d);
                             this.checkOdo(d.odometer); this.scrollTop(); },
                         cancelEdit() { this.editId = null; },
+                        {{-- 商品連携（2a）: 「商品を探す」押下時のみ自前API経由で楽天/Yahoo検索（入力中は叩かない）。
+                             選択した商品スナップショットを hidden で送信し記録に紐づける。 --}}
+                        product: null, productResults: [], productLoading: false, productErr: '', productOpen: false,
+                        async searchProducts() {
+                            const part = (document.getElementById('c_part')?.value || '').trim();
+                            const brand = (document.getElementById('c_brand')?.value || '').trim();
+                            const q = (brand + ' ' + part).trim();
+                            this.productErr = ''; this.productOpen = true; this.productResults = [];
+                            if (q.length < 2) { this.productErr = '先にパーツ名を入力してください'; return; }
+                            this.productLoading = true;
+                            try {
+                                const res = await fetch('/garage/api/parts-products?q=' + encodeURIComponent(q), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                                const data = res.ok ? await res.json() : [];
+                                this.productResults = Array.isArray(data) ? data : [];
+                                if (!this.productResults.length) this.productErr = '商品が見つかりませんでした';
+                            } catch (e) {
+                                this.productErr = '商品の取得に失敗しました。時間をおいて再度お試しください';
+                            } finally { this.productLoading = false; this.$nextTick(() => window.lucide && window.lucide.createIcons()); }
+                        },
+                        pickProduct(p) { this.product = p; this.productResults = []; this.productOpen = false; this.productErr = ''; },
+                        clearProduct() { this.product = null; this.productResults = []; this.productOpen = false; this.productErr = ''; },
+                        setProductFromData(d) {
+                            if (d && d.productId && d.productMall) {
+                                this.product = { mall: d.productMall, product_id: d.productId, name: d.productName || '', image: d.productImage || '', price: d.productPrice ? parseInt(d.productPrice, 10) : 0, url: d.productUrl || '' };
+                            } else { this.product = null; }
+                            this.productResults = []; this.productOpen = false; this.productErr = '';
+                        },
                         {{-- OCR/voice 入力補完（給油と同じ流儀・type別） --}}
                         aiLoading: false, aiMsg: '', aiErr: '',
                         voiceOn: false, voiceRec: null,
@@ -815,6 +843,62 @@
                                     <div data-parts-suggest-box class="hidden absolute left-0 right-0 top-full mt-1 z-30 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden max-h-56 overflow-y-auto"></div>
                                 </div>
                             </div>
+                            {{-- 商品連携（2a・任意）。パーツ名を入れて「商品を探す」を押した時のみ楽天/Yahooを検索（入力中は叩かない）。
+                                 選んだ商品のスナップショットを hidden で送信して記録に紐づける。 --}}
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">商品を紐づける <span class="font-normal text-gray-300">任意・楽天/Yahoo</span></label>
+                                {{-- 送信用 hidden（選択時のみ値が入る。取得日時はサーバ側で付与） --}}
+                                <input type="hidden" name="product_mall" :value="product ? product.mall : ''">
+                                <input type="hidden" name="product_id" :value="product ? product.product_id : ''">
+                                <input type="hidden" name="product_name" :value="product ? product.name : ''">
+                                <input type="hidden" name="product_image_url" :value="product ? product.image : ''">
+                                <input type="hidden" name="product_price" :value="product ? product.price : ''">
+                                <input type="hidden" name="product_url" :value="product ? product.url : ''">
+
+                                {{-- 未選択: 「商品を探す」＋候補 --}}
+                                <template x-if="!product">
+                                    <div>
+                                        <button type="button" @click="searchProducts()" :disabled="productLoading"
+                                            class="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-purple-200 bg-purple-50 text-purple-700 text-xs font-bold hover:bg-purple-100 disabled:opacity-60 transition">
+                                            <i data-lucide="search" class="w-4 h-4"></i>
+                                            <span x-text="productLoading ? '検索中…' : '商品を探す'"></span>
+                                        </button>
+                                        <p x-show="productErr" x-cloak class="text-[11px] font-bold text-red-500 mt-1" x-text="productErr"></p>
+                                        <div x-show="productOpen && productResults.length" x-cloak class="mt-2 border border-gray-100 rounded-xl divide-y divide-gray-50 max-h-72 overflow-y-auto">
+                                            <template x-for="p in productResults" :key="p.mall + ':' + p.product_id + ':' + p.url">
+                                                <button type="button" @click="pickProduct(p)" class="flex items-center gap-3 w-full text-left p-2.5 hover:bg-purple-50 transition">
+                                                    <img :src="p.image" :alt="p.name" loading="lazy" class="w-12 h-12 object-cover rounded-lg bg-gray-100 shrink-0" onerror="this.style.visibility='hidden'">
+                                                    <div class="min-w-0 flex-1">
+                                                        <p class="text-xs font-bold text-gray-700 line-clamp-2" x-text="p.name"></p>
+                                                        <p class="text-xs font-black text-purple-700 mt-0.5">
+                                                            <span x-show="p.price">¥<span x-text="Number(p.price).toLocaleString()"></span></span>
+                                                            <span class="text-[10px] font-bold text-gray-400 ml-1" x-text="p.mall === 'rakuten' ? '楽天' : 'Yahoo'"></span>
+                                                        </p>
+                                                    </div>
+                                                </button>
+                                            </template>
+                                        </div>
+                                        {{-- PR表記（景表法・ステマ規制対応・候補表示時） --}}
+                                        <p x-show="productOpen" x-cloak class="text-[10px] text-gray-400 mt-1">PR・アフィリエイトリンクを含みます。価格・在庫は各モールでご確認ください。</p>
+                                    </div>
+                                </template>
+
+                                {{-- 選択済: プレビュー（PR表記つき） --}}
+                                <template x-if="product">
+                                    <div class="flex items-center gap-3 p-2.5 border border-purple-200 bg-purple-50 rounded-xl">
+                                        <img :src="product.image" :alt="product.name" class="w-12 h-12 object-cover rounded-lg bg-gray-100 shrink-0" onerror="this.style.visibility='hidden'">
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-xs font-bold text-gray-700 line-clamp-2" x-text="product.name"></p>
+                                            <p class="text-xs font-black text-purple-700 mt-0.5">
+                                                <span x-show="product.price">¥<span x-text="Number(product.price).toLocaleString()"></span></span>
+                                                <span class="text-[10px] font-bold text-gray-400 ml-1" x-text="product.mall === 'rakuten' ? '楽天' : 'Yahoo'"></span>
+                                                <span class="text-[10px] font-bold text-gray-300 ml-1">PR</span>
+                                            </p>
+                                        </div>
+                                        <button type="button" @click="clearProduct()" class="text-[11px] font-bold text-gray-400 hover:text-red-500 shrink-0">解除</button>
+                                    </div>
+                                </template>
+                            </div>
                             {{-- カテゴリ（タップ選択） --}}
                             <div>
                                 <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">カテゴリ <span class="font-normal text-gray-300">任意</span></label>
@@ -936,8 +1020,8 @@
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
                                     @if($c->cost)<div class="text-sm font-black text-purple-600">{{ number_format($c->cost) }}円</div>@endif
-                                    <button type="button" @click="editCustom($el)" data-id="{{ $c->id }}" data-part="{{ $c->part_name }}" data-brand="{{ $c->brand }}" data-category="{{ $c->category }}" data-cost="{{ $c->cost }}" data-vendor="{{ $c->vendor }}" data-note="{{ $c->note }}" data-odometer="{{ $c->odometer }}" data-date="{{ $c->maintained_at->format('Y-m-d') }}" data-installed="{{ $c->is_installed ? '1' : '0' }}" class="text-gray-300 hover:text-blue-600 hover:bg-blue-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" title="編集"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
-                                    <button type="button" @click="copyCustom($el)" data-part="{{ $c->part_name }}" data-brand="{{ $c->brand }}" data-category="{{ $c->category }}" data-cost="{{ $c->cost }}" data-vendor="{{ $c->vendor }}" data-note="{{ $c->note }}" class="text-gray-300 hover:text-purple-600 hover:bg-purple-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" title="前回と同じで記録"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+                                    <button type="button" @click="editCustom($el)" data-id="{{ $c->id }}" data-part="{{ $c->part_name }}" data-brand="{{ $c->brand }}" data-category="{{ $c->category }}" data-cost="{{ $c->cost }}" data-vendor="{{ $c->vendor }}" data-note="{{ $c->note }}" data-odometer="{{ $c->odometer }}" data-date="{{ $c->maintained_at->format('Y-m-d') }}" data-installed="{{ $c->is_installed ? '1' : '0' }}" data-product-mall="{{ $c->product_mall }}" data-product-id="{{ $c->product_id }}" data-product-name="{{ $c->product_name }}" data-product-image="{{ $c->product_image_url }}" data-product-price="{{ $c->product_price }}" data-product-url="{{ $c->product_url }}" class="text-gray-300 hover:text-blue-600 hover:bg-blue-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" title="編集"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+                                    <button type="button" @click="copyCustom($el)" data-part="{{ $c->part_name }}" data-brand="{{ $c->brand }}" data-category="{{ $c->category }}" data-cost="{{ $c->cost }}" data-vendor="{{ $c->vendor }}" data-note="{{ $c->note }}" data-product-mall="{{ $c->product_mall }}" data-product-id="{{ $c->product_id }}" data-product-name="{{ $c->product_name }}" data-product-image="{{ $c->product_image_url }}" data-product-price="{{ $c->product_price }}" data-product-url="{{ $c->product_url }}" class="text-gray-300 hover:text-purple-600 hover:bg-purple-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" title="前回と同じで記録"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
                                     <form action="{{ route('mybikes.records.destroy', [$myBike->id, $c->id]) }}" method="POST" onsubmit="return confirm('このカスタム記録を削除しますか？');">
                                         @csrf @method('DELETE')
                                         <button type="submit" class="text-gray-300 hover:text-red-600 hover:bg-red-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" aria-label="削除"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
@@ -945,6 +1029,19 @@
                                 </div>
                             </div>
                             @if($c->note)<div class="text-xs text-gray-500 bg-gray-50 p-2 rounded-lg mt-2 break-words">{{ $c->note }}</div>@endif
+                            {{-- 紐づけ商品（2a・スナップショット表示。リンクはアフィリエイト。rel=sponsoredでPR明示） --}}
+                            @if($c->product_id && $c->product_url)
+                            <a href="{{ $c->product_url }}" target="_blank" rel="nofollow sponsored noopener" class="flex items-center gap-3 mt-2 p-2 bg-purple-50/60 border border-purple-100 rounded-lg hover:bg-purple-50 transition">
+                                @if($c->product_image_url)
+                                <img src="{{ $c->product_image_url }}" alt="" loading="lazy" class="w-10 h-10 object-cover rounded-md bg-gray-100 shrink-0" onerror="this.style.visibility='hidden'">
+                                @endif
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-[11px] font-bold text-gray-700 line-clamp-1">{{ $c->product_name }}</p>
+                                    <p class="text-[11px] font-black text-purple-700">@if($c->product_price)¥{{ number_format($c->product_price) }}@endif<span class="text-[9px] font-bold text-gray-400 ml-1">{{ $c->product_mall === 'rakuten' ? '楽天' : 'Yahoo' }}・PR</span></p>
+                                </div>
+                                <i data-lucide="external-link" class="w-3.5 h-3.5 text-gray-300 shrink-0"></i>
+                            </a>
+                            @endif
                             @include('mybikes._record-photos', ['myBike' => $myBike, 'record' => $c])
                         </div>
                         @endforeach

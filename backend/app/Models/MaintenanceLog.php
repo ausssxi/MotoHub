@@ -42,6 +42,14 @@ class MaintenanceLog extends Model
         'brand',
         'category',
         'is_installed',
+        // custom 専用・商品連携（2a）
+        'product_mall',
+        'product_id',
+        'product_name',
+        'product_image_url',
+        'product_price',
+        'product_url',
+        'product_price_fetched_at',
     ];
 
     protected $casts = [
@@ -50,6 +58,8 @@ class MaintenanceLog extends Model
         'cost' => 'integer',
         'is_public' => 'boolean',
         'is_installed' => 'boolean',
+        'product_price' => 'integer',
+        'product_price_fetched_at' => 'datetime',
     ];
 
     protected $attributes = [
