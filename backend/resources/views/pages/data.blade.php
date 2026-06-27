@@ -68,7 +68,8 @@
 
                 {{-- エンドポイント --}}
                 <h3 class="text-sm font-black text-black mb-2 uppercase tracking-widest">エンドポイント</h3>
-                <pre class="bg-gray-900 text-gray-100 rounded-2xl p-4 text-xs sm:text-sm overflow-x-auto mb-8"><code>GET /api/v1/rankings/listings?class={クラス}</code></pre>
+                {{-- 配色はインラインstyle指定（Tailwindのパージに依存せず暗背景でのコントラストを保証） --}}
+                <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs sm:text-sm overflow-x-auto mb-8"><code><span style="color:#34d399;font-weight:700">GET</span> /api/v1/rankings/listings<span style="color:#94a3b8">?</span><span style="color:#7dd3fc">class</span><span style="color:#94a3b8">=</span><span style="color:#fcd34d">{クラス}</span></code></pre>
 
                 {{-- クラス一覧（RANGESから動的生成） --}}
                 <h3 class="text-sm font-black text-black mb-2 uppercase tracking-widest">クラス一覧（6種）</h3>
@@ -110,18 +111,19 @@
 
                 {{-- レスポンス例（実際の出力に合わせる） --}}
                 <h3 class="text-sm font-black text-black mb-2 uppercase tracking-widest">レスポンス例</h3>
-                <pre class="bg-gray-900 text-gray-100 rounded-2xl p-4 text-xs overflow-x-auto mb-3"><code>{
-  "class": "250",
-  "updated_at": "2026-06-27T09:00:00+09:00",
-  "source": "MotoHub (motohub.jp)",
-  "count": 20,
-  "rankings": [
+                {{-- 配色はインラインstyle指定（Tailwindパージに依存せず暗背景でのコントラストを保証）。key=水色/文字列=緑/数値=黄 --}}
+                <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs overflow-x-auto mb-3"><code>{
+  <span style="color:#7dd3fc">"class"</span>: <span style="color:#86efac">"250"</span>,
+  <span style="color:#7dd3fc">"updated_at"</span>: <span style="color:#86efac">"2026-06-27T09:00:00+09:00"</span>,
+  <span style="color:#7dd3fc">"source"</span>: <span style="color:#86efac">"MotoHub (motohub.jp)"</span>,
+  <span style="color:#7dd3fc">"count"</span>: <span style="color:#fcd34d">20</span>,
+  <span style="color:#7dd3fc">"rankings"</span>: [
     {
-      "rank": 1,
-      "model": "レブル250",
-      "maker": "ホンダ",
-      "count": 1009,
-      "avg_price_man": 59
+      <span style="color:#7dd3fc">"rank"</span>: <span style="color:#fcd34d">1</span>,
+      <span style="color:#7dd3fc">"model"</span>: <span style="color:#86efac">"レブル250"</span>,
+      <span style="color:#7dd3fc">"maker"</span>: <span style="color:#86efac">"ホンダ"</span>,
+      <span style="color:#7dd3fc">"count"</span>: <span style="color:#fcd34d">1009</span>,
+      <span style="color:#7dd3fc">"avg_price_man"</span>: <span style="color:#fcd34d">59</span>
     }
   ]
 }</code></pre>
