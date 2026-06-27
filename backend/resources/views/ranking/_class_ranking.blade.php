@@ -23,10 +23,10 @@
 
     @foreach($classRanking as $class => $data)
     <div x-show="tab === '{{ $class }}'" x-cloak>
-        <h3 class="text-sm font-black text-gray-900 mb-1">{{ $data['label'] }} 中古バイクの流通台数ランキング</h3>
+        <h3 class="text-sm font-black text-gray-900 mb-1">{{ $data['heading'] }} 中古バイクの流通台数ランキング</h3>
         @if(!empty($data['rows']))
         {{-- データ解説文（インデックス対策・top1を動的出力） --}}
-        <p class="text-[11px] text-gray-500 mb-3">{{ $data['label'] }}クラスでは、現在「{{ $data['rows'][0]['model'] }}」が最も多く中古市場に流通しています（掲載中{{ number_format($data['rows'][0]['count']) }}台）。</p>
+        <p class="text-[11px] text-gray-500 mb-3">{{ $data['heading'] }}クラスでは、現在「{{ $data['rows'][0]['model'] }}」が最も多く中古市場に流通しています（掲載中{{ number_format($data['rows'][0]['count']) }}台）。</p>
 
         @php $maxCount = collect($data['rows'])->max('count') ?: 1; @endphp
         <div class="space-y-1">
@@ -45,6 +45,13 @@
                     <span class="text-sm font-black {{ $rank <= 10 ? 'text-gray-700' : 'text-gray-400' }}">{{ $rank }}</span>
                     @endif
                 </div>
+
+                {{-- 車両画像（TOP20=_model_ranking と同じソース(image_url)・サイズ・プレースホルダ挙動） --}}
+                <a href="{{ $modelLink }}" class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 block">
+                    @if(!empty($row['image_url']))
+                    <img src="{{ $row['image_url'] }}" alt="" class="w-full h-full object-cover" loading="lazy" onerror="this.style.display='none'">
+                    @endif
+                </a>
 
                 {{-- 車種名・メーカー（車種ページへ内部リンク・既存と同じ張り方） --}}
                 <div class="flex-1 min-w-0">

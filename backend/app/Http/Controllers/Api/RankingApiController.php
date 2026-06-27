@@ -22,8 +22,9 @@ final class RankingApiController extends Controller
     private const CACHE_TTL = 3600;    // 1時間（データは日次更新で十分・重い再集計を毎回走らせない）
 
     /**
-     * GET /api/v1/rankings/listings?class={125|250|400|large}
+     * GET /api/v1/rankings/listings?class={50|125|250|400|middle|large}
      * クラス別の掲載台数ランキング（在庫数・降順）を返す。
+     * 受理クラスは ClassRankingService::RANGES と一致（サイト表示と同じ集計＝数字も一致）。
      */
     public function listings(Request $request, ClassRankingService $service): JsonResponse
     {
@@ -38,7 +39,7 @@ final class RankingApiController extends Controller
         }
 
         try {
-            $payload = Cache::remember("api_v1_rankings_listings_{$class}", self::CACHE_TTL, function () use ($service, $class) {
+            $payload = Cache::remember("api_v1_rankings_listings_v2_{$class}", self::CACHE_TTL, function () use ($service, $class) {
                 return [
                     'generated_at' => now()->toIso8601String(),
                     'rankings' => $service->classRanking($class, self::LIMIT),

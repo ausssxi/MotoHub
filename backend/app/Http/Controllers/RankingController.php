@@ -37,25 +37,47 @@ final class RankingController extends Controller
     }
 
     /**
+     * 排気量クラス別タブの表示メタ。1箇所で変えればタブ・見出しに反映される。
+     *   label   … タブのボタン表示
+     *   heading … H3見出し／解説文の接頭（「○○ 中古バイクの流通台数ランキング」「○○クラスでは…」）
+     * ※ middle のラベル「401〜750cc」は仮（画面確認後に「ナナハン」「中型」等へ変更しうる）。
+     *   キー・表示順は ClassRankingService::RANGES と一致させること。
+     *
+     * @var array<string, array{label: string, heading: string}>
+     */
+    private const CLASS_STOCK_META = [
+        '50' => ['label' => '原付（~50cc）', 'heading' => '50cc'],
+        '125' => ['label' => '125cc', 'heading' => '125cc'],
+        '250' => ['label' => '250cc', 'heading' => '250cc'],
+        '400' => ['label' => '400cc', 'heading' => '400cc'],
+        'middle' => ['label' => '401〜750cc', 'heading' => '401〜750cc'],
+        'large' => ['label' => '大型（751cc〜）', 'heading' => '大型（751cc〜）'],
+    ];
+
+    /**
      * 排気量クラス別の「流通台数（掲載中の在庫数）」ランキング。販売=成約とは別指標。
      * 集計はデータAPIと同じ ClassRankingService（数字を一致させる）。各クラス1時間キャッシュで
-     * 毎回の重い集計を避ける。サイト内リンク用に bike_model_id / seo_url 付き（withLinks=true）。
+     * 毎回の重い集計を避ける。サイト内リンク・サムネ用に bike_model_id / seo_url / image_url
+     * 付き（withLinks=true）。キャッシュキーは v2（6区分化で400/largeの帯が変わったため旧キーと分離）。
      *
-     * @return array<string, array{label: string, rows: array<int, array<string, mixed>>}>
+     * @return array<string, array{label: string, heading: string, rows: array<int, array<string, mixed>>}>
      */
     private function getClassStockRanking(): array
     {
         $service = app(ClassRankingService::class);
-        $labels = ['125' => '125cc', '250' => '250cc', '400' => '400cc', 'large' => '大型'];
 
         $out = [];
-        foreach (['125', '250', '400', 'large'] as $class) {
+        foreach (['50', '125', '250', '400', 'middle', 'large'] as $class) {
             $rows = Cache::remember(
-                "ranking_page_class_stock_{$class}",
+                "ranking_page_class_stock_v2_{$class}",
                 3600,
                 fn () => $service->classRanking($class, 10, null, null, true)
             );
-            $out[$class] = ['label' => $labels[$class] ?? $class, 'rows' => $rows];
+            $out[$class] = [
+                'label' => self::CLASS_STOCK_META[$class]['label'] ?? $class,
+                'heading' => self::CLASS_STOCK_META[$class]['heading'] ?? $class,
+                'rows' => $rows,
+            ];
         }
 
         return $out;
