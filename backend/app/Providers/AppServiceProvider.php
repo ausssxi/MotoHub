@@ -82,6 +82,17 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('voice-extract', fn (Request $request) => Limit::perDay((int) config('garage.voice_max_per_day', 40))
             ->by(optional($request->user())->id ?: $request->ip()));
 
+        // 外部データAPI（APIキー単位）。VerifyApiKey が api_key_id を request 属性へ入れる。
+        // 分・日の二段制限で乱用と負荷を防ぐ（キー未解決時は IP にフォールバック）。
+        RateLimiter::for('rankings-api', function (Request $request) {
+            $id = $request->attributes->get('api_key_id') ?: $request->ip();
+
+            return [
+                Limit::perMinute(10)->by('rankapi_min_'.$id),
+                Limit::perDay(100)->by('rankapi_day_'.$id),
+            ];
+        });
+
         Shop::observe(ShopObserver::class);
         Listing::observe(ListingObserver::class);
         Review::observe(ReviewObserver::class);

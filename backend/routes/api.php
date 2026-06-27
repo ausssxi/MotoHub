@@ -46,6 +46,12 @@ Route::post('/touring/suggest', [\App\Http\Controllers\Api\TouringPlannerControl
 // AIスマート検索API
 Route::post('/ai-search', [\App\Http\Controllers\Api\AiSearchController::class, 'search'])->middleware('throttle:ai-search');
 
+// 外部パートナー向け ランキングデータAPI（第1段階・限定提供）。
+// APIキー必須(api.key) + キー単位レート制限(throttle:rankings-api)。本番公開のGOは別途。
+Route::middleware(['api.key', 'throttle:rankings-api'])->prefix('v1')->group(function () {
+    Route::get('/rankings/listings', [\App\Http\Controllers\Api\RankingApiController::class, 'listings']);
+});
+
 // ブログ記事・ツーリングガイド マップピンAPI
 Route::get('/blog/map-pins', function (Request $request) {
     // map.jsは ne_lat/ne_lng/sw_lat/sw_lng を送信、手動テスト用に north/south/east/west もサポート

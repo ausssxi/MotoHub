@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'blog.cache' => \App\Http\Middleware\BlogCacheHeaders::class,
+            'api.key' => \App\Http\Middleware\VerifyApiKey::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
