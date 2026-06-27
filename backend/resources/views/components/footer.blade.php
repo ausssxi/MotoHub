@@ -115,6 +115,9 @@
                         <a href="{{ route('pages.widget') }}" class="footer-link">相場ウィジェット</a>
                     </li>
                     <li>
+                        <a href="{{ route('data') }}" class="footer-link">データ提供</a>
+                    </li>
+                    <li>
                         <a href="{{ route('riders.map') }}" class="footer-link">ライダーズマップ</a>
                     </li>
                     <li>
