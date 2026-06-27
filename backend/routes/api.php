@@ -50,6 +50,7 @@ Route::post('/ai-search', [\App\Http\Controllers\Api\AiSearchController::class, 
 // APIキー必須(api.key) + キー単位レート制限(throttle:rankings-api)。本番公開のGOは別途。
 Route::middleware(['api.key', 'throttle:rankings-api'])->prefix('v1')->group(function () {
     Route::get('/rankings/listings', [\App\Http\Controllers\Api\RankingApiController::class, 'listings']);
+    Route::get('/rankings/price-trends', [\App\Http\Controllers\Api\RankingApiController::class, 'priceTrends']);
 });
 
 // ブログ記事・ツーリングガイド マップピンAPI

@@ -137,6 +137,73 @@
                 <p class="text-sm text-gray-700 font-medium leading-relaxed">
                     データは一定時間（約1時間）キャッシュされ、概ね最新の状態で提供されます。
                 </p>
+
+                {{-- 相場推移ランキングAPI（値下がり/高騰） --}}
+                <div class="border-t border-gray-100 pt-8 mt-10">
+                    <h3 class="text-base font-black text-black mb-2 tracking-tight">相場推移ランキング（値下がり／高騰）</h3>
+                    <p class="text-sm text-gray-700 font-medium leading-relaxed mb-2">
+                        車種別の<strong class="text-black">相場推移（値下がり・高騰）ランキング</strong>を取得できます。現在の平均価格・過去の平均価格・変化額・変化率・対象期間を返します。
+                    </p>
+                    <p class="text-xs text-gray-500 leading-relaxed mb-6 bg-blue-50/50 border border-blue-100 rounded-xl p-3">
+                        比較期間：<strong class="text-gray-700">最新の日次平均価格</strong> vs <strong class="text-gray-700">約30日前の日次平均価格</strong>。並び順は「変化額」が大きい順です（変化率順ではありません）。
+                    </p>
+
+                    {{-- エンドポイント --}}
+                    <h4 class="text-xs font-black text-black mb-2 uppercase tracking-widest">エンドポイント</h4>
+                    <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs sm:text-sm overflow-x-auto mb-6"><code><span style="color:#34d399;font-weight:700">GET</span> /api/v1/rankings/price-trends<span style="color:#94a3b8">?</span><span style="color:#7dd3fc">direction</span><span style="color:#94a3b8">=</span><span style="color:#fcd34d">{down|up}</span></code></pre>
+
+                    {{-- パラメータ --}}
+                    <h4 class="text-xs font-black text-black mb-2 uppercase tracking-widest">パラメータ</h4>
+                    <div class="overflow-x-auto mb-6">
+                        <table class="w-full text-sm border border-gray-100 rounded-2xl overflow-hidden">
+                            <thead>
+                                <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                                    <th class="text-left font-black px-4 py-3">direction</th>
+                                    <th class="text-left font-black px-4 py-3">内容</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3"><code class="bg-gray-100 text-blue-600 font-bold px-2 py-0.5 rounded">down</code></td>
+                                    <td class="px-4 py-3 font-bold text-gray-700">値下がりランキング</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3"><code class="bg-gray-100 text-blue-600 font-bold px-2 py-0.5 rounded">up</code></td>
+                                    <td class="px-4 py-3 font-bold text-gray-700">高騰ランキング</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- レスポンス例（実際の出力に合わせる） --}}
+                    <h4 class="text-xs font-black text-black mb-2 uppercase tracking-widest">レスポンス例</h4>
+                    <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs overflow-x-auto mb-3"><code>{
+  <span style="color:#7dd3fc">"direction"</span>: <span style="color:#86efac">"down"</span>,
+  <span style="color:#7dd3fc">"period"</span>: { <span style="color:#7dd3fc">"from"</span>: <span style="color:#86efac">"2026-05-28"</span>, <span style="color:#7dd3fc">"to"</span>: <span style="color:#86efac">"2026-06-27"</span>, <span style="color:#7dd3fc">"days"</span>: <span style="color:#fcd34d">30</span> },
+  <span style="color:#7dd3fc">"updated_at"</span>: <span style="color:#86efac">"2026-06-27T09:00:00+09:00"</span>,
+  <span style="color:#7dd3fc">"source"</span>: <span style="color:#86efac">"MotoHub (motohub.jp)"</span>,
+  <span style="color:#7dd3fc">"count"</span>: <span style="color:#fcd34d">30</span>,
+  <span style="color:#7dd3fc">"rankings"</span>: [
+    {
+      <span style="color:#7dd3fc">"rank"</span>: <span style="color:#fcd34d">1</span>,
+      <span style="color:#7dd3fc">"model"</span>: <span style="color:#86efac">"車種名"</span>,
+      <span style="color:#7dd3fc">"maker"</span>: <span style="color:#86efac">"メーカー名"</span>,
+      <span style="color:#7dd3fc">"current_price_man"</span>: <span style="color:#fcd34d">403.7</span>,
+      <span style="color:#7dd3fc">"past_price_man"</span>: <span style="color:#fcd34d">916.7</span>,
+      <span style="color:#7dd3fc">"diff_man"</span>: <span style="color:#fcd34d">-513.0</span>,
+      <span style="color:#7dd3fc">"rate_pct"</span>: <span style="color:#fcd34d">-56.0</span>,
+      <span style="color:#7dd3fc">"count"</span>: <span style="color:#fcd34d">5</span>
+    }
+  ]
+}</code></pre>
+                    <ul class="text-xs text-gray-500 leading-relaxed mb-4 space-y-1">
+                        <li><code class="text-gray-700">current_price_man</code> / <code class="text-gray-700">past_price_man</code>：現在・過去の平均価格（万円）</li>
+                        <li><code class="text-gray-700">diff_man</code>：変化額（万円・マイナス＝値下がり） / <code class="text-gray-700">rate_pct</code>：変化率（％） / <code class="text-gray-700">count</code>：掲載台数</li>
+                    </ul>
+                    <p class="text-xs text-gray-500 leading-relaxed">
+                        ※認証（APIキー）・レート制限（10/分・100/日）・データの鮮度は、上記の流通台数APIと共通です。
+                    </p>
+                </div>
             </section>
 
             {{-- 4. 利用について --}}
