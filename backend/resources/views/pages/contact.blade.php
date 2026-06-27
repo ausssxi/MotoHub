@@ -90,13 +90,16 @@
                 <!-- 項目 -->
                 <div class="space-y-2">
                     <label for="category" class="text-xs font-black text-black uppercase tracking-widest">お問い合わせ項目</label>
+                    {{-- 事前選択: バリデーション差し戻し時は old()、無ければ ?category= クエリ（/data からの導線で api を初期選択） --}}
+                    @php $selectedCategory = old('category', request('category')); @endphp
                     <select id="category" name="category" required
                         class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition cursor-pointer @error('category') border-red-300 @enderror">
                         <option value="">選択してください</option>
-                        <option value="feedback" {{ old('category') === 'feedback' ? 'selected' : '' }}>サービスへのご要望・改善案</option>
-                        <option value="report" {{ old('category') === 'report' ? 'selected' : '' }}>不具合・誤情報の報告</option>
-                        <option value="business" {{ old('category') === 'business' ? 'selected' : '' }}>ビジネス・提携に関するご相談</option>
-                        <option value="other" {{ old('category') === 'other' ? 'selected' : '' }}>その他</option>
+                        <option value="feedback" {{ $selectedCategory === 'feedback' ? 'selected' : '' }}>サービスへのご要望・改善案</option>
+                        <option value="report" {{ $selectedCategory === 'report' ? 'selected' : '' }}>不具合・誤情報の報告</option>
+                        <option value="business" {{ $selectedCategory === 'business' ? 'selected' : '' }}>ビジネス・提携に関するご相談</option>
+                        <option value="api" {{ $selectedCategory === 'api' ? 'selected' : '' }}>API利用・データ提供について</option>
+                        <option value="other" {{ $selectedCategory === 'other' ? 'selected' : '' }}>その他</option>
                     </select>
                     @error('category') <p class="text-[10px] text-red-500 font-bold uppercase">{{ $message }}</p> @enderror
                 </div>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Services\Bike\ClassRankingService;
 use App\Services\Bike\ListingSearchService;
 use App\Mail\ContactMail;
 use App\Http\Requests\ContactRequest; // 追加
@@ -104,5 +105,38 @@ final class PageController extends Controller
     public function widget()
     {
         return view('pages.widget');
+    }
+
+    /**
+     * データAPI 紹介ページ（/data）の表示
+     *
+     * APIの受け皿（PR・Zenn・自社ブログからの着地点）。クラス一覧表の排気量列は
+     * ClassRankingService::RANGES から動的生成し、APIの実帯と必ず一致させる。
+     * 「内容」列だけは表示用ラベル（原付/中型/大型 等）を別途付与。
+     *
+     * @return View データAPI紹介ページのビュー
+     */
+    public function data(): View
+    {
+        // 表示用の「内容」ラベル（排気量帯そのものは RANGES から生成＝ズレ防止）
+        $contentLabels = [
+            '50' => '原付',
+            '125' => '125cc',
+            '250' => '250cc',
+            '400' => '400cc',
+            'middle' => '中型',
+            'large' => '大型',
+        ];
+
+        $classRows = [];
+        foreach (ClassRankingService::RANGES as $class => [$min, $max]) {
+            $classRows[] = [
+                'class' => $class,
+                'content' => $contentLabels[$class] ?? $class,
+                'cc' => $max === null ? "{$min}cc〜" : "{$min}〜{$max}cc",
+            ];
+        }
+
+        return view('pages.data', ['classRows' => $classRows]);
     }
 }

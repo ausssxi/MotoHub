@@ -18,6 +18,7 @@
             'feedback' => 'サービスへのご要望・改善案',
             'report'   => '不具合・誤情報の報告',
             'business' => 'ビジネス・提携に関するご相談',
+            'api'      => 'API利用・データ提供について',
             'other'    => 'その他',
         ];
         echo $categories[$data['category']] ?? '不明';

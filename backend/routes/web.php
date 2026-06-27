@@ -425,6 +425,9 @@ Route::prefix('pages')->name('pages.')->group(function () {
     Route::get('/widget', [PageController::class, 'widget'])->name('widget');
 });
 
+// データAPI 紹介ページ（PR/Zenn/ブログからの受け皿・公開URLは /data）
+Route::get('/data', [PageController::class, 'data'])->name('data');
+
 // バイク4択クイズ
 Route::view('/quiz', 'quiz.index')->name('quiz');
 
