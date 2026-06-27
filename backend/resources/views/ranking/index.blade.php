@@ -55,6 +55,9 @@
         {{-- 車種ランキング --}}
         @include('ranking._model_ranking', ['modelRanking' => $ranking['modelRanking'], 'limit' => 30])
 
+        {{-- 排気量別 流通台数ランキング（在庫数・販売とは別指標。データAPIと同じ集計） --}}
+        @include('ranking._class_ranking', ['classRanking' => $classRanking])
+
         {{-- メーカー別 --}}
         @include('ranking._maker_ranking', ['makerRanking' => $ranking['makerRanking']])
 

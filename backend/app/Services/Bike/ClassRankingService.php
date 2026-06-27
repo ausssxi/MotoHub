@@ -58,9 +58,10 @@ final class ClassRankingService
      * @param  string  $class  '125'|'250'|'400'|'large'（正規化済み前提・未知は空配列）
      * @param  int|null  $minOverride  排気量下限の上書き（厳密な226-250等にしたい時）
      * @param  int|null  $maxOverride  排気量上限の上書き
+     * @param  bool  $withLinks  true でサイト内リンク用に bike_model_id / seo_url も返す（API既定出力は false で不変）
      * @return array<int, array{rank:int, model:string, maker:string, count:int, avg_price_man:?int}>
      */
-    public function classRanking(string $class, int $limit = 20, ?int $minOverride = null, ?int $maxOverride = null): array
+    public function classRanking(string $class, int $limit = 20, ?int $minOverride = null, ?int $maxOverride = null, bool $withLinks = false): array
     {
         if (! isset(self::RANGES[$class])) {
             return [];
@@ -98,16 +99,24 @@ final class ClassRankingService
             ->get()
             ->keyBy('id');
 
-        return $rankings->values()->map(function ($row, $i) use ($models) {
+        return $rankings->values()->map(function ($row, $i) use ($models, $withLinks) {
             $model = $models->get($row->bike_model_id);
 
-            return [
+            $out = [
                 'rank' => $i + 1,
                 'model' => $model?->displayLabel() ?? '不明',
                 'maker' => $model?->manufacturer?->name ?? '',
                 'count' => (int) $row->stock_count,
                 'avg_price_man' => $row->avg_price ? (int) round($row->avg_price / 10000) : null,
             ];
+
+            // サイト内リンク用（API既定出力には含めない＝公開APIに内部IDを漏らさない）
+            if ($withLinks) {
+                $out['bike_model_id'] = (int) $row->bike_model_id;
+                $out['seo_url'] = $model?->seo_url;
+            }
+
+            return $out;
         })->all();
     }
 }

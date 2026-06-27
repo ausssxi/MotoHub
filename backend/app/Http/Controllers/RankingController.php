@@ -9,6 +9,7 @@ use App\Models\Listing;
 use App\Models\Manufacturer;
 use App\Models\Shop;
 use App\Services\Bike\BikePartsService;
+use App\Services\Bike\ClassRankingService;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -29,9 +30,35 @@ final class RankingController extends Controller
         return view('ranking.index', [
             'ranking' => $monthlyRanking,
             'dailySummary' => $dailySummary,
+            'classRanking' => $this->getClassStockRanking(),
             'year' => $now->year,
             'month' => $now->month,
         ]);
+    }
+
+    /**
+     * 排気量クラス別の「流通台数（掲載中の在庫数）」ランキング。販売=成約とは別指標。
+     * 集計はデータAPIと同じ ClassRankingService（数字を一致させる）。各クラス1時間キャッシュで
+     * 毎回の重い集計を避ける。サイト内リンク用に bike_model_id / seo_url 付き（withLinks=true）。
+     *
+     * @return array<string, array{label: string, rows: array<int, array<string, mixed>>}>
+     */
+    private function getClassStockRanking(): array
+    {
+        $service = app(ClassRankingService::class);
+        $labels = ['125' => '125cc', '250' => '250cc', '400' => '400cc', 'large' => '大型'];
+
+        $out = [];
+        foreach (ClassRankingService::classes() as $class) {
+            $rows = Cache::remember(
+                "ranking_page_class_stock_{$class}",
+                3600,
+                fn () => $service->classRanking($class, 10, null, null, true)
+            );
+            $out[$class] = ['label' => $labels[$class] ?? $class, 'rows' => $rows];
+        }
+
+        return $out;
     }
 
     /**
