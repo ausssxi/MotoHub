@@ -188,6 +188,10 @@
                             <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
                             ツーリングガイド・スポット
                         </a>
+                        <a href="{{ route('data') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="database" class="w-3.5 h-3.5"></i>
+                            データ提供
+                        </a>
                     </div>
                 </div>
 
