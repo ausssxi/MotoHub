@@ -49,7 +49,7 @@ final class RankingController extends Controller
         $labels = ['125' => '125cc', '250' => '250cc', '400' => '400cc', 'large' => '大型'];
 
         $out = [];
-        foreach (ClassRankingService::classes() as $class) {
+        foreach (['125', '250', '400', 'large'] as $class) {
             $rows = Cache::remember(
                 "ranking_page_class_stock_{$class}",
                 3600,
