@@ -184,32 +184,26 @@ class Listing extends Model
 
     /**
      * 水増し対策: shop_id × bike_model_id の1日あたりカウントを最大5台に制限
-     * is_sold_out=true、掲載3日以上、日付範囲フィルタを含む
+     * is_sold_out=true、掲載3日以上、日付範囲フィルタを含む（成約判定 条件#1〜#3）。
+     *
+     * MySQL本番: 条件#1〜#3は日次バッチ listings:compute-capped-sold が事前計算し
+     *   listings.is_capped_sold に保存済み。ここでは期間フィルタ＋フラグ参照のみ
+     *   （重い ROW_NUMBER() ウィンドウ＝約14万行スキャンをリクエストパスから除去）。
+     *   判定ロジックの正本は ComputeCappedSold コマンド。フラグは毎日04:00に更新。
+     * sqlite(テスト): バッチ無し・小データのため従来のライブ・ウィンドウ計算を維持。
      */
     public function scopeCappedSold(Builder $query, Carbon $start, Carbon $end): Builder
     {
         $from = $start->copy()->startOfDay();
         $to = $end->copy()->endOfDay();
 
-        // 「掲載3日以上」の日付演算はドライバ依存のため分岐（migrationと同じパターン）。
-        // mysql側のSQL文字列は従来のまま一切変更しない（本番影響ゼロの保証）。
+        // MySQL本番: 事前計算フラグ参照（日境界スナップは従来と同一挙動）。
         if ($query->getConnection()->getDriverName() === 'mysql') {
-            return $query->whereRaw('listings.id IN (
-            SELECT id FROM (
-                SELECT id, ROW_NUMBER() OVER (
-                    PARTITION BY shop_id, bike_model_id, DATE(updated_at)
-                    ORDER BY updated_at
-                ) as rn
-                FROM listings
-                WHERE is_sold_out = 1
-                AND created_at <= updated_at - INTERVAL 3 DAY
-                AND updated_at BETWEEN ? AND ?
-            ) as capped
-            WHERE rn <= 5
-        )', [$from, $to]);
+            return $query->where('listings.is_capped_sold', 1)
+                ->whereBetween('listings.updated_at', [$from, $to]);
         }
 
-        // sqlite等: INTERVAL 3 DAY の等価構文（テスト環境用）
+        // sqlite等: INTERVAL 3 DAY の等価構文（テスト環境用・従来のライブ計算を維持）。
         return $query->whereRaw("listings.id IN (
             SELECT id FROM (
                 SELECT id, ROW_NUMBER() OVER (

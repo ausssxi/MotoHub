@@ -127,6 +127,13 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->withoutOverlapping()
                  ->appendOutputTo($specsLog);
 
+        // 成約判定フラグ(is_capped_sold)の日次事前計算 (04:00) — 出品収集後・各コンシューマの前に実行。
+        // 重い ROW_NUMBER() ウィンドウを1日1回ここで処理し、リクエスト時はフラグ参照のみにする。
+        $schedule->command('listings:compute-capped-sold')
+                 ->dailyAt('04:00')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/capped_sold.log'));
+
         // 一括sold_out除外IDの事前計算 (04:50) — ランキングウォーマーの前に実行
         $schedule->command('ranking:compute-bulk-exclusions')
                  ->dailyAt('04:50')
