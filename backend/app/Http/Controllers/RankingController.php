@@ -10,6 +10,7 @@ use App\Models\Manufacturer;
 use App\Models\Shop;
 use App\Services\Bike\BikePartsService;
 use App\Services\Bike\ClassRankingService;
+use App\Services\Bike\MarketStatsService;
 use App\Services\Bike\ModelStatsService;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
@@ -561,12 +562,9 @@ final class RankingController extends Controller
 
     private function buildPrefectureRanking($query)
     {
-        return (clone $query)->join('shops', 'listings.shop_id', '=', 'shops.id')
-            ->whereNotNull('shops.prefecture')
-            ->select('shops.prefecture', DB::raw('COUNT(*) as sold_count'))
-            ->groupBy('shops.prefecture')
-            ->orderByDesc('sold_count')
-            ->get();
+        // 都道府県別ランキングのロジックは MarketStatsService に集約（市場全体APIと共有）。
+        // 渡すクエリ（=CSVの $baseQuery）は不変なので、CSVエクスポートの出力・挙動は変わらない。
+        return app(MarketStatsService::class)->prefectureRanking($query);
     }
 
     private function streamCsv(string $filename, callable $writer): StreamedResponse
