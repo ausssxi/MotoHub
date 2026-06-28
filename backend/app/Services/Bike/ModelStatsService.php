@@ -132,17 +132,26 @@ final class ModelStatsService
             ->limit(10)
             ->get();
 
-        // 販売推移（過去6ヶ月）
+        // 販売推移（過去6ヶ月）。6ヶ月ぶんを1クエリの GROUP BY(年月) に集約し、
+        // cappedSold のウィンドウ実行を 6回→1回に削減（最適化C）。
+        // ※ cappedSold の per-day cap は PARTITION に DATE(updated_at) を含むため、
+        //   月別6ループでも6ヶ月一括でも各月の結果は同一（日は必ず単一の月に属する）。
+        $rangeStart = Carbon::now()->subMonths(5)->startOfMonth();
+        $rangeEnd = Carbon::now()->endOfMonth();
+        $monthlyAgg = Listing::cappedSold($rangeStart, $rangeEnd)->excludeBulkSold()
+            ->where('bike_model_id', $bikeModelId)
+            ->selectRaw('YEAR(listings.updated_at) as y, MONTH(listings.updated_at) as m, COUNT(*) as cnt')
+            ->groupBy('y', 'm')
+            ->get()
+            ->keyBy(fn ($r) => $r->y.'-'.$r->m);
+
         $monthlySales = [];
         for ($i = 5; $i >= 0; $i--) {
-            $ms = Carbon::now()->subMonths($i)->startOfMonth();
-            $me = Carbon::now()->subMonths($i)->endOfMonth();
+            $month = Carbon::now()->subMonths($i)->startOfMonth();
             $monthlySales[] = [
-                'month' => $ms->format('Y年n月'),
-                'label' => $ms->format('n月'),
-                'count' => Listing::cappedSold($ms, $me)->excludeBulkSold()
-                    ->where('bike_model_id', $bikeModelId)
-                    ->count(),
+                'month' => $month->format('Y年n月'),
+                'label' => $month->format('n月'),
+                'count' => (int) ($monthlyAgg->get($month->year.'-'.$month->month)->cnt ?? 0),
             ];
         }
 
