@@ -15,12 +15,23 @@
             'url' => url('/'),
             'logo' => [
                 '@type' => 'ImageObject',
-                'url' => asset('images/logo.png'),
+                'url' => asset('images/twitter_card.png'),
                 'width' => 512,
                 'height' => 512
             ],
             'description' => '日本最大級のバイク検索・比較プラットフォーム。GooBike、BDS、Webikeから一括検索！',
-            'sameAs' => []
+            'founder' => [
+                '@type' => 'Person',
+                'name' => '内田厚'
+            ],
+            'sameAs' => [
+                'https://x.com/motohub_jp',
+                'https://www.instagram.com/motohub.jp',
+                'https://www.youtube.com/@motohub_jp',
+                'https://www.tiktok.com/@motohub10',
+                'https://note.com/motuhub',
+                'https://qiita.com/ausssxi0'
+            ]
         ],
         [
             '@type' => 'WebSite',
