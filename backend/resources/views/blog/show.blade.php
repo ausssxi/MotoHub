@@ -60,8 +60,8 @@
             .blog-content pre code { background: transparent; color: inherit; padding: 0; }
             .blog-content blockquote { border-left: 4px solid #3b82f6; padding: 1rem 1.25rem; margin: 1.5rem 0; background: #eff6ff; border-radius: 0 0.5rem 0.5rem 0; color: #1e40af; }
             .blog-content img { max-width: 100%; border-radius: 0.75rem; margin: 1.5rem 0; }
-            .blog-content a { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; }
-            .blog-content a:hover { color: #1d4ed8; }
+            .blog-content a { color: #2563eb; text-decoration: none; }
+            .blog-content a:hover { color: #1d4ed8; text-decoration: underline; text-underline-offset: 2px; }
             .blog-content table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; font-size: 14px; }
             .blog-content th, .blog-content td { border: 1px solid #d1d5db; padding: 0.625rem 0.875rem; text-align: left; }
             .blog-content th { background: #f9fafb; font-weight: 600; }
