@@ -232,6 +232,9 @@
             {{-- 関連：ほかの症状の対処記事（修理記事のみ・公開済みの兄弟記事を列挙） --}}
             <x-trouble-related :post="$post" />
 
+            {{-- 関連記事（トピッククラスター・config/blog_clusters.php／クラスタ未所属では非描画） --}}
+            <x-blog-related :post="$post" />
+
             {{-- シリーズ全記事リスト --}}
             @if($seriesNav)
                 <details class="mt-8 bg-gray-50 rounded-xl border p-4">
