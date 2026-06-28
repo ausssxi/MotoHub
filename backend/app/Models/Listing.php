@@ -204,11 +204,12 @@ class Listing extends Model
         }
 
         // sqlite等: INTERVAL 3 DAY の等価構文（テスト環境用・従来のライブ計算を維持）。
+        // ORDER BY に id を加えタイブレーク（同一updated_atで決定的に）＝バッチ(ComputeCappedSold)と一致。
         return $query->whereRaw("listings.id IN (
             SELECT id FROM (
                 SELECT id, ROW_NUMBER() OVER (
                     PARTITION BY shop_id, bike_model_id, DATE(updated_at)
-                    ORDER BY updated_at
+                    ORDER BY updated_at, id
                 ) as rn
                 FROM listings
                 WHERE is_sold_out = 1

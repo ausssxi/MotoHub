@@ -52,7 +52,7 @@ final class ComputeCappedSold extends Command
                     SELECT id FROM (
                         SELECT id, ROW_NUMBER() OVER (
                             PARTITION BY shop_id, bike_model_id, DATE(updated_at)
-                            ORDER BY updated_at
+                            ORDER BY updated_at, id
                         ) as rn
                         FROM listings
                         WHERE is_sold_out = 1
