@@ -10,6 +10,7 @@ use App\Models\Manufacturer;
 use App\Models\Shop;
 use App\Services\Bike\BikePartsService;
 use App\Services\Bike\ClassRankingService;
+use App\Services\Bike\ModelStatsService;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -159,11 +160,8 @@ final class RankingController extends Controller
     {
         $bikeModel = BikeModel::with('manufacturer')->findOrFail($bikeModelId);
 
-        $stats = Cache::remember(
-            "model_stats_ranking_v6_{$bikeModelId}",
-            604800,
-            fn () => $this->getModelStats($bikeModelId),
-        );
+        // 集計は ModelStatsService に集約（データAPI /api/v1/models/{id}/stats と共有・同一キャッシュ）。
+        $stats = app(ModelStatsService::class)->getStats($bikeModelId);
 
         $activeCount = Listing::where('bike_model_id', $bikeModelId)
             ->where('is_sold_out', false)
@@ -517,118 +515,6 @@ final class RankingController extends Controller
         }
 
         return $days;
-    }
-
-    private function getModelStats(int $bikeModelId): array
-    {
-        $lastMonthStart = Carbon::now()->subMonth()->startOfMonth();
-        $lastMonthEnd = Carbon::now()->subMonth()->endOfMonth();
-        $threeMonthsAgo = Carbon::now()->subMonths(3);
-
-        $lastMonthSold = Listing::cappedSold($lastMonthStart, $lastMonthEnd)->excludeBulkSold()
-            ->where('bike_model_id', $bikeModelId)
-            ->count();
-
-        // 全車種中の順位
-        $allModelSales = Listing::cappedSold($lastMonthStart, $lastMonthEnd)->excludeBulkSold()
-            ->whereNotNull('bike_model_id')
-            ->select('bike_model_id', DB::raw('COUNT(*) as cnt'))
-            ->groupBy('bike_model_id')
-            ->orderByDesc('cnt')
-            ->get();
-
-        $rank = $allModelSales->search(fn ($item) => $item->bike_model_id == $bikeModelId);
-        $rank = $rank !== false ? $rank + 1 : null;
-
-        $avgDays = Listing::cappedSold($lastMonthStart, $lastMonthEnd)->excludeBulkSold()
-            ->where('bike_model_id', $bikeModelId)
-            ->selectRaw('AVG(DATEDIFF(updated_at, created_at)) as avg_days')
-            ->value('avg_days');
-
-        // 価格帯（過去3ヶ月）
-        $now = Carbon::now();
-        $priceRanges = Listing::cappedSold($threeMonthsAgo, $now)->excludeBulkSold()
-            ->where('bike_model_id', $bikeModelId)
-            ->whereNotNull('total_price')
-            ->select(DB::raw("
-                CASE
-                    WHEN total_price < 200000 THEN '〜20万円'
-                    WHEN total_price < 300000 THEN '20〜30万円'
-                    WHEN total_price < 400000 THEN '30〜40万円'
-                    WHEN total_price < 500000 THEN '40〜50万円'
-                    WHEN total_price < 700000 THEN '50〜70万円'
-                    WHEN total_price < 1000000 THEN '70〜100万円'
-                    ELSE '100万円〜'
-                END as price_range
-            "), DB::raw('COUNT(*) as cnt'))
-            ->groupBy('price_range')
-            ->orderByDesc('cnt')
-            ->get();
-
-        // 地域TOP10
-        $regionRanking = Listing::cappedSold($threeMonthsAgo, $now)->excludeBulkSold()
-            ->where('listings.bike_model_id', $bikeModelId)
-            ->join('shops', 'listings.shop_id', '=', 'shops.id')
-            ->whereNotNull('shops.prefecture')
-            ->select('shops.prefecture', DB::raw('COUNT(*) as cnt'))
-            ->groupBy('shops.prefecture')
-            ->orderByDesc('cnt')
-            ->limit(10)
-            ->get();
-
-        // 走行距離帯
-        $mileageRanges = Listing::cappedSold($threeMonthsAgo, $now)->excludeBulkSold()
-            ->where('bike_model_id', $bikeModelId)
-            ->whereNotNull('mileage')
-            ->select(DB::raw("
-                CASE
-                    WHEN mileage < 5000 THEN '〜5,000km'
-                    WHEN mileage < 10000 THEN '5,000〜10,000km'
-                    WHEN mileage < 20000 THEN '10,000〜20,000km'
-                    WHEN mileage < 30000 THEN '20,000〜30,000km'
-                    ELSE '30,000km〜'
-                END as mileage_range
-            "), DB::raw('COUNT(*) as cnt'))
-            ->groupBy('mileage_range')
-            ->orderByDesc('cnt')
-            ->get();
-
-        // 年式（新しい順）
-        $yearRanking = Listing::cappedSold($threeMonthsAgo, $now)->excludeBulkSold()
-            ->where('bike_model_id', $bikeModelId)
-            ->whereNotNull('model_year')
-            ->select('model_year', DB::raw('COUNT(*) as cnt'))
-            ->groupBy('model_year')
-            ->orderByDesc('model_year')
-            ->limit(10)
-            ->get();
-
-        // 販売推移（過去6ヶ月）
-        $monthlySales = [];
-        for ($i = 5; $i >= 0; $i--) {
-            $ms = Carbon::now()->subMonths($i)->startOfMonth();
-            $me = Carbon::now()->subMonths($i)->endOfMonth();
-            $monthlySales[] = [
-                'month' => $ms->format('Y年n月'),
-                'label' => $ms->format('n月'),
-                'count' => Listing::cappedSold($ms, $me)->excludeBulkSold()
-                    ->where('bike_model_id', $bikeModelId)
-                    ->count(),
-            ];
-        }
-
-        return [
-            'lastMonthSold' => $lastMonthSold,
-            'rank' => $rank,
-            'totalModels' => $allModelSales->count(),
-            'avgDays' => (int) round((float) ($avgDays ?? 0)),
-            'dailyAvg' => round($lastMonthSold / 30, 1),
-            'priceRanges' => $priceRanges,
-            'regionRanking' => $regionRanking,
-            'mileageRanges' => $mileageRanges,
-            'yearRanking' => $yearRanking,
-            'monthlySales' => $monthlySales,
-        ];
     }
 
     private function buildModelRankingWithPrice($query, int $limit = 30): array

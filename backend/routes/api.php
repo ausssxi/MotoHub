@@ -51,6 +51,7 @@ Route::post('/ai-search', [\App\Http\Controllers\Api\AiSearchController::class, 
 Route::middleware(['api.key', 'throttle:rankings-api'])->prefix('v1')->group(function () {
     Route::get('/rankings/listings', [\App\Http\Controllers\Api\RankingApiController::class, 'listings']);
     Route::get('/rankings/price-trends', [\App\Http\Controllers\Api\RankingApiController::class, 'priceTrends']);
+    Route::get('/models/{modelId}/stats', [\App\Http\Controllers\Api\ModelStatsApiController::class, 'show'])->whereNumber('modelId');
 });
 
 // ブログ記事・ツーリングガイド マップピンAPI

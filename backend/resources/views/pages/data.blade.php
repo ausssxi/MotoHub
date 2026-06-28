@@ -204,6 +204,79 @@
                         ※認証（APIキー）・レート制限（10/分・100/日）・データの鮮度は、上記の流通台数APIと共通です。
                     </p>
                 </div>
+
+                {{-- 車種別 市場データAPI --}}
+                <div class="border-t border-gray-100 pt-8 mt-10">
+                    <h3 class="text-base font-black text-black mb-2 tracking-tight">車種別 市場データ</h3>
+                    <p class="text-sm text-gray-700 font-medium leading-relaxed mb-2">
+                        車種ごとの<strong class="text-black">売れている地域・走行距離帯・年式・価格帯</strong>に加え、<strong class="text-black">先月の販売台数・平均在庫日数・6ヶ月の販売推移</strong>を1レスポンスで取得できます。
+                    </p>
+                    <p class="text-xs text-gray-500 leading-relaxed mb-6 bg-blue-50/50 border border-blue-100 rounded-xl p-3">
+                        集計対象：<strong class="text-gray-700">直近3ヶ月の成約データ</strong>に基づきます。サイトの車種分析ページと同じ集計のため、数字は一致します。
+                    </p>
+
+                    {{-- エンドポイント --}}
+                    <h4 class="text-xs font-black text-black mb-2 uppercase tracking-widest">エンドポイント</h4>
+                    <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs sm:text-sm overflow-x-auto mb-6"><code><span style="color:#34d399;font-weight:700">GET</span> /api/v1/models/<span style="color:#fcd34d">{model_id}</span>/stats</code></pre>
+
+                    {{-- パラメータ --}}
+                    <h4 class="text-xs font-black text-black mb-2 uppercase tracking-widest">パラメータ</h4>
+                    <div class="overflow-x-auto mb-6">
+                        <table class="w-full text-sm border border-gray-100 rounded-2xl overflow-hidden">
+                            <thead>
+                                <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                                    <th class="text-left font-black px-4 py-3">パラメータ</th>
+                                    <th class="text-left font-black px-4 py-3">内容</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3"><code class="bg-gray-100 text-blue-600 font-bold px-2 py-0.5 rounded">model_id</code></td>
+                                    <td class="px-4 py-3 font-bold text-gray-700">車種ID（数値）</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- レスポンス例 --}}
+                    <h4 class="text-xs font-black text-black mb-2 uppercase tracking-widest">レスポンス例</h4>
+                    <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs overflow-x-auto mb-3"><code>{
+  <span style="color:#7dd3fc">"model"</span>: <span style="color:#86efac">"YZF-R25"</span>,
+  <span style="color:#7dd3fc">"maker"</span>: <span style="color:#86efac">"ヤマハ"</span>,
+  <span style="color:#7dd3fc">"period"</span>: { <span style="color:#7dd3fc">"from"</span>: <span style="color:#86efac">"2026-03-28"</span>, <span style="color:#7dd3fc">"to"</span>: <span style="color:#86efac">"2026-06-27"</span>, <span style="color:#7dd3fc">"months"</span>: <span style="color:#fcd34d">3</span> },
+  <span style="color:#7dd3fc">"updated_at"</span>: <span style="color:#86efac">"2026-06-27T09:00:00+09:00"</span>,
+  <span style="color:#7dd3fc">"source"</span>: <span style="color:#86efac">"MotoHub (motohub.jp)"</span>,
+  <span style="color:#7dd3fc">"summary"</span>: {
+    <span style="color:#7dd3fc">"last_month_sold"</span>: <span style="color:#fcd34d">136</span>,
+    <span style="color:#7dd3fc">"market_rank"</span>: <span style="color:#fcd34d">31</span>,
+    <span style="color:#7dd3fc">"market_total"</span>: <span style="color:#fcd34d">2069</span>,
+    <span style="color:#7dd3fc">"avg_stock_days"</span>: <span style="color:#fcd34d">54</span>
+  },
+  <span style="color:#7dd3fc">"regions"</span>: [
+    { <span style="color:#7dd3fc">"rank"</span>: <span style="color:#fcd34d">1</span>, <span style="color:#7dd3fc">"prefecture"</span>: <span style="color:#86efac">"大阪府"</span>, <span style="color:#7dd3fc">"count"</span>: <span style="color:#fcd34d">120</span> }
+  ],
+  <span style="color:#7dd3fc">"mileage_ranges"</span>: [
+    { <span style="color:#7dd3fc">"range"</span>: <span style="color:#86efac">"〜5,000km"</span>, <span style="color:#7dd3fc">"count"</span>: <span style="color:#fcd34d">220</span> }
+  ],
+  <span style="color:#7dd3fc">"years"</span>: [
+    { <span style="color:#7dd3fc">"year"</span>: <span style="color:#fcd34d">2026</span>, <span style="color:#7dd3fc">"count"</span>: <span style="color:#fcd34d">63</span> }
+  ],
+  <span style="color:#7dd3fc">"price_ranges"</span>: [
+    { <span style="color:#7dd3fc">"range"</span>: <span style="color:#86efac">"50〜70万円"</span>, <span style="color:#7dd3fc">"count"</span>: <span style="color:#fcd34d">268</span> }
+  ],
+  <span style="color:#7dd3fc">"monthly_sales"</span>: [
+    { <span style="color:#7dd3fc">"month"</span>: <span style="color:#86efac">"2026-01"</span>, <span style="color:#7dd3fc">"count"</span>: <span style="color:#fcd34d">0</span> }
+  ]
+}</code></pre>
+                    <ul class="text-xs text-gray-500 leading-relaxed mb-4 space-y-1">
+                        <li><code class="text-gray-700">regions</code>：売れている地域TOP10 / <code class="text-gray-700">mileage_ranges</code>：走行距離帯 / <code class="text-gray-700">years</code>：年式</li>
+                        <li><code class="text-gray-700">price_ranges</code>：価格帯 / <code class="text-gray-700">monthly_sales</code>：直近6ヶ月の販売推移</li>
+                        <li><code class="text-gray-700">summary</code>：先月販売台数 / 市場順位 / 平均在庫日数</li>
+                    </ul>
+                    <p class="text-xs text-gray-500 leading-relaxed">
+                        ※認証（APIキー）・レート制限（10/分・100/日）は、上記の各APIと共通です。
+                    </p>
+                </div>
             </section>
 
             {{-- 4. 利用について --}}
