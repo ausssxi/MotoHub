@@ -29,7 +29,7 @@
                 'https://www.instagram.com/motohub.jp',
                 'https://www.youtube.com/@motohub_jp',
                 'https://www.tiktok.com/@motohub10',
-                'https://note.com/motuhub',
+                'https://note.com/motohub',
                 'https://qiita.com/ausssxi0'
             ]
         ],
