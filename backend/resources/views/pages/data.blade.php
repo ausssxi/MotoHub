@@ -66,53 +66,153 @@
             <section class="mb-16">
                 <h2 class="text-xl font-black text-black mb-6 tracking-tight">API仕様</h2>
 
-                {{-- エンドポイント --}}
-                <h3 class="text-sm font-black text-black mb-2 uppercase tracking-widest">エンドポイント</h3>
-                {{-- 配色はインラインstyle指定（Tailwindのパージに依存せず暗背景でのコントラストを保証） --}}
-                <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs sm:text-sm overflow-x-auto mb-8"><code><span style="color:#34d399;font-weight:700">GET</span> /api/v1/rankings/listings<span style="color:#94a3b8">?</span><span style="color:#7dd3fc">class</span><span style="color:#94a3b8">=</span><span style="color:#fcd34d">{クラス}</span></code></pre>
+                {{-- 共通仕様（全エンドポイント共通） --}}
+                <h3 class="text-base font-black text-black mb-3 tracking-tight">共通仕様</h3>
+                <div class="overflow-x-auto mb-4">
+                    <table class="w-full text-sm border border-gray-100 rounded-2xl overflow-hidden">
+                        <tbody class="divide-y divide-gray-100">
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3 font-black text-gray-500 whitespace-nowrap align-top w-32">ベースURL</td>
+                                <td class="px-4 py-3"><code class="bg-gray-100 text-blue-600 font-bold px-2 py-0.5 rounded">https://motohub.jp/api/v1</code></td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3 font-black text-gray-500 whitespace-nowrap align-top">認証</td>
+                                <td class="px-4 py-3 text-gray-700 font-medium"><code class="bg-gray-100 text-blue-600 font-bold px-1.5 py-0.5 rounded text-xs">X-API-Key</code> ヘッダ（または <code class="bg-gray-100 text-blue-600 font-bold px-1.5 py-0.5 rounded text-xs">?api_key=</code> クエリ）。キーは申請後に発行</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3 font-black text-gray-500 whitespace-nowrap align-top">レート制限</td>
+                                <td class="px-4 py-3 text-gray-700 font-medium">10リクエスト/分・100リクエスト/日（キー単位）</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3 font-black text-gray-500 whitespace-nowrap align-top">レスポンス形式</td>
+                                <td class="px-4 py-3 text-gray-700 font-medium">JSON（UTF-8）</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3 font-black text-gray-500 whitespace-nowrap align-top">source</td>
+                                <td class="px-4 py-3 text-gray-700 font-medium">全レスポンス共通で <code class="bg-gray-100 text-blue-600 font-bold px-1.5 py-0.5 rounded text-xs">"MotoHub (motohub.jp)"</code></td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3 font-black text-gray-500 whitespace-nowrap align-top">データの鮮度</td>
+                                <td class="px-4 py-3 text-gray-700 font-medium">約1時間キャッシュ（概ね最新）。相場推移は「最新の日次平均 vs 約30日前」が基準</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-xs text-gray-500 leading-relaxed mb-10 bg-amber-50 border border-amber-100 rounded-xl p-3">
+                    ※APIキーは申請（下記お問い合わせフォーム）後に個別発行いたします。実在のキーやその生成方法は本ページには記載していません。
+                </p>
 
-                {{-- クラス一覧（RANGESから動的生成） --}}
-                <h3 class="text-sm font-black text-black mb-2 uppercase tracking-widest">クラス一覧（6種）</h3>
-                <div class="overflow-x-auto mb-8">
+                {{-- エラーレスポンス（実挙動に一致） --}}
+                <h3 class="text-base font-black text-black mb-3 tracking-tight">エラーレスポンス</h3>
+                <div class="overflow-x-auto mb-4">
                     <table class="w-full text-sm border border-gray-100 rounded-2xl overflow-hidden">
                         <thead>
                             <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                                <th class="text-left font-black px-4 py-3">class値</th>
-                                <th class="text-left font-black px-4 py-3">内容</th>
-                                <th class="text-left font-black px-4 py-3">排気量</th>
+                                <th class="text-left font-black px-4 py-3 w-24">ステータス</th>
+                                <th class="text-left font-black px-4 py-3">意味</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
-                            @foreach($classRows as $row)
                             <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="px-4 py-3"><code class="bg-gray-100 text-blue-600 font-bold px-2 py-0.5 rounded">{{ $row['class'] }}</code></td>
-                                <td class="px-4 py-3 font-bold text-gray-700">{{ $row['content'] }}</td>
-                                <td class="px-4 py-3 text-gray-600">{{ $row['cc'] }}</td>
+                                <td class="px-4 py-3"><code class="bg-gray-100 text-blue-600 font-bold px-2 py-0.5 rounded">401</code></td>
+                                <td class="px-4 py-3 text-gray-700 font-medium">APIキー未指定 / 無効</td>
                             </tr>
-                            @endforeach
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3"><code class="bg-gray-100 text-blue-600 font-bold px-2 py-0.5 rounded">422</code></td>
+                                <td class="px-4 py-3 text-gray-700 font-medium">パラメータ不正（class / direction が未定義値 等）</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3"><code class="bg-gray-100 text-blue-600 font-bold px-2 py-0.5 rounded">404</code></td>
+                                <td class="px-4 py-3 text-gray-700 font-medium">対象が存在しない（存在しない model_id 等）</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3"><code class="bg-gray-100 text-blue-600 font-bold px-2 py-0.5 rounded">429</code></td>
+                                <td class="px-4 py-3 text-gray-700 font-medium">レート制限超過（10/分・100/日）</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-xs text-gray-500 leading-relaxed mb-2">エラー時は次の形式のJSONを返します（例は 422）。</p>
+                <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs overflow-x-auto mb-2"><code>{
+  <span style="color:#7dd3fc">"error"</span>: <span style="color:#86efac">"invalid_class"</span>,
+  <span style="color:#7dd3fc">"message"</span>: <span style="color:#86efac">"class は 50 / 125 / 250 / 400 / middle / large のいずれかを指定してください。"</span>,
+  <span style="color:#7dd3fc">"allowed"</span>: [<span style="color:#fcd34d">50</span>, <span style="color:#fcd34d">125</span>, <span style="color:#fcd34d">250</span>, <span style="color:#fcd34d">400</span>, <span style="color:#86efac">"middle"</span>, <span style="color:#86efac">"large"</span>]
+}</code></pre>
+                <p class="text-xs text-gray-500 leading-relaxed mb-10">※429（レート制限超過）は <code class="text-gray-700">{"message":"Too Many Attempts."}</code> を返し、<code class="text-gray-700">Retry-After</code> ヘッダを付与します。</p>
+
+                {{-- パラメータ早見表 --}}
+                <h3 class="text-base font-black text-black mb-3 tracking-tight">パラメータ早見表</h3>
+                <div class="overflow-x-auto mb-12">
+                    <table class="w-full text-sm border border-gray-100 rounded-2xl overflow-hidden">
+                        <thead>
+                            <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                                <th class="text-left font-black px-4 py-3">エンドポイント</th>
+                                <th class="text-left font-black px-4 py-3">パラメータ</th>
+                                <th class="text-left font-black px-4 py-3">指定できる値</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3"><code class="bg-gray-100 text-blue-600 font-bold px-2 py-0.5 rounded text-xs">/rankings/listings</code></td>
+                                <td class="px-4 py-3 font-bold text-gray-700">class</td>
+                                <td class="px-4 py-3 text-gray-600">@foreach($classRows as $i => $row){{ $i ? ' / ' : '' }}{{ $row['class'] }}（{{ $row['cc'] }}）@endforeach</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3"><code class="bg-gray-100 text-blue-600 font-bold px-2 py-0.5 rounded text-xs">/rankings/price-trends</code></td>
+                                <td class="px-4 py-3 font-bold text-gray-700">direction</td>
+                                <td class="px-4 py-3 text-gray-600">down（値下がり） / up（高騰）</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3"><code class="bg-gray-100 text-blue-600 font-bold px-2 py-0.5 rounded text-xs">/models/{model_id}/stats</code></td>
+                                <td class="px-4 py-3 font-bold text-gray-700">model_id</td>
+                                <td class="px-4 py-3 text-gray-600">車種ID（数値）</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
 
-                {{-- 認証 --}}
-                <h3 class="text-sm font-black text-black mb-2 uppercase tracking-widest">認証</h3>
-                <p class="text-sm text-gray-700 font-medium leading-relaxed mb-3">
-                    APIキー方式です。発行されたキーを <code class="bg-gray-100 text-blue-600 font-bold px-1.5 py-0.5 rounded text-xs">X-API-Key</code> ヘッダ、または <code class="bg-gray-100 text-blue-600 font-bold px-1.5 py-0.5 rounded text-xs">?api_key=</code> クエリパラメータで送信してください。
-                </p>
-                <p class="text-xs text-gray-500 leading-relaxed mb-8 bg-amber-50 border border-amber-100 rounded-xl p-3">
-                    ※APIキーは申請（下記お問い合わせフォーム）後に個別発行いたします。キーの発行・取り扱いについては、お申し込みいただいた方へ直接ご案内します。
-                </p>
+                {{-- ① 流通台数ランキング --}}
+                <div class="border-t border-gray-100 pt-8 mt-2">
+                    <h3 class="text-base font-black text-black mb-2 tracking-tight">① 流通台数ランキング</h3>
+                    <p class="text-sm text-gray-700 font-medium leading-relaxed mb-6">
+                        現在MotoHubに掲載中の中古バイク在庫を、排気量クラス別の台数ランキングで取得できます。指標は「いま市場に出ている台数」（売れた台数ではありません）。
+                    </p>
 
-                {{-- レート制限 --}}
-                <h3 class="text-sm font-black text-black mb-2 uppercase tracking-widest">レート制限</h3>
-                <p class="text-sm text-gray-700 font-medium leading-relaxed mb-8">
-                    キー単位で <strong class="text-black">10リクエスト/分</strong>、<strong class="text-black">100リクエスト/日</strong>です。
-                </p>
+                    {{-- エンドポイント --}}
+                    <h4 class="text-xs font-black text-black mb-2 uppercase tracking-widest">エンドポイント</h4>
+                    <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs sm:text-sm overflow-x-auto mb-6"><code><span style="color:#34d399;font-weight:700">GET</span> /api/v1/rankings/listings<span style="color:#94a3b8">?</span><span style="color:#7dd3fc">class</span><span style="color:#94a3b8">=</span><span style="color:#fcd34d">{クラス}</span></code></pre>
 
-                {{-- レスポンス例（実際の出力に合わせる） --}}
-                <h3 class="text-sm font-black text-black mb-2 uppercase tracking-widest">レスポンス例</h3>
-                {{-- 配色はインラインstyle指定（Tailwindパージに依存せず暗背景でのコントラストを保証）。key=水色/文字列=緑/数値=黄 --}}
-                <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs overflow-x-auto mb-3"><code>{
+                    {{-- クラス一覧（RANGESから動的生成） --}}
+                    <h4 class="text-xs font-black text-black mb-2 uppercase tracking-widest">クラス一覧（6種）</h4>
+                    <div class="overflow-x-auto mb-6">
+                        <table class="w-full text-sm border border-gray-100 rounded-2xl overflow-hidden">
+                            <thead>
+                                <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                                    <th class="text-left font-black px-4 py-3">class値</th>
+                                    <th class="text-left font-black px-4 py-3">内容</th>
+                                    <th class="text-left font-black px-4 py-3">排気量</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach($classRows as $row)
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3"><code class="bg-gray-100 text-blue-600 font-bold px-2 py-0.5 rounded">{{ $row['class'] }}</code></td>
+                                    <td class="px-4 py-3 font-bold text-gray-700">{{ $row['content'] }}</td>
+                                    <td class="px-4 py-3 text-gray-600">{{ $row['cc'] }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- curl実行例 --}}
+                    <h4 class="text-xs font-black text-black mb-2 uppercase tracking-widest">curl 実行例</h4>
+                    <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs sm:text-sm overflow-x-auto mb-6"><code><span style="color:#34d399;font-weight:700">curl</span> -H <span style="color:#86efac">"X-API-Key: YOUR_API_KEY"</span> \
+  <span style="color:#86efac">"https://motohub.jp/api/v1/rankings/listings?class=250"</span></code></pre>
+
+                    {{-- レスポンス例（実際の出力に合わせる） --}}
+                    <h4 class="text-xs font-black text-black mb-2 uppercase tracking-widest">レスポンス例</h4>
+                    <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs overflow-x-auto mb-3"><code>{
   <span style="color:#7dd3fc">"class"</span>: <span style="color:#86efac">"250"</span>,
   <span style="color:#7dd3fc">"updated_at"</span>: <span style="color:#86efac">"2026-06-27T09:00:00+09:00"</span>,
   <span style="color:#7dd3fc">"source"</span>: <span style="color:#86efac">"MotoHub (motohub.jp)"</span>,
@@ -127,16 +227,11 @@
     }
   ]
 }</code></pre>
-                <ul class="text-xs text-gray-500 leading-relaxed mb-8 space-y-1">
-                    <li><code class="text-gray-700">rank</code>：順位 / <code class="text-gray-700">model</code>：車種名 / <code class="text-gray-700">maker</code>：メーカー</li>
-                    <li><code class="text-gray-700">count</code>：流通台数（現在掲載中の在庫台数） / <code class="text-gray-700">avg_price_man</code>：平均価格（万円）</li>
-                </ul>
-
-                {{-- キャッシュ --}}
-                <h3 class="text-sm font-black text-black mb-2 uppercase tracking-widest">データの鮮度</h3>
-                <p class="text-sm text-gray-700 font-medium leading-relaxed">
-                    データは一定時間（約1時間）キャッシュされ、概ね最新の状態で提供されます。
-                </p>
+                    <ul class="text-xs text-gray-500 leading-relaxed mb-4 space-y-1">
+                        <li><code class="text-gray-700">rank</code>：順位 / <code class="text-gray-700">model</code>：車種名 / <code class="text-gray-700">maker</code>：メーカー</li>
+                        <li><code class="text-gray-700">count</code>：流通台数（現在掲載中の在庫台数） / <code class="text-gray-700">avg_price_man</code>：平均価格（万円）</li>
+                    </ul>
+                </div>
 
                 {{-- 相場推移ランキングAPI（値下がり/高騰） --}}
                 <div class="border-t border-gray-100 pt-8 mt-10">
@@ -175,6 +270,11 @@
                         </table>
                     </div>
 
+                    {{-- curl実行例 --}}
+                    <h4 class="text-xs font-black text-black mb-2 uppercase tracking-widest">curl 実行例</h4>
+                    <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs sm:text-sm overflow-x-auto mb-6"><code><span style="color:#34d399;font-weight:700">curl</span> -H <span style="color:#86efac">"X-API-Key: YOUR_API_KEY"</span> \
+  <span style="color:#86efac">"https://motohub.jp/api/v1/rankings/price-trends?direction=down"</span></code></pre>
+
                     {{-- レスポンス例（実際の出力に合わせる） --}}
                     <h4 class="text-xs font-black text-black mb-2 uppercase tracking-widest">レスポンス例</h4>
                     <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs overflow-x-auto mb-3"><code>{
@@ -201,7 +301,7 @@
                         <li><code class="text-gray-700">diff_man</code>：変化額（万円・マイナス＝値下がり） / <code class="text-gray-700">rate_pct</code>：変化率（％） / <code class="text-gray-700">count</code>：掲載台数</li>
                     </ul>
                     <p class="text-xs text-gray-500 leading-relaxed">
-                        ※認証（APIキー）・レート制限（10/分・100/日）・データの鮮度は、上記の流通台数APIと共通です。
+                        ※認証・レート制限・データの鮮度・エラー仕様は、ページ上部の「共通仕様」を参照してください。
                     </p>
                 </div>
 
@@ -237,6 +337,11 @@
                             </tbody>
                         </table>
                     </div>
+
+                    {{-- curl実行例 --}}
+                    <h4 class="text-xs font-black text-black mb-2 uppercase tracking-widest">curl 実行例</h4>
+                    <pre style="background:#0f172a;color:#e2e8f0" class="rounded-2xl p-4 text-xs sm:text-sm overflow-x-auto mb-6"><code><span style="color:#34d399;font-weight:700">curl</span> -H <span style="color:#86efac">"X-API-Key: YOUR_API_KEY"</span> \
+  <span style="color:#86efac">"https://motohub.jp/api/v1/models/1238/stats"</span></code></pre>
 
                     {{-- レスポンス例 --}}
                     <h4 class="text-xs font-black text-black mb-2 uppercase tracking-widest">レスポンス例</h4>
@@ -274,7 +379,7 @@
                         <li><code class="text-gray-700">summary</code>：先月販売台数 / 市場順位 / 平均在庫日数</li>
                     </ul>
                     <p class="text-xs text-gray-500 leading-relaxed">
-                        ※認証（APIキー）・レート制限（10/分・100/日）は、上記の各APIと共通です。
+                        ※認証・レート制限・エラー仕様は、ページ上部の「共通仕様」を参照してください。
                     </p>
                 </div>
             </section>
