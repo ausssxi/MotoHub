@@ -161,6 +161,10 @@
                             <i data-lucide="bot" class="w-3.5 h-3.5"></i>
                             AIで探す
                         </a>
+                        <a href="{{ route('pages.widget') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap" title="ブログに貼れる相場ウィジェット">
+                            <i data-lucide="code-2" class="w-3.5 h-3.5"></i>
+                            相場ウィジェット
+                        </a>
                         <a href="{{ route('parts.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
                             <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
                             パーツ
@@ -450,6 +454,15 @@
                 </div>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
             </a>
+            <a href="{{ route('pages.widget') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="code-2" class="w-4 h-4 text-blue-600"></i>
+                    </div>
+                    <p class="text-xs font-black text-gray-800">相場ウィジェット</p>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
 
             {{-- ゲームセクション --}}
             <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-4 mb-1 px-1">ゲーム</p>
@@ -530,6 +543,15 @@
                         <i data-lucide="map" class="w-4 h-4 text-teal-600"></i>
                     </div>
                     <p class="text-xs font-black text-gray-800">ライダーズマップ</p>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
+            <a href="{{ route('data') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="database" class="w-4 h-4 text-blue-600"></i>
+                    </div>
+                    <p class="text-xs font-black text-gray-800">データ提供</p>
                 </div>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
             </a>
