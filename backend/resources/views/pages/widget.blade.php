@@ -1,6 +1,73 @@
 <x-layout>
-    <x-slot:title>相場ウィジェット - あなたのブログに貼れる中古バイク相場 | MotoHub</x-slot:title>
-    <x-slot:metaDescription>MotoHubの中古バイク相場ウィジェットを無料であなたのブログやWebサイトに埋め込めます。リアルタイムの価格情報を自動更新で表示。</x-slot:metaDescription>
+    <x-slot:title>中古バイク相場ウィジェット｜バイク屋・ブログに無料で埋め込み | MotoHub</x-slot:title>
+    <x-slot:metaDescription>中古バイクの相場・買取価格をブログやWebサイトに無料で埋め込めるウィジェット。バイク屋のサイトやバイクブログにコピペで設置でき、価格は毎日自動更新。CB400SFなど車種別の相場をリアルタイム表示します。</x-slot:metaDescription>
+
+    <x-slot:styles>
+        <script type="application/ld+json">
+        {
+            "@@context": "https://schema.org",
+            "@@type": "WebApplication",
+            "name": "中古バイク相場ウィジェット",
+            "url": "{{ route('pages.widget') }}",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "All",
+            "description": "中古バイクの相場・買取価格をブログやWebサイトに無料で埋め込めるウィジェット。バイク屋のサイトやバイクブログにコピペで設置でき、価格は自動更新されます。",
+            "offers": {
+                "@@type": "Offer",
+                "price": "0",
+                "priceCurrency": "JPY"
+            },
+            "publisher": {
+                "@@type": "Organization",
+                "name": "MotoHub",
+                "url": "https://www.motohub.jp"
+            }
+        }
+        </script>
+        <script type="application/ld+json">
+        {
+            "@@context": "https://schema.org",
+            "@@type": "FAQPage",
+            "mainEntity": [
+                {
+                    "@@type": "Question",
+                    "name": "利用料金はかかりますか？",
+                    "acceptedAnswer": { "@@type": "Answer", "text": "完全無料です。個人ブログから法人メディア、バイク屋のホームページまで、料金は一切かかりません。" }
+                },
+                {
+                    "@@type": "Question",
+                    "name": "WordPressのブログにも貼れますか？",
+                    "acceptedAnswer": { "@@type": "Answer", "text": "はい。生成された埋め込みコードを「カスタムHTML」ブロックに貼り付けるだけで表示できます。" }
+                },
+                {
+                    "@@type": "Question",
+                    "name": "バイク屋（バイクショップ）のサイトでも使えますか？",
+                    "acceptedAnswer": { "@@type": "Answer", "text": "はい。商用サイトでもご利用いただけます。取扱車種の相場をお客様に提示する用途にも最適です。" }
+                },
+                {
+                    "@@type": "Question",
+                    "name": "相場データは更新されますか？",
+                    "acceptedAnswer": { "@@type": "Answer", "text": "MotoHubのデータベースから自動で最新の相場・買取価格に更新されます。貼り付け後の手間はありません。" }
+                },
+                {
+                    "@@type": "Question",
+                    "name": "どんな車種に対応していますか？",
+                    "acceptedAnswer": { "@@type": "Answer", "text": "CB400SFやNinja 250など、MotoHubが取り扱う幅広い中古バイクの車種に対応しています。車種名で検索して選ぶだけです。" }
+                }
+            ]
+        }
+        </script>
+        <script type="application/ld+json">
+        {
+            "@@context": "https://schema.org",
+            "@@type": "BreadcrumbList",
+            "itemListElement": [
+                { "@@type": "ListItem", "position": 1, "name": "ホーム", "item": "https://www.motohub.jp/" },
+                { "@@type": "ListItem", "position": 2, "name": "中古バイク相場ウィジェット", "item": "{{ route('pages.widget') }}" }
+            ]
+        }
+        </script>
+    </x-slot:styles>
 
     <x-slot:navigation>
         <x-navigation :showSearch="true" />
@@ -18,8 +85,8 @@
                     中古バイク相場ウィジェット
                 </h1>
                 <p class="text-gray-500 text-sm font-bold max-w-xl mx-auto">
-                    あなたのブログやWebサイトに、リアルタイムの中古バイク相場情報を埋め込めます。<br>
-                    コピペするだけ、無料、自動更新。
+                    バイク屋のサイトにも、バイクブログにも。<br>
+                    中古バイクの相場・買取価格を、無料でコピペ埋め込み。自動更新だから貼りっぱなしでOK。
                 </p>
             </div>
 
@@ -178,6 +245,33 @@
                         <h3 class="font-black text-gray-900 text-sm">カスタマイズ</h3>
                     </div>
                     <p class="text-xs text-gray-500">ライト/ダークテーマに対応。あなたのサイトデザインに馴染みます。</p>
+                </div>
+            </div>
+
+            {{-- よくある質問（FAQPage構造化データと内容を一致させること） --}}
+            <div class="mt-16 bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+                <h2 class="text-xl font-black text-gray-900 mb-8 text-center">よくある質問</h2>
+                <div class="max-w-2xl mx-auto divide-y divide-gray-100">
+                    <div class="py-4">
+                        <h3 class="font-black text-gray-900 text-sm mb-1">利用料金はかかりますか？</h3>
+                        <p class="text-xs text-gray-500 leading-relaxed">完全無料です。個人ブログから法人メディア、バイク屋のホームページまで、料金は一切かかりません。</p>
+                    </div>
+                    <div class="py-4">
+                        <h3 class="font-black text-gray-900 text-sm mb-1">WordPressのブログにも貼れますか？</h3>
+                        <p class="text-xs text-gray-500 leading-relaxed">はい。生成された埋め込みコードを「カスタムHTML」ブロックに貼り付けるだけで表示できます。</p>
+                    </div>
+                    <div class="py-4">
+                        <h3 class="font-black text-gray-900 text-sm mb-1">バイク屋（バイクショップ）のサイトでも使えますか？</h3>
+                        <p class="text-xs text-gray-500 leading-relaxed">はい。商用サイトでもご利用いただけます。取扱車種の相場をお客様に提示する用途にも最適です。</p>
+                    </div>
+                    <div class="py-4">
+                        <h3 class="font-black text-gray-900 text-sm mb-1">相場データは更新されますか？</h3>
+                        <p class="text-xs text-gray-500 leading-relaxed">MotoHubのデータベースから自動で最新の相場・買取価格に更新されます。貼り付け後の手間はありません。</p>
+                    </div>
+                    <div class="py-4">
+                        <h3 class="font-black text-gray-900 text-sm mb-1">どんな車種に対応していますか？</h3>
+                        <p class="text-xs text-gray-500 leading-relaxed">CB400SFやNinja 250など、MotoHubが取り扱う幅広い中古バイクの車種に対応しています。車種名で検索して選ぶだけです。</p>
+                    </div>
                 </div>
             </div>
         </div>
