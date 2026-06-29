@@ -106,6 +106,8 @@ class GenerateSitemap extends Command
             ['route' => 'parts.index',       'priority' => '0.7', 'freq' => 'weekly'],
 
             // ツール系
+            ['route' => 'pages.widget',      'priority' => '0.7', 'freq' => 'monthly'],
+            ['route' => 'data',              'priority' => '0.6', 'freq' => 'monthly'],
             ['route' => 'trouble.index',     'priority' => '0.6', 'freq' => 'monthly'],
             ['route' => 'bikes.compare',     'priority' => '0.5', 'freq' => 'daily'],
             ['route' => 'wishlist',          'priority' => '0.5', 'freq' => 'monthly'],
