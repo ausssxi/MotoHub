@@ -290,6 +290,13 @@ Route::prefix('shops')->name('shops.')->group(function () {
         Route::get('/{prefecture}/{city}', 'city')->name('city');
     });
 
+    // 整備・修理ショップ（repair_only）エリアページ
+    Route::prefix('repair')->name('repair.')->controller(\App\Http\Controllers\Shop\ShopRepairAreaController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/{prefecture}', 'prefecture')->name('prefecture');
+        Route::get('/{prefecture}/{city}', 'city')->name('city');
+    });
+
     // チェーン別まとめページ（/{id} の前に配置）
     Route::get('/chain/{chainSlug}', [ShopController::class, 'chainShow'])->name('chain');
 
