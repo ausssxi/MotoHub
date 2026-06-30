@@ -157,6 +157,23 @@
                             </label>
                         </div>
 
+                        {{-- バイク店向け（任意・ブロガーは空欄でOK） --}}
+                        <div class="mb-6 border-t border-gray-100 pt-4">
+                            <p class="text-xs font-black text-gray-700 mb-1 flex items-center gap-1.5">
+                                <i data-lucide="store" class="w-3.5 h-3.5 text-blue-500"></i>
+                                バイク店の方へ（任意）
+                            </p>
+                            <p class="text-[10px] text-gray-400 mb-3">
+                                ブログ用途の方は空欄でOK。お店のURLを入れると、相場の下に「在庫を見る」ボタンが追加されます。
+                            </p>
+                            <input type="text" id="widget-shop-name" placeholder="店名（例: レッドバロン世田谷）"
+                                   class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm mb-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                   autocomplete="off">
+                            <input type="url" id="widget-shop-url" placeholder="在庫ページのURL（https://...）"
+                                   class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                   autocomplete="off">
+                        </div>
+
                         {{-- 生成ボタン --}}
                         <button onclick="generateCode()" id="generate-btn" disabled
                                 class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-colors shadow-md">
@@ -336,13 +353,19 @@
 
             const theme = document.querySelector('input[name="widget-theme"]:checked').value;
             const showResale = document.getElementById('widget-show-resale').checked;
+            const shopName = document.getElementById('widget-shop-name').value.trim();
+            let shopUrl = document.getElementById('widget-shop-url').value.trim();
+            if (shopUrl && !/^https?:\/\//i.test(shopUrl)) shopUrl = 'https://' + shopUrl;
 
             // 埋め込みコード生成
+            let attrs = `data-model-id="${modelId}"`;
+            if (theme !== 'light') attrs += ` data-theme="${theme}"`;
+            if (!showResale) attrs += ` data-show-resale="false"`;
+            if (shopName) attrs += `\n     data-shop-name="${escapeAttr(shopName)}"`;
+            if (shopUrl) attrs += `\n     data-shop-url="${escapeAttr(shopUrl)}"`;
+
             let code = `<!-- MotoHub 相場ウィジェット -->\n`;
-            code += `<div id="motohub-price" data-model-id="${modelId}"`;
-            if (theme !== 'light') code += ` data-theme="${theme}"`;
-            if (!showResale) code += ` data-show-resale="false"`;
-            code += `></div>\n`;
+            code += `<div id="motohub-price" ${attrs}></div>\n`;
             code += `<script src="https://www.motohub.jp/widget/price.js" async><\/script>`;
 
             // コード表示
@@ -356,7 +379,7 @@
             fetch('/api/widget/price/' + modelId)
                 .then(r => r.json())
                 .then(data => {
-                    preview.innerHTML = renderPreview(data, theme, showResale);
+                    preview.innerHTML = renderPreview(data, theme, showResale, shopName, shopUrl);
                 })
                 .catch(() => {
                     preview.innerHTML = '<div style="text-align:center;padding:20px;color:#999;">プレビューを取得できませんでした</div>';
@@ -377,6 +400,14 @@
             return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         }
 
+        // 外部入力のURLを安全化: http/https のみ許可（javascript: 等を遮断）し属性用にエスケープ
+        function sanitizeUrl(u) {
+            if (!u) return '';
+            var t = String(u).trim();
+            if (!/^https?:\/\//i.test(t)) return '';
+            return escapeHtml(t);
+        }
+
         // テーマ変更時に自動プレビュー更新
         document.querySelectorAll('input[name="widget-theme"]').forEach(el => {
             el.addEventListener('change', () => { if (modelIdInput.value) generateCode(); });
@@ -384,8 +415,14 @@
         document.getElementById('widget-show-resale').addEventListener('change', () => {
             if (modelIdInput.value) generateCode();
         });
+        // バイク店フィールドの入力でプレビュー＆コードを更新
+        ['widget-shop-name', 'widget-shop-url'].forEach(function(id) {
+            document.getElementById(id).addEventListener('input', () => {
+                if (modelIdInput.value) generateCode();
+            });
+        });
 
-        function renderPreview(data, theme, showResale) {
+        function renderPreview(data, theme, showResale, shopName, shopUrl) {
             var isDark = theme === 'dark';
             var bg = isDark ? '#1a1a2e' : '#ffffff';
             var text = isDark ? '#e0e0e0' : '#1f2937';
@@ -428,6 +465,15 @@
             }
             html += '</div>';
 
+            // バイク店CTA（任意）— shopUrl がある場合のみ。無い場合は従来通り何も足さない
+            var safeShopUrl = sanitizeUrl(shopUrl);
+            if (safeShopUrl) {
+                var ctaLabel = (shopName ? escapeHtml(shopName) + 'の' : '') + '在庫を見る →';
+                html += '<div style="padding:0 20px 16px;">';
+                html += '<a href="'+safeShopUrl+'" target="_blank" rel="noopener nofollow" style="display:block;text-align:center;background:'+accent+';color:#ffffff;font-size:13px;font-weight:800;padding:12px;border-radius:10px;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,0.1);">'+ctaLabel+'</a>';
+                html += '</div>';
+            }
+
             // フッター
             html += '<div style="padding:12px 20px;border-top:1px solid '+border+';display:flex;align-items:center;justify-content:space-between;">';
             html += '<span style="font-size:11px;font-weight:700;color:'+accent+';">詳細を見る →</span>';
@@ -454,7 +500,7 @@
             fetch('/api/widget/price/' + DEMO_MODEL_ID)
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
-                    preview.innerHTML = renderPreview(data, 'light', true);
+                    preview.innerHTML = renderPreview(data, 'light', true, '', '');
                 })
                 .catch(function() {
                     preview.innerHTML = '<div style="text-align:center;padding:20px;color:#999;font-size:12px;">デモの読み込みに失敗しました</div>';

@@ -30,6 +30,9 @@
 
         var theme = container.getAttribute('data-theme') || 'light';
         var showResale = container.getAttribute('data-show-resale') !== 'false';
+        // バイク店向け（任意）: 在庫ページへのCTAを追加。未指定（ブロガー）の場合は従来表示のまま
+        var shopName = container.getAttribute('data-shop-name') || '';
+        var shopUrl = container.getAttribute('data-shop-url') || '';
 
         // ローディング表示
         container.innerHTML = '<div style="text-align:center;padding:20px;color:#999;font-size:12px;">読み込み中...</div>';
@@ -41,14 +44,14 @@
                 return res.json();
             })
             .then(function(data) {
-                container.innerHTML = renderWidget(data, theme, showResale);
+                container.innerHTML = renderWidget(data, theme, showResale, shopName, shopUrl);
             })
             .catch(function() {
                 container.innerHTML = '<div style="text-align:center;padding:20px;color:#999;font-size:12px;">データを取得できませんでした</div>';
             });
     });
 
-    function renderWidget(data, theme, showResale) {
+    function renderWidget(data, theme, showResale, shopName, shopUrl) {
         var isDark = theme === 'dark';
         var bg = isDark ? '#1a1a2e' : '#ffffff';
         var text = isDark ? '#e0e0e0' : '#1f2937';
@@ -98,6 +101,15 @@
 
         html += '</div>';
 
+        // バイク店CTA（任意）— data-shop-url がある場合のみ追加。無い場合は以下を一切出力せず従来通り
+        var safeShopUrl = sanitizeUrl(shopUrl);
+        if (safeShopUrl) {
+            var ctaLabel = (shopName ? escapeHtml(shopName) + 'の' : '') + '在庫を見る →';
+            html += '<div style="padding:0 20px 16px;">';
+            html += '<a href="' + safeShopUrl + '" target="_blank" rel="noopener nofollow" style="display:block;text-align:center;background:' + accent + ';color:#ffffff;font-size:13px;font-weight:800;padding:12px;border-radius:10px;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,0.1);">' + ctaLabel + '</a>';
+            html += '</div>';
+        }
+
         // フッター（被リンク！）
         html += '<div style="padding:12px 20px;border-top:1px solid ' + border + ';display:flex;align-items:center;justify-content:space-between;">';
         html += '<a href="' + detailUrl + '" target="_blank" rel="noopener" style="font-size:11px;font-weight:700;color:' + accent + ';text-decoration:none;">詳細を見る →</a>';
@@ -123,5 +135,13 @@
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // 外部入力のURLを安全化: http/https のみ許可（javascript: 等を遮断）し、属性用にエスケープ
+    function sanitizeUrl(u) {
+        if (!u) return '';
+        var t = String(u).trim();
+        if (!/^https?:\/\//i.test(t)) return '';
+        return escapeHtml(t);
     }
 })();
