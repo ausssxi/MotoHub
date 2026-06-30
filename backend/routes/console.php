@@ -11,6 +11,9 @@ Artisan::command('inspire', function () {
 // Shop市区町村バックフィル（毎日4:00 — 新規shop対応）
 Schedule::command('shops:backfill-city')->dailyAt('04:00');
 
+// Shop種別分類（毎週月曜5:00 — Webike店舗クロール後にservice_tagsからshop_typeを導出）
+Schedule::command('shops:classify')->weeklyOn(1, '05:00');
+
 // ブログ予約投稿チェック（毎分）
 Schedule::command('blog:publish-scheduled')->everyMinute();
 

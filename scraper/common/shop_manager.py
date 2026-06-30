@@ -43,6 +43,8 @@ class ShopManager:
                 self._update_shop_info(shop, data)
                 return shop
 
+        # （上記2分岐は _update_shop_info 内で service_tags を上書き済み）
+
         # 3. 店名と都道府県でチェック (最終手段)
         shop = self.db.query(Shop).filter(
             Shop.name == data['name'],
@@ -51,6 +53,7 @@ class ShopManager:
 
         if shop:
             self._create_identifier(shop.id, site_id, site_shop_id)
+            self._apply_service_tags(shop, data)
             return shop
 
         # 4. 全く新しい店舗として登録
@@ -62,7 +65,8 @@ class ShopManager:
             website_url=data.get('website_url'),
             business_hours=data.get('business_hours'),
             regular_holiday=data.get('regular_holiday'),
-            image_url=data.get('image_url')
+            image_url=data.get('image_url'),
+            service_tags=data.get('service_tags')
         )
         self.db.add(new_shop)
         self.db.flush() # ID確定のためにフラッシュ
@@ -71,10 +75,17 @@ class ShopManager:
         return new_shop
 
     def _update_shop_info(self, shop, data):
-        """不足している情報を補完"""
+        """不足している情報を補完（service_tagsのみ常に上書き）"""
         if not shop.address and data.get('address'): shop.address = data['address']
         if not shop.phone and data.get('phone'): shop.phone = self._normalize_phone(data['phone'])
         if not shop.website_url and data.get('website_url'): shop.website_url = data['website_url']
+        self._apply_service_tags(shop, data)
+
+    def _apply_service_tags(self, shop, data):
+        """バッジ（service_tags）は鮮度が重要なため、提供された場合は常に上書きする。
+        非Webikeのクロールでは data に service_tags が無いため、既存値は保持される。"""
+        if data.get('service_tags') is not None:
+            shop.service_tags = data['service_tags']
 
     def _create_identifier(self, shop_id, site_id, identifier):
         """サイト固有IDとの紐付けを保存"""

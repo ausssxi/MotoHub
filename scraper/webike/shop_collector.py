@@ -114,6 +114,13 @@ class WebikeShopSpider(BaseBikeSpider):
             # 画像URL
             img_url = unit.css('.shop-thumbnail img::attr(data-src)').get() or unit.css('.shop-thumbnail img::attr(src)').get()
 
+            # バイク店ジャンル/サービスのバッジ（Webike固有・任意）
+            # 例: 公取協加盟店 / HONDA正規店 / 認証工場 / 車検受付 / 修理・点検整備
+            service_tags = [
+                t.strip() for t in unit.css('ul.tag-service li span.b-outline-gray::text').getall()
+                if t.strip()
+            ]
+
             # 基本データの構築
             data = {
                 'name': name,
@@ -123,7 +130,8 @@ class WebikeShopSpider(BaseBikeSpider):
                 'website_url': response.urljoin(href) if href else None,
                 'business_hours': hours,
                 'regular_holiday': holiday,
-                'image_url': response.urljoin(img_url) if img_url else None
+                'image_url': response.urljoin(img_url) if img_url else None,
+                'service_tags': service_tags or None,
             }
 
             # --- 共通 ShopManager を呼び出して保存・名寄せを実行 ---

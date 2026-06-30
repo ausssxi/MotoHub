@@ -87,6 +87,10 @@ class Shop(Base):
     regular_holiday = Column(String(255))
     image_url = Column(String(255))
     local_image_path = Column(String(255))
+    # Webikeのバッジ（ジャンル/サービスタグ）の生リスト。例: ["認証工場","車検受付"]
+    service_tags = Column(JSON)
+    # service_tags から導出する分類（Laravel側 shops:classify が更新）
+    shop_type = Column(String(20))
 
 class PriceHistory(Base):
     __tablename__ = "price_histories"
