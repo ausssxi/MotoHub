@@ -1,15 +1,25 @@
 <x-layout>
-    <x-slot:title>{{ $shop->name }}の在庫・取扱車両一覧{{ $stockCount > 0 ? '【' . number_format($stockCount) . '台】' : '' }}｜中古バイク検索 - MotoHub</x-slot:title>
+    @php $isRepair = ($shop->shop_type ?? null) === 'repair_only'; @endphp
+    <x-slot:title>{{ $isRepair
+        ? $shop->name . '（バイク整備・修理）｜' . $shop->prefecture . ($shop->city ?? '') . ' - MotoHub'
+        : $shop->name . 'の在庫・取扱車両一覧' . ($stockCount > 0 ? '【' . number_format($stockCount) . '台】' : '') . '｜中古バイク検索 - MotoHub' }}</x-slot:title>
 
     <x-slot:metaDescription>{{ $description }}</x-slot:metaDescription>
 
-    @if(!$shop->latitude || !$shop->longitude || ($pagination['total'] ?? 0) === 0)
-        {{-- 位置情報なし or 在庫0台 → noindex --}}
+    @php
+        // 位置情報なし → noindex。販売店は在庫0台でも noindex（整備店は在庫0が正常なので除外）。
+        $noindex = (! $shop->latitude || ! $shop->longitude) || (! $isRepair && ($pagination['total'] ?? 0) === 0);
+    @endphp
+    @if($noindex)
         <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
     @endif
 
     <x-slot:styles>
-        <x-jsonld.local-business :shop="$shop" :stockCount="$pagination['total'] ?? 0" :description="$description" />
+        @if($isRepair)
+            <x-jsonld.auto-repair :shop="$shop" :description="$description" />
+        @else
+            <x-jsonld.local-business :shop="$shop" :stockCount="$pagination['total'] ?? 0" :description="$description" />
+        @endif
         <x-jsonld.breadcrumb-shop :shop="$shop" />
         {{-- CSSの非同期読み込み（レンダリングブロック完全解除） --}}
         <link rel="preload" href="{{ asset('css/bike-search.css') }}?v={{ asset_buster(public_path('css/bike-search.css')) }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -100,6 +110,17 @@
                             </div>
                             @endif
                         </div>
+
+                        {{-- 対応サービス（Webikeバッジ） --}}
+                        @if(!empty($shop->service_tags))
+                        <div class="mt-6 pt-6 border-t border-gray-100">
+                            <p class="text-xs font-black text-gray-500 mb-3 flex items-center gap-1.5">
+                                <i data-lucide="wrench" class="w-3.5 h-3.5 text-green-600"></i>
+                                対応サービス
+                            </p>
+                            <x-shop-service-tags :tags="$shop->service_tags" />
+                        </div>
+                        @endif
 
                         @if($shop->url && $shop->url !== '-')
                         <div class="mt-6 pt-6 border-t border-gray-100">

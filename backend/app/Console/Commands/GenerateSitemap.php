@@ -854,6 +854,35 @@ class GenerateSitemap extends Command
         $this->info(" -> {$shopAreaCount} URL (Shop Area)");
 
         // =========================================================
+        // 4.6.2. 整備・修理ショップエリアページ (sitemap-shop-repair.xml)
+        // =========================================================
+        $this->info('整備・修理ショップサイトマップを生成中...');
+        $shopRepairFileName = 'sitemap-shop-repair.xml';
+        $handle = $this->openSitemap($shopRepairFileName);
+        $sitemapFiles[] = $shopRepairFileName;
+        $shopRepairCount = 0;
+
+        // 整備インデックス
+        $this->writeUrl($handle, route('shops.repair.index'), date('Y-m-d'), 'weekly', '0.7');
+        $shopRepairCount++;
+
+        // 都道府県ページ（整備店あり）+ 市区町村ページ（3店以上のみ）
+        foreach ($shopAreaService->getAllRepairPrefectures() as $pref) {
+            $this->writeUrl($handle, route('shops.repair.prefecture', $pref), date('Y-m-d'), 'weekly', '0.6');
+            $shopRepairCount++;
+
+            foreach ($shopAreaService->getRepairCitiesForPrefecture($pref) as $city) {
+                if ($shopAreaService->getRepairShopCountForCity($pref, $city) >= 3) {
+                    $this->writeUrl($handle, route('shops.repair.city', [$pref, $city]), date('Y-m-d'), 'weekly', '0.6');
+                    $shopRepairCount++;
+                }
+            }
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$shopRepairCount} URL (Shop Repair)");
+
+        // =========================================================
         // 4.7. 駅別駐車場ページ (sitemap-parking-station.xml)
         // =========================================================
         $this->info('駅別駐車場サイトマップを生成中...');

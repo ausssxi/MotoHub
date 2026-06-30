@@ -39,7 +39,7 @@ final class ShopAreaService
      */
     public function getPrefectureDetail(string $prefecture): ?array
     {
-        $cacheKey = 'shop_area_pref_' . md5($prefecture);
+        $cacheKey = 'shop_area_pref_'.md5($prefecture);
 
         return Cache::remember($cacheKey, 86400, function () use ($prefecture) {
             $shops = Shop::where('prefecture', $prefecture)->get();
@@ -50,25 +50,25 @@ final class ShopAreaService
 
             // 市区町村別の集計
             $cities = $shops
-                ->groupBy(fn($s) => $s->city ?? '')
+                ->groupBy(fn ($s) => $s->city ?? '')
                 ->map(function (Collection $cityShops, string $city) {
                     return [
                         'name' => $city,
                         'count' => $cityShops->count(),
                     ];
                 })
-                ->filter(fn($c) => $c['name'] !== '')
+                ->filter(fn ($c) => $c['name'] !== '')
                 ->sortByDesc('count')
                 ->values();
 
             // 在庫統計
-            $listingStats = Listing::whereHas('shop', fn($q) => $q->where('prefecture', $prefecture))
+            $listingStats = Listing::whereHas('shop', fn ($q) => $q->where('prefecture', $prefecture))
                 ->where('is_sold_out', false)
                 ->selectRaw('COUNT(*) as total_listings, AVG(total_price) as avg_price')
                 ->first();
 
             // メーカー分布
-            $makerDistribution = Listing::whereHas('shop', fn($q) => $q->where('prefecture', $prefecture))
+            $makerDistribution = Listing::whereHas('shop', fn ($q) => $q->where('prefecture', $prefecture))
                 ->where('is_sold_out', false)
                 ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
                 ->join('manufacturers', 'bike_models.manufacturer_id', '=', 'manufacturers.id')
@@ -79,14 +79,14 @@ final class ShopAreaService
                 ->get();
 
             // 近隣在庫バイク
-            $nearbyListings = Listing::whereHas('shop', fn($q) => $q->where('prefecture', $prefecture))
+            $nearbyListings = Listing::whereHas('shop', fn ($q) => $q->where('prefecture', $prefecture))
                 ->where('is_sold_out', false)
                 ->with(['shop', 'bikeModel'])
                 ->orderByDesc('created_at')
                 ->limit(6)
                 ->get();
 
-            $shopsWithCoords = $shops->filter(fn($s) => $s->latitude && $s->longitude);
+            $shopsWithCoords = $shops->filter(fn ($s) => $s->latitude && $s->longitude);
 
             return [
                 'prefecture' => $prefecture,
@@ -107,12 +107,12 @@ final class ShopAreaService
      */
     public function getCityDetail(string $prefecture, string $city): ?array
     {
-        $cacheKey = 'shop_area_city_v1_' . md5($prefecture . $city);
+        $cacheKey = 'shop_area_city_v1_'.md5($prefecture.$city);
 
         return Cache::remember($cacheKey, 3600, function () use ($prefecture, $city) {
             $shops = Shop::where('prefecture', $prefecture)
                 ->where('city', $city)
-                ->withCount(['listings' => fn($q) => $q->where('is_sold_out', false)])
+                ->withCount(['listings' => fn ($q) => $q->where('is_sold_out', false)])
                 ->orderByDesc('listings_count')
                 ->orderByDesc('rating')
                 ->get();
@@ -122,7 +122,7 @@ final class ShopAreaService
             }
 
             // メーカー分布
-            $makerDistribution = Listing::whereHas('shop', fn($q) => $q->where('prefecture', $prefecture)->where('city', $city))
+            $makerDistribution = Listing::whereHas('shop', fn ($q) => $q->where('prefecture', $prefecture)->where('city', $city))
                 ->where('is_sold_out', false)
                 ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
                 ->join('manufacturers', 'bike_models.manufacturer_id', '=', 'manufacturers.id')
@@ -133,7 +133,7 @@ final class ShopAreaService
                 ->get();
 
             // 価格帯分布
-            $priceRanges = Listing::whereHas('shop', fn($q) => $q->where('prefecture', $prefecture)->where('city', $city))
+            $priceRanges = Listing::whereHas('shop', fn ($q) => $q->where('prefecture', $prefecture)->where('city', $city))
                 ->where('is_sold_out', false)
                 ->whereNotNull('total_price')
                 ->where('total_price', '>', 0)
@@ -162,7 +162,7 @@ final class ShopAreaService
 
             // 在庫統計
             $totalListings = $shops->sum('listings_count');
-            $avgPrice = Listing::whereHas('shop', fn($q) => $q->where('prefecture', $prefecture)->where('city', $city))
+            $avgPrice = Listing::whereHas('shop', fn ($q) => $q->where('prefecture', $prefecture)->where('city', $city))
                 ->where('is_sold_out', false)
                 ->whereNotNull('total_price')
                 ->where('total_price', '>', 0)
@@ -180,14 +180,14 @@ final class ShopAreaService
                 ->get();
 
             // 近隣在庫バイク
-            $nearbyListings = Listing::whereHas('shop', fn($q) => $q->where('prefecture', $prefecture)->where('city', $city))
+            $nearbyListings = Listing::whereHas('shop', fn ($q) => $q->where('prefecture', $prefecture)->where('city', $city))
                 ->where('is_sold_out', false)
                 ->with(['shop', 'bikeModel'])
                 ->orderByDesc('created_at')
                 ->limit(6)
                 ->get();
 
-            $shopsWithCoords = $shops->filter(fn($s) => $s->latitude && $s->longitude);
+            $shopsWithCoords = $shops->filter(fn ($s) => $s->latitude && $s->longitude);
 
             return [
                 'prefecture' => $prefecture,
@@ -212,7 +212,7 @@ final class ShopAreaService
     public function getAllPrefectures(): Collection
     {
         return collect(config('parking.regions', []))
-            ->flatMap(fn($prefs) => array_keys($prefs));
+            ->flatMap(fn ($prefs) => array_keys($prefs));
     }
 
     /**
@@ -234,6 +234,175 @@ final class ShopAreaService
     public function getShopCountForCity(string $prefecture, string $city): int
     {
         return Shop::where('prefecture', $prefecture)
+            ->where('city', $city)
+            ->count();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 整備・修理ショップ（shop_type = repair_only）専用
+    |--------------------------------------------------------------------------
+    | 販売店(area)とは別系統の「バイク修理/整備」エリアページ用。
+    | 既存の area メソッド群をミラーしつつ shop_type で絞り込む。
+    */
+
+    /**
+     * 整備ショップのエリアインデックス: 都道府県別の整備店件数
+     */
+    public function getRepairAreaIndex(): array
+    {
+        $regions = config('parking.regions', []);
+
+        $prefCounts = Cache::remember('shop_repair_pref_counts', 86400, function () {
+            return Shop::where('shop_type', 'repair_only')
+                ->whereNotNull('prefecture')
+                ->where('prefecture', '!=', '')
+                ->select('prefecture', DB::raw('COUNT(*) as count'))
+                ->groupBy('prefecture')
+                ->pluck('count', 'prefecture');
+        });
+
+        return [
+            'regions' => $regions,
+            'prefCounts' => $prefCounts,
+            'totalCount' => $prefCounts->sum(),
+        ];
+    }
+
+    /**
+     * 整備ショップの都道府県詳細: 市区町村別の整備店集計
+     */
+    public function getRepairPrefectureDetail(string $prefecture): ?array
+    {
+        $cacheKey = 'shop_repair_pref_'.md5($prefecture);
+
+        return Cache::remember($cacheKey, 86400, function () use ($prefecture) {
+            $shops = Shop::where('shop_type', 'repair_only')
+                ->where('prefecture', $prefecture)
+                ->get();
+
+            if ($shops->isEmpty()) {
+                return null;
+            }
+
+            $cities = $shops
+                ->groupBy(fn ($s) => $s->city ?? '')
+                ->map(fn (Collection $cityShops, string $city) => [
+                    'name' => $city,
+                    'count' => $cityShops->count(),
+                ])
+                ->filter(fn ($c) => $c['name'] !== '')
+                ->sortByDesc('count')
+                ->values();
+
+            $shopsWithCoords = $shops->filter(fn ($s) => $s->latitude && $s->longitude);
+
+            return [
+                'prefecture' => $prefecture,
+                'totalShops' => $shops->count(),
+                'cities' => $cities,
+                'avgLat' => $shopsWithCoords->avg('latitude') ?: 35.6762,
+                'avgLng' => $shopsWithCoords->avg('longitude') ?: 139.6503,
+            ];
+        });
+    }
+
+    /**
+     * 整備ショップの市区町村詳細: 整備店リスト + 対応サービス集計 + 周辺エリア
+     */
+    public function getRepairCityDetail(string $prefecture, string $city): ?array
+    {
+        $cacheKey = 'shop_repair_city_v1_'.md5($prefecture.$city);
+
+        return Cache::remember($cacheKey, 3600, function () use ($prefecture, $city) {
+            $shops = Shop::where('shop_type', 'repair_only')
+                ->where('prefecture', $prefecture)
+                ->where('city', $city)
+                ->orderByDesc('rating')
+                ->orderBy('name')
+                ->get();
+
+            if ($shops->isEmpty()) {
+                return null;
+            }
+
+            // 対応サービス（service_tags）の出現頻度 → サービス絞り込みファセット用
+            $tagCounts = [];
+            foreach ($shops as $shop) {
+                foreach (($shop->service_tags ?? []) as $tag) {
+                    $tag = trim((string) $tag);
+                    if ($tag !== '') {
+                        $tagCounts[$tag] = ($tagCounts[$tag] ?? 0) + 1;
+                    }
+                }
+            }
+            arsort($tagCounts);
+            $serviceTags = collect($tagCounts)->map(fn ($count, $name) => [
+                'name' => $name,
+                'count' => $count,
+            ])->values();
+
+            // 同県内の整備店がある他の市区町村
+            $siblingCities = Shop::where('shop_type', 'repair_only')
+                ->where('prefecture', $prefecture)
+                ->where('city', '!=', $city)
+                ->whereNotNull('city')
+                ->where('city', '!=', '')
+                ->select('city', DB::raw('COUNT(*) as count'))
+                ->groupBy('city')
+                ->orderByDesc('count')
+                ->limit(12)
+                ->get();
+
+            $shopsWithCoords = $shops->filter(fn ($s) => $s->latitude && $s->longitude);
+
+            return [
+                'prefecture' => $prefecture,
+                'city' => $city,
+                'shops' => $shops,
+                'totalShops' => $shops->count(),
+                'serviceTags' => $serviceTags,
+                'siblingCities' => $siblingCities,
+                'avgLat' => $shopsWithCoords->avg('latitude') ?: 35.6762,
+                'avgLng' => $shopsWithCoords->avg('longitude') ?: 139.6503,
+            ];
+        });
+    }
+
+    /**
+     * 整備店が存在する都道府県の一覧（サイトマップ・インデックス用）
+     */
+    public function getAllRepairPrefectures(): Collection
+    {
+        return Shop::where('shop_type', 'repair_only')
+            ->whereNotNull('prefecture')
+            ->where('prefecture', '!=', '')
+            ->select('prefecture')
+            ->distinct()
+            ->pluck('prefecture');
+    }
+
+    /**
+     * 都道府県内の整備店がある市区町村リスト（サイトマップ用）
+     */
+    public function getRepairCitiesForPrefecture(string $prefecture): Collection
+    {
+        return Shop::where('shop_type', 'repair_only')
+            ->where('prefecture', $prefecture)
+            ->whereNotNull('city')
+            ->where('city', '!=', '')
+            ->select('city')
+            ->distinct()
+            ->pluck('city');
+    }
+
+    /**
+     * 市区町村の整備店数（サイトマップの3店以上ゲート用）
+     */
+    public function getRepairShopCountForCity(string $prefecture, string $city): int
+    {
+        return Shop::where('shop_type', 'repair_only')
+            ->where('prefecture', $prefecture)
             ->where('city', $city)
             ->count();
     }
