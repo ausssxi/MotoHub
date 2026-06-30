@@ -15,6 +15,10 @@ final class Shop extends Model
 {
     protected $guarded = ['id'];
 
+    protected $casts = [
+        'service_tags' => 'array',
+    ];
+
     /**
      * 表示用の画像URLを取得するアクセサ (モダン記法)
      * 呼び出し方: $shop->display_image_url
@@ -24,13 +28,13 @@ final class Shop extends Model
         return Attribute::make(
             get: function (mixed $value, array $attributes) {
                 // 1. ローカル保存された画像がある場合
-                if (!empty($attributes['local_image_path'])) {
+                if (! empty($attributes['local_image_path'])) {
                     // storage/shops/... の形式にして返す
-                    return asset('storage/' . ltrim($attributes['local_image_path'], '/'));
+                    return asset('storage/'.ltrim($attributes['local_image_path'], '/'));
                 }
-                
+
                 // 2. 外部URLがある場合
-                if (!empty($attributes['image_url'])) {
+                if (! empty($attributes['image_url'])) {
                     return $attributes['image_url'];
                 }
 
