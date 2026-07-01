@@ -157,6 +157,16 @@
             @php
                 $mediaFeatures = [
                     [
+                        'date' => '2026.06.28',
+                        'name' => 'PRESSNOW プレスナウ',
+                        'url'  => 'https://pressnow.jp/2026/06/28/motohub-4/',
+                    ],
+                    [
+                        'date' => '2026.06.27',
+                        'name' => 'PRESSNOW プレスナウ',
+                        'url'  => 'https://pressnow.jp/2026/06/27/motohub-3/',
+                    ],
+                    [
                         'date' => '2026.05.20',
                         'name' => 'PRESSNOW プレスナウ',
                         'url'  => 'https://pressnow.jp/2026/05/20/motohub/',
