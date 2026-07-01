@@ -5,22 +5,29 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Illuminate\Contracts\View\View;
-use Illuminate\Http\JsonResponse;
-use App\Models\Shop;
-use App\Models\Listing;
+use App\Http\Requests\Shop\StoreShopAcceptanceReportRequest;
+use App\Mail\ShopAcceptanceReportSubmitted;
 use App\Models\BikeModel;
 use App\Models\BlogPost;
+use App\Models\Listing;
+use App\Models\Shop;
+use App\Models\ShopAcceptanceReport;
+use App\Services\Shop\ShopAcceptanceService;
 use App\Services\Shop\ShopService;
 use Carbon\Carbon;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class ShopController extends Controller
 {
     public function __construct(
-        private readonly ShopService $shopService
+        private readonly ShopService $shopService,
+        private readonly ShopAcceptanceService $acceptanceService,
     ) {}
 
     /**
@@ -30,6 +37,9 @@ class ShopController extends Controller
     {
         // サービスからデータ（shop, listings）を一括取得
         $data = $this->shopService->getShopDetailWithListings($id);
+
+        // ユーザー投稿の受け入れ情報（承認済み集計）
+        $data['acceptanceSummary'] = $this->acceptanceService->getApprovedSummary($id);
 
         // 販売実績データ
         $data['salesStats'] = $this->getShopSalesStats($id);
@@ -103,6 +113,7 @@ class ShopController extends Controller
 
             $topModelsList = $topModels->map(function ($item) use ($models) {
                 $m = $models->get($item->bike_model_id);
+
                 return [
                     'bike_model_id' => $item->bike_model_id,
                     'name' => $m->name ?? '不明',
@@ -139,6 +150,60 @@ class ShopController extends Controller
     }
 
     /**
+     * 店舗の受け入れ情報をユーザー投稿として受け付ける（承認待ち）。
+     * 匿名可。IPはハッシュ化して保存し、生IPは残さない。
+     */
+    public function submitAcceptanceReport(Shop $shop, StoreShopAcceptanceReportRequest $request): RedirectResponse
+    {
+        // === 表示名の解決（Reviewパターン踏襲・公開ハンドルのみ使用・User->name は絶対に使わない）===
+        $user = $request->user();
+        $userId = $user?->id;
+
+        if ($user) {
+            $handle = $user->review_display_name;
+            if (empty($handle)) {
+                // ログイン初回: 公開ハンドルを検証して保存（以降固定・タグ除去）
+                $handle = trim(strip_tags((string) $request->input('submitter_name')));
+                if ($handle === '' || mb_strlen($handle) > 30) {
+                    return back()
+                        ->withErrors(['submitter_name' => '公開表示名を1〜30文字で入力してください。'])
+                        ->withInput();
+                }
+                $user->review_display_name = $handle;
+                $user->save();
+            }
+            // 表示名は公開ハンドルのスナップショット（本名 name は入れない）
+            $submitterName = $handle;
+        } else {
+            $submitterName = trim(strip_tags((string) $request->input('submitter_name'))) ?: '名無しライダー';
+        }
+
+        $report = ShopAcceptanceReport::create([
+            'shop_id' => $shop->id,
+            'accepts_other_store' => $request->boolean('accepts_other_store'),
+            'accepts_bring_in' => $request->boolean('accepts_bring_in'),
+            'pickup_service' => $request->boolean('pickup_service'),
+            'walk_in_ok' => $request->boolean('walk_in_ok'),
+            'comment' => trim((string) $request->input('comment')) ?: null,
+            'submitter_name' => $submitterName,
+            'is_approved' => false,
+            'user_id' => $userId,
+            // 生IPは保存しない。app.key でソルトしたsha256のみ（重複/スパム検知用）。
+            'submitter_ip_hash' => hash('sha256', $request->ip().'|'.config('app.key')),
+        ]);
+
+        // 管理者へ承認待ち通知（キュー）。失敗しても投稿自体は成功扱い。
+        try {
+            Mail::to(config('app.contact_admin_email'))->send(new ShopAcceptanceReportSubmitted($report));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return redirect()->route('shops.show', $shop)
+            ->with('acceptance_success', '1');
+    }
+
+    /**
      * ショップマップページ
      */
     public function map(): View
@@ -152,7 +217,7 @@ class ShopController extends Controller
     public function chainShow(string $chainSlug): View
     {
         $chains = config('bike.chains');
-        if (!isset($chains[$chainSlug])) {
+        if (! isset($chains[$chainSlug])) {
             abort(404);
         }
 
@@ -168,7 +233,7 @@ class ShopController extends Controller
         $mainShopStock = $mainShop?->listings_count ?? 0;
 
         // 解説記事（公開済みのみ）。config の guide_slug が設定されたチェーンだけ表示される。
-        $guideArticle = !empty($chain['guide_slug'])
+        $guideArticle = ! empty($chain['guide_slug'])
             ? BlogPost::published()->where('slug', $chain['guide_slug'])->first(['id', 'slug', 'title'])
             : null;
 

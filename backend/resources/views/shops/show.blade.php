@@ -122,6 +122,113 @@
                         </div>
                         @endif
 
+                        {{-- 利用者からの情報（承認済みのユーザー投稿・スクレイプデータとは別系統） --}}
+                        @php $accFlags = \App\Models\ShopAcceptanceReport::FLAGS; @endphp
+                        @if(($acceptanceSummary['total'] ?? 0) > 0)
+                        <div class="mt-6 pt-6 border-t border-gray-100">
+                            <p class="text-xs font-black text-gray-500 mb-3 flex items-center gap-1.5">
+                                <i data-lucide="users" class="w-3.5 h-3.5 text-blue-600"></i>
+                                利用者からの情報
+                            </p>
+                            <div class="flex flex-wrap gap-1.5 mb-3">
+                                @foreach($accFlags as $col => $label)
+                                    @if(($acceptanceSummary['counts'][$col] ?? 0) > 0)
+                                    <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-100">
+                                        ☑ {{ $label }}
+                                        <span class="text-blue-400">{{ $acceptanceSummary['counts'][$col] }}人</span>
+                                    </span>
+                                    @endif
+                                @endforeach
+                            </div>
+                            @if(!empty($acceptanceSummary['comments']))
+                            <ul class="space-y-1.5">
+                                @foreach($acceptanceSummary['comments'] as $cmt)
+                                <li class="text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2 leading-relaxed">
+                                    <span class="flex items-center gap-1 mb-0.5">
+                                        <span class="font-bold text-gray-500">{{ $cmt['name'] }}さん</span>
+                                        @if($cmt['verified'])
+                                        <span class="inline-flex items-center gap-0.5 text-[9px] font-black text-blue-600 bg-blue-50 px-1 py-0.5 rounded">
+                                            <i data-lucide="badge-check" class="w-2.5 h-2.5"></i>ログインユーザー
+                                        </span>
+                                        @endif
+                                    </span>
+                                    「{{ $cmt['comment'] }}」
+                                </li>
+                                @endforeach
+                            </ul>
+                            @endif
+                            <p class="text-[10px] text-gray-400 mt-2">※ 利用者の報告に基づく情報です（運営確認済み）。</p>
+                        </div>
+                        @endif
+
+                        {{-- 受け入れ情報を投稿するフォーム（承認制・ポジティブ項目のみ） --}}
+                        <div class="mt-6 pt-6 border-t border-gray-100" x-data="{ open: false }">
+                            @if(session('acceptance_success'))
+                            <div class="mb-3 text-xs font-bold text-green-700 bg-green-50 border border-green-200 rounded-xl px-3 py-2">
+                                ありがとうございます。確認後に掲載されます。
+                            </div>
+                            @endif
+                            <button type="button" @click="open = !open"
+                                class="w-full flex items-center justify-center gap-1.5 text-xs font-black text-gray-500 hover:text-blue-600 transition-colors">
+                                <i data-lucide="message-square-plus" class="w-3.5 h-3.5"></i>
+                                このお店の情報を教える
+                            </button>
+
+                            <form x-show="open" x-cloak method="POST" action="{{ route('shops.acceptance-report', $shop) }}" class="mt-4 space-y-3">
+                                @csrf
+                                <p class="text-[11px] text-gray-500 leading-relaxed">このお店で「してもらえたこと・対応してもらえたこと」を教えてください。</p>
+
+                                {{-- 投稿者名（Reviewパターン: ログイン時は公開ハンドル・匿名時は入力） --}}
+                                @auth
+                                    @if(empty(auth()->user()->review_display_name))
+                                    <div>
+                                        <input type="text" name="submitter_name" maxlength="30" placeholder="公開表示名（初回のみ・以降固定）"
+                                            class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <p class="text-[10px] text-gray-400 mt-1">※ 一度設定すると、以降の投稿・レビューで共通の表示名になります。</p>
+                                    </div>
+                                    @else
+                                    <p class="text-[11px] text-gray-500 font-bold">「{{ auth()->user()->review_display_name }}」として投稿します。</p>
+                                    @endif
+                                @else
+                                    <input type="text" name="submitter_name" maxlength="30" placeholder="お名前（任意・未入力なら「名無しライダー」）"
+                                        class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                @endauth
+
+                                @error('submitter_name')
+                                <p class="text-[11px] font-bold text-rose-600">{{ $message }}</p>
+                                @enderror
+
+                                <div class="space-y-2">
+                                    @foreach($accFlags as $col => $label)
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" name="{{ $col }}" value="1" class="accent-blue-600">
+                                        <span class="text-sm font-bold text-gray-700">{{ $label }}</span>
+                                    </label>
+                                    @endforeach
+                                </div>
+
+                                <textarea name="comment" maxlength="120" rows="2"
+                                    placeholder="例: 〇〇を直してもらえました（任意・120文字まで）"
+                                    class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+
+                                {{-- ハニーポット（人間には非表示・ボット除け） --}}
+                                <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true"
+                                       class="hidden" style="display:none">
+
+                                @error('accepts_other_store')
+                                <p class="text-[11px] font-bold text-rose-600">{{ $message }}</p>
+                                @enderror
+
+                                <button type="submit"
+                                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-sm px-4 py-2.5 rounded-xl transition active:scale-[0.99]">
+                                    情報を送信する
+                                </button>
+                                <p class="text-[10px] text-gray-400 leading-relaxed">
+                                    ※ 評価・点数の投稿はできません。投稿は運営の確認後に掲載されます。
+                                </p>
+                            </form>
+                        </div>
+
                         @if($shop->url && $shop->url !== '-')
                         <div class="mt-6 pt-6 border-t border-gray-100">
                             <a href="{{ $shop->url }}" target="_blank" rel="nofollow" class="flex items-center justify-center gap-2 text-xs font-bold text-gray-400 hover:text-blue-600 transition-colors">
