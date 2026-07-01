@@ -101,6 +101,15 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
                             </a>
                         </template>
+
+                        {{-- 整備・修理店CTA（「店に出す」系の判定のときのみ） --}}
+                        <template x-if="['shop','check_then_shop','diy_then_shop'].includes(card?.verdict)">
+                            <a href="{{ route('shops.repair.index') }}"
+                               class="mt-3 w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-black text-sm px-4 py-3.5 rounded-xl transition active:scale-[0.99]">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+                                近くの整備・修理店を探す
+                            </a>
+                        </template>
                     </div>
 
                     {{-- リーチフック（会員登録／再診断）。push通知はv1では出さない --}}
