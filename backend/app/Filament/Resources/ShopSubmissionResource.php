@@ -102,9 +102,9 @@ class ShopSubmissionResource extends Resource
                 Tables\Columns\TextColumn::make('id')->label('ID')->sortable()->width(50),
                 Tables\Columns\TextColumn::make('shop_name')->label('店名')->searchable()->weight('bold')->wrap(),
                 Tables\Columns\TextColumn::make('area')->label('所在地')
-                    ->state(fn (ShopSubmission $r): string => $r->prefecture.$r->city),
+                    ->state(fn (ShopSubmission $record): string => $record->prefecture.$record->city),
                 Tables\Columns\TextColumn::make('submitter_name')->label('投稿者')
-                    ->formatStateUsing(fn (?string $s, ShopSubmission $r): string => ($s ?: '名無しライダー').($r->user_id ? '（ログイン）' : ''))
+                    ->formatStateUsing(fn (?string $state, ShopSubmission $record): string => ($state ?: '名無しライダー').($record->user_id ? '（ログイン）' : ''))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('status')->label('状態')->badge()
                     ->color(fn (string $state): string => match ($state) {
