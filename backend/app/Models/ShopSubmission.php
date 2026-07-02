@@ -28,6 +28,7 @@ final class ShopSubmission extends Model
         'ip_hash',
         'status',
         'linked_shop_id',
+        'target_shop_id',
         'processed_at',
     ];
 
@@ -66,5 +67,16 @@ final class ShopSubmission extends Model
     public function linkedShop(): BelongsTo
     {
         return $this->belongsTo(Shop::class, 'linked_shop_id');
+    }
+
+    public function targetShop(): BelongsTo
+    {
+        return $this->belongsTo(Shop::class, 'target_shop_id');
+    }
+
+    /** 公式URL提案（既存店対象）かどうか。 */
+    public function isUrlSuggestion(): bool
+    {
+        return $this->target_shop_id !== null;
     }
 }

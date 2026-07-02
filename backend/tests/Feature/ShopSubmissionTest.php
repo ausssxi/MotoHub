@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Shop\ShopAreaService;
 use App\Services\Shop\ShopSubmissionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
@@ -229,6 +230,99 @@ it('detail page renders the official site link with rel="nofollow ugc noopener"'
         ->assertStatus(200)
         ->assertSee('rel="nofollow ugc noopener"', false)
         ->assertSee('https://link-shop.jp', false);
+});
+
+// ---- A-1: 主要都市チップ集計 ----
+
+function seedRepairShops(string $pref, string $city, int $n): void
+{
+    for ($i = 1; $i <= $n; $i++) {
+        Shop::create([
+            'name' => "{$pref}{$city}整備{$i}", 'prefecture' => $pref, 'city' => $city,
+            'address' => "addr{$i}", 'shop_type' => 'repair_only', 'source' => Shop::SOURCE_USER,
+        ]);
+    }
+}
+
+it('getRepairTopCitiesByPrefecture: per-pref top5, excludes <3, counts, single query', function () {
+    seedRepairShops('東京都', '世田谷区', 5);
+    seedRepairShops('東京都', '新宿区', 4);
+    seedRepairShops('東京都', '港区', 3);
+    seedRepairShops('東京都', '渋谷区', 2);      // <3 → 除外
+    seedRepairShops('神奈川県', '横浜市', 3);
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $top = app(ShopAreaService::class)->getRepairTopCitiesByPrefecture();
+    $queryCount = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($queryCount)->toBe(1); // N+1でない（1クエリで全県集計）
+
+    $tokyo = collect($top['東京都'])->pluck('count', 'city')->all();
+    expect(array_keys($tokyo))->toBe(['世田谷区', '新宿区', '港区'])   // 降順・渋谷区除外
+        ->and($tokyo['世田谷区'])->toBe(5)
+        ->and($top['神奈川県'][0])->toBe(['city' => '横浜市', 'count' => 3]);
+});
+
+it('repair index renders top-city chips linking to city pages', function () {
+    seedRepairShops('東京都', '世田谷区', 3);
+
+    $this->get('/shops/repair')
+        ->assertStatus(200)
+        ->assertSee('世田谷区')
+        ->assertSee('/shops/repair/'.rawurlencode('東京都').'/'.rawurlencode('世田谷区'), false);
+});
+
+// ---- B: 公式URL提案 ----
+
+it('suggest-url creates a target submission, server-fills name/pref/city, ignores spoofed form values', function () {
+    $shop = Shop::create(['name' => '本当の店名', 'prefecture' => '東京都', 'city' => '世田谷区', 'address' => 'a', 'shop_type' => 'repair_only', 'source' => 'scraper']);
+
+    $this->post("/shops/{$shop->id}/suggest-url", [
+        'website_url' => 'https://real-shop.jp',
+        'shop_name' => '改ざんされた名前', // フォーム値は無視されるべき
+        'prefecture' => '大阪府',
+        'fax_number' => '',
+    ])->assertRedirect(route('shops.show', $shop));
+
+    $sub = ShopSubmission::first();
+    expect($sub->target_shop_id)->toBe($shop->id)
+        ->and($sub->website_url)->toBe('https://real-shop.jp')
+        ->and($sub->shop_name)->toBe('本当の店名')     // 対象店から（改ざん無視）
+        ->and($sub->prefecture)->toBe('東京都')
+        ->and($sub->status)->toBe('pending');
+});
+
+it('suggest-url rejects when honeypot filled', function () {
+    $shop = Shop::create(['name' => 'X', 'prefecture' => '東京都', 'city' => '世田谷区', 'address' => 'a', 'shop_type' => 'repair_only', 'source' => 'scraper']);
+    $this->post("/shops/{$shop->id}/suggest-url", ['website_url' => 'https://x.jp', 'fax_number' => 'bot'])
+        ->assertSessionHasErrors('fax_number');
+    expect(ShopSubmission::count())->toBe(0);
+});
+
+it('suggest-url is ignored when the shop already has an official site url', function () {
+    $shop = Shop::create(['name' => 'X', 'prefecture' => '東京都', 'city' => '世田谷区', 'address' => 'a', 'official_site_url' => 'https://existing.jp', 'shop_type' => 'repair_only', 'source' => 'scraper']);
+    $this->post("/shops/{$shop->id}/suggest-url", ['website_url' => 'https://new.jp', 'fax_number' => ''])
+        ->assertRedirect(route('shops.show', $shop));
+    expect(ShopSubmission::count())->toBe(0);
+});
+
+it('approveUrlSuggestion fills empty url, preserves existing, creates no new shop', function () {
+    $empty = Shop::create(['name' => '空店', 'prefecture' => '東京都', 'city' => '世田谷区', 'address' => 'a', 'shop_type' => 'repair_only', 'source' => 'scraper']);
+    $filled = Shop::create(['name' => '有店', 'prefecture' => '東京都', 'city' => '世田谷区', 'address' => 'b', 'official_site_url' => 'https://existing.jp', 'shop_type' => 'repair_only', 'source' => 'scraper']);
+    $shopCountBefore = Shop::count();
+
+    $sub1 = ShopSubmission::create(['shop_name' => '空店', 'prefecture' => '東京都', 'city' => '世田谷区', 'website_url' => 'https://new.jp', 'ip_hash' => str_repeat('a', 64), 'status' => 'pending', 'target_shop_id' => $empty->id]);
+    $sub2 = ShopSubmission::create(['shop_name' => '有店', 'prefecture' => '東京都', 'city' => '世田谷区', 'website_url' => 'https://ignored.jp', 'ip_hash' => str_repeat('a', 64), 'status' => 'pending', 'target_shop_id' => $filled->id]);
+
+    app(ShopSubmissionService::class)->approveUrlSuggestion($sub1);
+    app(ShopSubmissionService::class)->approveUrlSuggestion($sub2);
+
+    expect($empty->fresh()->official_site_url)->toBe('https://new.jp')        // 空→充填
+        ->and($filled->fresh()->official_site_url)->toBe('https://existing.jp') // 既存→保持
+        ->and(Shop::count())->toBe($shopCountBefore)                            // 新規店を作らない
+        ->and($sub1->fresh()->status)->toBe('merged');
 });
 
 it('shops:classify skips user shops', function () {

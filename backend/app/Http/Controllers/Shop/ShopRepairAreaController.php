@@ -22,11 +22,19 @@ final class ShopRepairAreaController extends Controller
     /**
      * 整備ショップ・エリアインデックス（全都道府県一覧）
      */
-    public function index(): View
+    public function index(\Illuminate\Http\Request $request): View
     {
-        $data = $this->areaService->getRepairAreaIndex();
+        // ?service=<タグ> は既知のサービスタグのみ許可（それ以外は無視）
+        $service = $request->query('service');
+        if (! in_array($service, \App\Models\ShopSubmission::SERVICE_TAG_OPTIONS, true)) {
+            $service = null;
+        }
 
-        return view('shops.repair-index', $data);
+        $data = $this->areaService->getRepairAreaIndex($service);
+
+        return view('shops.repair-index', array_merge($data, [
+            'serviceOptions' => \App\Models\ShopSubmission::SERVICE_TAG_OPTIONS,
+        ]));
     }
 
     /**

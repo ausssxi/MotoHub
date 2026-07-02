@@ -87,6 +87,26 @@ final class ShopSubmissionService
         $this->areaService->forgetAreaCaches($submission->prefecture, $submission->city);
     }
 
+    /**
+     * 公式URL提案（target_shop_id 付き）の承認: 対象店の official_site_url が空なら充填。
+     * 既存値は保持し、新規店は作らない。
+     */
+    public function approveUrlSuggestion(ShopSubmission $submission): void
+    {
+        $shop = $submission->targetShop;
+
+        if ($shop && ! empty($submission->website_url) && empty($shop->official_site_url)) {
+            $shop->official_site_url = $submission->website_url;
+            $shop->save();
+        }
+
+        $submission->update([
+            'status' => ShopSubmission::STATUS_MERGED,
+            'linked_shop_id' => $shop?->id,
+            'processed_at' => now(),
+        ]);
+    }
+
     public function reject(ShopSubmission $submission): void
     {
         $submission->update([

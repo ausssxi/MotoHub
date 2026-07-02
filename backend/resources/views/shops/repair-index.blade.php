@@ -25,35 +25,71 @@
             {{-- ヘッダー --}}
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-8">
                 <h1 class="text-2xl sm:text-3xl font-black text-gray-900 mb-3">
-                    バイクの整備・修理ショップを探す
+                    @if($serviceTag)「{{ $serviceTag }}」対応のバイク整備・修理店@else バイクの整備・修理ショップを探す @endif
                 </h1>
                 <p class="text-sm text-gray-500">
-                    全国<span class="font-bold text-green-600">{{ number_format($totalCount) }}</span>店のバイク整備・修理店・認証工場を都道府県別に掲載しています。点検・整備・修理・車検に対応するお店を探せます。
+                    @if($serviceTag)
+                        「{{ $serviceTag }}」に対応する整備・修理店がある地域を表示しています。
+                        <a href="{{ route('shops.repair.index') }}" class="font-bold text-green-600 hover:underline">すべて表示 →</a>
+                    @else
+                        全国<span class="font-bold text-green-600">{{ number_format($totalCount) }}</span>店のバイク整備・修理店・認証工場を都道府県別に掲載しています。点検・整備・修理・車検に対応するお店を探せます。
+                    @endif
                 </p>
             </div>
 
-            {{-- 地方ブロック別 --}}
+            {{-- A-2: 目的（サービス）から探す --}}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-8">
+                <h2 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
+                    <i data-lucide="wrench" class="w-4 h-4 text-green-600"></i> 目的から探す
+                </h2>
+                <div class="flex flex-wrap gap-2">
+                    @foreach($serviceOptions as $tag)
+                    <a href="{{ route('shops.repair.index', ['service' => $tag]) }}"
+                       class="px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors {{ $serviceTag === $tag ? 'bg-green-600 text-white border-green-600' : 'bg-gray-50 text-gray-600 border-gray-100 hover:bg-green-50 hover:border-green-200' }}">
+                        {{ $tag }}
+                    </a>
+                    @endforeach
+                </div>
+            </div>
+
+            {{-- 地方ブロック別（掲載ありの県のみ・県直下に主要市区町村チップ） --}}
+            @if($totalCount === 0)
+            <p class="text-sm text-gray-400 text-center py-8">
+                @if($serviceTag)「{{ $serviceTag }}」対応の店舗はまだ登録されていません。@else 該当する店舗がまだありません。@endif
+            </p>
+            @endif
             @foreach($regions as $regionName => $prefs)
+            @php $regionPrefs = collect($prefs)->keys()->filter(fn ($p) => ($prefCounts[$p] ?? 0) > 0); @endphp
+            @if($regionPrefs->isNotEmpty())
             <section class="mb-8">
                 <h2 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
                     <i data-lucide="map-pin" class="w-5 h-5 text-green-500"></i>
                     {{ $regionName }}
                 </h2>
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    @foreach($prefs as $pref => $coords)
+                <div class="space-y-3">
+                    @foreach($regionPrefs as $pref)
                     @php $count = $prefCounts[$pref] ?? 0; @endphp
-                    <a href="{{ $count > 0 ? route('shops.repair.prefecture', $pref) : '#' }}"
-                       class="bg-white rounded-xl border border-gray-100 p-4 hover:border-green-200 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 block {{ $count === 0 ? 'opacity-50 pointer-events-none' : '' }}">
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm font-black text-gray-800">{{ $pref }}</span>
-                            <span class="text-xs font-bold {{ $count > 0 ? 'text-green-600' : 'text-gray-300' }}">
-                                {{ number_format($count) }}店
-                            </span>
+                    <div class="bg-white rounded-xl border border-gray-100 p-4">
+                        <a href="{{ route('shops.repair.prefecture', $pref) }}"
+                           class="flex items-center justify-between group">
+                            <span class="text-sm font-black text-gray-800 group-hover:text-green-700">{{ $pref }}</span>
+                            <span class="text-xs font-bold text-green-600">{{ number_format($count) }}店 →</span>
+                        </a>
+                        @if(!empty($topCities[$pref]))
+                        <div class="flex flex-wrap gap-1.5 mt-2.5">
+                            @foreach($topCities[$pref] as $c)
+                            <a href="{{ route('shops.repair.city', [$pref, $c['city']]) }}"
+                               class="inline-flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-2.5 py-1 hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-colors">
+                                {{ $c['city'] }} <span class="text-gray-400">{{ $c['count'] }}</span>
+                            </a>
+                            @endforeach
                         </div>
-                    </a>
+                        @endif
+                    </div>
                     @endforeach
                 </div>
             </section>
+            @endif
             @endforeach
 
             {{-- 未掲載店の投稿導線 --}}
@@ -68,6 +104,36 @@
                 </div>
                 <i data-lucide="chevron-right" class="w-5 h-5 text-emerald-400"></i>
             </a>
+
+            {{-- A-3: 関連機能への回遊 --}}
+            <section class="mt-8">
+                <h2 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
+                    <i data-lucide="compass" class="w-4 h-4 text-green-600"></i> 関連コンテンツ
+                </h2>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <a href="{{ route('trouble.index') }}" class="flex items-center gap-3 bg-white rounded-xl border border-gray-100 p-4 hover:border-green-200 hover:shadow-sm transition-all">
+                        <i data-lucide="stethoscope" class="w-5 h-5 text-blue-500"></i>
+                        <div>
+                            <p class="text-xs font-black text-gray-800">バイクの調子が悪い？</p>
+                            <p class="text-[10px] text-gray-500 font-bold">症状から原因を診断</p>
+                        </div>
+                    </a>
+                    <a href="{{ route('bikes.search') }}" class="flex items-center gap-3 bg-white rounded-xl border border-gray-100 p-4 hover:border-green-200 hover:shadow-sm transition-all">
+                        <i data-lucide="search" class="w-5 h-5 text-blue-500"></i>
+                        <div>
+                            <p class="text-xs font-black text-gray-800">中古バイクを探す</p>
+                            <p class="text-[10px] text-gray-500 font-bold">全国の在庫を検索</p>
+                        </div>
+                    </a>
+                    <a href="{{ route('parts.index') }}" class="flex items-center gap-3 bg-white rounded-xl border border-gray-100 p-4 hover:border-green-200 hover:shadow-sm transition-all">
+                        <i data-lucide="wrench" class="w-5 h-5 text-blue-500"></i>
+                        <div>
+                            <p class="text-xs font-black text-gray-800">パーツを探す</p>
+                            <p class="text-[10px] text-gray-500 font-bold">パーツ検索</p>
+                        </div>
+                    </a>
+                </div>
+            </section>
 
             {{-- 販売店一覧へのリンク --}}
             <div class="text-center mt-8">

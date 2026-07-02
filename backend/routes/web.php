@@ -308,6 +308,7 @@ Route::prefix('shops')->name('shops.')->group(function () {
     Route::get('/{id}', [ShopController::class, 'show'])->name('show')->where('id', '[0-9]+');
     Route::post('/{shop}/visited', [ShopController::class, 'visited'])->name('visited')->where('shop', '[0-9]+')->middleware('throttle:10,1');
     Route::post('/{shop}/acceptance-report', [ShopController::class, 'submitAcceptanceReport'])->name('acceptance-report')->where('shop', '[0-9]+')->middleware('throttle:3,1');
+    Route::post('/{shop}/suggest-url', [\App\Http\Controllers\Shop\ShopSubmissionController::class, 'suggestUrl'])->name('suggest-url')->where('shop', '[0-9]+')->middleware('throttle:3,1');
 });
 
 // 公開ガレージ（auth不要）
