@@ -91,6 +91,10 @@ class Shop(Base):
     service_tags = Column(JSON)
     # service_tags から導出する分類（Laravel側 shops:classify が更新）
     shop_type = Column(String(20))
+    # データ由来。スクレイパーが作る店は 'scraper'。ユーザー投稿店('user')には触れない。
+    source = Column(String(20), default='scraper')
+    # ※ shops.official_site_url は「ユーザー由来・scraper書き込み禁止」のため
+    #   意図的にこのORMに含めない（構造的にスクレイパーが上書きできないようにする）。
 
 class PriceHistory(Base):
     __tablename__ = "price_histories"
