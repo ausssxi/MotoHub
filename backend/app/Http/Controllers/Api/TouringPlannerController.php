@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Log;
 final class TouringPlannerController extends Controller
 {
     private const API_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-    private const MODEL_ID = 'claude-sonnet-4-20250514';
+
     private const MAX_TOKENS = 3000;
 
     public function suggest(Request $request): JsonResponse
@@ -29,7 +29,7 @@ final class TouringPlannerController extends Controller
         ]);
 
         $apiKey = config('services.anthropic.api_key');
-        if (!$apiKey) {
+        if (! $apiKey) {
             return response()->json(['error' => 'API設定がありません'], 500);
         }
 
@@ -59,6 +59,7 @@ final class TouringPlannerController extends Controller
             $result = $this->callClaudeApi($apiKey, $lat, $lng, $originName, $distanceKm, $preference, $spots, $stations);
         } catch (\Throwable $e) {
             Log::error('TouringPlanner: API呼び出し失敗', ['error' => $e->getMessage()]);
+
             return response()->json(['error' => 'ルート提案の生成に失敗しました。しばらくしてから再度お試しください。'], 500);
         }
 
@@ -94,7 +95,8 @@ final class TouringPlannerController extends Controller
                 $s->has_onsen ? '温泉' : null,
                 $s->has_gas_station ? 'GS' : null,
             ])->filter()->implode('/');
-            return "- {$s->name}（{$s->latitude},{$s->longitude}）{$s->address}" . ($facilities ? " [{$facilities}]" : '');
+
+            return "- {$s->name}（{$s->latitude},{$s->longitude}）{$s->address}".($facilities ? " [{$facilities}]" : '');
         })->implode("\n");
 
         $systemPrompt = <<<'PROMPT'
@@ -150,7 +152,7 @@ PROMPT;
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
         ])->timeout(60)->post(self::API_ENDPOINT, [
-            'model' => self::MODEL_ID,
+            'model' => config('services.anthropic.model'),
             'max_tokens' => self::MAX_TOKENS,
             'system' => $systemPrompt,
             'messages' => [
@@ -158,15 +160,16 @@ PROMPT;
             ],
         ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             throw new \RuntimeException("API error: {$response->status()} - {$response->body()}");
         }
 
         $body = $response->json();
         $text = $body['content'][0]['text'] ?? null;
 
-        if (!$text) {
+        if (! $text) {
             Log::error('TouringPlanner: API応答にtextなし', ['body' => $body]);
+
             return null;
         }
 
@@ -180,8 +183,9 @@ PROMPT;
 
         $decoded = json_decode(trim($text), true);
 
-        if (!is_array($decoded) || empty($decoded['title']) || empty($decoded['stops'])) {
+        if (! is_array($decoded) || empty($decoded['title']) || empty($decoded['stops'])) {
             Log::error('TouringPlanner: JSONパース失敗', ['raw' => $text]);
+
             return null;
         }
 

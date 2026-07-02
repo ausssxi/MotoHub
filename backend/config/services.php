@@ -49,7 +49,7 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
-    
+
     'line' => [
         'client_id' => env('LINE_CLIENT_ID'),
         'client_secret' => env('LINE_CLIENT_SECRET'),
@@ -59,6 +59,9 @@ return [
 
     'anthropic' => [
         'api_key' => env('ANTHROPIC_API_KEY'),
+        // AIコンテンツ生成・検索の既定モデル。廃止対応は .env の ANTHROPIC_MODEL 1行で済む。
+        // ※ 燃費OCR等でHaikuを別途指定している箇所はここの対象外。
+        'model' => env('ANTHROPIC_MODEL', 'claude-sonnet-4-6'),
     ],
 
     'gemini' => [

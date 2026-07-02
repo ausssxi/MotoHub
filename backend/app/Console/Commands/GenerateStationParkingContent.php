@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\BikeParking;
 use App\Models\Station;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -22,9 +21,11 @@ final class GenerateStationParkingContent extends Command
     protected $description = '駅別駐車場ページのAI紹介文を生成';
 
     private const API_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-    private const MODEL_ID = 'claude-sonnet-4-20250514';
+
     private const MAX_TOKENS = 1000;
+
     private const SLEEP_SECONDS = 1;
+
     private const MIN_PARKINGS = 3;
 
     public function handle(): int
@@ -35,8 +36,9 @@ final class GenerateStationParkingContent extends Command
         $prefecture = $this->option('prefecture');
         $limit = (int) $this->option('limit');
 
-        if (!$isDryRun && !$apiKey) {
+        if (! $isDryRun && ! $apiKey) {
             $this->error('ANTHROPIC_API_KEY が .env に設定されていません。');
+
             return self::FAILURE;
         }
 
@@ -45,7 +47,7 @@ final class GenerateStationParkingContent extends Command
             ->withCount(['bikeParkings' => fn ($q) => $q->where('is_active', true)])
             ->having('bike_parkings_count', '>=', self::MIN_PARKINGS);
 
-        if (!$isForce) {
+        if (! $isForce) {
             $query->whereNull('ai_parking_content');
         }
         if ($prefecture) {
@@ -62,6 +64,7 @@ final class GenerateStationParkingContent extends Command
 
         if ($stations->isEmpty()) {
             $this->info('処理対象の駅がありません。');
+
             return self::SUCCESS;
         }
 
@@ -69,6 +72,7 @@ final class GenerateStationParkingContent extends Command
 
         if ($isDryRun) {
             $stations->each(fn ($s) => $this->line("  {$s->name}駅（{$s->prefecture}）- {$s->bike_parkings_count}件"));
+
             return self::SUCCESS;
         }
 
@@ -95,9 +99,10 @@ final class GenerateStationParkingContent extends Command
 
                 $text = $this->callClaudeApi($apiKey, $data);
 
-                if (!$text) {
+                if (! $text) {
                     $this->error("{$prefix}: レスポンスのパースに失敗");
                     $errors++;
+
                     continue;
                 }
 
@@ -106,7 +111,7 @@ final class GenerateStationParkingContent extends Command
                 $completed++;
             } catch (\Throwable $e) {
                 $this->error("{$prefix}: エラー - {$e->getMessage()}");
-                Log::error("GenerateStationParkingContent: 失敗", [
+                Log::error('GenerateStationParkingContent: 失敗', [
                     'station_id' => $station->id,
                     'error' => $e->getMessage(),
                 ]);
@@ -138,10 +143,15 @@ final class GenerateStationParkingContent extends Command
         // 大型バイク制限
         $largeKeywords = ['大型', '400', '750', '制限なし', '排気量制限なし'];
         $restrictedCount = $parkings->filter(function ($p) use ($largeKeywords) {
-            if (!$p->vehicle_restriction) return false;
-            foreach ($largeKeywords as $kw) {
-                if (mb_strpos($p->vehicle_restriction, $kw) !== false) return true;
+            if (! $p->vehicle_restriction) {
+                return false;
             }
+            foreach ($largeKeywords as $kw) {
+                if (mb_strpos($p->vehicle_restriction, $kw) !== false) {
+                    return true;
+                }
+            }
+
             return false;
         })->count();
 
@@ -151,16 +161,23 @@ final class GenerateStationParkingContent extends Command
 
         // 月極情報
         $monthlyInfo = $monthlyPrices->isNotEmpty()
-            ? number_format((int) $monthlyPrices->min()) . '〜' . number_format((int) $monthlyPrices->max()) . '円（' . $monthlyPrices->count() . '件）'
+            ? number_format((int) $monthlyPrices->min()).'〜'.number_format((int) $monthlyPrices->max()).'円（'.$monthlyPrices->count().'件）'
             : 'なし';
 
         // 各駐車場リスト
         $parkingList = $parkings->map(function ($p) {
             $prices = [];
-            if ($p->is_free) $prices[] = '無料';
-            if ($p->price_per_hour) $prices[] = number_format($p->price_per_hour) . '円/時';
-            if ($p->price_per_month) $prices[] = number_format($p->price_per_month) . '円/月';
-            return $p->name . '（' . (implode('、', $prices) ?: '料金不明') . '）';
+            if ($p->is_free) {
+                $prices[] = '無料';
+            }
+            if ($p->price_per_hour) {
+                $prices[] = number_format($p->price_per_hour).'円/時';
+            }
+            if ($p->price_per_month) {
+                $prices[] = number_format($p->price_per_month).'円/月';
+            }
+
+            return $p->name.'（'.(implode('、', $prices) ?: '料金不明').'）';
         })->implode("\n");
 
         return [
@@ -233,7 +250,7 @@ PROMPT;
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
         ])->timeout(60)->post(self::API_ENDPOINT, [
-            'model' => self::MODEL_ID,
+            'model' => config('services.anthropic.model'),
             'max_tokens' => self::MAX_TOKENS,
             'system' => $systemPrompt,
             'messages' => [
@@ -241,15 +258,16 @@ PROMPT;
             ],
         ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             throw new \RuntimeException("API error: {$response->status()} - {$response->body()}");
         }
 
         $body = $response->json();
         $text = $body['content'][0]['text'] ?? null;
 
-        if (!$text) {
+        if (! $text) {
             Log::error('GenerateStationParkingContent: API応答にtextなし', ['body' => $body]);
+
             return null;
         }
 
