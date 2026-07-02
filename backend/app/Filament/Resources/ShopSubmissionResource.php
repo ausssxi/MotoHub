@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ShopSubmissionResource\Pages;
+use App\Models\Shop;
 use App\Models\ShopAcceptanceReport;
 use App\Models\ShopSubmission;
 use App\Services\Shop\ShopSubmissionService;
@@ -44,6 +45,25 @@ class ShopSubmissionResource extends Resource
                     Forms\Components\TextInput::make('prefecture')->label('都道府県')->required()->maxLength(10),
                     Forms\Components\TextInput::make('city')->label('市区町村')->required()->maxLength(50),
                 ]),
+                // B-2: city が県の既存一覧に無ければ警告＋近い候補（新規店投稿のみ）
+                Forms\Components\Placeholder::make('city_check')->hiddenLabel()
+                    ->visible(fn (?ShopSubmission $record): bool => $record && ! $record->target_shop_id)
+                    ->content(function (?ShopSubmission $record): HtmlString {
+                        if (! $record) {
+                            return new HtmlString('');
+                        }
+                        $existing = Shop::where('prefecture', $record->prefecture)
+                            ->whereNotNull('city')->where('city', '!=', '')
+                            ->distinct()->pluck('city');
+                        if ($existing->contains($record->city)) {
+                            return new HtmlString('<span style="color:#059669;">✓ 市区町村は既存データと一致しています。</span>');
+                        }
+                        $cands = $existing->filter(fn ($c) => $c !== '' && (str_contains($c, $record->city) || str_contains($record->city, $c)))->take(5);
+                        $suggest = $cands->isNotEmpty() ? '<br>もしかして: <b>'.e($cands->implode('　/　')).'</b>' : '';
+
+                        return new HtmlString('<span style="color:#d97706;font-weight:bold;">⚠️ 市区町村「'.e((string) $record->city).'」は '.e((string) $record->prefecture).' の既存データに一致しません。政令市の区抜け・表記揺れの可能性があります。承認前に修正してください。</span>'.$suggest);
+                    }),
+
                 Forms\Components\TextInput::make('address')->label('住所')->maxLength(200)
                     ->helperText('※ 住所があれば承認時にGSIでジオコーディング。空なら緯度経度なしで登録。'),
                 Forms\Components\Grid::make(2)->schema([

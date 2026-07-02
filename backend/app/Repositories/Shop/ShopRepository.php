@@ -32,8 +32,11 @@ final class ShopRepository
      */
     public function findInBounds(float $swLat, float $swLng, float $neLat, float $neLng, int $limit = 100): Collection
     {
+        // user店(source='user',座標あり)も scraper店と同じくそのまま含まれる（source絞り込みなし）。
+        // 座標NULLの店は whereNotNull で除外（既存挙動）。
+        // shop_type / source はフェーズ2のピン色分け用にペイロードへ含める（UIは今回スコープ外）。
         return Shop::query()
-            ->select(['id', 'name', 'address', 'latitude', 'longitude', 'prefecture'])
+            ->select(['id', 'name', 'address', 'latitude', 'longitude', 'prefecture', 'shop_type', 'source'])
             ->whereNotNull('latitude')
             ->whereBetween('latitude', [$swLat, $neLat])
             ->whereBetween('longitude', [$swLng, $neLng])

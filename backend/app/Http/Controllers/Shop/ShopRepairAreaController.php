@@ -60,8 +60,15 @@ final class ShopRepairAreaController extends Controller
     /**
      * 整備ショップ・市区町村ページ（主要SEOターゲット）
      */
-    public function city(string $prefecture, string $city): View
+    public function city(string $prefecture, string $city): View|\Illuminate\Http\RedirectResponse
     {
+        // F: city 正規化（183件のスペース除去）に伴い、旧スペース入りURLは正規URLへ301。
+        // 無限ループ防止のためスペースが実在する場合のみリダイレクト。
+        $normalized = preg_replace('/[\s\x{3000}]+/u', '', $city) ?? $city;
+        if ($normalized !== $city) {
+            return redirect()->route('shops.repair.city', [$prefecture, $normalized], 301);
+        }
+
         $data = $this->areaService->getRepairCityDetail($prefecture, $city);
 
         if (! $data) {
