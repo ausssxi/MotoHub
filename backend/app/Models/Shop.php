@@ -21,7 +21,20 @@ final class Shop extends Model
 
     /** データ由来: スクレイパー自動収集 / ユーザー投稿→承認 */
     public const SOURCE_SCRAPER = 'scraper';
+
     public const SOURCE_USER = 'user';
+
+    /**
+     * city 正規化: 半角・全角スペースを除去して保存（Eloquent全経路で共通）。
+     * /shops/repair/{pref}/{city} のバケットキーの表記揺れ（「横浜市 都筑区」等）を構造的に防ぐ。
+     * ※ スクレイパーはSQLAlchemy(Eloquent非経由)のため影響なし。
+     */
+    protected function city(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => $value === null ? null : preg_replace('/[\s\x{3000}]+/u', '', $value),
+        );
+    }
 
     /**
      * 表示用の画像URLを取得するアクセサ (モダン記法)

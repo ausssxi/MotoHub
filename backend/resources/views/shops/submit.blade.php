@@ -54,6 +54,24 @@
             nameEl.addEventListener('blur', () => debounce(check));
             if (phoneEl) phoneEl.addEventListener('blur', () => debounce(check));
         })();
+
+        // 都道府県選択時に既存の市区町村を datalist にサジェスト
+        (function () {
+            const citiesUrl = @js(route('shops.submit.cities'));
+            const prefEl = document.querySelector('select[name="prefecture"]');
+            const dl = document.getElementById('city-list');
+            if (!prefEl || !dl) return;
+            function load() {
+                const pref = prefEl.value.trim();
+                if (!pref) { dl.innerHTML = ''; return; }
+                fetch(citiesUrl + '?pref=' + encodeURIComponent(pref), { headers: { 'Accept': 'application/json' } })
+                    .then(r => r.ok ? r.json() : { cities: [] })
+                    .then(d => { dl.innerHTML = (d.cities || []).map(c => '<option value="' + c.replace(/"/g, '&quot;') + '">').join(''); })
+                    .catch(() => {});
+            }
+            prefEl.addEventListener('change', load);
+            if (prefEl.value) load(); // プリフィル時
+        })();
         </script>
     </x-slot:scripts>
 
@@ -114,15 +132,18 @@
                         <div>
                             <label class="block text-xs font-black text-gray-600 mb-1">市区町村 <span class="text-rose-500">*</span></label>
                             <input type="text" name="city" value="{{ old('city', $prefillCity) }}" maxlength="50" required
-                                   placeholder="例: 世田谷区"
+                                   list="city-list" autocomplete="off"
+                                   placeholder="例: 世田谷区 / 横浜市都筑区"
                                    class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <datalist id="city-list"></datalist>
+                            <p class="text-[10px] text-gray-400 mt-1">※ 政令市は「横浜市都筑区」のように市＋区で入力してください。</p>
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-xs font-black text-gray-600 mb-1">住所（任意）</label>
                         <input type="text" name="address" value="{{ old('address') }}" maxlength="200"
-                               placeholder="番地まで分かれば地図に表示されます"
+                               placeholder="荏田南4-27-50（市区町村は含めない）"
                                class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                     </div>
 

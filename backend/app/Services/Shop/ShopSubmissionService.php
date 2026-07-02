@@ -41,7 +41,7 @@ final class ShopSubmissionService
 
         // ジオコーディングは住所がある場合のみ（市区町村中心への誤ピンを避ける）
         if (! empty($submission->address)) {
-            $geo = $this->geocoder->geocode($submission->prefecture.$submission->city.$submission->address);
+            $geo = $this->geocoder->geocode($submission->prefecture, $submission->city, $submission->address);
             if ($geo !== null) {
                 $shop->latitude = $geo['lat'];
                 $shop->longitude = $geo['lng'];

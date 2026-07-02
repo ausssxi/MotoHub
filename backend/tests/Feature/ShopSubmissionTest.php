@@ -69,7 +69,8 @@ it('rejects an invalid prefecture', function () {
 // ---- approve as new ----
 
 it('approves as a new user shop with geocoding + auto acceptance report', function () {
-    Http::fake(['*' => Http::response([['geometry' => ['coordinates' => [139.65, 35.64]]]], 200)]);
+    // A-2: title に city（世田谷区）が含まれる正常な市区レベル一致
+    Http::fake(['*' => Http::response([['properties' => ['title' => '東京都世田谷区1-2-3'], 'geometry' => ['coordinates' => [139.65, 35.64]]]], 200)]);
 
     $s = makeSubmission();
     $shop = app(ShopSubmissionService::class)->approveAsNew($s);
@@ -91,6 +92,34 @@ it('approves as a new user shop with geocoding + auto acceptance report', functi
         ->and((bool) $report->walk_in_ok)->toBeTrue()
         ->and((bool) $report->accepts_bring_in)->toBeFalse()
         ->and($report->submitter_name)->toBe('たろう');
+});
+
+// ---- A: geocoder quality guard ----
+
+it('geocoder rejects a prefecture-level fallback (title lacks the city)', function () {
+    Http::fake(['*' => Http::response([['properties' => ['title' => '神奈川県'], 'geometry' => ['coordinates' => [139.642532, 35.447735]]]], 200)]);
+    // title に「都筑区」が無い＝県代表点フォールバック → null（NULLより悪い誤座標を弾く）
+    expect(app(App\Services\GsiGeocodingService::class)->geocode('神奈川県', '横浜市都筑区', '荏田南4-27-50'))->toBeNull();
+});
+
+it('geocoder accepts a city-level match', function () {
+    Http::fake(['*' => Http::response([['properties' => ['title' => '神奈川県横浜市都筑区荏田南'], 'geometry' => ['coordinates' => [139.555374, 35.551136]]]], 200)]);
+    $r = app(App\Services\GsiGeocodingService::class)->geocode('神奈川県', '横浜市都筑区', '荏田南4-27-50');
+    expect(round($r['lat'], 3))->toBe(35.551)->and(round($r['lng'], 3))->toBe(139.555);
+});
+
+it('geocoder strips a duplicated city/ward prefix from the address', function () {
+    Http::fake(['*' => Http::response([['properties' => ['title' => '神奈川県横浜市都筑区荏田南'], 'geometry' => ['coordinates' => [139.5, 35.5]]]], 200)]);
+    // address が区名「都筑区」で始まる → 重複除去して二重連結を防ぐ
+    app(App\Services\GsiGeocodingService::class)->geocode('神奈川県', '横浜市都筑区', '都筑区荏田南4-27-50');
+    Http::assertSent(fn ($req) => str_contains(urldecode($req->url()), '神奈川県横浜市都筑区荏田南4-27-50')
+        && ! str_contains(urldecode($req->url()), '都筑区都筑区'));
+});
+
+it('geocoder normalizes full-width digits and hyphens', function () {
+    Http::fake(['*' => Http::response([['properties' => ['title' => '東京都世田谷区'], 'geometry' => ['coordinates' => [139.6, 35.6]]]], 200)]);
+    app(App\Services\GsiGeocodingService::class)->geocode('東京都', '世田谷区', '荏田南４−２７−５０'); // 全角
+    Http::assertSent(fn ($req) => str_contains(urldecode($req->url()), '荏田南4-27-50')); // 半角化
 });
 
 it('skips geocoding when the address is empty', function () {
@@ -323,6 +352,73 @@ it('approveUrlSuggestion fills empty url, preserves existing, creates no new sho
         ->and($filled->fresh()->official_site_url)->toBe('https://existing.jp') // 既存→保持
         ->and(Shop::count())->toBe($shopCountBefore)                            // 新規店を作らない
         ->and($sub1->fresh()->status)->toBe('merged');
+});
+
+// ---- B: city normalization ----
+
+it('Shop city mutator strips half/full-width spaces', function () {
+    $s = Shop::create(['name' => 'x', 'prefecture' => '神奈川県', 'city' => '横浜市 都筑区', 'address' => 'a']);
+    expect($s->fresh()->city)->toBe('横浜市都筑区');
+    $s2 = Shop::create(['name' => 'y', 'prefecture' => '京都府', 'city' => '京都市　伏見区', 'address' => 'b']); // 全角
+    expect($s2->fresh()->city)->toBe('京都市伏見区');
+});
+
+it('cities endpoint returns distinct cities for a prefecture', function () {
+    Shop::create(['name' => 'a', 'prefecture' => '神奈川県', 'city' => '横浜市都筑区', 'address' => 'x']);
+    Shop::create(['name' => 'b', 'prefecture' => '神奈川県', 'city' => '川崎市中原区', 'address' => 'y']);
+    Shop::create(['name' => 'c', 'prefecture' => '東京都', 'city' => '世田谷区', 'address' => 'z']);
+
+    $resp = $this->getJson('/shops/submit/cities?pref='.rawurlencode('神奈川県'));
+    $resp->assertOk();
+    $cities = $resp->json('cities');
+    expect($cities)->toContain('横浜市都筑区')->toContain('川崎市中原区')->not->toContain('世田谷区');
+});
+
+it('Filament edit shows a city warning + candidate when city is not in the prefecture list', function () {
+    $admin = User::factory()->create(['is_admin' => true]);
+    Shop::create(['name' => '既存', 'prefecture' => '神奈川県', 'city' => '横浜市都筑区', 'address' => 'a', 'shop_type' => 'repair_only', 'source' => 'scraper']);
+    $sub = ShopSubmission::create(['shop_name' => 'テスト', 'prefecture' => '神奈川県', 'city' => '都筑区', 'ip_hash' => str_repeat('a', 64), 'status' => 'pending']); // 市抜け
+
+    $this->actingAs($admin)->get("/admin/shop-submissions/{$sub->id}/edit")
+        ->assertStatus(200)
+        ->assertSee('一致しません')
+        ->assertSee('横浜市都筑区'); // 候補
+});
+
+// ---- C: map includes user shops with coords ----
+
+it('map area API includes user shops with coords and excludes NULL-coord shops', function () {
+    Shop::create(['name' => '座標あり店', 'prefecture' => '東京都', 'city' => '世田谷区', 'address' => 'a', 'latitude' => 35.6, 'longitude' => 139.6, 'shop_type' => 'repair_only', 'source' => Shop::SOURCE_USER]);
+    Shop::create(['name' => '座標なし店', 'prefecture' => '東京都', 'city' => '世田谷区', 'address' => 'b', 'shop_type' => 'repair_only', 'source' => Shop::SOURCE_USER]);
+
+    $resp = $this->getJson('/shops/api/area?'.http_build_query([
+        'sw_lat' => 35.0, 'sw_lng' => 139.0, 'ne_lat' => 36.0, 'ne_lng' => 140.0,
+    ]));
+
+    $resp->assertOk()
+        ->assertJsonFragment(['name' => '座標あり店'])
+        ->assertJsonFragment(['source' => 'user'])       // C-3 payload
+        ->assertJsonMissing(['name' => '座標なし店']);
+});
+
+// ---- F: 301 for space-in-city ----
+
+it('redirects a space-in-city repair URL to the normalized URL (301)', function () {
+    $this->get('/shops/repair/'.rawurlencode('京都府').'/'.rawurlencode('京都市 伏見区'))
+        ->assertStatus(301)
+        ->assertRedirect(route('shops.repair.city', ['京都府', '京都市伏見区']));
+});
+
+it('redirects a full-width-space city (301)', function () {
+    $this->get('/shops/repair/'.rawurlencode('京都府').'/'.rawurlencode('京都市　伏見区'))
+        ->assertStatus(301)
+        ->assertRedirect(route('shops.repair.city', ['京都府', '京都市伏見区']));
+});
+
+it('does not redirect a space-less city URL (no loop)', function () {
+    // 該当店なし→404だが、リダイレクト(3xx)ではないこと
+    $this->get('/shops/repair/'.rawurlencode('京都府').'/'.rawurlencode('京都市伏見区'))
+        ->assertStatus(404);
 });
 
 it('shops:classify skips user shops', function () {

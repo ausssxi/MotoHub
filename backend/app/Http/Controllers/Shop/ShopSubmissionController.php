@@ -40,6 +40,23 @@ final class ShopSubmissionController extends Controller
     }
 
     /**
+     * 都道府県内の既存 city 一覧（datalistサジェスト用・キャッシュ）。
+     */
+    public function cities(Request $request): JsonResponse
+    {
+        $pref = trim((string) $request->query('pref', ''));
+        if ($pref === '') {
+            return response()->json(['cities' => []]);
+        }
+
+        $cities = \Illuminate\Support\Facades\Cache::remember('shop_cities_'.md5($pref), 86400, fn () => Shop::where('prefecture', $pref)
+            ->whereNotNull('city')->where('city', '!=', '')
+            ->distinct()->orderBy('city')->pluck('city')->all());
+
+        return response()->json(['cities' => $cities]);
+    }
+
+    /**
      * 送信前の重複チェック（ソフト警告用）。既存店候補を最大5件返す。
      */
     public function check(Request $request, ShopSubmissionService $service): JsonResponse

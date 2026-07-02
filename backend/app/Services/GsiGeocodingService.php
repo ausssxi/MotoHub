@@ -8,30 +8,51 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * 国土地理院（GSI）住所検索APIによるジオコーディング。
- * 承認時にのみ・住所がある場合にのみ呼ぶ（市区町村中心へのピン誤誘導を避けるため）。
+ * 国土地理院（GSI）住所検索APIによるジオコーディング（品質ガード付き）。
+ * 承認時にのみ・住所がある場合にのみ呼ぶ（市区町村中心・県庁への誤ピンを避ける）。
+ *
+ * 過去の事故: city「都筑区」(横浜市欠け)で連結 → GSIが市区レベルまで解決できず
+ * 県代表点(県庁)にフォールバック一致し、NULLより悪い「もっともらしく間違った座標」を保存。
+ * → 結果の properties.title に市区名が含まれることを採用条件にする（A-2）。
  */
 final class GsiGeocodingService
 {
     private const ENDPOINT = 'https://msearch.gsi.go.jp/address-search/AddressSearch';
 
     /**
-     * 住所 → 緯度経度。見つからない/失敗時は null。
+     * prefecture + city + address からジオコーディング。見つからない/検証NG/失敗時は null。
      *
      * @return array{lat: float, lng: float}|null
      */
-    public function geocode(string $address): ?array
+    public function geocode(string $prefecture, string $city, string $address): ?array
     {
-        $address = trim($address);
+        $prefecture = $this->normalize($prefecture);
+        $city = $this->normalize($city);
+        $address = $this->normalize($address);
+
         if ($address === '') {
             return null;
         }
 
+        // A-1: address が city（または政令市の区名末尾要素）で始まる場合は重複を除去。
+        // 例: city「横浜市都筑区」に対し address「都筑区荏田南…」→ 「荏田南…」
+        $cityTail = null;
+        if (preg_match('/市(.+?区)$/u', $city, $m)) {
+            $cityTail = $m[1];
+        }
+        if ($city !== '' && str_starts_with($address, $city)) {
+            $address = ltrim(mb_substr($address, mb_strlen($city)));
+        } elseif ($cityTail !== null && str_starts_with($address, $cityTail)) {
+            $address = ltrim(mb_substr($address, mb_strlen($cityTail)));
+        }
+
+        $query = $prefecture.$city.$address;
+
         try {
-            $response = Http::timeout(5)->get(self::ENDPOINT, ['q' => $address]);
+            $response = Http::timeout(5)->get(self::ENDPOINT, ['q' => $query]);
 
             if (! $response->successful()) {
-                Log::warning('GSI geocoding non-2xx', ['status' => $response->status(), 'address' => $address]);
+                Log::warning('GSI geocoding non-2xx', ['status' => $response->status(), 'query' => $query]);
 
                 return null;
             }
@@ -39,6 +60,20 @@ final class GsiGeocodingService
             $features = $response->json();
             if (! is_array($features) || count($features) === 0) {
                 return null; // 見つからず
+            }
+
+            $title = (string) ($features[0]['properties']['title'] ?? '');
+
+            // A-2: title に市区名（主要部）が含まれること。県名のみ等の上位レベル一致は不採用。
+            $needle = $cityTail ?? $city;
+            if ($needle !== '' && ! str_contains($title, $needle)) {
+                Log::warning('GSI geocoding rejected: title lacks city (県レベルfallbackの疑い)', [
+                    'query' => $query,
+                    'title' => $title,
+                    'needle' => $needle,
+                ]);
+
+                return null;
             }
 
             // GeoJSON: coordinates は [経度, 緯度] の順（lng, lat）
@@ -52,9 +87,22 @@ final class GsiGeocodingService
                 'lng' => (float) $coords[0],
             ];
         } catch (\Throwable $e) {
-            Log::warning('GSI geocoding failed: '.$e->getMessage(), ['address' => $address]);
+            Log::warning('GSI geocoding failed: '.$e->getMessage(), ['query' => $query]);
 
             return null;
         }
+    }
+
+    /**
+     * クエリ前の正規化: 全角英数記号→半角（全角ハイフン含む）、各種ダッシュ→半角ハイフン、
+     * スペース（半/全角）除去、trim。
+     */
+    private function normalize(string $s): string
+    {
+        $s = mb_convert_kana($s, 'a');           // 全角英数記号→半角（全角ハイフンU+FF0Dも半角化）
+        $s = str_replace(['−', '—', '―', 'ｰ'], '-', $s); // マイナス/ダッシュ/半角長音→ハイフン
+        $s = preg_replace('/[\s\x{3000}]+/u', '', $s) ?? $s; // スペース除去（半角・全角）
+
+        return trim($s);
     }
 }
