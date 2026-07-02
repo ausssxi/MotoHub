@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\BikeModel;
-use App\Models\Listing;
 use App\Services\Bike\ModelContentDataService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
@@ -21,9 +20,11 @@ final class GenerateModelContent extends Command
     protected $description = '車種モデルページのAI生成コンテンツを作成';
 
     private const API_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-    private const MODEL_ID = 'claude-sonnet-4-20250514';
+
     private const MAX_TOKENS = 2500;
+
     private const SLEEP_SECONDS = 2;
+
     private const MIN_ACTIVE_COUNT = 5;
 
     public function handle(ModelContentDataService $dataService): int
@@ -33,8 +34,9 @@ final class GenerateModelContent extends Command
         $chunk = (int) $this->option('chunk');
         $minListings = (int) ($this->option('min-listings') ?? self::MIN_ACTIVE_COUNT);
 
-        if (!$isDryRun && !$apiKey) {
+        if (! $isDryRun && ! $apiKey) {
             $this->error('ANTHROPIC_API_KEY が .env に設定されていません。');
+
             return self::FAILURE;
         }
 
@@ -49,6 +51,7 @@ final class GenerateModelContent extends Command
 
         if ($models->isEmpty()) {
             $this->info('処理対象の車種がありません。');
+
             return self::SUCCESS;
         }
 
@@ -66,11 +69,12 @@ final class GenerateModelContent extends Command
                 $data = $dataService->collect($model->id);
             } catch (\Throwable $e) {
                 $this->error("{$prefix}: データ収集エラー - {$e->getMessage()}");
-                Log::error("GenerateModelContent: データ収集失敗", [
+                Log::error('GenerateModelContent: データ収集失敗', [
                     'model_id' => $model->id,
                     'error' => $e->getMessage(),
                 ]);
                 $errors++;
+
                 continue;
             }
 
@@ -78,6 +82,7 @@ final class GenerateModelContent extends Command
             if ($data['active_count'] < $minListings) {
                 $this->warn("{$prefix}: 販売中 {$data['active_count']}台 → スキップ");
                 $skipped++;
+
                 continue;
             }
 
@@ -86,6 +91,7 @@ final class GenerateModelContent extends Command
             if ($isDryRun) {
                 $this->line(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
                 $completed++;
+
                 continue;
             }
 
@@ -94,17 +100,19 @@ final class GenerateModelContent extends Command
                 $content = $this->callClaudeApi($apiKey, $data);
             } catch (\Throwable $e) {
                 $this->error("{$prefix}: API呼び出しエラー - {$e->getMessage()}");
-                Log::error("GenerateModelContent: API呼び出し失敗", [
+                Log::error('GenerateModelContent: API呼び出し失敗', [
                     'model_id' => $model->id,
                     'error' => $e->getMessage(),
                 ]);
                 $errors++;
+
                 continue;
             }
 
             if ($content === null) {
                 $this->error("{$prefix}: レスポンスのパースに失敗");
                 $errors++;
+
                 continue;
             }
 
@@ -170,7 +178,7 @@ PROMPT;
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
         ])->timeout(60)->post(self::API_ENDPOINT, [
-            'model' => self::MODEL_ID,
+            'model' => config('services.anthropic.model'),
             'max_tokens' => self::MAX_TOKENS,
             'system' => $systemPrompt,
             'messages' => [
@@ -178,15 +186,16 @@ PROMPT;
             ],
         ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             throw new \RuntimeException("API error: {$response->status()} - {$response->body()}");
         }
 
         $body = $response->json();
         $text = $body['content'][0]['text'] ?? null;
 
-        if (!$text) {
+        if (! $text) {
             Log::error('GenerateModelContent: API応答にtextなし', ['body' => $body]);
+
             return null;
         }
 
@@ -201,8 +210,9 @@ PROMPT;
 
         $decoded = json_decode(trim($text), true);
 
-        if (!is_array($decoded)) {
+        if (! is_array($decoded)) {
             Log::error('GenerateModelContent: JSONパース失敗', ['raw' => $text]);
+
             return null;
         }
 
@@ -211,6 +221,7 @@ PROMPT;
         foreach ($required as $key) {
             if (empty($decoded[$key])) {
                 Log::error("GenerateModelContent: 必須キー '{$key}' が空", ['decoded' => $decoded]);
+
                 return null;
             }
         }

@@ -18,9 +18,11 @@ final class GenerateModelHistory extends Command
     protected $description = '車種モデルのモデル履歴データをAI生成';
 
     private const API_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-    private const MODEL_ID = 'claude-sonnet-4-20250514';
+
     private const MAX_TOKENS = 2000;
+
     private const SLEEP_SECONDS = 2;
+
     private const MIN_ACTIVE_COUNT = 5;
 
     public function handle(): int
@@ -29,8 +31,9 @@ final class GenerateModelHistory extends Command
         $isDryRun = $this->option('dry-run');
         $chunk = (int) $this->option('chunk');
 
-        if (!$isDryRun && !$apiKey) {
+        if (! $isDryRun && ! $apiKey) {
             $this->error('ANTHROPIC_API_KEY が .env に設定されていません。');
+
             return self::FAILURE;
         }
 
@@ -45,6 +48,7 @@ final class GenerateModelHistory extends Command
 
         if ($models->isEmpty()) {
             $this->info('処理対象の車種がありません。');
+
             return self::SUCCESS;
         }
 
@@ -60,6 +64,7 @@ final class GenerateModelHistory extends Command
             if ($model->listings_count < self::MIN_ACTIVE_COUNT) {
                 $this->warn("{$prefix}: 販売中 {$model->listings_count}台 → スキップ");
                 $skipped++;
+
                 continue;
             }
 
@@ -70,6 +75,7 @@ final class GenerateModelHistory extends Command
                 $this->line("  排気量: {$model->displacement}cc");
                 $this->line("  カテゴリ: {$model->categoryData?->name}");
                 $completed++;
+
                 continue;
             }
 
@@ -82,12 +88,14 @@ final class GenerateModelHistory extends Command
                     'error' => $e->getMessage(),
                 ]);
                 $errors++;
+
                 continue;
             }
 
             if ($history === null) {
                 $this->error("{$prefix}: レスポンスのパースに失敗");
                 $errors++;
+
                 continue;
             }
 
@@ -191,7 +199,7 @@ PROMPT;
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
         ])->timeout(60)->post(self::API_ENDPOINT, [
-            'model' => self::MODEL_ID,
+            'model' => config('services.anthropic.model'),
             'max_tokens' => self::MAX_TOKENS,
             'system' => $systemPrompt,
             'messages' => [
@@ -199,15 +207,16 @@ PROMPT;
             ],
         ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             throw new \RuntimeException("API error: {$response->status()} - {$response->body()}");
         }
 
         $body = $response->json();
         $text = $body['content'][0]['text'] ?? null;
 
-        if (!$text) {
+        if (! $text) {
             Log::error('GenerateModelHistory: API応答にtextなし', ['body' => $body]);
+
             return null;
         }
 
@@ -222,14 +231,16 @@ PROMPT;
 
         $decoded = json_decode(trim($text), true);
 
-        if (!is_array($decoded)) {
+        if (! is_array($decoded)) {
             Log::error('GenerateModelHistory: JSONパース失敗', ['raw' => $text]);
+
             return null;
         }
 
         // generationsキーが存在することを確認
-        if (!array_key_exists('generations', $decoded)) {
+        if (! array_key_exists('generations', $decoded)) {
             Log::error('GenerateModelHistory: generationsキーなし', ['decoded' => $decoded]);
+
             return null;
         }
 

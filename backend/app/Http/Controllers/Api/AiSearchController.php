@@ -16,7 +16,7 @@ use Illuminate\View\View;
 final class AiSearchController extends Controller
 {
     private const API_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-    private const MODEL_ID = 'claude-sonnet-4-20250514';
+
     private const MAX_HISTORY = 5;
 
     public function index(): View
@@ -31,7 +31,7 @@ final class AiSearchController extends Controller
     {
         $validated = $request->validate([
             'query' => 'required|string|max:200',
-            'history' => 'nullable|array|max:' . (self::MAX_HISTORY * 2),
+            'history' => 'nullable|array|max:'.(self::MAX_HISTORY * 2),
             'history.*.role' => 'required_with:history|string|in:user,assistant',
             'history.*.content' => 'required_with:history|string|max:1000',
         ]);
@@ -48,6 +48,7 @@ final class AiSearchController extends Controller
             $conditions = $this->extractConditions($apiKey, $validated['query'], $history);
         } catch (\Throwable $e) {
             Log::error('AiSearch STEP1: 条件抽出失敗', ['error' => $e->getMessage()]);
+
             return response()->json(['error' => '検索条件の解析に失敗しました。もう少し具体的に入力してみてください。'], 500);
         }
 
@@ -158,7 +159,7 @@ PROMPT;
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
         ])->timeout(30)->post(self::API_ENDPOINT, [
-            'model' => self::MODEL_ID,
+            'model' => config('services.anthropic.model'),
             'max_tokens' => 300,
             'system' => $systemPrompt,
             'messages' => $messages,
@@ -222,7 +223,7 @@ PROMPT;
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
         ])->timeout(30)->post(self::API_ENDPOINT, [
-            'model' => self::MODEL_ID,
+            'model' => config('services.anthropic.model'),
             'max_tokens' => $isConsult ? 800 : 500,
             'system' => $systemPrompt,
             'messages' => $messages,
@@ -267,7 +268,7 @@ PROMPT;
             $params['keyword'] = $conditions['model_name'];
         }
 
-        return '/bikes/search?' . http_build_query($params);
+        return '/bikes/search?'.http_build_query($params);
     }
 
     private function parseJsonResponse(string $text): ?array
@@ -279,6 +280,7 @@ PROMPT;
 
         if (! is_array($decoded)) {
             Log::error('AiSearch: JSONパース失敗', ['raw' => $text]);
+
             return null;
         }
 

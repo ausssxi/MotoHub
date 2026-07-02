@@ -24,7 +24,7 @@ final class GenerateWeeklyMarketReport extends Command
     protected $description = '先週の相場変動データを集計し、週間相場速報を自動生成';
 
     private const API_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-    private const MODEL_ID = 'claude-sonnet-4-20250514';
+
     private const MAX_TOKENS = 2000;
 
     public function handle(TrendService $trendService): int
@@ -32,8 +32,9 @@ final class GenerateWeeklyMarketReport extends Command
         $apiKey = config('services.anthropic.api_key');
         $isDryRun = $this->option('dry-run');
 
-        if (!$isDryRun && !$apiKey) {
+        if (! $isDryRun && ! $apiKey) {
             $this->error('ANTHROPIC_API_KEY が .env に設定されていません。');
+
             return self::FAILURE;
         }
 
@@ -47,11 +48,12 @@ final class GenerateWeeklyMarketReport extends Command
         $month = (int) $weekStart->format('n');
         $weekOfMonth = (int) ceil($weekStart->day / 7);
         $weekLabel = "{$month}月第{$weekOfMonth}週";
-        $periodLabel = $weekStart->format('n/j') . '〜' . now()->subWeek()->endOfWeek()->format('n/j');
+        $periodLabel = $weekStart->format('n/j').'〜'.now()->subWeek()->endOfWeek()->format('n/j');
 
         // 重複チェック
-        if (!$this->option('force') && BikeNews::where('title', 'like', "%週間相場速報%{$weekLabel}%")->exists()) {
+        if (! $this->option('force') && BikeNews::where('title', 'like', "%週間相場速報%{$weekLabel}%")->exists()) {
             $this->warn("既に{$weekLabel}の週間レポートが存在します。");
+
             return self::SUCCESS;
         }
 
@@ -67,11 +69,13 @@ final class GenerateWeeklyMarketReport extends Command
 
         if ($isDryRun) {
             $this->printDryRun($summary, $topDrops, $topRises, $topModels, $weekLabel, $periodLabel);
+
             return self::SUCCESS;
         }
 
         if (empty($topDrops) && empty($topRises) && $topModels->isEmpty()) {
             $this->warn('データ不足のためスキップします。');
+
             return self::SUCCESS;
         }
 
@@ -85,11 +89,13 @@ final class GenerateWeeklyMarketReport extends Command
         } catch (\Throwable $e) {
             $this->error("API呼び出しエラー: {$e->getMessage()}");
             Log::error('GenerateWeeklyMarketReport: API呼び出し失敗', ['error' => $e->getMessage()]);
+
             return self::FAILURE;
         }
 
         if ($result === null) {
             $this->error('Claude APIのレスポンスパースに失敗しました。');
+
             return self::FAILURE;
         }
 
@@ -104,15 +110,15 @@ final class GenerateWeeklyMarketReport extends Command
         $publishedAt = $this->option('publish') ? now() : null;
 
         $news = BikeNews::create([
-            'title'           => $result['title'],
-            'url'             => '',
-            'source'          => 'MotoHub',
-            'content'         => $content,
-            'thumbnail_url'   => $thumbnailUrl,
-            'published_at'    => $publishedAt,
-            'bike_model_id'   => $topModelId,
+            'title' => $result['title'],
+            'url' => '',
+            'source' => 'MotoHub',
+            'content' => $content,
+            'thumbnail_url' => $thumbnailUrl,
+            'published_at' => $publishedAt,
+            'bike_model_id' => $topModelId,
             'manufacturer_id' => null,
-            'is_featured'     => true,
+            'is_featured' => true,
         ]);
 
         $news->update(['url' => route('news.show', $news->id)]);
@@ -173,21 +179,20 @@ final class GenerateWeeklyMarketReport extends Command
             ->keyBy('id');
 
         $summaryText = "販売台数: {$summary['sold_count']}台（前週比 {$summary['sold_change_rate']}%）\n"
-            . "平均販売価格: " . number_format($summary['avg_price']) . "円（前週比 {$summary['price_change_rate']}%）";
+            .'平均販売価格: '.number_format($summary['avg_price'])."円（前週比 {$summary['price_change_rate']}%）";
 
-        $dropText = collect($topDrops)->map(fn ($d) =>
-            "{$d['model_name']}（{$d['maker_name']}）: {$d['current_price']}万円（{$d['diff']}万円 / {$d['rate']}%）掲載{$d['count']}台"
+        $dropText = collect($topDrops)->map(fn ($d) => "{$d['model_name']}（{$d['maker_name']}）: {$d['current_price']}万円（{$d['diff']}万円 / {$d['rate']}%）掲載{$d['count']}台"
         )->implode("\n");
 
-        $riseText = collect($topRises)->map(fn ($r) =>
-            "{$r['model_name']}（{$r['maker_name']}）: {$r['current_price']}万円（+{$r['diff']}万円 / +{$r['rate']}%）掲載{$r['count']}台"
+        $riseText = collect($topRises)->map(fn ($r) => "{$r['model_name']}（{$r['maker_name']}）: {$r['current_price']}万円（+{$r['diff']}万円 / +{$r['rate']}%）掲載{$r['count']}台"
         )->implode("\n");
 
         $modelText = $topModels->values()->map(function ($row, $i) use ($models) {
             $m = $models->get($row->bike_model_id);
             $name = $m ? $m->name : '不明';
             $maker = $m?->manufacturer?->name ?? '不明';
-            return ($i + 1) . "位 {$name}（{$maker}）: {$row->sold_count}台 / 平均" . number_format((int) $row->avg_price) . '円';
+
+            return ($i + 1)."位 {$name}（{$maker}）: {$row->sold_count}台 / 平均".number_format((int) $row->avg_price).'円';
         })->implode("\n");
 
         $systemPrompt = <<<'PROMPT'
@@ -232,7 +237,7 @@ PROMPT;
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
         ])->timeout(60)->post(self::API_ENDPOINT, [
-            'model' => self::MODEL_ID,
+            'model' => config('services.anthropic.model'),
             'max_tokens' => self::MAX_TOKENS,
             'system' => $systemPrompt,
             'messages' => [
@@ -240,17 +245,18 @@ PROMPT;
             ],
         ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             throw new \RuntimeException("API error: {$response->status()} - {$response->body()}");
         }
 
         $result = $response->json();
         $text = $result['content'][0]['text'] ?? null;
 
-        if (!$text) {
+        if (! $text) {
             $this->error('Claude APIからのレスポンスが空です');
-            $this->error('Response: ' . json_encode($result));
+            $this->error('Response: '.json_encode($result));
             Log::error('GenerateWeeklyMarketReport: API応答にtextなし', ['body' => $result]);
+
             return null;
         }
 
@@ -258,10 +264,11 @@ PROMPT;
         $clean = preg_replace('/```json|```/', '', $text);
         $data = json_decode(trim($clean), true);
 
-        if (!$data || !isset($data['title'])) {
+        if (! $data || ! isset($data['title'])) {
             $this->error('レスポンスのJSONパースに失敗');
-            $this->error('Text: ' . $text);
+            $this->error('Text: '.$text);
             Log::error('GenerateWeeklyMarketReport: JSONパース失敗', ['raw' => $text]);
+
             return null;
         }
 
@@ -273,7 +280,7 @@ PROMPT;
         $html = '';
 
         // 値下がりTOP3
-        if (!empty($drops)) {
+        if (! empty($drops)) {
             $html .= '<h3 class="text-lg font-bold text-gray-900 mt-6 mb-3 flex items-center gap-2">';
             $html .= '<span class="text-blue-500">📉</span> 値下がり注目TOP3';
             $html .= '</h3>';
@@ -281,7 +288,7 @@ PROMPT;
         }
 
         // 値上がりTOP3
-        if (!empty($rises)) {
+        if (! empty($rises)) {
             $html .= '<h3 class="text-lg font-bold text-gray-900 mt-6 mb-3 flex items-center gap-2">';
             $html .= '<span class="text-red-500">📈</span> 値上がり注目TOP3';
             $html .= '</h3>';
@@ -303,7 +310,9 @@ PROMPT;
             foreach ($topModels->values() as $i => $row) {
                 $rank = $i + 1;
                 $m = $models->get($row->bike_model_id);
-                if (!$m) continue;
+                if (! $m) {
+                    continue;
+                }
 
                 $name = e($m->name);
                 $maker = e($m->manufacturer->name ?? '不明');
@@ -319,32 +328,32 @@ PROMPT;
 
                 if ($rank <= 3) {
                     $imgTag = $imgUrl
-                        ? '<img src="' . $imgUrl . '" alt="' . $name . '" class="w-20 h-14 object-cover rounded" loading="lazy" onerror="this.style.display=\'none\'">'
+                        ? '<img src="'.$imgUrl.'" alt="'.$name.'" class="w-20 h-14 object-cover rounded" loading="lazy" onerror="this.style.display=\'none\'">'
                         : '';
 
                     $html .= '<div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">';
-                    $html .= '<div class="text-xl font-bold">' . $medal . '</div>';
+                    $html .= '<div class="text-xl font-bold">'.$medal.'</div>';
                     if ($imgTag) {
-                        $html .= '<a href="' . $modelUrl . '" class="block flex-shrink-0">' . $imgTag . '</a>';
+                        $html .= '<a href="'.$modelUrl.'" class="block flex-shrink-0">'.$imgTag.'</a>';
                     }
                     $html .= '<div class="flex-1 min-w-0">';
-                    $html .= '<div><a href="' . $modelUrl . '" class="font-bold text-blue-700 hover:underline">' . $name . '</a></div>';
-                    $html .= '<div class="text-xs text-gray-500">' . $maker . '</div>';
+                    $html .= '<div><a href="'.$modelUrl.'" class="font-bold text-blue-700 hover:underline">'.$name.'</a></div>';
+                    $html .= '<div class="text-xs text-gray-500">'.$maker.'</div>';
                     $html .= '</div>';
                     $html .= '<div class="text-right flex-shrink-0">';
-                    $html .= '<div class="font-bold text-blue-600">' . number_format($row->sold_count) . '台</div>';
-                    $html .= '<div class="text-xs text-gray-500">平均' . number_format((int) $row->avg_price) . '円</div>';
+                    $html .= '<div class="font-bold text-blue-600">'.number_format($row->sold_count).'台</div>';
+                    $html .= '<div class="text-xs text-gray-500">平均'.number_format((int) $row->avg_price).'円</div>';
                     $html .= '</div>';
                     $html .= '</div>';
                 } else {
                     $html .= '<div class="flex items-center gap-3 py-2 border-b border-gray-100">';
-                    $html .= '<span class="w-6 text-center font-bold text-gray-400 text-sm">' . $rank . '</span>';
+                    $html .= '<span class="w-6 text-center font-bold text-gray-400 text-sm">'.$rank.'</span>';
                     $html .= '<div class="flex-1 min-w-0">';
-                    $html .= '<a href="' . $modelUrl . '" class="font-bold text-blue-700 hover:underline text-sm">' . $name . '</a>';
-                    $html .= '<span class="text-gray-400 text-xs ml-1">' . $maker . '</span>';
+                    $html .= '<a href="'.$modelUrl.'" class="font-bold text-blue-700 hover:underline text-sm">'.$name.'</a>';
+                    $html .= '<span class="text-gray-400 text-xs ml-1">'.$maker.'</span>';
                     $html .= '</div>';
                     $html .= '<div class="text-right flex-shrink-0">';
-                    $html .= '<span class="font-bold text-sm">' . number_format($row->sold_count) . '台</span>';
+                    $html .= '<span class="font-bold text-sm">'.number_format($row->sold_count).'台</span>';
                     $html .= '</div>';
                     $html .= '</div>';
                 }
@@ -352,8 +361,8 @@ PROMPT;
             $html .= '</div>';
         }
 
-        $html .= '<p class="text-xs text-gray-400 mt-6">※ MotoHubに掲載された中古バイクのデータに基づく' . e($periodLabel) . 'の集計です。</p>';
-        $html .= '<a href="' . route('bikes.trends') . '" class="inline-block mt-3 text-sm font-bold text-blue-600 hover:underline">詳細な相場変動ランキングはこちら →</a>';
+        $html .= '<p class="text-xs text-gray-400 mt-6">※ MotoHubに掲載された中古バイクのデータに基づく'.e($periodLabel).'の集計です。</p>';
+        $html .= '<a href="'.route('bikes.trends').'" class="inline-block mt-3 text-sm font-bold text-blue-600 hover:underline">詳細な相場変動ランキングはこちら →</a>';
 
         return $html;
     }
@@ -377,32 +386,37 @@ PROMPT;
             $modelUrl = e(route('bikes.model_detail.fallback', $item['model_id']));
 
             $html .= '<tr class="border-b border-gray-100">';
-            $html .= '<td class="p-2"><a href="' . $modelUrl . '" class="font-bold text-blue-700 hover:underline">' . $name . '</a>';
-            $html .= '<span class="text-gray-400 text-xs ml-1">' . $maker . '</span></td>';
-            $html .= '<td class="p-2 text-right font-bold">' . $item['current_price'] . '万円</td>';
-            $html .= '<td class="p-2 text-right ' . $diffColor . ' font-bold">' . $diffPrefix . $item['diff'] . '万円</td>';
-            $html .= '<td class="p-2 text-right ' . $diffColor . ' font-bold">' . $diffPrefix . $item['rate'] . '%</td>';
+            $html .= '<td class="p-2"><a href="'.$modelUrl.'" class="font-bold text-blue-700 hover:underline">'.$name.'</a>';
+            $html .= '<span class="text-gray-400 text-xs ml-1">'.$maker.'</span></td>';
+            $html .= '<td class="p-2 text-right font-bold">'.$item['current_price'].'万円</td>';
+            $html .= '<td class="p-2 text-right '.$diffColor.' font-bold">'.$diffPrefix.$item['diff'].'万円</td>';
+            $html .= '<td class="p-2 text-right '.$diffColor.' font-bold">'.$diffPrefix.$item['rate'].'%</td>';
             $html .= '</tr>';
         }
 
         $html .= '</tbody></table></div>';
+
         return $html;
     }
 
     private function resolveImageUrl(?BikeModel $model): ?string
     {
-        if (!$model) return null;
+        if (! $model) {
+            return null;
+        }
 
-        if (is_array($model->local_image_path) && !empty($model->local_image_path)) {
-            return asset('storage/' . ltrim($model->local_image_path[0], '/'));
+        if (is_array($model->local_image_path) && ! empty($model->local_image_path)) {
+            return asset('storage/'.ltrim($model->local_image_path[0], '/'));
         }
 
         $imageUrl = $model->image_url;
-        if ($imageUrl) return $imageUrl;
+        if ($imageUrl) {
+            return $imageUrl;
+        }
 
         if ($model->manufacturer) {
             if ($model->manufacturer->local_logo_path) {
-                return asset('storage/' . ltrim($model->manufacturer->local_logo_path, '/'));
+                return asset('storage/'.ltrim($model->manufacturer->local_logo_path, '/'));
             }
             if ($model->manufacturer->logo_url) {
                 return $model->manufacturer->logo_url;
@@ -427,7 +441,7 @@ PROMPT;
 
         $this->info("=== {$weekLabel}（{$periodLabel}）データサマリー ===");
         $this->line("販売台数: {$summary['sold_count']}台（前週比 {$summary['sold_change_rate']}%）");
-        $this->line("平均価格: " . number_format($summary['avg_price']) . "円（前週比 {$summary['price_change_rate']}%）");
+        $this->line('平均価格: '.number_format($summary['avg_price'])."円（前週比 {$summary['price_change_rate']}%）");
 
         $this->newLine();
         $this->info('--- 値下がりTOP3 ---');
@@ -447,7 +461,7 @@ PROMPT;
             $m = $models->get($row->bike_model_id);
             $name = $m ? $m->name : '不明';
             $maker = $m?->manufacturer?->name ?? '不明';
-            $this->line('  ' . ($i + 1) . "位 {$name}（{$maker}）: {$row->sold_count}台 / 平均" . number_format((int) $row->avg_price) . '円');
+            $this->line('  '.($i + 1)."位 {$name}（{$maker}）: {$row->sold_count}台 / 平均".number_format((int) $row->avg_price).'円');
         }
     }
 }

@@ -24,9 +24,11 @@ final class GenerateBikeModelSlugs extends Command
     protected $description = 'Claude APIを使用してslug未設定のbike_modelsに英語名スラッグを自動生成';
 
     private const API_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-    private const MODEL_ID = 'claude-sonnet-4-20250514';
+
     private const BATCH_SIZE = 50;
+
     private const SLEEP_SECONDS = 2;
+
     private const MAX_TOKENS = 4096;
 
     public function handle(): int
@@ -34,16 +36,18 @@ final class GenerateBikeModelSlugs extends Command
         $isDryRun = (bool) $this->option('dry-run');
         $isExecute = (bool) $this->option('execute');
 
-        if (!$isDryRun && !$isExecute) {
+        if (! $isDryRun && ! $isExecute) {
             $this->error('--dry-run または --execute を指定してください。');
             $this->line('  --dry-run  : 変換結果を一覧表示（DB変更なし）');
             $this->line('  --execute  : DB更新 + SQLファイル出力');
+
             return self::FAILURE;
         }
 
         $apiKey = config('services.anthropic.api_key');
-        if (!$apiKey) {
+        if (! $apiKey) {
             $this->error('ANTHROPIC_API_KEY が .env に設定されていません。');
+
             return self::FAILURE;
         }
 
@@ -55,6 +59,7 @@ final class GenerateBikeModelSlugs extends Command
 
         if ($models->isEmpty()) {
             $this->info('slugがNULLのレコードはありません。');
+
             return self::SUCCESS;
         }
 
@@ -93,6 +98,7 @@ final class GenerateBikeModelSlugs extends Command
                 if ($batchNum < $totalBatches) {
                     sleep(self::SLEEP_SECONDS);
                 }
+
                 continue;
             }
 
@@ -109,6 +115,7 @@ final class GenerateBikeModelSlugs extends Command
                         'manufacturer' => $model->manufacturer?->name ?? '不明',
                         'reason' => 'API変換不可',
                     ];
+
                     continue;
                 }
 
@@ -123,6 +130,7 @@ final class GenerateBikeModelSlugs extends Command
                         'manufacturer' => $model->manufacturer?->name ?? '不明',
                         'reason' => "スラッグ短すぎ: {$slug}",
                     ];
+
                     continue;
                 }
 
@@ -140,6 +148,7 @@ final class GenerateBikeModelSlugs extends Command
                         'manufacturer' => $model->manufacturer?->name ?? '不明',
                         'reason' => "既存と重複: {$slug}",
                     ];
+
                     continue;
                 }
 
@@ -156,6 +165,7 @@ final class GenerateBikeModelSlugs extends Command
                         'manufacturer' => $model->manufacturer?->name ?? '不明',
                         'reason' => "バッチ内重複: {$slug}",
                     ];
+
                     continue;
                 }
 
@@ -181,7 +191,7 @@ final class GenerateBikeModelSlugs extends Command
 
             // バッチ間のスリープ
             if ($batchNum < $totalBatches) {
-                $this->line("  (次バッチまで" . self::SLEEP_SECONDS . "秒待機...)");
+                $this->line('  (次バッチまで'.self::SLEEP_SECONDS.'秒待機...)');
                 sleep(self::SLEEP_SECONDS);
             }
         }
@@ -220,8 +230,8 @@ final class GenerateBikeModelSlugs extends Command
     /**
      * Claude APIを呼び出してモデル名→スラッグの変換を取得
      *
-     * @param array<array{id: int, name: string, manufacturer: string}> $items
-     * @return array<string, string>|null  id => slug のマップ
+     * @param  array<array{id: int, name: string, manufacturer: string}>  $items
+     * @return array<string, string>|null id => slug のマップ
      */
     private function callClaudeApi(string $apiKey, array $items): ?array
     {
@@ -258,7 +268,7 @@ PROMPT;
                 'anthropic-version' => '2023-06-01',
                 'content-type' => 'application/json',
             ])->timeout(60)->post(self::API_ENDPOINT, [
-                'model' => self::MODEL_ID,
+                'model' => config('services.anthropic.model'),
                 'max_tokens' => self::MAX_TOKENS,
                 'system' => $systemPrompt,
                 'messages' => [
@@ -266,12 +276,13 @@ PROMPT;
                 ],
             ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 Log::error('GenerateBikeModelSlugs: API error', [
                     'status' => $response->status(),
                     'body' => $response->body(),
                 ]);
                 $this->error("  API HTTP {$response->status()}: {$response->body()}");
+
                 return null;
             }
 
@@ -288,11 +299,13 @@ PROMPT;
 
             Log::error('GenerateBikeModelSlugs: JSON parse failed', ['text' => $text]);
             $this->error('  JSONパースに失敗しました');
+
             return null;
 
         } catch (\Throwable $e) {
             Log::error('GenerateBikeModelSlugs: Exception', ['error' => $e->getMessage()]);
             $this->error("  例外: {$e->getMessage()}");
+
             return null;
         }
     }
@@ -300,14 +313,14 @@ PROMPT;
     /**
      * SQLファイルを出力
      *
-     * @param array<array{id: int, slug: string, name: string}> $statements
+     * @param  array<array{id: int, slug: string, name: string}>  $statements
      */
     private function writeSqlFile(string $path, array $statements): void
     {
         $lines = [
             '-- bike_models slug migration',
-            '-- Generated: ' . now()->format('Y-m-d H:i:s'),
-            '-- Records: ' . count($statements),
+            '-- Generated: '.now()->format('Y-m-d H:i:s'),
+            '-- Records: '.count($statements),
             '',
             'START TRANSACTION;',
             '',
@@ -323,7 +336,7 @@ PROMPT;
         $lines[] = '';
 
         $dir = dirname($path);
-        if (!is_dir($dir)) {
+        if (! is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
 

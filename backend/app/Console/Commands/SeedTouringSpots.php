@@ -19,8 +19,9 @@ final class SeedTouringSpots extends Command
     protected $description = 'Claude APIを使って都道府県別ツーリングスポットを生成';
 
     private const API_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-    private const MODEL_ID = 'claude-sonnet-4-20250514';
+
     private const MAX_TOKENS = 4000;
+
     private const SLEEP_SECONDS = 2;
 
     public function handle(): int
@@ -29,8 +30,9 @@ final class SeedTouringSpots extends Command
         $isDryRun = $this->option('dry-run');
         $prefFilter = $this->option('pref');
 
-        if (!$isDryRun && !$apiKey) {
+        if (! $isDryRun && ! $apiKey) {
             $this->error('ANTHROPIC_API_KEY が .env に設定されていません。');
+
             return self::FAILURE;
         }
 
@@ -45,8 +47,9 @@ final class SeedTouringSpots extends Command
                     break;
                 }
             }
-            if (!$found) {
+            if (! $found) {
                 $this->error("都道府県 '{$prefFilter}' が見つかりません。");
+
                 return self::FAILURE;
             }
         }
@@ -63,6 +66,7 @@ final class SeedTouringSpots extends Command
                 $this->info("{$prefix}: プロンプト確認モード");
                 $this->line($this->buildUserPrompt($name));
                 $completed++;
+
                 continue;
             }
 
@@ -77,12 +81,14 @@ final class SeedTouringSpots extends Command
                     'error' => $e->getMessage(),
                 ]);
                 $errors++;
+
                 continue;
             }
 
             if ($spots === null) {
                 $this->error("{$prefix}: レスポンスのパースに失敗");
                 $errors++;
+
                 continue;
             }
 
@@ -165,7 +171,7 @@ PROMPT;
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
         ])->timeout(60)->post(self::API_ENDPOINT, [
-            'model' => self::MODEL_ID,
+            'model' => config('services.anthropic.model'),
             'max_tokens' => self::MAX_TOKENS,
             'system' => $systemPrompt,
             'messages' => [
@@ -173,15 +179,16 @@ PROMPT;
             ],
         ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             throw new \RuntimeException("API error: {$response->status()} - {$response->body()}");
         }
 
         $body = $response->json();
         $text = $body['content'][0]['text'] ?? null;
 
-        if (!$text) {
+        if (! $text) {
             Log::error('SeedTouringSpots: API応答にtextなし', ['body' => $body]);
+
             return null;
         }
 
@@ -195,15 +202,17 @@ PROMPT;
 
         $decoded = json_decode(trim($text), true);
 
-        if (!is_array($decoded)) {
+        if (! is_array($decoded)) {
             Log::error('SeedTouringSpots: JSONパース失敗', ['raw' => $text]);
+
             return null;
         }
 
         // 配列の配列であることを確認
         foreach ($decoded as $item) {
-            if (!is_array($item) || empty($item['name']) || !isset($item['lat'], $item['lng'])) {
+            if (! is_array($item) || empty($item['name']) || ! isset($item['lat'], $item['lng'])) {
                 Log::error('SeedTouringSpots: 不正なスポットデータ', ['item' => $item]);
+
                 return null;
             }
         }

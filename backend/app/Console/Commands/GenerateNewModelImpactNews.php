@@ -9,7 +9,6 @@ use App\Models\BikeNews;
 use App\Models\Listing;
 use App\Models\MarketPriceLog;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -24,8 +23,9 @@ final class GenerateNewModelImpactNews extends Command
     protected $description = '新車発表ニュースから中古相場への影響分析記事を自動生成';
 
     private const API_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-    private const MODEL_ID = 'claude-sonnet-4-20250514';
+
     private const MAX_TOKENS = 2500;
+
     private const SLEEP_SECONDS = 3;
 
     private const KEYWORDS = [
@@ -48,8 +48,9 @@ final class GenerateNewModelImpactNews extends Command
         $isDryRun = $this->option('dry-run');
         $limit = (int) $this->option('limit');
 
-        if (!$isDryRun && !$apiKey) {
+        if (! $isDryRun && ! $apiKey) {
             $this->error('ANTHROPIC_API_KEY が .env に設定されていません。');
+
             return self::FAILURE;
         }
 
@@ -60,10 +61,11 @@ final class GenerateNewModelImpactNews extends Command
 
         if ($candidates->isEmpty()) {
             $this->info('新車関連ニュースは見つかりませんでした。');
+
             return self::SUCCESS;
         }
 
-        $this->info($candidates->count() . '件の候補ニュースを検出');
+        $this->info($candidates->count().'件の候補ニュースを検出');
 
         $generated = 0;
         $processedModelNames = []; // 同一cron実行内の車種重複防止
@@ -77,13 +79,14 @@ final class GenerateNewModelImpactNews extends Command
             $this->info("処理中: {$sourceNews->title}");
 
             // 重複チェック: 元ニュースのタイトルを含む分析記事が既にあるか
-            if (!$this->option('force')) {
+            if (! $this->option('force')) {
                 $titleFragment = mb_substr($sourceNews->title, 0, 30);
                 if (BikeNews::where('source', 'MotoHub')
                     ->where('content', 'like', "%{$titleFragment}%")
                     ->exists()
                 ) {
-                    $this->warn("  → 既に分析記事生成済み。スキップ");
+                    $this->warn('  → 既に分析記事生成済み。スキップ');
+
                     continue;
                 }
             }
@@ -92,17 +95,19 @@ final class GenerateNewModelImpactNews extends Command
             $modelNames = $this->extractModelNames($apiKey, $sourceNews->title, $isDryRun);
 
             if (empty($modelNames)) {
-                $this->warn("  → 車種名を抽出できませんでした。スキップ");
+                $this->warn('  → 車種名を抽出できませんでした。スキップ');
+
                 continue;
             }
 
-            $this->info('  車種名候補: ' . implode(', ', $modelNames));
+            $this->info('  車種名候補: '.implode(', ', $modelNames));
 
             // bike_modelsから該当車種を検索
             $bikeModel = $this->findBikeModel($modelNames);
 
-            if (!$bikeModel) {
+            if (! $bikeModel) {
                 $this->warn("  → 車種マッチなし: {$sourceNews->title}");
+
                 continue;
             }
 
@@ -111,11 +116,12 @@ final class GenerateNewModelImpactNews extends Command
             // 同一cron実行内の車種重複チェック
             if (in_array($bikeModel->name, $processedModelNames, true)) {
                 $this->warn("  → {$bikeModel->name}: 同一実行内で処理済み、スキップ");
+
                 continue;
             }
 
             // 過去7日以内に同車種の記事がないかチェック
-            if (!$this->option('force')) {
+            if (! $this->option('force')) {
                 $recentExists = BikeNews::where('source', 'MotoHub')
                     ->where('title', 'like', "%{$bikeModel->name}%")
                     ->where('created_at', '>=', now()->subDays(7))
@@ -123,6 +129,7 @@ final class GenerateNewModelImpactNews extends Command
 
                 if ($recentExists) {
                     $this->warn("  → {$bikeModel->name}: 7日以内に記事済み、スキップ");
+
                     continue;
                 }
             }
@@ -131,7 +138,8 @@ final class GenerateNewModelImpactNews extends Command
             $marketData = $this->collectMarketData($bikeModel);
 
             if ($marketData['listing_count'] === 0) {
-                $this->warn("  → 掲載台数0件。スキップ");
+                $this->warn('  → 掲載台数0件。スキップ');
+
                 continue;
             }
 
@@ -139,6 +147,7 @@ final class GenerateNewModelImpactNews extends Command
                 $this->printDryRun($sourceNews, $bikeModel, $marketData);
                 $processedModelNames[] = $bikeModel->name;
                 $generated++;
+
                 continue;
             }
 
@@ -151,11 +160,13 @@ final class GenerateNewModelImpactNews extends Command
                     'news_id' => $sourceNews->id,
                     'error' => $e->getMessage(),
                 ]);
+
                 continue;
             }
 
             if ($result === null) {
                 $this->error('  レスポンスパース失敗。スキップ');
+
                 continue;
             }
 
@@ -163,15 +174,15 @@ final class GenerateNewModelImpactNews extends Command
             $publishedAt = $this->option('publish') ? now() : null;
 
             $news = BikeNews::create([
-                'title'           => $result['title'],
-                'url'             => '',
-                'source'          => 'MotoHub',
-                'content'         => $result['body'],
-                'thumbnail_url'   => $this->resolveImageUrl($bikeModel),
-                'published_at'    => $publishedAt,
-                'bike_model_id'   => $bikeModel->id,
+                'title' => $result['title'],
+                'url' => '',
+                'source' => 'MotoHub',
+                'content' => $result['body'],
+                'thumbnail_url' => $this->resolveImageUrl($bikeModel),
+                'published_at' => $publishedAt,
+                'bike_model_id' => $bikeModel->id,
                 'manufacturer_id' => $bikeModel->manufacturer_id,
-                'is_featured'     => true,
+                'is_featured' => true,
             ]);
 
             $news->update(['url' => route('news.show', $news->id)]);
@@ -229,7 +240,7 @@ final class GenerateNewModelImpactNews extends Command
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
         ])->timeout(30)->post(self::API_ENDPOINT, [
-            'model' => self::MODEL_ID,
+            'model' => config('services.anthropic.model'),
             'max_tokens' => 200,
             'system' => 'バイクのニュースタイトルから車種名（モデル名）を抽出してください。JSON配列のみ返してください。車種名が見つからない場合は空配列[]を返してください。',
             'messages' => [
@@ -237,13 +248,16 @@ final class GenerateNewModelImpactNews extends Command
             ],
         ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             Log::error('extractModelNames: API error', ['status' => $response->status()]);
+
             return $this->simpleExtract($title);
         }
 
         $text = $response->json('content.0.text');
-        if (!$text) return $this->simpleExtract($title);
+        if (! $text) {
+            return $this->simpleExtract($title);
+        }
 
         $clean = preg_replace('/```json|```/', '', $text);
         $names = json_decode(trim($clean), true);
@@ -278,7 +292,9 @@ final class GenerateNewModelImpactNews extends Command
 
         foreach ($modelNames as $name) {
             $name = trim($name);
-            if (mb_strlen($name) <= 2) continue;
+            if (mb_strlen($name) <= 2) {
+                continue;
+            }
 
             $found = BikeModel::with('manufacturer')
                 ->where('name', 'like', "%{$name}%")
@@ -290,7 +306,9 @@ final class GenerateNewModelImpactNews extends Command
             $candidates = $candidates->merge($found);
         }
 
-        if ($candidates->isEmpty()) return null;
+        if ($candidates->isEmpty()) {
+            return null;
+        }
 
         // 掲載台数最多のモデルを採用
         return $candidates->sortByDesc('listings_count')->first();
@@ -400,7 +418,7 @@ PROMPT;
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
         ])->timeout(60)->post(self::API_ENDPOINT, [
-            'model' => self::MODEL_ID,
+            'model' => config('services.anthropic.model'),
             'max_tokens' => self::MAX_TOKENS,
             'system' => $systemPrompt,
             'messages' => [
@@ -408,27 +426,29 @@ PROMPT;
             ],
         ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             throw new \RuntimeException("API error: {$response->status()} - {$response->body()}");
         }
 
         $result = $response->json();
         $text = $result['content'][0]['text'] ?? null;
 
-        if (!$text) {
+        if (! $text) {
             $this->error('  Claude APIからのレスポンスが空です');
-            $this->error('  Response: ' . json_encode($result));
+            $this->error('  Response: '.json_encode($result));
             Log::error('GenerateNewModelImpactNews: API応答にtextなし', ['body' => $result]);
+
             return null;
         }
 
         $clean = preg_replace('/```json|```/', '', $text);
         $data = json_decode(trim($clean), true);
 
-        if (!$data || !isset($data['title'])) {
+        if (! $data || ! isset($data['title'])) {
             $this->error('  レスポンスのJSONパースに失敗');
-            $this->error('  Text: ' . $text);
+            $this->error('  Text: '.$text);
             Log::error('GenerateNewModelImpactNews: JSONパース失敗', ['raw' => $text]);
+
             return null;
         }
 
@@ -437,18 +457,22 @@ PROMPT;
 
     private function resolveImageUrl(?BikeModel $model): ?string
     {
-        if (!$model) return null;
+        if (! $model) {
+            return null;
+        }
 
-        if (is_array($model->local_image_path) && !empty($model->local_image_path)) {
-            return asset('storage/' . ltrim($model->local_image_path[0], '/'));
+        if (is_array($model->local_image_path) && ! empty($model->local_image_path)) {
+            return asset('storage/'.ltrim($model->local_image_path[0], '/'));
         }
 
         $imageUrl = $model->image_url;
-        if ($imageUrl) return $imageUrl;
+        if ($imageUrl) {
+            return $imageUrl;
+        }
 
         if ($model->manufacturer) {
             if ($model->manufacturer->local_logo_path) {
-                return asset('storage/' . ltrim($model->manufacturer->local_logo_path, '/'));
+                return asset('storage/'.ltrim($model->manufacturer->local_logo_path, '/'));
             }
             if ($model->manufacturer->logo_url) {
                 return $model->manufacturer->logo_url;
@@ -464,9 +488,9 @@ PROMPT;
         $this->line("  元ニュース: {$sourceNews->title}");
         $this->line("  マッチ車種: {$bikeModel->name}（{$bikeModel->manufacturer?->name}）");
         $this->line("  掲載台数: {$marketData['listing_count']}台");
-        $this->line("  平均価格: " . number_format($marketData['avg_price']) . '円');
-        $this->line("  最安値: " . number_format($marketData['min_price']) . '円');
-        $this->line("  最高値: " . number_format($marketData['max_price']) . '円');
+        $this->line('  平均価格: '.number_format($marketData['avg_price']).'円');
+        $this->line('  最安値: '.number_format($marketData['min_price']).'円');
+        $this->line('  最高値: '.number_format($marketData['max_price']).'円');
         $this->line("  3ヶ月価格変動: {$marketData['price_change_rate']}%");
     }
 }
