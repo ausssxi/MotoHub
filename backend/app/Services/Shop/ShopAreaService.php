@@ -249,14 +249,16 @@ final class ShopAreaService
     /**
      * 整備ショップのエリアインデックス: 都道府県別の整備店件数
      */
-    public function getRepairAreaIndex(): array
+    public function getRepairAreaIndex(?string $serviceTag = null): array
     {
         $regions = config('parking.regions', []);
+        $suffix = $serviceTag ? '_svc_'.md5($serviceTag) : '';
 
-        $prefCounts = Cache::remember('shop_repair_pref_counts', 86400, function () {
+        $prefCounts = Cache::remember('shop_repair_pref_counts'.$suffix, 86400, function () use ($serviceTag) {
             return Shop::where('shop_type', 'repair_only')
                 ->whereNotNull('prefecture')
                 ->where('prefecture', '!=', '')
+                ->when($serviceTag, fn ($q) => $q->whereJsonContains('service_tags', $serviceTag))
                 ->select('prefecture', DB::raw('COUNT(*) as count'))
                 ->groupBy('prefecture')
                 ->pluck('count', 'prefecture');
@@ -266,7 +268,41 @@ final class ShopAreaService
             'regions' => $regions,
             'prefCounts' => $prefCounts,
             'totalCount' => $prefCounts->sum(),
+            'topCities' => $this->getRepairTopCitiesByPrefecture($serviceTag),
+            'serviceTag' => $serviceTag,
         ];
+    }
+
+    /**
+     * 県別の主要市区町村（repair_only 上位5・3件以上のみ）。
+     * トップページの内部リンク用。1クエリで全県分を集計し PHP 側で整形（N+1回避）。
+     * $serviceTag 指定時はそのサービス対応店だけで集計する。
+     *
+     * @return array<string, array<int, array{city: string, count: int}>>
+     */
+    public function getRepairTopCitiesByPrefecture(?string $serviceTag = null): array
+    {
+        $suffix = $serviceTag ? '_svc_'.md5($serviceTag) : '';
+
+        return Cache::remember('shop_repair_top_cities_v1'.$suffix, 86400, function () use ($serviceTag) {
+            $rows = Shop::where('shop_type', 'repair_only')
+                ->whereNotNull('prefecture')->where('prefecture', '!=', '')
+                ->whereNotNull('city')->where('city', '!=', '')
+                ->when($serviceTag, fn ($q) => $q->whereJsonContains('service_tags', $serviceTag))
+                ->select('prefecture', 'city', DB::raw('COUNT(*) as count'))
+                ->groupBy('prefecture', 'city')
+                ->havingRaw('COUNT(*) >= 3')      // 市区町村ページの3件ゲートと整合
+                ->orderByDesc('count')
+                ->get();
+
+            return $rows
+                ->groupBy('prefecture')
+                ->map(fn ($group) => $group->take(5)->map(fn ($r) => [
+                    'city' => $r->city,
+                    'count' => (int) $r->count,
+                ])->values()->all())
+                ->all();
+        });
     }
 
     /**
@@ -414,6 +450,7 @@ final class ShopAreaService
     public function forgetAreaCaches(string $prefecture, ?string $city = null): void
     {
         Cache::forget('shop_repair_pref_counts');
+        Cache::forget('shop_repair_top_cities_v1');
         Cache::forget('shop_repair_pref_'.md5($prefecture));
         Cache::forget('shop_area_pref_counts');
         Cache::forget('shop_area_pref_'.md5($prefecture));

@@ -241,6 +241,32 @@
                                 公式サイト <i data-lucide="external-link" class="w-3 h-3"></i>
                             </a>
                         </div>
+                        @else
+                        {{-- 公式URL未登録: ユーザーからのURL提案（承認制・shop_submissions再利用） --}}
+                        <div class="mt-6 pt-6 border-t border-gray-100" x-data="{ open: false }">
+                            @if(session('suggest_url_success'))
+                            <div class="mb-2 text-xs font-bold text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                                ありがとうございます。承認後に反映されます。
+                            </div>
+                            @endif
+                            <button type="button" @click="open = !open"
+                                class="w-full flex items-center justify-center gap-1.5 text-xs font-black text-gray-400 hover:text-blue-600 transition-colors">
+                                <i data-lucide="link" class="w-3.5 h-3.5"></i> 公式サイトを教える
+                            </button>
+                            <form x-show="open" x-cloak method="POST" action="{{ route('shops.suggest-url', $shop) }}" class="mt-3 space-y-2">
+                                @csrf
+                                <input type="url" name="website_url" required placeholder="https://..."
+                                       class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                {{-- ハニーポット --}}
+                                <input type="text" name="fax_number" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
+                                @error('website_url')<p class="text-[11px] font-bold text-rose-600">{{ $message }}</p>@enderror
+                                <button type="submit"
+                                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-4 py-2 rounded-xl transition active:scale-[0.99]">
+                                    送信する
+                                </button>
+                                <p class="text-[10px] text-gray-400">※ 承認後に公式サイトリンクとして掲載されます。</p>
+                            </form>
+                        </div>
                         @endif
 
                         @if($shop->latitude && $shop->longitude)

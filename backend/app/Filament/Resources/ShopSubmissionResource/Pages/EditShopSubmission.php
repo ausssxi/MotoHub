@@ -18,16 +18,31 @@ class EditShopSubmission extends EditRecord
     protected function getHeaderActions(): array
     {
         $isPending = fn (): bool => $this->record->status === ShopSubmission::STATUS_PENDING;
+        $isUrlSuggestion = fn (): bool => $this->record->target_shop_id !== null;
 
         return [
-            // 1. 承認（新規登録）
+            // 0. 公式URL提案の承認（対象店にURL充填・新規店は作らない）
+            Actions\Action::make('approveUrl')
+                ->label('承認（公式URL反映）')
+                ->icon('heroicon-o-link')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalDescription('対象店の公式サイトURLが空なら反映します（既存値があれば保持・新規店は作りません）。')
+                ->visible(fn (): bool => $isPending() && $isUrlSuggestion())
+                ->action(function () {
+                    app(ShopSubmissionService::class)->approveUrlSuggestion($this->record);
+                    Notification::make()->success()->title('公式URLを反映しました')->send();
+                    $this->redirect(ShopSubmissionResource::getUrl('index'));
+                }),
+
+            // 1. 承認（新規登録）※新規店投稿のみ
             Actions\Action::make('approveNew')
                 ->label('承認（新規登録）')
                 ->icon('heroicon-o-check-circle')
                 ->color('success')
                 ->requiresConfirmation()
                 ->modalDescription('新しい店舗として登録します（source=user・repair_only）。住所があればジオコーディングします。')
-                ->visible($isPending)
+                ->visible(fn (): bool => $isPending() && ! $isUrlSuggestion())
                 ->action(function () {
                     $shop = app(ShopSubmissionService::class)->approveAsNew($this->record);
                     Notification::make()->success()
@@ -42,7 +57,7 @@ class EditShopSubmission extends EditRecord
                 ->label('既存店に統合')
                 ->icon('heroicon-o-arrows-pointing-in')
                 ->color('primary')
-                ->visible($isPending)
+                ->visible(fn (): bool => $isPending() && ! $isUrlSuggestion())
                 ->form([
                     Forms\Components\Select::make('shop_id')
                         ->label('統合先の既存店舗')

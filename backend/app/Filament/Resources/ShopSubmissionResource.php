@@ -68,7 +68,25 @@ class ShopSubmissionResource extends Resource
                     ->content(fn (?ShopSubmission $record) => $record?->status ?? '—'),
             ])->columns(2),
 
+            Forms\Components\Section::make('公式URL提案（対象店）')
+                ->visible(fn (?ShopSubmission $record): bool => (bool) $record?->target_shop_id)
+                ->schema([
+                    Forms\Components\Placeholder::make('target_shop')->hiddenLabel()
+                        ->content(function (?ShopSubmission $record): HtmlString {
+                            $shop = $record?->targetShop;
+                            if (! $shop) {
+                                return new HtmlString('対象店が見つかりません');
+                            }
+                            $url = route('shops.show', $shop->id);
+                            $cur = $shop->official_site_url ? e($shop->official_site_url) : '<span style="color:#059669;">未登録（承認で充填）</span>';
+
+                            return new HtmlString('対象店: #'.$shop->id.' <a href="'.$url.'" target="_blank" style="color:#2563eb;text-decoration:underline;">'.e($shop->name).'</a><br>現在の公式サイト: '.$cur.'<br>提案URL: '.e((string) $record->website_url));
+                        }),
+                ]),
+
             Forms\Components\Section::make('重複候補（同一都道府県＋市区町村）')
+                // 公式URL提案は対象店が確定しているため重複候補パネルは不要
+                ->visible(fn (?ShopSubmission $record): bool => ! $record?->target_shop_id)
                 ->description('正規化店名の一致/包含、または電話番号一致で抽出。統合の判断に使う。')
                 ->schema([
                     Forms\Components\Placeholder::make('duplicate_candidates')->hiddenLabel()
@@ -100,6 +118,9 @@ class ShopSubmissionResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('id')->label('ID')->sortable()->width(50),
+                Tables\Columns\TextColumn::make('kind')->label('種別')->badge()
+                    ->state(fn (ShopSubmission $record): string => $record->target_shop_id ? '公式URL提案' : '新規店')
+                    ->color(fn (string $state): string => $state === '公式URL提案' ? 'info' : 'gray'),
                 Tables\Columns\TextColumn::make('shop_name')->label('店名')->searchable()->weight('bold')->wrap(),
                 Tables\Columns\TextColumn::make('area')->label('所在地')
                     ->state(fn (ShopSubmission $record): string => $record->prefecture.$record->city),
@@ -125,6 +146,15 @@ class ShopSubmissionResource extends Resource
                         ShopSubmission::STATUS_REJECTED => '却下',
                     ])
                     ->default(ShopSubmission::STATUS_PENDING),
+                Tables\Filters\TernaryFilter::make('target_shop_id')->label('種別')
+                    ->placeholder('すべて')
+                    ->trueLabel('公式URL提案のみ')
+                    ->falseLabel('新規店のみ')
+                    ->queries(
+                        true: fn ($query) => $query->whereNotNull('target_shop_id'),
+                        false: fn ($query) => $query->whereNull('target_shop_id'),
+                        blank: fn ($query) => $query,
+                    ),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->label('確認・処理'),

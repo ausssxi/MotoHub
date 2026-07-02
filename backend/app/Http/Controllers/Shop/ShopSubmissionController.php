@@ -6,7 +6,9 @@ namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Shop\StoreShopSubmissionRequest;
+use App\Http\Requests\Shop\StoreShopUrlSubmissionRequest;
 use App\Mail\ShopSubmissionSubmitted;
+use App\Models\Shop;
 use App\Models\ShopAcceptanceReport;
 use App\Models\ShopSubmission;
 use App\Services\Shop\ShopSubmissionService;
@@ -63,6 +65,40 @@ final class ShopSubmissionController extends Controller
         ])->values();
 
         return response()->json(['candidates' => $candidates]);
+    }
+
+    /**
+     * 店詳細ページからの公式サイトURL提案（既存店対象・承認制）。
+     * shop_name/prefecture/city は対象店からサーバ側で埋める（改ざん防止）。
+     */
+    public function suggestUrl(Shop $shop, StoreShopUrlSubmissionRequest $request): RedirectResponse
+    {
+        // 既に公式URLがある店は受け付けない（多重防御）
+        if (! empty($shop->official_site_url)) {
+            return redirect()->route('shops.show', $shop);
+        }
+
+        $user = $request->user();
+
+        $submission = ShopSubmission::create([
+            'shop_name' => $shop->name,                  // 対象店から（フォーム値は使わない）
+            'prefecture' => $shop->prefecture ?? '',
+            'city' => $shop->city ?? '',
+            'website_url' => $request->input('website_url'),
+            'submitter_name' => $user?->review_display_name,
+            'user_id' => $user?->id,
+            'ip_hash' => hash('sha256', $request->ip().'|'.config('app.key')),
+            'status' => ShopSubmission::STATUS_PENDING,
+            'target_shop_id' => $shop->id,
+        ]);
+
+        try {
+            Mail::to(config('app.contact_admin_email'))->send(new ShopSubmissionSubmitted($submission));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return redirect()->route('shops.show', $shop)->with('suggest_url_success', '1');
     }
 
     public function store(StoreShopSubmissionRequest $request): RedirectResponse
