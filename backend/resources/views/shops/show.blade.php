@@ -67,6 +67,11 @@
                             <span class="inline-block bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-1 rounded-full border border-blue-100">
                                 {{ $shop->prefecture }}
                             </span>
+                            @if(($shop->source ?? null) === \App\Models\Shop::SOURCE_USER)
+                            <span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-full border border-emerald-100 ml-1">
+                                <i data-lucide="users" class="w-3 h-3"></i> ユーザー投稿による掲載
+                            </span>
+                            @endif
                             <p class="text-sm text-gray-500 mt-3">{{ $description }}</p>
                         </div>
 
@@ -229,10 +234,11 @@
                             </form>
                         </div>
 
-                        @if($shop->url && $shop->url !== '-')
+                        {{-- 公式サイト（ユーザー由来リンクのためSEOスパム対策で nofollow ugc） --}}
+                        @if(!empty($shop->official_site_url))
                         <div class="mt-6 pt-6 border-t border-gray-100">
-                            <a href="{{ $shop->url }}" target="_blank" rel="nofollow" class="flex items-center justify-center gap-2 text-xs font-bold text-gray-400 hover:text-blue-600 transition-colors">
-                                公式サイト・詳細ページ <i data-lucide="external-link" class="w-3 h-3"></i>
+                            <a href="{{ $shop->official_site_url }}" target="_blank" rel="nofollow ugc noopener" class="flex items-center justify-center gap-2 text-xs font-bold text-gray-400 hover:text-blue-600 transition-colors">
+                                公式サイト <i data-lucide="external-link" class="w-3 h-3"></i>
                             </a>
                         </div>
                         @endif

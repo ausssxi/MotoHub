@@ -19,6 +19,10 @@ final class Shop extends Model
         'service_tags' => 'array',
     ];
 
+    /** データ由来: スクレイパー自動収集 / ユーザー投稿→承認 */
+    public const SOURCE_SCRAPER = 'scraper';
+    public const SOURCE_USER = 'user';
+
     /**
      * 表示用の画像URLを取得するアクセサ (モダン記法)
      * 呼び出し方: $shop->display_image_url

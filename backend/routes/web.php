@@ -297,6 +297,11 @@ Route::prefix('shops')->name('shops.')->group(function () {
         Route::get('/{prefecture}/{city}', 'city')->name('city');
     });
 
+    // ユーザー投稿による店舗登録（承認制・/{id} の前に配置）
+    Route::get('/submit', [\App\Http\Controllers\Shop\ShopSubmissionController::class, 'create'])->name('submit.create');
+    Route::get('/submit/check', [\App\Http\Controllers\Shop\ShopSubmissionController::class, 'check'])->name('submit.check')->middleware('throttle:20,1');
+    Route::post('/submit', [\App\Http\Controllers\Shop\ShopSubmissionController::class, 'store'])->name('submit.store')->middleware('throttle:3,1');
+
     // チェーン別まとめページ（/{id} の前に配置）
     Route::get('/chain/{chainSlug}', [ShopController::class, 'chainShow'])->name('chain');
 

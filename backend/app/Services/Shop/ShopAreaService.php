@@ -406,4 +406,20 @@ final class ShopAreaService
             ->where('city', $city)
             ->count();
     }
+
+    /**
+     * ユーザー投稿の承認等で shops が増減したとき、該当エリアのキャッシュだけを個別失効。
+     * cache:clear は使わない（ランキングウォーマーを消さない）。
+     */
+    public function forgetAreaCaches(string $prefecture, ?string $city = null): void
+    {
+        Cache::forget('shop_repair_pref_counts');
+        Cache::forget('shop_repair_pref_'.md5($prefecture));
+        Cache::forget('shop_area_pref_counts');
+        Cache::forget('shop_area_pref_'.md5($prefecture));
+        if ($city !== null && $city !== '') {
+            Cache::forget('shop_repair_city_v1_'.md5($prefecture.$city));
+            Cache::forget('shop_area_city_v1_'.md5($prefecture.$city));
+        }
+    }
 }

@@ -37,7 +37,8 @@ class ClassifyShops extends Command
     public function handle(): int
     {
         $dryRun = (bool) $this->option('dry-run');
-        $total = Shop::count();
+        // スクレイパー由来のみ再分類。user投稿店(source='user')の service_tags/shop_type は保護する。
+        $total = Shop::where('source', Shop::SOURCE_SCRAPER)->count();
 
         if ($total === 0) {
             $this->info('対象のshopはありません。');
@@ -52,7 +53,7 @@ class ClassifyShops extends Command
         $counts = ['dealer' => 0, 'repair_only' => 0, 'unknown' => 0];
         $changed = 0;
 
-        Shop::select('id', 'service_tags', 'shop_type')->chunkById(500, function ($shops) use ($dryRun, $bar, &$counts, &$changed) {
+        Shop::where('source', Shop::SOURCE_SCRAPER)->select('id', 'service_tags', 'shop_type')->chunkById(500, function ($shops) use ($dryRun, $bar, &$counts, &$changed) {
             foreach ($shops as $shop) {
                 $type = $this->classify($shop->service_tags);
                 $counts[$type]++;

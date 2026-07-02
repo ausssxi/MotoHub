@@ -35,9 +35,13 @@ class ShopManager:
                 return shop
 
         # 2. 電話番号でチェック (他サイト経由で登録済みか)
+        # ※ source='scraper' に限定。ユーザー投稿店(source='user')は電話一致でも触れない。
         normalized_phone = self._normalize_phone(data.get('phone'))
         if normalized_phone:
-            shop = self.db.query(Shop).filter(Shop.phone == normalized_phone).first()
+            shop = self.db.query(Shop).filter(
+                Shop.phone == normalized_phone,
+                Shop.source == 'scraper'
+            ).first()
             if shop:
                 self._create_identifier(shop.id, site_id, site_shop_id)
                 self._update_shop_info(shop, data)
@@ -46,9 +50,11 @@ class ShopManager:
         # （上記2分岐は _update_shop_info 内で service_tags を上書き済み）
 
         # 3. 店名と都道府県でチェック (最終手段)
+        # ※ source='scraper' に限定。ユーザー投稿店は店名一致でも触れない。
         shop = self.db.query(Shop).filter(
             Shop.name == data['name'],
-            Shop.prefecture == data.get('prefecture')
+            Shop.prefecture == data.get('prefecture'),
+            Shop.source == 'scraper'
         ).first()
 
         if shop:
