@@ -17,6 +17,7 @@ final class ShopSubmission extends Model
         'shop_name',
         'prefecture',
         'city',
+        'shop_type',
         'address',
         'phone',
         'website_url',
@@ -45,6 +46,13 @@ final class ShopSubmission extends Model
     public const STATUS_MERGED = 'merged';
 
     public const STATUS_REJECTED = 'rejected';
+
+    /** 店種の選択肢（キー => ラジオ表示ラベル）。承認時に shops.shop_type へ反映。 */
+    public const SHOP_TYPE_OPTIONS = [
+        'dealer' => 'バイクの販売もしている店（新車・中古車販売）',
+        'repair_only' => '整備・修理の専門店（販売なし）',
+        'unknown' => 'わからない',
+    ];
 
     /**
      * 投稿フォームで選べる対応サービス（Webikeの service_tags 語彙に合わせる。

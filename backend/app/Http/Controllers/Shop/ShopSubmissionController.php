@@ -29,13 +29,21 @@ final class ShopSubmissionController extends Controller
             ->flatMap(fn ($prefs) => array_keys($prefs))
             ->values();
 
+        // ?type= プリセレクト（既知の店種のみ）
+        $prefillType = $request->query('type');
+        if (! array_key_exists($prefillType, ShopSubmission::SHOP_TYPE_OPTIONS)) {
+            $prefillType = '';
+        }
+
         return view('shops.submit', [
             'prefectures' => $prefectures,
             'serviceTagOptions' => ShopSubmission::SERVICE_TAG_OPTIONS,
             'acceptanceFlags' => ShopAcceptanceReport::FLAGS,
-            // /shops/repair 市区町村ページからの遷移でプリフィル
+            'shopTypeOptions' => ShopSubmission::SHOP_TYPE_OPTIONS,
+            // エリア/修理ページからの遷移でプリフィル
             'prefillPref' => (string) $request->query('pref', ''),
             'prefillCity' => (string) $request->query('city', ''),
+            'prefillType' => (string) $prefillType,
         ]);
     }
 
@@ -145,6 +153,7 @@ final class ShopSubmissionController extends Controller
             'shop_name' => $request->input('shop_name'),
             'prefecture' => $request->input('prefecture'),
             'city' => $request->input('city'),
+            'shop_type' => $request->input('shop_type') ?: null, // null は承認時 unknown 扱い
             'address' => trim((string) $request->input('address')) ?: null,
             'phone' => trim((string) $request->input('phone')) ?: null,
             'website_url' => trim((string) $request->input('website_url')) ?: null,

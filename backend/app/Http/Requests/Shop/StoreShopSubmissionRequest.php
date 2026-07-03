@@ -30,6 +30,7 @@ final class StoreShopSubmissionRequest extends FormRequest
             'shop_name' => ['required', 'string', 'max:100'],
             'prefecture' => ['required', 'string', Rule::in($prefectures)],
             'city' => ['required', 'string', 'max:50'],
+            'shop_type' => ['nullable', Rule::in(array_keys(ShopSubmission::SHOP_TYPE_OPTIONS))],
             'address' => ['nullable', 'string', 'max:200'],
             'phone' => ['nullable', 'string', 'max:20', 'regex:/^[0-9\-]+$/'],
             'website_url' => ['nullable', 'url', 'max:200'],

@@ -110,7 +110,7 @@
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
                                     近くの整備・修理店を探す
                                 </a>
-                                <a href="{{ route('shops.submit.create') }}"
+                                <a href="{{ route('shops.submit.create', ['type' => 'repair_only']) }}"
                                    class="mt-2 block text-center text-[11px] font-bold text-gray-400 hover:text-green-600 transition-colors">
                                     近くの整備・修理店が載っていない → お店を教える
                                 </a>
