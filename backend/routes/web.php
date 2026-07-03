@@ -430,6 +430,11 @@ Route::prefix('api')->group(function () {
     Route::get('/roadside-stations', [RoadsideStationApiController::class, 'search'])->name('api.roadside_stations');
 });
 
+// 管理者限定: 承認前の投稿画像プレビュー配信（非公開ディスク・is_admin以外は404）
+Route::get('/admin/shop-submissions/{submission}/image', [\App\Http\Controllers\Admin\ShopSubmissionImageController::class, 'show'])
+    ->name('admin.shop-submission.image')
+    ->where('submission', '[0-9]+');
+
 // 固定ページ (運営者情報など)
 Route::prefix('pages')->name('pages.')->group(function () {
     Route::get('/about', [PageController::class, 'about'])->name('about');

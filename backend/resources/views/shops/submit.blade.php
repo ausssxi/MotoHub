@@ -108,7 +108,7 @@
                 </div>
                 @endif
 
-                <form method="POST" action="{{ route('shops.submit.store') }}" class="space-y-5">
+                <form method="POST" action="{{ route('shops.submit.store') }}" class="space-y-5" enctype="multipart/form-data">
                     @csrf
 
                     <div>
@@ -200,6 +200,13 @@
                             </label>
                             @endforeach
                         </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-black text-gray-600 mb-1">店舗の写真（任意・1枚）</label>
+                        <input type="file" name="image" accept="image/*"
+                               class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                        <p class="text-[10px] text-gray-400 mt-1">※ JPEG/PNG/WebP・5MBまで。位置情報（EXIF）は保存前に自動で削除されます。承認後に掲載されます。</p>
                     </div>
 
                     <div>
