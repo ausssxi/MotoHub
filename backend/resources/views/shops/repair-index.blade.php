@@ -93,7 +93,7 @@
             @endforeach
 
             {{-- 未掲載店の投稿導線 --}}
-            <a href="{{ route('shops.submit.create') }}"
+            <a href="{{ route('shops.submit.create', ['type' => 'repair_only']) }}"
                class="mt-8 flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-2xl p-5 hover:shadow-md transition-shadow">
                 <div class="flex items-center gap-3">
                     <i data-lucide="plus-circle" class="w-6 h-6 text-emerald-600"></i>

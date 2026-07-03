@@ -18,6 +18,7 @@ function makeSubmission(array $overrides = []): ShopSubmission
         'shop_name' => 'テスト整備',
         'prefecture' => '東京都',
         'city' => '世田谷区',
+        'shop_type' => 'repair_only',
         'address' => '東京都世田谷区1-2-3',
         'phone' => '03-1234-5678',
         'service_tags' => ['認証工場', '車検受付'],
@@ -419,6 +420,55 @@ it('does not redirect a space-less city URL (no loop)', function () {
     // 該当店なし→404だが、リダイレクト(3xx)ではないこと
     $this->get('/shops/repair/'.rawurlencode('京都府').'/'.rawurlencode('京都市伏見区'))
         ->assertStatus(404);
+});
+
+// ---- A: shop_type support ----
+
+it('submission stores the shop_type radio value', function () {
+    $this->post('/shops/submit', [
+        'shop_name' => '販売店', 'prefecture' => '東京都', 'city' => '大田区', 'shop_type' => 'dealer', 'fax_number' => '',
+    ])->assertRedirect(route('shops.submit.create'));
+    expect(ShopSubmission::first()->shop_type)->toBe('dealer');
+});
+
+it('submission with no shop_type stores null; invalid shop_type is rejected', function () {
+    $this->post('/shops/submit', ['shop_name' => 'x', 'prefecture' => '東京都', 'city' => '大田区', 'fax_number' => ''])
+        ->assertRedirect(route('shops.submit.create'));
+    expect(ShopSubmission::first()->shop_type)->toBeNull();
+
+    $this->post('/shops/submit', ['shop_name' => 'y', 'prefecture' => '東京都', 'city' => '大田区', 'shop_type' => 'garbage', 'fax_number' => ''])
+        ->assertSessionHasErrors('shop_type');
+});
+
+it('approve applies the submitted shop_type: dealer shows in area, not in repair', function () {
+    Http::fake(['*' => Http::response([], 200)]);
+    $s = makeSubmission(['shop_type' => 'dealer', 'address' => null, 'city' => '大田区']);
+    $shop = app(ShopSubmissionService::class)->approveAsNew($s);
+
+    expect($shop->shop_type)->toBe('dealer');
+    // /shops/area の市区町村リストに含まれる
+    $area = app(ShopAreaService::class)->getCityDetail('東京都', '大田区');
+    expect(collect($area['shops'])->pluck('id'))->toContain($shop->id);
+    // /shops/repair には出ない（repair_only 店が無い → null）
+    expect(app(ShopAreaService::class)->getRepairCityDetail('東京都', '大田区'))->toBeNull();
+});
+
+it('approve maps a null shop_type to unknown', function () {
+    Http::fake(['*' => Http::response([], 200)]);
+    $s = makeSubmission(['shop_type' => null, 'address' => null]);
+    expect(app(ShopSubmissionService::class)->approveAsNew($s)->shop_type)->toBe('unknown');
+});
+
+it('repair links carry type=repair_only; area city link carries pref+city', function () {
+    seedRepairShops('東京都', '大田区', 3);
+    $this->get('/shops/repair')->assertStatus(200)->assertSee('type=repair_only', false);
+
+    Shop::create(['name' => '販売店', 'prefecture' => '東京都', 'city' => '大田区', 'address' => 'x', 'shop_type' => 'dealer', 'source' => 'scraper']);
+    // Blade は href 内の & を &amp; にエスケープするため、各パラメータの符号化文字列で検証
+    $this->get('/shops/area/'.rawurlencode('東京都').'/'.rawurlencode('大田区'))
+        ->assertStatus(200)
+        ->assertSee('pref='.rawurlencode('東京都'), false)
+        ->assertSee('city='.rawurlencode('大田区'), false);
 });
 
 it('shops:classify skips user shops', function () {

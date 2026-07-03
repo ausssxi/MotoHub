@@ -79,6 +79,19 @@
                     マップでバイクショップを探す
                 </a>
             </div>
+
+            {{-- 未掲載店の投稿導線 --}}
+            <a href="{{ route('shops.submit.create') }}"
+               class="mt-8 flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-2xl p-5 hover:shadow-md transition-shadow">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="plus-circle" class="w-6 h-6 text-emerald-600"></i>
+                    <div>
+                        <p class="text-sm font-black text-gray-800">掲載されていないバイクショップをご存知ですか？</p>
+                        <p class="text-xs text-gray-500 font-bold">店舗情報を投稿する（承認後に掲載されます）</p>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-5 h-5 text-emerald-400"></i>
+            </a>
         </div>
     </div>
 </x-layout>

@@ -1,6 +1,6 @@
 <x-layout>
-    <x-slot:title>整備・修理店の掲載リクエスト（未掲載店の投稿）｜MotoHub</x-slot:title>
-    <x-slot:metaDescription>MotoHubに掲載されていないバイクの整備・修理店を教えてください。投稿は運営の確認後に掲載され、修理難民の助けになります。評価・点数の投稿はできません。</x-slot:metaDescription>
+    <x-slot:title>バイクショップの掲載リクエスト（未掲載店の投稿）｜MotoHub</x-slot:title>
+    <x-slot:metaDescription>MotoHubに掲載されていないバイクショップ（販売店・整備/修理店）を教えてください。投稿は運営の確認後に掲載されます。評価・点数の投稿はできません。</x-slot:metaDescription>
     <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
 
     <x-slot:navigation>
@@ -82,16 +82,16 @@
                 <ol class="flex items-center space-x-2">
                     <li><a href="/" class="hover:text-gray-600">HOME</a></li>
                     <li><span class="text-gray-300">＞</span></li>
-                    <li><a href="{{ route('shops.repair.index') }}" class="hover:text-gray-600">バイク整備・修理店</a></li>
+                    <li><a href="{{ route('shops.area.index') }}" class="hover:text-gray-600">バイクショップ</a></li>
                     <li><span class="text-gray-300">＞</span></li>
                     <li><span class="text-gray-800">掲載リクエスト</span></li>
                 </ol>
             </nav>
 
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
-                <h1 class="text-2xl font-black text-gray-900 mb-2">掲載されていない整備・修理店を教える</h1>
+                <h1 class="text-2xl font-black text-gray-900 mb-2">掲載されていないバイクショップを教える</h1>
                 <p class="text-sm text-gray-500 font-bold mb-6">
-                    MotoHubにまだ載っていないバイクの整備・修理店を投稿できます。運営の確認後に掲載され、同じように困っているライダーの助けになります。
+                    MotoHubにまだ載っていないバイクショップ（販売店・整備/修理店）を投稿できます。運営の確認後に掲載されます。
                 </p>
 
                 @if(session('submission_success'))
@@ -116,6 +116,20 @@
                         <input type="text" name="shop_name" value="{{ old('shop_name') }}" maxlength="100" required
                                placeholder="例: 〇〇モータース"
                                class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+
+                    {{-- 店種（承認時に shops.shop_type へ反映） --}}
+                    <div>
+                        <label class="block text-xs font-black text-gray-600 mb-2">お店の種類</label>
+                        <div class="space-y-2">
+                            @foreach($shopTypeOptions as $key => $label)
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="shop_type" value="{{ $key }}" class="accent-blue-600"
+                                       @checked(old('shop_type', $prefillType) === $key)>
+                                <span class="text-sm font-bold text-gray-700">{{ $label }}</span>
+                            </label>
+                            @endforeach
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">

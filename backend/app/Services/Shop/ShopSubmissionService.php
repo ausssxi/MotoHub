@@ -35,7 +35,9 @@ final class ShopSubmissionService
             // 公式サイトURLは official_site_url に統一（scraper用 website_url には入れない）
             'official_site_url' => $submission->website_url,
             'service_tags' => $submission->service_tags ?: null,
-            'shop_type' => 'repair_only',
+            // 投稿の店種を反映（null は unknown）。unknown店は shops:classify 対象外(source guard)なので
+            // /shops/area には出るが /shops/repair には出ない。
+            'shop_type' => $submission->shop_type ?: 'unknown',
             'source' => Shop::SOURCE_USER,
         ]);
 

@@ -64,6 +64,11 @@ class ShopSubmissionResource extends Resource
                         return new HtmlString('<span style="color:#d97706;font-weight:bold;">⚠️ 市区町村「'.e((string) $record->city).'」は '.e((string) $record->prefecture).' の既存データに一致しません。政令市の区抜け・表記揺れの可能性があります。承認前に修正してください。</span>'.$suggest);
                     }),
 
+                Forms\Components\Select::make('shop_type')->label('店種（承認時に反映）')
+                    ->options(['dealer' => '販売店 (dealer)', 'repair_only' => '整備専門 (repair_only)', 'unknown' => '不明 (unknown)'])
+                    ->native(false)
+                    ->helperText('repair_only のみ /shops/repair に掲載。null/unknown は /shops/area のみ。承認前に修正可。'),
+
                 Forms\Components\TextInput::make('address')->label('住所')->maxLength(200)
                     ->helperText('※ 住所があれば承認時にGSIでジオコーディング。空なら緯度経度なしで登録。'),
                 Forms\Components\Grid::make(2)->schema([
