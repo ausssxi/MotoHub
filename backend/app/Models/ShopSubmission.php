@@ -21,6 +21,7 @@ final class ShopSubmission extends Model
         'address',
         'phone',
         'website_url',
+        'image_path',
         'service_tags',
         'acceptance_flags',
         'comment',

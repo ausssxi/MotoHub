@@ -19,6 +19,7 @@ final class ShopSubmissionService
     public function __construct(
         private readonly GsiGeocodingService $geocoder,
         private readonly ShopAreaService $areaService,
+        private readonly ShopSubmissionImageService $imageService,
     ) {}
 
     /**
@@ -47,6 +48,15 @@ final class ShopSubmissionService
             if ($geo !== null) {
                 $shop->latitude = $geo['lat'];
                 $shop->longitude = $geo['lng'];
+                $shop->save();
+            }
+        }
+
+        // 投稿画像があれば公開ディスクへ昇格し、shops.local_image_path へ（既存の画像規約に合流）
+        if ($submission->image_path) {
+            $publicPath = $this->imageService->promoteToPublic($submission->image_path);
+            if ($publicPath !== null) {
+                $shop->local_image_path = $publicPath;
                 $shop->save();
             }
         }
@@ -80,6 +90,17 @@ final class ShopSubmissionService
             $shop->save();
         }
 
+        // 画像も fill-if-empty: 既存店に画像が無いときだけ充填。あれば投稿画像は破棄（孤児防止）。
+        if ($submission->image_path) {
+            $noImage = empty($shop->local_image_path) && empty($shop->image_url);
+            if ($noImage && ($publicPath = $this->imageService->promoteToPublic($submission->image_path)) !== null) {
+                $shop->local_image_path = $publicPath;
+                $shop->save();
+            } else {
+                $this->imageService->deletePending($submission->image_path);
+            }
+        }
+
         $submission->update([
             'status' => ShopSubmission::STATUS_MERGED,
             'linked_shop_id' => $shop->id,
@@ -111,6 +132,9 @@ final class ShopSubmissionService
 
     public function reject(ShopSubmission $submission): void
     {
+        // 却下したら pending 画像は削除（孤児防止）
+        $this->imageService->deletePending($submission->image_path);
+
         $submission->update([
             'status' => ShopSubmission::STATUS_REJECTED,
             'processed_at' => now(),

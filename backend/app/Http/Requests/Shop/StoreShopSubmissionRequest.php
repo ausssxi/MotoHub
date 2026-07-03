@@ -40,6 +40,7 @@ final class StoreShopSubmissionRequest extends FormRequest
             'acceptance_flags.*' => [Rule::in(array_keys(ShopAcceptanceReport::FLAGS))],
             'comment' => ['nullable', 'string', 'max:1000'],
             'submitter_name' => ['nullable', 'string', 'max:50'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:5120'], // 5MB
             // ハニーポット: 人間には非表示。値が入っていればボット。
             'fax_number' => ['nullable', 'size:0'],
         ];

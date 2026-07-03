@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ShopSubmissionResource\Pages;
 use App\Filament\Resources\ShopSubmissionResource;
 use App\Models\Shop;
 use App\Models\ShopSubmission;
+use App\Services\Shop\ShopSubmissionImageService;
 use App\Services\Shop\ShopSubmissionService;
 use Filament\Actions;
 use Filament\Forms;
@@ -76,6 +77,20 @@ class EditShopSubmission extends EditRecord
                         ->body("shop #{$shop->id}「{$shop->name}」に受け入れ情報を付与しました。")
                         ->send();
                     $this->redirect(ShopSubmissionResource::getUrl('index'));
+                }),
+
+            // 不適切画像だけ削除して店自体は承認する等のケース用
+            Actions\Action::make('deleteImage')
+                ->label('画像を削除')
+                ->icon('heroicon-o-trash')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->visible(fn (): bool => (bool) $this->record->image_path)
+                ->action(function () {
+                    app(ShopSubmissionImageService::class)->deletePending($this->record->image_path);
+                    $this->record->update(['image_path' => null]);
+                    Notification::make()->success()->title('投稿画像を削除しました')->send();
+                    $this->redirect(ShopSubmissionResource::getUrl('edit', ['record' => $this->record]));
                 }),
 
             // 3. 却下

@@ -11,6 +11,7 @@ use App\Mail\ShopSubmissionSubmitted;
 use App\Models\Shop;
 use App\Models\ShopAcceptanceReport;
 use App\Models\ShopSubmission;
+use App\Services\Shop\ShopSubmissionImageService;
 use App\Services\Shop\ShopSubmissionService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -126,8 +127,18 @@ final class ShopSubmissionController extends Controller
         return redirect()->route('shops.show', $shop)->with('suggest_url_success', '1');
     }
 
-    public function store(StoreShopSubmissionRequest $request): RedirectResponse
+    public function store(StoreShopSubmissionRequest $request, ShopSubmissionImageService $imageService): RedirectResponse
     {
+        // 画像は非公開ディスクへ再エンコード保存（EXIF除去）。読込不可はエラーで差し戻し。
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            try {
+                $imagePath = $imageService->storePending($request->file('image'));
+            } catch (\RuntimeException $e) {
+                return back()->withErrors(['image' => '画像を読み込めませんでした（対応形式: JPEG / PNG / WebP）。'])->withInput();
+            }
+        }
+
         // === 投稿者名の解決（Reviewパターン・公開ハンドルのみ・User->name は使わない）===
         $user = $request->user();
         $userId = $user?->id;
@@ -157,6 +168,7 @@ final class ShopSubmissionController extends Controller
             'address' => trim((string) $request->input('address')) ?: null,
             'phone' => trim((string) $request->input('phone')) ?: null,
             'website_url' => trim((string) $request->input('website_url')) ?: null,
+            'image_path' => $imagePath,
             'service_tags' => array_values((array) $request->input('service_tags', [])) ?: null,
             'acceptance_flags' => array_values((array) $request->input('acceptance_flags', [])) ?: null,
             'comment' => trim((string) $request->input('comment')) ?: null,

@@ -82,6 +82,13 @@ class ShopSubmissionResource extends Resource
                     ->options(ShopAcceptanceReport::FLAGS)
                     ->columns(2),
                 Forms\Components\Textarea::make('comment')->label('コメント')->rows(3)->maxLength(1000),
+
+                // 承認前の投稿画像プレビュー（管理者限定ルート経由）
+                Forms\Components\Placeholder::make('image_preview')->label('投稿画像')
+                    ->visible(fn (?ShopSubmission $record): bool => (bool) $record?->image_path)
+                    ->content(fn (?ShopSubmission $record): HtmlString => new HtmlString(
+                        '<img src="'.route('admin.shop-submission.image', $record).'" alt="投稿画像" style="max-width:320px;border-radius:8px;border:1px solid #e5e7eb;">'
+                    )),
             ])->columns(1),
 
             Forms\Components\Section::make('投稿者・ステータス')->schema([
