@@ -96,7 +96,12 @@
 
                 @if(session('submission_success'))
                 <div class="mb-6 text-sm font-bold text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-                    ありがとうございます。投稿を受け付けました。運営の確認後に掲載されます。
+                    <p>ありがとうございます。投稿を受け付けました。運営の確認後に掲載されます。</p>
+                    <a href="{{ route('shops.search') }}"
+                       class="inline-flex items-center gap-1.5 mt-2 text-blue-600 hover:text-blue-700 hover:underline">
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                        他のバイクショップを店名で探す →
+                    </a>
                 </div>
                 @endif
 

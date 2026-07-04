@@ -83,6 +83,9 @@
                 </div>
             </div>
 
+            {{-- 店名で探す（県内プリフィル） --}}
+            <x-shop-name-search :pref="$prefecture" type="repair_only" accent="green" />
+
             {{-- マップ --}}
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-8">
                 <h2 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">

@@ -603,6 +603,15 @@
                 <x-nearby-shops :nearbyShops="$nearbyShops" :latitude="$shop->latitude" :longitude="$shop->longitude" />
                 @endif
                 <x-cross-links :crossLinks="$crossLinks" />
+
+                {{-- 他のショップを店名で探す（同県プリセット） --}}
+                <div>
+                    <h2 class="text-base font-black text-gray-900 mb-3 flex items-center gap-2">
+                        <i data-lucide="search" class="w-5 h-5 text-blue-500"></i>
+                        他のバイクショップを探す
+                    </h2>
+                    <x-shop-name-search :pref="$shop->prefecture ?? ''" />
+                </div>
             </div>
         </div>
     </div>
