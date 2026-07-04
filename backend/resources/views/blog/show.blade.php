@@ -50,6 +50,8 @@
         <style>
             .blog-content h2 { font-size: 1.5rem; font-weight: 700; margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e5e7eb; }
             .blog-content h3 { font-size: 1.25rem; font-weight: 600; margin: 1.5rem 0 0.75rem; }
+            /* アンカー直行時、スクロール追従ヘッダー(h-16)に着地が隠れないよう余白を確保 */
+            .blog-content h2, .blog-content h3, .blog-content [id] { scroll-margin-top: 84px; }
             .blog-content p { margin-bottom: 1.25rem; line-height: 1.9; color: #374151; }
             .blog-content ul, .blog-content ol { margin: 1rem 0; padding-left: 1.5rem; }
             .blog-content li { margin-bottom: 0.375rem; line-height: 1.8; }

@@ -28,8 +28,47 @@ final class TroubleReport extends Command
         $this->reportVerdictDistribution($since);
         $this->reportCtaCtr($since);
         $this->reportDeeplink($since);
+        $this->reportFeedback($since);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * ⑤ 解決フィードバック: 症状×原因(card)別に yes/no/positive率。
+     * 同一セッションの連打対策として session_id の distinct でカウントする。
+     * 回答数が少ない行も分母を隠さず出す（＝対応記事が薄い原因を見つけるためのデータ）。
+     */
+    private function reportFeedback(\DateTimeInterface $since): void
+    {
+        $rows = TroubleEvent::query()
+            ->where('event', 'feedback')
+            ->where('created_at', '>=', $since)
+            ->whereNotNull('symptom')
+            ->whereNotNull('card')
+            ->whereIn('answer', TroubleEvent::FEEDBACK_ANSWERS)
+            ->selectRaw('symptom, card, answer, COUNT(DISTINCT session_id) as c')
+            ->groupBy('symptom', 'card', 'answer')
+            ->get();
+
+        // 症状×card ごとに yes/no を畳み込む
+        $agg = [];
+        foreach ($rows as $r) {
+            $key = $r->symptom.'|'.$r->card;
+            $agg[$key] ??= ['symptom' => $r->symptom, 'card' => $r->card, 'yes' => 0, 'no' => 0];
+            $agg[$key][$r->answer] = (int) $r->c;
+        }
+
+        $table = [];
+        foreach ($agg as $a) {
+            $total = $a['yes'] + $a['no'];
+            $pos = $total > 0 ? round($a['yes'] / $total * 100, 1) : 0.0;
+            $table[] = [$a['symptom'], $a['card'], $a['yes'], $a['no'], "{$pos}%"];
+        }
+        usort($table, fn ($x, $y) => [$x[0], $x[1]] <=> [$y[0], $y[1]]);
+
+        $this->newLine();
+        $this->line('⑤ 解決フィードバック（症状×原因・positive率＝👍/(👍+👎)・distinct session）');
+        $this->table(['症状', '原因(card)', '👍yes', '👎no', 'positive率'], $table ?: [['(データなし)', '', '', '', '']]);
     }
 
     /** ① 症状別: selected → verdict_shown（完走率） */

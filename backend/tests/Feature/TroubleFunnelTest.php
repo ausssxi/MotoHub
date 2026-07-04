@@ -141,3 +141,85 @@ it('renders /trouble with a deeplink symptom without error', function () {
     $this->get('/trouble?symptom=engine-wont-start')->assertOk();
     $this->get('/trouble?symptom=___invalid___')->assertOk(); // 不正スラッグでもエラーにしない
 });
+
+// ─────────── A: feedback イベント ＋ card ───────────
+
+it('stores a feedback event with yes/no, card, symptom and verdict', function () {
+    foreach (['yes', 'no'] as $ans) {
+        $this->post('/trouble/track', [
+            'session_id' => SID, 'event' => 'feedback',
+            'symptom' => 'battery', 'card' => 'battery', 'verdict' => 'diy', 'answer' => $ans,
+        ])->assertNoContent();
+    }
+
+    $rows = TroubleEvent::where('event', 'feedback')->get();
+    expect($rows)->toHaveCount(2)
+        ->and($rows->pluck('answer')->all())->toContain('yes', 'no')
+        ->and($rows->first()->card)->toBe('battery')
+        ->and($rows->first()->verdict)->toBe('diy');
+});
+
+it('accepts feedback only with a yes/no answer (others null)', function () {
+    $this->post('/trouble/track', [
+        'session_id' => SID, 'event' => 'feedback', 'symptom' => 'battery', 'card' => 'battery', 'answer' => 'maybe',
+    ])->assertNoContent();
+
+    $row = TroubleEvent::where('event', 'feedback')->sole();
+    expect($row->answer)->toBeNull()      // 不正値は null 落とし
+        ->and($row->card)->toBe('battery'); // 他フィールドは保存
+});
+
+it('records card on verdict_shown and cta_clicked, nulling non-card values', function () {
+    $this->post('/trouble/track', ['session_id' => SID, 'event' => 'verdict_shown', 'symptom' => 'battery', 'card' => 'battery', 'verdict' => 'diy'])->assertNoContent();
+    $this->post('/trouble/track', ['session_id' => SID, 'event' => 'cta_clicked', 'card' => 'plug', 'cta' => 'parts'])->assertNoContent();
+    $this->post('/trouble/track', ['session_id' => SID, 'event' => 'verdict_shown', 'card' => 'not-a-card'])->assertNoContent();
+
+    expect(TroubleEvent::where('event', 'verdict_shown')->where('card', 'battery')->exists())->toBeTrue()
+        ->and(TroubleEvent::where('event', 'cta_clicked')->where('card', 'plug')->exists())->toBeTrue()
+        ->and(TroubleEvent::where('event', 'verdict_shown')->whereNull('card')->where('created_at', '>=', now()->subMinute())->exists())->toBeTrue();
+});
+
+it('keeps feedback in the event whitelist alongside the original four', function () {
+    expect(TroubleEvent::EVENTS)->toContain('symptom_selected', 'step_answered', 'verdict_shown', 'cta_clicked', 'feedback');
+});
+
+// ─────────── B: report ⑤ 解決フィードバック ───────────
+
+it('reports solution-feedback positive rate per symptom/card with distinct sessions', function () {
+    // battery/battery: sessionA yes(x2=distinct1), sessionB yes, sessionC no → yes2 no1 = 66.7%
+    TroubleEvent::create(['session_id' => 'aaaaaaaa-0000-0000-0000-000000000001', 'event' => 'feedback', 'symptom' => 'battery', 'card' => 'battery', 'verdict' => 'diy', 'answer' => 'yes', 'created_at' => now()]);
+    TroubleEvent::create(['session_id' => 'aaaaaaaa-0000-0000-0000-000000000001', 'event' => 'feedback', 'symptom' => 'battery', 'card' => 'battery', 'verdict' => 'diy', 'answer' => 'yes', 'created_at' => now()]); // 同一session連打
+    TroubleEvent::create(['session_id' => 'bbbbbbbb-0000-0000-0000-000000000002', 'event' => 'feedback', 'symptom' => 'battery', 'card' => 'battery', 'verdict' => 'diy', 'answer' => 'yes', 'created_at' => now()]);
+    TroubleEvent::create(['session_id' => 'cccccccc-0000-0000-0000-000000000003', 'event' => 'feedback', 'symptom' => 'battery', 'card' => 'battery', 'verdict' => 'diy', 'answer' => 'no', 'created_at' => now()]);
+
+    Illuminate\Support\Facades\Artisan::call('trouble:report', ['--days' => 1]);
+    $out = Illuminate\Support\Facades\Artisan::output();
+
+    expect($out)->toContain('解決フィードバック')
+        ->and($out)->toContain('66.7%'); // distinct yes2 / (yes2+no1)
+});
+
+// ─────────── B: config article_anchor ───────────
+
+it('has article_anchor only on cards with a clear target section', function () {
+    foreach (['battery', 'tire', 'fuel_carb', 'drivetrain', 'air_filter', 'cold', 'oil', 'headlight'] as $card) {
+        expect(config("diagnosis.cards.{$card}.article_anchor"))->not->toBeNull("card {$card} should have an anchor");
+    }
+    foreach (['plug', 'switch', 'gas_empty', 'starter', 'unknown'] as $card) {
+        expect(config("diagnosis.cards.{$card}.article_anchor"))->toBeNull("card {$card} should NOT have an anchor");
+    }
+});
+
+// ─────────── A-3/B-2: result screen render ───────────
+
+it('renders the feedback block and anchored article link builder', function () {
+    $res = $this->get('/trouble')->assertOk();
+
+    // フィードバックUI
+    $res->assertSee('この診断で解決できましたか？');
+    $res->assertSee("feedback('yes')", false);
+    $res->assertSee("feedback('no')", false);
+    // アンカー付き記事リンクの組み立て
+    $res->assertSee('card.article_anchor', false);
+    $res->assertSee('"article_anchor":"fix"', false); // config JSON に乗る（battery等）
+});
