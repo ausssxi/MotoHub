@@ -113,7 +113,7 @@
 
                     <div>
                         <label class="block text-xs font-black text-gray-600 mb-1">店名 <span class="text-rose-500">*</span></label>
-                        <input type="text" name="shop_name" value="{{ old('shop_name') }}" maxlength="100" required
+                        <input type="text" name="shop_name" value="{{ old('shop_name', $prefillName) }}" maxlength="100" required
                                placeholder="例: 〇〇モータース"
                                class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                     </div>

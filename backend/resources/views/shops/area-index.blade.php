@@ -47,6 +47,9 @@
                 </p>
             </div>
 
+            {{-- 店名で探す --}}
+            <x-shop-name-search />
+
             {{-- 地方ブロック別 --}}
             @foreach($regions as $regionName => $prefs)
             <section class="mb-8">

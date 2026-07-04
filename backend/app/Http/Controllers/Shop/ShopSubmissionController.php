@@ -41,7 +41,8 @@ final class ShopSubmissionController extends Controller
             'serviceTagOptions' => ShopSubmission::SERVICE_TAG_OPTIONS,
             'acceptanceFlags' => ShopAcceptanceReport::FLAGS,
             'shopTypeOptions' => ShopSubmission::SHOP_TYPE_OPTIONS,
-            // エリア/修理ページからの遷移でプリフィル
+            // エリア/修理/検索ページからの遷移でプリフィル
+            'prefillName' => (string) $request->query('name', ''),
             'prefillPref' => (string) $request->query('pref', ''),
             'prefillCity' => (string) $request->query('city', ''),
             'prefillType' => (string) $prefillType,

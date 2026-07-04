@@ -11,6 +11,10 @@ Artisan::command('inspire', function () {
 // Shop市区町村バックフィル（毎日4:00 — 新規shop対応）
 Schedule::command('shops:backfill-city')->dailyAt('04:00');
 
+// 店名正規化バックフィル（毎日4:20 — スクレイパー投入分の name_normalized を埋める。
+// backfill-city(04:00) の後・bulk-sold(04:50)/classify(月05:00) と非衝突）
+Schedule::command('shops:normalize-names')->dailyAt('04:20');
+
 // Shop種別分類（毎週月曜5:00 — Webike店舗クロール後にservice_tagsからshop_typeを導出）
 Schedule::command('shops:classify')->weeklyOn(1, '05:00');
 

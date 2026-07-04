@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Support\ShopNameNormalizer;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -23,6 +24,22 @@ final class Shop extends Model
     public const SOURCE_SCRAPER = 'scraper';
 
     public const SOURCE_USER = 'user';
+
+    /**
+     * name 保存時に name_normalized を自動セット（Eloquent全経路で共通）。
+     * user投稿・承認フロー・管理画面からの変更は常にこれで最新化される。
+     * ※ スクレイパーはSQLAlchemy(Eloquent非経由)のため NULL で入り、
+     *   shops:normalize-names コマンド（日次）でバックフィルする。
+     */
+    protected function name(): Attribute
+    {
+        return Attribute::make(
+            set: fn (string $value) => [
+                'name' => $value,
+                'name_normalized' => ShopNameNormalizer::normalize($value),
+            ],
+        );
+    }
 
     /**
      * city 正規化: 半角・全角スペースを除去して保存（Eloquent全経路で共通）。
