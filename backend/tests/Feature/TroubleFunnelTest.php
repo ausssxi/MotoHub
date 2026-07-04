@@ -223,3 +223,60 @@ it('renders the feedback block and anchored article link builder', function () {
     $res->assertSee('card.article_anchor', false);
     $res->assertSee('"article_anchor":"fix"', false); // config JSON に乗る（battery等）
 });
+
+// ─────────── A: 新症状 lights / stranded（孤児カード露出）───────────
+
+it('exposes 8 symptoms including lights and stranded', function () {
+    $symptoms = config('diagnosis.symptoms');
+    expect($symptoms)->toHaveCount(8)
+        ->and($symptoms)->toHaveKeys(['lights', 'stranded'])
+        ->and($symptoms['lights']['root'])->toBe('lights__scope')
+        ->and($symptoms['stranded']['root'])->toBe('stranded__safety');
+});
+
+it('reaches the previously-orphan cards from the new trees + oil from accel', function () {
+    $cardOf = fn (string $node) => array_column(config("diagnosis.nodes.{$node}.options"), 'card');
+    expect($cardOf('lights__scope'))->toContain('headlight', 'battery', 'switch')
+        ->and($cardOf('stranded__safety'))->toContain('seizure', 'roadside', 'gas_empty')
+        ->and($cardOf('accel__cause'))->toContain('oil');
+
+    // すべての card が nodes から到達可能（孤児ゼロ）
+    $reachable = [];
+    foreach (config('diagnosis.nodes') as $node) {
+        foreach ($node['options'] as $opt) {
+            if (isset($opt['card'])) {
+                $reachable[$opt['card']] = true;
+            }
+        }
+    }
+    $orphans = array_diff(array_keys(config('diagnosis.cards')), array_keys($reachable));
+    expect($orphans)->toBeEmpty();
+});
+
+it('accepts the new symptom slugs at /trouble/track (dynamic whitelist)', function () {
+    foreach (['lights', 'stranded'] as $slug) {
+        $this->post('/trouble/track', ['session_id' => SID, 'event' => 'symptom_selected', 'symptom' => $slug, 'source' => 'deeplink'])
+            ->assertNoContent();
+    }
+    expect(TroubleEvent::whereIn('symptom', ['lights', 'stranded'])->count())->toBe(2);
+});
+
+it('includes new symptoms in trouble:report', function () {
+    TroubleEvent::create(['session_id' => SID, 'event' => 'symptom_selected', 'symptom' => 'lights', 'created_at' => now()]);
+    TroubleEvent::create(['session_id' => SID, 'event' => 'verdict_shown', 'symptom' => 'lights', 'card' => 'headlight', 'verdict' => 'diy_then_shop', 'created_at' => now()]);
+
+    Illuminate\Support\Facades\Artisan::call('trouble:report', ['--days' => 1]);
+    expect(Illuminate\Support\Facades\Artisan::output())->toContain('lights');
+});
+
+it('passes 8 symptoms to the client and deep-links the new symptoms', function () {
+    // 症状ラベルは @json 経由でクライアント描画されるため、キー（ASCII）で存在確認
+    $res = $this->get('/trouble')->assertOk();
+    $res->assertSee('"lights"', false);
+    $res->assertSee('"stranded"', false);
+    $res->assertSee('"lights__scope"', false);
+    $res->assertSee('"stranded__safety"', false);
+
+    $this->get('/trouble?symptom=lights')->assertOk();
+    $this->get('/trouble?symptom=stranded')->assertOk();
+});
