@@ -592,6 +592,8 @@ Route::get('/shindan/result', [ShindanController::class, 'result'])->name('shind
 
 // 症状自己診断ツール（トラブル診断）— ルールベース決定木。クライアント側で辿る
 Route::get('/trouble', [TroubleController::class, 'index'])->name('trouble.index');
+// ファネル計測（PIIなし・常に204・fire-and-forget）
+Route::post('/trouble/track', [TroubleController::class, 'track'])->name('trouble.track')->middleware('throttle:60,1');
 
 // Breezeの認証ルート読み込み (login, register等)
 require __DIR__.'/auth.php';

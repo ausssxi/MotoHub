@@ -96,6 +96,7 @@
                         {{-- 記事CTA（記事がある場合のみ） --}}
                         <template x-if="card?.article">
                             <a :href="card.article"
+                               @click="trackCta('article')"
                                class="mt-4 w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm px-4 py-3.5 rounded-xl transition active:scale-[0.99]">
                                 くわしい対処法・直し方を読む
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
@@ -106,25 +107,39 @@
                         <template x-if="['shop','check_then_shop','diy_then_shop'].includes(card?.verdict)">
                             <div class="mt-3">
                                 <a href="{{ route('shops.repair.index') }}"
+                                   @click="trackCta('shop')"
                                    class="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-black text-sm px-4 py-3.5 rounded-xl transition active:scale-[0.99]">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
                                     近くの整備・修理店を探す
                                 </a>
                                 <a href="{{ route('shops.submit.create', ['type' => 'repair_only']) }}"
+                                   @click="trackCta('submit_shop')"
                                    class="mt-2 block text-center text-[11px] font-bold text-gray-400 hover:text-green-600 transition-colors">
                                     近くの整備・修理店が載っていない → お店を教える
                                 </a>
                             </div>
+                        </template>
+
+                        {{-- パーツ価格比較CTA（原因に売れる部品があるときだけ・記事/店CTAより下位） --}}
+                        <template x-if="card?.parts_keyword">
+                            <a :href="@js(route('parts.compare')) + '?keyword=' + encodeURIComponent(card.parts_keyword)"
+                               @click="trackCta('parts')"
+                               class="mt-3 w-full flex items-center justify-center gap-2 bg-white border-2 border-orange-400 text-orange-600 hover:bg-orange-50 font-black text-sm px-4 py-3.5 rounded-xl transition active:scale-[0.99]">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+                                <span x-text="card.parts_label"></span>
+                                <span class="text-[10px] font-bold text-orange-400">楽天/Yahoo/Amazon</span>
+                            </a>
                         </template>
                     </div>
 
                     {{-- リーチフック（会員登録／再診断）。push通知はv1では出さない --}}
                     <div class="border-t border-gray-100 bg-gray-50 p-5 sm:p-6 space-y-3">
                         <a href="{{ route('register') }}"
+                           @click="trackCta('register')"
                            class="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 hover:border-blue-300 hover:text-blue-700 text-gray-800 font-bold text-sm px-4 py-3 rounded-xl transition">
                             <span>🔖</span> 無料会員登録して診断結果を保存する
                         </a>
-                        <button type="button" @click="reset()"
+                        <button type="button" @click="trackCta('retry'); reset()"
                             class="w-full flex items-center justify-center gap-2 text-gray-500 hover:text-gray-800 font-bold text-sm px-4 py-3 rounded-xl transition">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
                             別の症状をもう一度診断する
@@ -146,6 +161,8 @@
             cards:    @json($cards),
             verdicts: @json($verdicts),
         };
+        window.__troubleTrackUrl = @js(route('trouble.track'));
+        window.__troubleCsrf = @js(csrf_token());
 
         function troubleTool() {
             return {
@@ -156,10 +173,11 @@
                 cardKey: null,
 
                 init() {
-                    // ?s=<症状キー> でディープリンク（記事や広告から直接症状へ）
-                    const s = new URLSearchParams(window.location.search).get('s');
-                    if (s && this.cfg.symptoms[s]) {
-                        this.pickSymptom(s);
+                    // ?symptom=<スラッグ> でディープリンク（記事/広告から直接症状へ）。?s= は後方互換。
+                    const params = new URLSearchParams(window.location.search);
+                    const slug = params.get('symptom') || params.get('s');
+                    if (slug && this.cfg.symptoms[slug]) {
+                        this.pickSymptom(slug, 'deeplink');
                     }
                 },
 
@@ -171,17 +189,58 @@
                 get card() { return this.cardKey ? this.cfg.cards[this.cardKey] : null; },
                 get verdict() { return this.card ? this.cfg.verdicts[this.card.verdict] : null; },
 
-                pickSymptom(key) {
+                // ── 計測（fire-and-forget・UIを一切ブロックしない）──
+                _sid: null,
+                sessionId() {
+                    if (this._sid) return this._sid;
+                    let s = null;
+                    try { s = sessionStorage.getItem('trouble_sid'); } catch (e) {}
+                    if (!s) {
+                        const hex = '0123456789abcdef';
+                        s = '';
+                        for (let i = 0; i < 36; i++) {
+                            s += (i === 8 || i === 13 || i === 18 || i === 23) ? '-' : hex[(Math.random() * 16) | 0];
+                        }
+                        try { sessionStorage.setItem('trouble_sid', s); } catch (e) {}
+                    }
+                    this._sid = s;
+                    return s;
+                },
+                track(event, extra) {
+                    try {
+                        const fd = new FormData();
+                        fd.append('_token', window.__troubleCsrf || '');
+                        fd.append('session_id', this.sessionId());
+                        fd.append('event', event);
+                        Object.entries(extra || {}).forEach(([k, v]) => { if (v != null) fd.append(k, v); });
+                        const url = window.__troubleTrackUrl;
+                        if (navigator.sendBeacon) {
+                            navigator.sendBeacon(url, fd);
+                        } else {
+                            fetch(url, { method: 'POST', body: fd, keepalive: true, credentials: 'same-origin' }).catch(() => {});
+                        }
+                    } catch (e) { /* 計測失敗は診断に影響させない */ }
+                },
+                trackCta(cta) {
+                    this.track('cta_clicked', { symptom: this.symptomKey, verdict: this.card ? this.card.verdict : null, cta: cta });
+                },
+
+                pickSymptom(key, source) {
                     this.symptomKey = key;
                     this.stack = [this.cfg.symptoms[key].root];
                     this.cardKey = null;
                     this.phase = 'question';
+                    this.track('symptom_selected', { symptom: key, source: source || null });
                     this.toTop();
                 },
                 choose(opt) {
+                    const stepId = this.stack[this.stack.length - 1];
+                    this.track('step_answered', { symptom: this.symptomKey, step: stepId, answer: opt.card || opt.next || null });
                     if (opt.card) {
                         this.cardKey = opt.card;
                         this.phase = 'result';
+                        const c = this.cfg.cards[opt.card];
+                        this.track('verdict_shown', { symptom: this.symptomKey, step: opt.card, verdict: c ? c.verdict : null });
                         if (typeof gtag === 'function') {
                             gtag('event', 'trouble_result', { symptom: this.symptomKey, card: opt.card });
                         }
