@@ -21,6 +21,13 @@ Schedule::command('shops:classify')->weeklyOn(1, '05:00');
 // 症状診断ファネルの計測イベントを180日で削除（毎日1:10 — 早朝の空き枠・他ジョブと非衝突）
 Schedule::command('trouble:prune')->dailyAt('01:10');
 
+// 本番バックアップ（spatie/laravel-backup → Cloudflare R2 / 非本番は local）。
+// 03:10実行 → 03:50世代クリーンアップ → 08:00健全性チェック（失敗時のみメール通知）。
+// 他ジョブと非衝突: 01:10 prune / 04:00 backfill-city / 04:20 normalize-names / 05:10 warmer の前の空き枠。
+Schedule::command('backup:run')->dailyAt('03:10')->withoutOverlapping();
+Schedule::command('backup:clean')->dailyAt('03:50');
+Schedule::command('backup:monitor')->dailyAt('08:00');
+
 // ブログ予約投稿チェック（毎分）
 Schedule::command('blog:publish-scheduled')->everyMinute();
 

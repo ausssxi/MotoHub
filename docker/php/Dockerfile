@@ -13,6 +13,9 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     zip \
     unzip \
+    # DBバックアップ用の mysqldump/mysql（spatie/laravel-backup が使用）。
+    # MariaDBクライアントだが、MySQL 8 相手のダンプ→暗号化zip→復元→件数一致をローカル検証済み。
+    default-mysql-client \
     # ★追加: zip拡張に必要なライブラリ
     libzip-dev \
     # intl拡張に必要なライブラリ
