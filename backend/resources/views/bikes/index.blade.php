@@ -698,6 +698,21 @@
                         </div>
                     </div>
                 </a>
+
+                {{-- 店名でバイクショップを探す（トップは車両検索が主役のため、リンク導線のみ） --}}
+                <a href="{{ route('shops.search') }}"
+                   class="mt-4 group flex items-center justify-between bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all duration-300">
+                    <div class="flex items-center gap-3">
+                        <div class="w-11 h-11 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors shrink-0">
+                            <i data-lucide="search" class="w-5 h-5 text-blue-500"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-black text-gray-800 group-hover:text-blue-600 transition-colors">バイクショップを店名で探す</p>
+                            <p class="text-[11px] font-bold text-gray-400">お店の名前から販売店・整備/修理店を検索</p>
+                        </div>
+                    </div>
+                    <i data-lucide="chevron-right" class="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors shrink-0 ml-3"></i>
+                </a>
             </section>
 
             {{-- 🔍探す: パーツ・用品カテゴリ --}}
