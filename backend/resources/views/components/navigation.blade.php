@@ -11,6 +11,7 @@
     $isRanking  = $navIs('ranking*');
     $isNews     = $navIs('news*');
     $isMap      = $navIs('riders-map*', 'parking*');
+    $isShop     = $navIs('shops*');
     $isBlog     = $navIs('blog*');
     $isSouba    = $navIs('trends*', 'sell*');
     $isOther    = $navIs('bikes/overseas*', 'parts*', 'identify*', 'garage/public*', 'ar*', 'quiz*', 'warashibe*', 'puzzle*', 'games/*', 'touring*');
@@ -85,6 +86,12 @@
                 <a href="{{ route('riders.map') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isMap ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="ライダーズマップ">
                     <i data-lucide="map" class="w-4 h-4"></i>
                     <span class="hidden xl:inline">マップ</span>
+                </a>
+
+                {{-- ショップを探す（一覧・店名検索・投稿の玄関。マップ=地図で探す との棲み分け） --}}
+                <a href="{{ route('shops.area.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isShop ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="バイクショップを探す（地域・店名検索・掲載リクエスト）">
+                    <i data-lucide="store" class="w-4 h-4"></i>
+                    <span class="hidden xl:inline">ショップを探す</span>
                 </a>
 
                 {{-- ブログ --}}

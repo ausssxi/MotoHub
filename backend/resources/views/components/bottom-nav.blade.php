@@ -199,6 +199,15 @@
                     <p class="text-[10px] text-gray-400">ショップ・駐車場・GS・コンビニ・道の駅</p>
                 </div>
             </a>
+            <a href="{{ route('shops.area.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="store" class="w-5 h-5 text-blue-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">ショップを探す</p>
+                    <p class="text-[10px] text-gray-400">地域・店名で探す／掲載リクエスト</p>
+                </div>
+            </a>
 
             {{-- マイページ --}}
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mt-3 mb-1">マイページ</p>
