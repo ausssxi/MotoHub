@@ -23,6 +23,7 @@ class BlogPost extends Model
         'series_id',
         'series_order',
         'status',
+        'draft_note',
         'published_at',
         'reading_time_minutes',
         'meta_title',
@@ -52,7 +53,7 @@ class BlogPost extends Model
             $post->reading_time_minutes = max(1, (int) ceil(mb_strlen(strip_tags($post->body)) / 500));
 
             // 抜粋の自動生成（未入力時は本文先頭150文字、Markdown記号除去）
-            if (empty($post->excerpt) && !empty($post->body)) {
+            if (empty($post->excerpt) && ! empty($post->body)) {
                 $post->excerpt = Str::limit(self::stripMarkdown($post->body), 150);
             }
 
@@ -96,13 +97,13 @@ class BlogPost extends Model
     public function scopePublished($query)
     {
         return $query->where('status', 'published')
-                     ->where('published_at', '<=', now());
+            ->where('published_at', '<=', now());
     }
 
     public function scopeScheduled($query)
     {
         return $query->where('status', 'scheduled')
-                     ->where('published_at', '<=', now());
+            ->where('published_at', '<=', now());
     }
 
     /**
@@ -125,6 +126,7 @@ class BlogPost extends Model
         $text = preg_replace('/\|/m', '', $text);               // テーブル|
         $text = preg_replace('/^-{3,}$/m', '', $text);          // --- 水平線
         $text = preg_replace('/\s+/', ' ', $text);              // 連続空白を1つに
+
         return trim($text);
     }
 
@@ -133,7 +135,7 @@ class BlogPost extends Model
      */
     private static function extractLocationFromShortcode(BlogPost $post): void
     {
-        if (!empty($post->latitude) && !empty($post->longitude)) {
+        if (! empty($post->latitude) && ! empty($post->longitude)) {
             return;
         }
 
@@ -168,7 +170,7 @@ class BlogPost extends Model
             return null;
         }
 
-        return rtrim(config('blog.image_base_url', '/storage'), '/') . '/' . ltrim($path, '/');
+        return rtrim(config('blog.image_base_url', '/storage'), '/').'/'.ltrim($path, '/');
     }
 
     public function getEyecatchUrl(): ?string

@@ -49,7 +49,12 @@ it('creates a DRAFT post (never published) with title, slug, tags and body', fun
         ->and($post->slug)->toBe('gentsuki-engine-wont-start-draft')
         ->and($post->body)->toContain('/trouble?symptom=engine-wont-start')
         ->and($post->body)->toContain('/shops/repair')
-        ->and($post->body)->toContain('AI下書き（要監修）'); // 生成マーカー
+        // マーカーは専用カラムに。body は生成本文だけで汚さない。
+        ->and($post->body)->not->toContain('AI下書き')
+        ->and($post->body)->not->toContain('<!--')
+        ->and($post->draft_note)->toContain('AI下書き（要監修）')
+        ->and($post->draft_note)->toContain('symptom:原付のエンジンがかからない')
+        ->and($post->draft_note)->toContain('keyword:原付 エンジン かからない');
 
     expect($post->tags->pluck('name')->all())->toContain('トラブル対処', 'エンジン');
 });
