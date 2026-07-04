@@ -18,6 +18,9 @@ Schedule::command('shops:normalize-names')->dailyAt('04:20');
 // Shop種別分類（毎週月曜5:00 — Webike店舗クロール後にservice_tagsからshop_typeを導出）
 Schedule::command('shops:classify')->weeklyOn(1, '05:00');
 
+// 症状診断ファネルの計測イベントを180日で削除（毎日1:10 — 早朝の空き枠・他ジョブと非衝突）
+Schedule::command('trouble:prune')->dailyAt('01:10');
+
 // ブログ予約投稿チェック（毎分）
 Schedule::command('blog:publish-scheduled')->everyMinute();
 

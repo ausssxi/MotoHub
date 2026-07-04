@@ -26,6 +26,8 @@ return [
             'verdict' => 'diy',
             'advice'  => '充電・ジャンプ、キックで応急。繰り返すなら交換（寿命2〜3年）。',
             'article' => '/blog/gentsuki-battery',
+            'parts_keyword' => 'バイク バッテリー',
+            'parts_label'   => 'バッテリーの価格を比較する',
         ],
         'gas_empty' => [
             'cause'   => 'ガス欠・燃料不足',
@@ -38,12 +40,16 @@ return [
             'verdict' => 'diy_then_shop',
             'advice'  => '新しいガソリン＋フューエルワン投入。改善しなければキャブ清掃＝店。',
             'article' => '/blog/gyro-canopy-idle-stall',
+            'parts_keyword' => 'バイク 燃料添加剤 フューエルワン',
+            'parts_label'   => '燃料添加剤・キャブクリーナーの価格を比較する',
         ],
         'plug' => [
             'cause'   => 'プラグ汚れ・かぶり・点火系',
             'verdict' => 'check_then_shop',
             'advice'  => 'プラグを外して状態を確認（濡れ・煤）。清掃／交換で改善しなければ店。',
             'article' => '/blog/gentsuki-engine-wont-start',
+            'parts_keyword' => 'バイク スパークプラグ',
+            'parts_label'   => 'スパークプラグの価格を比較する',
         ],
         'switch' => [
             'cause'   => 'キルスイッチ／ブレーキ／ヒューズ等',
@@ -56,24 +62,32 @@ return [
             'verdict' => 'shop',
             'advice'  => '消耗品の摩耗。分解整備が必要なので店（または上級者）へ。',
             'article' => '/blog/gentsuki-acceleration',
+            'parts_keyword' => 'バイク ドライブベルト ウェイトローラー',
+            'parts_label'   => '駆動系パーツの価格を比較する',
         ],
         'air_filter' => [
             'cause'   => 'エアクリーナー詰まり',
             'verdict' => 'diy_then_shop',
             'advice'  => 'エアクリを清掃／交換。汚れがひどい・改善しなければ店で点検。',
             'article' => '/blog/gentsuki-acceleration',
+            'parts_keyword' => 'バイク エアフィルター',
+            'parts_label'   => 'エアフィルターの価格を比較する',
         ],
         'tire' => [
             'cause'   => 'パンク・空気圧不足',
             'verdict' => 'diy_then_shop',
             'advice'  => 'チューブレスはパンク修理キットで応急可。チューブタイヤ／大きい穴・サイドウォール損傷は店へ。',
             'article' => '/blog/gentsuki-puncture',
+            'parts_keyword' => 'バイク パンク修理キット',
+            'parts_label'   => 'パンク修理キットの価格を比較する',
         ],
         'oil' => [
             'cause'   => 'オイル不足・劣化',
             'verdict' => 'diy',
             'advice'  => 'オイル量・汚れを確認し、不足／劣化なら交換。',
             'article' => '/blog/gentsuki-oil-change',
+            'parts_keyword' => 'バイク エンジンオイル',
+            'parts_label'   => 'エンジンオイルの価格を比較する',
         ],
         'cold' => [
             'cause'   => '冬の低温（原因ではなく増幅要因）',
@@ -94,6 +108,8 @@ return [
             'verdict' => 'diy_then_shop',
             'advice'  => 'バルブ切れを確認して交換。ヒューズ・配線・接触も点検。改善しなければ電装系の点検で店へ。',
             'article' => '/blog/gentsuki-headlight',
+            'parts_keyword' => 'バイク ヘッドライト バルブ',
+            'parts_label'   => 'ヘッドライトバルブの価格を比較する',
         ],
         // エンジン焼き付き。v1の6症状ツリーからは未到達の共有カード（oil/headlightと同じ扱い）。
         // 主目的は gentsuki-seizure 記事を「修理記事」として登録し trouble-cta を出すこと。
