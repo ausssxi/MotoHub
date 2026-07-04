@@ -58,6 +58,13 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // spatie/laravel-backup 用の mysqldump オプション。
+            // InnoDBロック無しの整合ダンプ。一時データ系テーブルは除外（復元不要・サイズだけ食う）。
+            // trouble_events は分析資産として含める（prune済みで肥大しない）。
+            'dump' => [
+                'use_single_transaction' => true,
+                'exclude_tables' => ['sessions', 'cache', 'cache_locks', 'jobs'],
+            ],
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
