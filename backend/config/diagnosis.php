@@ -160,6 +160,9 @@ return [
         'puncture' => ['label' => 'パンク',                     'emoji' => '🛞', 'root' => 'punc__type'],
         'no-accel' => ['label' => '加速しない',                 'emoji' => '🐌', 'root' => 'accel__onset'],
         'winter' => ['label' => '冬にかからない',             'emoji' => '❄️', 'root' => 'winter__main'],
+        // 孤児カード（headlight/seizure/roadside）を診断に露出させる2症状
+        'lights' => ['label' => 'ライト・電装がおかしい',     'emoji' => '💡', 'root' => 'lights__scope'],
+        'stranded' => ['label' => '出先で動かなくなった',       'emoji' => '🆘', 'root' => 'stranded__safety'],
     ],
 
     // ── 質問ノード（使い回し）。option: card(終端) または next(別ノード) ──
@@ -242,6 +245,7 @@ return [
                 ['label' => '加速時にモタつく（吸気が怪しい）',   'card' => 'air_filter'],
                 ['label' => '特定の回転で力が出ない（点火系）',   'card' => 'plug'],
                 ['label' => '始動性も悪い・ガソリンが古い（燃料）', 'card' => 'fuel_carb'],
+                ['label' => 'オイルを長く替えていない・量が減っている', 'card' => 'oil'],
                 ['label' => 'わからない',                         'card' => 'unknown'],
             ],
         ],
@@ -256,6 +260,30 @@ return [
                 ['label' => 'ガソリンが古い・放置していた',           'card' => 'fuel_carb'],
                 ['label' => 'キルスイッチ／ブレーキ等の操作ミス',     'card' => 'switch'],
                 ['label' => 'わからない',                             'card' => 'unknown'],
+            ],
+        ],
+
+        // ⑦ ライト・電装がおかしい（孤児カード headlight を露出）
+        'lights__scope' => [
+            'question' => 'どんな症状に近いですか？',
+            'help' => 'ヘッドライトだけならバルブ切れ、全体的に弱いならバッテリーが定番です。',
+            'options' => [
+                ['label' => 'ヘッドライトが点かない・暗い',                       'card' => 'headlight'],
+                ['label' => 'ウインカー・ホーンなども含め全体的に弱い／おかしい', 'card' => 'battery'],
+                ['label' => '特定の操作でヒューズが飛ぶ・スイッチ系が怪しい',     'card' => 'switch'],
+                ['label' => 'わからない',                                         'card' => 'unknown'],
+            ],
+        ],
+
+        // ⑧ 出先で動かなくなった（孤児カード seizure/roadside を露出）
+        'stranded__safety' => [
+            'question' => 'まず安全な場所へ移動を。状況に近いのは？',
+            'help' => '路上での作業は危険です。安全確保が最優先。',
+            'options' => [
+                ['label' => 'ガソリンが無い／怪しい',                             'card' => 'gas_empty'],
+                ['label' => '走行中に異音がして急に止まった（焼き付きの疑い）',   'card' => 'seizure'],
+                ['label' => 'キルスイッチ・ブレーキ・ヒューズ等の基本を確認しても動かない', 'card' => 'roadside'],
+                ['label' => 'わからない',                                         'card' => 'roadside'],
             ],
         ],
     ],

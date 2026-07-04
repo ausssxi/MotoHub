@@ -78,3 +78,57 @@
   記事はDB管理のため、保存＝即反映（`./deploy-blog.sh` 等のデプロイは不要）。
 - 反映後の確認：各記事で冒頭の診断リンク→`/trouble?symptom=` が該当症状を開く／
   パーツリンク→比較結果が出る／店リンク→`/shops/repair`。
+
+---
+
+# 第2弾：残りトラブル記事の接続（64/70/71/72/77）
+
+feat/trouble-symptoms-expand で追加。新症状 lights/stranded（config/diagnosis.php）に
+伴い、孤児カード（headlight/seizure/roadside/oil）の対応記事も診断へ接続する。
+**方式は第1弾と同じ：本文出力のみ・DB書き込みなし。** 内田が管理画面で反映。
+
+## ⚠️ ベース乖離（第1弾より重要）
+
+- **64/70 には内田が本番で挿入済みのアンカー行 `<a id="fix"></a>` がある**。ローカルDB本文には無い。
+  → このフォルダの 64/70 の提案本文には**アンカー行を含めた状態**で出力済み（全文貼りで
+    アンカーが消える事故を防ぐため）。貼る前にアンカー行があることを目視確認。
+- **77（修理難民）はローカルDBに存在しない**（本番のみ）。全文出力できないため
+  `77-repair-refugees-INSTRUCTIONS.md` に挿入指示のみ出力。本番現行本文に適用のこと。
+- 71/72 は未編集想定。貼付前に本番現行本文と照合し、挿入ログの追加分だけ適用も可。
+
+## 記事別 挿入ログ
+
+### 64 gentsuki-oil-change（card: oil）
+- 診断リンク：**なし**（oilは単独症状が無く、無理に貼らない方針）。
+- アンカー：`<a id="fix"></a>` を `## 自分でやる場合の手順（4スト・ざっくり）` の直前に（本番反映済みの再掲）。
+- パーツ：`## 自分でやる場合の手順` の「用意するもの」直後にエンジンオイル比較blockquote。
+- 店：`## 結論：原付は「自分」と「店」どっち？` 内に `/shops/repair`。
+
+### 70 gentsuki-headlight（card: headlight）
+- 診断リンク：リード直後に 💡 blockquote → `/trouble?symptom=lights`。
+- アンカー：`<a id="fix"></a>` を `## 交換手順（ライブDIOを例に）` の直前に（本番反映済みの再掲）。
+- パーツ：`## 用意するもの` 直後にヘッドライトバルブ比較blockquote。
+- 店：`## こんな時は店・プロへ` に `/shops/repair`。
+- 備考：既存の「まとめ」内 `[症状診断（無料）](/trouble)` は著者本文なので残置（冒頭blockquoteが主導線）。
+
+### 71 gentsuki-seizure（card: seizure）
+- 診断リンク：リード直後に 🆘 blockquote → `/trouble?symptom=stranded`。
+- パーツ：**省略**（防ぎ方はオイル管理だが、既に `[原付のオイル交換ガイド](/blog/gentsuki-oil-change)`
+  へ誘導済みで二重にオイルを売らない。迷ったら省略の原則）。
+- 店：`## こんな時は店・プロへ` に `/shops/repair` ＋ `/shops/submit`（重整備＝店を選ぶ）。
+
+### 72 gentsuki-roadside（card: roadside）
+- 診断リンク：リード直後に 🆘 blockquote → `/trouble?symptom=stranded`。
+- パーツ：なし。
+- 店：`## 動かなくなったら、確認する順番`（3で「バイク店・レッカー」に言及）の直後に
+  `/shops/repair` ＋ `/shops/submit` のblockquote（出先＝知らない土地の店探し＝修理難民文脈）。
+
+### 77 修理難民（slug: 1kd4liw5nbads3）※旗艦
+- `77-repair-refugees-INSTRUCTIONS.md` 参照。整備店検索のリンク化＋店名検索導線＋
+  受け入れ情報への言及＋末尾に投稿CTA（`/shops/submit`）。診断・パーツリンクは入れない。
+
+## 本番反映（内田）
+
+- 記事本文：上記5本を管理画面で反映（64/70はアンカー行が含まれることを目視確認してから貼る）。
+- あわせて config/diagnosis.php の新症状 lights/stranded が入るので **`php artisan config:cache` 必須**
+  （このコマンド反映は feat/trouble-symptoms-expand のコード側デプロイに含む）。
