@@ -93,9 +93,9 @@
                         <p class="text-lg font-bold text-blue-700 mb-3" x-text="card?.cause"></p>
                         <p class="text-sm text-gray-700 leading-relaxed bg-blue-50/60 rounded-xl px-4 py-3" x-text="card?.advice"></p>
 
-                        {{-- 記事CTA（記事がある場合のみ） --}}
+                        {{-- 記事CTA（記事がある場合のみ・該当セクションへ直行アンカー） --}}
                         <template x-if="card?.article">
-                            <a :href="card.article"
+                            <a :href="card.article + (card.article_anchor ? '#' + card.article_anchor : '')"
                                @click="trackCta('article')"
                                class="mt-4 w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm px-4 py-3.5 rounded-xl transition active:scale-[0.99]">
                                 くわしい対処法・直し方を読む
@@ -130,6 +130,28 @@
                                 <span class="text-[10px] font-bold text-orange-400">楽天/Yahoo/Amazon</span>
                             </a>
                         </template>
+
+                        {{-- 解決フィードバック（CTA群の下・控えめ・1セッション1回） --}}
+                        <div class="mt-5 pt-4 border-t border-gray-100" x-data="{ done: false }">
+                            <template x-if="!done">
+                                <div class="text-center">
+                                    <p class="text-xs font-bold text-gray-500 mb-2">この診断で解決できましたか？</p>
+                                    <div class="flex gap-2 justify-center">
+                                        <button type="button" @click="feedback('yes'); done = true"
+                                            class="inline-flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-50 hover:bg-emerald-50 hover:text-emerald-700 border border-gray-200 hover:border-emerald-300 rounded-lg px-3 py-2 transition">
+                                            👍 解決した・できそう
+                                        </button>
+                                        <button type="button" @click="feedback('no'); done = true"
+                                            class="inline-flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-50 hover:bg-rose-50 hover:text-rose-700 border border-gray-200 hover:border-rose-300 rounded-lg px-3 py-2 transition">
+                                            👎 解決しなかった
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="done">
+                                <p class="text-xs font-bold text-emerald-600 text-center">フィードバックありがとうございます</p>
+                            </template>
+                        </div>
                     </div>
 
                     {{-- リーチフック（会員登録／再診断）。push通知はv1では出さない --}}
@@ -222,7 +244,10 @@
                     } catch (e) { /* 計測失敗は診断に影響させない */ }
                 },
                 trackCta(cta) {
-                    this.track('cta_clicked', { symptom: this.symptomKey, verdict: this.card ? this.card.verdict : null, cta: cta });
+                    this.track('cta_clicked', { symptom: this.symptomKey, card: this.cardKey, verdict: this.card ? this.card.verdict : null, cta: cta });
+                },
+                feedback(answer) {
+                    this.track('feedback', { symptom: this.symptomKey, card: this.cardKey, verdict: this.card ? this.card.verdict : null, answer: answer });
                 },
 
                 pickSymptom(key, source) {
@@ -240,7 +265,7 @@
                         this.cardKey = opt.card;
                         this.phase = 'result';
                         const c = this.cfg.cards[opt.card];
-                        this.track('verdict_shown', { symptom: this.symptomKey, step: opt.card, verdict: c ? c.verdict : null });
+                        this.track('verdict_shown', { symptom: this.symptomKey, step: opt.card, card: opt.card, verdict: c ? c.verdict : null });
                         if (typeof gtag === 'function') {
                             gtag('event', 'trouble_result', { symptom: this.symptomKey, card: opt.card });
                         }

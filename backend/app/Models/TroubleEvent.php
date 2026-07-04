@@ -17,7 +17,10 @@ final class TroubleEvent extends Model
     protected $guarded = ['id'];
 
     /** 許可イベント種別 */
-    public const EVENTS = ['symptom_selected', 'step_answered', 'verdict_shown', 'cta_clicked'];
+    public const EVENTS = ['symptom_selected', 'step_answered', 'verdict_shown', 'cta_clicked', 'feedback'];
+
+    /** feedback イベントの許可 answer */
+    public const FEEDBACK_ANSWERS = ['yes', 'no'];
 
     /** 許可CTA種別 */
     public const CTAS = ['article', 'shop', 'parts', 'register', 'retry', 'submit_shop'];

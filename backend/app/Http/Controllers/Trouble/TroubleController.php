@@ -52,26 +52,28 @@ final class TroubleController extends Controller
 
         $symptoms = array_keys(config('diagnosis.symptoms', []));
         $verdicts = array_keys(config('diagnosis.verdicts', []));
+        $cards = array_keys(config('diagnosis.cards', []));
         // step はノードID（step_answered）またはカードID（verdict_shown）を取り得る
-        $stepKeys = array_merge(
-            array_keys(config('diagnosis.nodes', [])),
-            array_keys(config('diagnosis.cards', [])),
-        );
+        $stepKeys = array_merge(array_keys(config('diagnosis.nodes', [])), $cards);
 
         // 各フィールドをホワイトリスト化（外れ値は null に落とす＝汚さない）
         $symptom = $this->whitelist($request->input('symptom'), $symptoms);
         $verdict = $this->whitelist($request->input('verdict'), $verdicts);
+        $card = $this->whitelist($request->input('card'), $cards);
         $cta = $this->whitelist($request->input('cta'), TroubleEvent::CTAS);
         $source = $this->whitelist($request->input('source'), TroubleEvent::SOURCES);
         $step = $this->whitelist($request->input('step'), $stepKeys);
-        // answer は短トークンのみに制限（英数・記号50字。PIIになり得ない）
-        $answer = $this->sanitizeAnswer($request->input('answer'));
+        // answer: feedback は yes|no のみ許可、それ以外のイベントは短トークン（英数記号50字）
+        $answer = $event === 'feedback'
+            ? $this->whitelist($request->input('answer'), TroubleEvent::FEEDBACK_ANSWERS)
+            : $this->sanitizeAnswer($request->input('answer'));
 
         TroubleEvent::create([
             'session_id' => $sessionId,
             'event' => $event,
             'symptom' => $symptom,
             'step' => $step,
+            'card' => $card,
             'answer' => $answer,
             'verdict' => $verdict,
             'cta' => $cta,
