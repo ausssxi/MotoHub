@@ -8,6 +8,7 @@ use App\Models\Shop;
 use App\Models\ShopAcceptanceReport;
 use App\Models\ShopSubmission;
 use App\Services\GsiGeocodingService;
+use App\Support\ShopNameNormalizer;
 use Illuminate\Support\Collection;
 
 /**
@@ -195,16 +196,12 @@ final class ShopSubmissionService
     }
 
     /**
-     * 店名正規化: 全半角統一・スペース除去・小文字化・会社形態表記除去。
+     * 店名正規化。検索（/shops/search）と同一の定義を使うため
+     * ShopNameNormalizer に集約している（ドリフト防止）。
      */
     public function normalizeName(string $name): string
     {
-        // 全角英数→半角(a)、全角スペース→半角(s)、半角カナ→全角(K)
-        $n = mb_convert_kana($name, 'asK');
-        $n = str_replace(['株式会社', '（株）', '(株)', '有限会社', '（有）', '(有)'], '', $n);
-        $n = preg_replace('/\s+/u', '', $n) ?? '';
-
-        return mb_strtolower($n);
+        return ShopNameNormalizer::normalize($name);
     }
 
     /**

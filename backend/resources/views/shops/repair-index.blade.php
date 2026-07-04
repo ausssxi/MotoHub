@@ -37,6 +37,9 @@
                 </p>
             </div>
 
+            {{-- 店名で探す --}}
+            <x-shop-name-search type="repair_only" accent="green" />
+
             {{-- A-2: 目的（サービス）から探す --}}
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-8">
                 <h2 class="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
