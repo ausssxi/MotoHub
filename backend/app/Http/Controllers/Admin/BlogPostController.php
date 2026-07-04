@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 class BlogPostController extends Controller
 {
     use AuthorizesRequests;
+
     public function index(Request $request)
     {
         $query = BlogPost::with(['author', 'series', 'tags'])->latest();
@@ -25,7 +26,7 @@ class BlogPostController extends Controller
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('body', 'like', "%{$search}%");
+                    ->orWhere('body', 'like', "%{$search}%");
             });
         }
 
@@ -66,7 +67,7 @@ class BlogPostController extends Controller
         $eyecatchPath = null;
         if ($request->hasFile('eyecatch_image')) {
             $eyecatchPath = $request->file('eyecatch_image')
-                ->store('blog/images/' . date('Y/m'), config('blog.image_disk'));
+                ->store('blog/images/'.date('Y/m'), config('blog.image_disk'));
         }
 
         $post = BlogPost::create([
@@ -86,14 +87,15 @@ class BlogPostController extends Controller
             'longitude' => $validated['longitude'] ?? null,
         ]);
 
-        if (!empty($validated['tags'])) {
+        if (! empty($validated['tags'])) {
             $tagIds = collect($validated['tags'])->map(function ($name) {
                 $name = trim($name);
                 $slug = Str::slug($name) ?: Str::random(10);
                 $tag = BlogTag::where('name', $name)->orWhere('slug', $slug)->first();
-                if (!$tag) {
+                if (! $tag) {
                     $tag = BlogTag::create(['name' => $name, 'slug' => $slug]);
                 }
+
                 return $tag->id;
             })->toArray();
             $post->tags()->sync($tagIds);
@@ -121,7 +123,7 @@ class BlogPostController extends Controller
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'slug' => 'nullable|string|max:255|unique:blog_posts,slug,' . $post->id,
+            'slug' => 'nullable|string|max:255|unique:blog_posts,slug,'.$post->id,
             'body' => 'required|string',
             'excerpt' => 'nullable|string',
             'eyecatch_image' => 'nullable|image|max:5120',
@@ -144,7 +146,7 @@ class BlogPostController extends Controller
                 Storage::disk(config('blog.image_disk'))->delete($post->eyecatch_image);
             }
             $validated['eyecatch_image'] = $request->file('eyecatch_image')
-                ->store('blog/images/' . date('Y/m'), config('blog.image_disk'));
+                ->store('blog/images/'.date('Y/m'), config('blog.image_disk'));
         } else {
             unset($validated['eyecatch_image']);
         }
@@ -157,6 +159,12 @@ class BlogPostController extends Controller
             $validated['published_at'] = $post->published_at ?? now();
         }
 
+        // 公開に切り替えたらAI生成フラグ注記をクリア（監修済みの印・以降バナーを出さない）。
+        // draft_note はフォーム入力対象ではないためここでのみ制御する。
+        if ($validated['status'] === 'published') {
+            $validated['draft_note'] = null;
+        }
+
         unset($validated['tags']);
         $post->update($validated);
 
@@ -165,9 +173,10 @@ class BlogPostController extends Controller
             $name = trim($name);
             $slug = Str::slug($name) ?: Str::random(10);
             $tag = BlogTag::where('name', $name)->orWhere('slug', $slug)->first();
-            if (!$tag) {
+            if (! $tag) {
                 $tag = BlogTag::create(['name' => $name, 'slug' => $slug]);
             }
+
             return $tag->id;
         })->toArray();
         $post->tags()->sync($tagIds);

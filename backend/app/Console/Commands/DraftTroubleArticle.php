@@ -222,18 +222,22 @@ final class DraftTroubleArticle extends Command
 
     private function saveDraft(array $data, int $authorId, string $symptom, string $keyword): BlogPost
     {
-        // 生成物であることを監修者に示すマーカー（監修時に削除する運用）。
-        // blog_posts に管理メモ欄が無いため本文冒頭のHTMLコメントで残す（レンダリングされない）。
-        $marker = '<!-- AI下書き（要監修） 生成: '.now()->format('Y-m-d H:i')
-            .' / symptom: '.$symptom.' / keyword: '.$keyword.' -->';
+        // 生成物であることを示すフラグは専用カラム draft_note に持たせる（管理画面限定表示）。
+        // body は生成本文そのものだけにし、マーカーで汚さない＝消し忘れ公開でも一般表示に痕跡が残らない。
+        $note = mb_substr(
+            'AI下書き（要監修） 生成:'.now()->format('Y-m-d H:i').' / symptom:'.$symptom.' / keyword:'.$keyword,
+            0,
+            255,
+        );
 
         $post = new BlogPost([
             'author_id' => $authorId,
             'title' => mb_substr($data['title'], 0, 255),
             'slug' => $this->uniqueSlug($data['slug']),
-            'body' => $marker."\n\n".$data['body_markdown'],
+            'body' => $data['body_markdown'],
             'meta_description' => mb_substr($data['meta_description'], 0, 300),
             'status' => 'draft',      // ← 絶対に published にしない
+            'draft_note' => $note,    // ← 生成物フラグ（管理画面のみ表示）
             'published_at' => null,   // ← いかなる経路でも公開状態にしない
         ]);
         $post->save();

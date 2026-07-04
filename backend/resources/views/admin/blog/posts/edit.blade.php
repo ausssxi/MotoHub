@@ -67,6 +67,17 @@
             </div>
         @endif
 
+        {{-- AI生成下書きの注記バナー（表示のみ・管理画面限定。編集フォームの入力対象にはしない） --}}
+        @if(!empty($post->draft_note))
+            <div class="mb-4 p-4 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg flex items-start gap-3">
+                <span class="text-xl leading-none">⚠️</span>
+                <div>
+                    <p class="font-bold">この記事はAI生成の下書きです。監修のうえ公開してください。</p>
+                    <p class="text-xs text-amber-700 mt-1">{{ $post->draft_note }}</p>
+                </div>
+            </div>
+        @endif
+
         <form method="POST" action="{{ route('admin.blog.posts.update', $post->id) }}" enctype="multipart/form-data">
             @csrf @method('PUT')
 
