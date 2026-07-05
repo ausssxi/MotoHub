@@ -883,6 +883,32 @@ class GenerateSitemap extends Command
         $this->info(" -> {$shopRepairCount} URL (Shop Repair)");
 
         // =========================================================
+        // 4.6.3. 車種×作業（型番）ページ (sitemap-fitments.xml)
+        //  公開ゲート＝verified行のある モデル×task のみ。
+        // =========================================================
+        $this->info('型番（適合表）サイトマップを生成中...');
+        $fitmentsFileName = 'sitemap-fitments.xml';
+        $handle = $this->openSitemap($fitmentsFileName);
+        $sitemapFiles[] = $fitmentsFileName;
+        $fitmentsCount = 0;
+
+        $fitmentPairs = \App\Models\ModelFitment::query()
+            ->verified()
+            ->join('bike_models', 'bike_models.id', '=', 'model_fitments.bike_model_id')
+            ->whereNotNull('bike_models.slug')->where('bike_models.slug', '!=', '')
+            ->select('bike_models.slug as slug', 'model_fitments.task as task')
+            ->distinct()
+            ->get();
+
+        foreach ($fitmentPairs as $pair) {
+            $this->writeUrl($handle, route('fitments.show', ['bikeModel' => $pair->slug, 'task' => $pair->task]), date('Y-m-d'), 'monthly', '0.6');
+            $fitmentsCount++;
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$fitmentsCount} URL (Fitments)");
+
+        // =========================================================
         // 4.7. 駅別駐車場ページ (sitemap-parking-station.xml)
         // =========================================================
         $this->info('駅別駐車場サイトマップを生成中...');

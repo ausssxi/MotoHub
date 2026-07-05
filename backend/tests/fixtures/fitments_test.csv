@@ -1,0 +1,2 @@
+bike_model_id,model_name_check,model_slug,task,frame_code,year_range,oem_part_no,recommended_part_no,compatibles,spec,source_1_name,source_1_url,source_2_name,source_2_url,verified_at,note
+1,テストモデル,test-model,battery,AF00,03〜07,TEST-OEM0,TEST-0000,台湾ユアサ:TEST-0001|古河電池:TEST-0002,voltage=12V;capacity=4Ah;type=VRLA,テスト出典,https://example.com/src1,,,2026-07-01,傾斜搭載のため液入充電済必須
