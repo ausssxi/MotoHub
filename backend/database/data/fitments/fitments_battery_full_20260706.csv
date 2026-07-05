@@ -1,0 +1,103 @@
+bike_model_id,model_name_check,model_slug,task,frame_code,year_range,oem_part_no,recommended_part_no,compatibles,spec,source_1_name,source_1_url,source_2_name,source_2_url,verified_at,note
+459,スーパーカブ50,super-cub-50,battery,JBH-AA01,2024/12〜,,YTX4L-BS,台湾ユアサ:YTX4L-BS|古河電池:FTX4L-BS,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,50周年スペシャル(キック)
+459,スーパーカブ50,super-cub-50,battery,2BH-AA06/2BH-AA09,2018/02〜,,GTZ4V,台湾ユアサ:YTZ4V|古河電池:FTZ4V,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,クロスカブ50と共通
+459,スーパーカブ50,super-cub-50,battery,JBH-AA04,2012/05〜,,YTX4L-BS,台湾ユアサ:YTX4L-BS|古河電池:FTX4L-BS,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,プロ含む
+459,スーパーカブ50,super-cub-50,battery,JBH-AA01,2007/09〜,,YT4L-BS,台湾ユアサ:YT4L-BS|古河電池:FT4L-BS,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,プレスカブ/リトルカブ共通
+587,リトルカブ,little-cub,battery,JBH-AA01,2007/09〜,,YT4L-BS,台湾ユアサ:YT4L-BS|古河電池:FT4L-BS,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,50周年スペシャルはYTX4L-BS。スーパーカブ50と型式共通
+439,ジョルノ,giorno,battery,JBH-AF77/2BH-AF77,2015/10〜,,YTZ6V,台湾ユアサ:YTZ6V|古河電池:FTZ6V,voltage=12V;capacity=5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ジョルノスペシャル含む
+439,ジョルノ,giorno,battery,JBH-AF70,2010/12〜,,YTX4L-BS,台湾ユアサ:YTX4L-BS|古河電池:FTX4L-BS,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+505,トゥデイ,today,battery,JBH-AF67,2007/08〜,,YTX4L-BS,台湾ユアサ:YTX4L-BS|古河電池:FTX4L-BS,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,TODAY F含む
+479,ズーマー,zoomer,battery,JBH-AF58,2007/10〜,,YTZ7S,台湾ユアサ:YTZ7S|古河電池:FTZ7S,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,デラックス含む
+194,dio,dio,battery,JBH-AF68,2007/10〜,,YTX4L-BS,台湾ユアサ:YTX4L-BS|古河電池:FTX4L-BS,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,Dioチェスタ含む
+194,dio,dio,battery,BA-AF62,2003/10〜,,YTX4L-BS,台湾ユアサ:YTX4L-BS|古河電池:FTX4L-BS,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,Dioチェスタ含む
+3411,タクトベーシック,tact-basic,battery,2BH-AF79,2021/11〜,,YTZ6V,台湾ユアサ:YTZ6V|古河電池:FTZ6V,voltage=12V;capacity=5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,標準タクト。ベーシックはGTZ5S。現車確認推奨
+3411,タクトベーシック,tact-basic,battery,JBH-AF75,2015/01〜,,GTZ5S,台湾ユアサ:YTZ5S|古河電池:FTZ5S,voltage=12V;capacity=3.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ベーシック系はGTZ5S/標準タクトはYTZ6V。現車確認推奨
+504,ダンク,dunk,battery,JBH-AF74/2BH-AF78,2014/02〜,,YTZ6V,台湾ユアサ:YTZ6V|古河電池:FTZ6V,voltage=12V;capacity=5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+566,monkey,monkey,battery,JBH-AB27,2016/01〜,,YTR4A-BS,台湾ユアサ:YTR4A-BS|古河電池:FTR4A-BS,voltage=12V;capacity=2.3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,リミテッド含む。2017年生産終了
+566,monkey,monkey,battery,BA-AB27,2005/12〜,,YTR4A-BS,台湾ユアサ:YTR4A-BS|古河電池:FTR4A-BS,voltage=12V;capacity=2.3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+1238,jog,jog,battery,2BH-AY01,2023/03〜,,GTZ5S,台湾ユアサ:YTZ5S|古河電池:FTZ5S,voltage=12V;capacity=3.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,無印はGTZ5S/デラックスはYTZ6V。現車確認推奨
+1238,jog,jog,battery,2BH-SA57J,2017/02〜,,YTX5L-BS,台湾ユアサ:YTX5L-BS|古河電池:FTX5L-BS,voltage=12V;capacity=4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ZR含む
+1238,jog,jog,battery,JBH-SA36J/SA39J,2007/10〜,,YTX5L-BS,台湾ユアサ:YTX5L-BS|古河電池:FTX5L-BS,voltage=12V;capacity=4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,デラックス含む
+1496,ビーノ,vino,battery,2BH-AY02,2019/02〜,,YTZ6V,台湾ユアサ:YTZ6V|古河電池:FTZ6V,voltage=12V;capacity=5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+1496,ビーノ,vino,battery,2BH-SA59J,2017/02〜,,YTX5L-BS,台湾ユアサ:YTX5L-BS|古河電池:FTX5L-BS,voltage=12V;capacity=4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,モルフェ/デラックス含む
+1496,ビーノ,vino,battery,JBH-SA37J,2007/02〜,,YTX5L-BS,台湾ユアサ:YTX5L-BS|古河電池:FTX5L-BS,voltage=12V;capacity=4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,デラックス含む
+1225,gear,gear,battery,2BH-UA08J,2022/12〜,,YTX5L-BS,台湾ユアサ:YTX5L-BS|古河電池:FTX5L-BS,voltage=12V;capacity=4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ニュースギア/パーキングスタンド含む
+1225,gear,gear,battery,JBH-UA07J,2015/05〜,,YTX5L-BS,台湾ユアサ:YTX5L-BS|古河電池:FTX5L-BS,voltage=12V;capacity=4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+1225,gear,gear,battery,JBH-UA06J,2007/10〜,,YTX5L-BS,台湾ユアサ:YTX5L-BS|古河電池:FTX5L-BS,voltage=12V;capacity=4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+451,スーパーカブ110,super-cub-110,battery,8BH-JA76/JA77,2025/12〜,,GTZ4V,台湾ユアサ:YTZ4V|古河電池:FTZ4V,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,Lite/プロLite。JA79クロスカブLite共通
+451,スーパーカブ110,super-cub-110,battery,8BJ-JA59/JA61,2022/04〜,,GTZ4V,台湾ユアサ:YTZ4V|古河電池:FTZ4V,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,プロ含む
+451,スーパーカブ110,super-cub-110,battery,EBJ-JA10,2012/03〜,,YTX4L-BS,台湾ユアサ:YTX4L-BS|古河電池:FTX4L-BS,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,プロ/クロスカブ共通
+451,スーパーカブ110,super-cub-110,battery,EBJ-JA07,2009/06〜,,YTZ7S,台湾ユアサ:YTZ7S|古河電池:FTZ7S,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,C110含む
+408,クロスカブ110,cross-cub-110,battery,8BH-JA79,2025/12〜,,GTZ4V,台湾ユアサ:YTZ4V|古河電池:FTZ4V,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,Lite
+408,クロスカブ110,cross-cub-110,battery,8BJ-JA60,2022/04〜,,GTZ4V,台湾ユアサ:YTZ4V|古河電池:FTZ4V,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+408,クロスカブ110,cross-cub-110,battery,2BJ-JA45,2018/02〜,,GTZ4V,台湾ユアサ:YTZ4V|古河電池:FTZ4V,voltage=12V;capacity=3Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+195,dio110,dio110,battery,8BH-JK46,2025/11〜,,YTZ6V,台湾ユアサ:YTZ6V|古河電池:FTZ6V,voltage=12V;capacity=5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,Lite
+195,dio110,dio110,battery,EBJ-JF58/2BJ-JF58,2015/02〜,,YTZ6V,台湾ユアサ:YTZ6V|古河電池:FTZ6V,voltage=12V;capacity=5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+195,dio110,dio110,battery,EBJ-JF31,2011/09〜,,YTX7L-BS,台湾ユアサ:YTX7L-BS|古河電池:FTX7L-BS,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+585,リード125,lead-125,battery,8BJ-JK12,2022/03〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+585,リード125,lead-125,battery,2BJ-JF45/EBJ-JF45,2015/07〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,2013年式初期はYTZ7S。現車確認推奨
+411,grom,grom,battery,8BJ-JC92,2024/03〜,,YTZ5S,台湾ユアサ:YTZ5S|古河電池:FTZ5S,voltage=12V;capacity=3.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+411,grom,grom,battery,2BJ-JC75,2017/07〜,,YTZ5S,台湾ユアサ:YTZ5S|古河電池:FTZ5S,voltage=12V;capacity=3.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+411,grom,grom,battery,EBJ-JC61,2013/05〜,,YTZ5S,台湾ユアサ:YTZ5S|古河電池:FTZ5S,voltage=12V;capacity=3.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+570,monkey-125,monkey-125,battery,8BJ-JB03,2021/09〜,,YTZ5S,台湾ユアサ:YTZ5S|古河電池:FTZ5S,voltage=12V;capacity=3.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+570,monkey-125,monkey-125,battery,2BJ-JB02,2018/07〜,,YTZ5S,台湾ユアサ:YTZ5S|古河電池:FTZ5S,voltage=12V;capacity=3.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS含む
+181,ct125ハンターカブ,ct125,battery,8BJ-JA65,2024/12〜,,YTZ5S,台湾ユアサ:YTZ5S|古河電池:FTZ5S,voltage=12V;capacity=3.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+181,ct125ハンターカブ,ct125,battery,2BJ-JA55,2022/01〜,,GTZ5S,台湾ユアサ:YTZ5S|古河電池:FTZ5S,voltage=12V;capacity=3.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+458,スーパーカブc125,super-cub-c125,battery,8BJ-JA58,2021/09〜,,YTZ5S,台湾ユアサ:YTZ5S|古河電池:FTZ5S,voltage=12V;capacity=3.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+458,スーパーカブc125,super-cub-c125,battery,2BJ-JA48,2018/09〜,,YTZ5S,台湾ユアサ:YTZ5S|古河電池:FTZ5S,voltage=12V;capacity=3.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+274,pcx,pcx,battery,2AJ-JF84,2018/09〜,,YTZ6V,台湾ユアサ:YTZ6V|古河電池:FTZ6V,voltage=12V;capacity=5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,HYBRID
+274,pcx,pcx,battery,2BJ-JF81,2018/04〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+274,pcx,pcx,battery,EBJ-JF56,2014/04〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,PCX125
+274,pcx,pcx,battery,EBJ-JF28,2010/03〜,,YTZ7S,台湾ユアサ:YTZ7S|古河電池:FTZ7S,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,PCX125
+1053,アドレス125,address-125,battery,8BJ-EN11J,2023頃〜,,YTZ7S,台湾ユアサ:YTZ7S|古河電池:FTZ7S,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,現行新型。型式で品番が変わるため現車確認推奨
+1053,アドレス125,address-125,battery,2BJ-DT11A,2017/09〜,,YTX7A-BS,台湾ユアサ:YTX7A-BS|古河電池:FTX7A-BS,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+1045,アヴェニス125,avenis-125,battery,GF43A,,,YTX7A-BS,台湾ユアサ:YTX7A-BS|古河電池:FTX7A-BS,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+1167,axis z,axis-z,battery,8BJ-SEJ6J,2022/03〜,,YTX5L-BS,台湾ユアサ:YTX5L-BS|古河電池:FTX5L-BS,voltage=12V;capacity=4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+1167,axis z,axis-z,battery,2BJ-SED7J,2017/04〜,,YTX5L-BS,台湾ユアサ:YTX5L-BS|古河電池:FTX5L-BS,voltage=12V;capacity=4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,LTS125含む
+1452,ジョグ125,jog-125,battery,8BH-SEM3J,2026/03〜,,YTX5L-BS,台湾ユアサ:YTX5L-BS|古河電池:FTX5L-BS,voltage=12V;capacity=4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ジョグONE
+1452,ジョグ125,jog-125,battery,8BJ-SEJ5J,2022/11〜,,YTX5L-BS,台湾ユアサ:YTX5L-BS|古河電池:FTX5L-BS,voltage=12V;capacity=4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+1456,シグナスx,cygnus-x,battery,8BJ-SEJ4J,2021/12〜,,GT7B-4,台湾ユアサ:YT7B-BS|古河電池:FT7B-4,voltage=12V;capacity=6.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,シグナスグリファス
+1456,シグナスx,cygnus-x,battery,2BJ-SED8J,2017/08〜,,GT7B-4,台湾ユアサ:YT7B-BS|古河電池:FT7B-4,voltage=12V;capacity=6.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,X SR含む
+1456,シグナスx,cygnus-x,battery,EBJ-SEA5J/SE44J,2015/02〜,,GT7B-4,台湾ユアサ:YT7B-BS|古河電池:FT7B-4,voltage=12V;capacity=6.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,X SR FI
+1456,シグナスx,cygnus-x,battery,EBJ-SE44J,2007/10〜,,YT7B-BS,台湾ユアサ:YT7B-BS|古河電池:FT7B-4,voltage=12V;capacity=6.5Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,傾斜搭載の場合GT7B-4を使用
+1264,nmax,nmax,battery,8BJ-SEG6J,2022/09〜,,YTZ7V,台湾ユアサ:YTZ7V|古河電池:FTZ7V,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS
+1264,nmax,nmax,battery,2BJ-SED6J,2017/08〜,,YTZ7V,台湾ユアサ:YTZ7V|古河電池:FTZ7V,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS
+1264,nmax,nmax,battery,EBJ-SE86J,2016/09〜,,YTZ7V,台湾ユアサ:YTZ7V|古河電池:FTZ7V,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,NMAX125
+1265,nmax155,nmax155,battery,8BL-SEL1J/SG92J,2025/03〜,,YTZ7V,台湾ユアサ:YTZ7V|古河電池:FTZ7V,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS
+1265,nmax155,nmax155,battery,8BK-SG66J,2022/05〜,,YTZ7V,台湾ユアサ:YTZ7V|古河電池:FTZ7V,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS
+1265,nmax155,nmax155,battery,2BK-SG50J,2017/04〜,,YTZ7V,台湾ユアサ:YTZ7V|古河電池:FTZ7V,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS
+277,pcx160,pcx-160,battery,8BK-KF47,2025/02〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+277,pcx160,pcx-160,battery,2BK-KF30,2018/04〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,PCX150
+277,pcx160,pcx-160,battery,JBK-KF18,2014/05〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,PCX150
+7,adv160,adv-160,battery,8BK-KF54,2023/01〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+529,フォルツァ,forza,battery,8BK-MF17,2023/02〜,,YTZ10S,台湾ユアサ:YTZ10S|古河電池:FTZ10S,voltage=12V;capacity=8.6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+529,フォルツァ,forza,battery,2BK-MF13,2018/07〜,,YTZ10S,台湾ユアサ:YTZ10S|古河電池:FTZ10S,voltage=12V;capacity=8.6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+529,フォルツァ,forza,battery,JBK-MF12,2013/07〜,,YTZ12S,台湾ユアサ:YTZ12S|古河電池:FTZ12S,voltage=12V;capacity=11Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,Si ABS
+529,フォルツァ,forza,battery,JBK-MF10,2007/12〜,,YTZ12S,台湾ユアサ:YTZ12S|古河電池:FTZ12S,voltage=12V;capacity=11Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,Z系
+590,rebel-250,rebel-250,battery,2BK-MC49,2017/04〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,S Edition/ABS含む
+590,rebel-250,rebel-250,battery,MC13,1990/03〜,,YTX7L-BS,台湾ユアサ:YTX7L-BS|古河電池:FTX7L-BS,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,旧レブル/SPECIAL
+111,cbr250rr,cbr250rr,battery,2BK-MC51/8BK-MC51,2017/03〜,,YTZ7S,台湾ユアサ:YTZ7S|古河電池:FTZ7S,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS含む
+111,cbr250rr,cbr250rr,battery,JBK-MC41,2011/02〜,,YTX7L-BS,台湾ユアサ:YTX7L-BS|古河電池:FTX7L-BS,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,CBR250R/ABS
+168,crf250l,crf250l,battery,8BK-MD47,2023/01〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,RALLY含む
+168,crf250l,crf250l,battery,2BK-MD44,2017/02〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,RALLY/M含む
+168,crf250l,crf250l,battery,JBL-MD38/JBK-MD38,2012/04〜,,YTX7L-BS,台湾ユアサ:YTX7L-BS|古河電池:FTX7L-BS,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,M含む
+334,vtr250,vtr250,battery,JBK-MC33,2010/07〜,,YTZ7S,台湾ユアサ:YTZ7S|古河電池:FTZ7S,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,Type LD含む
+334,vtr250,vtr250,battery,BA-MC33,2002/12〜,,YTZ7S,台湾ユアサ:YTZ7S|古河電池:FTZ7S,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+1439,yzf−r25,yzf-r25,battery,8BK-RG95J,2025/04〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS
+1439,yzf−r25,yzf-r25,battery,8BK-RG74J,2022/05〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS
+1439,yzf−r25,yzf-r25,battery,2BK-RG43J,2019/03〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,A/ABS含む
+1439,yzf−r25,yzf-r25,battery,JBK-RG10J,2014/12〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,A/ABS含む
+1260,mt−25,mt-25,battery,8BK-RG95J,2025/04〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS
+1260,mt−25,mt-25,battery,8BK-RG74J,2022/05〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS
+1260,mt−25,mt-25,battery,2BK-RG43J,2019/03〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS含む
+1260,mt−25,mt-25,battery,JBK-RG10J,2015/09〜,,GTZ8V,台湾ユアサ:YTZ8V|古河電池:FTZ8V,voltage=12V;capacity=7.4Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,MT250含む
+1463,セロー250,serow-250,battery,JBK-DG17J,2008/01〜,,YTZ7S,台湾ユアサ:YTZ7S|古河電池:FTZ7S,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+1463,セロー250,serow-250,battery,BA-DG11J,2005/03〜,,YTZ7S,台湾ユアサ:YTZ7S|古河電池:FTZ7S,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+941,gsx250r,gsx250r,battery,2BK-DN11A/8BK-DN12B,2017/04〜,,YTX9-BS,台湾ユアサ:YTX9-BS|古河電池:FTX9-BS,voltage=12V;capacity=8Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS含む
+680,ninja 250,ninja-250,battery,2BK-EX250P,2021/09〜,,YTX9-BS,台湾ユアサ:YTX9-BS|古河電池:FTX9-BS,voltage=12V;capacity=8Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,
+680,ninja 250,ninja-250,battery,EX250L/EX250M,2013/02〜,,YTX9-BS,台湾ユアサ:YTX9-BS|古河電池:FTX9-BS,voltage=12V;capacity=8Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS/SL含む
+680,ninja 250,ninja-250,battery,EX250K,2008/04〜,,YTX9-BS,台湾ユアサ:YTX9-BS|古河電池:FTX9-BS,voltage=12V;capacity=8Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,Ninja250R
+754,z250,z250,battery,2BK-EX250P,2013/05〜,,YTX9-BS,台湾ユアサ:YTX9-BS|古河電池:FTX9-BS,voltage=12V;capacity=8Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,ABS/SL含む。ER250系
+217,gb350,gb350,battery,8BL-NC64,2024/10〜,,YTZ7S,台湾ユアサ:YTZ7S|古河電池:FTZ7S,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,C
+217,gb350,gb350,battery,8BL-NC59,2023/07〜,,YTZ7S,台湾ユアサ:YTZ7S|古河電池:FTZ7S,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,S含む
+421,ジャイロキャノピー,gyro-canopy,battery,TA02,,,YTX7L-BS,台湾ユアサ:YTX7L-BS|古河電池:FTX7L-BS,voltage=12V;capacity=6Ah;type=VRLA,GSユアサ バイク用バッテリー適合検索,https://gyb.gs-yuasa.com/fit/bike/search/,,,2026-07-06,セル/キック仕様。実車搭載品番と照合済み
