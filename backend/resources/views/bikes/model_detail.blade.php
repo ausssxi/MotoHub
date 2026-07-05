@@ -764,6 +764,29 @@
                         </div>
                     </div>
 
+                    {{-- メンテナンスデータ（型番・適合表への導線。verified行のある task のみ） --}}
+                    @if(!empty($fitmentTasks) && !empty($model->slug))
+                    <div id="maintenance-data" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <h3 class="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                            <i data-lucide="wrench" class="w-5 h-5 text-blue-600"></i> メンテナンスデータ
+                        </h3>
+                        <div class="space-y-3">
+                            @foreach($fitmentTasks as $ftask => $info)
+                            <a href="{{ route('fitments.show', ['bikeModel' => $model->slug, 'task' => $ftask]) }}"
+                               class="flex items-center justify-between bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl px-4 py-3 transition">
+                                <span>
+                                    <span class="text-sm font-black text-gray-800">{{ $info['label'] }}型番・適合表を見る</span>
+                                    @if(!empty($info['recommended']))
+                                    <span class="block text-xs text-gray-500 mt-0.5">推奨品番: <span class="font-bold text-blue-700">{{ $info['recommended'] }}</span></span>
+                                    @endif
+                                </span>
+                                <i data-lucide="chevron-right" class="w-5 h-5 text-gray-300 shrink-0"></i>
+                            </a>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
                     </div>{{-- /tab-panel-overview --}}
 
                     {{-- ===== タブ2: 相場・価格 ===== --}}
