@@ -41,8 +41,8 @@ return [
             'cause' => '燃料劣化・キャブ詰まり',
             'verdict' => 'diy_then_shop',
             'advice' => '新しいガソリン＋フューエルワン投入。改善しなければキャブ清掃＝店。',
-            'article' => '/blog/gyro-canopy-idle-stall',
-            'article_anchor' => 'additive', // 63「軽い詰まりならフューエルワンを試す」
+            'article' => '/blog/gentsuki-engine-wont-start',
+            'article_anchor' => null,
             'parts_keyword' => 'バイク 燃料添加剤 フューエルワン',
             'parts_label' => '燃料添加剤・キャブクリーナーの価格を比較する',
         ],
