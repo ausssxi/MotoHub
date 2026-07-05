@@ -27,6 +27,9 @@ final class TroubleController extends Controller
             'verdicts' => config('diagnosis.verdicts', []),
             'fitmentModels' => $this->publishedFitmentModels(),
             'userFitmentBikes' => $this->userFitmentBikes(),
+            // カード直リンク着地（?card=）のみ noindex で薄ページのインデックスを防ぐ。
+            // トップ /trouble・?symptom= 単独は index 維持。
+            'noindex' => request()->filled('card'),
         ]);
     }
 
@@ -130,6 +133,9 @@ final class TroubleController extends Controller
             ? $this->whitelist($request->input('answer'), TroubleEvent::FEEDBACK_ANSWERS)
             : $this->sanitizeAnswer($request->input('answer'));
 
+        // ref は入口別計測の内部識別子。値の体系は運用側。長さ上限だけ緩く制限。
+        $ref = $this->sanitizeRef($request->input('ref'));
+
         TroubleEvent::create([
             'session_id' => $sessionId,
             'event' => $event,
@@ -140,6 +146,7 @@ final class TroubleController extends Controller
             'verdict' => $verdict,
             'cta' => $cta,
             'source' => $source,
+            'ref' => $ref,
             'created_at' => now(),
         ]);
 
@@ -163,6 +170,20 @@ final class TroubleController extends Controller
         }
         // 英数・ハイフン・アンダースコアのみ、50字まで
         $clean = preg_replace('/[^A-Za-z0-9_-]/', '', $value) ?? '';
+
+        return $clean === '' ? null : mb_substr($clean, 0, 50);
+    }
+
+    /**
+     * ref（入口識別子）: 英数・ハイフン・アンダースコア・ドット・コロンのみ、50字まで。
+     * PIIを含まない内部識別子想定のため緩め。
+     */
+    private function sanitizeRef(mixed $value): ?string
+    {
+        if (! is_string($value) || $value === '') {
+            return null;
+        }
+        $clean = preg_replace('/[^A-Za-z0-9_.:-]/', '', $value) ?? '';
 
         return $clean === '' ? null : mb_substr($clean, 0, 50);
     }

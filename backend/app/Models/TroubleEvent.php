@@ -26,5 +26,6 @@ final class TroubleEvent extends Model
     public const CTAS = ['article', 'shop', 'parts', 'register', 'retry', 'submit_shop', 'fitment'];
 
     /** 許可 source */
-    public const SOURCES = ['deeplink'];
+    /** source 許可値。deeplink=症状ディープリンク / deeplink_card=結果パーマリンク直着地 */
+    public const SOURCES = ['deeplink', 'deeplink_card'];
 }
