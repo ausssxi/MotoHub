@@ -131,6 +131,51 @@
                             </a>
                         </template>
 
+                        {{-- 型番（適合表）ページへの導線（fitment_task があり公開車種があるときだけ） --}}
+                        <template x-if="card?.fitment_task && fitModels(card.fitment_task).length > 0">
+                            <div class="mt-3">
+                                {{-- A) 個人化: ログイン＆マイバイクが公開車種に一致 --}}
+                                <template x-if="userBikes(card.fitment_task).length > 0">
+                                    <div class="space-y-2">
+                                        <template x-for="b in userBikes(card.fitment_task).slice(0,3)" :key="b.slug">
+                                            <a :href="fitmentUrl(b.slug, card.fitment_task)"
+                                               @click="trackCta('fitment')"
+                                               class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm px-4 py-3.5 rounded-xl transition active:scale-[0.99]">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+                                                あなたの<span x-text="b.display_name"></span>の適合バッテリーを見る
+                                            </a>
+                                        </template>
+                                    </div>
+                                </template>
+
+                                {{-- B) 未ログイン／不一致: メーカー別 optgroup の select --}}
+                                <template x-if="userBikes(card.fitment_task).length === 0">
+                                    <div class="bg-white border-2 border-blue-200 rounded-xl p-4">
+                                        <p class="text-sm font-black text-gray-800 mb-2">お使いの車種の適合型番を調べる</p>
+                                        <div class="flex gap-2">
+                                            <select x-model="fitSlug" class="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                                <option value="">車種を選択</option>
+                                                <template x-for="(models, maker) in fitGroups(card.fitment_task)" :key="maker">
+                                                    <optgroup :label="maker">
+                                                        <template x-for="m in models" :key="m.slug">
+                                                            <option :value="m.slug" x-text="m.name"></option>
+                                                        </template>
+                                                    </optgroup>
+                                                </template>
+                                            </select>
+                                            <button type="button" @click="goFitment(card.fitment_task)"
+                                                    class="shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm px-5 py-2.5 rounded-lg transition active:scale-[0.99]">見る</button>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                {{-- C) 末尾一行 --}}
+                                <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">
+                                    一覧にない車種は、現在お使いのバッテリー本体の品番表記をご確認ください。
+                                </p>
+                            </div>
+                        </template>
+
                         {{-- 解決フィードバック（CTA群の下・控えめ・1セッション1回） --}}
                         <div class="mt-5 pt-4 border-t border-gray-100" x-data="{ done: false }">
                             <template x-if="!done">
@@ -185,10 +230,17 @@
         };
         window.__troubleTrackUrl = @js(route('trouble.track'));
         window.__troubleCsrf = @js(csrf_token());
+        window.__troubleFitment = {
+            models: @json($fitmentModels),
+            userBikes: @json($userFitmentBikes),
+            urlTemplate: @js(route('fitments.show', ['bikeModel' => '__SLUG__', 'task' => '__TASK__'])),
+        };
 
         function troubleTool() {
             return {
                 cfg: window.__troubleCfg,
+                fit: window.__troubleFitment,
+                fitSlug: '',
                 phase: 'select',     // 'select' | 'question' | 'result'
                 symptomKey: null,
                 stack: [],           // 辿ったノードidの履歴（戻る用）
@@ -248,6 +300,23 @@
                 },
                 feedback(answer) {
                     this.track('feedback', { symptom: this.symptomKey, card: this.cardKey, verdict: this.card ? this.card.verdict : null, answer: answer });
+                },
+
+                // ── 型番（適合表）導線 ──
+                fitModels(task) { return (this.fit && this.fit.models && this.fit.models[task]) || []; },
+                userBikes(task) { return (this.fit && this.fit.userBikes && this.fit.userBikes[task]) || []; },
+                fitGroups(task) {
+                    const groups = {};
+                    this.fitModels(task).forEach(m => { (groups[m.maker_name] = groups[m.maker_name] || []).push(m); });
+                    return groups;
+                },
+                fitmentUrl(slug, task) {
+                    return this.fit.urlTemplate.replace('__SLUG__', encodeURIComponent(slug)).replace('__TASK__', encodeURIComponent(task));
+                },
+                goFitment(task) {
+                    if (!this.fitSlug) return;
+                    this.trackCta('fitment');
+                    window.location.href = this.fitmentUrl(this.fitSlug, task);
                 },
 
                 pickSymptom(key, source) {

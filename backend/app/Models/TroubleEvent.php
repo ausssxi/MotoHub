@@ -23,7 +23,7 @@ final class TroubleEvent extends Model
     public const FEEDBACK_ANSWERS = ['yes', 'no'];
 
     /** 許可CTA種別 */
-    public const CTAS = ['article', 'shop', 'parts', 'register', 'retry', 'submit_shop'];
+    public const CTAS = ['article', 'shop', 'parts', 'register', 'retry', 'submit_shop', 'fitment'];
 
     /** 許可 source */
     public const SOURCES = ['deeplink'];

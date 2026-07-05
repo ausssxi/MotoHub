@@ -29,6 +29,7 @@ return [
             'article_anchor' => 'fix', // 66「自分で交換する手順」
             'parts_keyword' => 'バイク バッテリー',
             'parts_label' => 'バッテリーの価格を比較する',
+            'fitment_task' => 'battery', // 型番（適合表）ページへの導線 task
         ],
         'gas_empty' => [
             'cause' => 'ガス欠・燃料不足',

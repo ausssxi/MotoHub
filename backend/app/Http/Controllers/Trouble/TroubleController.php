@@ -25,7 +25,69 @@ final class TroubleController extends Controller
             'nodes' => config('diagnosis.nodes', []),
             'cards' => config('diagnosis.cards', []),
             'verdicts' => config('diagnosis.verdicts', []),
+            'fitmentModels' => $this->publishedFitmentModels(),
+            'userFitmentBikes' => $this->userFitmentBikes(),
         ]);
+    }
+
+    /**
+     * task別の公開車種 [{slug,name,maker_name}]（公開ゲート＝verified行あり）。6時間キャッシュ。
+     *
+     * @return array<string,array<int,array{slug:string,name:string,maker_name:string}>>
+     */
+    private function publishedFitmentModels(): array
+    {
+        $out = [];
+        foreach (array_keys(config('fitments.tasks', [])) as $task) {
+            $out[$task] = \Illuminate\Support\Facades\Cache::remember(
+                "fitments:published:{$task}",
+                21600,
+                fn () => \App\Models\ModelFitment::query()
+                    ->verified()
+                    ->where('model_fitments.task', $task)
+                    ->join('bike_models', 'bike_models.id', '=', 'model_fitments.bike_model_id')
+                    ->join('manufacturers', 'manufacturers.id', '=', 'bike_models.manufacturer_id')
+                    ->whereNotNull('bike_models.slug')->where('bike_models.slug', '!=', '')
+                    ->distinct()
+                    ->orderBy('manufacturers.name')->orderBy('bike_models.name')
+                    ->get(['bike_models.slug as slug', 'bike_models.name as name', 'manufacturers.name as maker_name'])
+                    ->map(fn ($r) => ['slug' => $r->slug, 'name' => $r->name, 'maker_name' => $r->maker_name])
+                    ->all()
+            );
+        }
+
+        return $out;
+    }
+
+    /**
+     * 認証時のみ: マイバイクのうち公開車種に一致するもの [{display_name,slug}]（task別）。
+     *
+     * @return array<string,array<int,array{display_name:string,slug:string}>>
+     */
+    private function userFitmentBikes(): array
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return [];
+        }
+
+        $models = $this->publishedFitmentModels();
+        $bikes = $user->myBikes()->whereNotNull('bike_model_id')->with('bikeModel:id,slug,name')->get();
+
+        $out = [];
+        foreach ($models as $task => $list) {
+            $publishedSlugs = collect($list)->pluck('slug')->flip();
+            $matched = [];
+            foreach ($bikes as $bike) {
+                $slug = $bike->bikeModel?->slug;
+                if ($slug && $publishedSlugs->has($slug)) {
+                    $matched[] = ['display_name' => $bike->display_name, 'slug' => $slug];
+                }
+            }
+            $out[$task] = $matched;
+        }
+
+        return $out;
     }
 
     /**
