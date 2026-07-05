@@ -29,8 +29,50 @@ final class TroubleReport extends Command
         $this->reportCtaCtr($since);
         $this->reportDeeplink($since);
         $this->reportFeedback($since);
+        $this->reportRefFunnel($since);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * ⑥ 入口別（ref）: 流入（symptom_selected）→ 判定表示（verdict_shown）の完走率。
+     * distinct session でカウント。ref null は「(直接/不明)」に集約。
+     */
+    private function reportRefFunnel(\DateTimeInterface $since): void
+    {
+        $selected = $this->countRefSessions($since, 'symptom_selected');
+        $shown = $this->countRefSessions($since, 'verdict_shown');
+
+        $refs = collect(array_keys($selected + $shown));
+        $rows = [];
+        foreach ($refs as $ref) {
+            $sel = $selected[$ref] ?? 0;
+            $done = $shown[$ref] ?? 0;
+            $rate = $sel > 0 ? round($done / $sel * 100, 1) : 0.0;
+            $rows[] = [$ref === '' ? '(直接/不明)' : $ref, $sel, $done, "{$rate}%"];
+        }
+        usort($rows, fn ($a, $b) => $b[1] <=> $a[1]);
+
+        $this->newLine();
+        $this->line('⑥ 入口別（ref）流入・完走率（distinct session）');
+        $this->table(['入口(ref)', '流入(選択)', '判定表示', '完走率'], $rows ?: [['(データなし)', '', '', '']]);
+    }
+
+    /**
+     * event 単位で ref 別の distinct session 数を返す（ref null は '' キー）。
+     *
+     * @return array<string,int>
+     */
+    private function countRefSessions(\DateTimeInterface $since, string $event): array
+    {
+        return TroubleEvent::query()
+            ->where('event', $event)
+            ->where('created_at', '>=', $since)
+            ->selectRaw("COALESCE(ref, '') as ref, COUNT(DISTINCT session_id) as c")
+            ->groupBy('ref')
+            ->pluck('c', 'ref')
+            ->map(fn ($v) => (int) $v)
+            ->all();
     }
 
     /**

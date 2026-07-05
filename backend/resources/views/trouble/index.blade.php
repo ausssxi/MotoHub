@@ -5,6 +5,11 @@
         「エンジンがかからない」「エンストする」「加速しない」など、原付・バイクの症状から原因を切り分ける無料の診断ツール。質問に答えるだけで、自分で直せるか・店に出すべきかの目安と対処法がわかります。
     </x-slot:metaDescription>
 
+    {{-- カード直リンク着地（?card=）のみ noindex（薄ページのインデックス防止）。トップ・?symptom=単独は index。 --}}
+    @if($noindex ?? false)
+        <x-slot:robotsMeta>noindex</x-slot:robotsMeta>
+    @endif
+
     <x-slot:navigation>
         <x-navigation :showSearch="true" />
     </x-slot:navigation>
@@ -247,9 +252,25 @@
                 cardKey: null,
 
                 init() {
-                    // ?symptom=<スラッグ> でディープリンク（記事/広告から直接症状へ）。?s= は後方互換。
                     const params = new URLSearchParams(window.location.search);
+                    // ?ref= 入口別計測（以後の track に載せる。不正文字はサーバ側で除去）
+                    this._ref = params.get('ref') || null;
+
                     const slug = params.get('symptom') || params.get('s');
+                    const cardKey = params.get('card');
+
+                    // ?card= 結果パーマリンク: 判定カードの結果画面へ直着地（symptom は表示文脈用・任意）。
+                    // 不正な card は無視してトップ（症状選択）にフォールバック。
+                    if (cardKey && this.cfg.cards[cardKey]) {
+                        if (slug && this.cfg.symptoms[slug]) { this.symptomKey = slug; }
+                        this.cardKey = cardKey;
+                        this.phase = 'result';
+                        this.track('symptom_selected', { symptom: this.symptomKey, card: cardKey, verdict: this.cfg.cards[cardKey].verdict, source: 'deeplink_card' });
+                        this.toTop();
+                        return;
+                    }
+
+                    // ?symptom=<スラッグ> でディープリンク（記事/広告から直接症状へ）。?s= は後方互換。
                     if (slug && this.cfg.symptoms[slug]) {
                         this.pickSymptom(slug, 'deeplink');
                     }
@@ -265,6 +286,7 @@
 
                 // ── 計測（fire-and-forget・UIを一切ブロックしない）──
                 _sid: null,
+                _ref: null,
                 sessionId() {
                     if (this._sid) return this._sid;
                     let s = null;
@@ -286,6 +308,7 @@
                         fd.append('_token', window.__troubleCsrf || '');
                         fd.append('session_id', this.sessionId());
                         fd.append('event', event);
+                        if (this._ref) { fd.append('ref', this._ref); } // 入口別計測（初回接触の入口を全trackに付与）
                         Object.entries(extra || {}).forEach(([k, v]) => { if (v != null) fd.append(k, v); });
                         const url = window.__troubleTrackUrl;
                         if (navigator.sendBeacon) {
@@ -345,6 +368,8 @@
                 },
                 back() {
                     if (this.phase === 'result') {
+                        // カード直着地（stackが空）は戻る先の質問が無いのでトップへ
+                        if (this.stack.length === 0) { this.reset(); return; }
                         this.phase = 'question';
                         this.cardKey = null;
                     } else if (this.stack.length > 1) {
