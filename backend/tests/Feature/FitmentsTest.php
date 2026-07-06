@@ -207,3 +207,56 @@ it('regression: battery page still renders with the 2-button change', function (
     $this->get('/maintenance/reg-batt/battery')->assertOk()
         ->assertSee('TEST-0000')->assertSee('AF62')->assertSee('価格を比較');
 });
+
+// ─────────── oil task（Phase3）───────────
+
+it('serves an oil page (200 verified / 404 unverified) via the whereIn route', function () {
+    $m = fitModel('オイル車', 'oil-bike');
+    fitVerified($m, ['task' => 'oil', 'recommended_part_no' => '10W-30', 'spec' => ['jaso' => 'MB', 'capacity_change' => '0.8L']]);
+
+    $this->get('/maintenance/oil-bike/oil')->assertOk()->assertSee('10W-30');
+
+    $m2 = fitModel('オイル未検証', 'oil-unverified');
+    ModelFitment::create(['bike_model_id' => $m2->id, 'task' => 'oil', 'recommended_part_no' => '10W-40', 'verified_at' => null]);
+    $this->get('/maintenance/oil-unverified/oil')->assertNotFound();
+});
+
+it('shows oil H1, viscosity, JASO, change capacity and interval', function () {
+    $m = fitModel('粘度車', 'visc-bike');
+    fitVerified($m, ['task' => 'oil', 'recommended_part_no' => '10W-30',
+        'spec' => ['jaso' => 'MB', 'capacity_change' => '0.8L', 'interval' => '6000km毎']]);
+
+    $res = $this->get('/maintenance/visc-bike/oil')->assertOk();
+    $res->assertSee('エンジンオイル（粘度・量）【型式別】'); // H1
+    $res->assertSee('10W-30');       // 推奨粘度
+    $res->assertSee('MB');           // JASO 列
+    $res->assertSee('0.8L');         // 交換量 列
+    $res->assertSee('交換目安: 6000km毎'); // 規格行
+});
+
+it('shows filter/strainer capacity labels only when those keys exist', function () {
+    $mf = fitModel('フィルタ車', 'filter-bike');
+    fitVerified($mf, ['task' => 'oil', 'recommended_part_no' => '10W-30', 'spec' => ['jaso' => 'MA', 'capacity_change' => '0.8L', 'capacity_filter' => '0.85L']]);
+    $this->get('/maintenance/filter-bike/oil')->assertOk()->assertSee('フィルター交換時: 0.85L');
+
+    $ms = fitModel('ストレーナ車', 'strainer-bike');
+    fitVerified($ms, ['task' => 'oil', 'recommended_part_no' => '10W-30', 'spec' => ['jaso' => 'MB', 'capacity_change' => '0.7L', 'capacity_strainer' => '0.75L']]);
+    $this->get('/maintenance/strainer-bike/oil')->assertOk()->assertSee('ストレーナー清掃時: 0.75L');
+});
+
+it('renders two oil price buttons (viscosity + genuine brand)', function () {
+    $m = fitModel('2ボタンオイル車', 'oil-two-btn');
+    fitVerified($m, ['task' => 'oil', 'recommended_part_no' => '10W-30',
+        'compatible_part_nos' => [['brand' => 'ホンダ', 'part_no' => 'ウルトラE1']]]);
+
+    $res = $this->get('/maintenance/oil-two-btn/oil')->assertOk();
+    $res->assertSee('10W-30のオイルを比較');      // 標準（粘度）
+    $res->assertSee('ホンダ ウルトラE1を比較');   // 純正銘柄フルネーム
+});
+
+it('does not attach a fitment link to the oil diagnosis card', function () {
+    // oil は予防メンテのため診断導線を出さない（fitment_task 無し）
+    expect(config('diagnosis.cards.oil.fitment_task') ?? null)->toBeNull()
+        ->and(config('fitments.tasks.oil.label'))->toBe('エンジンオイル')
+        ->and(config('fitments.tasks.oil.trouble_symptom'))->toBeNull();
+});
