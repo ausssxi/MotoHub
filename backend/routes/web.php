@@ -598,7 +598,7 @@ Route::post('/trouble/track', [TroubleController::class, 'track'])->name('troubl
 // 車種×作業（型番）ページ。B案 /maintenance/... を採用（/bikes/{mfr}/{model} が2セグメントを占有済みのため）。
 // task追加時は whereIn を拡張。verified行が無ければコントローラで404（公開ゲート）。
 Route::get('/maintenance/{bikeModel:slug}/{task}', [\App\Http\Controllers\FitmentPageController::class, 'show'])
-    ->whereIn('task', ['battery', 'plug'])
+    ->whereIn('task', ['battery', 'plug', 'oil'])
     ->name('fitments.show');
 
 // Breezeの認証ルート読み込み (login, register等)

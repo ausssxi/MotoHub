@@ -23,5 +23,10 @@ return [
             'article_url' => env('FITMENTS_PLUG_ARTICLE_URL', ''), // 空→手順の記事リンク非表示
             'trouble_symptom' => 'engine-wont-start',              // プラグ原因はこの症状から到達
         ],
+        'oil' => [
+            'label' => 'エンジンオイル',
+            'article_url' => env('FITMENTS_OIL_ARTICLE_URL', '/blog/gentsuki-oil-change'), // 既存記事が受け皿
+            'trouble_symptom' => null,                             // 予防メンテのため診断接続なし
+        ],
     ],
 ];
