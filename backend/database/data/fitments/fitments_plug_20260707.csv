@@ -1,0 +1,62 @@
+bike_model_id,model_name_check,model_slug,task,frame_code,year_range,oem_part_no,recommended_part_no,compatibles,spec,source_1_name,source_1_url,source_2_name,source_2_url,verified_at,note
+459,スーパーカブ50,super-cub-50,plug,AA09,2017/11〜,,CPR6EA-9S,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,FI車
+459,スーパーカブ50,super-cub-50,plug,AA04,2012/05〜2017/10,,CPR6EA-9,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+459,スーパーカブ50,super-cub-50,plug,AA01,2007/09〜2012/04,,CR6HSA,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+587,リトルカブ,little-cub,plug,AA01,2009/08〜,,CR6HSA,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+439,ジョルノ,giorno,plug,AF77,2017/12〜,,CPR6EA-9S,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+439,ジョルノ,giorno,plug,AF70,2011/11〜2017/11,,CPR6EA-9,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+505,トゥデイ,today,plug,AF67,2007/08〜,,CR6HSA,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,F含む
+479,ズーマー,zoomer,plug,AF58,2007/10〜,,CR6HSA,NGK MotoDX:CR6HDX-S,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+194,dio,dio,plug,AF68,2007/10〜,,CR6HSA,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+194,dio,dio,plug,AF62,2003/10〜2007/09,,CR6HSA,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+3411,タクトベーシック,tact-basic,plug,AF79,2021/11〜,,CPR6EA-9S,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+3411,タクトベーシック,tact-basic,plug,AF75,2015/01〜2021/10,,CPR6EA-9,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+504,ダンク,dunk,plug,AF74,2014/02〜,,CPR6EA-9,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+566,モンキー,monkey,plug,AB27,2009/08〜,,CR6HSA,NGK MotoDX:CR6HDX-S,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,2017年生産終了
+1238,jog,jog,plug,AY01,2023/03〜,,CR6HSA,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+1238,jog,jog,plug,SA36J/SA39J/SA57J,2007/10〜,,CR6HSA,NGK MotoDX:CR6HDX-S,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+1496,ビーノ,vino,plug,AY02,2019/02〜,,CR6HSA,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+1496,ビーノ,vino,plug,SA37J/SA59J,2007/02〜,,CR6HSA,NGK MotoDX:CR6HDX-S,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+1225,gear,gear,plug,UA06J/UA07J/UA08J,2007/10〜,,CR6HSA,NGK MotoDX:CR6HDX-S,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+451,スーパーカブ110,super-cub-110,plug,JA59/JA61,2022/04〜,,CPR6EA-9S,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+451,スーパーカブ110,super-cub-110,plug,JA07/JA10,2009/06〜2022/03,,CPR6EA-9,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+408,クロスカブ110,cross-cub-110,plug,JA45/JA60,2018/02〜,,CPR6EA-9S,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+195,dio110,dio110,plug,JF58/JK46,2015/02〜,,CPR7EA-9,,heat=7;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,JF31も同系
+585,リード125,lead-125,plug,JF45/JK12,2013/05〜,,CPR7EA-9,,heat=7;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+411,グロム,grom,plug,JC61/JC75/JC92,2013/05〜,,CPR7EA-9,,heat=7;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+570,モンキー125,monkey-125,plug,JB02/JB03,2018/07〜,,CPR7EA-9,,heat=7;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+181,ct125ハンターカブ,ct125,plug,JA55/JA65,2020/06〜,,CPR6EA-9S,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+458,スーパーカブc125,super-cub-c125,plug,JA48/JA58,2018/09〜,,CPR6EA-9S,,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+274,pcx,pcx,plug,JF81/JK05,2018/04〜,,CPR7EA-9,,heat=7;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,JF28/JF56も同系
+277,pcx160,pcx-160,plug,KF47,2021/01〜,,CPR7EA-9,,heat=7;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,PCX150含む
+7,adv160,adv-160,plug,KF54,2023/01〜,,CPR7EA-9,,heat=7;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+529,フォルツァ,forza,plug,MF13/MF17,2018/07〜,,LMAR8A-9,NGK MotoDX:LMAR8ADX-9S,heat=8;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+590,レブル250,rebel-250,plug,MC49,2017/04〜,,SIMR8A9,,heat=8;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+111,cbr250rr,cbr250rr,plug,MC51,2020/09〜,,SILMAR9C9,,heat=9;plugs=2,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,2気筒2本
+111,cbr250rr,cbr250rr,plug,MC51,2017/05〜2020/09,,SILMAR8C9,,heat=8;plugs=2,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,2気筒2本
+334,vtr250,vtr250,plug,MC33,2009/03〜,,CR8EH-9,NGK イリジウムIX:CR8EHIX-9|NGK MotoDX:CR8EHDX-9S,heat=8;plugs=2,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,Vツイン2本
+168,crf250l,crf250l,plug,MD38/MD44/MD47,2012/04〜,,SIMR8A9,,heat=8;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,M/RALLY含む
+217,gb350,gb350,plug,NC59/NC64,2021/04〜,,MR6K-9,NGK MotoDX:CPR6EDX-9S,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,C/S含む
+1167,axis z,axis-z,plug,SED7J/SEJ6J,2017/04〜,,CR6HSA,NGK MotoDX:CR6HDX-S,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+1452,ジョグ125,jog-125,plug,SEJ5J,2022/11〜,,CR6HSA,NGK MotoDX:CR6HDX-S,heat=6;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+1456,シグナスx,cygnus-x,plug,SEJ4J,2021/12〜,,CPR8EA-9,NGK MotoDX:CPR8EDX-9S,heat=8;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,グリファス
+1456,シグナスx,cygnus-x,plug,SE44J,2007/12〜2021/12,,CR7E,NGK イリジウムIX:CR7EIX|NGK MotoDX:CR7EDX-S,heat=7;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,X SR
+1264,nmax,nmax,plug,SE86J/SEG6J/SEL1J,2016/03〜,,CPR8EA-9,NGK MotoDX:CPR8EDX-9S,heat=8;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+1265,nmax155,nmax155,plug,SG50J/SG66J/SG92J,2017/04〜,,CPR8EA-9,NGK MotoDX:CPR8EDX-9S,heat=8;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+1482,トリシティ155,tricity-155,plug,SG37J/SG81J,2017/01〜,,CPR8EA-9,NGK MotoDX:CPR8EDX-9S,heat=8;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+1439,yzf−r25,yzf-r25,plug,RG43J/RG74J/RG95J,2019/03〜,,LMAR8A-9,NGK MotoDX:LMAR8ADX-9S,heat=8;plugs=2,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,2気筒2本
+1439,yzf−r25,yzf-r25,plug,RG10J,2014/12〜2019/03,,CR9E,NGK イリジウムIX:CR9EIX|NGK MotoDX:CR9EDX-S,heat=9;plugs=2,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,2気筒2本
+1260,mt−25,mt-25,plug,RG43J/RG74J/RG95J,2019/03〜,,LMAR8A-9,NGK MotoDX:LMAR8ADX-9S,heat=8;plugs=2,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,2気筒2本
+1260,mt−25,mt-25,plug,RG10J,2015/10〜2019/03,,CR9E,NGK イリジウムIX:CR9EIX|NGK MotoDX:CR9EDX-S,heat=9;plugs=2,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,2気筒2本
+1463,セロー250,serow-250,plug,B1H1,2018/01〜,,DR8EA,NGK イリジウムIX:DR8EIX,heat=8;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+1463,セロー250,serow-250,plug,B295/B29A,2008/01〜2017,,DR7EA,NGK イリジウムIX:DR7EIX,heat=7;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+1053,アドレス125,address-125,plug,DP12H/EN11J,2022/10〜,,MR7E-9,NGK MotoDX:CPR7EDX-9S,heat=7;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,旧DT11AはCPR7EA-9
+1053,アドレス125,address-125,plug,DT11A,2017/09〜2022/10,,CPR7EA-9,NGK MotoDX:CPR7EDX-9S|NGK イリジウムIX:CPR7EAIX-9,heat=7;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+1045,アヴェニス125,avenis-125,plug,EA12J,2022/10〜,,MR7E-9,NGK MotoDX:CPR7EDX-9S,heat=7;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,
+941,gsx250r,gsx250r,plug,DN12B,2023/03〜,,MR7E-9,NGK MotoDX:CPR7EDX-9S,heat=7;plugs=2,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,2気筒2本
+941,gsx250r,gsx250r,plug,DN11A,2017/04〜2023/03,,CPR7EA-9,NGK MotoDX:CPR7EDX-9S|NGK イリジウムIX:CPR7EAIX-9,heat=7;plugs=2,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,2気筒2本
+680,ninja 250,ninja-250,plug,EX250P/EX250Y,2018/02〜,,SILMAR9B9,,heat=9;plugs=2,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,2気筒2本
+680,ninja 250,ninja-250,plug,EX250L,2013/02〜2018/02,,CR8E,NGK イリジウムIX:CR8EIX|NGK MotoDX:CR8EDX-S,heat=8;plugs=2,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,2気筒2本
+754,z250,z250,plug,ER250E/ER250G,2019/03〜,,SILMAR9B9,,heat=9;plugs=2,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,2気筒2本
+421,ジャイロキャノピー,gyro-canopy,plug,TA03,2008/03〜,,ER8EH-N,NGK イリジウムIX:ER8EHIX,heat=8;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,FI車。TA02とは品番が異なる
+421,ジャイロキャノピー,gyro-canopy,plug,TA02,1999/10〜2008/03,,BR8HSA,,heat=8;plugs=1,NGK 適合表,https://www.ngk-sparkplugs.jp/,,,2026-07-07,TA03(FI)とは品番が異なる
