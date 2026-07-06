@@ -18,5 +18,10 @@ return [
             'article_url' => env('FITMENTS_BATTERY_ARTICLE_URL', ''),
             'trouble_symptom' => 'battery',
         ],
+        'plug' => [
+            'label' => 'プラグ',
+            'article_url' => env('FITMENTS_PLUG_ARTICLE_URL', ''), // 空→手順の記事リンク非表示
+            'trouble_symptom' => 'engine-wont-start',              // プラグ原因はこの症状から到達
+        ],
     ],
 ];

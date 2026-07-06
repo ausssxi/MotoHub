@@ -41,8 +41,8 @@ return [
             'cause' => '燃料劣化・キャブ詰まり',
             'verdict' => 'diy_then_shop',
             'advice' => '新しいガソリン＋フューエルワン投入。改善しなければキャブ清掃＝店。',
-            'article' => '/blog/gentsuki-engine-wont-start',
-            'article_anchor' => null,
+            'article' => '/blog/gentsuki-fuel-carb', // 専用記事（公開済み）
+            'article_anchor' => 'additive',           // 「フューエルワンを試す」セクション
             'parts_keyword' => 'バイク 燃料添加剤 フューエルワン',
             'parts_label' => '燃料添加剤・キャブクリーナーの価格を比較する',
         ],
@@ -53,6 +53,7 @@ return [
             'article' => '/blog/gentsuki-engine-wont-start',
             'parts_keyword' => 'バイク スパークプラグ',
             'parts_label' => 'スパークプラグの価格を比較する',
+            'fitment_task' => 'plug', // 型番（適合表）ページへの導線 task
         ],
         'switch' => [
             'cause' => 'キルスイッチ／ブレーキ／ヒューズ等',

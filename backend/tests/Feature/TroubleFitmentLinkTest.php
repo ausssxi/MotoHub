@@ -53,14 +53,14 @@ it('renders an empty published list when no verified models exist', function () 
     $m = flModel('未検証のみ', 'only-unverified');
     flFitment($m, null);
 
-    $this->get('/trouble')->assertOk()->assertSee('models: {"battery":[]}', false);
+    $this->get('/trouble')->assertOk()->assertSee('models: {"battery":[]', false);
 });
 
 // ─────────── config ───────────
 
-it('adds fitment_task only to the battery card', function () {
+it('adds fitment_task to the battery and plug cards only', function () {
     expect(config('diagnosis.cards.battery.fitment_task'))->toBe('battery')
-        ->and(config('diagnosis.cards.plug.fitment_task') ?? null)->toBeNull()
+        ->and(config('diagnosis.cards.plug.fitment_task'))->toBe('plug')
         ->and(config('diagnosis.cards.tire.fitment_task') ?? null)->toBeNull()
         ->and(config('diagnosis.cards.oil.fitment_task') ?? null)->toBeNull();
 });
@@ -87,7 +87,7 @@ it('falls back to empty userBikes when the mybike is not a published model', fun
     MyBike::create(['user_id' => $user->id, 'bike_model_id' => $unpub->id, 'name' => 'マイ車']);
 
     $this->actingAs($user)->get('/trouble')->assertOk()
-        ->assertSee('userBikes: {"battery":[]}', false);
+        ->assertSee('userBikes: {"battery":[]', false);
 });
 
 it('has empty userBikes for guests', function () {

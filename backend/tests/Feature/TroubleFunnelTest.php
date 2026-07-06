@@ -202,11 +202,14 @@ it('reports solution-feedback positive rate per symptom/card with distinct sessi
 // ─────────── B: config article_anchor ───────────
 
 it('has article_anchor only on cards with a clear target section', function () {
-    foreach (['battery', 'tire', 'drivetrain', 'air_filter', 'cold', 'oil', 'headlight'] as $card) {
+    // fuel_carb は専用記事 /blog/gentsuki-fuel-carb 公開に伴いアンカー 'additive' を復活
+    expect(config('diagnosis.cards.fuel_carb.article'))->toBe('/blog/gentsuki-fuel-carb')
+        ->and(config('diagnosis.cards.fuel_carb.article_anchor'))->toBe('additive');
+
+    foreach (['battery', 'tire', 'fuel_carb', 'drivetrain', 'air_filter', 'cold', 'oil', 'headlight'] as $card) {
         expect(config("diagnosis.cards.{$card}.article_anchor"))->not->toBeNull("card {$card} should have an anchor");
     }
-    // fuel_carb は車種中立の総合記事に変更されアンカー無し（commit 64895504）
-    foreach (['fuel_carb', 'plug', 'switch', 'gas_empty', 'starter', 'unknown'] as $card) {
+    foreach (['plug', 'switch', 'gas_empty', 'starter', 'unknown'] as $card) {
         expect(config("diagnosis.cards.{$card}.article_anchor"))->toBeNull("card {$card} should NOT have an anchor");
     }
 });

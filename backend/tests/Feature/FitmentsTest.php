@@ -143,3 +143,67 @@ it('does not overwrite an existing different slug (warns instead)', function () 
         ->and($m->fresh()->slug)->toBe('existing-slug') // 上書きされない
         ->and(ModelFitment::count())->toBe(1);          // fitment自体は取り込む
 });
+
+// ─────────── plug task（Phase2）───────────
+
+it('serves a plug page (200 verified / 404 unverified) via the whereIn route', function () {
+    $m = fitModel('プラグ車', 'plug-bike');
+    fitVerified($m, ['task' => 'plug', 'recommended_part_no' => 'TEST-PLUG0']);
+
+    $this->get('/maintenance/plug-bike/plug')->assertOk()->assertSee('TEST-PLUG0');
+
+    $m2 = fitModel('プラグ未検証', 'plug-unverified');
+    ModelFitment::create(['bike_model_id' => $m2->id, 'task' => 'plug', 'recommended_part_no' => 'TEST-X', 'verified_at' => null]);
+    $this->get('/maintenance/plug-unverified/plug')->assertNotFound();
+});
+
+it('shows plug spec labels (熱価/本数) and the plug H1 label', function () {
+    $m = fitModel('熱価車', 'heat-bike');
+    fitVerified($m, ['task' => 'plug', 'recommended_part_no' => 'TEST-PLUG0', 'spec' => ['heat' => '6', 'plugs' => '2']]);
+
+    $res = $this->get('/maintenance/heat-bike/plug')->assertOk();
+    $res->assertSee('プラグ型番と交換方法');     // task ラベル差し込み
+    $res->assertSee('熱価: 6番');
+    $res->assertSee('必要本数: 2本');
+});
+
+it('renders two price buttons when compatibles exist, one when not', function () {
+    // 互換あり → 標準＋ブランドの2ボタン
+    $m1 = fitModel('2ボタン車', 'two-btn');
+    fitVerified($m1, ['recommended_part_no' => 'TEST-STD', 'compatible_part_nos' => [['brand' => 'テスト上位', 'part_no' => 'TEST-DX']]]);
+    $res1 = $this->get('/maintenance/two-btn/battery')->assertOk();
+    $res1->assertSee('価格を比較');
+    $res1->assertSee('テスト上位の価格を比較');
+
+    // 互換なし → 1ボタン（ブランドボタンは出ない）
+    $m2 = fitModel('1ボタン車', 'one-btn');
+    fitVerified($m2, ['recommended_part_no' => 'TEST-STD', 'compatible_part_nos' => null]);
+    $res2 = $this->get('/maintenance/one-btn/battery')->assertOk();
+    $res2->assertSee('価格を比較');
+    $res2->assertDontSee('の価格を比較'); // battery primary は「価格を比較」なので二次ボタンのみが持つ語
+});
+
+it('uses the standard-plug primary label on plug pages', function () {
+    $m = fitModel('標準ラベル車', 'std-label');
+    fitVerified($m, ['task' => 'plug', 'recommended_part_no' => 'TEST-PLUG0']);
+
+    $this->get('/maintenance/std-label/plug')->assertOk()->assertSee('標準プラグの価格を比較');
+});
+
+it('exposes published plug models to the diagnosis (plug card fitment_task)', function () {
+    Illuminate\Support\Facades\Cache::flush();
+    expect(config('diagnosis.cards.plug.fitment_task'))->toBe('plug');
+
+    $m = fitModel('診断プラグ車', 'diag-plug');
+    fitVerified($m, ['task' => 'plug', 'recommended_part_no' => 'TEST-PLUG0']);
+
+    $this->get('/trouble')->assertOk()->assertSee('"plug":[{"slug":"diag-plug"', false);
+});
+
+it('regression: battery page still renders with the 2-button change', function () {
+    $m = fitModel('回帰バッテリー車', 'reg-batt');
+    fitVerified($m, ['recommended_part_no' => 'TEST-0000', 'frame_code' => 'AF62']);
+
+    $this->get('/maintenance/reg-batt/battery')->assertOk()
+        ->assertSee('TEST-0000')->assertSee('AF62')->assertSee('価格を比較');
+});
