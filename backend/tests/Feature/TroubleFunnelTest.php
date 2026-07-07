@@ -284,3 +284,38 @@ it('passes 8 symptoms to the client and deep-links the new symptoms', function (
     $this->get('/trouble?symptom=lights')->assertOk();
     $this->get('/trouble?symptom=stranded')->assertOk();
 });
+
+// ─────────── Phase2: 焼き付き入口の新設（start__crank）───────────
+
+it('splits start__crank into battery/starter/seizure/fuel in order', function () {
+    $dest = array_map(
+        fn ($o) => $o['card'] ?? ('next:'.$o['next']),
+        config('diagnosis.nodes.start__crank.options')
+    );
+    // 選択肢1→battery / 2→starter / 3→seizure(★新規) / 4→燃料へ
+    expect($dest)->toBe(['battery', 'starter', 'seizure', 'next:start__fuel']);
+});
+
+it('reaches seizure from BOTH start__crank and stranded (二重経路の整合)', function () {
+    $fromCrank = collect(config('diagnosis.nodes.start__crank.options'))->pluck('card')->contains('seizure');
+    $fromStranded = collect(config('diagnosis.nodes.stranded__safety.options'))->pluck('card')->contains('seizure');
+    expect($fromCrank)->toBeTrue()->and($fromStranded)->toBeTrue();
+});
+
+it('keeps the 3-point seizure discriminator and the limited starter wording', function () {
+    $opts = collect(config('diagnosis.nodes.start__crank.options'));
+    $seizure = $opts->firstWhere('card', 'seizure')['label'];
+    $starter = $opts->firstWhere('card', 'starter')['label'];
+
+    // 異音・急停止・重い/回らない の3点を薄めない
+    expect($seizure)->toContain('異音')->toContain('急に止')->toContain('重い')
+        // starter は「無音・無反応・押し歩きは重くない」に限定（焼き付きと分離）
+        ->and($starter)->toContain('無音・無反応')->toContain('押し歩きは重くない');
+});
+
+it('does not change the existing battery/starter/fuel landings of start__crank', function () {
+    $opts = collect(config('diagnosis.nodes.start__crank.options'));
+    expect($opts->where('card', 'battery')->count())->toBe(1)   // カチカチ→battery 据え置き
+        ->and($opts->where('card', 'starter')->count())->toBe(1) // 無反応→starter 据え置き
+        ->and($opts->firstWhere('next', 'start__fuel'))->not->toBeNull(); // キュルキュル→燃料 据え置き
+});
