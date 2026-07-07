@@ -96,6 +96,7 @@ return [
             'article_anchor' => 'fix', // 64「自分でやる場合の手順（4スト・ざっくり）」
             'parts_keyword' => 'バイク エンジンオイル',
             'parts_label' => 'エンジンオイルの価格を比較する',
+            'fitment_task' => 'oil', // 型番（適合表）ページへの導線 task
         ],
         'cold' => [
             'cause' => '冬の低温（原因ではなく増幅要因）',
