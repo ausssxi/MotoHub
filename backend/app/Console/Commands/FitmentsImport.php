@@ -21,8 +21,6 @@ final class FitmentsImport extends Command
 
     protected $description = '車種×作業の適合CSVを取り込む（モデル×task全置換・冪等）';
 
-    private const COLUMNS = 16;
-
     private const SLUG_RE = '/^[a-z0-9]+(-[a-z0-9]+)*$/';
 
     /** @var array<int,string> */
@@ -42,7 +40,33 @@ final class FitmentsImport extends Command
         $allowedTasks = array_keys(config('fitments.tasks', []));
 
         $handle = fopen($path, 'r');
-        fgetcsv($handle); // ヘッダ行を読み飛ばす
+        $header = fgetcsv($handle);
+        if (! is_array($header)) {
+            fclose($handle);
+            $this->error('CSVヘッダが読めません。');
+
+            return self::FAILURE;
+        }
+        $header = array_map(fn ($h) => trim((string) $h), $header);
+        $colIndex = array_flip($header);
+        $headerCount = count($header);
+
+        // 必須列の存在チェック（列位置ではなく列名ベース）
+        $required = ['bike_model_id', 'model_name_check', 'model_slug', 'task', 'recommended_part_no', 'verified_at'];
+        $missing = array_diff($required, array_keys($colIndex));
+        if ($missing) {
+            fclose($handle);
+            $this->error('必須列が不足しています: '.implode(', ', $missing));
+
+            return self::FAILURE;
+        }
+
+        // 備考の列形式判定（新: note_public/note_internal ／ 旧: note）
+        $hasPublic = isset($colIndex['note_public']);
+        $hasNote = isset($colIndex['note']);
+        if ($hasPublic && $hasNote) {
+            $this->warnings[] = 'ヘッダに note と note_public が併存 → 旧 note は安全側で note_internal へ寄せます';
+        }
 
         $rows = [];            // 有効行（グループ化前）
         $lineNo = 1;
@@ -52,7 +76,7 @@ final class FitmentsImport extends Command
             if (count($cols) === 1 && trim((string) $cols[0]) === '') {
                 continue;
             }
-            $row = $this->validateRow($cols, $lineNo, $allowedTasks);
+            $row = $this->validateRow($cols, $lineNo, $allowedTasks, $colIndex, $headerCount, $hasPublic, $hasNote);
             if ($row !== null) {
                 $rows[] = $row;
             }
@@ -137,17 +161,45 @@ final class FitmentsImport extends Command
     /**
      * 1行を検証し、正常なら ['bike_model_id','task','model_name','attributes'] を返す。異常は null＋警告。
      */
-    private function validateRow(array $cols, int $lineNo, array $allowedTasks): ?array
+    private function validateRow(array $cols, int $lineNo, array $allowedTasks, array $colIndex, int $headerCount, bool $hasPublic, bool $hasNote): ?array
     {
-        if (count($cols) !== self::COLUMNS) {
-            $this->warnings[] = ("行{$lineNo}: 列数不一致（".count($cols).'/'.self::COLUMNS.'）→ skip');
+        if (count($cols) !== $headerCount) {
+            $this->warnings[] = ("行{$lineNo}: 列数不一致（".count($cols)."/{$headerCount}）→ skip");
 
             return null;
         }
 
-        [$modelId, $nameCheck, $modelSlug, $task, $frameCode, $yearRange,
-            $oem, $recommended, $compatibles, $spec,
-            $s1name, $s1url, $s2name, $s2url, $verifiedAt, $note] = array_map('trim', $cols);
+        // 列名ベースの取得（列順に依存しない）
+        $get = fn (string $name): string => isset($colIndex[$name], $cols[$colIndex[$name]]) ? trim((string) $cols[$colIndex[$name]]) : '';
+
+        $modelId = $get('bike_model_id');
+        $nameCheck = $get('model_name_check');
+        $modelSlug = $get('model_slug');
+        $task = $get('task');
+        $frameCode = $get('frame_code');
+        $yearRange = $get('year_range');
+        $oem = $get('oem_part_no');
+        $recommended = $get('recommended_part_no');
+        $compatibles = $get('compatibles');
+        $spec = $get('spec');
+        $s1name = $get('source_1_name');
+        $s1url = $get('source_1_url');
+        $s2name = $get('source_2_name');
+        $s2url = $get('source_2_url');
+        $verifiedAt = $get('verified_at');
+
+        // 備考: 新形式は note_public/note_internal、旧形式は note を内部へ退避（公開に漏らさない）
+        if ($hasPublic) {
+            $notePublic = $get('note_public');
+            $noteInternal = $get('note_internal');
+            if ($hasNote && ($legacy = $get('note')) !== '') {
+                // note と note_public が併存する異常は安全側（内部）へ寄せる
+                $noteInternal = $noteInternal !== '' ? $noteInternal.' / '.$legacy : $legacy;
+            }
+        } else {
+            $notePublic = '';                 // 旧形式は公開noteを持たない
+            $noteInternal = $get('note');     // 旧 note は内部メモへ
+        }
 
         $model = BikeModel::find($modelId);
         if (! $model) {
@@ -216,7 +268,9 @@ final class FitmentsImport extends Command
                 'source_2_name' => $s2name !== '' ? $s2name : null,
                 'source_2_url' => $s2url !== '' ? $s2url : null,
                 'verified_at' => $verified,
-                'note' => $note !== '' ? $note : null,
+                'note' => null,                                     // 旧列は今後書かない（後方互換の受け皿）
+                'note_public' => $notePublic !== '' ? $notePublic : null,
+                'note_internal' => $noteInternal !== '' ? $noteInternal : null,
             ],
         ];
     }

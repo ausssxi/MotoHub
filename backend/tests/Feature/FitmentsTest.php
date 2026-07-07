@@ -272,3 +272,37 @@ it('exposes published oil models to the diagnosis (oil card fitment_task)', func
     // fitment グローバルに oil 公開車種が乗る＝結果画面のCTAが /maintenance/{slug}/oil に解決する
     $this->get('/trouble')->assertOk()->assertSee('"oil":[{"slug":"diag-oil"', false);
 });
+
+// ─────────── note 分離（公開/内部）───────────
+
+it('imports note_public and note_internal from the new CSV format', function () {
+    $m = fitModel('新形式車', 'newfmt');
+    $header = 'bike_model_id,model_name_check,model_slug,task,frame_code,year_range,oem_part_no,recommended_part_no,compatibles,spec,source_1_name,source_1_url,source_2_name,source_2_url,verified_at,note_public,note_internal';
+    $path = tempnam(sys_get_temp_dir(), 'fit').'.csv';
+    file_put_contents($path, $header."\n{$m->id},新形式車,newfmt,battery,AF00,,,TEST-0000,,,,,,,2026-07-01,公開OK,内部NG\n");
+
+    Artisan::call('fitments:import', ['path' => $path]);
+
+    $f = ModelFitment::first();
+    expect($f->note_public)->toBe('公開OK')
+        ->and($f->note_internal)->toBe('内部NG')
+        ->and($f->note)->toBeNull(); // 旧列は書かない
+});
+
+it('routes a legacy note-only CSV to note_internal (not exposed publicly)', function () {
+    $m = fitModel('旧形式車', 'oldfmt');
+    Artisan::call('fitments:import', ['path' => fitCsv(["{$m->id},旧形式車,oldfmt,battery,AF00,,,TEST-0000,,,,,,,2026-07-01,旧内部メモ"])]);
+
+    $f = ModelFitment::first();
+    expect($f->note_internal)->toBe('旧内部メモ')  // 旧 note は内部へ退避
+        ->and($f->note_public)->toBeNull();          // 公開には漏れない
+});
+
+it('shows note_public on the page but never note_internal', function () {
+    $m = fitModel('備考車', 'note-bike');
+    fitVerified($m, ['note_public' => '公開する備考', 'note_internal' => '内部メモ秘密']);
+
+    $res = $this->get('/maintenance/note-bike/battery')->assertOk();
+    $res->assertSee('公開する備考');
+    $res->assertDontSee('内部メモ秘密'); // 内部メモは絶対に露出しない
+});

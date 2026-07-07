@@ -222,7 +222,14 @@
                                         —
                                     @endif
                                 </td>
-                                <td class="py-3 pr-3 text-xs text-gray-500">{{ $f->note ?? '' }}</td>
+                                {{-- 備考: 公開用 note_public のみ表示（内部メモは絶対に出さない）。min-width で縦積み防止＋2行クランプ --}}
+                                <td class="py-3 pr-3 text-xs text-gray-500">
+                                    @if(!empty($f->note_public))
+                                    <div class="min-w-[7em] max-w-[16em] line-clamp-2 break-words" title="{{ $f->note_public }}">{{ $f->note_public }}</div>
+                                    @else
+                                    <span class="text-gray-300">—</span>
+                                    @endif
+                                </td>
                                 <td class="py-3 whitespace-nowrap">
                                     <div class="flex flex-col gap-1.5">
                                         {{-- 標準（推奨品番／粘度） --}}
