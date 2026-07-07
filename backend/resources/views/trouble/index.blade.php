@@ -96,7 +96,7 @@
                               :class="verdict?.class" x-text="verdict?.label"></span>
                         <h2 class="text-xl font-black text-gray-900 mb-1">考えられる原因</h2>
                         <p class="text-lg font-bold text-blue-700 mb-3" x-text="card?.cause"></p>
-                        <p class="text-sm text-gray-700 leading-relaxed bg-blue-50/60 rounded-xl px-4 py-3" x-text="card?.advice"></p>
+                        <p class="text-sm text-gray-700 leading-relaxed bg-blue-50/60 rounded-xl px-4 py-3 whitespace-pre-line" x-text="card?.advice"></p>
 
                         {{-- 記事CTA（記事がある場合のみ・該当セクションへ直行アンカー） --}}
                         <template x-if="card?.article">
@@ -147,7 +147,7 @@
                                                @click="trackCta('fitment')"
                                                class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm px-4 py-3.5 rounded-xl transition active:scale-[0.99]">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
-                                                あなたの<span x-text="b.display_name"></span>の適合バッテリーを見る
+                                                あなたの<span x-text="b.display_name"></span>の適合情報を見る
                                             </a>
                                         </template>
                                     </div>
@@ -176,7 +176,7 @@
 
                                 {{-- C) 末尾一行 --}}
                                 <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">
-                                    一覧にない車種は、現在お使いのバッテリー本体の品番表記をご確認ください。
+                                    一覧にない車種は、現在お使いの部品の品番・規格をご確認ください。
                                 </p>
                             </div>
                         </template>
