@@ -12,10 +12,10 @@ bike_model_id,model_name_check,model_slug,task,frame_code,year_range,oem_part_no
 585,リード125,lead-125,oil,,,,10W-30,ホンダ純正:ウルトラE1,jaso=MB;capacity_change=0.8L;capacity_strainer=0.85L;interval=3000km,Honda公式Q&A,https://www.honda.co.jp/customer/motor/lead125/faq/qa009/,,,2026-07-07,ストレーナ清掃時0.85L・型式要確認
 274,pcx,pcx,oil,,,,10W-30,ホンダ純正:ウルトラE1,jaso=MB;capacity_change=0.8L;capacity_strainer=0.85L;interval=6000km,Honda公式Q&A,https://www.honda.co.jp/customer/motor/pcx/faq/qa009/,,,2026-07-07,交換6000km。slug/型式要確認
 277,pcx160,pcx-160,oil,,,,10W-30,ホンダ純正:ウルトラE1,jaso=MB;capacity_change=0.8L;capacity_strainer=0.85L;interval=6000km,Honda公式Q&A,https://www.honda.co.jp/customer/motor/pcx160/faq/qa009/,,,2026-07-07,PCX値を流用・PCX160独自FAQ要確認
-195,dio110,dio-110,oil,JK46,2026〜,,10W-30,ホンダ純正:ウルトラE1,jaso=MB;capacity_change=0.7L;interval=3000km,Honda公式Q&A,https://www.honda.co.jp/customer/motor/dio110/faq/qa009/,,,2026-07-07,新型(26)。年式で量が違うため2行・年式境界要照合
-195,dio110,dio-110,oil,JF58,〜2025,,10W-30,ホンダ純正:ウルトラE1,jaso=MB;capacity_change=0.65L;interval=3000km,Honda公式Q&A,https://www.honda.co.jp/customer/motor/dio110/faq/qa009/,,,2026-07-07,旧型(23)。JK46/JF58の年式境界を要照合
+195,dio110,dio110,oil,JK46,2026〜,,10W-30,ホンダ純正:ウルトラE1,jaso=MB;capacity_change=0.7L;interval=3000km,Honda公式Q&A,https://www.honda.co.jp/customer/motor/dio110/faq/qa009/,,,2026-07-07,新型(26)。年式で量が違うため2行・年式境界要照合
+195,dio110,dio110,oil,JF58,〜2025,,10W-30,ホンダ純正:ウルトラE1,jaso=MB;capacity_change=0.65L;interval=3000km,Honda公式Q&A,https://www.honda.co.jp/customer/motor/dio110/faq/qa009/,,,2026-07-07,旧型(23)。JK46/JF58の年式境界を要照合
 1264,nmax,nmax,oil,,,,10W-30,ヤマハ純正:ヤマルーブ,jaso=MB;capacity_change=0.9L;interval=3000km,ワイズギア ヤマルーブQA,https://www.ysgear.co.jp/mc/oil/qa/,,,2026-07-07,web複数ソース確定・出典要照合
-1265,nmax155,nmax-155,oil,,,,10W-30,ヤマハ純正:ヤマルーブ,jaso=MB;capacity_change=0.9L;interval=3000km,ワイズギア ヤマルーブQA,https://www.ysgear.co.jp/mc/oil/qa/,,,2026-07-07,NMAX値を流用・出典/量要照合
+1265,nmax155,nmax155,oil,,,,10W-30,ヤマハ純正:ヤマルーブ,jaso=MB;capacity_change=0.9L;interval=3000km,ワイズギア ヤマルーブQA,https://www.ysgear.co.jp/mc/oil/qa/,,,2026-07-07,NMAX値を流用・出典/量要照合
 1456,シグナスx,cygnus-x,oil,,,,10W-30,ヤマハ純正:ヤマルーブ,jaso=MB;capacity_change=0.9L;interval=3000km,ワイズギア ヤマルーブQA,https://www.ysgear.co.jp/mc/oil/qa/,,,2026-07-07,slug/型式要確認・出典要照合
 1452,ジョグ125,jog-125,oil,SEJ5J,2022/11〜,,10W-30,ヤマハ純正:ヤマルーブ,jaso=MB;capacity_change=0.8L;interval=3000km,ワイズギア ヤマルーブQA,https://www.ysgear.co.jp/mc/oil/qa/,,,2026-07-07,量は現車ゲージ確認推奨
 1053,アドレス125,address-125,oil,DT11A/EN11J,2017/09〜,,10W-30,スズキ純正:エクスター,jaso=MB;capacity_change=0.65L;interval=3000km,スズキ二輪,https://www1.suzuki.co.jp/motor/,,,2026-07-07,少量のため入れすぎ注意。粘度10W-40の可能性・要確認
