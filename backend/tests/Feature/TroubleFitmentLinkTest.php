@@ -58,12 +58,28 @@ it('renders an empty published list when no verified models exist', function () 
 
 // ─────────── config ───────────
 
-it('adds fitment_task to the battery, plug and oil cards only', function () {
+it('connects fitment_task on battery/plug/oil, and seizure→oil (prevention)', function () {
     expect(config('diagnosis.cards.battery.fitment_task'))->toBe('battery')
         ->and(config('diagnosis.cards.plug.fitment_task'))->toBe('plug')
         ->and(config('diagnosis.cards.oil.fitment_task'))->toBe('oil')
+        ->and(config('diagnosis.cards.seizure.fitment_task'))->toBe('oil') // 焼き付き予防＝オイル
         ->and(config('diagnosis.cards.tire.fitment_task') ?? null)->toBeNull()
         ->and(config('diagnosis.cards.fuel_carb.fitment_task') ?? null)->toBeNull();
+});
+
+it('strengthens the seizure advice (3 sections) and keeps verdict=shop', function () {
+    $advice = config('diagnosis.cards.seizure.advice');
+    expect($advice)->toContain('【すぐに】')->toContain('【見分け】')->toContain('【費用の目安】')
+        ->and($advice)->toContain("\n")                       // 改行を含む長文
+        ->and($advice)->not->toContain('冷えたら')            // 再始動を促さない（安全設計）
+        ->and(config('diagnosis.cards.seizure.verdict'))->toBe('shop'); // diy化しない
+});
+
+it('renders whitespace-pre-line on the advice block (multi-line advice) and task-neutral fitment copy', function () {
+    $res = $this->get('/trouble')->assertOk();
+    $res->assertSee('whitespace-pre-line', false);       // 改行反映CSS
+    $res->assertSee('の適合情報を見る', false);           // 個人化リンクが task 非依存に
+    $res->assertDontSee('適合バッテリーを見る', false);   // battery固定文言が消えた
 });
 
 // ─────────── 個人化（マイバイク一致）───────────
