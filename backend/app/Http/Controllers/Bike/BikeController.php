@@ -1492,19 +1492,9 @@ final class BikeController extends Controller
         // model_detailキャッシュ外なので、バッチ更新が即時反映される（TTL遅延なし）。
         $viewData['regionPriceStats'] = app(RegionalPriceService::class)->getForModel($model);
 
-        // 型番（適合表）ページへの導線: verified行のある task を返す（キャッシュ外＝インポート即時反映）。
-        $fitmentTasks = [];
-        if (! empty($model->slug)) {
-            $verified = \App\Models\ModelFitment::where('bike_model_id', $model->id)
-                ->verified()->get(['task', 'recommended_part_no']);
-            foreach ($verified->groupBy('task') as $t => $rows) {
-                $fitmentTasks[$t] = [
-                    'label' => config("fitments.tasks.{$t}.label", $t),
-                    'recommended' => $rows->count() === 1 ? $rows->first()->recommended_part_no : null,
-                ];
-            }
-        }
-        $viewData['fitmentTasks'] = $fitmentTasks;
+        // 適合表への導線サマリ（規格・区分レベル＋内部リンク。品番は出さない＝カニバリ回避）。
+        // キャッシュ外＝インポート/打刻の即時反映。verified行のある task のみ。
+        $viewData['fitmentSummary'] = app(\App\Services\Fitment\FitmentSummaryService::class)->forModel($model);
 
         return $viewData;
     }

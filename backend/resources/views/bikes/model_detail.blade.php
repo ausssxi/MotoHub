@@ -366,7 +366,7 @@
                 <button data-tab="overview" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-blue-600 text-blue-600 font-bold transition-colors hover:text-blue-600">概要</button>
                 <button data-tab="market" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">相場・価格</button>
                 <button data-tab="inventory" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">在庫・エリア</button>
-                @if(!empty($relatedParts))
+                @if(!empty($relatedParts) || !empty($fitmentSummary))
                 <button data-tab="parts" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">パーツ</button>
                 @endif
                 @if(!empty($news) || !empty($videos))
@@ -764,29 +764,6 @@
                         </div>
                     </div>
 
-                    {{-- メンテナンスデータ（型番・適合表への導線。verified行のある task のみ） --}}
-                    @if(!empty($fitmentTasks) && !empty($model->slug))
-                    <div id="maintenance-data" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
-                        <h3 class="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
-                            <i data-lucide="wrench" class="w-5 h-5 text-blue-600"></i> メンテナンスデータ
-                        </h3>
-                        <div class="space-y-3">
-                            @foreach($fitmentTasks as $ftask => $info)
-                            <a href="{{ route('fitments.show', ['bikeModel' => $model->slug, 'task' => $ftask]) }}"
-                               class="flex items-center justify-between bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl px-4 py-3 transition">
-                                <span>
-                                    <span class="text-sm font-black text-gray-800">{{ $info['label'] }}型番・適合表を見る</span>
-                                    @if(!empty($info['recommended']))
-                                    <span class="block text-xs text-gray-500 mt-0.5">推奨品番: <span class="font-bold text-blue-700">{{ $info['recommended'] }}</span></span>
-                                    @endif
-                                </span>
-                                <i data-lucide="chevron-right" class="w-5 h-5 text-gray-300 shrink-0"></i>
-                            </a>
-                            @endforeach
-                        </div>
-                    </div>
-                    @endif
-
                     </div>{{-- /tab-panel-overview --}}
 
                     {{-- ===== タブ2: 相場・価格 ===== --}}
@@ -1062,8 +1039,32 @@
                     </div>{{-- /tab-panel-inventory --}}
 
                     {{-- ===== タブ4: パーツ ===== --}}
-                    @if(!empty($relatedParts))
+                    @if(!empty($relatedParts) || !empty($fitmentSummary))
                     <div id="tab-panel-parts" class="tab-panel space-y-6" style="display:none">
+
+                    {{-- 整備・消耗品の適合情報（規格サマリ＋適合表への内部リンク。型番は出さず入口に徹する） --}}
+                    @if(!empty($fitmentSummary))
+                    <div id="fitment-summary" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sm:p-6">
+                        <h3 class="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
+                            <i data-lucide="wrench" class="w-5 h-5 text-blue-600"></i> 整備・消耗品の適合情報
+                        </h3>
+                        <div class="divide-y divide-gray-100">
+                            @foreach($fitmentSummary as $fs)
+                            <div class="py-3 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                <div class="min-w-0">
+                                    <span class="text-sm font-black text-gray-800">{{ $fs['label'] }}</span>
+                                    <span class="block text-xs text-gray-500 mt-0.5">{{ $fs['summary'] }}</span>
+                                </div>
+                                <a href="{{ $fs['url'] }}"
+                                   class="shrink-0 inline-flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-700 hover:underline">
+                                    {{ $fs['anchor'] }}
+                                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                                </a>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
 
                     {{-- 消耗品チェックリスト --}}
                     <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5">
@@ -1094,7 +1095,8 @@
                         </div>
                     </div>
 
-                    {{-- カテゴリ別パーツ --}}
+                    {{-- カテゴリ別パーツ（楽天パーツがある時のみ。fitmentのみの場合は非表示） --}}
+                    @if(!empty($relatedParts))
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
                         <h2 class="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
                             <i data-lucide="wrench" class="w-5 h-5 text-blue-500"></i>
@@ -1183,6 +1185,7 @@
                             </a>
                         </div>
                     </div>
+                    @endif{{-- /カテゴリ別パーツ --}}
 
                     </div>{{-- /tab-panel-parts --}}
                     @endif
