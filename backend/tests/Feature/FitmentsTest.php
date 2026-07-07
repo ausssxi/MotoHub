@@ -254,9 +254,21 @@ it('renders two oil price buttons (viscosity + genuine brand)', function () {
     $res->assertSee('ホンダ ウルトラE1を比較');   // 純正銘柄フルネーム
 });
 
-it('does not attach a fitment link to the oil diagnosis card', function () {
-    // oil は予防メンテのため診断導線を出さない（fitment_task 無し）
-    expect(config('diagnosis.cards.oil.fitment_task') ?? null)->toBeNull()
+it('connects the oil diagnosis card to the oil fitment page', function () {
+    // 「オイル不足・劣化」カードから oil 適合ページへ導線（battery/plug と同型）。
+    expect(config('diagnosis.cards.oil.fitment_task'))->toBe('oil')
         ->and(config('fitments.tasks.oil.label'))->toBe('エンジンオイル')
+        // oil タスク自体は逆リンク（診断への戻り症状）を持たない設定は不変
         ->and(config('fitments.tasks.oil.trouble_symptom'))->toBeNull();
+});
+
+it('exposes published oil models to the diagnosis (oil card fitment_task)', function () {
+    Illuminate\Support\Facades\Cache::flush();
+    expect(config('diagnosis.cards.oil.fitment_task'))->toBe('oil');
+
+    $m = fitModel('診断オイル車', 'diag-oil');
+    fitVerified($m, ['task' => 'oil', 'recommended_part_no' => '10W-30']);
+
+    // fitment グローバルに oil 公開車種が乗る＝結果画面のCTAが /maintenance/{slug}/oil に解決する
+    $this->get('/trouble')->assertOk()->assertSee('"oil":[{"slug":"diag-oil"', false);
 });

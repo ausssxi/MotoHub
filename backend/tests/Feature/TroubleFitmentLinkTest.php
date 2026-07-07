@@ -58,11 +58,12 @@ it('renders an empty published list when no verified models exist', function () 
 
 // ─────────── config ───────────
 
-it('adds fitment_task to the battery and plug cards only', function () {
+it('adds fitment_task to the battery, plug and oil cards only', function () {
     expect(config('diagnosis.cards.battery.fitment_task'))->toBe('battery')
         ->and(config('diagnosis.cards.plug.fitment_task'))->toBe('plug')
+        ->and(config('diagnosis.cards.oil.fitment_task'))->toBe('oil')
         ->and(config('diagnosis.cards.tire.fitment_task') ?? null)->toBeNull()
-        ->and(config('diagnosis.cards.oil.fitment_task') ?? null)->toBeNull();
+        ->and(config('diagnosis.cards.fuel_carb.fitment_task') ?? null)->toBeNull();
 });
 
 // ─────────── 個人化（マイバイク一致）───────────
