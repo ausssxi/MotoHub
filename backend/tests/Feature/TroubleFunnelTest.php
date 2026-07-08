@@ -319,3 +319,29 @@ it('does not change the existing battery/starter/fuel landings of start__crank',
         ->and($opts->where('card', 'starter')->count())->toBe(1) // 無反応→starter 据え置き
         ->and($opts->firstWhere('next', 'start__fuel'))->not->toBeNull(); // キュルキュル→燃料 据え置き
 });
+
+// ─────────── 第2弾: かからない系カードの本文強化 ＋ cold→battery ───────────
+
+it('strengthens the かからない系 card advice into multi-section text (verdicts unchanged)', function () {
+    foreach (['battery', 'starter', 'fuel_carb', 'plug', 'switch', 'cold'] as $c) {
+        expect(config("diagnosis.cards.{$c}.advice"))->toContain("\n"); // 複数ブロック化
+    }
+    // verdict は不変
+    expect(config('diagnosis.cards.battery.verdict'))->toBe('diy')
+        ->and(config('diagnosis.cards.starter.verdict'))->toBe('shop')
+        ->and(config('diagnosis.cards.fuel_carb.verdict'))->toBe('diy_then_shop')
+        ->and(config('diagnosis.cards.plug.verdict'))->toBe('check_then_shop')
+        ->and(config('diagnosis.cards.switch.verdict'))->toBe('diy')
+        ->and(config('diagnosis.cards.cold.verdict'))->toBe('diy');
+});
+
+it('keeps the safety phrases in the advice (dilution guard)', function () {
+    expect(config('diagnosis.cards.fuel_carb.advice'))->toContain('火気厳禁') // ガソリンは保守的
+        ->and(config('diagnosis.cards.battery.advice'))->toContain('ショート') // 端子ショート注意
+        ->and(config('diagnosis.cards.plug.advice'))->toContain('締めすぎ')    // ネジ山注意
+        ->and(config('diagnosis.cards.starter.advice'))->toContain('無理せず店へ');
+});
+
+it('keeps seizure(Phase1) advice untouched', function () {
+    expect(config('diagnosis.cards.seizure.advice'))->toContain('【すぐに】')->toContain('【費用の目安】');
+});
