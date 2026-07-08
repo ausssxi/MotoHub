@@ -58,11 +58,12 @@ it('renders an empty published list when no verified models exist', function () 
 
 // ─────────── config ───────────
 
-it('connects fitment_task on battery/plug/oil, and seizure→oil (prevention)', function () {
+it('connects fitment_task on battery/plug/oil, seizure→oil and cold→battery', function () {
     expect(config('diagnosis.cards.battery.fitment_task'))->toBe('battery')
         ->and(config('diagnosis.cards.plug.fitment_task'))->toBe('plug')
         ->and(config('diagnosis.cards.oil.fitment_task'))->toBe('oil')
-        ->and(config('diagnosis.cards.seizure.fitment_task'))->toBe('oil') // 焼き付き予防＝オイル
+        ->and(config('diagnosis.cards.seizure.fitment_task'))->toBe('oil')   // 焼き付き予防＝オイル
+        ->and(config('diagnosis.cards.cold.fitment_task'))->toBe('battery')  // 冬の主因＝バッテリー
         ->and(config('diagnosis.cards.tire.fitment_task') ?? null)->toBeNull()
         ->and(config('diagnosis.cards.fuel_carb.fitment_task') ?? null)->toBeNull();
 });
