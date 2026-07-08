@@ -272,6 +272,42 @@
                 @endif
             </section>
 
+            {{-- 4.5 交換費用の目安（oil のみ・車種単位で代表1ブロック・費用が入っている行を1つ採用） --}}
+            @if($isOil)
+                @php
+                    $costRow = $fitments->first(fn ($f) => filled($f->cost_oil_range) || filled($f->cost_shop_range) || filled($f->cost_diy_range));
+                @endphp
+                @if($costRow)
+                <section class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sm:p-6 mb-6">
+                    <h2 class="text-base font-black text-gray-900 mb-3 flex items-center gap-2">
+                        💴 交換費用の目安
+                        <span class="text-xs font-bold text-gray-400">@if($costRow->cost_updated_at)（{{ $costRow->cost_updated_at }}時点・@endif一般的なバイク用品店基準）</span>
+                    </h2>
+                    <dl class="divide-y divide-gray-100 text-sm">
+                        @if(filled($costRow->cost_oil_range))
+                        <div class="flex items-center justify-between py-2 first:pt-0">
+                            <dt class="text-gray-600">オイル代（部品のみ）</dt>
+                            <dd class="font-black text-gray-800">{{ $costRow->cost_oil_range }}</dd>
+                        </div>
+                        @endif
+                        @if(filled($costRow->cost_shop_range))
+                        <div class="flex items-center justify-between py-2">
+                            <dt class="text-gray-600">店で交換（総額）</dt>
+                            <dd class="font-black text-blue-700">{{ $costRow->cost_shop_range }}</dd>
+                        </div>
+                        @endif
+                        @if(filled($costRow->cost_diy_range))
+                        <div class="flex items-center justify-between py-2 last:pb-0">
+                            <dt class="text-gray-600">自分で交換</dt>
+                            <dd class="font-black text-gray-800">{{ $costRow->cost_diy_range }}</dd>
+                        </div>
+                        @endif
+                    </dl>
+                    <p class="text-[11px] text-gray-400 mt-3">※ 工賃は店舗・地域で変わります。フィルター交換時は別途。</p>
+                </section>
+                @endif
+            @endif
+
             {{-- 5. 在庫リンク --}}
             @if($stockCount > 0)
             <a href="{{ route('bikes.search', ['bike_model_id' => $bikeModel->id]) }}"
