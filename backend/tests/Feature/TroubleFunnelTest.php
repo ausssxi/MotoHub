@@ -292,8 +292,8 @@ it('splits start__crank into battery/starter/seizure/fuel in order', function ()
         fn ($o) => $o['card'] ?? ('next:'.$o['next']),
         config('diagnosis.nodes.start__crank.options')
     );
-    // 選択肢1→battery / 2→starter / 3→seizure(★新規) / 4→燃料へ
-    expect($dest)->toBe(['battery', 'starter', 'seizure', 'next:start__fuel']);
+    // 1→battery / 2→starter / 3→seizure / 4→燃料(キュルキュル) / 5→燃料(キックのみ車)
+    expect($dest)->toBe(['battery', 'starter', 'seizure', 'next:start__fuel', 'next:start__fuel']);
 });
 
 it('reaches seizure from BOTH start__crank and stranded (二重経路の整合)', function () {
@@ -344,4 +344,30 @@ it('keeps the safety phrases in the advice (dilution guard)', function () {
 
 it('keeps seizure(Phase1) advice untouched', function () {
     expect(config('diagnosis.cards.seizure.advice'))->toContain('【すぐに】')->toContain('【費用の目安】');
+});
+
+// ─────────── 取りこぼし救済: キックのみ車 ＋「かかりにくい」 ───────────
+
+it('adds a kick-only path from start__crank to start__fuel (not battery/starter)', function () {
+    $kick = collect(config('diagnosis.nodes.start__crank.options'))
+        ->first(fn ($o) => str_contains($o['label'] ?? '', 'キックのみ'));
+    expect($kick)->not->toBeNull()
+        ->and($kick['next'] ?? null)->toBe('start__fuel') // 燃料・プラグ系へ
+        ->and($kick['card'] ?? null)->toBeNull();          // セル/バッテリー始動系へ誤誘導しない
+});
+
+it('keeps the existing crank landings intact and appends the kick path (regression)', function () {
+    $dest = collect(config('diagnosis.nodes.start__crank.options'))
+        ->map(fn ($o) => $o['card'] ?? ('next:'.$o['next']))->all();
+    // battery/starter/seizure/→fuel(キュルキュル) 不変、末尾にキック→fuel が増えるのみ
+    expect($dest)->toBe(['battery', 'starter', 'seizure', 'next:start__fuel', 'next:start__fuel']);
+});
+
+it('keeps start__fuel neutral (fuel_carb/plug/unknown・kick cars can answer)', function () {
+    $dest = collect(config('diagnosis.nodes.start__fuel.options'))->pluck('card')->all();
+    expect($dest)->toBe(['fuel_carb', 'plug', 'unknown']);
+});
+
+it('adds the かかりにくい guidance to start__gate help', function () {
+    expect(config('diagnosis.nodes.start__gate.help'))->toContain('かかりにくい')->toContain('かかっても不安定');
 });
