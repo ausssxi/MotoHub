@@ -371,3 +371,26 @@ it('keeps start__fuel neutral (fuel_carb/plug/unknown・kick cars can answer)', 
 it('adds the かかりにくい guidance to start__gate help', function () {
     expect(config('diagnosis.nodes.start__gate.help'))->toContain('かかりにくい')->toContain('かかっても不安定');
 });
+
+// ─────────── 第3弾/最終: 残りカードの本文強化 ───────────
+
+it('strengthens the remaining 7 cards into multi-section advice (verdicts unchanged)', function () {
+    foreach (['air_filter', 'drivetrain', 'tire', 'headlight', 'gas_empty', 'roadside', 'unknown'] as $c) {
+        expect(config("diagnosis.cards.{$c}.advice"))->toContain("\n"); // 複数ブロック化
+    }
+    // verdict は各カード現行維持
+    expect(config('diagnosis.cards.air_filter.verdict'))->toBe('diy_then_shop')
+        ->and(config('diagnosis.cards.drivetrain.verdict'))->toBe('shop')
+        ->and(config('diagnosis.cards.tire.verdict'))->toBe('diy_then_shop')
+        ->and(config('diagnosis.cards.headlight.verdict'))->toBe('diy_then_shop')
+        ->and(config('diagnosis.cards.gas_empty.verdict'))->toBe('solved')
+        ->and(config('diagnosis.cards.roadside.verdict'))->toBe('check_then_shop')
+        ->and(config('diagnosis.cards.unknown.verdict'))->toBe('shop');
+});
+
+it('keeps the safety phrases in the batch3 advice (dilution guard)', function () {
+    expect(config('diagnosis.cards.tire.advice'))->toContain('チューブタイヤ')       // 修理剤はチューブ不可の注意
+        ->and(config('diagnosis.cards.headlight.advice'))->toContain('同じアンペア数') // ヒューズは同アンペア
+        ->and(config('diagnosis.cards.drivetrain.advice'))->toContain('店')            // 駆動系は店に任せる
+        ->and(config('diagnosis.cards.roadside.advice'))->toContain('再始動せず');     // 焼き付き疑い時（seizure整合）
+});
