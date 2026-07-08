@@ -271,6 +271,11 @@ final class FitmentsImport extends Command
                 'note' => null,                                     // 旧列は今後書かない（後方互換の受け皿）
                 'note_public' => $notePublic !== '' ? $notePublic : null,
                 'note_internal' => $noteInternal !== '' ? $noteInternal : null,
+                // 交換費用の目安（列名ベース。旧CSVに列が無ければ $get は '' を返し NULL 格納＝後方互換）
+                'cost_oil_range' => ($v = $get('cost_oil_range')) !== '' ? $v : null,
+                'cost_shop_range' => ($v = $get('cost_shop_range')) !== '' ? $v : null,
+                'cost_diy_range' => ($v = $get('cost_diy_range')) !== '' ? $v : null,
+                'cost_updated_at' => ($v = $get('cost_updated_at')) !== '' ? $v : null,
             ],
         ];
     }
