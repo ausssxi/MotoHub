@@ -26,6 +26,25 @@ final class Shop extends Model
     public const SOURCE_USER = 'user';
 
     /**
+     * ユーザー投稿由来の「新規店」か。新規店は誤情報防止のため口コミコメントも
+     * 承認へ回す（即反映しない）。既存スクレイパー店は常に false。
+     * 基準日数は config('shop.new_user_shop_days')。
+     */
+    public function isNewUserShop(): bool
+    {
+        if ($this->source !== self::SOURCE_USER) {
+            return false;
+        }
+
+        $days = (int) config('shop.new_user_shop_days', 14);
+        if ($days <= 0 || $this->created_at === null) {
+            return false;
+        }
+
+        return $this->created_at->greaterThanOrEqualTo(now()->subDays($days));
+    }
+
+    /**
      * name 保存時に name_normalized を自動セット（Eloquent全経路で共通）。
      * user投稿・承認フロー・管理画面からの変更は常にこれで最新化される。
      * ※ スクレイパーはSQLAlchemy(Eloquent非経由)のため NULL で入り、

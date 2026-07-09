@@ -17,7 +17,7 @@ final class ShopAcceptanceService
 
     private function cacheKey(int $shopId): string
     {
-        return "shop_acceptance_v2_{$shopId}"; // v2: コメントに id を含める（通報導線）
+        return "shop_acceptance_v3_{$shopId}"; // v3: コメント抽出を comment_approved に分離（即反映）
     }
 
     /**
@@ -48,11 +48,13 @@ final class ShopAcceptanceService
                 $counts[$col] = (int) ($agg->{$col} ?? 0);
             }
 
-            $comments = ShopAcceptanceReport::approved()
+            // コメントは comment_approved で抽出（即反映）。事実系フラグの集計（上の approved()）
+            // とは条件を分ける。承認待ちフラグがコメント表示に影響しない・その逆も無い。
+            $comments = ShopAcceptanceReport::commentApproved()
                 ->where('shop_id', $shopId)
                 ->whereNotNull('comment')
                 ->where('comment', '!=', '')
-                ->orderByDesc('approved_at')
+                ->orderByDesc('created_at')
                 ->limit(20)
                 ->get(['id', 'comment', 'submitter_name', 'user_id'])
                 ->map(fn ($r) => [

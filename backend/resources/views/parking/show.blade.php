@@ -885,6 +885,8 @@
                     <form action="{{ route('parking.review', $parking->id) }}" method="POST">
                         @csrf
                         <input type="hidden" name="rating" id="rating-input" value="">
+                        {{-- ハニーポット（人間には非表示・ボット除け） --}}
+                        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
                         <div class="mb-3">
                             <label class="text-xs font-bold text-gray-500 mb-1 block">コメント（任意）</label>
                             <textarea name="body" rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent transition"

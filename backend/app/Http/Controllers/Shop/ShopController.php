@@ -178,15 +178,21 @@ class ShopController extends Controller
             $submitterName = trim(strip_tags((string) $request->input('submitter_name'))) ?: '名無しライダー';
         }
 
+        // コメント（主観・一言）は即反映（comment_approved=true）。事実系フラグは従来どおり
+        // is_approved=false（承認待ち）。ただし新規ユーザー店は誤情報防止でコメントも承認へ。
+        $comment = trim((string) $request->input('comment')) ?: null;
+        $commentApproved = $comment !== null && ! $shop->isNewUserShop();
+
         $report = ShopAcceptanceReport::create([
             'shop_id' => $shop->id,
             'accepts_other_store' => $request->boolean('accepts_other_store'),
             'accepts_bring_in' => $request->boolean('accepts_bring_in'),
             'pickup_service' => $request->boolean('pickup_service'),
             'walk_in_ok' => $request->boolean('walk_in_ok'),
-            'comment' => trim((string) $request->input('comment')) ?: null,
+            'comment' => $comment,
             'submitter_name' => $submitterName,
             'is_approved' => false,
+            'comment_approved' => $commentApproved,
             'user_id' => $userId,
             // 生IPは保存しない。app.key でソルトしたsha256のみ（重複/スパム検知用）。
             'submitter_ip_hash' => hash('sha256', $request->ip().'|'.config('app.key')),
@@ -199,8 +205,9 @@ class ShopController extends Controller
             report($e);
         }
 
+        // 即反映コメントは掲載済み、そうでなければ承認待ちの文言を出し分ける。
         return redirect()->route('shops.show', $shop)
-            ->with('acceptance_success', '1');
+            ->with('acceptance_success', $commentApproved ? 'instant' : '1');
     }
 
     /**

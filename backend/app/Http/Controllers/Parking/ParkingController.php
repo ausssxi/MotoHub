@@ -92,7 +92,7 @@ class ParkingController extends Controller
     public function edit(BikeParking $bikeParking): View|RedirectResponse
     {
         $user = auth()->user();
-        if (!$user || (!$user->is_admin && $bikeParking->user_id !== $user->id)) {
+        if (! $user || (! $user->is_admin && $bikeParking->user_id !== $user->id)) {
             abort(403);
         }
 
@@ -121,10 +121,14 @@ class ParkingController extends Controller
      */
     public function storeReview(BikeParking $bikeParking, StoreParkingReviewRequest $request): RedirectResponse
     {
+        // 生IPは保存せず sha256(ip|app.key) のみ（連投・濫用の単位／将来の事後対応用）。
+        $data = $request->validated();
+        $data['submitter_ip_hash'] = hash('sha256', $request->ip().'|'.config('app.key'));
+
         $this->parkingService->addReview(
             $bikeParking->id,
             $request->user(),
-            $request->validated()
+            $data
         );
 
         return redirect()->route('parking.show', $bikeParking)

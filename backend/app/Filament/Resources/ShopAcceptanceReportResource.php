@@ -46,7 +46,14 @@ class ShopAcceptanceReportResource extends Resource
                     ->required(),
 
                 Forms\Components\Toggle::make('is_approved')
-                    ->label('承認して公開する')
+                    ->label('事実系フラグを承認して公開する')
+                    ->onColor('success')
+                    ->offColor('danger')
+                    ->default(false),
+
+                // コメントは即反映（投稿時に true）。不適切なら OFF にして個別に非表示化できる。
+                Forms\Components\Toggle::make('comment_approved')
+                    ->label('コメントを公開する（即反映・不適切ならOFF）')
                     ->onColor('success')
                     ->offColor('danger')
                     ->default(false),
@@ -106,7 +113,10 @@ class ShopAcceptanceReportResource extends Resource
                     ->wrap()
                     ->toggleable(),
 
-                Tables\Columns\ToggleColumn::make('is_approved')->label('公開'),
+                Tables\Columns\ToggleColumn::make('is_approved')->label('事実系公開'),
+
+                // コメントは即反映（comment_approved=true）。運営はここでコメントだけ個別に非表示化できる。
+                Tables\Columns\ToggleColumn::make('comment_approved')->label('コメント公開'),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('投稿日')

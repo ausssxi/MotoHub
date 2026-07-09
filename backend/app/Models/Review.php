@@ -13,6 +13,7 @@ class Review extends Model
         'bike_model_id',
         'user_id',
         'nickname',
+        'submitter_ip_hash',
         'title',
         'body',
         'rating',

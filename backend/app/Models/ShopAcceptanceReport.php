@@ -23,6 +23,7 @@ final class ShopAcceptanceReport extends Model
         'comment',
         'submitter_name',
         'is_approved',
+        'comment_approved',
         'user_id',
         'submitter_ip_hash',
         'approved_at',
@@ -35,6 +36,7 @@ final class ShopAcceptanceReport extends Model
         'pickup_service' => 'boolean',
         'walk_in_ok' => 'boolean',
         'is_approved' => 'boolean',
+        'comment_approved' => 'boolean',
         'approved_at' => 'datetime',
     ];
 
@@ -56,8 +58,15 @@ final class ShopAcceptanceReport extends Model
         return $this->belongsTo(User::class);
     }
 
+    /** 事実系フラグの公開状態（他店OK等の集計に使う）。 */
     public function scopeApproved(Builder $query): Builder
     {
         return $query->where('is_approved', true);
+    }
+
+    /** コメント（一言テキスト）の公開状態。is_approved とは独立（即反映のため）。 */
+    public function scopeCommentApproved(Builder $query): Builder
+    {
+        return $query->where('comment_approved', true);
     }
 }
