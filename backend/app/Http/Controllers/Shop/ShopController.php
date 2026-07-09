@@ -219,6 +219,17 @@ class ShopController extends Controller
     }
 
     /**
+     * 全店横断「みんなの口コミ（新着）」フィード。
+     * 即反映されたコメントが集まる一覧。店名リンクで個別店へ回遊させる。
+     */
+    public function reviewsFeed(): View
+    {
+        return view('shops.reviews_index', [
+            'comments' => $this->acceptanceService->getRecentCommentsFeed(20)->withQueryString(),
+        ]);
+    }
+
+    /**
      * チェーン別ショップまとめページ
      */
     public function chainShow(string $chainSlug): View
