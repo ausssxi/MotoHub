@@ -38,36 +38,61 @@
 
             <ul class="space-y-3">
                 @forelse($comments as $cmt)
-                <li class="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5" x-data="{ report: false }">
-                    {{-- 店名（回遊リンク）＋所在地 --}}
-                    <div class="flex items-center justify-between gap-2 mb-2">
-                        <a href="{{ route('shops.show', $cmt->shop) }}" class="text-sm font-black text-blue-600 hover:underline flex items-center gap-1 min-w-0">
-                            <i data-lucide="store" class="w-3.5 h-3.5 shrink-0"></i>
-                            <span class="truncate">{{ $cmt->shop->name }}</span>
-                        </a>
-                        @if($cmt->shop->prefecture)
-                        <span class="text-[10px] font-bold text-gray-400 shrink-0">{{ $cmt->shop->prefecture }}{{ $cmt->shop->city }}</span>
-                        @endif
+                {{-- カード全体をクリックで店ページへ（リンク/ボタン/フォーム上のクリックは除外＝通報等は独立動作） --}}
+                <li class="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5 cursor-pointer hover:border-blue-200 transition-colors"
+                    x-data="{ report: false }"
+                    @click="if(!$event.target.closest('a,button,input,label,form')) window.location='{{ route('shops.show', $cmt->shop) }}'">
+                    <div class="flex gap-3">
+                        {{-- 店外観サムネイル。画像はプレースホルダーの上に重ね、欠損時は onerror で隠してプレースホルダーを見せる --}}
+                        <div class="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center">
+                            <i data-lucide="store" class="w-6 h-6 text-gray-300"></i>
+                            @if($cmt->shop->display_image_url)
+                            <img src="{{ $cmt->shop->display_image_url }}" alt="{{ $cmt->shop->name }}の外観"
+                                 loading="lazy" decoding="async"
+                                 class="absolute inset-0 w-full h-full object-cover"
+                                 onerror="this.style.display='none'">
+                            @endif
+                        </div>
+
+                        <div class="min-w-0 flex-1">
+                            {{-- 店名（回遊リンク）＋所在地（都道府県はエリアページへ） --}}
+                            <div class="flex items-center justify-between gap-2 mb-1.5">
+                                <a href="{{ route('shops.show', $cmt->shop) }}" class="text-sm font-black text-blue-600 hover:underline flex items-center gap-1 min-w-0">
+                                    <span class="truncate">{{ $cmt->shop->name }}</span>
+                                </a>
+                                @if($cmt->shop->prefecture)
+                                <a href="{{ route('shops.area.prefecture', $cmt->shop->prefecture) }}" class="text-[10px] font-bold text-gray-400 hover:text-blue-600 shrink-0">
+                                    {{ $cmt->shop->prefecture }}{{ $cmt->shop->city }}
+                                </a>
+                                @endif
+                            </div>
+
+                            {{-- コメント本文 --}}
+                            <p class="text-sm text-gray-700 leading-relaxed bg-gray-50 rounded-xl px-3 py-2">「{{ $cmt->comment }}」</p>
+
+                            {{-- 投稿者・日時・通報 --}}
+                            <div class="flex items-center gap-1.5 mt-2 text-[11px] text-gray-400">
+                                <span class="font-bold text-gray-500">{{ $cmt->submitter_name ?: '名無しライダー' }}さん</span>
+                                @if($cmt->user_id)
+                                <span class="inline-flex items-center gap-0.5 text-[9px] font-black text-blue-600 bg-blue-50 px-1 py-0.5 rounded">
+                                    <i data-lucide="badge-check" class="w-2.5 h-2.5"></i>ログインユーザー
+                                </span>
+                                @endif
+                                <span>・{{ $cmt->created_at->diffForHumans() }}</span>
+                                <button type="button" @click="report = !report"
+                                    class="ml-auto inline-flex items-center gap-0.5 font-bold text-gray-300 hover:text-rose-500 transition-colors"
+                                    aria-label="この投稿を報告する">
+                                    <i data-lucide="flag" class="w-2.5 h-2.5"></i>報告
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
-                    {{-- コメント本文 --}}
-                    <p class="text-sm text-gray-700 leading-relaxed bg-gray-50 rounded-xl px-3 py-2">「{{ $cmt->comment }}」</p>
-
-                    {{-- 投稿者・日時・通報 --}}
-                    <div class="flex items-center gap-1.5 mt-2 text-[11px] text-gray-400">
-                        <span class="font-bold text-gray-500">{{ $cmt->submitter_name ?: '名無しライダー' }}さん</span>
-                        @if($cmt->user_id)
-                        <span class="inline-flex items-center gap-0.5 text-[9px] font-black text-blue-600 bg-blue-50 px-1 py-0.5 rounded">
-                            <i data-lucide="badge-check" class="w-2.5 h-2.5"></i>ログインユーザー
-                        </span>
-                        @endif
-                        <span>・{{ $cmt->created_at->diffForHumans() }}</span>
-                        <button type="button" @click="report = !report"
-                            class="ml-auto inline-flex items-center gap-0.5 font-bold text-gray-300 hover:text-rose-500 transition-colors"
-                            aria-label="この投稿を報告する">
-                            <i data-lucide="flag" class="w-2.5 h-2.5"></i>報告
-                        </button>
-                    </div>
+                    {{-- その先への明示アンカー（アンカーテキストに店名＝内部リンク価値） --}}
+                    <a href="{{ route('shops.show', $cmt->shop) }}" class="mt-2.5 inline-flex items-center gap-1 text-xs font-black text-blue-600 hover:underline">
+                        {{ $cmt->shop->name }}の詳細・在庫を見る
+                        <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                    </a>
 
                     {{-- 報告フォーム（フェーズ1の reports.store 連携） --}}
                     <form x-show="report" x-cloak method="POST" action="{{ route('reports.store') }}" class="mt-2 pt-2 border-t border-gray-100 space-y-1.5">
