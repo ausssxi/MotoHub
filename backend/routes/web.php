@@ -300,6 +300,9 @@ Route::prefix('shops')->name('shops.')->group(function () {
     // 店名検索（内部検索・noindex・/{id} の前に配置）
     Route::get('/search', [\App\Http\Controllers\Shop\ShopSearchController::class, 'index'])->name('search')->middleware('throttle:60,1');
 
+    // 全店横断「みんなの口コミ（新着）」フィード（/{id} の前に配置）
+    Route::get('/reviews', [ShopController::class, 'reviewsFeed'])->name('reviews');
+
     // ユーザー投稿による店舗登録（承認制・/{id} の前に配置）
     Route::get('/submit', [\App\Http\Controllers\Shop\ShopSubmissionController::class, 'create'])->name('submit.create');
     Route::get('/submit/check', [\App\Http\Controllers\Shop\ShopSubmissionController::class, 'check'])->name('submit.check')->middleware('throttle:20,1');

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Shop;
 
 use App\Models\ShopAcceptanceReport;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -71,6 +72,22 @@ final class ShopAcceptanceService
                 'total' => (int) ($agg->total ?? 0),
             ];
         });
+    }
+
+    /**
+     * 全店横断の「新着口コミ」フィード。comment_approved=true のコメントのみを
+     * created_at 降順で返す。店情報を eager load（N+1回避）。複合index
+     * (comment_approved, created_at) を利用。フィードは頻繁に変わるためキャッシュしない。
+     */
+    public function getRecentCommentsFeed(int $perPage = 20): LengthAwarePaginator
+    {
+        return ShopAcceptanceReport::commentApproved()
+            ->whereNotNull('comment')
+            ->where('comment', '!=', '')
+            ->whereHas('shop')       // 店が消えたコメントは出さない
+            ->with('shop')           // N+1回避（店名・所在地）
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
     }
 
     /**
