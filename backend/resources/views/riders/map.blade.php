@@ -114,6 +114,40 @@
             </div>
         </div>
 
+        {{-- (a) 初回オンボーディング。初回のみ表示・×でdismiss（localStorage無期限記憶）。
+             地図上部は検索窓・トグルが占有しているため、コントロールと非干渉な下部中央へ配置。
+             z-30=現在地ボタン(z-40)・ボトムナビ(z-50)より下＝操作を妨げない。 --}}
+        <div x-data="{ show: false }"
+             x-init="show = ! localStorage.getItem('riders_map_onboarding_dismissed_at')"
+             x-show="show" x-cloak
+             class="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 w-[min(440px,calc(100%-6rem))] bg-white rounded-2xl shadow-xl border border-gray-100 p-4">
+            <button type="button"
+                    @click="localStorage.setItem('riders_map_onboarding_dismissed_at', Date.now().toString()); show = false"
+                    class="absolute top-2 right-2 text-gray-300 hover:text-gray-500 p-1" aria-label="閉じる">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+            <p class="text-sm font-black text-gray-800 pr-6">このマップでできること</p>
+            <p class="text-xs text-gray-600 leading-relaxed mt-1.5">
+                行きたいエリアを開くと、バイク駐車場・給油ポイント・道の駅・ツーリング記事が地図に重なります。気になる場所をタップして、そのまま走るルートも引けます。
+            </p>
+            <div class="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[11px] font-bold text-gray-500">
+                <span>🅿️ 駐車場を探す</span>
+                <span>⛽ 給油ポイント</span>
+                <span>🔥 ツーリング記事</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2 mt-3">
+                {{-- 主CTA: 既存「AIルート提案」アクションを流用（#btn-ai-route を発火・新規実装なし） --}}
+                <a href="#" @click.prevent="document.getElementById('btn-ai-route').click()"
+                   class="bg-violet-600 hover:bg-violet-700 text-white text-xs font-black px-4 py-2.5 rounded-xl transition inline-flex items-center gap-1">
+                    AIにルートを提案してもらう →
+                </a>
+                {{-- 従CTA: /touring（記事一覧）へ --}}
+                <a href="{{ route('touring.index') }}" class="text-xs font-bold text-gray-500 hover:text-blue-600 underline underline-offset-2">
+                    ツーリング記事から探す
+                </a>
+            </div>
+        </div>
+
         {{-- レイヤートグル --}}
         <div class="absolute top-14 left-3 right-3 z-40 flex flex-wrap gap-1.5"
              x-data="{
@@ -255,6 +289,64 @@
             駐車場一覧を見る <i data-lucide="arrow-right" class="w-3 h-3"></i>
         </a>
     </div>
+
+    {{-- (b) 常設の使い方（SEO兼用）。折りたたみは max-height 制御で、中身は常時 DOM・display:none にしない。 --}}
+    <section class="bg-white border-t border-gray-100 px-4 py-6" x-data="{ open: false }">
+        <div class="max-w-3xl mx-auto">
+            <button type="button" @click="open = ! open"
+                    class="w-full flex items-center justify-between text-left gap-2"
+                    :aria-expanded="open.toString()">
+                <h2 class="text-base sm:text-lg font-black text-gray-800 flex items-center gap-2">
+                    <i data-lucide="help-circle" class="w-5 h-5 text-blue-600"></i>
+                    ライダーズマップの使い方
+                </h2>
+                <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 transition-transform shrink-0" :class="open && 'rotate-180'"></i>
+            </button>
+
+            {{-- 折りたたみ時も max-height:0 で視覚的に畳むだけ（display:none にしない＝SEOで本文を拾わせる） --}}
+            <div class="overflow-hidden transition-[max-height] duration-300" style="max-height:0" :style="open ? 'max-height: 4000px' : 'max-height: 0'">
+                <div class="pt-4 text-sm text-gray-700 leading-relaxed space-y-5">
+                    <p>MotoHub のライダーズマップは、ツーリングの計画から当日のナビまでを1枚の地図で完結できる機能です。どこを走るか決める、停める場所を確認する、給油や休憩のポイントを押さえる ── バイクならではの「困りごと」を先回りして解決します。</p>
+
+                    <div>
+                        <h3 class="text-sm font-black text-gray-800 mb-2">表示する情報を切り替える</h3>
+                        <p class="mb-2">地図の左上のボタンで、表示する情報を切り替えられます。必要なものだけ重ねれば、地図をすっきり保てます。</p>
+                        <ul class="space-y-1.5 list-none">
+                            <li><strong>駐車場</strong> ── バイクを停められる駐車場。都市部では事前確認が特に役立ちます</li>
+                            <li><strong>GS</strong> ── ガソリンスタンド。山間部や半島の先端など、給油できる場所が限られるエリアで重宝します</li>
+                            <li><strong>道の駅</strong> ── 休憩・食事・地元名物のスポット。ツーリングの立ち寄り先の定番です</li>
+                            <li><strong>ショップ</strong> ── バイクの販売店・整備店</li>
+                            <li><strong>コンビニ</strong> ── トイレ・軽食・現金の補給に</li>
+                            <li><strong>記事</strong> ── MotoHub のツーリングガイド。走って気持ちいいルートを、季節や難易度つきで紹介します</li>
+                            <li><strong>お気に入り</strong> ── お気に入り登録した車両を地図に表示します（ログイン時）</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h3 class="text-sm font-black text-gray-800 mb-2">行き先を探す</h3>
+                        <p>上部の検索窓に地名や駅名を入れると、その周辺に地図が移動します（例：渋谷、橋本駅）。行きたいエリアが決まっているなら、まずここから。</p>
+                    </div>
+
+                    <div>
+                        <h3 class="text-sm font-black text-gray-800 mb-2">ルートを引く</h3>
+                        <ul class="space-y-1.5 list-none">
+                            <li><strong>ルート作成</strong> ── 立ち寄りたい地点を順につないで、自分だけのルートを作れます</li>
+                            <li><strong>AIルート提案</strong> ── 「日帰りで峠を走りたい」「海沿いをのんびり」といった希望を伝えると、AI がルートを提案します。できたルートは Google マップのナビにも渡せるので、当日はそのまま走り出せます</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h3 class="text-sm font-black text-gray-800 mb-2">ツーリング記事から計画する</h3>
+                        <p>どこを走るか迷ったら、「記事」レイヤーをオンにしてみてください。地図上のピンや下部のカードから、エリアごとのツーリングガイドを開けます。各ガイドには見どころ・所要時間・おすすめの季節・注意点がまとまっており、記事内の地図からはそのままライダーズマップに戻って続きを計画できます。</p>
+                    </div>
+
+                    <p class="text-xs text-gray-400 border-t border-gray-100 pt-4">
+                        ※ このほか、走ったルートや行きたい場所を残す「ピン留め」、あなたのおすすめルートを投稿する「ガイドを書く」機能もあります。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
 
     {{-- 詳細パネル --}}
     <div id="detail-panel-overlay"></div>
