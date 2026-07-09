@@ -814,9 +814,13 @@
                 @endif
 
                 @if($reviews->isEmpty())
-                <p class="text-sm text-gray-400 text-center py-8">まだレビューはありません。最初のレビューを投稿しましょう！</p>
+                {{-- 0件のみ: 一番乗り歓迎トーン（1件でもあれば通常表示） --}}
+                <div class="text-center py-8">
+                    <p class="text-sm text-gray-600 font-bold mb-1">まだレビューはありません。</p>
+                    <p class="text-xs text-gray-500 leading-relaxed">最初の一人になって、停めやすさを教えてください。</p>
+                </div>
                 @else
-                <div class="space-y-4">
+                <div class="space-y-4" id="parking-review-list">
                     @foreach($reviews as $review)
                     <div class="border-b border-gray-50 pb-4 last:border-b-0 last:pb-0" x-data="{ report: false }">
                         <div class="flex items-center justify-between mb-2">
@@ -896,6 +900,19 @@
                         </a>
                     </div>
                 </div>
+                {{-- 投稿直後: 自分の投稿（新着最上部）へスクロール＋一時ハイライト（即反映の実感） --}}
+                <script>
+                    document.addEventListener('DOMContentLoaded', function () {
+                        var list = document.getElementById('parking-review-list');
+                        var first = list && list.firstElementChild;
+                        if (!first) return;
+                        first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        first.style.transition = 'background-color 0.6s ease';
+                        first.style.backgroundColor = '#fefce8'; // yellow-50
+                        first.style.borderRadius = '0.75rem';
+                        setTimeout(function () { first.style.backgroundColor = ''; }, 2800);
+                    });
+                </script>
                 @endif
 
                 @error('rating')

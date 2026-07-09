@@ -1255,10 +1255,11 @@ final class BikeController extends Controller
             ]);
         }
 
+        // review_posted: 再読込後に自分の投稿へスクロール＋一時ハイライトする合図（即反映の実感）。
         return redirect()->route('bikes.model_detail', [
             'mfrSlug' => $model->manufacturer->slug ?? $model->manufacturer_id,
             'modelSlug' => $model->slug ?? $model->id,
-        ])->with('success', 'レビューを投稿しました！');
+        ])->with('success', 'レビューを投稿しました！')->with('review_posted', 1);
     }
 
     public function modelDetail($id, \App\Services\Bike\PriceStatsService $priceStatsService)
