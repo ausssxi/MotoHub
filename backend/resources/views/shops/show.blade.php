@@ -569,6 +569,9 @@
                     </div>
                     @endif
 
+                    {{-- 取扱車種 → 公開済み適合表への内部リンク（在庫から派生・リンクのみ・空なら非表示） --}}
+                    @include('shops.partials.fitment_links')
+
                     {{-- 在庫0台時は近くのショップ・駐車場を右カラム内に表示して空白を埋める --}}
                     @if($pagination['total'] === 0)
                     <div class="mt-6 space-y-6">

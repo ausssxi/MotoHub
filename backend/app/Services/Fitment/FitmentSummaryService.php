@@ -7,6 +7,7 @@ namespace App\Services\Fitment;
 use App\Models\BikeModel;
 use App\Models\ModelFitment;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * 車種詳細ページ用の fitments サマリ（規格・区分レベル＋内部リンク）。
@@ -18,6 +19,39 @@ use Illuminate\Support\Collection;
  */
 final class FitmentSummaryService
 {
+    /** fitments:task_map:v1 のキャッシュキー（適合CSV取込時にピンポイント失効させる）。 */
+    public const TASK_MAP_CACHE_KEY = 'fitments:task_map:v1';
+
+    /**
+     * 公開済み適合の「車種ID → 公開タスク配列」マップ。
+     *
+     * 公開判定は適合表ページ本体（FitmentPageController）・サイトマップと完全一致させる：
+     * verified() 行があり、かつ slug で到達可能（route {bikeModel:slug}）な車種×taskのみ。
+     * これを緩めると 404 や未公開ページへのリンクが生まれる。
+     *
+     * @return array<int,array<int,string>> [bike_model_id => ['battery','plug','oil']]
+     */
+    public function publishedTaskMap(): array
+    {
+        return Cache::remember(self::TASK_MAP_CACHE_KEY, 86400, function () {
+            $rows = ModelFitment::query()
+                ->verified()
+                ->join('bike_models', 'bike_models.id', '=', 'model_fitments.bike_model_id')
+                ->whereNotNull('bike_models.slug')
+                ->where('bike_models.slug', '!=', '')
+                ->select('model_fitments.bike_model_id as bike_model_id', 'model_fitments.task as task')
+                ->distinct()
+                ->get();
+
+            $map = [];
+            foreach ($rows as $row) {
+                $map[(int) $row->bike_model_id][] = (string) $row->task;
+            }
+
+            return $map;
+        });
+    }
+
     /**
      * @return array<int,array{task:string,label:string,summary:string,anchor:string,url:string}>
      */

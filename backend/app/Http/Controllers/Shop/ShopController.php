@@ -12,6 +12,7 @@ use App\Models\BlogPost;
 use App\Models\Listing;
 use App\Models\Shop;
 use App\Models\ShopAcceptanceReport;
+use App\Services\Fitment\FitmentSummaryService;
 use App\Services\Shop\ShopAcceptanceService;
 use App\Services\Shop\ShopService;
 use Carbon\Carbon;
@@ -25,9 +26,13 @@ use Illuminate\Support\Facades\Mail;
 
 class ShopController extends Controller
 {
+    /** 店ページの適合表リンクブロックに載せる車種の上限。 */
+    private const MAX_FITMENT_MODELS = 10;
+
     public function __construct(
         private readonly ShopService $shopService,
         private readonly ShopAcceptanceService $acceptanceService,
+        private readonly FitmentSummaryService $fitmentSummary,
     ) {}
 
     /**
@@ -40,6 +45,9 @@ class ShopController extends Controller
 
         // ユーザー投稿の受け入れ情報（承認済み集計）
         $data['acceptanceSummary'] = $this->acceptanceService->getApprovedSummary($id);
+
+        // 取扱車種 → 公開済み適合表への内部リンク（在庫と同一スコープ・リンクのみ）
+        $data['fitmentModelLinks'] = $this->buildShopFitmentLinks($id);
 
         // 販売実績データ
         $data['salesStats'] = $this->getShopSalesStats($id);
@@ -66,6 +74,62 @@ class ShopController extends Controller
         }
 
         return view('shops.show', $data);
+    }
+
+    /**
+     * その店の在庫（表示中と同一スコープ = active／is_sold_out=false）にある車種のうち、
+     * 公開済み適合表を持つものだけをリンク用に組み立てる。カニバリ回避のためリンクのみ
+     * （品番・規格・費用は出さない）。在庫台数の多い順→車種名順・最大 MAX_FITMENT_MODELS 件。
+     *
+     * @return array<int,array{name:string,manufacturer:string,slug:string,tasks:array<int,string>,stock:int}>
+     */
+    private function buildShopFitmentLinks(int $shopId): array
+    {
+        // 1. 在庫（ページ表示と同一スコープ）から車種ごとの台数
+        $stockByModel = Listing::where('shop_id', $shopId)
+            ->active()
+            ->whereNotNull('bike_model_id')
+            ->select('bike_model_id', DB::raw('COUNT(*) as cnt'))
+            ->groupBy('bike_model_id')
+            ->pluck('cnt', 'bike_model_id'); // [model_id => count]
+
+        if ($stockByModel->isEmpty()) {
+            return [];
+        }
+
+        // 2. 公開済み適合マップと交差（公開判定は適合表ページ本体と完全一致）
+        $taskMap = $this->fitmentSummary->publishedTaskMap();
+        $modelIds = array_values(array_intersect(array_keys($taskMap), $stockByModel->keys()->all()));
+        if (empty($modelIds)) {
+            return [];
+        }
+
+        // 3. 表示用の車種名・メーカー名・slug を1クエリ（N+1回避）
+        $models = BikeModel::with('manufacturer:id,name')
+            ->whereIn('id', $modelIds)
+            ->get(['id', 'manufacturer_id', 'name', 'slug']);
+
+        $order = ['battery', 'plug', 'oil']; // タスク表示順（正順）
+
+        $rows = [];
+        foreach ($models as $model) {
+            $tasks = array_values(array_intersect($order, $taskMap[$model->id] ?? []));
+            if (empty($tasks)) {
+                continue;
+            }
+            $rows[] = [
+                'name' => $model->name,
+                'manufacturer' => $model->manufacturer->name ?? '',
+                'slug' => $model->slug,
+                'tasks' => $tasks,
+                'stock' => (int) ($stockByModel[$model->id] ?? 0),
+            ];
+        }
+
+        // 4. 在庫台数の多い順 → 車種名順、最大 MAX_FITMENT_MODELS 件
+        usort($rows, fn ($a, $b) => ($b['stock'] <=> $a['stock']) ?: strcmp($a['name'], $b['name']));
+
+        return array_slice($rows, 0, self::MAX_FITMENT_MODELS);
     }
 
     private function getShopSalesStats(int $shopId): ?array
