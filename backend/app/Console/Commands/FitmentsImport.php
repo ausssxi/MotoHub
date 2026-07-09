@@ -6,7 +6,9 @@ namespace App\Console\Commands;
 
 use App\Models\BikeModel;
 use App\Models\ModelFitment;
+use App\Services\Fitment\FitmentSummaryService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -138,6 +140,11 @@ final class FitmentsImport extends Command
             $this->error('取り込み中にエラー: '.$e->getMessage());
 
             return self::FAILURE;
+        }
+
+        // 適合公開状態が変わったので、店ページの適合リンクマップをピンポイント失効（cache:clearは使わない）
+        if (! $dryRun) {
+            Cache::forget(FitmentSummaryService::TASK_MAP_CACHE_KEY);
         }
 
         // 出力
