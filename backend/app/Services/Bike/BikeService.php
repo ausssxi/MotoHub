@@ -87,6 +87,7 @@ final class BikeService
             'bike_model_id' => $bikeModelId,
             'user_id' => $userId,
             'nickname' => ($data['nickname'] ?? null) ?: '名無しライダー',
+            'submitter_ip_hash' => $data['submitter_ip_hash'] ?? null,
             'rating' => $data['rating'],
             'title' => $data['title'],
             'body' => $data['body'],

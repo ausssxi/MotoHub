@@ -13,6 +13,7 @@ final class ParkingReview extends Model
         'bike_parking_id',
         'user_id',
         'nickname',
+        'submitter_ip_hash',
         'rating',
         'body',
         'visited_at',

@@ -1545,6 +1545,8 @@
                             <form id="review-form-element" action="{{ route('bikes.model_detail.review', $model->id) }}" method="POST">
                                 @csrf
                                 <input type="hidden" name="recaptcha_token" id="recaptcha-token">
+                                {{-- ハニーポット（人間には非表示・ボット除け） --}}
+                                <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                     @include('bikes.partials.review_author_field', [
                                         'inputClass' => 'w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none',

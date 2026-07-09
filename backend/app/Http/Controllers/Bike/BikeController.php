@@ -1205,6 +1205,8 @@ final class BikeController extends Controller
         }
 
         $validated = $request->validated();
+        // 生IPは保存せず sha256(ip|app.key) のみ（連投・濫用の単位／将来の事後対応用）。
+        $validated['submitter_ip_hash'] = hash('sha256', $request->ip().'|'.config('app.key'));
         $model = $this->bikeService->getBikeModelDetail($id);
 
         // === ログインユーザー帰属（公開ハンドルのみ使用・User->name は絶対に使わない）===

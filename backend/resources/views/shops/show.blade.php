@@ -129,7 +129,8 @@
 
                         {{-- 利用者からの情報（承認済みのユーザー投稿・スクレイプデータとは別系統） --}}
                         @php $accFlags = \App\Models\ShopAcceptanceReport::FLAGS; @endphp
-                        @if(($acceptanceSummary['total'] ?? 0) > 0)
+                        {{-- 事実系フラグ（total）が0でも、即反映コメントがあればブロックを出す --}}
+                        @if(($acceptanceSummary['total'] ?? 0) > 0 || !empty($acceptanceSummary['comments']))
                         <div class="mt-6 pt-6 border-t border-gray-100">
                             <p class="text-xs font-black text-gray-500 mb-3 flex items-center gap-1.5">
                                 <i data-lucide="users" class="w-3.5 h-3.5 text-blue-600"></i>
@@ -197,7 +198,11 @@
 
                         {{-- 受け入れ情報を投稿するフォーム（承認制・ポジティブ項目のみ） --}}
                         <div class="mt-6 pt-6 border-t border-gray-100" x-data="{ open: false }">
-                            @if(session('acceptance_success'))
+                            @if(session('acceptance_success') === 'instant')
+                            <div class="mb-3 text-xs font-bold text-green-700 bg-green-50 border border-green-200 rounded-xl px-3 py-2">
+                                ありがとうございます。コメントを掲載しました（事実系の情報は確認後に反映されます）。
+                            </div>
+                            @elseif(session('acceptance_success'))
                             <div class="mb-3 text-xs font-bold text-green-700 bg-green-50 border border-green-200 rounded-xl px-3 py-2">
                                 ありがとうございます。確認後に掲載されます。
                             </div>
