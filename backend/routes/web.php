@@ -595,6 +595,9 @@ Route::get('/trouble', [TroubleController::class, 'index'])->name('trouble.index
 // ファネル計測（PIIなし・常に204・fire-and-forget）
 Route::post('/trouble/track', [TroubleController::class, 'track'])->name('trouble.track')->middleware('throttle:60,1');
 
+// 不適切投稿の通報（polymorphic・ログイン不要・生IP非保存）。連投濫用を抑える throttle。
+Route::post('/reports', [\App\Http\Controllers\ReportController::class, 'store'])->name('reports.store')->middleware('throttle:5,10');
+
 // 車種×作業（型番）ページ。B案 /maintenance/... を採用（/bikes/{mfr}/{model} が2セグメントを占有済みのため）。
 // task追加時は whereIn を拡張。verified行が無ければコントローラで404（公開ゲート）。
 Route::get('/maintenance/{bikeModel:slug}/{task}', [\App\Http\Controllers\FitmentPageController::class, 'show'])

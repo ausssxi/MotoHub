@@ -17,7 +17,7 @@ final class ShopAcceptanceService
 
     private function cacheKey(int $shopId): string
     {
-        return "shop_acceptance_v1_{$shopId}";
+        return "shop_acceptance_v2_{$shopId}"; // v2: コメントに id を含める（通報導線）
     }
 
     /**
@@ -25,7 +25,7 @@ final class ShopAcceptanceService
      *
      * @return array{
      *   counts: array<string,int>,                                      // フラグ列 => 報告人数
-     *   comments: array<int,array{name:string,comment:string,verified:bool}>, // 承認済みコメント（投稿者名付き）
+     *   comments: array<int,array{id:int,name:string,comment:string,verified:bool}>, // 承認済みコメント（通報導線用に id 付き）
      *   total: int                                                      // 承認済み投稿件数
      * }
      */
@@ -54,8 +54,9 @@ final class ShopAcceptanceService
                 ->where('comment', '!=', '')
                 ->orderByDesc('approved_at')
                 ->limit(20)
-                ->get(['comment', 'submitter_name', 'user_id'])
+                ->get(['id', 'comment', 'submitter_name', 'user_id'])
                 ->map(fn ($r) => [
+                    'id' => $r->id,
                     'name' => $r->submitter_name ?: '名無しライダー',
                     'comment' => $r->comment,
                     'verified' => $r->user_id !== null,
