@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Shop;
 
+use App\Services\Moderation\NgWordFilter;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -54,6 +55,11 @@ final class StoreShopAcceptanceReportRequest extends FormRequest
                 || $this->boolean('walk_in_ok');
             if (! $anyFlag && trim((string) $this->input('comment')) === '') {
                 $v->errors()->add('accepts_other_store', '当てはまる項目を1つ以上選ぶか、コメントを入力してください。');
+            }
+
+            // NGワード（入口フィルタ）。ヒット語は開示せず中立な文言で弾く。
+            if (app(NgWordFilter::class)->contains($this->input('comment'))) {
+                $v->errors()->add('comment', '不適切な表現が含まれている可能性があります。表現を見直してください。');
             }
         });
     }

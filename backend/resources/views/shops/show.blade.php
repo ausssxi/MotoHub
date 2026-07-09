@@ -145,10 +145,15 @@
                                     @endif
                                 @endforeach
                             </div>
+                            @if(session('report_success'))
+                            <div class="mb-2 text-[11px] font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                                報告を受け付けました。確認します。ご協力ありがとうございます。
+                            </div>
+                            @endif
                             @if(!empty($acceptanceSummary['comments']))
                             <ul class="space-y-1.5">
                                 @foreach($acceptanceSummary['comments'] as $cmt)
-                                <li class="text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2 leading-relaxed">
+                                <li class="text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2 leading-relaxed" x-data="{ report: false }">
                                     <span class="flex items-center gap-1 mb-0.5">
                                         <span class="font-bold text-gray-500">{{ $cmt['name'] }}さん</span>
                                         @if($cmt['verified'])
@@ -156,13 +161,37 @@
                                             <i data-lucide="badge-check" class="w-2.5 h-2.5"></i>ログインユーザー
                                         </span>
                                         @endif
+                                        {{-- 通報ボタン（控えめ・通報したことは他ユーザーに見えない） --}}
+                                        <button type="button" @click="report = !report"
+                                            class="ml-auto inline-flex items-center gap-0.5 text-[9px] font-bold text-gray-300 hover:text-rose-500 transition-colors"
+                                            aria-label="この投稿を報告する">
+                                            <i data-lucide="flag" class="w-2.5 h-2.5"></i>報告
+                                        </button>
                                     </span>
                                     「{{ $cmt['comment'] }}」
+
+                                    {{-- 報告フォーム（理由選択・即送信） --}}
+                                    <form x-show="report" x-cloak method="POST" action="{{ route('reports.store') }}" class="mt-2 pt-2 border-t border-gray-200 space-y-1.5">
+                                        @csrf
+                                        <input type="hidden" name="type" value="shop_comment">
+                                        <input type="hidden" name="id" value="{{ $cmt['id'] }}">
+                                        <p class="text-[10px] font-bold text-gray-500">報告の理由（任意）</p>
+                                        <div class="flex flex-wrap gap-1.5">
+                                            @foreach(\App\Models\Report::REASONS as $key => $label)
+                                            <label class="inline-flex items-center gap-1 cursor-pointer text-[10px] text-gray-600 bg-white border border-gray-200 rounded-full px-2 py-0.5">
+                                                <input type="radio" name="reason" value="{{ $key }}" class="accent-rose-500 w-2.5 h-2.5">{{ $label }}
+                                            </label>
+                                            @endforeach
+                                        </div>
+                                        {{-- ハニーポット（人間には非表示・ボット除け） --}}
+                                        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
+                                        <button type="submit" class="text-[10px] font-black text-white bg-rose-500 hover:bg-rose-600 rounded-lg px-3 py-1 transition">報告する</button>
+                                    </form>
                                 </li>
                                 @endforeach
                             </ul>
                             @endif
-                            <p class="text-[10px] text-gray-400 mt-2">※ 利用者の報告に基づく情報です（運営確認済み）。</p>
+                            <p class="text-[10px] text-gray-400 mt-2">※ 利用者の報告に基づく情報です（運営確認済み）。不適切な投稿は各コメントの「報告」からお知らせください。</p>
                         </div>
                         @endif
 
