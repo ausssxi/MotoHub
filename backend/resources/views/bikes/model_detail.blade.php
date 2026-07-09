@@ -1427,7 +1427,7 @@
                         </div>
 
                         @php $showReviewShare = true; @endphp
-                        <div class="space-y-6 mb-12">
+                        <div class="space-y-6 mb-12" id="model-review-list">
                             @forelse($model->reviews as $review)
                                 <div class="border-b border-gray-100 pb-6 last:border-0" id="review-{{ $review->id }}">
                                     <div class="flex items-center justify-between mb-2">
@@ -1500,12 +1500,29 @@
                                     </div>
                                 </div>
                             @empty
+                                {{-- 0件のみ: 一番乗り歓迎トーン（1件でもあれば通常表示） --}}
                                 <div class="text-center py-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                                    <p class="text-sm text-gray-500 font-bold mb-2">まだレビューがありません。</p>
-                                    <p class="text-xs text-gray-400">最初のレビューを投稿してみませんか？</p>
+                                    <p class="text-sm text-gray-600 font-bold mb-2">まだこの車種のレビューはありません。</p>
+                                    <p class="text-xs text-gray-500 leading-relaxed">最初のオーナーレビューは目立ちます ── 乗ってみた感想を一言どうぞ。</p>
                                 </div>
                             @endforelse
                         </div>
+
+                        {{-- 投稿直後: 再読込後に自分の投稿（新着最上部）へスクロール＋一時ハイライト（即反映の実感） --}}
+                        @if(session('review_posted'))
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function () {
+                                var list = document.getElementById('model-review-list');
+                                var first = list && list.firstElementChild;
+                                if (!first) return;
+                                first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                first.style.transition = 'background-color 0.6s ease';
+                                first.style.backgroundColor = '#fefce8'; // yellow-50
+                                first.style.borderRadius = '1rem';
+                                setTimeout(function () { first.style.backgroundColor = ''; }, 2800);
+                            });
+                        </script>
+                        @endif
 
                         {{-- レビュー一覧ハブへの導線（cluster双方向化） --}}
                         <div class="mt-4 text-center">
