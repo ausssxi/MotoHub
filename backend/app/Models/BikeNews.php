@@ -12,6 +12,12 @@ final class BikeNews extends Model
 {
     protected $table = 'bike_news';
 
+    /**
+     * オリジナル記事（横断在庫データ由来の自社コンテンツ）の source 値。
+     * RSS 取込記事は publisher 名（goo-net.com 等）が入る。全 news:generate-* が 'MotoHub' を使う。
+     */
+    public const SOURCE_ORIGINAL = 'MotoHub';
+
     protected $fillable = [
         'title',
         'url',
@@ -56,5 +62,14 @@ final class BikeNews extends Model
     public function scopeLatest($query)
     {
         return $query->orderByDesc('published_at');
+    }
+
+    /**
+     * オリジナル記事（source='MotoHub'）のみ。/news 本体で使用。
+     * ⚠️ 車種・車両ページの「この車種のニュース」は RSS を含める仕様のため、このスコープを使わない。
+     */
+    public function scopeOriginal($query)
+    {
+        return $query->where('source', self::SOURCE_ORIGINAL);
     }
 }
