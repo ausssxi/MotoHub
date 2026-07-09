@@ -8,11 +8,12 @@ use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
-function feedShop(string $name = 'フィード店'): Shop
+function feedShop(string $name = 'フィード店', ?string $localImage = null): Shop
 {
     return Shop::create([
         'name' => $name, 'prefecture' => '東京都', 'city' => '世田谷区',
         'address' => 'fd-'.uniqid(), 'shop_type' => 'dealer', 'source' => Shop::SOURCE_SCRAPER,
+        'local_image_path' => $localImage,
     ]);
 }
 
@@ -69,6 +70,46 @@ it('links each comment to its shop page and shows the report affordance', functi
         ->assertSee(route('reports.store'), false);
 });
 
+// ─────────── 店外観写真（3.1） ───────────
+
+it('shows the shop photo with a lazy-loaded, onerror-fallback image when present', function () {
+    $shop = feedShop('写真つき店', 'shop-user/test-photo.jpg');
+    feedComment($shop, '写真つきの口コミ', true);
+
+    $res = $this->get('/shops/reviews')->assertOk();
+    $res->assertSee('shop-user/test-photo.jpg', false)  // display_image_url（公開ディスク）
+        ->assertSee('loading="lazy"', false)            // 遅延読み込み
+        ->assertSee('onerror', false);                  // 欠損フォールバック
+});
+
+it('renders without an image (placeholder) when the shop has none', function () {
+    $shop = feedShop('写真なし店');                     // local_image_path=null / image_url=null
+    feedComment($shop, '写真なしの口コミ', true);
+
+    expect($shop->display_image_url)->toBeNull();       // 画像URLが無い
+    $this->get('/shops/reviews')->assertOk()            // カードは壊れない（プレースホルダー）
+        ->assertSee('写真なしの口コミ');
+});
+
+// ─────────── 内部リンク強化（3.1） ───────────
+
+it('makes the card link to the shop and shows an explicit onward anchor with the shop name', function () {
+    $shop = feedShop('回遊先の店');
+    feedComment($shop, '回遊の口コミ', true);
+
+    $res = $this->get('/shops/reviews')->assertOk();
+    $res->assertSee(route('shops.show', $shop), false)          // カードクリック先＋明示アンカー
+        ->assertSee('回遊先の店の詳細・在庫を見る');            // アンカーテキストに店名（内部リンク価値）
+});
+
+it('links the location prefecture to its shop area page', function () {
+    $shop = feedShop('エリアリンクの店');
+    feedComment($shop, 'エリアの口コミ', true);
+
+    $this->get('/shops/reviews')->assertOk()
+        ->assertSee(route('shops.area.prefecture', $shop->prefecture), false);
+});
+
 // ─────────── ページネーション ───────────
 
 it('paginates at 20 per page', function () {
@@ -101,11 +142,12 @@ it('eager loads shops without N+1', function () {
     DB::enableQueryLog();
     $feed = app(ShopAcceptanceService::class)->getRecentCommentsFeed(20);
     foreach ($feed as $c) {
-        $c->shop->name; // 店名アクセス
+        $c->shop->name;               // 店名アクセス
+        $c->shop->display_image_url;  // 画像URLアクセサ（ロード済み属性のみ＝追加クエリ無し）
     }
     $queries = count(DB::getQueryLog());
     DB::disableQueryLog();
 
-    // count + select + eager-load(shop) 程度。件数(10)に比例しない（N+1なら12+）
+    // count + select + eager-load(shop) 程度。件数(10)に比例しない（N+1なら12+）。画像も追加クエリ無し。
     expect($queries)->toBeLessThanOrEqual(4);
 });
