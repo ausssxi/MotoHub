@@ -178,10 +178,9 @@ final class NewsController extends Controller
     {
         $bikeModel = BikeModel::with('manufacturer')->findOrFail($bikeModelId);
 
-        // /news セクション内（modelTabs 経由）のため、ここもオリジナルのみに揃える。
-        // ※ 車種・車両ページの「この車種のニュース」ブロックは BikeController 側の別クエリで RSS を残す。
-        $news = BikeNews::original()
-            ->where('bike_model_id', $bikeModelId)
+        // 車種スコープのニュースページ（/news/model/{id}）は RSS を含めて従来どおり表示する。
+        // オリジナルのみに絞るのは /news 本体（index の一覧・ファセット・注目）だけ。
+        $news = BikeNews::where('bike_model_id', $bikeModelId)
             ->latest()
             ->paginate(20);
 
