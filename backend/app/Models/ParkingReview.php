@@ -14,6 +14,7 @@ final class ParkingReview extends Model
         'user_id',
         'nickname',
         'submitter_ip_hash',
+        'is_approved',
         'rating',
         'body',
         'visited_at',
@@ -22,7 +23,14 @@ final class ParkingReview extends Model
     protected $casts = [
         'rating' => 'integer',
         'visited_at' => 'date',
+        'is_approved' => 'boolean',
     ];
+
+    /** 公開状態（即反映＝true・通報対応や新規ガードで false 化）。 */
+    public function scopeApproved(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('is_approved', true);
+    }
 
     public function bikeParking(): BelongsTo
     {

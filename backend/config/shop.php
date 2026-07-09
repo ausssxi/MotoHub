@@ -15,4 +15,10 @@ return [
     | 登録から this 日以内なら新規店扱い。既存スクレイパー店（source='scraper'）は対象外。
     */
     'new_user_shop_days' => (int) env('SHOP_NEW_USER_DAYS', 14),
+
+    /*
+    | ユーザー投稿由来の駐車場（bike_parkings.user_id あり）を「新規」とみなす日数。
+    | 新規は自作スポット＋自演レビュー対策でレビューを承認待ちにする（駐車場UGC横展開）。
+    */
+    'new_user_parking_days' => (int) env('SHOP_NEW_USER_PARKING_DAYS', 14),
 ];

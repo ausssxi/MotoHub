@@ -66,6 +66,14 @@ else
     echo "  注意: 店舗データが無いため /shops/{id} はスキップ"
 fi
 
+# 実在する駐車場IDを1件取得し、駐車場詳細（レビュー表示が走る経路）も対象に。
+parking_id="$(docker compose exec -T app php artisan tinker --execute='echo \App\Models\BikeParking::value("id");' 2>/dev/null | tr -cd '0-9')"
+if [ -n "$parking_id" ]; then
+    smoke_paths+=("/parking/$parking_id")
+else
+    echo "  注意: 駐車場データが無いため /parking/{id} はスキップ"
+fi
+
 smoke_failed=0
 for path in "${smoke_paths[@]}"; do
     code="$(docker compose exec -T app sh -c "curl -s -o /dev/null -w '%{http_code}' '${SMOKE_BASE}${path}'" 2>/dev/null || true)"

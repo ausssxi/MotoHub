@@ -39,6 +39,7 @@ final class Report extends Model
     /** クライアントの短トークン => 通報対象モデル。ここに無い型は受け付けない。 */
     public const REPORTABLE_TYPES = [
         'shop_comment' => ShopAcceptanceReport::class,
+        'parking_review' => ParkingReview::class,
     ];
 
     /** 通報理由キー => 表示ラベル。 */

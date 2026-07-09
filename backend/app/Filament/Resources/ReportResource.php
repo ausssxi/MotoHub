@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ReportResource\Pages;
+use App\Models\ParkingReview;
 use App\Models\Report;
 use App\Models\ShopAcceptanceReport;
 use Filament\Resources\Resource;
@@ -58,7 +59,12 @@ class ReportResource extends Resource
                         if ($r instanceof ShopAcceptanceReport) {
                             $shop = $r->shop?->name ?? '(店舗不明)';
 
-                            return $shop.'：「'.\Illuminate\Support\Str::limit((string) $r->comment, 40).'」';
+                            return '口コミ／'.$shop.'：「'.\Illuminate\Support\Str::limit((string) $r->comment, 40).'」';
+                        }
+                        if ($r instanceof ParkingReview) {
+                            $parking = $r->bikeParking?->name ?? '(駐車場不明)';
+
+                            return '駐車場レビュー／'.$parking.'：「'.\Illuminate\Support\Str::limit((string) $r->body, 40).'」';
                         }
 
                         return '(削除済み or 対象なし)';
@@ -83,11 +89,19 @@ class ReportResource extends Resource
                         if ($r instanceof ShopAcceptanceReport && $r->shop) {
                             return route('shops.show', $r->shop);
                         }
+                        if ($r instanceof ParkingReview && $r->bikeParking) {
+                            return route('parking.show', $r->bikeParking);
+                        }
 
                         return null;
                     })
                     ->openUrlInNewTab()
-                    ->visible(fn (Report $record): bool => $record->reportable instanceof ShopAcceptanceReport && $record->reportable->shop !== null),
+                    ->visible(function (Report $record): bool {
+                        $r = $record->reportable;
+
+                        return ($r instanceof ShopAcceptanceReport && $r->shop !== null)
+                            || ($r instanceof ParkingReview && $r->bikeParking !== null);
+                    }),
 
                 Tables\Actions\DeleteAction::make(),
             ])

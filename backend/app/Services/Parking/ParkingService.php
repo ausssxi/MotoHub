@@ -60,7 +60,7 @@ final class ParkingService
         // このエリアで売っているバイク（市区町村レベルに絞り込み、なければ都道府県）
         $nearbyListings = collect();
         if ($parking->city && $parking->prefecture) {
-            $nearbyListings = Listing::whereHas('shop', fn($q) => $q->where('prefecture', $parking->prefecture)->where('address', 'like', '%' . $parking->city . '%'))
+            $nearbyListings = Listing::whereHas('shop', fn ($q) => $q->where('prefecture', $parking->prefecture)->where('address', 'like', '%'.$parking->city.'%'))
                 ->where('is_sold_out', 0)
                 ->with(['shop', 'bikeModel'])
                 ->orderByDesc('created_at')
@@ -68,7 +68,7 @@ final class ParkingService
                 ->get();
         }
         if ($nearbyListings->isEmpty() && $parking->prefecture) {
-            $nearbyListings = Listing::whereHas('shop', fn($q) => $q->where('prefecture', $parking->prefecture))
+            $nearbyListings = Listing::whereHas('shop', fn ($q) => $q->where('prefecture', $parking->prefecture))
                 ->where('is_sold_out', 0)
                 ->with(['shop', 'bikeModel'])
                 ->orderByDesc('created_at')
@@ -119,7 +119,7 @@ final class ParkingService
         $parking = $this->parkingRepo->create($user, $data);
 
         // 画像保存
-        if (!empty($images)) {
+        if (! empty($images)) {
             $this->storeImages($parking, $images, $user);
         }
 
@@ -150,7 +150,7 @@ final class ParkingService
 
         // チェックボックス未送信時はfalseにする
         foreach (['is_free', 'is_covered', 'is_locked', 'has_security_camera', 'available_24h'] as $field) {
-            if (!isset($data[$field])) {
+            if (! isset($data[$field])) {
                 $data[$field] = false;
             }
         }
@@ -158,7 +158,7 @@ final class ParkingService
         $parking->update($data);
 
         // 画像削除
-        if (!empty($deleteImages)) {
+        if (! empty($deleteImages)) {
             $imagesToDelete = $parking->images()->whereIn('id', $deleteImages)->get();
             foreach ($imagesToDelete as $img) {
                 Storage::disk('public')->delete($img->image_path);
@@ -167,7 +167,7 @@ final class ParkingService
         }
 
         // 新しい画像追加
-        if (!empty($images)) {
+        if (! empty($images)) {
             $currentCount = $parking->images()->count();
             $this->storeImages($parking, $images, $user, $currentCount);
         }
@@ -177,6 +177,7 @@ final class ParkingService
 
     /**
      * 排気量制限をテキストから自動抽出
+     *
      * @return array{min: int|null, max: int|null, label: string|null}
      */
     public function parseDisplacementLimit(BikeParking $parking): array
@@ -197,12 +198,12 @@ final class ParkingService
         // "125cc以下のみ" "125ccまで" → max=125
         if (preg_match('/(\d+)\s*cc\s*(以下\s*(のみ|限定|まで)|まで)/u', $combined, $m)) {
             $result['max'] = (int) $m[1];
-            $result['label'] = ($result['label'] ? $result['label'] . ' / ' : '') . "{$m[1]}cc以下のみ";
+            $result['label'] = ($result['label'] ? $result['label'].' / ' : '')."{$m[1]}cc以下のみ";
         }
         // "大型不可" "大型バイク不可" → max=400
         if (preg_match('/大型\s*(バイク\s*)?(不可|禁止|×|NG)/u', $combined)) {
             $result['max'] = 400;
-            $result['label'] = ($result['label'] ? $result['label'] . ' / ' : '') . '大型不可';
+            $result['label'] = ($result['label'] ? $result['label'].' / ' : '').'大型不可';
         }
         // "排気量制限なし" "全排気量OK"
         if (preg_match('/(排気量\s*制限\s*な|全排気量|排気量\s*不問)/u', $combined)) {
@@ -220,10 +221,11 @@ final class ParkingService
         return Cache::remember('parking_bike_compat_samples', 86400, function () {
             // 代表的なバイクを排気量別に取得
             $sampleNames = ['PCX', 'スーパーカブ110', 'レブル250', 'Ninja400', 'CB400SF', 'Z900RS', 'ハヤブサ'];
+
             return BikeModel::whereIn('name', $sampleNames)
                 ->select('id', 'name', 'displacement', 'slug')
                 ->get()
-                ->map(fn(BikeModel $m) => [
+                ->map(fn (BikeModel $m) => [
                     'name' => $m->name,
                     'displacement' => $m->displacement,
                     'slug' => $m->slug,
@@ -239,7 +241,7 @@ final class ParkingService
      */
     private function getPriceComparison(BikeParking $parking): array
     {
-        if (!$parking->latitude || !$parking->longitude) {
+        if (! $parking->latitude || ! $parking->longitude) {
             return [];
         }
 
@@ -258,6 +260,7 @@ final class ParkingService
 
         return $nearbyForCompare->map(function (BikeParking $p) use ($parking) {
             $dist = $this->haversineDistance($parking->latitude, $parking->longitude, $p->latitude, $p->longitude);
+
             return [
                 'id' => $p->id,
                 'name' => $p->name,
@@ -278,6 +281,7 @@ final class ParkingService
         $dLat = deg2rad($lat2 - $lat1);
         $dLng = deg2rad($lng2 - $lng1);
         $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
         return $r * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
@@ -289,11 +293,20 @@ final class ParkingService
 
         $this->reviewRepo->create($parkingId, $data);
 
-        // avg_rating と reviews_count を再計算
+        $this->recomputeAggregates($parkingId);
+    }
+
+    /**
+     * avg_rating / reviews_count を「公開(is_approved=true)」レビューのみで再計算。
+     * 非公開化（通報対応・新規ガード）時も集計から除外されるよう、公開/非公開いずれの
+     * 変化でもこのメソッドを通す。
+     */
+    public function recomputeAggregates(int $parkingId): void
+    {
         $parking = $this->parkingRepo->findOrFail($parkingId);
         $parking->update([
-            'avg_rating' => $parking->reviews()->avg('rating'),
-            'reviews_count' => $parking->reviews()->count(),
+            'avg_rating' => $parking->reviews()->approved()->avg('rating') ?? 0,
+            'reviews_count' => $parking->reviews()->approved()->count(),
         ]);
     }
 }

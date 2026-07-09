@@ -124,6 +124,8 @@ class ParkingController extends Controller
         // 生IPは保存せず sha256(ip|app.key) のみ（連投・濫用の単位／将来の事後対応用）。
         $data = $request->validated();
         $data['submitter_ip_hash'] = hash('sha256', $request->ip().'|'.config('app.key'));
+        // 即反映（NGは保存前に弾く）。ただし新規ユーザー投稿駐車場は自演対策で承認待ち。
+        $data['is_approved'] = ! $bikeParking->isNewUserParking();
 
         $this->parkingService->addReview(
             $bikeParking->id,

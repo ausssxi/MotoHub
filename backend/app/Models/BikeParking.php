@@ -86,6 +86,25 @@ final class BikeParking extends Model
         return $this->hasMany(ParkingReview::class, 'bike_parking_id');
     }
 
+    /**
+     * ユーザー投稿由来の「新規駐車場」か。新規は自作スポット＋自演レビュー対策で
+     * レビューを承認待ちにする。既存（user_id=null＝スクレイパー/運営）は常に false。
+     * 基準日数は config('shop.new_user_parking_days')。
+     */
+    public function isNewUserParking(): bool
+    {
+        if ($this->user_id === null) {
+            return false;
+        }
+
+        $days = (int) config('shop.new_user_parking_days', 14);
+        if ($days <= 0 || $this->created_at === null) {
+            return false;
+        }
+
+        return $this->created_at->greaterThanOrEqualTo(now()->subDays($days));
+    }
+
     public function images(): HasMany
     {
         return $this->hasMany(BikeParkingImage::class)->orderBy('sort_order');
@@ -128,6 +147,7 @@ final class BikeParking extends Model
         $name = str_replace('☆', '', $name);
         // 連続スペースを1つに
         $name = preg_replace('/\s+/', ' ', trim($name));
+
         return $name;
     }
 
@@ -150,13 +170,13 @@ final class BikeParking extends Model
 
         $parts = [];
         if ($this->price_per_hour) {
-            $parts[] = number_format($this->price_per_hour) . '円/時';
+            $parts[] = number_format($this->price_per_hour).'円/時';
         }
         if ($this->price_per_day) {
-            $parts[] = number_format($this->price_per_day) . '円/日';
+            $parts[] = number_format($this->price_per_day).'円/日';
         }
         if ($this->price_per_month) {
-            $parts[] = number_format($this->price_per_month) . '円/月';
+            $parts[] = number_format($this->price_per_month).'円/月';
         }
 
         return $parts ? implode(' / ', $parts) : '料金不明';
