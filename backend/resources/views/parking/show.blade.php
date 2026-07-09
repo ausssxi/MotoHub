@@ -807,12 +807,18 @@
                     レビュー ({{ $reviews->count() }}件)
                 </h2>
 
+                @if(session('report_success'))
+                <div class="mb-3 text-[11px] font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                    報告を受け付けました。確認します。ご協力ありがとうございます。
+                </div>
+                @endif
+
                 @if($reviews->isEmpty())
                 <p class="text-sm text-gray-400 text-center py-8">まだレビューはありません。最初のレビューを投稿しましょう！</p>
                 @else
                 <div class="space-y-4">
                     @foreach($reviews as $review)
-                    <div class="border-b border-gray-50 pb-4 last:border-b-0 last:pb-0">
+                    <div class="border-b border-gray-50 pb-4 last:border-b-0 last:pb-0" x-data="{ report: false }">
                         <div class="flex items-center justify-between mb-2">
                             <div class="flex items-center gap-2">
                                 {{-- 公開表示名（本名は出さない。ログイン投稿はハンドル・ゲストはニックネーム） --}}
@@ -823,12 +829,37 @@
                                     @endfor
                                 </div>
                             </div>
-                            <span class="text-[10px] text-gray-400">{{ $review->created_at->format('Y/m/d') }}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-gray-400">{{ $review->created_at->format('Y/m/d') }}</span>
+                                <button type="button" @click="report = !report"
+                                    class="inline-flex items-center gap-0.5 text-[9px] font-bold text-gray-300 hover:text-rose-500 transition-colors"
+                                    aria-label="このレビューを報告する">
+                                    <i data-lucide="flag" class="w-2.5 h-2.5"></i>報告
+                                </button>
+                            </div>
                         </div>
                         <p class="text-sm text-gray-700 whitespace-pre-line">{{ $review->body }}</p>
                         @if($review->visited_at)
                         <p class="text-[10px] text-gray-400 mt-1">訪問日: {{ $review->visited_at->format('Y/m/d') }}</p>
                         @endif
+
+                        {{-- 報告フォーム（フェーズ1の reports.store 連携・polymorphic parking_review） --}}
+                        <form x-show="report" x-cloak method="POST" action="{{ route('reports.store') }}" class="mt-2 pt-2 border-t border-gray-100 space-y-1.5">
+                            @csrf
+                            <input type="hidden" name="type" value="parking_review">
+                            <input type="hidden" name="id" value="{{ $review->id }}">
+                            <p class="text-[10px] font-bold text-gray-500">報告の理由（任意）</p>
+                            <div class="flex flex-wrap gap-1.5">
+                                @foreach(\App\Models\Report::REASONS as $key => $label)
+                                <label class="inline-flex items-center gap-1 cursor-pointer text-[10px] text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5">
+                                    <input type="radio" name="reason" value="{{ $key }}" class="accent-rose-500 w-2.5 h-2.5">{{ $label }}
+                                </label>
+                                @endforeach
+                            </div>
+                            {{-- ハニーポット（人間には非表示・ボット除け） --}}
+                            <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
+                            <button type="submit" class="text-[10px] font-black text-white bg-rose-500 hover:bg-rose-600 rounded-lg px-3 py-1 transition">報告する</button>
+                        </form>
                     </div>
                     @endforeach
                 </div>
