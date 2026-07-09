@@ -26,7 +26,9 @@ final class NewsController extends Controller
         $manufacturerId = $request->query('manufacturer_id');
         $bikeModelId = $request->query('bike_model_id');
 
-        $query = BikeNews::latest();
+        // /news はオリジナル記事（source='MotoHub'）のみ。RSS集約は主導線から外す。
+        // ※ 車種・車両ページの「この車種のニュース」は別クエリ/別サービスのため影響しない。
+        $query = BikeNews::original()->latest();
 
         if ($bikeModelId) {
             $query->where('bike_model_id', $bikeModelId);
@@ -45,9 +47,9 @@ final class NewsController extends Controller
             },
         ]);
 
-        // ニュースが存在するメーカー一覧
+        // ニュースが存在するメーカー一覧（オリジナル記事のみ・空メーカータブを出さない）
         $manufacturers = Manufacturer::orderBy('name')
-            ->whereIn('id', BikeNews::whereNotNull('manufacturer_id')->distinct()->pluck('manufacturer_id'))
+            ->whereIn('id', BikeNews::original()->whereNotNull('manufacturer_id')->distinct()->pluck('manufacturer_id'))
             ->get();
 
         // 選択メーカーの車種サブタブ（bike_newsに紐づくもののみ、件数順）
@@ -55,6 +57,7 @@ final class NewsController extends Controller
         if ($manufacturerId) {
             $modelTabs = BikeModel::select('bike_models.id', 'bike_models.name', 'bike_models.local_image_path')
                 ->join('bike_news', 'bike_news.bike_model_id', '=', 'bike_models.id')
+                ->where('bike_news.source', BikeNews::SOURCE_ORIGINAL) // オリジナルに紐づく車種のみ
                 ->where('bike_models.manufacturer_id', $manufacturerId)
                 ->groupBy('bike_models.id', 'bike_models.name', 'bike_models.local_image_path')
                 ->orderByRaw('COUNT(*) DESC')
@@ -65,7 +68,8 @@ final class NewsController extends Controller
         // 注目ニュース（1ページ目のみ、コメント+ピック数上位3件）
         $featured = collect();
         if (! $request->filled('page') || (int) $request->query('page') === 1) {
-            $featuredQuery = BikeNews::selectRaw('*, (comments_count + picks_count) as engagement')
+            $featuredQuery = BikeNews::original()
+                ->selectRaw('*, (comments_count + picks_count) as engagement')
                 ->where(function ($q) {
                     $q->where('comments_count', '>', 0)->orWhere('picks_count', '>', 0);
                 })
@@ -174,7 +178,10 @@ final class NewsController extends Controller
     {
         $bikeModel = BikeModel::with('manufacturer')->findOrFail($bikeModelId);
 
-        $news = BikeNews::where('bike_model_id', $bikeModelId)
+        // /news セクション内（modelTabs 経由）のため、ここもオリジナルのみに揃える。
+        // ※ 車種・車両ページの「この車種のニュース」ブロックは BikeController 側の別クエリで RSS を残す。
+        $news = BikeNews::original()
+            ->where('bike_model_id', $bikeModelId)
             ->latest()
             ->paginate(20);
 
