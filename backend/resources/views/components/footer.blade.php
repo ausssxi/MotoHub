@@ -145,6 +145,9 @@
                         <a href="{{ route('bikes.overseas') }}" class="footer-link">輸入バイク中古車</a>
                     </li>
                     <li>
+                        <a href="{{ route('bikes.model_compare_hub') }}" class="footer-link">バイク車種を比較する</a>
+                    </li>
+                    <li>
                         <a href="{{ route('parts.index') }}" class="footer-link">バイクパーツ検索</a>
                     </li>
                     <li>

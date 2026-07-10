@@ -1499,6 +1499,16 @@ final class BikeController extends Controller
         // キャッシュ外＝インポート/打刻の即時反映。verified行のある task のみ。
         $viewData['fitmentSummary'] = app(\App\Services\Fitment\FitmentSummaryService::class)->forModel($model);
 
+        // この車種を含む比較ページ（オーファン解消の内部リンク・存在する active ペアのみ・最大6）。
+        $viewData['relatedCompares'] = \App\Models\SeoCompare::active()
+            ->where(function ($q) use ($model) {
+                $q->where('model1_id', $model->id)->orWhere('model2_id', $model->id);
+            })
+            ->ordered()
+            ->with(['model1', 'model2'])
+            ->limit(6)
+            ->get();
+
         return $viewData;
     }
 

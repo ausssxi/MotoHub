@@ -49,7 +49,8 @@
                                 </div>
                             @endif
                         </div>
-                        <p class="mt-3 font-black text-gray-900 text-sm">{{ $model1->name }}</p>
+                        {{-- 逆方向の内部リンク: 各車種の詳細ページへ --}}
+                        <a href="{{ $model1->seo_url }}" class="mt-3 inline-block font-black text-blue-600 text-sm hover:underline">{{ $model1->name }}の詳細</a>
                         <p class="text-xs font-bold text-gray-400">{{ $model1->manufacturer?->name }} / {{ $model1->displacement ? $model1->displacement . 'cc' : '-' }}</p>
                     </div>
                     <div class="text-center">
@@ -63,7 +64,7 @@
                                 </div>
                             @endif
                         </div>
-                        <p class="mt-3 font-black text-gray-900 text-sm">{{ $model2->name }}</p>
+                        <a href="{{ $model2->seo_url }}" class="mt-3 inline-block font-black text-blue-600 text-sm hover:underline">{{ $model2->name }}の詳細</a>
                         <p class="text-xs font-bold text-gray-400">{{ $model2->manufacturer?->name }} / {{ $model2->displacement ? $model2->displacement . 'cc' : '-' }}</p>
                     </div>
                 </div>

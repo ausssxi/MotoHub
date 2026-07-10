@@ -764,6 +764,28 @@
                         </div>
                     </div>
 
+                    {{-- 関連する比較（この車種を含む比較ページへの内部リンク・存在ペアのみ・オーファン解消） --}}
+                    @if(!empty($relatedCompares) && $relatedCompares->count() > 0)
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <h2 class="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                            <i data-lucide="git-compare" class="w-5 h-5 text-blue-600"></i> {{ $model->name }} の比較
+                        </h2>
+                        <div class="space-y-2">
+                            @foreach($relatedCompares as $cmp)
+                            <a href="{{ $cmp->url }}" class="flex items-center justify-between gap-2 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 transition-colors">
+                                <span class="text-sm font-black text-gray-800 truncate">{{ $cmp->model1->name }} <span class="text-gray-400 font-bold">vs</span> {{ $cmp->model2->name }}</span>
+                                <span class="shrink-0 inline-flex items-center gap-1 text-xs font-bold text-blue-600">比較を見る<i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></span>
+                            </a>
+                            @endforeach
+                        </div>
+                        <div class="mt-4 text-center">
+                            <a href="{{ route('bikes.model_compare_hub') }}" class="inline-flex items-center gap-1.5 text-sm font-bold text-blue-600 hover:underline">
+                                他の車種比較を見る<i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
+
                     </div>{{-- /tab-panel-overview --}}
 
                     {{-- ===== タブ2: 相場・価格 ===== --}}
