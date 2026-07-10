@@ -48,8 +48,9 @@
                         <p class="text-sm text-gray-500 font-bold mb-5">
                             この駐車場をご存知ですか？ 登録してMotoHubに掲載しましょう。
                         </p>
+                        {{-- bg-green-600 はコンパイル済みCSSに存在（bg-emerald-600 はパージ済み＝無背景で押せなさそうに見えた） --}}
                         <a href="{{ route('parking.create') }}"
-                           class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm px-6 py-3 rounded-xl transition active:scale-[0.99]">
+                           class="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-black text-sm px-6 py-3 rounded-xl transition active:scale-[0.99]">
                             <i data-lucide="plus-circle" class="w-4 h-4"></i>
                             駐車場を登録する
                         </a>
