@@ -56,3 +56,32 @@ it('keeps the existing map controls intact (regression)', function () {
         ->assertSee('id="map"', false)                     // 地図コンテナ
         ->assertSee('layers-changed', false);              // レイヤートグルのイベント
 });
+
+// ─────────── モバイル破綻修正: 地図の外の帯 / デスクトップは従来オーバーレイ ───────────
+
+it('renders the mobile onboarding as a band above the map (not an overlay)', function () {
+    $html = $this->get('/riders-map')->assertOk()->getContent();
+
+    // モバイル用ラッパ（sm:hidden・オーバーレイでない＝absolute bottom を使わない帯）が存在
+    expect($html)->toContain('sm:hidden relative bg-white border-b');
+    // その帯は地図コンテナ(#map)より前に出る＝地図の外・上
+    $bandPos = strpos($html, 'sm:hidden relative bg-white border-b');
+    $mapPos = strpos($html, 'id="map"');
+    expect($bandPos)->not->toBeFalse()->and($bandPos)->toBeLessThan($mapPos);
+});
+
+it('keeps the desktop onboarding as the bottom-center overlay (unchanged)', function () {
+    $html = $this->get('/riders-map')->assertOk()->getContent();
+
+    // デスクトップ用ラッパ（sm以上のみ・地図下部中央の絶対配置オーバーレイ）を維持
+    expect($html)->toContain('hidden sm:block absolute bottom-4 left-1/2');
+});
+
+it('shares one dismiss key and the AI-route wiring across both breakpoints', function () {
+    $html = $this->get('/riders-map')->assertOk()->getContent();
+
+    // dismiss キーは両ラッパ共通（partial 経由で2回・同一キー）
+    expect(substr_count($html, 'riders_map_onboarding_dismissed_at'))->toBeGreaterThanOrEqual(2);
+    // AI-route は既存 #btn-ai-route クリック流用（新規関数なし）
+    expect($html)->toContain("getElementById('btn-ai-route').click()");
+});
