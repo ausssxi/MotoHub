@@ -46,6 +46,16 @@ class ParkingController extends Controller
     }
 
     /**
+     * 全駐車場横断「みんなの口コミ（新着）」フィード（/shops/reviews の駐車場版）。
+     */
+    public function reviewsFeed(): View
+    {
+        return view('parking.reviews_index', [
+            'reviews' => $this->parkingService->getRecentReviewsFeed(20)->withQueryString(),
+        ]);
+    }
+
+    /**
      * 地図用エリア検索API
      */
     public function search(Request $request): JsonResponse

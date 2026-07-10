@@ -130,6 +130,9 @@
                         <a href="{{ route('parking.station.index') }}" class="footer-link">駅から駐車場を探す</a>
                     </li>
                     <li>
+                        <a href="{{ route('parking.reviews') }}" class="footer-link">駐車場の口コミ（新着）</a>
+                    </li>
+                    <li>
                         <a href="{{ route('shops.area.index') }}" class="footer-link">エリアからバイクショップを探す</a>
                     </li>
                     <li>

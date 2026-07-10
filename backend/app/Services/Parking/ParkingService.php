@@ -285,6 +285,22 @@ final class ParkingService
         return $r * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
+    /**
+     * 全駐車場横断の「新着口コミ」フィード。公開(is_approved=true)かつ本文ありのレビューを
+     * created_at 降順で。駐車場（名・所在地・写真）と投稿者を eager load（N+1回避）。
+     * 複合index idx_parking_review_approved_created を利用。
+     */
+    public function getRecentReviewsFeed(int $perPage = 20): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    {
+        return \App\Models\ParkingReview::approved()
+            ->whereNotNull('body')
+            ->where('body', '!=', '')       // 星のみ（本文なし）は口コミフィードに出さない
+            ->whereHas('bikeParking')       // 消えた駐車場のレビューは出さない
+            ->with(['bikeParking.images', 'user']) // 駐車場名/所在地/写真/display_name
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
+    }
+
     public function addReview(int $parkingId, ?User $user, array $data): void
     {
         if ($user) {

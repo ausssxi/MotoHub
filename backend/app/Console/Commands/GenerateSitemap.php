@@ -142,6 +142,9 @@ class GenerateSitemap extends Command
             // ショップ口コミ 新着フィード（全店横断・即反映コメントが集まる）
             ['route' => 'shops.reviews',     'priority' => '0.6', 'freq' => 'daily'],
 
+            // 駐車場口コミ 新着フィード（全駐車場横断）
+            ['route' => 'parking.reviews',   'priority' => '0.6', 'freq' => 'daily'],
+
             // パーツ検索
             ['route' => 'parts.index',       'priority' => '0.7', 'freq' => 'weekly'],
 
