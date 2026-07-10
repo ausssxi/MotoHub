@@ -40,6 +40,7 @@ final class Report extends Model
     public const REPORTABLE_TYPES = [
         'shop_comment' => ShopAcceptanceReport::class,
         'parking_review' => ParkingReview::class,
+        'news_comment' => NewsComment::class,
     ];
 
     /** 通報理由キー => 表示ラベル。 */

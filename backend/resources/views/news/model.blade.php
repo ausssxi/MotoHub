@@ -47,7 +47,7 @@
                     @php $latestComment = $article->comments->first(); @endphp
                     <div class="mt-2 flex items-start gap-2 bg-gray-50 rounded-lg p-2">
                         <div class="w-5 h-5 rounded-full bg-gray-300 flex-shrink-0 overflow-hidden">
-                            @if($latestComment->user->avatar)
+                            @if($latestComment->user?->avatar)
                                 <img src="{{ $latestComment->user->avatar }}" alt="" class="w-full h-full object-cover">
                             @endif
                         </div>

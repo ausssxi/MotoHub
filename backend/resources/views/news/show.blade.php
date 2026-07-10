@@ -105,23 +105,38 @@
                 <h2 class="text-lg font-black text-gray-900">コメント <span class="text-sm text-gray-400 font-bold">({{ $comments->count() }})</span></h2>
             </div>
 
-            {{-- コメント投稿フォーム --}}
-            @auth
-            <div x-data="{ body: '', submitting: false, error: '' }" class="mb-6">
+            @if(session('report_success'))
+            <div class="mb-4 text-[11px] font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                報告を受け付けました。確認します。ご協力ありがとうございます。
+            </div>
+            @endif
+
+            {{-- コメント投稿フォーム（ログイン不要。安全弁: NGワード＋honeypot＋IPハッシュ＋throttle＋通報＋キルスイッチ） --}}
+            <div x-data="{ body: '', nickname: '', website: '', submitting: false, error: '' }" class="mb-6">
                 <div class="flex gap-3">
                     <div class="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center overflow-hidden flex-shrink-0">
-                        @if(auth()->user()->avatar)
-                            <img src="{{ auth()->user()->avatar }}" alt="" class="w-full h-full object-cover">
+                        @auth
+                            @if(auth()->user()->avatar)
+                                <img src="{{ auth()->user()->avatar }}" alt="" class="w-full h-full object-cover">
+                            @else
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            @endif
                         @else
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                        @endif
+                        @endauth
                     </div>
                     <div class="flex-1">
+                        @guest
+                        <input x-model="nickname" maxlength="50" placeholder="お名前（任意・未入力なら「名無しライダー」）"
+                               class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mb-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                        @endguest
                         <textarea x-model="body" maxlength="500" rows="3" placeholder="コメントを書く..."
                                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition"></textarea>
+                        {{-- ハニーポット（人間には非表示・ボット除け） --}}
+                        <input type="text" x-model="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
                         <div class="flex items-center justify-between mt-2">
                             <span class="text-[10px] text-gray-400" x-text="body.length + '/500'"></span>
-                            <button @click="if(body.trim() && !submitting){ submitting=true; error=''; fetch('{{ route('news.comment', $newsItem->id) }}', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}, body:JSON.stringify({body:body}) }).then(r=>{ if(!r.ok) throw r; return r.json(); }).then(d=>{ location.reload(); }).catch(()=>{ error='投稿に失敗しました'; submitting=false; }) }"
+                            <button @click="if(body.trim() && !submitting){ submitting=true; error=''; fetch('{{ route('news.comment', $newsItem->id) }}', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}, body:JSON.stringify({body:body, nickname:nickname, website:website}) }).then(async r=>{ if(!r.ok){ let m='投稿に失敗しました'; try{ const e=await r.json(); if(e.errors&&e.errors.body) m=e.errors.body[0]; else if(e.message) m=e.message; }catch(_){} throw new Error(m); } return r.json(); }).then(d=>{ location.reload(); }).catch(e=>{ error=e.message||'投稿に失敗しました'; submitting=false; }) }"
                                     :disabled="!body.trim() || submitting"
                                     class="px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-full hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
                                 <span x-text="submitting ? '投稿中...' : '投稿'"></span>
@@ -131,19 +146,13 @@
                     </div>
                 </div>
             </div>
-            @else
-            <div class="mb-6 bg-gray-50 rounded-xl p-4 text-center">
-                <p class="text-sm text-gray-500 mb-2">コメントするにはログインが必要です</p>
-                <a href="{{ route('login') }}" class="inline-flex items-center gap-1 px-4 py-2 bg-black text-white text-xs font-bold rounded-full hover:bg-gray-800 transition">ログイン</a>
-            </div>
-            @endauth
 
             {{-- コメント一覧 --}}
             <div class="space-y-4">
                 @forelse($comments as $comment)
-                <div class="flex gap-3">
+                <div class="flex gap-3" x-data="{ report: false }">
                     <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                        @if($comment->user->avatar)
+                        @if($comment->user?->avatar)
                             <img src="{{ $comment->user->avatar }}" alt="" class="w-full h-full object-cover">
                         @else
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
@@ -151,9 +160,14 @@
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 mb-1">
-                            {{-- 公開ハンドルのみ（本名 user->name は出さない） --}}
-                            <span class="text-xs font-bold text-gray-800">{{ $comment->user->review_display_name ?? '名無しライダー' }}</span>
+                            {{-- 公開表示名（ログイン=ハンドル / ゲスト=nickname・本名は出さない） --}}
+                            <span class="text-xs font-bold text-gray-800">{{ $comment->display_name }}</span>
                             <span class="text-[10px] text-gray-400">{{ $comment->created_at->diffForHumans() }}</span>
+                            <button type="button" @click="report = !report"
+                                    class="ml-auto inline-flex items-center gap-0.5 text-[9px] font-bold text-gray-300 hover:text-rose-500 transition-colors"
+                                    aria-label="このコメントを報告する">
+                                <i data-lucide="flag" class="w-2.5 h-2.5"></i>報告
+                            </button>
                         </div>
                         <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line break-words">{{ $comment->body }}</p>
                         <div class="mt-1.5" x-data="{ liked: {{ in_array($comment->id, $likedCommentIds) ? 'true' : 'false' }}, count: {{ $comment->likes_count }}, loading: false }">
@@ -164,10 +178,28 @@
                                 <span x-text="count"></span>
                             </button>
                         </div>
+
+                        {{-- 報告フォーム（フェーズ1の reports.store 連携・polymorphic news_comment） --}}
+                        <form x-show="report" x-cloak method="POST" action="{{ route('reports.store') }}" class="mt-2 pt-2 border-t border-gray-100 space-y-1.5">
+                            @csrf
+                            <input type="hidden" name="type" value="news_comment">
+                            <input type="hidden" name="id" value="{{ $comment->id }}">
+                            <p class="text-[10px] font-bold text-gray-500">報告の理由（任意）</p>
+                            <div class="flex flex-wrap gap-1.5">
+                                @foreach(\App\Models\Report::REASONS as $key => $label)
+                                <label class="inline-flex items-center gap-1 cursor-pointer text-[10px] text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5">
+                                    <input type="radio" name="reason" value="{{ $key }}" class="accent-rose-500 w-2.5 h-2.5">{{ $label }}
+                                </label>
+                                @endforeach
+                            </div>
+                            {{-- ハニーポット（人間には非表示・ボット除け） --}}
+                            <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
+                            <button type="submit" class="text-[10px] font-black text-white bg-rose-500 hover:bg-rose-600 rounded-lg px-3 py-1 transition">報告する</button>
+                        </form>
                     </div>
                 </div>
                 @empty
-                <p class="text-sm text-gray-400 text-center py-4">まだコメントはありません</p>
+                <p class="text-sm text-gray-400 text-center py-4">まだコメントはありません。最初のひとことをどうぞ。</p>
                 @endforelse
             </div>
         </div>

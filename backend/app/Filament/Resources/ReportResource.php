@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ReportResource\Pages;
+use App\Models\NewsComment;
 use App\Models\ParkingReview;
 use App\Models\Report;
 use App\Models\ShopAcceptanceReport;
@@ -66,6 +67,11 @@ class ReportResource extends Resource
 
                             return '駐車場レビュー／'.$parking.'：「'.\Illuminate\Support\Str::limit((string) $r->body, 40).'」';
                         }
+                        if ($r instanceof NewsComment) {
+                            $title = $r->news?->title ?? '(記事不明)';
+
+                            return 'ニュースコメント／'.\Illuminate\Support\Str::limit($title, 24).'：「'.\Illuminate\Support\Str::limit((string) $r->body, 40).'」';
+                        }
 
                         return '(削除済み or 対象なし)';
                     })
@@ -92,6 +98,9 @@ class ReportResource extends Resource
                         if ($r instanceof ParkingReview && $r->bikeParking) {
                             return route('parking.show', $r->bikeParking);
                         }
+                        if ($r instanceof NewsComment && $r->news) {
+                            return route('news.show', $r->news);
+                        }
 
                         return null;
                     })
@@ -100,7 +109,8 @@ class ReportResource extends Resource
                         $r = $record->reportable;
 
                         return ($r instanceof ShopAcceptanceReport && $r->shop !== null)
-                            || ($r instanceof ParkingReview && $r->bikeParking !== null);
+                            || ($r instanceof ParkingReview && $r->bikeParking !== null)
+                            || ($r instanceof NewsComment && $r->news !== null);
                     }),
 
                 Tables\Actions\DeleteAction::make(),
