@@ -47,30 +47,6 @@
                 });
             }
 
-            function markUsed(parkingId) {
-                const btn = document.getElementById('btn-used');
-                btn.disabled = true;
-                btn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor" class="opacity-75"/></svg>';
-
-                fetch(`/parking/${parkingId}/used`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                        'Accept': 'application/json',
-                    }
-                })
-                .then(r => r.json())
-                .then(data => {
-                    document.getElementById('used-count').textContent = data.used_count;
-                    btn.innerHTML = '\u2713 \u56DE\u7B54\u6E08\u307F';
-                    btn.classList.remove('bg-gray-100', 'hover:bg-green-100', 'text-gray-600');
-                    btn.classList.add('bg-green-100', 'text-green-700');
-                })
-                .catch(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i data-lucide="check-circle" class="w-4 h-4"></i> \u4F7F\u3063\u305F\uFF01';
-                });
-            }
         </script>
     </x-slot:scripts>
 
@@ -297,6 +273,31 @@
                     @endif
                 </div>
             </div>
+
+            {{-- 口コミサマリー（検索流入者のファーストビュー用・料金の下に埋もれさせず本体へアンカー） --}}
+            <a href="#reviews" class="block bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6 hover:border-green-200 transition-colors">
+                <div class="flex items-center justify-between gap-3">
+                    @if($reviews->count() > 0)
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="flex items-center gap-1 shrink-0">
+                            <span class="text-2xl font-black text-yellow-500">{{ number_format($parking->avg_rating, 1) }}</span>
+                            <i data-lucide="star" class="w-5 h-5 text-yellow-400 fill-yellow-400"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-sm font-black text-gray-800">利用者の口コミ {{ $reviews->count() }}件</p>
+                            <p class="text-xs text-gray-400 truncate">停めやすさ・見つけやすさの実際の声</p>
+                        </div>
+                    </div>
+                    <span class="shrink-0 inline-flex items-center gap-1 text-xs font-black text-green-700 bg-green-50 px-3 py-1.5 rounded-full">口コミを見る<i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></span>
+                    @else
+                    <div class="min-w-0">
+                        <p class="text-sm font-black text-gray-800">この駐車場の口コミはまだありません</p>
+                        <p class="text-xs text-gray-400">最初の一人になって、停めやすさを教えてください。</p>
+                    </div>
+                    <span class="shrink-0 inline-flex items-center gap-1 text-xs font-black text-white bg-green-600 px-3 py-1.5 rounded-full">口コミを書く<i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></span>
+                    @endif
+                </div>
+            </a>
 
             {{-- ===== 3. 写真ギャラリー（カルーセル表示） ===== --}}
             @if($parking->images->isNotEmpty())
@@ -800,11 +801,11 @@
             </div>
             @endif
 
-            {{-- レビュー一覧 --}}
-            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6">
+            {{-- レビュー一覧（口コミサマリーのアンカー先） --}}
+            <div id="reviews" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6 scroll-mt-20">
                 <h2 class="text-sm font-black text-gray-900 mb-4 flex items-center gap-2">
                     <i data-lucide="message-square" class="w-4 h-4 text-green-600"></i>
-                    レビュー ({{ $reviews->count() }}件)
+                    口コミ ({{ $reviews->count() }}件)
                 </h2>
 
                 @if(session('report_success'))
@@ -870,22 +871,10 @@
                 @endif
             </div>
 
-            {{-- 「使ったことある」ボタン --}}
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6 flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-bold text-gray-700">この駐車場を使ったことがある？</p>
-                    <p class="text-xs text-gray-400"><span id="used-count">{{ $parking->used_count ?? 0 }}</span>人が「使った」と回答</p>
-                </div>
-                <button id="btn-used" onclick="markUsed({{ $parking->id }})"
-                    class="bg-gray-100 hover:bg-green-100 text-gray-600 hover:text-green-700 font-bold text-sm px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2">
-                    <i data-lucide="check-circle" class="w-4 h-4"></i>
-                    使った！
-                </button>
-            </div>
-
-            {{-- レビュー投稿フォーム --}}
+            {{-- レビュー投稿フォーム（口コミ一覧の直後＝読んで→書く。星タップ→コメント欄が開く唯一の投稿導線） --}}
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-                <h2 class="text-lg font-black text-gray-900 mb-4">この駐車場を使ったことがありますか？</h2>
+                <h2 class="text-lg font-black text-gray-900 mb-1">この駐車場のレビューを書く</h2>
+                <p class="text-xs text-gray-400 mb-4">星をタップすると一言コメント欄が開きます（コメントは任意・即反映）。</p>
 
                 @if(session('review_success'))
                 @php $reviewData = json_decode(session('review_success'), true); @endphp
