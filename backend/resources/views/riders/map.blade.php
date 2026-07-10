@@ -92,6 +92,16 @@
         <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
+    {{-- (a) 初回オンボーディング【モバイル】。地図の外＝上の独立した帯（オーバーレイにしない＝
+         検索窓・レイヤートグル・地図操作と原理的に重ならない）。×で dismiss すると帯ごと消え
+         地図が上に詰まる。デスクトップ(sm以上)は地図内オーバーレイ（下部中央）で表示。 --}}
+    <div x-data="{ show: false }"
+         x-init="show = ! localStorage.getItem('riders_map_onboarding_dismissed_at')"
+         x-show="show" x-cloak
+         class="sm:hidden relative bg-white border-b border-gray-100 shadow-sm px-4 py-4">
+        @include('riders._onboarding')
+    </div>
+
     <div class="relative w-full">
         <div id="map" class="w-full bg-gray-100"></div>
 
@@ -114,38 +124,13 @@
             </div>
         </div>
 
-        {{-- (a) 初回オンボーディング。初回のみ表示・×でdismiss（localStorage無期限記憶）。
-             地図上部は検索窓・トグルが占有しているため、コントロールと非干渉な下部中央へ配置。
-             z-30=現在地ボタン(z-40)・ボトムナビ(z-50)より下＝操作を妨げない。 --}}
+        {{-- (a) 初回オンボーディング【デスクトップ】。地図下部中央のオーバーレイ（従来・破綻なし・sm以上のみ）。
+             z-30=現在地ボタン(z-40)・ボトムナビ(z-50)より下＝操作を妨げない。モバイルは地図の外（上）の帯に分離。 --}}
         <div x-data="{ show: false }"
              x-init="show = ! localStorage.getItem('riders_map_onboarding_dismissed_at')"
              x-show="show" x-cloak
-             class="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 w-[min(440px,calc(100%-6rem))] bg-white rounded-2xl shadow-xl border border-gray-100 p-4">
-            <button type="button"
-                    @click="localStorage.setItem('riders_map_onboarding_dismissed_at', Date.now().toString()); show = false"
-                    class="absolute top-2 right-2 text-gray-300 hover:text-gray-500 p-1" aria-label="閉じる">
-                <i data-lucide="x" class="w-4 h-4"></i>
-            </button>
-            <p class="text-sm font-black text-gray-800 pr-6">このマップでできること</p>
-            <p class="text-xs text-gray-600 leading-relaxed mt-1.5">
-                行きたいエリアを開くと、バイク駐車場・給油ポイント・道の駅・ツーリング記事が地図に重なります。気になる場所をタップして、そのまま走るルートも引けます。
-            </p>
-            <div class="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[11px] font-bold text-gray-500">
-                <span>🅿️ 駐車場を探す</span>
-                <span>⛽ 給油ポイント</span>
-                <span>🔥 ツーリング記事</span>
-            </div>
-            <div class="flex flex-wrap items-center gap-x-3 gap-y-2 mt-3">
-                {{-- 主CTA: 既存「AIルート提案」アクションを流用（#btn-ai-route を発火・新規実装なし） --}}
-                <a href="#" @click.prevent="document.getElementById('btn-ai-route').click()"
-                   class="bg-violet-600 hover:bg-violet-700 text-white text-xs font-black px-4 py-2.5 rounded-xl transition inline-flex items-center gap-1">
-                    AIにルートを提案してもらう →
-                </a>
-                {{-- 従CTA: /touring（記事一覧）へ --}}
-                <a href="{{ route('touring.index') }}" class="text-xs font-bold text-gray-500 hover:text-blue-600 underline underline-offset-2">
-                    ツーリング記事から探す
-                </a>
-            </div>
+             class="hidden sm:block absolute bottom-4 left-1/2 -translate-x-1/2 z-30 w-[min(440px,calc(100%-6rem))] bg-white rounded-2xl shadow-xl border border-gray-100 p-4">
+            @include('riders._onboarding')
         </div>
 
         {{-- レイヤートグル --}}
