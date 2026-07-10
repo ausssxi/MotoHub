@@ -347,6 +347,8 @@ Route::prefix('parking')->name('parking.')->controller(ParkingController::class)
     Route::get('/api/search', 'search')->name('search');
     // 駐車場名検索（/shops/search と同型・DB LIKE・/{bikeParking} の前に配置）
     Route::get('/search', [\App\Http\Controllers\Parking\ParkingSearchController::class, 'index'])->name('name-search')->middleware('throttle:60,1');
+    // 全駐車場横断の口コミ新着フィード（/shops/reviews の駐車場版・/{bikeParking} の前に配置）
+    Route::get('/reviews', 'reviewsFeed')->name('reviews');
     Route::get('/create', 'create')->name('create')->middleware('auth');
     Route::get('/{bikeParking}', 'show')->name('show')->where('bikeParking', '[0-9]+');
     Route::post('/{bikeParking}/review', 'storeReview')->name('review')->where('bikeParking', '[0-9]+')->middleware('throttle:3,1');

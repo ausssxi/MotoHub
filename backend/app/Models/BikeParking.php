@@ -110,6 +110,24 @@ final class BikeParking extends Model
         return $this->hasMany(BikeParkingImage::class)->orderBy('sort_order');
     }
 
+    /**
+     * 表示用画像URL（Shop::display_image_url と同等）。
+     * 投稿画像(images)の先頭 → 外部 image_url → null。
+     * ※ フィード等では images を eager load して N+1 を防ぐこと。
+     */
+    public function getDisplayImageUrlAttribute(): ?string
+    {
+        $first = $this->images->first();
+        if ($first && ! empty($first->image_path)) {
+            return asset('storage/'.ltrim($first->image_path, '/'));
+        }
+        if (! empty($this->image_url)) {
+            return $this->image_url;
+        }
+
+        return null;
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
