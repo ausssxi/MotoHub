@@ -80,7 +80,7 @@
                                 @endif
                                 <span>・{{ $cmt->created_at->diffForHumans() }}</span>
                                 <button type="button" @click="report = !report"
-                                    class="ml-auto inline-flex items-center gap-0.5 font-bold text-gray-300 hover:text-rose-500 transition-colors"
+                                    class="ml-auto inline-flex items-center gap-0.5 font-bold text-gray-300 hover:text-red-500 transition-colors"
                                     aria-label="この投稿を報告する">
                                     <i data-lucide="flag" class="w-2.5 h-2.5"></i>報告
                                 </button>
@@ -103,13 +103,13 @@
                         <div class="flex flex-wrap gap-1.5">
                             @foreach(\App\Models\Report::REASONS as $key => $label)
                             <label class="inline-flex items-center gap-1 cursor-pointer text-[10px] text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5">
-                                <input type="radio" name="reason" value="{{ $key }}" class="accent-rose-500 w-2.5 h-2.5">{{ $label }}
+                                <input type="radio" name="reason" value="{{ $key }}" class="accent-red-500 w-2.5 h-2.5">{{ $label }}
                             </label>
                             @endforeach
                         </div>
                         {{-- ハニーポット（人間には非表示・ボット除け） --}}
                         <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
-                        <button type="submit" class="text-[10px] font-black text-white bg-rose-500 hover:bg-rose-600 rounded-lg px-3 py-1 transition">報告する</button>
+                        <button type="submit" class="text-[10px] font-black text-white bg-red-500 hover:bg-red-600 rounded-lg px-3 py-1 transition">報告する</button>
                     </form>
                 </li>
                 @empty
