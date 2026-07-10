@@ -660,6 +660,45 @@ class GenerateSitemap extends Command
 
             $this->closeSitemap($handle);
             $this->info(" -> {$compareCount} URL (Compare)");
+        }
+
+        // =========================================================
+        // 3.6. 車種Q&A 質問詳細ページ (sitemap-questions.xml)
+        //  公開質問（is_approved）のロングテールSEO受け皿。slug 到達可能な車種のみ。
+        // =========================================================
+        if (\App\Models\ModelQuestion::approved()->exists()) {
+            $this->info('車種Q&A サイトマップを生成中...');
+            $questionFileName = 'sitemap-questions.xml';
+            $handle = $this->openSitemap($questionFileName);
+            $sitemapFiles[] = $questionFileName;
+            $questionCount = 0;
+
+            \App\Models\ModelQuestion::approved()
+                ->with(['bikeModel.manufacturer'])
+                ->chunk(200, function ($questions) use ($handle, &$questionCount) {
+                    foreach ($questions as $q) {
+                        $model = $q->bikeModel;
+                        $mfr = $model?->manufacturer;
+                        if (! $model || ! $mfr || empty($mfr->slug)) {
+                            continue;
+                        }
+                        $this->writeUrl(
+                            $handle,
+                            route('bikes.model_question', [
+                                'mfrSlug' => $mfr->slug,
+                                'modelSlug' => $model->slug ?? $model->id,
+                                'id' => $q->id,
+                            ]),
+                            $q->updated_at->toDateString(),
+                            'weekly',
+                            '0.5'
+                        );
+                        $questionCount++;
+                    }
+                });
+
+            $this->closeSitemap($handle);
+            $this->info(" -> {$questionCount} URL (Q&A Questions)");
         } else {
             $this->info('比較サイトマップ: スキップ(gated until Slice B)');
         }

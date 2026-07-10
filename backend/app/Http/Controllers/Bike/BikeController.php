@@ -1499,6 +1499,14 @@ final class BikeController extends Controller
         // キャッシュ外＝インポート/打刻の即時反映。verified行のある task のみ。
         $viewData['fitmentSummary'] = app(\App\Services\Fitment\FitmentSummaryService::class)->forModel($model);
 
+        // 車種Q&A（購入検討の疑問・相談。公開質問を新着順・回答数付き・最大5）。
+        $viewData['modelQuestions'] = \App\Models\ModelQuestion::approved()
+            ->where('bike_model_id', $model->id)
+            ->withCount('approvedAnswers')
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get();
+
         // この車種を含む比較ページ（オーファン解消の内部リンク・存在する active ペアのみ・最大6）。
         $viewData['relatedCompares'] = \App\Models\SeoCompare::active()
             ->where(function ($q) use ($model) {

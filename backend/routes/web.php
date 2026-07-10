@@ -270,6 +270,18 @@ Route::get('/bikes/{mfrSlug}/{modelSlug}/reviews', [BikeController::class, 'mode
     ->where('mfrSlug', '[a-z][a-z0-9\-]*')
     ->name('bikes.model_reviews');
 
+// 車種Q&A 質問詳細（ロングテールSEOの固有URL・/{mfr}/{model} の前に配置）
+Route::get('/bikes/{mfrSlug}/{modelSlug}/questions/{id}', [\App\Http\Controllers\Bike\ModelQaController::class, 'showQuestion'])
+    ->where(['mfrSlug' => '[a-z][a-z0-9\-]*', 'id' => '[0-9]+'])
+    ->name('bikes.model_question');
+// 質問・回答の投稿・参考になった（ログイン不要・安全弁: NGワード＋honeypot＋IPハッシュ＋throttle＋通報＋キルスイッチ）
+Route::post('/bikes/models/{modelId}/questions', [\App\Http\Controllers\Bike\ModelQaController::class, 'storeQuestion'])
+    ->where('modelId', '[0-9]+')->name('bikes.model_question.store')->middleware('throttle:3,1');
+Route::post('/bikes/questions/{questionId}/answers', [\App\Http\Controllers\Bike\ModelQaController::class, 'storeAnswer'])
+    ->where('questionId', '[0-9]+')->name('bikes.model_answer.store')->middleware('throttle:3,1');
+Route::post('/bikes/answers/{answerId}/helpful', [\App\Http\Controllers\Bike\ModelQaController::class, 'markHelpful'])
+    ->where('answerId', '[0-9]+')->name('bikes.model_answer.helpful')->middleware('throttle:20,1');
+
 Route::get('/bikes/{mfrSlug}/{modelSlug}', [BikeController::class, 'modelDetailBySlug'])
     ->where('mfrSlug', '[a-z][a-z0-9\-]*')
     ->name('bikes.model_detail');

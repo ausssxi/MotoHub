@@ -1872,6 +1872,64 @@
                     </div>
                     @endif
 
+                    {{-- ===== 車種Q&A（レビューとは別枠：レビュー＝乗った感想／Q&A＝購入検討の疑問にオーナーが答える） ===== --}}
+                    <div id="questions" class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100 scroll-mt-20">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="bg-blue-100 text-blue-600 p-2 rounded-lg"><i data-lucide="messages-square" class="w-5 h-5"></i></span>
+                            <h2 class="text-xl font-black text-gray-900">{{ $model->name }} の質問・相談</h2>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-5">購入検討で気になることを、オーナーや詳しい人に聞けます（レビューとは別。ログイン不要）。</p>
+
+                        @if(session('qa_success') === 'question')
+                        <div class="mb-4 text-sm font-bold text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">質問を投稿しました。回答が付くのを待ちましょう！</div>
+                        @endif
+
+                        {{-- 質問一覧（新着順・回答数付き） --}}
+                        @if(!empty($modelQuestions) && $modelQuestions->count() > 0)
+                        <ul class="space-y-2 mb-6">
+                            @foreach($modelQuestions as $q)
+                            <a href="{{ route('bikes.model_question', ['mfrSlug' => $model->manufacturer->slug ?? $model->manufacturer_id, 'modelSlug' => $model->slug ?? $model->id, 'id' => $q->id]) }}"
+                               class="flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 transition-colors">
+                                <span class="text-sm font-bold text-gray-800 truncate">{{ $q->title }}</span>
+                                <span class="shrink-0 text-xs font-black {{ $q->approved_answers_count > 0 ? 'text-gray-500' : 'text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full' }}">
+                                    {{ $q->approved_answers_count > 0 ? '回答'.$q->approved_answers_count.'件' : '回答募集中' }}
+                                </span>
+                            </a>
+                            @endforeach
+                        </ul>
+                        @else
+                        {{-- 0件: 歓迎トーン --}}
+                        <div class="text-center py-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200 mb-6">
+                            <p class="text-sm text-gray-600 font-bold mb-1">この車種への質問はまだありません。</p>
+                            <p class="text-xs text-gray-500">購入検討で気になることを、オーナーに聞いてみましょう。</p>
+                        </div>
+                        @endif
+
+                        {{-- 質問フォーム（タイトル必須＋詳細任意＋ニックネーム任意・ログイン不要） --}}
+                        <div class="bg-gray-50 rounded-2xl p-5 border border-gray-100" x-data="{ open: {{ ($modelQuestions->count() ?? 0) === 0 ? 'true' : 'false' }} }">
+                            <button type="button" @click="open = !open" class="w-full flex items-center justify-between text-left">
+                                <span class="text-sm font-black text-gray-900">この{{ $model->name }}について質問する</span>
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="open && 'rotate-180'"></i>
+                            </button>
+                            @error('title')<p class="text-xs font-bold text-red-500 mt-2">{{ $message }}</p>@enderror
+                            <form x-show="open" x-cloak method="POST" action="{{ route('bikes.model_question.store', $model->id) }}" class="mt-3 space-y-2">
+                                @csrf
+                                <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
+                                <input type="text" name="title" maxlength="120" required value="{{ old('title') }}"
+                                       placeholder="例: 足つきはどうですか？ 身長165cmです"
+                                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                <textarea name="body" rows="2" maxlength="2000" placeholder="詳しく（任意）"
+                                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">{{ old('body') }}</textarea>
+                                <div class="flex gap-2">
+                                    @guest
+                                    <input type="text" name="nickname" maxlength="50" value="{{ old('nickname') }}" placeholder="お名前（任意）" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                                    @endguest
+                                    <button type="submit" class="shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm px-6 py-2 rounded-lg transition ml-auto">質問する</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
                     </div>{{-- /tab-panel-community --}}
 
                     {{-- ===== タブ外: 関連コンテンツ（全タブ共通表示） ===== --}}
