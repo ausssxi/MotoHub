@@ -3,6 +3,8 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ReportResource\Pages;
+use App\Models\ModelAnswer;
+use App\Models\ModelQuestion;
 use App\Models\NewsComment;
 use App\Models\ParkingReview;
 use App\Models\Report;
@@ -72,6 +74,16 @@ class ReportResource extends Resource
 
                             return 'ニュースコメント／'.\Illuminate\Support\Str::limit($title, 24).'：「'.\Illuminate\Support\Str::limit((string) $r->body, 40).'」';
                         }
+                        if ($r instanceof ModelQuestion) {
+                            $m = $r->bikeModel?->name ?? '(車種不明)';
+
+                            return 'Q&A質問／'.$m.'：「'.\Illuminate\Support\Str::limit((string) $r->title, 40).'」';
+                        }
+                        if ($r instanceof ModelAnswer) {
+                            $m = $r->question?->bikeModel?->name ?? '(車種不明)';
+
+                            return 'Q&A回答／'.$m.'：「'.\Illuminate\Support\Str::limit((string) $r->body, 40).'」';
+                        }
 
                         return '(削除済み or 対象なし)';
                     })
@@ -101,16 +113,26 @@ class ReportResource extends Resource
                         if ($r instanceof NewsComment && $r->news) {
                             return route('news.show', $r->news);
                         }
+                        $question = $r instanceof ModelQuestion ? $r : ($r instanceof ModelAnswer ? $r->question : null);
+                        if ($question && $question->bikeModel && ($m = $question->bikeModel->manufacturer)) {
+                            return route('bikes.model_question', [
+                                'mfrSlug' => $m->slug,
+                                'modelSlug' => $question->bikeModel->slug ?? $question->bikeModel->id,
+                                'id' => $question->id,
+                            ]);
+                        }
 
                         return null;
                     })
                     ->openUrlInNewTab()
                     ->visible(function (Report $record): bool {
                         $r = $record->reportable;
+                        $question = $r instanceof ModelQuestion ? $r : ($r instanceof ModelAnswer ? $r->question : null);
 
                         return ($r instanceof ShopAcceptanceReport && $r->shop !== null)
                             || ($r instanceof ParkingReview && $r->bikeParking !== null)
-                            || ($r instanceof NewsComment && $r->news !== null);
+                            || ($r instanceof NewsComment && $r->news !== null)
+                            || ($question && $question->bikeModel && $question->bikeModel->manufacturer);
                     }),
 
                 Tables\Actions\DeleteAction::make(),

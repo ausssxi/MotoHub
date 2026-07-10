@@ -196,6 +196,11 @@ final class BikeModel extends Model
             ->orderBy('created_at', 'desc');
     }
 
+    public function questions(): HasMany
+    {
+        return $this->hasMany(ModelQuestion::class);
+    }
+
     public function marketStats(): HasOne
     {
         return $this->hasOne(BikeModelMarketStat::class);

@@ -41,6 +41,8 @@ final class Report extends Model
         'shop_comment' => ShopAcceptanceReport::class,
         'parking_review' => ParkingReview::class,
         'news_comment' => NewsComment::class,
+        'model_question' => ModelQuestion::class,
+        'model_answer' => ModelAnswer::class,
     ];
 
     /** 通報理由キー => 表示ラベル。 */
