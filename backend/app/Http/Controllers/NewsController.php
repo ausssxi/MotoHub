@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\News\StoreNewsCommentRequest;
 use App\Models\BikeModel;
 use App\Models\BikeNews;
 use App\Models\Listing;
@@ -43,7 +44,7 @@ final class NewsController extends Controller
             'bikeModel',
             'manufacturer',
             'comments' => function ($q) {
-                $q->latest()->limit(1)->with('user');
+                $q->approved()->latest()->limit(1)->with('user');
             },
         ]);
 
@@ -103,8 +104,9 @@ final class NewsController extends Controller
     {
         $newsItem = BikeNews::with(['bikeModel', 'manufacturer'])->findOrFail($id);
 
-        // コメント（いいね数順 → 新着順）
+        // コメント（公開のみ・いいね数順 → 新着順）
         $comments = NewsComment::where('news_id', $id)
+            ->approved()
             ->with('user')
             ->orderByDesc('likes_count')
             ->orderByDesc('created_at')
@@ -185,7 +187,7 @@ final class NewsController extends Controller
             ->paginate(20);
 
         $news->load(['comments' => function ($q) {
-            $q->latest()->limit(1)->with('user');
+            $q->approved()->latest()->limit(1)->with('user');
         }]);
 
         return view('news.model', [
@@ -197,18 +199,24 @@ final class NewsController extends Controller
     /**
      * コメント投稿
      */
-    public function comment(Request $request, int $newsId): JsonResponse
+    public function comment(StoreNewsCommentRequest $request, int $newsId): JsonResponse
     {
-        $request->validate([
-            'body' => 'required|string|max:500',
-        ]);
-
         $newsItem = BikeNews::findOrFail($newsId);
+
+        // 表示名: ログインは公開ハンドル、ゲストは入力 nickname（本名 user->name は使わない）。
+        $userId = auth()->id();
+        $nickname = $userId
+            ? null
+            : (trim(strip_tags((string) $request->input('nickname'))) ?: '名無しライダー');
 
         $comment = NewsComment::create([
             'news_id' => $newsId,
-            'user_id' => auth()->id(),
+            'user_id' => $userId,
+            'nickname' => $nickname,
             'body' => $request->input('body'),
+            'is_approved' => true, // 即反映。通報対応で is_approved=false のキルスイッチ。
+            // 生IPは保存せず sha256(ip|app.key) のみ（連投・濫用の単位）。
+            'submitter_ip_hash' => hash('sha256', $request->ip().'|'.config('app.key')),
         ]);
 
         $newsItem->increment('comments_count');
@@ -223,9 +231,8 @@ final class NewsController extends Controller
                 'likes_count' => 0,
                 'created_at' => $comment->created_at->format('Y/m/d H:i'),
                 'user' => [
-                    // 公開ハンドルのみ（本名 user->name は出さない）
-                    'name' => $comment->user->review_display_name ?? '名無しライダー',
-                    'avatar' => $comment->user->avatar,
+                    'name' => $comment->display_name, // 公開ハンドル or nickname（本名は出さない）
+                    'avatar' => $comment->user?->avatar,
                 ],
             ],
         ]);

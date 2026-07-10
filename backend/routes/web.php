@@ -387,10 +387,12 @@ Route::prefix('news')->name('news.')->controller(NewsController::class)->group(f
     Route::get('/', 'index')->name('index');
     Route::get('/model/{bikeModelId}', 'model')->name('model');
     Route::get('/{id}', 'show')->name('show')->where('id', '[0-9]+');
+    // コメント投稿はログイン不要（安全弁: NGワード＋honeypot＋IPハッシュ＋throttle＋通報＋キルスイッチ）
+    Route::post('/{newsId}/comment', 'comment')->name('comment')->middleware('throttle:3,1');
 });
 
 Route::middleware('auth')->prefix('news')->name('news.')->controller(NewsController::class)->group(function () {
-    Route::post('/{newsId}/comment', 'comment')->name('comment')->middleware('throttle:3,1');
+    // ピック・いいねはログイン必須のまま（本人紐付けが要る機能）
     Route::post('/{newsId}/pick', 'togglePick')->name('pick')->middleware('throttle:10,1');
     Route::post('/comment/{commentId}/like', 'toggleCommentLike')->name('comment.like')->middleware('throttle:10,1');
 });
