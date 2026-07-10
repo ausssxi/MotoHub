@@ -350,7 +350,6 @@ Route::prefix('parking')->name('parking.')->controller(ParkingController::class)
     Route::get('/create', 'create')->name('create')->middleware('auth');
     Route::get('/{bikeParking}', 'show')->name('show')->where('bikeParking', '[0-9]+');
     Route::post('/{bikeParking}/review', 'storeReview')->name('review')->where('bikeParking', '[0-9]+')->middleware('throttle:3,1');
-    Route::post('/{bikeParking}/used', 'incrementUsed')->name('used')->where('bikeParking', '[0-9]+')->middleware('throttle:10,1');
 });
 
 // 駅別駐車場ページ

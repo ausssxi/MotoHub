@@ -139,14 +139,4 @@ class ParkingController extends Controller
                 'url' => route('parking.show', $bikeParking),
             ]));
     }
-
-    /**
-     * 「使ったことある」カウントアップ
-     */
-    public function incrementUsed(BikeParking $bikeParking): JsonResponse
-    {
-        $bikeParking->increment('used_count');
-
-        return response()->json(['used_count' => $bikeParking->fresh()->used_count]);
-    }
 }
