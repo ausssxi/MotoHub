@@ -25,6 +25,43 @@ class GenerateSitemap extends Command
     // 1ファイルあたりのURL上限 (Google推奨: 10,000以下)
     private const MAX_URLS_PER_FILE = 10000;
 
+    // Googleニュース sitemap のファイル名（news:news 付き・直近2日のオリジナルのみ）
+    public const GOOGLE_NEWS_SITEMAP = 'sitemap-news.xml';
+
+    /**
+     * Googleニュース sitemap の対象記事: オリジナル(source='MotoHub')かつ直近2日(48h)以内。
+     * Google News sitemap の仕様（2日より古い記事は含めない）に準拠。
+     *
+     * @return \Illuminate\Support\Collection<int,\App\Models\BikeNews>
+     */
+    public static function googleNewsArticles(): \Illuminate\Support\Collection
+    {
+        return \App\Models\BikeNews::original()
+            ->where('published_at', '>=', now()->subDays(2))
+            ->orderByDesc('published_at')
+            ->get(['id', 'title', 'published_at']);
+    }
+
+    /** Googleニュース sitemap の 1URL 分（<news:news> 付き）を返す。 */
+    public static function renderNewsSitemapEntry(\App\Models\BikeNews $news): string
+    {
+        $loc = htmlspecialchars(route('news.show', $news->id), ENT_XML1, 'UTF-8');
+        $title = htmlspecialchars((string) $news->title, ENT_XML1, 'UTF-8');
+        $pubDate = $news->published_at->toAtomString();
+
+        return '    <url>'.PHP_EOL
+            ."        <loc>{$loc}</loc>".PHP_EOL
+            .'        <news:news>'.PHP_EOL
+            .'            <news:publication>'.PHP_EOL
+            .'                <news:name>MotoHub</news:name>'.PHP_EOL
+            .'                <news:language>ja</news:language>'.PHP_EOL
+            .'            </news:publication>'.PHP_EOL
+            ."            <news:publication_date>{$pubDate}</news:publication_date>".PHP_EOL
+            ."            <news:title>{$title}</news:title>".PHP_EOL
+            .'        </news:news>'.PHP_EOL
+            .'    </url>'.PHP_EOL;
+    }
+
     // IndexNow 1リクエストあたりの最大URL数
     private const INDEXNOW_BATCH_SIZE = 10000;
 
@@ -912,6 +949,28 @@ class GenerateSitemap extends Command
         $this->info(" -> {$fitmentsCount} URL (Fitments)");
 
         // =========================================================
+        // 4.6.4. Googleニュース sitemap (sitemap-news.xml)
+        //  仕様: 直近2日(48h)以内に公開された「オリジナル」記事のみ。
+        //  RSS転載記事は含めない（scopeOriginal）。デイリーランキングで常時1本以上入る想定。
+        // =========================================================
+        $this->info('ニュース sitemap を生成中...');
+        $newsFileName = self::GOOGLE_NEWS_SITEMAP;
+        $newsHandle = fopen(public_path($newsFileName), 'w');
+        fwrite($newsHandle, '<?xml version="1.0" encoding="UTF-8"?>'.PHP_EOL);
+        fwrite($newsHandle, '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">'.PHP_EOL);
+        $sitemapFiles[] = $newsFileName;
+        $newsCount = 0;
+
+        foreach (self::googleNewsArticles() as $news) {
+            fwrite($newsHandle, self::renderNewsSitemapEntry($news));
+            $newsCount++;
+        }
+
+        fwrite($newsHandle, '</urlset>');
+        fclose($newsHandle);
+        $this->info(" -> {$newsCount} URL (News・直近2日のオリジナルのみ)");
+
+        // =========================================================
         // 4.7. 駅別駐車場ページ (sitemap-parking-station.xml)
         // =========================================================
         $this->info('駅別駐車場サイトマップを生成中...');
@@ -1118,10 +1177,12 @@ class GenerateSitemap extends Command
         $this->info(" -> {$chainCount} URL (Chains)");
 
         // =========================================================
-        // 6.10. オリジナルニュースサイトマップ (sitemap-news.xml)
+        // 6.10. オリジナルニュース記事の通常サイトマップ (sitemap-news-articles.xml)
+        //  全オリジナル記事＋一覧ページを通常indexing用に収録。
+        //  ※ Googleニュース用の news:news 付きは別途 sitemap-news.xml（4.6.4）。
         // =========================================================
-        $this->info('オリジナルニュースサイトマップを生成中...');
-        $newsFileName = 'sitemap-news.xml';
+        $this->info('オリジナルニュース記事サイトマップを生成中...');
+        $newsFileName = 'sitemap-news-articles.xml';
         $handle = $this->openSitemap($newsFileName);
         $sitemapFiles[] = $newsFileName;
         $newsCount = 0;
@@ -1131,7 +1192,7 @@ class GenerateSitemap extends Command
         $newsCount++;
 
         // MotoHubオリジナル記事のみ
-        \App\Models\BikeNews::where('source', 'MotoHub')
+        \App\Models\BikeNews::original()
             ->orderByDesc('published_at')
             ->chunk(500, function ($articles) use ($handle, &$newsCount) {
                 foreach ($articles as $article) {
@@ -1147,7 +1208,7 @@ class GenerateSitemap extends Command
             });
 
         $this->closeSitemap($handle);
-        $this->info(" -> {$newsCount} URL (Original News)");
+        $this->info(" -> {$newsCount} URL (News Articles・全オリジナル)");
 
         // =========================================================
         // 6.11. 在庫あり車両詳細サイトマップ (sitemap-listings-1.xml)

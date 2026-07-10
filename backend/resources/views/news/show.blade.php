@@ -8,6 +8,9 @@
     @endif
     <x-slot:navigation><x-navigation :showSearch="true" /></x-slot:navigation>
 
+    {{-- 構造化データ: NewsArticle（オリジナル記事のみ・コンポーネントが source で自己ガード） --}}
+    <x-jsonld.news-article :news="$newsItem" />
+
     <div class="max-w-4xl mx-auto px-4 py-6 sm:py-10">
         {{-- パンくず --}}
         <nav class="flex text-xs font-bold text-gray-400 mb-6">
