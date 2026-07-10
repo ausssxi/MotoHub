@@ -153,6 +153,8 @@ class GenerateSitemap extends Command
             ['route' => 'data',              'priority' => '0.6', 'freq' => 'monthly'],
             ['route' => 'trouble.index',     'priority' => '0.6', 'freq' => 'monthly'],
             ['route' => 'bikes.compare',     'priority' => '0.5', 'freq' => 'daily'],
+            // 車種比較ハブ（個別比較ページの入口・オーファン解消）
+            ['route' => 'bikes.model_compare_hub', 'priority' => '0.5', 'freq' => 'weekly'],
             ['route' => 'wishlist',          'priority' => '0.5', 'freq' => 'monthly'],
 
             // 情報ページ
