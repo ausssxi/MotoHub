@@ -50,18 +50,6 @@
             {{-- 駐車場名で探す（/shops/area の店名検索と同型） --}}
             <x-parking-name-search />
 
-            {{-- 駐車場を登録する（マップと同じ登録フロー＝parking.create へ・未ログインはログインへ誘導） --}}
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5 mb-6 flex items-center justify-between gap-3">
-                <div>
-                    <p class="text-sm font-black text-gray-900">停めた駐車場が見つからない？</p>
-                    <p class="text-xs text-gray-500 mt-0.5">まだ掲載されていない駐車場を登録できます。</p>
-                </div>
-                <a href="{{ route('parking.create') }}"
-                   class="shrink-0 inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm px-4 py-2.5 rounded-lg transition active:scale-[0.99]">
-                    <i data-lucide="plus-circle" class="w-4 h-4"></i>駐車場を登録する
-                </a>
-            </div>
-
             {{-- 地方ブロック別 --}}
             @foreach($regions as $regionName => $prefs)
             <section class="mb-8">
@@ -94,6 +82,21 @@
                     マップで駐車場を探す
                 </a>
             </div>
+
+            {{-- 未掲載駐車場の登録導線（/shops/area の緑カードと同型・カード全体クリック可能）。
+                 使用クラスはコンパイル済みCSSに存在するもの（bg-emerald-50/text-emerald-*・bg-emerald-600は不使用）。
+                 駐車場登録は即掲載（is_active=true）＝ショップ投稿の「承認後」文言は使わない。要ログイン。 --}}
+            <a href="{{ route('parking.create') }}"
+               class="mt-8 flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-2xl p-5 hover:shadow-md transition-shadow">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="plus-circle" class="w-6 h-6 text-emerald-600"></i>
+                    <div>
+                        <p class="text-sm font-black text-gray-800">停めた駐車場が見つからない？</p>
+                        <p class="text-xs text-gray-500 font-bold">掲載されていない駐車場を登録する（要ログイン）</p>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-5 h-5 text-emerald-400"></i>
+            </a>
         </div>
     </div>
 </x-layout>
