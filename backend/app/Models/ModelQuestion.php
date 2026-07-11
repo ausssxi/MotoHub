@@ -48,6 +48,12 @@ final class ModelQuestion extends Model
         return $this->hasMany(ModelAnswer::class)->where('is_approved', true);
     }
 
+    /** 「回答が付いたら通知」購読（ログイン不要・匿名はendpoint_hashで識別）。 */
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushQuestionSubscription::class);
+    }
+
     /**
      * 公開表示名。★本名(user->name)は絶対に出さない。
      * ログインは公開ハンドル、ゲストは入力 nickname、未設定は「名無しライダー」。

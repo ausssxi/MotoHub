@@ -10,6 +10,7 @@ use App\Http\Requests\Bike\StoreModelQuestionRequest;
 use App\Models\BikeModel;
 use App\Models\ModelAnswer;
 use App\Models\ModelQuestion;
+use App\Models\PushQuestionSubscription;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -61,7 +62,7 @@ final class ModelQaController extends Controller
     {
         $model = BikeModel::findOrFail($modelId);
 
-        ModelQuestion::create([
+        $question = ModelQuestion::create([
             'bike_model_id' => $model->id,
             'user_id' => $request->user()?->id,
             'nickname' => $this->guestNickname($request),
@@ -70,6 +71,9 @@ final class ModelQaController extends Controller
             'is_approved' => true, // 即反映・通報でキルスイッチ
             'submitter_ip_hash' => hash('sha256', $request->ip().'|'.config('app.key')),
         ]);
+
+        // 「回答が付いたら通知」に許可した場合のみ購読を質問へ紐付ける（断られても投稿は正常完了）
+        $this->maybeSubscribeToAnswers($request, $question);
 
         return redirect($model->seo_url.'#questions')->with('qa_success', 'question');
     }
@@ -98,6 +102,34 @@ final class ModelQaController extends Controller
         $answer->increment('helpful_count');
 
         return response()->json(['helpful_count' => $answer->fresh()->helpful_count]);
+    }
+
+    /**
+     * 質問への「回答通知」購読を保存（任意）。endpoint等が揃っている時だけ紐付ける。
+     * 匿名識別は endpoint_hash を流用（新規PIIは保存しない）。ログイン時は user_id も残す。
+     */
+    private function maybeSubscribeToAnswers(Request $request, ModelQuestion $question): void
+    {
+        $endpoint = trim((string) $request->input('push_endpoint'));
+        $p256dh = trim((string) $request->input('push_p256dh'));
+        $auth = trim((string) $request->input('push_auth'));
+
+        if ($endpoint === '' || $p256dh === '' || $auth === '') {
+            return; // 未許可 or 非対応環境 → 通知なしで正常完了（マイナス無し）
+        }
+
+        PushQuestionSubscription::updateOrCreate(
+            [
+                'endpoint_hash' => hash('sha256', $endpoint),
+                'model_question_id' => $question->id,
+            ],
+            [
+                'endpoint' => $endpoint,
+                'p256dh' => $p256dh,
+                'auth' => $auth,
+                'user_id' => $request->user()?->id,
+            ],
+        );
     }
 
     /** ゲスト表示名（ログイン時は null＝display_name がハンドルを使う。本名は使わない）。 */

@@ -26,6 +26,10 @@ final class StoreModelQuestionRequest extends FormRequest
             'nickname' => ['nullable', 'string', 'max:50'],
             // ハニーポット: 通常ユーザーは空。値が入っていればボット。
             'website' => ['nullable', 'size:0'],
+            // 「回答が付いたら通知」の購読情報（任意・JSがsubmit時に詰める。無ければ通知なしで正常完了）
+            'push_endpoint' => ['nullable', 'string', 'max:1000'],
+            'push_p256dh' => ['nullable', 'string', 'max:255'],
+            'push_auth' => ['nullable', 'string', 'max:255'],
         ];
     }
 

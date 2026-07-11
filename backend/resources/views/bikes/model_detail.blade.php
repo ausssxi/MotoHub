@@ -47,6 +47,7 @@
         <script src="{{ asset('js/promo/engagement-banner.js') }}?v={{ asset_buster(public_path('js/promo/engagement-banner.js')) }}" defer></script>
         <script src="{{ asset('js/bikes/model_detail.js') }}?v={{ asset_buster(public_path('js/bikes/model_detail.js')) }}" defer></script>
         <script src="{{ asset('js/bikes/review.js') }}?v={{ asset_buster(public_path('js/bikes/review.js')) }}" defer></script>
+        <script src="{{ asset('js/qa-push.js') }}?v={{ asset_buster(public_path('js/qa-push.js')) }}" defer></script>
         {{-- Chart.js遅延読み込み: チャート要素が表示された時にCDNからロード --}}
         <script>
             (function() {
@@ -1946,7 +1947,7 @@
                                 <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="open && 'rotate-180'"></i>
                             </button>
                             @error('title')<p class="text-xs font-bold text-red-500 mt-2">{{ $message }}</p>@enderror
-                            <form x-show="open" x-cloak method="POST" action="{{ route('bikes.model_question.store', $model->id) }}" class="mt-3 space-y-2">
+                            <form x-show="open" x-cloak method="POST" action="{{ route('bikes.model_question.store', $model->id) }}" class="mt-3 space-y-2" data-qa-push-form>
                                 @csrf
                                 <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
                                 <input type="text" name="title" maxlength="120" required value="{{ old('title') }}"
@@ -1960,6 +1961,14 @@
                                     @endguest
                                     <button type="submit" class="shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm px-6 py-2 rounded-lg transition ml-auto">質問する</button>
                                 </div>
+                                {{-- 「回答が付いたら通知」オプトイン。JSが対応環境でのみ表示（既定hidden）。ログイン不要・メール不要。 --}}
+                                <label data-qa-push-optin class="hidden items-center gap-2 text-xs font-bold text-gray-600 cursor-pointer select-none">
+                                    <input type="checkbox" name="qa_notify_optin" value="1" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                    <span>回答が付いたら、このブラウザに通知でお知らせ（無料・登録不要）</span>
+                                </label>
+                                <input type="hidden" name="push_endpoint" value="">
+                                <input type="hidden" name="push_p256dh" value="">
+                                <input type="hidden" name="push_auth" value="">
                             </form>
                         </div>
                     </div>
