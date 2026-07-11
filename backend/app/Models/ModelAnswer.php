@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\PurgesReportsOnDelete;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 final class ModelAnswer extends Model
 {
+    use PurgesReportsOnDelete;
+
     protected $fillable = [
         'model_question_id', 'user_id', 'nickname', 'body', 'submitter_ip_hash', 'is_approved', 'helpful_count',
     ];
