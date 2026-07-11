@@ -1,0 +1,87 @@
+<?php
+
+// 車種ページのUGCダイジェスト（投稿導線の前方露出）。
+// model_detail はSQLite描画不可（既存 UgcEmptyStateNudgeTest 参照）のため静的ガードで検証する。
+
+function detailBlade(): string
+{
+    return file_get_contents(resource_path('views/bikes/model_detail.blade.php'));
+}
+
+// ─────────── A. ダイジェストの新設・位置 ───────────
+
+it('renders the owner-voice digest before the tab panels (visible without operating tabs)', function () {
+    $b = detailBlade();
+
+    expect($b)->toContain('オーナーの声 ダイジェスト')          // 新設セクション
+        ->toContain('オーナーレビュー')
+        ->toContain('質問・相談');
+
+    // ダイジェストはタブ内容(tab-panel-overview)より手前に置かれている
+    expect(strpos($b, 'オーナーの声 ダイジェスト'))
+        ->toBeLessThan(strpos($b, 'id="tab-panel-overview"'));
+});
+
+it('reuses existing controller variables for the digest (no new query)', function () {
+    $b = detailBlade();
+
+    // レビューは既存 $model->reviews、Q&Aは既存 $modelQuestions を流用（追加取得なし）
+    expect($b)->toContain('$digestReviews = $model->reviews->sortByDesc')
+        ->toContain('$digestQuestions = !empty($modelQuestions)')
+        ->toContain('$modelQuestionsTotal');
+});
+
+it('uses only build-safe line-clamp classes in the digest (avoids purged line-clamp-4)', function () {
+    $b = detailBlade();
+
+    // ダイジェスト本文は line-clamp-3 / line-clamp-2（ビルド済みに実在）
+    expect($b)->toContain('line-clamp-3')
+        ->toContain('line-clamp-2');
+});
+
+// ─────────── empty state（呼び水） ───────────
+
+it('shows welcoming empty states (nudges) for zero-review and zero-question models', function () {
+    $b = detailBlade();
+
+    expect($b)->toContain('最初のオーナーレビューを書きませんか？')      // レビュー0件の呼び水
+        ->toContain('購入検討で気になることを聞いてみませんか？')       // Q&A0件の呼び水
+        ->toContain('レビューを書く')
+        ->toContain('質問する');
+});
+
+// ─────────── B. タブ順の変更 ───────────
+
+it('moves the review/FAQ tab button right after 概要 (before 相場)', function () {
+    $b = detailBlade();
+
+    // community ボタンが market より前に来る（概要の直後）
+    expect(strpos($b, 'data-tab="community"'))
+        ->toBeLessThan(strpos($b, 'data-tab="market"'));
+
+    // 全タブボタンは維持
+    foreach (['overview', 'community', 'market', 'inventory', 'parts', 'media'] as $tab) {
+        expect($b)->toContain('data-tab="'.$tab.'"');
+    }
+});
+
+// ─────────── C. 回帰: アンカー・既存表示は不変 ───────────
+
+it('keeps tab anchors and IDs intact (deep links still work)', function () {
+    $b = detailBlade();
+
+    expect($b)->toContain('id="tab-panel-community"')   // パネルID不変
+        ->toContain('id="tab-panel-overview"')
+        ->toContain('id="reviews"')                     // #reviews 直リンク先
+        ->toContain('id="questions"')                   // #questions 直リンク先
+        ->toContain('id="review-form"');
+});
+
+it('leaves the existing Q&A default-expand and review section untouched', function () {
+    $b = detailBlade();
+
+    // 既存のQ&A展開（先頭N件・回答本文の初期DOM出力）は不変
+    expect($b)->toContain('$qaExpandCount')
+        ->toContain('approvedAnswers->take(2)')
+        ->toContain('id="model-review-list"');
+});
