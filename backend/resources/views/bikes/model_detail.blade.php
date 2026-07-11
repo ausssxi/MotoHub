@@ -365,6 +365,8 @@
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex overflow-x-auto scrollbar-hide -mb-px">
                 <button data-tab="overview" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-blue-600 text-blue-600 font-bold transition-colors hover:text-blue-600">概要</button>
+                {{-- レビュー・FAQ を概要の直後へ（投稿導線を前方に出す。パネルはID照合のため不動でOK） --}}
+                <button data-tab="community" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">レビュー・FAQ</button>
                 <button data-tab="market" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">相場・価格</button>
                 <button data-tab="inventory" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">在庫・エリア</button>
                 @if(!empty($relatedParts) || !empty($fitmentSummary))
@@ -373,7 +375,6 @@
                 @if(!empty($news) || !empty($videos))
                 <button data-tab="media" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">ニュース・動画</button>
                 @endif
-                <button data-tab="community" class="tab-btn whitespace-nowrap px-4 py-3 text-sm border-b-2 border-transparent text-gray-500 transition-colors hover:text-gray-700">レビュー・FAQ</button>
             </div>
         </div>
     </div>
@@ -385,6 +386,82 @@
                 
                 {{-- メインコンテンツ --}}
                 <div class="lg:col-span-8">
+
+                    {{-- ===== オーナーの声 ダイジェスト（タブ操作なしで視界に入れる＝投稿導線の露出） =====
+                         スペックはタブ内容のため物理的な「スペック直後」は取れない。タブ内容の手前・常時表示に置く。
+                         既存変数（$model->reviews / $modelQuestions）を流用し追加クエリなし。 --}}
+                    @php
+                        $digestReviews = $model->reviews->sortByDesc('created_at')->take(2);
+                        $digestReviewCount = $model->reviews->count();
+                        $digestReviewAvg = $digestReviewCount > 0 ? round($model->reviews->avg('rating'), 1) : null;
+                        $digestQuestions = !empty($modelQuestions) ? $modelQuestions->take(2) : collect();
+                    @endphp
+                    <div class="space-y-4 mb-8">
+                        {{-- レビュー ダイジェスト --}}
+                        <div class="bg-white rounded-3xl shadow-sm p-5 sm:p-6 border border-gray-100">
+                            <div class="flex items-center justify-between gap-3 mb-3">
+                                <h2 class="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
+                                    <span class="bg-blue-100 text-blue-600 p-1.5 rounded-lg shrink-0"><i data-lucide="message-circle" class="w-4 h-4"></i></span>
+                                    オーナーレビュー
+                                    @if($digestReviewCount > 0)
+                                    <span class="text-xs text-gray-500 font-bold">（{{ $digestReviewCount }}件・<span class="text-amber-600">★{{ $digestReviewAvg }}</span>）</span>
+                                    @endif
+                                </h2>
+                                <a href="#reviews" class="shrink-0 text-xs font-bold text-blue-600 hover:underline inline-flex items-center gap-0.5">すべて見る<i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></a>
+                            </div>
+                            @forelse($digestReviews as $review)
+                            <a href="#review-{{ $review->id }}" class="block rounded-2xl border border-gray-100 p-3 hover:border-blue-200 hover:bg-blue-50 transition-colors {{ ! $loop->last ? 'mb-2' : '' }}">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <div class="flex text-yellow-400 shrink-0">
+                                        @for($i = 1; $i <= 5; $i++)<i data-lucide="star" class="w-3.5 h-3.5 {{ $i <= $review->rating ? 'fill-current' : 'text-gray-200' }}"></i>@endfor
+                                    </div>
+                                    <span class="text-sm font-bold text-gray-900 truncate">{{ $review->title }}</span>
+                                </div>
+                                <p class="text-sm text-gray-600 leading-relaxed line-clamp-3">{{ $review->body }}</p>
+                                <p class="text-[11px] text-gray-400 mt-1">by {{ $review->nickname }}・{{ $review->created_at->format('Y/m/d') }}</p>
+                            </a>
+                            @empty
+                            {{-- 0件: 呼び水 --}}
+                            <div class="text-center py-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                <p class="text-sm text-gray-600 font-bold mb-1">{{ $model->name }} のレビューはまだありません。</p>
+                                <p class="text-xs text-gray-500 mb-3">最初のオーナーレビューを書きませんか？</p>
+                                <a href="#review-form" class="inline-flex items-center gap-1 text-xs font-bold bg-black text-white px-4 py-2 rounded-full hover:bg-gray-800 transition-colors"><i data-lucide="pen-tool" class="w-3 h-3"></i>レビューを書く</a>
+                            </div>
+                            @endforelse
+                        </div>
+
+                        {{-- Q&A ダイジェスト --}}
+                        <div class="bg-white rounded-3xl shadow-sm p-5 sm:p-6 border border-gray-100">
+                            <div class="flex items-center justify-between gap-3 mb-3">
+                                <h2 class="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
+                                    <span class="bg-blue-100 text-blue-600 p-1.5 rounded-lg shrink-0"><i data-lucide="messages-square" class="w-4 h-4"></i></span>
+                                    質問・相談
+                                    @if(($modelQuestionsTotal ?? 0) > 0)
+                                    <span class="text-xs text-gray-500 font-bold">（{{ $modelQuestionsTotal }}件）</span>
+                                    @endif
+                                </h2>
+                                <a href="#questions" class="shrink-0 text-xs font-bold text-blue-600 hover:underline inline-flex items-center gap-0.5">すべて見る<i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></a>
+                            </div>
+                            @forelse($digestQuestions as $q)
+                            <a href="#questions" class="block rounded-2xl border border-gray-100 p-3 hover:border-blue-200 hover:bg-blue-50 transition-colors {{ ! $loop->last ? 'mb-2' : '' }}">
+                                <div class="flex items-start justify-between gap-2">
+                                    <span class="text-sm font-bold text-gray-900 leading-snug">{{ $q->title }}</span>
+                                    <span class="shrink-0 text-[11px] font-black {{ $q->approved_answers_count > 0 ? 'text-gray-500' : 'text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full' }}">{{ $q->approved_answers_count > 0 ? '回答'.$q->approved_answers_count.'件' : '回答募集中' }}</span>
+                                </div>
+                                @if($q->approvedAnswers->isNotEmpty())
+                                <p class="text-sm text-gray-600 leading-relaxed line-clamp-2 mt-1">{{ $q->approvedAnswers->first()->body }}</p>
+                                @endif
+                            </a>
+                            @empty
+                            {{-- 0件: 呼び水 --}}
+                            <div class="text-center py-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                <p class="text-sm text-gray-600 font-bold mb-1">この{{ $model->name }}への質問はまだありません。</p>
+                                <p class="text-xs text-gray-500 mb-3">購入検討で気になることを聞いてみませんか？</p>
+                                <a href="#questions" class="inline-flex items-center gap-1 text-xs font-bold bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition-colors"><i data-lucide="help-circle" class="w-3 h-3"></i>質問する</a>
+                            </div>
+                            @endforelse
+                        </div>
+                    </div>
 
                     {{-- ===== タブ1: 概要 ===== --}}
                     <div id="tab-panel-overview" class="tab-panel space-y-8">
