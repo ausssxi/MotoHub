@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\PurgesReportsOnDelete;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 final class ModelQuestion extends Model
 {
+    use PurgesReportsOnDelete;
+
     protected $fillable = [
         'bike_model_id', 'user_id', 'nickname', 'title', 'body', 'submitter_ip_hash', 'is_approved',
     ];
@@ -21,6 +24,24 @@ final class ModelQuestion extends Model
     protected $casts = [
         'is_approved' => 'boolean',
     ];
+
+    /**
+     * 質問削除の直前に、ぶら下がる回答分の通報も一括purge。
+     * 回答本体は model_answers の cascadeOnDelete(DB) で消えるが、DBカスケードは
+     * ModelAnswer の Eloquent deleting を発火しないため、回答の通報がorphanで残る。それを防ぐ。
+     * （質問自身の通報は [[purges-reports-on-delete]] trait が処理する）
+     */
+    protected static function booted(): void
+    {
+        self::deleting(function (self $question): void {
+            $answerIds = $question->answers()->pluck('id');
+            if ($answerIds->isNotEmpty()) {
+                Report::where('reportable_type', (new ModelAnswer)->getMorphClass())
+                    ->whereIn('reportable_id', $answerIds)
+                    ->delete();
+            }
+        });
+    }
 
     public function scopeApproved(Builder $query): Builder
     {

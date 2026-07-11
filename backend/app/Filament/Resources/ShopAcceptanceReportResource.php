@@ -17,9 +17,11 @@ class ShopAcceptanceReportResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-hand-thumb-up';
 
+    protected static ?string $navigationGroup = 'UGC管理';
+
     protected static ?string $navigationLabel = '店舗受け入れ情報';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 15;
 
     /** 承認待ち件数をナビにバッジ表示（0なら非表示）。 */
     public static function getNavigationBadge(): ?string

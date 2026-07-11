@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\PurgesReportsOnDelete;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 final class ParkingReview extends Model
 {
+    use PurgesReportsOnDelete;
+
     protected $fillable = [
         'bike_parking_id',
         'user_id',

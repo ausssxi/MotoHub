@@ -9,15 +9,18 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 class ReviewResource extends Resource
 {
     protected static ?string $model = Review::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-chat-bubble-left-right';
-    protected static ?string $navigationLabel = 'レビュー管理';
-    protected static ?int $navigationSort = 1;
+
+    protected static ?string $navigationGroup = 'UGC管理';
+
+    protected static ?string $navigationLabel = '車種レビュー';
+
+    protected static ?int $navigationSort = 14;
 
     public static function form(Form $form): Form
     {
@@ -48,7 +51,7 @@ class ReviewResource extends Resource
                             ])
                             ->required()
                             ->native(false),
-                        
+
                         Forms\Components\Toggle::make('is_approved')
                             ->label('公開する')
                             ->onColor('success')
@@ -90,7 +93,7 @@ class ReviewResource extends Resource
                 // 評価（★表示）
                 Tables\Columns\TextColumn::make('rating')
                     ->label('評価')
-                    ->formatStateUsing(fn (string $state): string => str_repeat('★', (int)$state))
+                    ->formatStateUsing(fn (string $state): string => str_repeat('★', (int) $state))
                     ->color('warning')
                     ->sortable(),
 
