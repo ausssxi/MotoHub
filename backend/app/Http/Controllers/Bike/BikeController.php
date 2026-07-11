@@ -38,6 +38,12 @@ use Illuminate\Support\Facades\DB;
  */
 final class BikeController extends Controller
 {
+    /** 車種ページQ&A: 先頭この件数の質問を回答本文込みで初期展開（価格コム式）。 */
+    public const QA_EXPANDED_COUNT = 3;
+
+    /** 車種ページQ&A: 一覧に載せる質問の上限（展開分＋折りたたみ分）。超過は「すべて見る」へ。 */
+    public const QA_LIST_LIMIT = 5;
+
     /**
      * 旧ブログ/外部リンクに残る誤った /bikes/catalog/{slug} の救済マップ。
      * bare-slug でも maker接頭辞剥がしでも解決できない著者の誤スラッグを、
@@ -1499,13 +1505,17 @@ final class BikeController extends Controller
         // キャッシュ外＝インポート/打刻の即時反映。verified行のある task のみ。
         $viewData['fitmentSummary'] = app(\App\Services\Fitment\FitmentSummaryService::class)->forModel($model);
 
-        // 車種Q&A（購入検討の疑問・相談。公開質問を新着順・回答数付き・最大5）。
+        // 車種Q&A（購入検討の疑問・相談。公開質問を新着順・回答数付き・回答本文も eager load）。
+        // 車種ページでは先頭 QA_EXPANDED_COUNT 件を回答本文込みで初期DOM描画（価格コム式・SEO）。
         $viewData['modelQuestions'] = \App\Models\ModelQuestion::approved()
             ->where('bike_model_id', $model->id)
             ->withCount('approvedAnswers')
+            ->with(['approvedAnswers' => fn ($q) => $q->with('user')->orderByDesc('created_at')])
             ->orderByDesc('created_at')
-            ->limit(5)
+            ->limit(self::QA_LIST_LIMIT)
             ->get();
+        $viewData['modelQuestionsTotal'] = \App\Models\ModelQuestion::approved()->where('bike_model_id', $model->id)->count();
+        $viewData['qaExpandCount'] = self::QA_EXPANDED_COUNT;
 
         // この車種を含む比較ページ（オーファン解消の内部リンク・存在する active ペアのみ・最大6）。
         $viewData['relatedCompares'] = \App\Models\SeoCompare::active()

@@ -161,6 +161,49 @@ it('keeps review and Q&A as separate sections in the model_detail blade', functi
         ->toContain('$modelQuestions');                       // 出し分けガード
 });
 
+// ─────────── デフォルト展開（価格コム式・回答本文を初期DOMに出す） ───────────
+
+it('eager-loads approved answers on the questions injection so answer bodies can render inline', function () {
+    $m = qaModel();
+    $q = qaQuestion($m, '回答が展開される質問');
+    ModelAnswer::create(['model_question_id' => $q->id, 'nickname' => 'x', 'body' => '公開回答本文', 'is_approved' => true]);
+    ModelAnswer::create(['model_question_id' => $q->id, 'nickname' => 'x', 'body' => '非公開回答', 'is_approved' => false]);
+
+    // 車種ページ注入と同じ eager load（回答本文を初期DOMに出すため）
+    $injected = ModelQuestion::approved()->where('bike_model_id', $m->id)
+        ->withCount('approvedAnswers')
+        ->with(['approvedAnswers' => fn ($x) => $x->orderByDesc('created_at')])
+        ->orderByDesc('created_at')->get();
+
+    $first = $injected->first();
+    expect($first->relationLoaded('approvedAnswers'))->toBeTrue()          // 遅延取得でなく初期ロード
+        ->and($first->approvedAnswers->pluck('body')->all())->toBe(['公開回答本文']); // 公開のみ（キルスイッチ）
+});
+
+it('model_detail blade expands first-N answers inline and links to すべて見る', function () {
+    $blade = file_get_contents(resource_path('views/bikes/model_detail.blade.php'));
+    expect($blade)->toContain('$qaExpandCount')                    // 先頭N件だけ展開
+        ->toContain('approvedAnswers->take(2)')                    // 回答本文を初期DOMに出力
+        ->toContain('$ans->body')                                 // 回答本文（JS遅延でない）
+        ->toContain("route('bikes.model_questions'")              // すべて見る導線
+        ->toContain('すべての質問を見る');
+});
+
+it('renders the per-model questions list page (すべて見る target)', function () {
+    $m = qaModel();
+    qaQuestion($m, 'リストに出る質問');
+
+    $this->get(route('bikes.model_questions', ['mfrSlug' => $m->manufacturer->slug, 'modelSlug' => $m->slug]))
+        ->assertOk()
+        ->assertSee('リストに出る質問')
+        ->assertSee('の質問・相談');
+});
+
+it('exposes the QA expand/list-limit class constants (not config)', function () {
+    expect(\App\Http\Controllers\Bike\BikeController::QA_EXPANDED_COUNT)->toBe(3)
+        ->and(\App\Http\Controllers\Bike\BikeController::QA_LIST_LIMIT)->toBe(5);
+});
+
 it('injects modelQuestions scoped to the model, newest-first with answer counts', function () {
     $m = qaModel();
     qaQuestion($m, '古い質問')->update(['created_at' => now()->subDay()]);
