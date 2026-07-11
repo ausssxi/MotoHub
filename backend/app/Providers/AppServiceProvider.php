@@ -98,6 +98,7 @@ class AppServiceProvider extends ServiceProvider
         Review::observe(ReviewObserver::class);
         MyBike::observe(MyBikeObserver::class);
         \App\Models\ShopAcceptanceReport::observe(\App\Observers\ShopAcceptanceReportObserver::class);
+        \App\Models\ModelAnswer::observe(\App\Observers\ModelAnswerObserver::class);
 
         Socialite::extend('line', function ($app) {
             $config = $app['config']['services.line'];

@@ -20,6 +20,7 @@ final class ModelAnswer extends Model
     protected $casts = [
         'is_approved' => 'boolean',
         'helpful_count' => 'integer',
+        'answer_pushed_at' => 'datetime',
     ];
 
     public function scopeApproved(Builder $query): Builder
