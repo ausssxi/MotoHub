@@ -109,7 +109,7 @@
                         <i data-lucide="chevron-down" class="w-3 h-3 transition-transform duration-200" x-bind:class="{ 'rotate-180': open }"></i>
                     </button>
                     <div x-show="open" x-transition
-                         class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
+                         class="absolute left-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
                          style="display: none;">
                         <a href="{{ route('bikes.trends') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
                             <i data-lucide="trophy" class="w-3.5 h-3.5"></i>
@@ -135,7 +135,7 @@
                         <i data-lucide="chevron-down" class="w-3 h-3 transition-transform duration-200" x-bind:class="{ 'rotate-180': open }"></i>
                     </button>
                     <div x-show="open" x-transition
-                         class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
+                         class="absolute left-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
                          style="display: none;">
                         {{-- コンテンツ --}}
                         <a href="{{ route('bikes.reviews_index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
