@@ -58,8 +58,9 @@ final class ModelAnswerObserver
         }
 
         // 先にフラグを立ててから投入（重複dispatch防止の冪等キー）
+        // dispatchAfterResponse: キューワーカー非依存。レスポンス送出後に同プロセスで送信する。
         $this->markPushed($answer);
-        SendQaAnswerNotification::dispatch($answer->id);
+        SendQaAnswerNotification::dispatchAfterResponse($answer->id);
     }
 
     private function isSelfAnswer(ModelAnswer $answer, ModelQuestion $question): bool

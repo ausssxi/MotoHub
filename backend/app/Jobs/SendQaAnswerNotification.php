@@ -7,11 +7,7 @@ namespace App\Jobs;
 use App\Models\ModelAnswer;
 use App\Models\ModelQuestion;
 use App\Models\PushQuestionSubscription;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Minishlink\WebPush\Subscription;
 use Minishlink\WebPush\WebPush;
@@ -19,14 +15,14 @@ use Minishlink\WebPush\WebPush;
 /**
  * 車種Q&A: 回答が付いた質問の購読者へ「回答が付きました」を1通送る。
  * トリガーは ModelAnswerObserver（即反映 or キル解除で is_approved=true）。
- * 送信済み判定は model_answers.answer_pushed_at 側で担保済み（Observerが投入前にセット）。
+ *
+ * ★キューワーカー非依存：Observer は dispatchAfterResponse() で投入し、HTTPレスポンス送出後に
+ *   php-fpm 同プロセスで実行する（本番に queue:work 常駐が無いため。既存 SendNewStockPush も
+ *   同期送信でキューを使わない方針に合わせる）。送信済み判定は model_answers.answer_pushed_at 側で担保。
  */
-final class SendQaAnswerNotification implements ShouldQueue
+final class SendQaAnswerNotification
 {
     use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-    use SerializesModels;
 
     public function __construct(public int $answerId) {}
 
@@ -46,6 +42,11 @@ final class SendQaAnswerNotification implements ShouldQueue
 
         $subscriptions = $question->pushSubscriptions()->get();
         if ($subscriptions->isEmpty()) {
+            return;
+        }
+
+        // VAPID未設定の環境（開発等）ではライブラリが例外を投げるため何もしない
+        if (! config('webpush.vapid.public_key') || ! config('webpush.vapid.private_key')) {
             return;
         }
 

@@ -80,7 +80,7 @@ it('dispatches a notification to the question subscribers when an answer is post
         ->assertRedirect();
 
     $answer = ModelAnswer::first();
-    Bus::assertDispatched(SendQaAnswerNotification::class, fn ($job) => $job->answerId === $answer->id);
+    Bus::assertDispatchedAfterResponse(SendQaAnswerNotification::class, fn ($job) => $job->answerId === $answer->id);
     expect($answer->fresh()->answer_pushed_at)->not->toBeNull();
 });
 
@@ -91,7 +91,7 @@ it('does not dispatch when the question has no subscribers', function () {
 
     $this->post("/bikes/questions/{$q->id}/answers", ['body' => '回答', 'nickname' => 'x'])->assertRedirect();
 
-    Bus::assertNotDispatched(SendQaAnswerNotification::class);
+    Bus::assertNotDispatchedAfterResponse(SendQaAnswerNotification::class);
 });
 
 it('does not dispatch for an unapproved (killed) answer', function () {
@@ -103,7 +103,7 @@ it('does not dispatch for an unapproved (killed) answer', function () {
     // キル状態で作成 → 送らない（answer_pushed_at は立てない＝後で復活時に送れる）
     $answer = ModelAnswer::create(['model_question_id' => $q->id, 'nickname' => 'x', 'body' => '非公開', 'is_approved' => false]);
 
-    Bus::assertNotDispatched(SendQaAnswerNotification::class);
+    Bus::assertNotDispatchedAfterResponse(SendQaAnswerNotification::class);
     expect($answer->fresh()->answer_pushed_at)->toBeNull();
 });
 
@@ -118,7 +118,7 @@ it('dispatches once when a killed answer is later approved, and never re-sends',
     $answer->update(['is_approved' => false]);  // 再キル
     $answer->update(['is_approved' => true]);   // 再復活 → 送らない
 
-    Bus::assertDispatchedTimes(SendQaAnswerNotification::class, 1);
+    Bus::assertDispatchedAfterResponseTimes(SendQaAnswerNotification::class, 1);
 });
 
 it('suppresses a self-answer (questioner answering their own question)', function () {
@@ -131,7 +131,7 @@ it('suppresses a self-answer (questioner answering their own question)', functio
     $this->actingAs($user)->post("/bikes/questions/{$q->id}/answers", ['body' => '自己解決しました'])
         ->assertRedirect();
 
-    Bus::assertNotDispatched(SendQaAnswerNotification::class);
+    Bus::assertNotDispatchedAfterResponse(SendQaAnswerNotification::class);
 });
 
 it('suppresses a self-answer detected by matching submitter ip hash', function () {
@@ -144,7 +144,7 @@ it('suppresses a self-answer detected by matching submitter ip hash', function (
 
     $this->post("/bikes/questions/{$q->id}/answers", ['body' => '自分で答える', 'nickname' => 'x'])->assertRedirect();
 
-    Bus::assertNotDispatched(SendQaAnswerNotification::class);
+    Bus::assertNotDispatchedAfterResponse(SendQaAnswerNotification::class);
 });
 
 // ─────────── 回帰: 既存Q&A投稿は不変 ───────────
