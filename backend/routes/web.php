@@ -274,6 +274,10 @@ Route::get('/bikes/{mfrSlug}/{modelSlug}/reviews', [BikeController::class, 'mode
 Route::get('/bikes/{mfrSlug}/{modelSlug}/questions/{id}', [\App\Http\Controllers\Bike\ModelQaController::class, 'showQuestion'])
     ->where(['mfrSlug' => '[a-z][a-z0-9\-]*', 'id' => '[0-9]+'])
     ->name('bikes.model_question');
+// 車種の質問一覧（車種ページの「すべて見る」導線先）
+Route::get('/bikes/{mfrSlug}/{modelSlug}/questions', [\App\Http\Controllers\Bike\ModelQaController::class, 'listQuestions'])
+    ->where('mfrSlug', '[a-z][a-z0-9\-]*')
+    ->name('bikes.model_questions');
 // 質問・回答の投稿・参考になった（ログイン不要・安全弁: NGワード＋honeypot＋IPハッシュ＋throttle＋通報＋キルスイッチ）
 Route::post('/bikes/models/{modelId}/questions', [\App\Http\Controllers\Bike\ModelQaController::class, 'storeQuestion'])
     ->where('modelId', '[0-9]+')->name('bikes.model_question.store')->middleware('throttle:3,1');

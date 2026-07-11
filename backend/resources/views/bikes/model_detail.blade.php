@@ -1884,19 +1884,53 @@
                         <div class="mb-4 text-sm font-bold text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">質問を投稿しました。回答が付くのを待ちましょう！</div>
                         @endif
 
-                        {{-- 質問一覧（新着順・回答数付き） --}}
+                        {{-- 質問一覧。先頭 qaExpandCount 件は回答本文込みで初期展開（価格コム式・回答本文を初期DOMに出力＝SEO）。 --}}
                         @if(!empty($modelQuestions) && $modelQuestions->count() > 0)
-                        <ul class="space-y-2 mb-6">
-                            @foreach($modelQuestions as $q)
-                            <a href="{{ route('bikes.model_question', ['mfrSlug' => $model->manufacturer->slug ?? $model->manufacturer_id, 'modelSlug' => $model->slug ?? $model->id, 'id' => $q->id]) }}"
-                               class="flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 transition-colors">
+                        @php $qUrl = fn ($q) => route('bikes.model_question', ['mfrSlug' => $model->manufacturer->slug ?? $model->manufacturer_id, 'modelSlug' => $model->slug ?? $model->id, 'id' => $q->id]); @endphp
+                        <div class="space-y-3 mb-6">
+                            @foreach($modelQuestions as $i => $q)
+                            @if($i < ($qaExpandCount ?? 3))
+                            {{-- 展開: 質問＋回答本文（先頭2件をDOM出力・SEO） --}}
+                            <div class="rounded-2xl border border-gray-100 p-4">
+                                <a href="{{ $qUrl($q) }}" class="flex items-start justify-between gap-3">
+                                    <span class="text-sm font-black text-gray-900 leading-snug">{{ $q->title }}</span>
+                                    <span class="shrink-0 text-xs font-black {{ $q->approved_answers_count > 0 ? 'text-gray-500' : 'text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full' }}">
+                                        {{ $q->approved_answers_count > 0 ? '回答'.$q->approved_answers_count.'件' : '回答募集中' }}
+                                    </span>
+                                </a>
+                                @forelse($q->approvedAnswers->take(2) as $ans)
+                                <div class="mt-2 bg-gray-50 rounded-xl px-3 py-2">
+                                    <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line break-words line-clamp-4">{{ $ans->body }}</p>
+                                    <p class="text-[11px] text-gray-400 mt-1">{{ $ans->display_name }}さん・{{ $ans->created_at->diffForHumans() }}</p>
+                                </div>
+                                @empty
+                                <p class="mt-2 text-xs text-gray-400">まだ回答がありません。答えられる方はぜひ。</p>
+                                @endforelse
+                                @if($q->approved_answers_count > 2)
+                                <a href="{{ $qUrl($q) }}" class="mt-2 inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline">他{{ $q->approved_answers_count - 2 }}件の回答を見る<i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></a>
+                                @endif
+                            </div>
+                            @else
+                            {{-- 折りたたみ: タイトル＋回答数（クリックで詳細へ） --}}
+                            <a href="{{ $qUrl($q) }}" class="flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 transition-colors">
                                 <span class="text-sm font-bold text-gray-800 truncate">{{ $q->title }}</span>
                                 <span class="shrink-0 text-xs font-black {{ $q->approved_answers_count > 0 ? 'text-gray-500' : 'text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full' }}">
                                     {{ $q->approved_answers_count > 0 ? '回答'.$q->approved_answers_count.'件' : '回答募集中' }}
                                 </span>
                             </a>
+                            @endif
                             @endforeach
-                        </ul>
+                        </div>
+
+                        {{-- 表示件数を超える質問があれば一覧へ（すべて見る） --}}
+                        @if(($modelQuestionsTotal ?? $modelQuestions->count()) > $modelQuestions->count())
+                        <div class="mb-6 text-center">
+                            <a href="{{ route('bikes.model_questions', ['mfrSlug' => $model->manufacturer->slug ?? $model->manufacturer_id, 'modelSlug' => $model->slug ?? $model->id]) }}"
+                               class="inline-flex items-center gap-1.5 text-sm font-bold text-blue-600 hover:underline">
+                                すべての質問を見る（{{ $modelQuestionsTotal }}件）<i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+                        @endif
                         @else
                         {{-- 0件: 歓迎トーン --}}
                         <div class="text-center py-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200 mb-6">

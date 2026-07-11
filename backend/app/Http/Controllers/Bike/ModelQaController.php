@@ -20,6 +20,26 @@ use Illuminate\Http\Request;
  */
 final class ModelQaController extends Controller
 {
+    /** 車種の質問一覧（車種ページの「すべて見る」導線先・全公開質問を新着順）。 */
+    public function listQuestions(string $mfrSlug, string $modelSlug): View
+    {
+        $model = BikeModel::with('manufacturer')
+            ->where('slug', $modelSlug)
+            ->whereHas('manufacturer', fn ($q) => $q->where('slug', $mfrSlug))
+            ->firstOrFail();
+
+        $questions = ModelQuestion::approved()
+            ->where('bike_model_id', $model->id)
+            ->withCount('approvedAnswers')
+            ->orderByDesc('created_at')
+            ->paginate(20);
+
+        return view('bikes.questions_index', [
+            'model' => $model,
+            'questions' => $questions,
+        ]);
+    }
+
     /** 質問詳細ページ（ロングテールSEOの受け皿・固有URL）。 */
     public function showQuestion(string $mfrSlug, string $modelSlug, int $id): View
     {
