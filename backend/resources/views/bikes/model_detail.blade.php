@@ -421,13 +421,20 @@
                                 <p class="text-[11px] text-gray-400 mt-1">by {{ $review->nickname }}・{{ $review->created_at->format('Y/m/d') }}</p>
                             </a>
                             @empty
-                            {{-- 0件: 呼び水 --}}
+                            {{-- 0件: 呼び水（書くCTAは質問する と同一クラスに揃える） --}}
                             <div class="text-center py-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                                 <p class="text-sm text-gray-600 font-bold mb-1">{{ $model->name }} のレビューはまだありません。</p>
                                 <p class="text-xs text-gray-500 mb-3">最初のオーナーレビューを書きませんか？</p>
-                                <a href="#review-form" class="inline-flex items-center gap-1 text-xs font-bold bg-black text-white px-4 py-2 rounded-full hover:bg-gray-800 transition-colors"><i data-lucide="pen-tool" class="w-3 h-3"></i>レビューを書く</a>
+                                <a href="#review-form" class="inline-flex items-center gap-1 text-xs font-bold bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition-colors"><i data-lucide="pen-tool" class="w-3 h-3"></i>レビューを書く</a>
                             </div>
                             @endforelse
+
+                            {{-- レビューがある場合も「書く」導線を常時表示（質問する と対称・#review-form へアンカー遷移） --}}
+                            @if($digestReviewCount > 0)
+                            <div class="mt-3 text-center">
+                                <a href="#review-form" class="inline-flex items-center gap-1 text-xs font-bold bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition-colors"><i data-lucide="pen-tool" class="w-3 h-3"></i>レビューを書く</a>
+                            </div>
+                            @endif
                         </div>
 
                         {{-- Q&A ダイジェスト --}}
