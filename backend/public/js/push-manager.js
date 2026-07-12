@@ -35,6 +35,27 @@ var MotoHubPush = (function () {
         return arr;
     }
 
+    // ---- GA4 計測（非ブロッキング・既存 gtag 慣習に準拠。失敗しても購読処理は継続） ----
+
+    function track(name, params) {
+        if (typeof gtag === 'function') {
+            try { gtag('event', name, params || {}); } catch (e) {}
+        }
+    }
+
+    // 露出箇所（導線種別）を push-area 要素IDから判定
+    function ctaSource(elId) {
+        if (elId === 'push-area-header') return 'hero';
+        if (elId === 'push-area-sidebar') return 'sidebar';
+        if (elId && elId.indexOf('push-area-spread') === 0) return 'market';
+        return 'other';
+    }
+
+    // 車種スラグ（PII非該当。model_detail の window.__viewedModel から。無ければ null）
+    function currentModelSlug() {
+        return (window.__viewedModel && window.__viewedModel.slug) || null;
+    }
+
     // ---- 購読 / 解除 ----
 
     function subscribe(bikeModelId) {
@@ -42,6 +63,8 @@ var MotoHubPush = (function () {
             return Promise.reject(new Error('Push未初期化（HTTPS環境が必要です）'));
         }
         return Notification.requestPermission().then(function (p) {
+            // GA4: 許可ダイアログの結果（granted / denied / default）＝許可の壁の脱落を可視化
+            track('notify_permission_result', { result: p, bike_model_id: bikeModelId || null, model_slug: currentModelSlug() });
             if (p !== 'granted') throw new Error('通知が許可されませんでした');
             return swRegistration.pushManager.subscribe({
                 userVisibleOnly: true,
@@ -61,6 +84,8 @@ var MotoHubPush = (function () {
             if (typeof gtag === 'function') {
                 try { gtag('event', 'push_subscribe', { bike_model_id: bikeModelId || null }); } catch (e) {}
             }
+            // GA4: ファネル末尾（DB保存成功）＝クリック→許可→購読成功の到達点
+            track('notify_subscribe_success', { bike_model_id: bikeModelId || null, model_slug: currentModelSlug() });
             return true;
         });
     }
@@ -164,6 +189,10 @@ var MotoHubPush = (function () {
         msgEl.style.display = 'none';
 
         btn.addEventListener('click', function () {
+            // GA4: 入荷通知ボタンのクリック（購読しようとした時のみ・導線種別つき）＝ファネル先頭
+            if (!isSubscribed(modelId)) {
+                track('notify_cta_click', { source: ctaSource(el.id), bike_model_id: modelId || null, model_slug: currentModelSlug() });
+            }
             btn.disabled = true;
             btn.querySelector('span').textContent = '処理中...';
 
