@@ -9,7 +9,6 @@ use App\Http\Requests\Bike\BikeSearchRequest;
 use App\Http\Requests\Bike\StoreReviewRequest;
 use App\Http\Resources\Bike\ListingResource;
 use App\Models\Listing;
-use App\Models\SeoCompare;
 use App\Models\SeoFeature;
 use App\Services\Bike\BikeNewsService;
 use App\Services\Bike\BikePartsService;
@@ -1452,37 +1451,15 @@ final class BikeController extends Controller
             ];
         }
 
-        // よく比較される車種（SeoCompare active から当該モデルを含むペアを最大6件）。
-        // 相手モデルを eager load し、モデルページキャッシュ内に同梱（N+1防止）。
-        $comparedPairs = SeoCompare::active()
-            ->ordered()
-            ->where(function ($q) use ($id) {
-                $q->where('model1_id', $id)->orWhere('model2_id', $id);
-            })
-            ->with(['model1.manufacturer', 'model2.manufacturer'])
-            ->limit(6)
-            ->get()
-            ->map(function (SeoCompare $c) use ($id, $model) {
-                $other = $c->model1_id === $id ? $c->model2 : $c->model1;
-                if (! $other) {
-                    return null;
-                }
-
-                return [
-                    'label' => $model->name.' vs '.$other->name,
-                    'url' => $c->url,
-                ];
-            })
-            ->filter()
-            ->values()
-            ->all();
+        // 「よく比較される車種」は attachExternalContent の $relatedCompares（overviewタブの比較セクション）と
+        // 同一SeoCompareペアの重複だったため統合。ここでの再取得は撤去（デッドクエリ排除）。
 
         return compact(
             'model', 'stats', 'history', 'resale', 'listings',
             'reviewStats', 'categoryReviewStats', 'relatedModels', 'similarDisplacementModels',
             'sameCategoryModels', 'activeCount', 'owners', 'ownersTotal', 'similarModels', 'crossLinks',
             'prefectureStocks', 'rankingStats',
-            'yearDistribution', 'yearStats', 'comparedPairs'
+            'yearDistribution', 'yearStats'
         );
     }
 

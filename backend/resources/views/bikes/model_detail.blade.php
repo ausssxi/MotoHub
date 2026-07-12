@@ -1077,6 +1077,43 @@
                     </div>
                     @endif
 
+                    {{-- 相場を見た直後に「販売中の車両」を出す（相場→在庫の自然な導線・モバイル最下部問題も緩和）。
+                         データは既存 $listings を流用（追加クエリなし）。在庫実データは在庫系ブロックに集約の原則どおり。 --}}
+                    @if(count($listings) > 0)
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-xl font-black text-gray-900 flex items-center gap-2">
+                                <span class="bg-gray-100 text-gray-600 p-2 rounded-lg"><i data-lucide="bike" class="w-5 h-5"></i></span>
+                                いま販売中の {{ $model->name }}
+                            </h2>
+                            <a href="{{ route('bikes.search', ['bike_model_id' => $model->id]) }}" class="text-xs font-bold text-blue-600 hover:underline">すべて見る</a>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            @foreach($listings->take(4) as $bike)
+                            <a href="{{ route('bikes.show', $bike['id']) }}" class="flex gap-3 group p-2 rounded-xl hover:bg-gray-50 transition-colors border border-gray-100">
+                                <div class="w-24 h-20 shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                                    @if(!empty($bike['images'][0]))
+                                        <img src="{{ $bike['images'][0] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" decoding="async">
+                                    @else
+                                        <div class="w-full h-full flex items-center justify-center text-gray-300"><i data-lucide="bike"></i></div>
+                                    @endif
+                                </div>
+                                <div class="flex-1 min-w-0 py-1">
+                                    <h4 class="text-sm font-black text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors mb-1">{{ $bike['name'] }}</h4>
+                                    <div class="text-red-500 font-black text-lg">{{ $bike['total_price'] }}<span class="text-xs">万円</span></div>
+                                    <div class="text-[11px] text-gray-400 mt-0.5">{{ $bike['prefecture'] }}</div>
+                                </div>
+                            </a>
+                            @endforeach
+                        </div>
+                        <div class="mt-6 pt-6 border-t border-gray-100">
+                            <a href="{{ route('bikes.search', ['bike_model_id' => $model->id]) }}" class="block w-full bg-gray-900 hover:bg-gray-800 text-white font-bold text-sm text-center py-3 rounded-xl transition-colors">
+                                {{ $model->name }} の在庫をすべて見る（{{ number_format($activeCount) }}台）
+                            </a>
+                        </div>
+                    </div>
+                    @endif
+
                     </div>{{-- /tab-panel-market --}}
 
                     {{-- ===== タブ3: 在庫・エリア ===== --}}
@@ -2219,23 +2256,8 @@
                     </div>
                     @endif
 
-                    {{-- よく比較される車種 --}}
-                    @if(!empty($comparedPairs))
-                    <div class="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 mt-8">
-                        <h2 class="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
-                            <i data-lucide="git-compare" class="w-5 h-5 text-indigo-500"></i>
-                            {{ $model->name }}とよく比較される車種
-                        </h2>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            @foreach($comparedPairs as $pair)
-                            <a href="{{ $pair['url'] }}" class="flex items-center justify-between bg-gray-50 hover:bg-indigo-50 rounded-xl p-4 border border-gray-100 hover:border-indigo-200 transition-colors group">
-                                <span class="font-bold text-sm text-gray-700 group-hover:text-indigo-600 transition-colors">{{ $pair['label'] }}</span>
-                                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 group-hover:text-indigo-500 shrink-0"></i>
-                            </a>
-                            @endforeach
-                        </div>
-                    </div>
-                    @endif
+                    {{-- 「よく比較される車種」は overview タブの「{{ $model->name }} の比較」($relatedCompares)と
+                         同一SeoCompareペア・同一URLの重複だったため統合・削除（比較ハブ含む内部リンクは①側に集約済み）。 --}}
 
                     {{-- 駐車場エリアリンク --}}
                     <div class="bg-green-50 rounded-2xl p-5 border border-green-100 flex items-center justify-between hover:shadow-md transition-shadow">
