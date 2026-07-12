@@ -448,6 +448,8 @@ Route::get('/compare', [BikeController::class, 'compare'])->name('bikes.compare'
 // API関連 (※公開APIなのでここに残します)
 Route::prefix('api')->group(function () {
     Route::get('/bikes/count', [BikeApiController::class, 'count']);
+    // 閲覧履歴(localStorage)の車種スラグ群→現在active在庫数（再訪フック用・最大10・ライブ集計）
+    Route::get('/bikes/viewed-stock', [BikeApiController::class, 'viewedStock']);
     Route::get('/manufacturers/{manufacturer}/models', [BikeApiController::class, 'models']);
     Route::get('/manufacturers/{manufacturer}/models-light', [BikeApiController::class, 'modelsLight']);
     Route::get('/stats/price/{bikeModelId}', [App\Http\Controllers\Api\StatsApiController::class, 'getPriceStats']);

@@ -10,6 +10,8 @@
 
     <x-slot:scripts>
         <script src="{{ asset('js/search/suggest.js') }}?v={{ asset_buster(public_path('js/search/suggest.js')) }}"></script>
+        {{-- 「あなたが見た車種の新着」再訪フック（記録があれば #viewed-models-widget に描画） --}}
+        <script src="{{ asset('js/viewed-models.js') }}?v={{ asset_buster(public_path('js/viewed-models.js')) }}" defer></script>
 
         {{-- 閲覧履歴の描画（manager.js は layout.blade.php で読み込み済み） --}}
         <script>
@@ -539,6 +541,25 @@
 
         </div>
     </div>
+
+    {{-- あなたが見た車種の新着（許可不要の再訪フック・localStorage完結・JS描画/SEO非対象）。
+         記録があるユーザーにのみ viewed-models.js が描画（記録ゼロなら非表示＝新規ユーザーには出ない）。 --}}
+    <section id="viewed-models-section" class="bg-gray-50 hidden">
+        <div class="max-w-7xl mx-auto px-4 pt-10 sm:pt-16 pb-2">
+            <div class="flex items-end justify-between mb-6 px-2">
+                <div>
+                    <h2 class="text-2xl font-black text-black tracking-tighter mb-1 flex items-center gap-2">
+                        <i data-lucide="sparkles" class="w-6 h-6 text-blue-500"></i>
+                        あなたが見た車種の新着
+                    </h2>
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">For You</p>
+                </div>
+                <button type="button" id="viewed-models-clear" class="text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors">履歴をクリア</button>
+            </div>
+            <div id="viewed-models-widget" class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory px-2 -mx-2 sm:mx-0 sm:px-0">
+            </div>
+        </div>
+    </section>
 
     {{-- 最近見た車両（パーソナルコンテンツ / タブセクションの上に常時表示） --}}
     <section id="top-history-section" class="bg-gray-50 hidden">
