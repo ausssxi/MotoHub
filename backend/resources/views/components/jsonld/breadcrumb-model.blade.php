@@ -20,13 +20,15 @@
         'item' => route('bikes.models')
     ];
 
-    // 3. メーカー
+    // 3. メーカー（クリーンなメーカーハブへ集約。slug無しは従来の検索URLにフォールバック）
     if ($model->manufacturer) {
         $itemList[] = [
             '@type' => 'ListItem',
             'position' => $position++,
             'name' => $model->manufacturer->name,
-            'item' => route('bikes.search', ['manufacturer_id' => $model->manufacturer_id])
+            'item' => $model->manufacturer->slug
+                ? route('bikes.manufacturer_hub', ['makerSlug' => $model->manufacturer->slug])
+                : route('bikes.search', ['manufacturer_id' => $model->manufacturer_id])
         ];
     }
 

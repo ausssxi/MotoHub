@@ -319,6 +319,18 @@ class GenerateSitemap extends Command
             ->groupBy('shops.prefecture')
             ->pluck('cnt', 'shops.prefecture');
 
+        // メーカーハブ（/bikes/{makerSlug}）＝クリーンなメーカー着地。active在庫10台以上のメーカーslugのみ。
+        $makerCounts = DB::table('listings')
+            ->where('is_sold_out', false)
+            ->whereNotNull('manufacturer_id')
+            ->select('manufacturer_id', DB::raw('COUNT(*) as cnt'))
+            ->groupBy('manufacturer_id')
+            ->having('cnt', '>=', 10)
+            ->pluck('manufacturer_id');
+        foreach (Manufacturer::whereIn('id', $makerCounts)->whereNotNull('slug')->pluck('slug') as $mkSlug) {
+            $writeLandingUrl(route('bikes.manufacturer_hub', ['makerSlug' => $mkSlug]), date('Y-m-d'), 'daily', '0.8');
+        }
+
         // 1. メーカー・カテゴリ・排気量の組み合わせ（10台以上のみ）
         foreach ($allPrefectures as $pref) {
             $fullPref = $toFullPref($pref);
