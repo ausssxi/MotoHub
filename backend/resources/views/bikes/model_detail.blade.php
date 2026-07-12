@@ -29,6 +29,17 @@
             window.bikeModelHistory = @json($history ?? []);
         </script>
         <script>window.__bikeModelId = {{ $model->id }};</script>
+        {{-- 再訪フック用: この車種を localStorage に記録（slug/メーカー/在庫数/日時のみ・PII非該当）。
+             slug が無い車種はURLを作れないので記録対象外。 --}}
+        @if($model->slug && $model->manufacturer && $model->manufacturer->slug)
+        <script>window.__viewedModel = {
+            slug: @json($model->slug),
+            mfrSlug: @json($model->manufacturer->slug),
+            maker: @json($model->manufacturer->name ?? ''),
+            name: @json($model->name),
+            stockCount: {{ (int) ($activeCount ?? 0) }}
+        };</script>
+        @endif
         @if(!empty($reviewOgpMode))
         <script>
             document.addEventListener('DOMContentLoaded', function() {
@@ -48,6 +59,8 @@
         <script src="{{ asset('js/bikes/model_detail.js') }}?v={{ asset_buster(public_path('js/bikes/model_detail.js')) }}" defer></script>
         <script src="{{ asset('js/bikes/review.js') }}?v={{ asset_buster(public_path('js/bikes/review.js')) }}" defer></script>
         <script src="{{ asset('js/qa-push.js') }}?v={{ asset_buster(public_path('js/qa-push.js')) }}" defer></script>
+        {{-- 再訪フック: この車種を localStorage に記録（window.__viewedModel を読む） --}}
+        <script src="{{ asset('js/viewed-models.js') }}?v={{ asset_buster(public_path('js/viewed-models.js')) }}" defer></script>
         {{-- Chart.js遅延読み込み: チャート要素が表示された時にCDNからロード --}}
         <script>
             (function() {
