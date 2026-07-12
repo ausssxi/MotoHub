@@ -147,6 +147,7 @@
                         現在、{{ $prefecture }}エリアにて <strong class="text-blue-600">{{ number_format($landingKpi['total_count'] ?? $pagination['total']) }}台</strong> の {{ $pageInfo['target_name'] }} が掲載されています。
                         最新の在庫状況や価格相場、年式・走行距離などの詳細スペックを比較して、あなたにピッタリの1台を見つけましょう。
                         条件をさらに絞り込んで、お得な車両を検索することも可能です。
+                        <span class="text-gray-400">（在庫・相場は毎日更新／最終更新 {{ now()->format('Y年n月j日') }}）</span>
                     </p>
                 </div>
             </div>

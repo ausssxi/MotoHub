@@ -310,9 +310,23 @@ class GenerateSitemap extends Command
 
         $this->info("  有効な都道府県×メーカー: {$activeManufPrefSet->count()} / 都道府県×車種: {$activeModelPrefSet->count()}");
 
+        // 都道府県トップ（/bikes/area/{県}）を明示登録するための県別合計在庫（noindex閾値と同じ10台以上を採用）。
+        // shops.prefecture は正式名なので短縮形 $pref の前方一致で合算（areaIndex の like "{pref}%" と整合）。
+        $prefTotals = DB::table('listings')
+            ->join('shops', 'listings.shop_id', '=', 'shops.id')
+            ->where('listings.is_sold_out', false)
+            ->select('shops.prefecture', DB::raw('COUNT(*) as cnt'))
+            ->groupBy('shops.prefecture')
+            ->pluck('cnt', 'shops.prefecture');
+
         // 1. メーカー・カテゴリ・排気量の組み合わせ（10台以上のみ）
         foreach ($allPrefectures as $pref) {
             $fullPref = $toFullPref($pref);
+
+            // 都道府県トップページ（indexable=10台以上のみ・鮮度重視で daily / 高めの優先度）
+            if ($prefTotals->filter(fn ($c, $k) => str_starts_with((string) $k, $pref))->sum() >= 10) {
+                $writeLandingUrl(route('bikes.area_index', $pref), date('Y-m-d'), 'daily', '0.8');
+            }
 
             foreach ($manufacturers as $maker) {
                 if (! $activeManufPrefSet->has("{$fullPref}-{$maker->id}")) {
