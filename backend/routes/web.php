@@ -245,6 +245,13 @@ Route::get('/bikes/{mfrSlug}/{ccSlug}', [BikeController::class, 'categoryByDispl
     ->where('ccSlug', '\d+cc')
     ->name('bikes.category_displacement');
 
+// メーカー単体ハブページ (例: /bikes/harley-davidson)。1セグメント・英字slugのみ。
+// bikes グループの固定1セグルート(search/models/prefectures 等)は先に登録済みで衝突せず、
+// /bikes/{id}(数字) とも相互排他。未解決slugは controller が 404。
+Route::get('/bikes/{makerSlug}', [\App\Http\Controllers\Bike\ManufacturerHubController::class, 'show'])
+    ->where('makerSlug', '[a-z][a-z0-9\-]*')
+    ->name('bikes.manufacturer_hub');
+
 // レビューOGP画像（車種全体 / 個別レビュー）
 Route::get('/bikes/{mfrSlug}/{modelSlug}/review-ogp/{reviewId}.png', [ReviewOgpController::class, 'showBySlug'])
     ->where('mfrSlug', '[a-z][a-z0-9\-]*')

@@ -281,7 +281,7 @@
                 <li><i data-lucide="chevron-right" class="w-3 h-3 inline"></i></li>
                 <li><a href="{{ route('bikes.models') }}" class="hover:text-blue-600 transition-colors">車種一覧</a></li>
                 <li><i data-lucide="chevron-right" class="w-3 h-3 inline"></i></li>
-                <li><a href="{{ route('bikes.search', ['manufacturer_id' => $model->manufacturer_id]) }}" class="hover:text-blue-600 transition-colors">{{ $model->manufacturer->name }}</a></li>
+                <li><a href="{{ $model->manufacturer->slug ? route('bikes.manufacturer_hub', ['makerSlug' => $model->manufacturer->slug]) : route('bikes.search', ['manufacturer_id' => $model->manufacturer_id]) }}" class="hover:text-blue-600 transition-colors">{{ $model->manufacturer->name }}</a></li>
                 <li><i data-lucide="chevron-right" class="w-3 h-3 inline"></i></li>
                 <li class="text-gray-700">{{ $model->name }}</li>
             </ol>
