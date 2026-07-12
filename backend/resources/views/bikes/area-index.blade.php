@@ -1,6 +1,6 @@
 <x-layout>
-    <x-slot:title>{{ $prefecture }}の中古バイク｜{{ number_format($totalCount) }}台掲載 | MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $prefecture }}の中古バイク{{ number_format($totalCount) }}台を一括検索。メーカー別・タイプ別・排気量別に比較できます。</x-slot:metaDescription>
+    <x-slot:title>{{ $prefecture }}の中古バイク一覧【{{ number_format($totalCount) }}台】相場・在庫を毎日更新｜MotoHub</x-slot:title>
+    <x-slot:metaDescription>{{ $prefecture }}の中古バイク{{ number_format($totalCount) }}台を毎日更新。メーカー・タイプ・排気量・人気車種から相場と在庫を比較できます。</x-slot:metaDescription>
     <x-slot:canonical>{{ route('bikes.area_index', $prefecture) }}</x-slot:canonical>
 
     @if($totalCount < 10)
@@ -11,6 +11,40 @@
         <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
+    @php
+        // 近隣（同一地方ブロック）の他県＝ハブ&スポークの隣接リンク（config/bike.php regions は短縮形）
+        $regionSiblings = collect(config('bike.regions', []))
+            ->first(fn ($prefs) => in_array($prefecture, $prefs, true)) ?? [];
+        $regionSiblings = collect($regionSiblings)->reject(fn ($p) => $p === $prefecture)->values();
+
+        // BreadcrumbList（HOME > 地域から探す > 県）
+        $areaBreadcrumb = [
+            '@context' => 'https://schema.org',
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                ['@type' => 'ListItem', 'position' => 1, 'name' => 'HOME', 'item' => url('/')],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => '地域から探す', 'item' => route('bikes.prefectures')],
+                ['@type' => 'ListItem', 'position' => 3, 'name' => $prefecture, 'item' => route('bikes.area_index', $prefecture)],
+            ],
+        ];
+        // ItemList（人気車種×県＝striking-distance の landing ページ群へ）
+        $areaItemList = [
+            '@context' => 'https://schema.org',
+            '@type' => 'ItemList',
+            'name' => $prefecture.'の人気中古バイク車種',
+            'itemListElement' => collect($models ?? [])->values()->map(fn ($m, $i) => [
+                '@type' => 'ListItem',
+                'position' => $i + 1,
+                'name' => $m['label'],
+                'url' => $m['url'],
+            ])->all(),
+        ];
+    @endphp
+    <script type="application/ld+json">{!! json_encode($areaBreadcrumb, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    @if(!empty($models) && $models->isNotEmpty())
+    <script type="application/ld+json">{!! json_encode($areaItemList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    @endif
+
     <div class="bg-gray-50 min-h-screen py-12 sm:py-20">
         <div class="max-w-5xl mx-auto px-4">
 
@@ -19,7 +53,7 @@
                     {{ $prefecture }}の中古バイク
                 </h1>
                 <p class="text-gray-400 text-sm font-bold">
-                    {{ number_format($totalCount) }}台掲載中
+                    {{ number_format($totalCount) }}台掲載中・最終更新 {{ now()->format('Y年n月j日') }}
                 </p>
             </div>
 
@@ -116,6 +150,25 @@
                     @endforeach
                 </div>
             </section>
+
+            {{-- 近隣エリア（同じ地方の他県）＝ハブ&スポークの隣接県リンク --}}
+            @if($regionSiblings->isNotEmpty())
+            <section class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-10 mb-8">
+                <h2 class="text-xl font-black text-gray-800 mb-6 flex items-center gap-3">
+                    <span class="w-1.5 h-6 bg-blue-500 rounded-full"></span>
+                    近隣エリアの中古バイク
+                </h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    @foreach($regionSiblings as $sib)
+                        <a href="{{ route('bikes.area_index', $sib) }}"
+                           class="group flex items-center justify-between px-4 py-3 rounded-xl bg-white border border-gray-200 shadow-sm hover:border-blue-500 hover:shadow-md hover:-translate-y-0.5 transition duration-200">
+                            <span class="text-sm font-black text-gray-700 group-hover:text-blue-600 transition-colors">{{ $sib }}</span>
+                            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500 transition-colors shrink-0"></i>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+            @endif
 
             {{-- 全件検索リンク --}}
             <div class="text-center mt-10">
