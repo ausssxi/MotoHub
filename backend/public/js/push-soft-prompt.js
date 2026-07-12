@@ -16,6 +16,13 @@
     var VIEW_KEY = 'mh_push_views';
     var SHOW_FROM_VIEW = 2; // 2〜3件目で提案
 
+    // GA4 計測（非ブロッキング・既存 gtag 慣習に準拠）
+    function track(name, params) {
+        if (typeof gtag === 'function') {
+            try { gtag('event', name, params || {}); } catch (e) {}
+        }
+    }
+
     // ---- 共通ガード ----
 
     function isDismissed() {
@@ -128,7 +135,10 @@
                 var act = e.target.closest('[data-act]');
                 if (!act) return;
                 var a = act.dataset.act;
+                var mSlug = (window.__viewedModel && window.__viewedModel.slug) || null;
                 if (a === 'allow') {
+                    // GA4: ポップアップ導線の通知ボタンクリック（許可/成功は subscribe 経由で計測）
+                    track('notify_cta_click', { source: 'popup', bike_model_id: modelId || null, model_slug: mSlug });
                     act.disabled = true;
                     act.textContent = '処理中...';
                     MotoHubPush.subscribe(modelId).then(function () {
@@ -142,6 +152,8 @@
                         dismiss(true);
                     });
                 } else {
+                    // GA4: ポップアップの「あとで」/「×」離脱（a = later | close）
+                    track('notify_popup_dismiss', { action: a, bike_model_id: modelId || null, model_slug: mSlug });
                     // 「あとで」/「×」は14日抑制（LINE系と共有）
                     dismiss(true);
                 }
