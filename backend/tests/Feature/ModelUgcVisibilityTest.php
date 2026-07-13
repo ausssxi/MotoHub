@@ -15,7 +15,7 @@ it('renders the owner-voice digest before the tab panels (visible without operat
 
     expect($b)->toContain('オーナーの声 ダイジェスト')          // 新設セクション
         ->toContain('オーナーレビュー')
-        ->toContain('質問・相談');
+        ->toContain('クチコミ・相談');
 
     // ダイジェストはタブ内容(tab-panel-overview)より手前に置かれている
     expect(strpos($b, 'オーナーの声 ダイジェスト'))
@@ -25,10 +25,10 @@ it('renders the owner-voice digest before the tab panels (visible without operat
 it('reuses existing controller variables for the digest (no new query)', function () {
     $b = detailBlade();
 
-    // レビューは既存 $model->reviews、Q&Aは既存 $modelQuestions を流用（追加取得なし）
+    // レビューは既存 $model->reviews、クチコミは統合スレッド $modelThreads を流用（追加取得なし）
     expect($b)->toContain('$digestReviews = $model->reviews->sortByDesc')
-        ->toContain('$digestQuestions = !empty($modelQuestions)')
-        ->toContain('$modelQuestionsTotal');
+        ->toContain('$digestThreads = !empty($modelThreads)')
+        ->toContain('$modelThreadsTotal');
 });
 
 it('uses only build-safe line-clamp classes in the digest (avoids purged line-clamp-4)', function () {
@@ -45,7 +45,7 @@ it('shows welcoming empty states (nudges) for zero-review and zero-question mode
     $b = detailBlade();
 
     expect($b)->toContain('最初のオーナーレビューを書きませんか？')      // レビュー0件の呼び水
-        ->toContain('購入検討で気になることを聞いてみませんか？')       // Q&A0件の呼び水
+        ->toContain('気になることを質問すると、MotoHubがすぐ回答します。') // クチコミ0件の呼び水
         ->toContain('レビューを書く')
         ->toContain('質問する');
 });
@@ -73,15 +73,16 @@ it('keeps tab anchors and IDs intact (deep links still work)', function () {
     expect($b)->toContain('id="tab-panel-community"')   // パネルID不変
         ->toContain('id="tab-panel-overview"')
         ->toContain('id="reviews"')                     // #reviews 直リンク先
-        ->toContain('id="questions"')                   // #questions 直リンク先
+        ->toContain('id="threads"')                     // #threads 直リンク先（統合スレッド）
         ->toContain('id="review-form"');
 });
 
-it('leaves the existing Q&A default-expand and review section untouched', function () {
+it('switches the Q&A digest to threads and keeps the review section intact', function () {
     $b = detailBlade();
 
-    // 既存のQ&A展開（先頭N件・回答本文の初期DOM出力）は不変
-    expect($b)->toContain('$qaExpandCount')
-        ->toContain('approvedAnswers->take(2)')
-        ->toContain('id="model-review-list"');
+    // クチコミ・相談は統合スレッドへ（旧 approvedAnswers 展開は撤去済み）、レビュー枠は不変
+    expect($b)->toContain('id="threads"')
+        ->toContain('bikes.thread.store')
+        ->toContain('id="model-review-list"')
+        ->not->toContain('approvedAnswers->take(2)'); // 旧Q&A展開は撤去
 });

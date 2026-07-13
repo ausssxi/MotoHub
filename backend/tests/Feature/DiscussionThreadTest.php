@@ -1,11 +1,15 @@
 <?php
 
 use App\Jobs\GenerateMotoHubAnswer;
+use App\Jobs\SendThreadReplyNotification;
 use App\Models\BikeModel;
 use App\Models\DiscussionReply;
 use App\Models\DiscussionThread;
 use App\Models\Manufacturer;
+use App\Models\ModelQuestion;
+use App\Models\PushQuestionSubscription;
 use App\Models\Report;
+use App\Models\ThreadPushSubscription;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
@@ -174,6 +178,72 @@ it('purges reports and cascades replies when a thread is deleted', function () {
 });
 
 // ─────────── Q&A 種火移行（ロスなし・必答なし） ───────────
+
+// ─────────── 返信通知の繋ぎ替え（旧Q&A push → threads） ───────────
+
+it('ties a reply-notification subscription to the new thread on opt-in', function () {
+    $m = dtModel();
+
+    $this->post("/bikes/models/{$m->id}/threads", [
+        'type' => 'chat', 'title' => '相談', 'push_endpoint' => 'https://push.example/z', 'push_p256dh' => 'P', 'push_auth' => 'A',
+    ])->assertRedirect();
+
+    $thread = DiscussionThread::first();
+    $sub = ThreadPushSubscription::first();
+    expect($sub)->not->toBeNull()
+        ->and($sub->discussion_thread_id)->toBe($thread->id)
+        ->and($sub->endpoint_hash)->toBe(hash('sha256', 'https://push.example/z'));
+});
+
+it('notifies on a human reply but not on the MotoHub official answer', function () {
+    Bus::fake();
+    $m = dtModel();
+    $thread = DiscussionThread::create(['bike_model_id' => $m->id, 'nickname' => 'q', 'title' => 't', 'type' => 'question', 'status' => 'published', 'submitter_ip_hash' => 'QHASH']);
+    ThreadPushSubscription::create(['discussion_thread_id' => $thread->id, 'endpoint' => 'https://push.example/a', 'p256dh' => 'p', 'auth' => 'a']);
+
+    DiscussionReply::create(['discussion_thread_id' => $thread->id, 'is_official' => true, 'source' => 'ai', 'status' => 'published', 'body' => '公式', 'answer_generated_at' => now()]);
+    Bus::assertNotDispatchedAfterResponse(SendThreadReplyNotification::class); // 必答では通知しない
+
+    DiscussionReply::create(['discussion_thread_id' => $thread->id, 'nickname' => 'x', 'source' => 'human', 'status' => 'published', 'body' => '返信', 'submitter_ip_hash' => 'OTHER']);
+    Bus::assertDispatchedAfterResponse(SendThreadReplyNotification::class); // 別人の人間返信で通知
+});
+
+it('suppresses reply notification for the questioner replying to their own thread', function () {
+    Bus::fake();
+    $m = dtModel();
+    $thread = DiscussionThread::create(['bike_model_id' => $m->id, 'nickname' => 'q', 'title' => 't', 'type' => 'question', 'status' => 'published', 'submitter_ip_hash' => 'SAME']);
+    ThreadPushSubscription::create(['discussion_thread_id' => $thread->id, 'endpoint' => 'https://push.example/a', 'p256dh' => 'p', 'auth' => 'a']);
+
+    DiscussionReply::create(['discussion_thread_id' => $thread->id, 'nickname' => 'q', 'source' => 'human', 'status' => 'published', 'body' => '自己返信', 'submitter_ip_hash' => 'SAME']);
+    Bus::assertNotDispatchedAfterResponse(SendThreadReplyNotification::class);
+});
+
+it('backfills existing Q&A push subscriptions to the migrated thread (subscribers not lost)', function () {
+    $m = dtModel();
+    $q = ModelQuestion::create(['bike_model_id' => $m->id, 'nickname' => 'x', 'title' => '旧質問', 'is_approved' => true]);
+    // ③ Q&A→スレ移行（種火スレ生成）
+    (require database_path('migrations/2026_07_13_100300_migrate_model_qa_into_threads.php'))->up();
+    $thread = DiscussionThread::where('is_seed', true)->first();
+    // 旧push購読（question紐付）
+    PushQuestionSubscription::create(['model_question_id' => $q->id, 'endpoint' => 'https://push.example/legacy', 'p256dh' => 'p', 'auth' => 'a']);
+
+    // 繋ぎ替えmigrationのバックフィルを実行（create は hasTable ガードでスキップ）
+    (require database_path('migrations/2026_07_13_120000_create_thread_push_subscriptions_table.php'))->up();
+
+    $sub = ThreadPushSubscription::where('discussion_thread_id', $thread->id)->first();
+    expect($sub)->not->toBeNull()
+        ->and($sub->endpoint_hash)->toBe(hash('sha256', 'https://push.example/legacy')); // 既存購読者が正しいスレへ
+});
+
+it('keeps the legacy question detail page alive, pointing posting to threads', function () {
+    $m = dtModel();
+    $q = ModelQuestion::create(['bike_model_id' => $m->id, 'nickname' => 'x', 'title' => '旧質問', 'is_approved' => true]);
+
+    $this->get(route('bikes.model_question', ['mfrSlug' => $m->manufacturer->slug, 'modelSlug' => $m->slug, 'id' => $q->id]))
+        ->assertOk()
+        ->assertSee('クチコミ・相談')
+        ->assertSee('#threads', false);
+});
 
 it('surfaces the thread section and create form on the model detail page', function () {
     $blade = file_get_contents(resource_path('views/bikes/model_detail.blade.php'));

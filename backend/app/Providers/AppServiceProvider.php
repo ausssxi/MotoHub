@@ -100,6 +100,7 @@ class AppServiceProvider extends ServiceProvider
         \App\Models\ShopAcceptanceReport::observe(\App\Observers\ShopAcceptanceReportObserver::class);
         \App\Models\ModelAnswer::observe(\App\Observers\ModelAnswerObserver::class);
         \App\Models\DiscussionThread::observe(\App\Observers\DiscussionThreadObserver::class);
+        \App\Models\DiscussionReply::observe(\App\Observers\DiscussionReplyObserver::class);
 
         Socialite::extend('line', function ($app) {
             $config = $app['config']['services.line'];

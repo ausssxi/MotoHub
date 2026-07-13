@@ -285,11 +285,8 @@ Route::get('/bikes/{mfrSlug}/{modelSlug}/questions/{id}', [\App\Http\Controllers
 Route::get('/bikes/{mfrSlug}/{modelSlug}/questions', [\App\Http\Controllers\Bike\ModelQaController::class, 'listQuestions'])
     ->where('mfrSlug', '[a-z][a-z0-9\-]*')
     ->name('bikes.model_questions');
-// 質問・回答の投稿・参考になった（ログイン不要・安全弁: NGワード＋honeypot＋IPハッシュ＋throttle＋通報＋キルスイッチ）
-Route::post('/bikes/models/{modelId}/questions', [\App\Http\Controllers\Bike\ModelQaController::class, 'storeQuestion'])
-    ->where('modelId', '[0-9]+')->name('bikes.model_question.store')->middleware('throttle:3,1');
-Route::post('/bikes/questions/{questionId}/answers', [\App\Http\Controllers\Bike\ModelQaController::class, 'storeAnswer'])
-    ->where('questionId', '[0-9]+')->name('bikes.model_answer.store')->middleware('throttle:3,1');
+// 旧Q&Aの新規投稿経路は統合スレッド(bikes.thread.*)へ一本化したため撤去（UGC Phase1.1）。
+// 既存の質問詳細/一覧(showQuestion/listQuestions)はSEO資産のため当面残置。「参考になった」も維持。
 Route::post('/bikes/answers/{answerId}/helpful', [\App\Http\Controllers\Bike\ModelQaController::class, 'markHelpful'])
     ->where('answerId', '[0-9]+')->name('bikes.model_answer.helpful')->middleware('throttle:20,1');
 

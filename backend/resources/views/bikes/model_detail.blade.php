@@ -407,7 +407,7 @@
                         $digestReviews = $model->reviews->sortByDesc('created_at')->take(2);
                         $digestReviewCount = $model->reviews->count();
                         $digestReviewAvg = $digestReviewCount > 0 ? round($model->reviews->avg('rating'), 1) : null;
-                        $digestQuestions = !empty($modelQuestions) ? $modelQuestions->take(2) : collect();
+                        $digestThreads = !empty($modelThreads) ? $modelThreads->take(2) : collect();
                     @endphp
                     <div class="space-y-4 mb-8">
                         {{-- レビュー ダイジェスト --}}
@@ -450,34 +450,31 @@
                             @endif
                         </div>
 
-                        {{-- Q&A ダイジェスト --}}
+                        {{-- クチコミ・相談 ダイジェスト（統合スレッド。質問にはMotoHub必答が即時） --}}
                         <div class="bg-white rounded-3xl shadow-sm p-5 sm:p-6 border border-gray-100">
                             <div class="flex items-center justify-between gap-3 mb-3">
                                 <h2 class="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
                                     <span class="bg-blue-100 text-blue-600 p-1.5 rounded-lg shrink-0"><i data-lucide="messages-square" class="w-4 h-4"></i></span>
-                                    質問・相談
-                                    @if(($modelQuestionsTotal ?? 0) > 0)
-                                    <span class="text-xs text-gray-500 font-bold">（{{ $modelQuestionsTotal }}件）</span>
+                                    クチコミ・相談
+                                    @if(($modelThreadsTotal ?? 0) > 0)
+                                    <span class="text-xs text-gray-500 font-bold">（{{ $modelThreadsTotal }}件）</span>
                                     @endif
                                 </h2>
-                                <a href="#questions" class="shrink-0 text-xs font-bold text-blue-600 hover:underline inline-flex items-center gap-0.5">すべて見る<i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></a>
+                                <a href="#threads" class="shrink-0 text-xs font-bold text-blue-600 hover:underline inline-flex items-center gap-0.5">すべて見る<i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></a>
                             </div>
-                            @forelse($digestQuestions as $q)
-                            <a href="#questions" class="block rounded-2xl border border-gray-100 p-3 hover:border-blue-200 hover:bg-blue-50 transition-colors {{ ! $loop->last ? 'mb-2' : '' }}">
+                            @forelse($digestThreads as $t)
+                            <a href="#threads" class="block rounded-2xl border border-gray-100 p-3 hover:border-blue-200 hover:bg-blue-50 transition-colors {{ ! $loop->last ? 'mb-2' : '' }}">
                                 <div class="flex items-start justify-between gap-2">
-                                    <span class="text-sm font-bold text-gray-900 leading-snug">{{ $q->title }}</span>
-                                    <span class="shrink-0 text-[11px] font-black {{ $q->approved_answers_count > 0 ? 'text-gray-500' : 'text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full' }}">{{ $q->approved_answers_count > 0 ? '回答'.$q->approved_answers_count.'件' : '回答募集中' }}</span>
+                                    <span class="text-sm font-bold text-gray-900 leading-snug"><span class="text-[10px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded mr-1">{{ $t->type === 'question' ? '質問' : '相談' }}</span>{{ $t->title }}</span>
+                                    <span class="shrink-0 text-[11px] font-black text-gray-500">返信{{ $t->published_replies_count }}件</span>
                                 </div>
-                                @if($q->approvedAnswers->isNotEmpty())
-                                <p class="text-sm text-gray-600 leading-relaxed line-clamp-2 mt-1">{{ $q->approvedAnswers->first()->body }}</p>
-                                @endif
                             </a>
                             @empty
                             {{-- 0件: 呼び水 --}}
                             <div class="text-center py-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                                <p class="text-sm text-gray-600 font-bold mb-1">この{{ $model->name }}への質問はまだありません。</p>
-                                <p class="text-xs text-gray-500 mb-3">購入検討で気になることを聞いてみませんか？</p>
-                                <a href="#questions" class="inline-flex items-center gap-1 text-xs font-bold bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition-colors"><i data-lucide="help-circle" class="w-3 h-3"></i>質問する</a>
+                                <p class="text-sm text-gray-600 font-bold mb-1">この{{ $model->name }}のクチコミ・相談はまだありません。</p>
+                                <p class="text-xs text-gray-500 mb-3">気になることを質問すると、MotoHubがすぐ回答します。</p>
+                                <a href="#threads" class="inline-flex items-center gap-1 text-xs font-bold bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition-colors"><i data-lucide="help-circle" class="w-3 h-3"></i>質問する</a>
                             </div>
                             @endforelse
                         </div>
@@ -2046,7 +2043,7 @@
                                 <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="open && 'rotate-180'"></i>
                             </button>
                             @error('title')<p class="text-xs font-bold text-red-500 mt-2">{{ $message }}</p>@enderror
-                            <form x-show="open" x-cloak method="POST" action="{{ route('bikes.thread.store', $model->id) }}" class="mt-3 space-y-2">
+                            <form x-show="open" x-cloak method="POST" action="{{ route('bikes.thread.store', $model->id) }}" class="mt-3 space-y-2" data-qa-push-form>
                                 @csrf
                                 <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
                                 <select name="type" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
@@ -2066,109 +2063,17 @@
                                     @endguest
                                     <button type="submit" class="shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm px-6 py-2 rounded-lg transition ml-auto">投稿する</button>
                                 </div>
-                            </form>
-                        </div>
-                        @endif
-                    </div>
-
-                    {{-- ===== 車種Q&A（レビューとは別枠：レビュー＝乗った感想／Q&A＝購入検討の疑問にオーナーが答える） ===== --}}
-                    <div id="questions" class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100 scroll-mt-20">
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="bg-blue-100 text-blue-600 p-2 rounded-lg"><i data-lucide="messages-square" class="w-5 h-5"></i></span>
-                            <h2 class="text-xl font-black text-gray-900">{{ $model->name }} の質問・相談</h2>
-                        </div>
-                        <p class="text-xs text-gray-500 mb-5">購入検討で気になることを、オーナーや詳しい人に聞けます（レビューとは別。ログイン不要）。</p>
-
-                        @if(session('qa_success') === 'question')
-                        <div class="mb-4 text-sm font-bold text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">質問を投稿しました。回答が付くのを待ちましょう！</div>
-                        @endif
-
-                        {{-- 質問一覧。先頭 qaExpandCount 件は回答本文込みで初期展開（価格コム式・回答本文を初期DOMに出力＝SEO）。 --}}
-                        @if(!empty($modelQuestions) && $modelQuestions->count() > 0)
-                        @php $qUrl = fn ($q) => route('bikes.model_question', ['mfrSlug' => $model->manufacturer->slug ?? $model->manufacturer_id, 'modelSlug' => $model->slug ?? $model->id, 'id' => $q->id]); @endphp
-                        <div class="space-y-3 mb-6">
-                            @foreach($modelQuestions as $i => $q)
-                            @if($i < ($qaExpandCount ?? 3))
-                            {{-- 展開: 質問＋回答本文（先頭2件をDOM出力・SEO） --}}
-                            <div class="rounded-2xl border border-gray-100 p-4">
-                                <a href="{{ $qUrl($q) }}" class="flex items-start justify-between gap-3">
-                                    <span class="text-sm font-black text-gray-900 leading-snug">{{ $q->title }}</span>
-                                    <span class="shrink-0 text-xs font-black {{ $q->approved_answers_count > 0 ? 'text-gray-500' : 'text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full' }}">
-                                        {{ $q->approved_answers_count > 0 ? '回答'.$q->approved_answers_count.'件' : '回答募集中' }}
-                                    </span>
-                                </a>
-                                @forelse($q->approvedAnswers->take(2) as $ans)
-                                <div class="mt-2 bg-gray-50 rounded-xl px-3 py-2">
-                                    <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line break-words line-clamp-4">{{ $ans->body }}</p>
-                                    <p class="text-[11px] text-gray-400 mt-1">{{ $ans->display_name }}さん・{{ $ans->created_at->diffForHumans() }}</p>
-                                </div>
-                                @empty
-                                <p class="mt-2 text-xs text-gray-400">まだ回答がありません。答えられる方はぜひ。</p>
-                                @endforelse
-                                @if($q->approved_answers_count > 2)
-                                <a href="{{ $qUrl($q) }}" class="mt-2 inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline">他{{ $q->approved_answers_count - 2 }}件の回答を見る<i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></a>
-                                @endif
-                            </div>
-                            @else
-                            {{-- 折りたたみ: タイトル＋回答数（クリックで詳細へ） --}}
-                            <a href="{{ $qUrl($q) }}" class="flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 transition-colors">
-                                <span class="text-sm font-bold text-gray-800 truncate">{{ $q->title }}</span>
-                                <span class="shrink-0 text-xs font-black {{ $q->approved_answers_count > 0 ? 'text-gray-500' : 'text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full' }}">
-                                    {{ $q->approved_answers_count > 0 ? '回答'.$q->approved_answers_count.'件' : '回答募集中' }}
-                                </span>
-                            </a>
-                            @endif
-                            @endforeach
-                        </div>
-
-                        {{-- 表示件数を超える質問があれば一覧へ（すべて見る） --}}
-                        @if(($modelQuestionsTotal ?? $modelQuestions->count()) > $modelQuestions->count())
-                        <div class="mb-6 text-center">
-                            <a href="{{ route('bikes.model_questions', ['mfrSlug' => $model->manufacturer->slug ?? $model->manufacturer_id, 'modelSlug' => $model->slug ?? $model->id]) }}"
-                               class="inline-flex items-center gap-1.5 text-sm font-bold text-blue-600 hover:underline">
-                                すべての質問を見る（{{ $modelQuestionsTotal }}件）<i data-lucide="arrow-right" class="w-4 h-4"></i>
-                            </a>
-                        </div>
-                        @endif
-                        @else
-                        {{-- 0件: 歓迎トーン --}}
-                        <div class="text-center py-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200 mb-6">
-                            <p class="text-sm text-gray-600 font-bold mb-1">この車種への質問はまだありません。</p>
-                            <p class="text-xs text-gray-500">購入検討で気になることを、オーナーに聞いてみましょう。</p>
-                        </div>
-                        @endif
-
-                        {{-- 質問フォーム（タイトル必須＋詳細任意＋ニックネーム任意・ログイン不要） --}}
-                        <div class="bg-gray-50 rounded-2xl p-5 border border-gray-100" x-data="{ open: {{ ($modelQuestions->count() ?? 0) === 0 ? 'true' : 'false' }} }">
-                            <button type="button" @click="open = !open" class="w-full flex items-center justify-between text-left">
-                                <span class="text-sm font-black text-gray-900">この{{ $model->name }}について質問する</span>
-                                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="open && 'rotate-180'"></i>
-                            </button>
-                            @error('title')<p class="text-xs font-bold text-red-500 mt-2">{{ $message }}</p>@enderror
-                            <form x-show="open" x-cloak method="POST" action="{{ route('bikes.model_question.store', $model->id) }}" class="mt-3 space-y-2" data-qa-push-form>
-                                @csrf
-                                <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
-                                <input type="text" name="title" maxlength="120" required value="{{ old('title') }}"
-                                       placeholder="例: 足つきはどうですか？ 身長165cmです"
-                                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                <textarea name="body" rows="2" maxlength="2000" placeholder="詳しく（任意）"
-                                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">{{ old('body') }}</textarea>
-                                <div class="flex gap-2">
-                                    @guest
-                                    <input type="text" name="nickname" maxlength="50" value="{{ old('nickname') }}" placeholder="お名前（任意）" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm">
-                                    @endguest
-                                    <button type="submit" class="shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm px-6 py-2 rounded-lg transition ml-auto">質問する</button>
-                                </div>
-                                {{-- 「回答が付いたら通知」オプトイン。JSが対応環境でのみ表示（既定hidden）。ログイン不要・メール不要。 --}}
+                                {{-- 「返信が付いたら通知」オプトイン（人間の返信で通知・MotoHub必答では通知しない）。JS対応環境でのみ表示。 --}}
                                 <label data-qa-push-optin class="hidden items-center gap-2 text-xs font-bold text-gray-600 cursor-pointer select-none">
                                     <input type="checkbox" name="qa_notify_optin" value="1" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                    <span>回答が付いたら、このブラウザに通知でお知らせ（無料・登録不要）</span>
+                                    <span>返信が付いたら、このブラウザに通知でお知らせ（無料・登録不要）</span>
                                 </label>
                                 <input type="hidden" name="push_endpoint" value="">
                                 <input type="hidden" name="push_p256dh" value="">
                                 <input type="hidden" name="push_auth" value="">
                             </form>
                         </div>
+                        @endif
                     </div>
 
                     </div>{{-- /tab-panel-community --}}

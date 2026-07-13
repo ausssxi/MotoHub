@@ -65,9 +65,9 @@ it('drops the now-dead comparedPairs computation from the controller', function 
 it('leaves the UGC digest and tab anchors intact', function () {
     $b = invBlade();
 
-    expect($b)->toContain('オーナーの声 ダイジェスト')  // 昨日のUGCダイジェスト不変
+    expect($b)->toContain('オーナーの声 ダイジェスト')  // UGCダイジェスト不変
         ->toContain('id="tab-panel-community"')
         ->toContain('id="reviews"')
-        ->toContain('id="questions"')
+        ->toContain('id="threads"')                    // 統合スレッド（旧 id="questions" は撤去）
         ->toContain('id="tab-panel-inventory"');       // 在庫タブ本体は維持
 });
