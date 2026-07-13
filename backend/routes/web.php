@@ -293,6 +293,18 @@ Route::post('/bikes/questions/{questionId}/answers', [\App\Http\Controllers\Bike
 Route::post('/bikes/answers/{answerId}/helpful', [\App\Http\Controllers\Bike\ModelQaController::class, 'markHelpful'])
     ->where('answerId', '[0-9]+')->name('bikes.model_answer.helpful')->middleware('throttle:20,1');
 
+// 統合スレッド型クチコミ（質問/相談）。type=question には MotoHub必答（公式AI）が即時付与される。
+// 安全弁は既存Q&Aと同型（NGワード＋honeypot＋IPハッシュ＋throttle＋通報＋status キルスイッチ）。
+Route::get('/bikes/{mfrSlug}/{modelSlug}/threads/{id}', [\App\Http\Controllers\Bike\DiscussionThreadController::class, 'show'])
+    ->where(['mfrSlug' => '[a-z][a-z0-9\-]*', 'id' => '[0-9]+'])
+    ->name('bikes.thread');
+Route::post('/bikes/models/{modelId}/threads', [\App\Http\Controllers\Bike\DiscussionThreadController::class, 'store'])
+    ->where('modelId', '[0-9]+')->name('bikes.thread.store')->middleware('throttle:3,1');
+Route::post('/bikes/threads/{threadId}/replies', [\App\Http\Controllers\Bike\DiscussionThreadController::class, 'storeReply'])
+    ->where('threadId', '[0-9]+')->name('bikes.thread.reply')->middleware('throttle:3,1');
+Route::post('/bikes/replies/{replyId}/vote', [\App\Http\Controllers\Bike\DiscussionThreadController::class, 'vote'])
+    ->where('replyId', '[0-9]+')->name('bikes.thread.reply.vote')->middleware('throttle:20,1');
+
 Route::get('/bikes/{mfrSlug}/{modelSlug}', [BikeController::class, 'modelDetailBySlug'])
     ->where('mfrSlug', '[a-z][a-z0-9\-]*')
     ->name('bikes.model_detail');
