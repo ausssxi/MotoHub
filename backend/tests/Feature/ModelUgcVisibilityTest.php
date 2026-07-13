@@ -77,6 +77,15 @@ it('keeps tab anchors and IDs intact (deep links still work)', function () {
         ->toContain('id="review-form"');
 });
 
+it('scrolls to the in-panel anchor after switching tabs (1-tap to reviews/threads)', function () {
+    $b = detailBlade();
+
+    // タブ内アンカー(#reviews/#threads)は switchTab 後に遅延スクロールで本体へ着地（2タップ解消）
+    expect($b)->toContain('switchTab(panelTab);')
+        ->toContain("window.scrollTo({ top: y, behavior: 'smooth' })")
+        ->toContain('tabNav ? tabNav.offsetHeight'); // sticky タブナビ分オフセット
+});
+
 it('switches the Q&A digest to threads and keeps the review section intact', function () {
     $b = detailBlade();
 

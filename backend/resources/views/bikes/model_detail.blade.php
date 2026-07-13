@@ -221,13 +221,22 @@
                         if (validTabs.indexOf(hash) !== -1) {
                             switchTab(hash);
                         } else {
-                            // タブ内アンカー（#review-form等）の場合、親タブを維持する
+                            // タブ内アンカー（#reviews / #threads / #review-form 等）：親タブを表示してから
+                            // その要素まで1タップでスクロールする。switchTab で display:none→block にした直後は
+                            // まだ再描画・レイアウトが確定しておらず、同期で scrollIntoView を呼ぶと不発になる。
+                            // → 1フレーム遅らせて（既存46-54行のタブclick＋setTimeout scrollと同型）表示確定後に走らせる。
                             var target = document.getElementById(hash);
                             if (target) {
                                 var parentPanel = target.closest('.tab-panel');
                                 if (parentPanel) {
                                     var panelTab = parentPanel.id.replace('tab-panel-', '');
                                     switchTab(panelTab);
+                                    setTimeout(function () {
+                                        // sticky タブナビ(top-0)の高さ分オフセット（scroll-mt はビルド未生成のためJSで担保）。
+                                        var offset = (tabNav ? tabNav.offsetHeight : 0) + 12;
+                                        var y = target.getBoundingClientRect().top + window.pageYOffset - offset;
+                                        window.scrollTo({ top: y, behavior: 'smooth' });
+                                    }, 60);
                                 }
                             }
                             // どのタブにも属さないハッシュの場合は現在のタブを維持（切り替えない）
