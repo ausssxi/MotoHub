@@ -38,12 +38,12 @@ it('uses the same button classes as the 質問する CTA (blue, build-safe)', fu
     expect($digest)->not->toContain('bg-black');
 });
 
-it('leaves the Q&A digest CTA and the review form itself unchanged', function () {
+it('leaves the discussion digest CTA and the review form itself unchanged', function () {
     $b = ctaBlade();
 
-    // Q&A側「質問する」は不変（#questions・bg-blue-600）
+    // クチコミ・相談側「質問する」CTAは統合スレッド(#threads)へ（bg-blue-600 は共通）
     expect($b)->toContain('質問する')
-        ->toContain('href="#questions"');
+        ->toContain('href="#threads"');
 
     // レビューフォーム本体・投稿ボタンは不変
     expect($b)->toContain('id="review-form"')

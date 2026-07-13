@@ -61,6 +61,12 @@ final class DiscussionThread extends Model
         return $this->hasMany(DiscussionReply::class)->where('is_official', true);
     }
 
+    /** 「返信が付いたら通知」購読（匿名はendpoint_hashで識別）。 */
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(ThreadPushSubscription::class);
+    }
+
     /** 公開表示名。本名(user->name)は出さない。 */
     public function getDisplayNameAttribute(): string
     {

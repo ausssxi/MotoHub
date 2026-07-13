@@ -10,6 +10,7 @@ use App\Http\Requests\Bike\StoreDiscussionThreadRequest;
 use App\Models\BikeModel;
 use App\Models\DiscussionReply;
 use App\Models\DiscussionThread;
+use App\Models\ThreadPushSubscription;
 use App\Models\ThreadReplyVote;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -61,6 +62,9 @@ final class DiscussionThreadController extends Controller
             'status' => 'published', // 即反映・通報でキルスイッチ（status=hidden）
             'submitter_ip_hash' => $this->ipHash($request),
         ]);
+
+        // 「返信が付いたら通知」に許可した場合のみ、この新スレへ購読を紐付ける（断られても投稿は正常完了）
+        $this->maybeSubscribeToReplies($request, $thread);
 
         return redirect($this->threadUrl($thread))->with('ugc_success', 'thread');
     }
@@ -120,6 +124,34 @@ final class DiscussionThreadController extends Controller
     private function ipHash(Request $request): string
     {
         return hash('sha256', $request->ip().'|'.config('app.key'));
+    }
+
+    /**
+     * スレッドへの「返信通知」購読を保存（任意）。endpoint等が揃っている時だけ紐付ける。
+     * 匿名識別は endpoint_hash を流用（新規PIIは保存しない）。
+     */
+    private function maybeSubscribeToReplies(Request $request, DiscussionThread $thread): void
+    {
+        $endpoint = trim((string) $request->input('push_endpoint'));
+        $p256dh = trim((string) $request->input('push_p256dh'));
+        $auth = trim((string) $request->input('push_auth'));
+
+        if ($endpoint === '' || $p256dh === '' || $auth === '') {
+            return; // 未許可 or 非対応環境 → 通知なしで正常完了
+        }
+
+        ThreadPushSubscription::updateOrCreate(
+            [
+                'endpoint_hash' => hash('sha256', $endpoint),
+                'discussion_thread_id' => $thread->id,
+            ],
+            [
+                'endpoint' => $endpoint,
+                'p256dh' => $p256dh,
+                'auth' => $auth,
+                'user_id' => $request->user()?->id,
+            ],
+        );
     }
 
     private function threadUrl(DiscussionThread $thread): string

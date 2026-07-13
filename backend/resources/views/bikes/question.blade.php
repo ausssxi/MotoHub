@@ -71,22 +71,12 @@
                 @endforelse
             </ul>
 
-            {{-- 回答フォーム --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                <h3 class="text-sm font-black text-gray-900 mb-3">この質問に回答する</h3>
-                @error('body')<p class="text-xs font-bold text-red-500 mb-2">{{ $message }}</p>@enderror
-                <form method="POST" action="{{ route('bikes.model_answer.store', $question->id) }}" class="space-y-3">
-                    @csrf
-                    <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
-                    <textarea name="body" rows="3" maxlength="2000" required placeholder="回答を書く（実際に乗っている方の声が特に役立ちます）"
-                              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">{{ old('body') }}</textarea>
-                    <div class="flex gap-2">
-                        @guest
-                        <input type="text" name="nickname" maxlength="50" value="{{ old('nickname') }}" placeholder="お名前（任意）" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm">
-                        @endguest
-                        <button type="submit" class="shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm px-6 py-2 rounded-lg transition ml-auto">回答する</button>
-                    </div>
-                </form>
+            {{-- 投稿は統合スレッド「クチコミ・相談」へ一本化（この質問詳細は閲覧/SEO用として残置） --}}
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
+                <p class="text-sm text-gray-600 font-bold mb-3">この{{ $model->name }}への質問・回答は「クチコミ・相談」に移動しました。</p>
+                <a href="{{ $model->seo_url }}#threads" class="inline-flex items-center gap-1 text-xs font-bold bg-blue-600 text-white px-5 py-2 rounded-full hover:bg-blue-700 transition-colors">
+                    <i data-lucide="messages-square" class="w-3.5 h-3.5"></i>クチコミ・相談を見る／投稿する
+                </a>
             </div>
         </div>
     </div>
