@@ -6,10 +6,12 @@ namespace App\Jobs;
 
 use App\Models\BikeModel;
 use App\Models\DiscussionReply;
+use App\Models\DiscussionThread;
 use App\Models\Listing;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 
 /**
  * MotoHub必答（過疎対策の核）。質問スレの公式プレースホルダ返信を、モデルの実データを根拠に
@@ -43,7 +45,7 @@ final class GenerateMotoHubAnswer
         }
 
         $facts = $this->collectFacts($model);
-        $body = $this->generate((string) $thread->title, (string) $thread->body, $model, $facts);
+        $body = $this->generate($thread, $model, $facts);
 
         $reply->forceFill([
             'body' => $body,
@@ -91,13 +93,18 @@ final class GenerateMotoHubAnswer
     /**
      * @param  array<string, mixed>  $facts
      */
-    private function generate(string $title, string $body, BikeModel $model, array $facts): string
+    private function generate(DiscussionThread $thread, BikeModel $model, array $facts): string
     {
         $apiKey = config('services.anthropic.api_key');
 
-        if (! empty($apiKey)) {
+        // AI必答のコスト上限: 10/日/IP相当。超過（または失敗）時は生成せず構造化フォールバック＝
+        // スレは必ず成立させつつ Claude 呼び出し費用の暴走を防ぐ。キーは thread の submitter_ip_hash。
+        $rateKey = 'motohub-answer:'.($thread->submitter_ip_hash ?: 'anon');
+
+        if (! empty($apiKey) && ! RateLimiter::tooManyAttempts($rateKey, 10)) {
+            RateLimiter::hit($rateKey, 86400); // 1日
             try {
-                $ai = $this->askClaude((string) $apiKey, $title, $body, $facts);
+                $ai = $this->askClaude((string) $apiKey, (string) $thread->title, (string) $thread->body, $facts);
                 if ($ai !== null && trim($ai) !== '') {
                     return trim($ai);
                 }

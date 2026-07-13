@@ -73,6 +73,26 @@ it('uses the Claude answer when an API key is configured', function () {
     expect(DiscussionReply::where('is_official', true)->first()->body)->toBe('MotoHubのデータではこの車種の燃費は良好です。');
 });
 
+it('caps MotoHub AI answers at 10/day per IP and falls back beyond the cap', function () {
+    $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class); // 秒間throttleを外し日次上限だけ検証
+    config()->set('services.anthropic.api_key', 'test-key');
+    Http::fake(['api.anthropic.com/*' => Http::response(['content' => [['type' => 'text', 'text' => 'AI回答テキスト。']]], 200)]);
+    $m = dtModel();
+
+    // 同一IPから11本の質問スレ。上限10までは Claude、11本目は生成せずフォールバック。
+    for ($i = 1; $i <= 11; $i++) {
+        $this->post("/bikes/models/{$m->id}/threads", ['type' => 'question', 'title' => "q{$i}"]);
+    }
+
+    $threads = DiscussionThread::orderBy('id')->get();
+    $firstOfficial = DiscussionReply::where('discussion_thread_id', $threads[0]->id)->where('is_official', true)->first();
+    $overCap = DiscussionReply::where('discussion_thread_id', $threads[10]->id)->where('is_official', true)->first();
+
+    expect($firstOfficial->body)->toBe('AI回答テキスト。')          // 上限内はAI採用
+        ->and($overCap->body)->toContain('MotoHubのデータ')        // 超過は構造化フォールバック
+        ->and($overCap->answer_generated_at)->not->toBeNull();     // 超過でもスレは成立（準備中で放置しない）
+});
+
 it('dispatches the answer generation after response (worker-free)', function () {
     Bus::fake();
     $m = dtModel();
