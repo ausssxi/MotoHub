@@ -1494,6 +1494,15 @@ final class BikeController extends Controller
         $viewData['modelQuestionsTotal'] = \App\Models\ModelQuestion::approved()->where('bike_model_id', $model->id)->count();
         $viewData['qaExpandCount'] = self::QA_EXPANDED_COUNT;
 
+        // 統合スレッド型クチコミ（新着順・公開のみ・返信数付き。キャッシュ外＝新規スレ/必答が即時反映）。
+        $viewData['modelThreads'] = \App\Models\DiscussionThread::published()
+            ->where('bike_model_id', $model->id)
+            ->withCount('publishedReplies')
+            ->orderByDesc('created_at')
+            ->limit(self::QA_LIST_LIMIT)
+            ->get();
+        $viewData['modelThreadsTotal'] = \App\Models\DiscussionThread::published()->where('bike_model_id', $model->id)->count();
+
         // この車種を含む比較ページ（オーファン解消の内部リンク・存在する active ペアのみ・最大6）。
         $viewData['relatedCompares'] = \App\Models\SeoCompare::active()
             ->where(function ($q) use ($model) {

@@ -2007,6 +2007,70 @@
                     </div>
                     @endif
 
+                    {{-- ===== 統合スレッド型クチコミ・相談（質問には MotoHub必答が即時に付く＝過疎に見せない） ===== --}}
+                    <div id="threads" class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100 scroll-mt-20 mb-8">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="bg-blue-100 text-blue-600 p-2 rounded-lg"><i data-lucide="messages-square" class="w-5 h-5"></i></span>
+                            <h2 class="text-xl font-black text-gray-900">{{ $model->name }} のクチコミ・相談</h2>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-5">質問・体験談・カスタム・注意喚起をまとめて。質問には<span class="font-bold text-blue-600">MotoHubがすぐに回答</span>します（ログイン不要）。</p>
+
+                        @if(session('ugc_success') === 'thread')
+                        <div class="mb-4 text-sm font-bold text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">投稿しました。MotoHubの回答が付きます。</div>
+                        @endif
+
+                        @if(!empty($modelThreads) && $modelThreads->count() > 0)
+                        @php $tUrl = fn ($t) => route('bikes.thread', ['mfrSlug' => $model->manufacturer->slug ?? $model->manufacturer_id, 'modelSlug' => $model->slug ?? $model->id, 'id' => $t->id]); @endphp
+                        <div class="space-y-2 mb-6">
+                            @foreach($modelThreads as $t)
+                            <a href="{{ $tUrl($t) }}" class="flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-colors">
+                                <span class="text-sm font-bold text-gray-800 truncate">
+                                    <span class="text-[10px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded mr-1">{{ $t->type === 'question' ? '質問' : '相談' }}</span>{{ $t->title }}
+                                </span>
+                                <span class="shrink-0 text-xs font-black text-gray-500">返信{{ $t->published_replies_count }}件</span>
+                            </a>
+                            @endforeach
+                        </div>
+                        @else
+                        <div class="text-center py-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200 mb-6">
+                            <p class="text-sm text-gray-600 font-bold mb-1">この車種のクチコミ・相談はまだありません。</p>
+                            <p class="text-xs text-gray-500">気になることを質問すると、MotoHubがすぐに回答します。</p>
+                        </div>
+                        @endif
+
+                        {{-- 投稿フォーム（type選択・質問なら必答が走る）。開放フラグで制御。 --}}
+                        @if(config('ugc.thread_create_open', true))
+                        <div class="bg-gray-50 rounded-2xl p-5 border border-gray-100" x-data="{ open: {{ ($modelThreads->count() ?? 0) === 0 ? 'true' : 'false' }} }">
+                            <button type="button" @click="open = !open" class="w-full flex items-center justify-between text-left">
+                                <span class="text-sm font-black text-gray-900">この{{ $model->name }}について投稿する</span>
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="open && 'rotate-180'"></i>
+                            </button>
+                            @error('title')<p class="text-xs font-bold text-red-500 mt-2">{{ $message }}</p>@enderror
+                            <form x-show="open" x-cloak method="POST" action="{{ route('bikes.thread.store', $model->id) }}" class="mt-3 space-y-2">
+                                @csrf
+                                <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
+                                <select name="type" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                    <option value="question">質問（MotoHubがすぐ回答）</option>
+                                    <option value="chat">相談・雑談</option>
+                                    <option value="custom">カスタム記録</option>
+                                    <option value="maintenance">整備・トラブル</option>
+                                </select>
+                                <input type="text" name="title" maxlength="120" required value="{{ old('title') }}"
+                                       placeholder="例: 足つきはどうですか？ 身長165cmです"
+                                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                <textarea name="body" rows="2" maxlength="2000" placeholder="詳しく（任意）"
+                                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">{{ old('body') }}</textarea>
+                                <div class="flex gap-2">
+                                    @guest
+                                    <input type="text" name="nickname" maxlength="50" value="{{ old('nickname') }}" placeholder="お名前（任意）" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                                    @endguest
+                                    <button type="submit" class="shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm px-6 py-2 rounded-lg transition ml-auto">投稿する</button>
+                                </div>
+                            </form>
+                        </div>
+                        @endif
+                    </div>
+
                     {{-- ===== 車種Q&A（レビューとは別枠：レビュー＝乗った感想／Q&A＝購入検討の疑問にオーナーが答える） ===== --}}
                     <div id="questions" class="bg-white rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100 scroll-mt-20">
                         <div class="flex items-center gap-2 mb-1">

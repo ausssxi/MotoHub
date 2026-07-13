@@ -43,6 +43,8 @@ final class Report extends Model
         'news_comment' => NewsComment::class,
         'model_question' => ModelQuestion::class,
         'model_answer' => ModelAnswer::class,
+        'discussion_thread' => DiscussionThread::class,
+        'discussion_reply' => DiscussionReply::class,
     ];
 
     /** 通報理由キー => 表示ラベル。 */
