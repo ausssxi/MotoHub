@@ -5,6 +5,15 @@ set -e
 
 echo "=== MotoHub Blog Deploy ==="
 
+# 0. フロントエンド本番ビルド（★最優先・set -e で失敗＝デプロイ即中断）
+#    public/build は derived（毎回ビルドで生成できる）ため git 管理から外した(.gitignore)。
+#    ここで必ず再生成する。ビルドが失敗したのに view:cache/restart まで進むと、欠落クラスの
+#    壊れたCSS（過去の line-clamp-4 / scroll-mt-20 事故）が本番に出るため、build 失敗は
+#    ここでデプロイを止める（安全側の挙動）。app コンテナに node/node_modules 有り。
+echo "[0/8] フロントエンド本番ビルド (npm ci && npm run build)..."
+docker compose exec -T app sh -lc 'cd /var/www && npm ci && npm run build'
+echo "  ビルド成功（public/build を再生成）。"
+
 # 1. Composer パッケージインストール
 echo "[1/8] league/commonmark をインストール..."
 docker compose exec app composer require league/commonmark
