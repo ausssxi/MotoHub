@@ -70,9 +70,17 @@
         ]];
     }
 
-    // ※ AggregateRating の構造化データは撤去（reviews が事実上自作＝spammy structured data /
-    //   自己宣伝レビュー違反リスク。画面上の★表示はUXとして残し、schemaのみ外す）。
-    //   $rs（reviewStats）は他の用途で渡されるが schema には載せない。
+    // AggregateRating は「本物のレビューが2件以上」ある時だけ出力（薄い/自作自演マークアップのペナルティ回避）。
+    // $rs（reviewStats）は is_approved のみ集計済み＝シード/非承認は入らない。
+    if ($rs && (int)($rs->count ?? 0) >= 2 && (float)($rs->avg_rating ?? 0) > 0) {
+        $schema['aggregateRating'] = [
+            '@type' => 'AggregateRating',
+            'ratingValue' => (float) $rs->avg_rating,
+            'reviewCount' => (int) $rs->count,
+            'bestRating' => 5,
+            'worstRating' => 1,
+        ];
+    }
 @endphp
 
 <script type="application/ld+json">
