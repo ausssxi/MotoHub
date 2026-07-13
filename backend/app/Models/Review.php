@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\PurgesReportsOnDelete;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Review extends Model
 {
+    use PurgesReportsOnDelete;
+
     protected $fillable = [
         'bike_model_id',
         'user_id',
@@ -23,6 +27,7 @@ class Review extends Model
         'rating_fuel_economy',
         'rating_cost_performance',
         'is_approved',
+        'helpful_count',
         'tweeted_at',
     ];
 
@@ -33,6 +38,7 @@ class Review extends Model
         'rating_handling' => 'integer',
         'rating_fuel_economy' => 'integer',
         'rating_cost_performance' => 'integer',
+        'helpful_count' => 'integer',
         'is_approved' => 'boolean',
     ];
 
@@ -44,5 +50,10 @@ class Review extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function helpfulVotes(): HasMany
+    {
+        return $this->hasMany(ReviewHelpfulVote::class);
     }
 }

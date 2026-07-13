@@ -231,6 +231,9 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     Route::post('/models/{id}/reviews', 'storeReview')
         ->name('model_detail.review')
         ->middleware('throttle:3,1');
+    // レビューへの「参考になった」（重複防止つき）
+    Route::post('/reviews/{reviewId}/helpful', 'markReviewHelpful')
+        ->where('reviewId', '[0-9]+')->name('review.helpful')->middleware('throttle:20,1');
 
     // 詳細ページ (ID指定) - 他の固定ルートより後に書く
     Route::get('/{id}', 'show')->name('show')->where('id', '[0-9]+');

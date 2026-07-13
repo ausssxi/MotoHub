@@ -1572,7 +1572,7 @@
                                 <span class="bg-green-100 text-green-600 p-2 rounded-lg shrink-0"><i data-lucide="message-circle" class="w-5 h-5"></i></span>
                                 <span>
                                     {{ $model->name }} オーナーレビュー
-                                    <span class="text-sm text-gray-500 font-bold ml-1 inline-block">({{ $model->reviews->count() }}件)</span>
+                                    <span class="text-sm text-gray-500 font-bold ml-1 inline-block">({{ $reviewStats->count ?? 0 }}件)</span>
                                 </span>
                             </h2>
                             <a href="#review-form" class="text-xs font-bold bg-black text-white px-4 py-3 sm:py-2 rounded-full hover:bg-gray-800 transition-colors inline-flex items-center justify-center w-full sm:w-auto">
@@ -1580,10 +1580,44 @@
                             </a>
                         </div>
 
+                        @php
+                            // 表示・集計は承認済み(is_approved)のみ＝シード/非承認を除外。既定=参考になった順、切替=新着順。
+                            $approvedReviews = $model->reviews->where('is_approved', true);
+                            $reviewSort = request('review_sort') === 'new' ? 'created_at' : 'helpful_count';
+                            $sortedReviews = $approvedReviews->sortByDesc($reviewSort)->values();
+                        @endphp
+
+                        {{-- 集計サマリ（総合★＋件数＋★分布バー） --}}
+                        @if(($reviewStats->count ?? 0) > 0)
+                        <div class="bg-gray-50 rounded-2xl p-5 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+                            <div class="text-center sm:border-r border-gray-200">
+                                <div class="text-4xl font-black text-gray-900">{{ $reviewStats->avg_rating }}</div>
+                                <div class="flex justify-center text-yellow-400 my-1">
+                                    @for($i = 1; $i <= 5; $i++)<i data-lucide="star" class="w-4 h-4 {{ $i <= round($reviewStats->avg_rating) ? 'fill-current' : 'text-gray-200' }}"></i>@endfor
+                                </div>
+                                <div class="text-xs text-gray-400 font-bold">{{ $reviewStats->count }}件のレビュー</div>
+                            </div>
+                            <div class="sm:col-span-2 space-y-1.5">
+                                @foreach($reviewDistribution as $star => $cnt)
+                                <div class="flex items-center gap-2 text-xs">
+                                    <span class="w-7 text-gray-500 font-bold shrink-0">★{{ $star }}</span>
+                                    <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-full bg-yellow-400 rounded-full" style="width: {{ $reviewStats->count > 0 ? round($cnt / $reviewStats->count * 100) : 0 }}%"></div></div>
+                                    <span class="w-6 text-right text-gray-400 shrink-0">{{ $cnt }}</span>
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        {{-- ソート切替 --}}
+                        <div class="flex items-center gap-3 mb-4 text-xs font-bold">
+                            <a href="{{ $model->seo_url }}#reviews" class="{{ request('review_sort') !== 'new' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600' }}">参考になった順</a>
+                            <a href="{{ $model->seo_url }}?review_sort=new#reviews" class="{{ request('review_sort') === 'new' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600' }}">新着順</a>
+                        </div>
+                        @endif
+
                         @php $showReviewShare = true; @endphp
                         <div class="space-y-6 mb-12" id="model-review-list">
-                            @forelse($model->reviews as $review)
-                                <div class="border-b border-gray-100 pb-6 last:border-0" id="review-{{ $review->id }}">
+                            @forelse($sortedReviews as $review)
+                                <div class="border-b border-gray-100 pb-6 last:border-0" id="review-{{ $review->id }}" x-data="{ helped: false, count: {{ $review->helpful_count }}, report: false }" x-init="helped = !!localStorage.getItem('review_helpful_{{ $review->id }}')">
                                     <div class="flex items-center justify-between mb-2">
                                         <div class="flex items-center gap-2">
                                             <div class="flex text-yellow-400">
@@ -1606,7 +1640,17 @@
                                     @endif
                                     <p class="text-sm text-gray-600 leading-relaxed mb-2 whitespace-pre-wrap">{{ $review->body }}</p>
                                     <div class="flex items-center justify-between">
-                                        <p class="text-xs text-gray-400 font-bold flex items-center gap-1">by {{ $review->nickname }}@if($review->user_id)<span class="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded"><i data-lucide="badge-check" class="w-3 h-3"></i>ログインユーザー</span>@endif</p>
+                                        <div class="flex items-center gap-3">
+                                            <p class="text-xs text-gray-400 font-bold flex items-center gap-1">by {{ $review->nickname }}@if($review->user_id)<span class="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded"><i data-lucide="badge-check" class="w-3 h-3"></i>ログインユーザー</span>@endif</p>
+                                            <button type="button"
+                                                    @click="if(!helped){ helped=true; localStorage.setItem('review_helpful_{{ $review->id }}','1'); fetch('{{ route('bikes.review.helpful', $review->id) }}',{method:'POST',headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}}).then(r=>r.json()).then(d=>count=d.helpful_count).catch(()=>{}); }"
+                                                    class="inline-flex items-center gap-1 text-[11px] font-bold transition-colors" :class="helped ? 'text-blue-600' : 'text-gray-400 hover:text-blue-600'">
+                                                <i data-lucide="thumbs-up" class="w-3 h-3"></i>参考になった<span x-show="count>0" x-text="count"></span>
+                                            </button>
+                                            <button type="button" @click="report = !report" class="inline-flex items-center gap-0.5 text-[11px] font-bold text-gray-300 hover:text-red-500 transition-colors" aria-label="このレビューを報告する">
+                                                <i data-lucide="flag" class="w-2.5 h-2.5"></i>報告
+                                            </button>
+                                        </div>
                                         @if($showReviewShare)
                                         @php
                                             $rvTags = ['#MotoHub', '#バイクレビュー', '#中古バイク', '#バイク乗りと繋がりたい', '#バイク好きと繋がりたい', '#バイクのある生活', '#ツーリング'];
@@ -1652,6 +1696,7 @@
                                         </a>
                                         @endif
                                     </div>
+                                    @include('bikes.partials._qa_report', ['type' => 'review', 'id' => $review->id])
                                 </div>
                             @empty
                                 {{-- 0件のみ: 一番乗り歓迎トーン（1件でもあれば通常表示） --}}

@@ -1297,14 +1297,24 @@ final class BikeController extends Controller
         $history = $this->priceStatsService->getPriceHistory($id);
         $resale = $this->priceStatsService->getResaleStats($id);
 
+        // ★集計は承認済み(is_approved)のみ＝シード/非承認を除外（schema/表示の信頼性）。
         $reviewStats = DB::table('reviews')
-            ->where('bike_model_id', $id)
+            ->where('bike_model_id', $id)->where('is_approved', true)
             ->selectRaw('ROUND(AVG(rating), 1) as avg_rating, COUNT(*) as count')
             ->first();
 
+        // 総合★の分布（5→1）。バー表示・一望性用。
+        $distRows = DB::table('reviews')
+            ->where('bike_model_id', $id)->where('is_approved', true)
+            ->selectRaw('rating, COUNT(*) as c')->groupBy('rating')->pluck('c', 'rating');
+        $reviewDistribution = [];
+        for ($star = 5; $star >= 1; $star--) {
+            $reviewDistribution[$star] = (int) ($distRows[$star] ?? 0);
+        }
+
         $ratingFields = ['rating_design', 'rating_engine', 'rating_handling', 'rating_fuel_economy', 'rating_cost_performance'];
         $modelAvgs = DB::table('reviews')
-            ->where('bike_model_id', $id)
+            ->where('bike_model_id', $id)->where('is_approved', true)
             ->selectRaw(implode(', ', array_map(fn ($f) => "ROUND(AVG($f), 1) as avg_$f, COUNT($f) as cnt_$f", $ratingFields)))
             ->first();
 
@@ -1312,7 +1322,7 @@ final class BikeController extends Controller
         if ($model->category_id) {
             $categoryModelIds = \App\Models\BikeModel::where('category_id', $model->category_id)->pluck('id');
             $categoryAvgs = DB::table('reviews')
-                ->whereIn('bike_model_id', $categoryModelIds)
+                ->whereIn('bike_model_id', $categoryModelIds)->where('is_approved', true)
                 ->selectRaw(implode(', ', array_map(fn ($f) => "ROUND(AVG($f), 1) as avg_$f", $ratingFields)))
                 ->first();
         }
@@ -1456,7 +1466,7 @@ final class BikeController extends Controller
 
         return compact(
             'model', 'stats', 'history', 'resale', 'listings',
-            'reviewStats', 'categoryReviewStats', 'relatedModels', 'similarDisplacementModels',
+            'reviewStats', 'categoryReviewStats', 'reviewDistribution', 'relatedModels', 'similarDisplacementModels',
             'sameCategoryModels', 'activeCount', 'owners', 'ownersTotal', 'similarModels', 'crossLinks',
             'prefectureStocks', 'rankingStats',
             'yearDistribution', 'yearStats'
@@ -1942,6 +1952,27 @@ final class BikeController extends Controller
     /**
      * レビュー専用ページ（車種詳細と同じ画面、OGPをレーダーチャートに差替、レビューセクションへ自動スクロール）
      */
+    /** レビューへの「参考になった」（重複防止つき・スレ投票と同型）。 */
+    public function markReviewHelpful(Request $request, int $reviewId): \Illuminate\Http\JsonResponse
+    {
+        $review = \App\Models\Review::where('is_approved', true)->findOrFail($reviewId);
+
+        $voterHash = $request->user()
+            ? hash('sha256', 'user:'.$request->user()->id)
+            : hash('sha256', $request->ip().'|'.config('app.key'));
+
+        $vote = \App\Models\ReviewHelpfulVote::firstOrCreate(
+            ['review_id' => $review->id, 'voter_hash' => $voterHash],
+            ['user_id' => $request->user()?->id],
+        );
+
+        if ($vote->wasRecentlyCreated) {
+            $review->increment('helpful_count');
+        }
+
+        return response()->json(['helpful_count' => $review->fresh()->helpful_count]);
+    }
+
     public function modelReviews(string $mfrSlug, string $modelSlug, ?int $reviewId = null)
     {
         $manufacturer = \App\Models\Manufacturer::where('slug', $mfrSlug)->first();
