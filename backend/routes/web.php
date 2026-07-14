@@ -459,6 +459,9 @@ Route::prefix('features')->name('features.')->controller(FeatureController::clas
     Route::get('/{slug}', 'show')->name('show');
 });
 
+// 新基準原付ハブ（データハブ・恒久slug・月次更新でもURL不変）
+Route::get('/shinkijun-gentsuki', [\App\Http\Controllers\ShinkijunGentsukiController::class, 'show'])->name('shinkijun_gentsuki');
+
 // お気に入り・比較機能 (未ログインでも閲覧可能なページ)
 Route::get('/wishlist', [BikeController::class, 'wishlist'])->name('wishlist');
 Route::get('/api/wishlist/fetch', [BikeController::class, 'fetchWishlist'])->name('api.wishlist.fetch');
