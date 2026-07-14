@@ -127,6 +127,9 @@ class GenerateSitemap extends Command
             // 相場ランキング (データが毎日変わるので daily)
             ['route' => 'bikes.trends',      'priority' => '0.8', 'freq' => 'daily'],
 
+            // 新基準原付ハブ（対象モデル+実在庫相場・恒久slug）
+            ['route' => 'shinkijun_gentsuki', 'priority' => '0.8', 'freq' => 'daily'],
+
             // 駐車場マップ
             ['route' => 'parking.index',     'priority' => '0.8', 'freq' => 'daily'],
 
