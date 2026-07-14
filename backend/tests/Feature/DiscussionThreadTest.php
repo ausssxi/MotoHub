@@ -255,6 +255,97 @@ it('surfaces the thread section and create form on the model detail page', funct
         ->and($ctrl)->toContain("\$viewData['modelThreads']"); // キャッシュ外注入（即時反映）
 });
 
+// ─────────── casual投稿（ハードル下げ・title任意） ───────────
+
+it('lets a casual post go through with body only (no title, no MotoHub answer)', function () {
+    Bus::fake();
+    $m = dtModel();
+
+    $this->post("/bikes/models/{$m->id}/threads", ['type' => 'chat', 'body' => 'このカブ通勤に最高'])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $thread = DiscussionThread::first();
+    expect($thread->type)->toBe('chat')
+        ->and($thread->title)->toBeNull()                 // タイトル無しで成立
+        ->and($thread->body)->toBe('このカブ通勤に最高');
+    Bus::assertNotDispatchedAfterResponse(GenerateMotoHubAnswer::class); // casualでは必答が走らない
+    expect(DiscussionReply::where('is_official', true)->count())->toBe(0);
+});
+
+it('defaults an untyped post to casual chat (never accidentally fires the answer)', function () {
+    Bus::fake();
+    $m = dtModel();
+
+    $this->post("/bikes/models/{$m->id}/threads", ['body' => 'ひとことだけ'])->assertRedirect();
+
+    expect(DiscussionThread::first()->type)->toBe('chat');
+    Bus::assertNotDispatchedAfterResponse(GenerateMotoHubAnswer::class);
+});
+
+it('still requires a title for question threads (protects FAQPage schema)', function () {
+    $m = dtModel();
+
+    $this->post("/bikes/models/{$m->id}/threads", ['type' => 'question', 'body' => '本文だけ'])
+        ->assertSessionHasErrors('title');
+    expect(DiscussionThread::count())->toBe(0);
+});
+
+it('rejects a fully empty post (no title and no body)', function () {
+    $m = dtModel();
+
+    $this->post("/bikes/models/{$m->id}/threads", ['type' => 'chat'])
+        ->assertSessionHasErrors('body');
+    expect(DiscussionThread::count())->toBe(0);
+});
+
+it('keeps NG-word filtering null-safe when the title is omitted', function () {
+    config()->set('ng_words.words', ['アホ']);
+    $m = dtModel();
+
+    // title=null でもフィルタが落ちず、本文のNGを検出できる
+    $this->post("/bikes/models/{$m->id}/threads", ['type' => 'chat', 'body' => 'アホみたいに速い'])
+        ->assertSessionHasErrors('body');
+    // クリーンな casual は通る
+    $this->post("/bikes/models/{$m->id}/threads", ['type' => 'chat', 'body' => '普通に良い'])
+        ->assertSessionHasNoErrors();
+    expect(DiscussionThread::count())->toBe(1);
+});
+
+it('exposes display helpers that distinguish casual from question', function () {
+    $m = dtModel();
+    $casual = DiscussionThread::create(['bike_model_id' => $m->id, 'nickname' => 'x', 'type' => 'chat', 'status' => 'published', 'body' => 'これは通勤に最高な一台です。とても気に入っています。']);
+    $q = DiscussionThread::create(['bike_model_id' => $m->id, 'nickname' => 'x', 'type' => 'question', 'title' => '足つきは？', 'status' => 'published']);
+
+    expect($casual->is_casual)->toBeTrue()
+        ->and($casual->type_badge_label)->toBe('ひとこと')
+        ->and($casual->display_title)->toBe(\Illuminate\Support\Str::limit('これは通勤に最高な一台です。とても気に入っています。', 40))
+        ->and($q->is_casual)->toBeFalse()
+        ->and($q->type_badge_label)->toBe('質問')
+        ->and($q->display_title)->toBe('足つきは？');
+});
+
+it('renders a title-less casual thread detail without an empty heading', function () {
+    $m = dtModel();
+    $casual = DiscussionThread::create(['bike_model_id' => $m->id, 'nickname' => 'ライダーA', 'type' => 'chat', 'status' => 'published', 'body' => '通勤に最高です']);
+
+    $this->get(threadPath($casual))
+        ->assertOk()
+        ->assertSee('通勤に最高です')  // 本文が主役として出る
+        ->assertSee('ひとこと');       // casualバッジ
+});
+
+it('wires casual-aware display into the model page list and digest (no reply-0 for casual)', function () {
+    // model_detail はMySQL専用SQL(DATEDIFF)を含み SQLite で全体renderできないため静的ガード（既存パターン踏襲）。
+    $blade = file_get_contents(resource_path('views/bikes/model_detail.blade.php'));
+
+    expect($blade)->toContain('$t->type_badge_label')   // 「ひとこと」バッジ
+        ->toContain('$t->display_title')                 // title無しは本文先頭で見せる
+        // casual は「返信N件」を出さず、名前＋投稿時刻の軽い表現にする分岐
+        ->toContain("\$t->type === 'question')返信")
+        ->and($blade)->not->toContain("? '質問' : '相談'"); // 旧・二値バッジ表現は撤去済み
+});
+
 it('migrates existing Q&A into seed threads without loss and without triggering answers', function () {
     $m = dtModel();
     $qId = DB::table('model_questions')->insertGetId([

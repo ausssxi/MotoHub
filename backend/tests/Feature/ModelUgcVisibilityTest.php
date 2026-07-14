@@ -44,10 +44,10 @@ it('uses only build-safe line-clamp classes in the digest (avoids purged line-cl
 it('shows welcoming empty states (nudges) for zero-review and zero-question models', function () {
     $b = detailBlade();
 
-    expect($b)->toContain('最初のオーナーレビューを書きませんか？')      // レビュー0件の呼び水
-        ->toContain('気になることを質問すると、MotoHubがすぐ回答します。') // クチコミ0件の呼び水
+    expect($b)->toContain('最初のオーナーレビューを書きませんか？')                       // レビュー0件の呼び水
+        ->toContain('「通勤に最高」などひとことでもOK。質問にはMotoHubがすぐ回答します。') // クチコミ0件の呼び水（casual誘い込み）
         ->toContain('レビューを書く')
-        ->toContain('質問する');
+        ->toContain('ひとこと・質問する');
 });
 
 // ─────────── B. タブ順の変更 ───────────
