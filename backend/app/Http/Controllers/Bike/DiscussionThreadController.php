@@ -55,9 +55,10 @@ final class DiscussionThreadController extends Controller
         $thread = DiscussionThread::create([
             'bike_model_id' => $model->id,
             'user_id' => $request->user()?->id,
-            'type' => $request->input('type') ?: 'question',
+            // 既定は casual(chat)。質問を選んだ時だけ必答が走る（未指定で question 事故発火を防ぐ）。
+            'type' => $request->input('type') ?: 'chat',
             'nickname' => $this->guestNickname($request),
-            'title' => $request->input('title'),
+            'title' => $request->input('title') ?: null,
             'body' => $request->input('body') ?: null,
             'status' => 'published', // 即反映・通報でキルスイッチ（status=hidden）
             'submitter_ip_hash' => $this->ipHash($request),

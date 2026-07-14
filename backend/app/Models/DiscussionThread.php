@@ -76,4 +76,31 @@ final class DiscussionThread extends Model
 
         return $this->nickname ?: '名無しライダー';
     }
+
+    /** 質問以外(chat/custom/maintenance)は casual＝必答なし・「返信0件」の過疎表示を出さない。 */
+    public function getIsCasualAttribute(): bool
+    {
+        return $this->type !== 'question';
+    }
+
+    /** 種別バッジのラベル。casual は「ひとこと」で質問バッジと視覚的に区別する。 */
+    public function getTypeBadgeLabelAttribute(): string
+    {
+        return match ($this->type) {
+            'question' => '質問',
+            'custom' => 'カスタム',
+            'maintenance' => '整備',
+            default => 'ひとこと', // chat
+        };
+    }
+
+    /** 一覧・見出し用のタイトル。title 無し(casual)は本文先頭で見せ、空H1/空リンクを避ける。 */
+    public function getDisplayTitleAttribute(): string
+    {
+        if (filled($this->title)) {
+            return $this->title;
+        }
+
+        return \Illuminate\Support\Str::limit((string) $this->body, 40) ?: 'ひとこと';
+    }
 }

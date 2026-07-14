@@ -1,6 +1,6 @@
 <x-layout>
-    <x-slot:title>{{ $thread->title }}｜{{ $model->name }} のクチコミ・相談 | MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $model->manufacturer?->name }} {{ $model->name }}のクチコミ・相談「{{ \Illuminate\Support\Str::limit($thread->title, 80) }}」。MotoHubの回答とオーナーの声をチェック。あなたの疑問も投稿できます。</x-slot:metaDescription>
+    <x-slot:title>{{ $thread->display_title }}｜{{ $model->name }} のクチコミ・相談 | MotoHub</x-slot:title>
+    <x-slot:metaDescription>{{ $model->manufacturer?->name }} {{ $model->name }}のクチコミ・相談「{{ \Illuminate\Support\Str::limit($thread->display_title, 80) }}」。MotoHubの回答とオーナーの声をチェック。あなたの疑問も投稿できます。</x-slot:metaDescription>
     <x-slot:canonical>{{ route('bikes.thread', ['mfrSlug' => $model->manufacturer->slug ?? $model->manufacturer_id, 'modelSlug' => $model->slug ?? $model->id, 'id' => $thread->id]) }}</x-slot:canonical>
 
     <x-slot:navigation><x-navigation :showSearch="true" /></x-slot:navigation>
@@ -14,7 +14,7 @@
                 ['@type' => 'ListItem', 'position' => 1, 'name' => 'トップ', 'item' => url('/')],
                 ['@type' => 'ListItem', 'position' => 2, 'name' => '車種一覧', 'item' => route('bikes.models')],
                 ['@type' => 'ListItem', 'position' => 3, 'name' => $model->name, 'item' => url($model->seo_url)],
-                ['@type' => 'ListItem', 'position' => 4, 'name' => \Illuminate\Support\Str::limit($thread->title, 60)],
+                ['@type' => 'ListItem', 'position' => 4, 'name' => \Illuminate\Support\Str::limit($thread->display_title, 60)],
             ],
         ];
         // FAQPage: 質問スレ＋生成済みのMotoHub公式回答があれば出力（買い手の検索語を拾う）
@@ -53,12 +53,21 @@
             {{-- スレッド本体（OP） --}}
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6" x-data="{ report: false }">
                 <div class="flex items-center gap-2 mb-2 text-[11px] font-bold text-gray-400">
-                    <span class="inline-flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full"><i data-lucide="help-circle" class="w-3 h-3"></i>{{ $thread->type === 'question' ? '質問' : '相談' }}</span>
+                @if($thread->type === 'question')
+                    <span class="inline-flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full"><i data-lucide="help-circle" class="w-3 h-3"></i>質問</span>
+                @else
+                    <span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full"><i data-lucide="message-circle" class="w-3 h-3"></i>{{ $thread->type_badge_label }}</span>
+                @endif
                     <a href="{{ $model->seo_url }}" class="text-gray-500 hover:text-blue-600">{{ $model->manufacturer?->name }} {{ $model->name }}</a>
                 </div>
+                {{-- title 無し(casual)は空H1を避け、本文を主役に。SEO/a11y用に sr-only の見出しを1つ確保。 --}}
+                @if(filled($thread->title))
                 <h1 class="text-lg sm:text-xl font-black text-gray-900 leading-snug">{{ $thread->title }}</h1>
+                @else
+                <h1 class="sr-only">{{ $model->name }} へのひとこと</h1>
+                @endif
                 @if($thread->body)
-                <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line break-words mt-3">{{ $thread->body }}</p>
+                <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line break-words {{ filled($thread->title) ? 'mt-3' : 'mt-1 text-base' }}">{{ $thread->body }}</p>
                 @endif
                 <div class="flex items-center gap-1.5 mt-3 text-[11px] text-gray-400">
                     <span class="font-bold text-gray-500">{{ $thread->display_name }}さん</span>

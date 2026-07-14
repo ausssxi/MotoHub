@@ -474,16 +474,18 @@
                             @forelse($digestThreads as $t)
                             <a href="#threads" class="block rounded-2xl border border-gray-100 p-3 hover:border-blue-200 hover:bg-blue-50 transition-colors {{ ! $loop->last ? 'mb-2' : '' }}">
                                 <div class="flex items-start justify-between gap-2">
-                                    <span class="text-sm font-bold text-gray-900 leading-snug"><span class="text-[10px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded mr-1">{{ $t->type === 'question' ? '質問' : '相談' }}</span>{{ $t->title }}</span>
-                                    <span class="shrink-0 text-[11px] font-black text-gray-500">返信{{ $t->published_replies_count }}件</span>
+                                    <span class="text-sm font-bold text-gray-900 leading-snug"><span class="text-[10px] font-black px-1.5 py-0.5 rounded mr-1 {{ $t->type === 'question' ? 'text-blue-600 bg-blue-50' : 'text-emerald-700 bg-emerald-50' }}">{{ $t->type_badge_label }}</span>{{ $t->display_title }}</span>
+                                    <span class="shrink-0 text-[11px] font-black text-gray-400">
+                                        @if($t->type === 'question')返信{{ $t->published_replies_count }}件@else{{ $t->created_at->diffForHumans() }}@endif
+                                    </span>
                                 </div>
                             </a>
                             @empty
                             {{-- 0件: 呼び水 --}}
                             <div class="text-center py-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                                 <p class="text-sm text-gray-600 font-bold mb-1">この{{ $model->name }}のクチコミ・相談はまだありません。</p>
-                                <p class="text-xs text-gray-500 mb-3">気になることを質問すると、MotoHubがすぐ回答します。</p>
-                                <a href="#threads" class="inline-flex items-center gap-1 text-xs font-bold bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition-colors"><i data-lucide="help-circle" class="w-3 h-3"></i>質問する</a>
+                                <p class="text-xs text-gray-500 mb-3">「通勤に最高」などひとことでもOK。質問にはMotoHubがすぐ回答します。</p>
+                                <a href="#threads" class="inline-flex items-center gap-1 text-xs font-bold bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition-colors"><i data-lucide="message-circle" class="w-3 h-3"></i>ひとこと・質問する</a>
                             </div>
                             @endforelse
                         </div>
@@ -2079,16 +2081,19 @@
                             @foreach($modelThreads as $t)
                             <a href="{{ $tUrl($t) }}" class="flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-colors">
                                 <span class="text-sm font-bold text-gray-800 truncate">
-                                    <span class="text-[10px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded mr-1">{{ $t->type === 'question' ? '質問' : '相談' }}</span>{{ $t->title }}
+                                    <span class="text-[10px] font-black px-1.5 py-0.5 rounded mr-1 {{ $t->type === 'question' ? 'text-blue-600 bg-blue-50' : 'text-emerald-700 bg-emerald-50' }}">{{ $t->type_badge_label }}</span>{{ $t->display_title }}
                                 </span>
-                                <span class="shrink-0 text-xs font-black text-gray-500">返信{{ $t->published_replies_count }}件</span>
+                                {{-- casual は「返信0件」の過疎表示を出さず、名前＋投稿時刻の軽い表現にする --}}
+                                <span class="shrink-0 text-xs font-black text-gray-400">
+                                    @if($t->type === 'question')返信{{ $t->published_replies_count }}件@else{{ \Illuminate\Support\Str::limit($t->display_name, 8) }}・{{ $t->created_at->diffForHumans() }}@endif
+                                </span>
                             </a>
                             @endforeach
                         </div>
                         @else
                         <div class="text-center py-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200 mb-6">
                             <p class="text-sm text-gray-600 font-bold mb-1">この車種のクチコミ・相談はまだありません。</p>
-                            <p class="text-xs text-gray-500">気になることを質問すると、MotoHubがすぐに回答します。</p>
+                            <p class="text-xs text-gray-500">「通勤に最高」などひとことでもOK。質問にはMotoHubがすぐ回答します。</p>
                         </div>
                         @endif
 
@@ -2096,24 +2101,26 @@
                         @if(config('ugc.thread_create_open', true))
                         <div class="bg-gray-50 rounded-2xl p-5 border border-gray-100" x-data="{ open: {{ ($modelThreads->count() ?? 0) === 0 ? 'true' : 'false' }} }">
                             <button type="button" @click="open = !open" class="w-full flex items-center justify-between text-left">
-                                <span class="text-sm font-black text-gray-900">この{{ $model->name }}について投稿する</span>
+                                <span class="text-sm font-black text-gray-900 inline-flex items-center gap-1.5"><i data-lucide="message-circle" class="w-4 h-4 text-blue-600"></i>この{{ $model->name }}にひとこと・質問する</span>
                                 <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="open && 'rotate-180'"></i>
                             </button>
+                            <p class="text-[11px] text-gray-500 mt-1">タイトル無し・本文だけでOK。「通勤に最高」など気軽にどうぞ。</p>
                             @error('title')<p class="text-xs font-bold text-red-500 mt-2">{{ $message }}</p>@enderror
+                            @error('body')<p class="text-xs font-bold text-red-500 mt-2">{{ $message }}</p>@enderror
                             <form x-show="open" x-cloak method="POST" action="{{ route('bikes.thread.store', $model->id) }}" class="mt-3 space-y-2" data-qa-push-form>
                                 @csrf
                                 <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
                                 <select name="type" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                    <option value="chat">ひとこと・相談（気軽に）</option>
                                     <option value="question">質問（MotoHubがすぐ回答）</option>
-                                    <option value="chat">相談・雑談</option>
                                     <option value="custom">カスタム記録</option>
                                     <option value="maintenance">整備・トラブル</option>
                                 </select>
-                                <input type="text" name="title" maxlength="120" required value="{{ old('title') }}"
-                                       placeholder="例: 足つきはどうですか？ 身長165cmです"
-                                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                <textarea name="body" rows="2" maxlength="2000" placeholder="詳しく（任意）"
+                                <textarea name="body" rows="2" maxlength="2000" placeholder="このカブ通勤に最高！ など感想・ひとこと（質問ならここに詳しく）"
                                           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">{{ old('body') }}</textarea>
+                                <input type="text" name="title" maxlength="120" value="{{ old('title') }}"
+                                       placeholder="タイトル（任意／質問なら推奨）"
+                                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                                 <div class="flex gap-2">
                                     @guest
                                     <input type="text" name="nickname" maxlength="50" value="{{ old('nickname') }}" placeholder="お名前（任意）" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm">
