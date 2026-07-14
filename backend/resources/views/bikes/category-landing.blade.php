@@ -67,6 +67,21 @@
                         価格相場や人気車種をチェックして、あなたにピッタリの1台を見つけましょう。
                     </p>
                 </div>
+
+                {{-- 新基準原付ハブへの誘導（原付・125ccの読者は意図がドンピシャ） --}}
+                @if($mode === 'cc' && in_array($slug, ['50', '125'], true))
+                    <a href="{{ route('shinkijun_gentsuki') }}"
+                       class="group mt-4 flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 max-w-4xl hover:border-blue-400 hover:shadow-md transition-all">
+                        <span class="shrink-0 w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center">
+                            <i data-lucide="badge-check" class="w-5 h-5"></i>
+                        </span>
+                        <span class="flex-1 min-w-0">
+                            <span class="block text-sm font-black text-gray-900">新基準原付の対象モデル・相場はこちら</span>
+                            <span class="block text-xs text-gray-500 mt-0.5">2025年登場の新基準原付（Lite）の対象モデル一覧・新古車の相場・原付二種との違い</span>
+                        </span>
+                        <i data-lucide="chevron-right" class="shrink-0 w-5 h-5 text-blue-400 group-hover:translate-x-0.5 transition-transform"></i>
+                    </a>
+                @endif
             </div>
         </div>
 
