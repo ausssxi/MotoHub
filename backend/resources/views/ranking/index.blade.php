@@ -58,6 +58,19 @@
         {{-- 排気量別 流通台数ランキング（在庫数・販売とは別指標。データAPIと同じ集計） --}}
         @include('ranking._class_ranking', ['classRanking' => $classRanking])
 
+        {{-- 新基準原付ハブへの誘導（原付〜125ccクラスの読者向け） --}}
+        <a href="{{ route('shinkijun_gentsuki') }}"
+           class="group -mt-2 mb-6 flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 hover:border-blue-400 hover:shadow-md transition-all">
+            <span class="shrink-0 w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center">
+                <i data-lucide="badge-check" class="w-5 h-5"></i>
+            </span>
+            <span class="flex-1 min-w-0">
+                <span class="block text-sm font-black text-gray-900">新基準原付の対象モデル・相場はこちら</span>
+                <span class="block text-xs text-gray-500 mt-0.5">原付〜125ccを検討中なら：新基準原付（Lite）の対象モデル一覧・新古車の相場</span>
+            </span>
+            <i data-lucide="chevron-right" class="shrink-0 w-5 h-5 text-blue-400 group-hover:translate-x-0.5 transition-transform"></i>
+        </a>
+
         {{-- メーカー別 --}}
         @include('ranking._maker_ranking', ['makerRanking' => $ranking['makerRanking']])
 

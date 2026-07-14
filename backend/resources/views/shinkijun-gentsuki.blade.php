@@ -85,9 +85,9 @@
                 <div class="space-y-3">
                     @php
                         $rows = [
-                            ['label' => '新基準原付（Lite）新古車・超低走行', 'sum' => $tSum, 'note' => '原付免許でOK・車体は新しい', 'color' => 'blue'],
-                            ['label' => '旧仕様の110cc（原付二種）中古', 'sum' => $bSum, 'note' => '小型二輪免許・二人乗り可・60km/h', 'color' => 'green'],
-                            ['label' => '旧50cc（原付一種）中古', 'sum' => $oSum, 'note' => 'タマは減少傾向・割り切り向け', 'color' => 'amber'],
+                            ['label' => '新基準原付（Lite）新古車・超低走行', 'sum' => $tSum, 'note' => '原付免許でOK・車体は新しい', 'color' => 'blue', 'link' => null],
+                            ['label' => '旧仕様の110cc（原付二種）中古', 'sum' => $bSum, 'note' => '小型二輪免許・二人乗り可・60km/h', 'color' => 'green', 'link' => route('bikes.category_cc', ['slug' => '125'])],
+                            ['label' => '旧50cc（原付一種）中古', 'sum' => $oSum, 'note' => 'タマは減少傾向・割り切り向け', 'color' => 'amber', 'link' => route('bikes.category_cc', ['slug' => '50'])],
                         ];
                     @endphp
                     @foreach($rows as $r)
@@ -96,6 +96,9 @@
                             <div>
                                 <div class="text-sm font-black text-gray-900"><span class="inline-block w-2 h-2 rounded-full bg-{{ $r['color'] }}-500 mr-1.5"></span>{{ $r['label'] }}</div>
                                 <div class="text-[11px] text-gray-400 font-bold mt-0.5">{{ $r['note'] }}・実在庫{{ number_format($r['sum']['total_count']) }}台</div>
+                                @if($r['link'])
+                                <a href="{{ $r['link'] }}" class="inline-flex items-center gap-0.5 text-[11px] font-bold text-blue-600 hover:text-blue-700 mt-1">この在庫一覧を見る<i data-lucide="chevron-right" class="w-3 h-3"></i></a>
+                                @endif
                             </div>
                             <div class="shrink-0 text-right">
                                 @if($r['sum']['low_man'])

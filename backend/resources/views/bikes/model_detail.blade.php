@@ -492,6 +492,9 @@
                     {{-- ===== タブ1: 概要 ===== --}}
                     <div id="tab-panel-overview" class="tab-panel space-y-8">
 
+                    {{-- 新基準原付ハブへの相互リンク（対象/ベース/旧50ccモデルのみ表示） --}}
+                    @include('bikes.partials.shinkijun-link', ['model' => $model])
+
                     {{-- 車種紹介テキスト（SEOの要） --}}
                     <div id="overview" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
                         <h2 class="text-xl font-black text-gray-900 mb-4 flex items-center gap-2">
