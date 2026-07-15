@@ -111,6 +111,27 @@
                         </div>
                     </div>
 
+                    {{-- マイコンテンツ（投稿履歴） --}}
+                    <div class="bg-white overflow-hidden shadow-sm rounded-2xl border border-gray-100 hover:shadow-md transition-shadow">
+                        <div class="p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-black text-gray-900 flex items-center gap-2">
+                                    <i data-lucide="library" class="w-5 h-5 text-blue-600"></i>
+                                    マイコンテンツ
+                                </h3>
+                                <a href="{{ route('mypage.contributions') }}" class="text-xs font-bold text-blue-600 hover:underline">すべて見る</a>
+                            </div>
+
+                            <p class="text-sm text-gray-600 mb-6">
+                                あなたが書いたレビュー・クチコミ・コメントを1箇所で管理できます。元ページを開いたり、削除もここから。
+                            </p>
+
+                            <a href="{{ route('mypage.contributions') }}" class="inline-flex items-center gap-2 bg-gray-900 text-white px-5 py-3 rounded-xl text-sm font-bold hover:bg-gray-700 transition-colors">
+                                投稿履歴を開く <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+                    </div>
+
                     {{-- お気に入りへのショートカット --}}
                     <div class="bg-white overflow-hidden shadow-sm rounded-2xl border border-gray-100 hover:shadow-md transition-shadow">
                         <div class="p-6">

@@ -563,6 +563,12 @@ Route::middleware('auth')->group(function () {
         return view('mypage.saved-spots', compact('spots'));
     })->name('mypage.saved_spots');
 
+    // マイコンテンツ（投稿履歴）ハブ：自分の投稿を集約・元ページ遷移・所有者のみ削除
+    Route::get('/mypage/contributions', [\App\Http\Controllers\MyBike\MyContributionsController::class, 'index'])
+        ->name('mypage.contributions');
+    Route::delete('/mypage/contributions/{type}/{id}', [\App\Http\Controllers\MyBike\MyContributionsController::class, 'destroy'])
+        ->name('mypage.contributions.destroy')->where('id', '[0-9]+');
+
     // プロフィール編集 (Breeze標準)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
