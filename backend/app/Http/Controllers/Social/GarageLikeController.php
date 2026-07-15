@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Social;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendGarageActivityNotification;
 use App\Models\GarageLike;
 use App\Models\MyBike;
 use Illuminate\Http\JsonResponse;
@@ -44,6 +45,15 @@ final class GarageLikeController extends Controller
 
             return true;
         });
+
+        // いいねが付いた瞬間だけ、オーナーへ通知（解除では通知しない・自己いいねは 422 で既に排除済み）＝再訪フック
+        if ($liked) {
+            SendGarageActivityNotification::dispatchAfterResponse(
+                $myBike->id,
+                'like',
+                Auth::user()?->review_display_name ?? '名無しライダー',
+            );
+        }
 
         return response()->json([
             'success' => true,

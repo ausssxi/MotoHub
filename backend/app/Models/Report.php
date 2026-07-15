@@ -46,6 +46,7 @@ final class Report extends Model
         'discussion_thread' => DiscussionThread::class,
         'discussion_reply' => DiscussionReply::class,
         'review' => Review::class,
+        'garage_comment' => GarageComment::class,
     ];
 
     /** 通報理由キー => 表示ラベル。 */
