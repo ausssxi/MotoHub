@@ -441,6 +441,8 @@ Route::middleware('auth')->group(function () {
         ->name('riders.follow')->where('token', '[A-Za-z0-9]+')->middleware('throttle:30,1');
     Route::post('/garage/{myBike}/like', [\App\Http\Controllers\Social\GarageLikeController::class, 'toggle'])
         ->name('garage.like')->where('myBike', '[0-9]+')->middleware('throttle:30,1');
+    Route::post('/garage/{myBike}/comments', [\App\Http\Controllers\Social\GarageCommentController::class, 'store'])
+        ->name('garage.comment')->where('myBike', '[0-9]+')->middleware('throttle:10,1');
 });
 
 // 売れ筋ランキング

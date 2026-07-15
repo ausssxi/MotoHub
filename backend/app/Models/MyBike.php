@@ -303,4 +303,10 @@ class MyBike extends Model
             ->orderBy('sort_order')
             ->orderBy('id');
     }
+
+    // 社交コメント（会員限定・公開ガレージのみ）。モデレーションは status で。
+    public function comments(): HasMany
+    {
+        return $this->hasMany(GarageComment::class);
+    }
 }

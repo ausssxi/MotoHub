@@ -183,6 +183,9 @@
             </div>
             @endif
 
+            {{-- 社交コメント（会員限定・オーナーへ通知＝再訪フック） --}}
+            @include('mybikes._garage-comments', ['myBike' => $myBike, 'comments' => $comments])
+
             {{-- 登録CTA（未ログインのみ） --}}
             @include('mybikes._register-cta')
 

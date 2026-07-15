@@ -45,6 +45,13 @@ class GaragePublicController extends Controller
         $liked = Auth::check() && GarageLike::where('user_id', Auth::id())->where('my_bike_id', $myBike->id)->exists();
         $isOwner = Auth::id() === $myBike->user_id;
 
-        return view('mybikes.public_show', compact('myBike', 'share', 'liked', 'isOwner'));
+        // ソーシャル③: 社交コメント（公開分のみ・会員限定投稿）
+        $comments = $myBike->comments()
+            ->published()
+            ->with('user')
+            ->latest()
+            ->get();
+
+        return view('mybikes.public_show', compact('myBike', 'share', 'liked', 'isOwner', 'comments'));
     }
 }
