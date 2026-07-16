@@ -132,6 +132,23 @@
             </div>
             @endif
 
+            {{-- ショップレビュー（店ページで公開済みコメントのみ・comment_approved・店ページへリンク） --}}
+            @if($shopReviews->isNotEmpty())
+            <h2 class="text-lg font-black text-gray-900 mt-12 mb-5 flex items-center gap-2">
+                <i data-lucide="store" class="w-5 h-5 text-pink-600"></i> {{ $handle }} のショップレビュー
+                <span class="text-sm text-gray-400 font-bold">({{ $shopReviews->count() }})</span>
+            </h2>
+            <div class="space-y-3">
+                @foreach($shopReviews as $sr)
+                    <a href="{{ route('shops.show', $sr->shop_id) }}" class="block bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:shadow-md hover:border-pink-200 transition-all">
+                        <p class="text-xs font-bold text-gray-500 line-clamp-1 mb-1"><i data-lucide="store" class="w-3 h-3 inline"></i> {{ $sr->shop->name ?? 'ショップ' }}</p>
+                        <p class="text-sm text-gray-700 line-clamp-3 break-words">{{ $sr->comment }}</p>
+                        <p class="text-[10px] text-gray-400 font-bold mt-1.5">{{ $handle }} ・ {{ $sr->created_at->format('Y/m/d') }}</p>
+                    </a>
+                @endforeach
+            </div>
+            @endif
+
             {{-- ニュースコメント（公開・ページング） --}}
             @if($comments->isNotEmpty())
             <h2 class="text-lg font-black text-gray-900 mt-12 mb-5 flex items-center gap-2">
