@@ -1277,7 +1277,8 @@ final class BikeController extends Controller
      */
     private function buildModelDetailData(int $id): array
     {
-        $model = \App\Models\BikeModel::with(['manufacturer', 'reviews'])->findOrFail($id);
+        // reviews.user は投稿者アバター表示用（ゲスト=user_id null は null で非クエリ）。キャッシュ版は v7 で刷新。
+        $model = \App\Models\BikeModel::with(['manufacturer', 'reviews.user'])->findOrFail($id);
 
         $listings = \App\Models\Listing::with('shop')->where('bike_model_id', $id)
             ->active()

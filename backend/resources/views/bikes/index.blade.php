@@ -520,7 +520,7 @@
                             {{-- フッター: 投稿者と日付 --}}
                             <div class="pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">
                                 <span class="font-bold flex items-center gap-1">
-                                    <i data-lucide="user" class="w-3 h-3"></i>
+                                    <x-user-avatar :user="$review->user" :name="$review->nickname" :size="6" />
                                     {{ $review->nickname }}
                                 </span>
                                 <span>{{ $review->created_at->diffForHumans() }}</span>

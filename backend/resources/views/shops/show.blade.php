@@ -156,6 +156,7 @@
                                 @foreach($acceptanceSummary['comments'] as $cmt)
                                 <li class="text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2 leading-relaxed" x-data="{ report: false }">
                                     <span class="flex items-center gap-1 mb-0.5">
+                                        <x-user-avatar :url="$cmt['avatar_url'] ?? null" :name="$cmt['name']" :size="6" />
                                         <span class="font-bold text-gray-500">{{ $cmt['name'] }}さん</span>
                                         @if($cmt['verified'])
                                         <span class="inline-flex items-center gap-0.5 text-[9px] font-black text-blue-600 bg-blue-50 px-1 py-0.5 rounded">

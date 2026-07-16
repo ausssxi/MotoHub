@@ -1170,7 +1170,7 @@
                                     @endif
                                     <div class="flex justify-between items-center text-[10px] text-gray-400 font-bold">
                                         <span class="flex items-center gap-1">
-                                            <i data-lucide="user" class="w-3 h-3"></i> {{ $review->nickname ?? '匿名ユーザー' }}
+                                            <x-user-avatar :user="$review->user" :name="$review->nickname ?? '匿名ユーザー'" :size="6" /> {{ $review->nickname ?? '匿名ユーザー' }}
                                         </span>
                                         <div class="flex items-center gap-2">
                                             @if($showShowReviewShare)
