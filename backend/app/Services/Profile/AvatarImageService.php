@@ -67,7 +67,9 @@ final class AvatarImageService
 
         $image->orient(); // EXIF回転を実ピクセルへ適用
         $size = (int) config('avatar.size');
-        $image->coverDown($size, $size); // 中央を正方形にクロップ（拡大はしない）
+        // cover（coverDown ではない）＝小さい画像も拡大して必ず size×size の正方形にする。
+        // アバターは固定枠に敷き詰めるため、常に一定サイズの正方形にそろえる方が表示が安定する。
+        $image->cover($size, $size); // 中央を正方形にクロップ（必要なら拡大・常に size×size）
 
         // 再エンコードで EXIF/GPS は完全に除去される（HEIC 由来でも同様）。
         return (string) $image->toJpeg((int) config('avatar.jpeg_quality'));

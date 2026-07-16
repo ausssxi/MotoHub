@@ -117,19 +117,23 @@ it('avatar_url prefers the uploaded path, then the OAuth url, else null', functi
 
 // ---- 表示（公開プロフィール） ----
 
-it('shows the avatar on the public profile and never leaks real name or email', function () {
+it('shows the avatar on the public profile and never leaks the owner name or email to others', function () {
     Storage::fake('public');
-    $user = avatarUser('rider_x', 'leak@example.com');
-    $token = $user->ensurePublicToken();
-    MyBike::create(['user_id' => $user->id, 'name' => '公開号', 'is_public' => true, 'initial_odometer' => 0, 'current_odometer' => 1]);
-    $this->actingAs($user)->post(route('profile.avatar.update'), ['avatar' => UploadedFile::fake()->image('a.jpg')]);
+    $owner = avatarUser('rider_x', 'leak@example.com');
+    $token = $owner->ensurePublicToken();
+    MyBike::create(['user_id' => $owner->id, 'name' => '公開号', 'is_public' => true, 'initial_odometer' => 0, 'current_odometer' => 1]);
+    $this->actingAs($owner)->post(route('profile.avatar.update'), ['avatar' => UploadedFile::fake()->image('a.jpg')]);
+    $owner->refresh();
 
-    $html = $this->get(route('riders.profile', $token))->assertOk()->getContent();
+    // ★公開の肝: 第三者（別ログインユーザー）が見てもオーナーの本名/メールは出ない。
+    // ナビの「ログイン中」メールは閲覧者“自身”のもの（=viewer）＝オーナーのメールではない。
+    $viewer = avatarUser('viewer_y', 'viewer@example.com');
+    $html = $this->actingAs($viewer)->get(route('riders.profile', $token))->assertOk()->getContent();
 
-    expect($html)->toContain($user->refresh()->avatar_path) // アバターURLが出る
+    expect($html)->toContain($owner->avatar_path) // オーナーのアバターURLは出る
         ->toContain('rider_x')
-        ->not->toContain('本名タロウ')
-        ->not->toContain('leak@example.com');
+        ->not->toContain('本名タロウ')       // オーナーの本名は出ない
+        ->not->toContain('leak@example.com'); // オーナーのメールは出ない
 });
 
 // ---- 通報（public_token で解決・連番id を DOM に出さない） ----
