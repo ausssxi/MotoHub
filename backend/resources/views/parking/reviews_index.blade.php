@@ -81,6 +81,7 @@
 
                             {{-- 投稿者・日時・通報 --}}
                             <div class="flex items-center gap-1.5 mt-2 text-[11px] text-gray-400">
+                                <x-user-avatar :user="$review->user" :name="$review->display_name" :size="6" />
                                 <span class="font-bold text-gray-500">{{ $review->display_name }}さん</span>
                                 @if($review->user_id)
                                 <span class="inline-flex items-center gap-0.5 text-[9px] font-black text-green-700 bg-green-50 px-1 py-0.5 rounded">

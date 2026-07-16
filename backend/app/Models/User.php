@@ -3,19 +3,23 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Concerns\PurgesReportsOnDelete;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 // Filament用のクラスをインポート
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    // PurgesReportsOnDelete: アバター通報(user_avatar)を User 物理削除時にpurgeし孤児通報を残さない
+    use HasFactory, Notifiable, PurgesReportsOnDelete;
 
     /**
      * The attributes that are mass assignable.
@@ -32,7 +36,8 @@ class User extends Authenticatable implements FilamentUser
         'notify_price_drop',
         'profile_show_parking_reviews',
         'google_id',
-        'avatar',
+        'avatar',       // OAuth(Google/LINE)のアバター外部URL。自前アップロードは avatar_path 側。
+        'avatar_path',  // 自前アップロードアバターの public ディスク相対パス（表示は avatar_url アクセサ）
         'line_id',
     ];
 
@@ -67,6 +72,23 @@ class User extends Authenticatable implements FilamentUser
     public function isGoogleUser(): bool
     {
         return ! is_null($this->google_id);
+    }
+
+    /**
+     * 公開面で表示するアバターURL。優先順は 自前アップロード(avatar_path) → OAuth外部URL(avatar) → null。
+     * null のときは <x-user-avatar> がイニシャル/汎用アイコンにフォールバックする（本名は出さない）。
+     */
+    protected function avatarUrl(): Attribute
+    {
+        return Attribute::make(
+            get: function (): ?string {
+                if ($this->avatar_path) {
+                    return Storage::disk((string) config('avatar.disk'))->url($this->avatar_path);
+                }
+
+                return $this->avatar ?: null;
+            },
+        );
     }
 
     /**

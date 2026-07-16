@@ -54,13 +54,13 @@
                             </a>
                             <div class="px-4 pb-4 flex items-center justify-between">
                                 @if($bike->user->public_token)
-                                    <a href="{{ route('riders.profile', $bike->user->public_token) }}" class="text-[10px] font-bold text-gray-400 hover:text-pink-600 transition-colors">
-                                        <i data-lucide="user" class="w-3 h-3 inline"></i>
+                                    <a href="{{ route('riders.profile', $bike->user->public_token) }}" class="inline-flex items-center gap-1 text-[10px] font-bold text-gray-400 hover:text-pink-600 transition-colors">
+                                        <x-user-avatar :user="$bike->user" :size="6" />
                                         {{ $bike->user->review_display_name ?? '名無しライダー' }}
                                     </a>
                                 @else
-                                    <p class="text-[10px] font-bold text-gray-400">
-                                        <i data-lucide="user" class="w-3 h-3 inline"></i>
+                                    <p class="inline-flex items-center gap-1 text-[10px] font-bold text-gray-400">
+                                        <x-user-avatar :user="$bike->user" :size="6" />
                                         {{ $bike->user->review_display_name ?? '名無しライダー' }}
                                     </p>
                                 @endif

@@ -47,6 +47,8 @@ final class Report extends Model
         'discussion_reply' => DiscussionReply::class,
         'review' => Review::class,
         'garage_comment' => GarageComment::class,
+        // ユーザーの公開アバター通報。★連番id ではなく public_token で対象解決する（ReportController 参照）。
+        'user_avatar' => User::class,
     ];
 
     /** 通報理由キー => 表示ラベル。 */

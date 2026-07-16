@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreReportRequest;
 use App\Models\Report;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 
 /**
@@ -18,15 +19,22 @@ final class ReportController extends Controller
 {
     public function store(StoreReportRequest $request): RedirectResponse
     {
-        $class = Report::REPORTABLE_TYPES[$request->string('type')->value()];
-        $id = (int) $request->integer('id');
+        $type = $request->string('type')->value();
+        $class = Report::REPORTABLE_TYPES[$type];
 
-        // 対象が実在する承認済み投稿のときだけ受け付ける（存在しないID通報を弾く）。
-        $target = $class::find($id);
+        // アバター通報は public_token で対象ユーザーを解決（連番 user id は DOM に一切出さない）。
+        // それ以外は従来どおり数値 id。対象が実在するときだけ受け付ける（存在しない対象は弾く）。
+        if ($type === 'user_avatar') {
+            $target = User::where('public_token', $request->string('token')->value())->first();
+        } else {
+            $target = $class::find((int) $request->integer('id'));
+        }
+
         if ($target === null) {
             return back()->with('report_success', '1'); // 存在有無は明かさず一律「受付」表示
         }
 
+        $id = (int) $target->getKey();
         $ipHash = hash('sha256', $request->ip().'|'.config('app.key'));
 
         // 二重通報の soft-handling: 既存があればそれを使い、新規作成しない。

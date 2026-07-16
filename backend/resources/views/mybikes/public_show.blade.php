@@ -44,9 +44,7 @@
 
                 <div class="p-6">
                     <div class="flex items-center gap-4 mb-4">
-                        <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                            <i data-lucide="user" class="w-5 h-5 text-gray-400"></i>
-                        </div>
+                        <x-user-avatar :user="$myBike->user" :size="10" />
                         <div class="flex-1 min-w-0">
                             {{-- 公開ハンドルのみ→公開プロフィールへリンク（本名は出さない） --}}
                             @if($myBike->user->public_token)

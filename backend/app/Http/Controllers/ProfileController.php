@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Http\Requests\UpdateAvatarRequest;
+use App\Services\Profile\AvatarImageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
+use RuntimeException;
 
 class ProfileController extends Controller
 {
@@ -48,6 +51,33 @@ class ProfileController extends Controller
         ]);
 
         return Redirect::route('profile.edit')->with('status', 'visibility-updated');
+    }
+
+    /**
+     * アバター画像のアップロード。実MIME検証(UpdateAvatarRequest)→正方形クロップ→EXIF/GPS除去→
+     * public 保存→users.avatar_path 更新。差し替え時は AvatarImageService が旧ファイルを削除する。
+     */
+    public function updateAvatar(UpdateAvatarRequest $request, AvatarImageService $avatars): RedirectResponse
+    {
+        try {
+            $avatars->update($request->user(), $request->file('avatar'));
+        } catch (RuntimeException $e) {
+            // ImageReader が読めない（拡張子は通ったが実体が壊れ画像/非画像）ケースの保険。
+            return Redirect::route('profile.edit')
+                ->withErrors(['avatar' => '画像を読み込めませんでした。別の画像でお試しください。']);
+        }
+
+        return Redirect::route('profile.edit')->with('status', 'avatar-updated');
+    }
+
+    /**
+     * アバターを外す（既定のイニシャル/汎用アイコン表示に戻す）。実ファイルも削除する。
+     */
+    public function destroyAvatar(Request $request, AvatarImageService $avatars): RedirectResponse
+    {
+        $avatars->remove($request->user());
+
+        return Redirect::route('profile.edit')->with('status', 'avatar-removed');
     }
 
     /**

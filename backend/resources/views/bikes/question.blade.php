@@ -32,6 +32,7 @@
                 <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line break-words mt-3">{{ $question->body }}</p>
                 @endif
                 <div class="flex items-center gap-1.5 mt-3 text-[11px] text-gray-400">
+                    <x-user-avatar :user="$question->user" :name="$question->display_name" :size="6" />
                     <span class="font-bold text-gray-500">{{ $question->display_name }}さん</span>
                     <span>・{{ $question->created_at->diffForHumans() }}</span>
                     <button type="button" @click="report = !report" class="ml-auto inline-flex items-center gap-0.5 font-bold text-gray-300 hover:text-red-500 transition-colors" aria-label="この質問を報告する">
@@ -49,6 +50,7 @@
                     x-init="helped = !!localStorage.getItem('qa_helpful_{{ $answer->id }}')">
                     <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line break-words">{{ $answer->body }}</p>
                     <div class="flex items-center gap-2 mt-2 text-[11px] text-gray-400">
+                        <x-user-avatar :user="$answer->user" :name="$answer->display_name" :size="6" />
                         <span class="font-bold text-gray-500">{{ $answer->display_name }}さん</span>
                         <span>・{{ $answer->created_at->diffForHumans() }}</span>
                         {{-- 参考になった（回答者へのモチベーション・投稿の代替ではない） --}}

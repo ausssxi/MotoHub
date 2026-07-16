@@ -9,6 +9,7 @@ use App\Models\NewsComment;
 use App\Models\ParkingReview;
 use App\Models\Report;
 use App\Models\ShopAcceptanceReport;
+use App\Models\User;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -84,6 +85,11 @@ class ReportResource extends Resource
 
                             return 'Q&A回答／'.$m.'：「'.\Illuminate\Support\Str::limit((string) $r->body, 40).'」';
                         }
+                        if ($r instanceof User) {
+                            $handle = $r->review_display_name ?? '(名無し)';
+
+                            return 'アバター通報／'.$handle.($r->avatar_path ? '' : '（既に未設定）');
+                        }
 
                         return '(削除済み or 対象なし)';
                     })
@@ -113,6 +119,9 @@ class ReportResource extends Resource
                         if ($r instanceof NewsComment && $r->news) {
                             return route('news.show', $r->news);
                         }
+                        if ($r instanceof User && $r->public_token) {
+                            return route('riders.profile', $r->public_token); // 連番id ではなく token で開く
+                        }
                         $question = $r instanceof ModelQuestion ? $r : ($r instanceof ModelAnswer ? $r->question : null);
                         if ($question && $question->bikeModel && ($m = $question->bikeModel->manufacturer)) {
                             return route('bikes.model_question', [
@@ -132,6 +141,7 @@ class ReportResource extends Resource
                         return ($r instanceof ShopAcceptanceReport && $r->shop !== null)
                             || ($r instanceof ParkingReview && $r->bikeParking !== null)
                             || ($r instanceof NewsComment && $r->news !== null)
+                            || ($r instanceof User && $r->public_token !== null)
                             || ($question && $question->bikeModel && $question->bikeModel->manufacturer);
                     }),
 
