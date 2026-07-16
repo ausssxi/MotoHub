@@ -101,6 +101,7 @@
                     </div>
                     <div class="flex items-center justify-between text-[10px] font-bold text-gray-400 pt-2 border-t border-gray-100">
                         <span class="truncate flex items-center gap-1">
+                            <x-user-avatar :user="$review->user" :name="$review->nickname" :size="6" />
                             {{ $review->nickname }}
                             @if($review->user_id)
                             <span class="inline-flex items-center gap-0.5 text-[9px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded shrink-0"><i data-lucide="badge-check" class="w-2.5 h-2.5"></i>ログイン</span>

@@ -18,7 +18,7 @@ final class ShopAcceptanceService
 
     private function cacheKey(int $shopId): string
     {
-        return "shop_acceptance_v3_{$shopId}"; // v3: コメント抽出を comment_approved に分離（即反映）
+        return "shop_acceptance_v4_{$shopId}"; // v4: コメントに投稿者アバター(avatar_url)を追加
     }
 
     /**
@@ -26,7 +26,7 @@ final class ShopAcceptanceService
      *
      * @return array{
      *   counts: array<string,int>,                                      // フラグ列 => 報告人数
-     *   comments: array<int,array{id:int,name:string,comment:string,verified:bool}>, // 承認済みコメント（通報導線用に id 付き）
+     *   comments: array<int,array{id:int,name:string,comment:string,verified:bool,avatar_url:?string}>, // 承認済みコメント（通報導線用に id 付き）
      *   total: int                                                      // 承認済み投稿件数
      * }
      */
@@ -55,6 +55,7 @@ final class ShopAcceptanceService
                 ->where('shop_id', $shopId)
                 ->whereNotNull('comment')
                 ->where('comment', '!=', '')
+                ->with('user')                  // 投稿者アバター（ゲスト=user_id null は null）
                 ->orderByDesc('created_at')
                 ->limit(20)
                 ->get(['id', 'comment', 'submitter_name', 'user_id'])
@@ -63,6 +64,7 @@ final class ShopAcceptanceService
                     'name' => $r->submitter_name ?: '名無しライダー',
                     'comment' => $r->comment,
                     'verified' => $r->user_id !== null,
+                    'avatar_url' => $r->user?->avatar_url, // 未ログイン投稿は null → 既定アイコン
                 ])
                 ->all();
 
@@ -85,7 +87,7 @@ final class ShopAcceptanceService
             ->whereNotNull('comment')
             ->where('comment', '!=', '')
             ->whereHas('shop')       // 店が消えたコメントは出さない
-            ->with('shop')           // N+1回避（店名・所在地）
+            ->with(['shop', 'user']) // N+1回避（店名・所在地／投稿者アバター）
             ->orderByDesc('created_at')
             ->paginate($perPage);
     }

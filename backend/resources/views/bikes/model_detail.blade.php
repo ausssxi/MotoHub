@@ -440,7 +440,10 @@
                                     <span class="text-sm font-bold text-gray-900 truncate">{{ $review->title }}</span>
                                 </div>
                                 <p class="text-sm text-gray-600 leading-relaxed line-clamp-3">{{ $review->body }}</p>
-                                <p class="text-[11px] text-gray-400 mt-1">by {{ $review->nickname }}・{{ $review->created_at->format('Y/m/d') }}</p>
+                                <p class="text-[11px] text-gray-400 mt-1 inline-flex items-center gap-1">
+                                    <x-user-avatar :user="$review->user" :name="$review->nickname" :size="6" />
+                                    by {{ $review->nickname }}・{{ $review->created_at->format('Y/m/d') }}
+                                </p>
                             </a>
                             @empty
                             {{-- 0件: 呼び水（書くCTAは質問する と同一クラスに揃える） --}}
@@ -1655,7 +1658,7 @@
                                     <p class="text-sm text-gray-600 leading-relaxed mb-2 whitespace-pre-wrap">{{ $review->body }}</p>
                                     <div class="flex items-center justify-between">
                                         <div class="flex items-center gap-3">
-                                            <p class="text-xs text-gray-400 font-bold flex items-center gap-1">by {{ $review->nickname }}@if($review->user_id)<span class="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded"><i data-lucide="badge-check" class="w-3 h-3"></i>ログインユーザー</span>@endif</p>
+                                            <p class="text-xs text-gray-400 font-bold flex items-center gap-1"><x-user-avatar :user="$review->user" :name="$review->nickname" :size="6" />by {{ $review->nickname }}@if($review->user_id)<span class="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded"><i data-lucide="badge-check" class="w-3 h-3"></i>ログインユーザー</span>@endif</p>
                                             <button type="button"
                                                     @click="if(!helped){ helped=true; localStorage.setItem('review_helpful_{{ $review->id }}','1'); fetch('{{ route('bikes.review.helpful', $review->id) }}',{method:'POST',headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}}).then(r=>r.json()).then(d=>count=d.helpful_count).catch(()=>{}); }"
                                                     class="inline-flex items-center gap-1 text-[11px] font-bold transition-colors" :class="helped ? 'text-blue-600' : 'text-gray-400 hover:text-blue-600'">
