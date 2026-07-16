@@ -370,3 +370,91 @@ it('does not show the writing section for a normal user (not an author)', functi
     $html = $this->get(route('riders.profile', $token))->assertOk()->getContent();
     expect($html)->not->toContain('執筆記事')->not->toContain('他人の記事');
 });
+
+// ---- E: ショップレビュー（店ページで公開済みコメントのみ・comment_approved） ----
+
+use App\Models\Shop;
+use App\Models\ShopAcceptanceReport;
+
+function profShop(string $name = 'テスト整備店'): Shop
+{
+    return Shop::create([
+        'name' => $name, 'prefecture' => '東京都', 'city' => '世田谷区',
+        'address' => 'sh-'.uniqid(), 'shop_type' => 'dealer', 'source' => Shop::SOURCE_SCRAPER,
+    ]);
+}
+
+it('aggregates the users approved shop reviews with handle + shop link, hides comment-unapproved', function () {
+    $user = profUser('本名タロウ', 'rider_x');
+    $token = $user->ensurePublicToken();
+    profBike($user, true);
+    $shop = profShop('公開整備店');
+
+    // comment_approved=true＝店ページで公開済み。is_approved(事実系)とは独立。
+    ShopAcceptanceReport::create([
+        'shop_id' => $shop->id, 'user_id' => $user->id, 'comment' => '対応が丁寧でした',
+        'submitter_name' => '旧サブミッタ名', 'is_approved' => false, 'comment_approved' => true,
+    ]);
+    // comment_approved=false＝店ページでも非公開（承認待ち/運営非表示）。プロフィールにも出さない。
+    ShopAcceptanceReport::create([
+        'shop_id' => $shop->id, 'user_id' => $user->id, 'comment' => '承認待ちコメント',
+        'is_approved' => false, 'comment_approved' => false,
+    ]);
+
+    $html = $this->get(route('riders.profile', $token))->assertOk()
+        ->assertSee('ショップレビュー')
+        ->assertSee('対応が丁寧でした')
+        ->assertSee('公開整備店')
+        ->assertSee(route('shops.show', $shop->id), false)   // 店ページへリンク
+        ->getContent();
+
+    // 非公開コメントは出ない／保存済み submitter_name でなく現ハンドルを表示／本名は出ない
+    expect($html)->not->toContain('承認待ちコメント')
+        ->not->toContain('旧サブミッタ名')
+        ->not->toContain('本名タロウ')
+        ->toContain('rider_x');
+});
+
+it('does not show another users shop reviews on the profile', function () {
+    $a = profUser('Aさん', 'rider_a');
+    $token = $a->ensurePublicToken();
+    profBike($a, true);
+    $b = profUser('Bさん', 'rider_b', 'sb@example.com');
+    $shop = profShop();
+    ShopAcceptanceReport::create([
+        'shop_id' => $shop->id, 'user_id' => $b->id, 'comment' => 'Bのショップレビュー',
+        'is_approved' => true, 'comment_approved' => true,
+    ]);
+
+    $html = $this->get(route('riders.profile', $token))->assertOk()->getContent();
+    expect($html)->not->toContain('Bのショップレビュー');
+});
+
+it('does not show anonymous (no user_id) shop reviews on the profile', function () {
+    $user = profUser();
+    $token = $user->ensurePublicToken();
+    profBike($user, true);
+    $shop = profShop();
+    ShopAcceptanceReport::create([
+        'shop_id' => $shop->id, 'user_id' => null, 'comment' => '匿名のコメント',
+        'is_approved' => true, 'comment_approved' => true,
+    ]);
+
+    $html = $this->get(route('riders.profile', $token))->assertOk()->getContent();
+    expect($html)->not->toContain('匿名のコメント');
+});
+
+it('shop review section is hidden when there are zero approved comments (graceful)', function () {
+    $user = profUser();
+    $token = $user->ensurePublicToken();
+    profBike($user, true);
+    $shop = profShop();
+    // コメント無し（フラグのみ）は集約対象外
+    ShopAcceptanceReport::create([
+        'shop_id' => $shop->id, 'user_id' => $user->id, 'comment' => null,
+        'accepts_other_store' => true, 'is_approved' => true, 'comment_approved' => false,
+    ]);
+
+    $html = $this->get(route('riders.profile', $token))->assertOk()->getContent();
+    expect($html)->not->toContain('ショップレビュー');
+});

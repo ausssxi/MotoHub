@@ -9,6 +9,7 @@ use App\Models\GarageLike;
 use App\Models\NewsComment;
 use App\Models\ParkingReview;
 use App\Models\Review;
+use App\Models\ShopAcceptanceReport;
 use App\Models\TouringGuide;
 use App\Models\User;
 use App\Services\MyBike\MyBikeService;
@@ -61,6 +62,18 @@ final class RiderProfileController extends Controller
                 ->get()
             : collect();
 
+        // ショップレビュー（受け入れ情報のコメント）。店ページで既に公開済みのコメントの本人面集約
+        // ＝新規露出なし。公開基準は comment_approved（コメントの公開状態・即反映）に一致させる。
+        // 事実系フラグの is_approved とは別系統。管理者がコメント個別非表示にしたものも自動除外。
+        $shopReviews = ShopAcceptanceReport::where('user_id', $user->id)
+            ->commentApproved()
+            ->whereNotNull('comment')
+            ->where('comment', '!=', '')
+            ->whereHas('shop')                       // 消えた店のコメントは出さない
+            ->with('shop')
+            ->latest()
+            ->get();
+
         // 執筆記事（TouringGuide）。著者(author_id)かつ published のみ＝writer のみ非空。
         $guides = TouringGuide::published()
             ->where('author_id', $user->id)
@@ -80,6 +93,7 @@ final class RiderProfileController extends Controller
             'reviews' => $reviews,
             'comments' => $comments,
             'parkingReviews' => $parkingReviews,
+            'shopReviews' => $shopReviews,
             'guides' => $guides,
             // social②
             'followersCount' => (int) $user->followers_count,
