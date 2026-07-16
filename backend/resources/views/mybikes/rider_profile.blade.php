@@ -12,13 +12,40 @@
     <div class="bg-gray-50 min-h-screen">
         {{-- プロフィールヘッダー（公開ハンドルのみ） --}}
         <div class="bg-gradient-to-r from-pink-600 to-rose-500 text-white py-12 sm:py-16">
-            <div class="max-w-5xl mx-auto px-4 text-center">
-                <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3 backdrop-blur-sm">
-                    <i data-lucide="user" class="w-8 h-8"></i>
-                </div>
+            <div class="max-w-5xl mx-auto px-4 text-center" x-data="{ reportAvatar: false }">
+                <x-user-avatar :url="$avatarUrl" :name="$handle" :size="16" class="mx-auto mb-3 ring-4 ring-white/20 shadow-lg" />
                 <p class="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-1">Rider Profile</p>
                 <h1 class="text-2xl sm:text-3xl font-black mb-2">{{ $handle }}</h1>
                 <p class="text-xs sm:text-sm text-white/80 font-medium mb-4">公開ガレージ {{ $garages->count() }} 台</p>
+
+                {{-- アバター通報（控えめ・既存の通報フロー流用）。★連番id ではなく public_token を送る。 --}}
+                @if(session('report_success'))
+                    <p class="text-[11px] font-bold text-white/90 mb-3">ご報告ありがとうございます。確認します。</p>
+                @endif
+                <div class="mb-1">
+                    <button type="button" @click="reportAvatar = !reportAvatar"
+                            class="inline-flex items-center gap-0.5 text-[10px] font-bold text-white/50 hover:text-white transition-colors"
+                            aria-label="このアイコンを報告する">
+                        <i data-lucide="flag" class="w-2.5 h-2.5"></i> アイコンを報告
+                    </button>
+                </div>
+                <form x-show="reportAvatar" x-cloak method="POST" action="{{ route('reports.store') }}"
+                      class="max-w-xs mx-auto bg-white/10 rounded-xl p-3 space-y-2 backdrop-blur-sm">
+                    @csrf
+                    <input type="hidden" name="type" value="user_avatar">
+                    {{-- ★対象は連番id ではなく public_token（token→id 漏洩を防ぐ）。 --}}
+                    <input type="hidden" name="token" value="{{ $token }}">
+                    <p class="text-[10px] font-bold text-white/80">報告の理由（任意）</p>
+                    <div class="flex flex-wrap justify-center gap-1.5">
+                        @foreach(\App\Models\Report::REASONS as $key => $label)
+                        <label class="inline-flex items-center gap-1 cursor-pointer text-[10px] text-white/90 bg-white/10 border border-white/20 rounded-full px-2 py-0.5">
+                            <input type="radio" name="reason" value="{{ $key }}" class="accent-red-500 w-2.5 h-2.5">{{ $label }}
+                        </label>
+                        @endforeach
+                    </div>
+                    <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
+                    <button type="submit" class="text-[10px] font-black text-white bg-red-500 hover:bg-red-600 rounded-lg px-3 py-1 transition">報告する</button>
+                </form>
 
                 {{-- フォロー（数は公開・一覧は非公開）。inline Alpine + fetch（@json不使用＝リテラル補間のみ） --}}
                 <div x-data="{ following: {{ $isFollowing ? 'true' : 'false' }}, followers: {{ (int) $followersCount }}, loading: false }"

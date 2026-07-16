@@ -70,6 +70,7 @@
                 <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line break-words {{ filled($thread->title) ? 'mt-3' : 'mt-1 text-base' }}">{{ $thread->body }}</p>
                 @endif
                 <div class="flex items-center gap-1.5 mt-3 text-[11px] text-gray-400">
+                    <x-user-avatar :user="$thread->user" :name="$thread->display_name" :size="6" />
                     <span class="font-bold text-gray-500">{{ $thread->display_name }}さん</span>
                     <span>・{{ $thread->created_at->diffForHumans() }}</span>
                     <button type="button" @click="report = !report" class="ml-auto inline-flex items-center gap-0.5 font-bold text-gray-300 hover:text-red-500 transition-colors" aria-label="このスレッドを報告する">
@@ -98,6 +99,7 @@
                     @endif
                     <div class="flex items-center gap-2 mt-2 text-[11px] text-gray-400">
                         @unless($reply->is_official)
+                        <x-user-avatar :user="$reply->user" :name="$reply->display_name" :size="6" />
                         <span class="font-bold text-gray-500">{{ $reply->display_name }}さん</span>
                         <span>・{{ $reply->created_at->diffForHumans() }}</span>
                         @endunless

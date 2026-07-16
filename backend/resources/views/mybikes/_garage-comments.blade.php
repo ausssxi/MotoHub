@@ -24,6 +24,7 @@
         @foreach($comments as $c)
         <div class="bg-gray-50 rounded-xl p-4" x-data="{ report: false }">
             <div class="flex items-center gap-1.5 text-[11px] text-gray-400 mb-1">
+                <x-user-avatar :user="$c->user" :name="$c->display_name" :size="6" />
                 <span class="font-bold text-gray-600">{{ $c->display_name }}さん</span>
                 <span>・{{ $c->created_at->diffForHumans() }}</span>
                 <button type="button" @click="report = !report" class="ml-auto inline-flex items-center gap-0.5 font-bold text-gray-300 hover:text-red-500 transition-colors" aria-label="このコメントを報告する">

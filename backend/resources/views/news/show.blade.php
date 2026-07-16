@@ -119,8 +119,8 @@
                 <div class="flex gap-3">
                     <div class="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center overflow-hidden flex-shrink-0">
                         @auth
-                            @if(auth()->user()->avatar)
-                                <img src="{{ auth()->user()->avatar }}" alt="" class="w-full h-full object-cover">
+                            @if(auth()->user()->avatar_url)
+                                <img src="{{ auth()->user()->avatar_url }}" alt="" class="w-full h-full object-cover">
                             @else
                                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                             @endif
@@ -154,13 +154,7 @@
             <div class="space-y-4">
                 @forelse($comments as $comment)
                 <div class="flex gap-3" x-data="{ report: false }">
-                    <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                        @if($comment->user?->avatar)
-                            <img src="{{ $comment->user->avatar }}" alt="" class="w-full h-full object-cover">
-                        @else
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                        @endif
-                    </div>
+                    <x-user-avatar :user="$comment->user" :name="$comment->display_name" :size="8" />
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 mb-1">
                             {{-- 公開表示名（ログイン=ハンドル / ゲスト=nickname・本名は出さない） --}}

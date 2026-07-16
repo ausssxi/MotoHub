@@ -88,6 +88,7 @@ final class RiderProfileController extends Controller
 
         return view('mybikes.rider_profile', [
             'handle' => $handle,
+            'avatarUrl' => $user->avatar_url,  // 公開アバター（未設定ならイニシャル/汎用にフォールバック）
             'garages' => $garages,
             'token' => $token,
             'reviews' => $reviews,

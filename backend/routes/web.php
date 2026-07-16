@@ -574,6 +574,11 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     // プロフィール表示設定（駐車場レビュー等のオプトアウト）。名前/メール更新とは別フォーム。
     Route::patch('/profile/visibility', [ProfileController::class, 'updateVisibility'])->name('profile.visibility');
+    // アバターのアップロード/削除（画像処理を伴うため名前/メール更新とは別フォーム）。
+    // 認証済み・自分1枚なので高スパム面ではないが、連投アップロードの軽い抑制で throttle を付ける。
+    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])
+        ->name('profile.avatar.update')->middleware('throttle:10,1');
+    Route::delete('/profile/avatar', [ProfileController::class, 'destroyAvatar'])->name('profile.avatar.destroy');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // 愛車ログ機能

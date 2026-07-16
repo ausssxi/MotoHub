@@ -827,6 +827,7 @@
                         <div class="flex items-center justify-between mb-2">
                             <div class="flex items-center gap-2">
                                 {{-- 公開表示名（本名は出さない。ログイン投稿はハンドル・ゲストはニックネーム） --}}
+                                <x-user-avatar :user="$review->user" :name="$review->display_name" :size="6" />
                                 <span class="text-sm font-bold text-gray-800">{{ $review->display_name }}</span>
                                 <div class="flex items-center gap-0.5">
                                     @for($i = 1; $i <= 5; $i++)

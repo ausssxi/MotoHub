@@ -16,6 +16,13 @@
             </div>
 
             <div class="space-y-6">
+                {{-- プロフィールアイコン（アバター） --}}
+                <div class="p-6 sm:p-8 bg-white shadow-sm sm:rounded-2xl border border-gray-100">
+                    <div class="max-w-xl">
+                        @include('profile.partials.update-avatar-form')
+                    </div>
+                </div>
+
                 {{-- プロフィール情報 --}}
                 <div class="p-6 sm:p-8 bg-white shadow-sm sm:rounded-2xl border border-gray-100">
                     <div class="max-w-xl">
