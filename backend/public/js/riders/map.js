@@ -16,7 +16,9 @@
     };
 
     let map;
-    let layerGroups = {};
+    // 全種類を1つのクラスタグループに集約（種類横断でまとまる＝Googleマップ的挙動）。
+    // markercluster(CDN)が未ロードなら L.layerGroup にフォールバック（地図は動く・非クラスタ）。
+    let clusterGroup = null;
     let allMarkers = [];
     let debounceTimer = null;
     let userLat = null, userLng = null;
@@ -52,10 +54,17 @@
         // Expose map instance globally (for route.js etc.)
         window.ridersMap = map;
 
-        // Initialize layer groups
-        Object.keys(layerConfig).forEach(function(key) {
-            layerGroups[key] = L.layerGroup().addTo(map);
-        });
+        // Initialize a single marker cluster group for all categories.
+        // ズームアウト時は数字バッジに集約、ズームインで個別ピンに展開。CDN未ロード時は素の layerGroup。
+        clusterGroup = (typeof L.markerClusterGroup === 'function')
+            ? L.markerClusterGroup({
+                maxClusterRadius: 50,
+                showCoverageOnHover: false,
+                spiderfyOnMaxZoom: true,
+                chunkedLoading: true,
+            })
+            : L.layerGroup();
+        clusterGroup.addTo(map);
 
         // Map move handler
         map.on('moveend', function() {
@@ -117,12 +126,10 @@
         loading.classList.remove('hidden');
 
         allMarkers = [];
+        clusterGroup.clearLayers(); // 単一クラスタを一度クリアし、有効レイヤーのみ再投入
         var promises = [];
 
         Object.keys(layerConfig).forEach(function(key) {
-            var group = layerGroups[key];
-            group.clearLayers();
-
             if (!layers[key]) return;
 
             var config = layerConfig[key];
@@ -135,7 +142,7 @@
                     .then(function(data) {
                         if (gen !== fetchGeneration) return; // stale fetch
                         var items = Array.isArray(data) ? data : (data.data || data);
-                        processLayerData(key, items, group);
+                        processLayerData(key, items);
                     })
                     .catch(function(e) { console.warn('Layer fetch error:', key, e); })
             );
@@ -148,8 +155,8 @@
         });
     }
 
-    // Process fetched data for a layer
-    function processLayerData(layerKey, items, group) {
+    // Process fetched data for a layer（マーカーは単一クラスタグループへ投入）
+    function processLayerData(layerKey, items) {
         var config = layerConfig[layerKey];
         var icon = createIcon(config.color, config.label);
 
@@ -158,7 +165,7 @@
             var lng = parseFloat(item.longitude || item.lng);
             if (!lat || !lng) return;
 
-            var marker = L.marker([lat, lng], { icon: icon }).addTo(group);
+            var marker = L.marker([lat, lng], { icon: icon }).addTo(clusterGroup);
             marker.on('click', function() { showDetail(layerKey, item); });
 
             var displayName = item.name || item.shop_name || item.title || '名称不明';
