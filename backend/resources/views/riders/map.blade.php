@@ -5,6 +5,9 @@
     <x-slot:styles>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
         <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+        {{-- マーカークラスタリング（近接ピンを数字バッジに集約・ズームで展開） --}}
+        <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+        <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
         <style>
             #map { height: 60vh; z-index: 10; }
             #map.route-mode-active,
@@ -73,11 +76,16 @@
 
             /* Layer toggle buttons */
             .layer-btn { transition: all .15s ease; }
+
+            /* 横スクロールのツールバー内はボタンを縮めない（1行に並べてスクロール） */
+            #map-actions > a, #map-actions > button, #layer-chips > button { flex-shrink: 0; }
         </style>
     </x-slot:styles>
 
     <x-slot:scripts>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+        {{-- markercluster は leaflet.js の後・map.js の前に読む（map.js が L.markerClusterGroup を使う） --}}
+        <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
         <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
         <script src="{{ asset('js/common/map-search.js') }}?v={{ asset_buster(public_path('js/common/map-search.js')) }}"></script>
         <script src="{{ asset('js/riders/map.js') }}?v={{ time() }}"></script>
@@ -102,7 +110,10 @@
         @include('riders._onboarding')
     </div>
 
+    {{-- 外側=アクションバーの配置基準。内側(#map-stage)=地図＋地図追従オーバーレイ（chips/現在地）。
+         モバイルはアクションバーを #map-stage の外＝地図直下に流し、現在地は #map-stage 内で地図に追従させる。 --}}
     <div class="relative w-full">
+      <div class="relative w-full" id="map-stage">
         <div id="map" class="w-full bg-gray-100"></div>
 
         {{-- ローディング --}}
@@ -133,8 +144,8 @@
             @include('riders._onboarding')
         </div>
 
-        {{-- レイヤートグル --}}
-        <div class="absolute top-14 left-3 right-3 z-40 flex flex-wrap gap-1.5"
+        {{-- レイヤートグル（1行横スクロール＝地図の占有面積を最小化） --}}
+        <div id="layer-chips" class="absolute top-14 left-3 right-3 z-40 flex flex-nowrap overflow-x-auto scrollbar-hide gap-1.5 pb-1"
              x-data="{
                  shop: true, parking: true, gas: false, cvs: false, michi: false, blog: false, saved_spots: {{ auth()->check() ? 'true' : 'false' }},
                  notify() {
@@ -190,8 +201,15 @@
             @endauth
         </div>
 
-        {{-- ルートコントロール --}}
-        <div class="absolute bottom-20 left-3 z-40 flex gap-1.5">
+        {{-- 現在地ボタン（#map-stage 内＝地図に追従。アクションバーで下に伸びても位置がずれない） --}}
+        <button id="btn-current-location" class="absolute bottom-4 right-3 bg-white p-2.5 rounded-lg shadow-md z-40 text-gray-600 hover:text-blue-600 transition-colors border border-gray-200"
+                title="現在地に移動">
+            <i data-lucide="crosshair" class="w-5 h-5"></i>
+        </button>
+      </div>{{-- /#map-stage --}}
+
+        {{-- アクション: モバイル=地図直下の横スクロールツールバー / PC=地図オーバーレイ（従来位置・無改変） --}}
+        <div id="map-actions" class="flex gap-1.5 overflow-x-auto scrollbar-hide bg-white/95 border-b border-gray-200 px-3 py-2 md:overflow-visible md:bg-transparent md:border-0 md:px-0 md:py-0 md:absolute md:bottom-20 md:left-3 md:z-40">
             <button id="btn-route-toggle" class="bg-white px-3 py-2 rounded-lg shadow-md text-gray-600 hover:text-pink-600 transition-colors border border-gray-200 flex items-center gap-1.5 text-[11px] font-bold"
                     title="ルート作成モード">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
@@ -223,14 +241,8 @@
                     <span class="spot-pin-label">ピン留め</span>
                 </button>
             @endauth
-        </div>
-
-        {{-- 現在地ボタン --}}
-        <button id="btn-current-location" class="absolute bottom-4 right-3 bg-white p-2.5 rounded-lg shadow-md z-40 text-gray-600 hover:text-blue-600 transition-colors border border-gray-200"
-                title="現在地に移動">
-            <i data-lucide="crosshair" class="w-5 h-5"></i>
-        </button>
-    </div>
+        </div>{{-- /#map-actions --}}
+    </div>{{-- /outer --}}
 
     {{-- ルート情報バー --}}
     <div id="route-info-bar" class="hidden bg-pink-50 border-t border-b border-pink-200 px-4 py-2 flex items-center gap-4">
