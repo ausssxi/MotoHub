@@ -545,6 +545,11 @@
                                         <i data-lucide="bike" class="w-4 h-4"></i>
                                         在庫を見る
                                     </a>
+                                    {{-- チェーン横断ページへの内部リンク（全店舗在庫一覧） --}}
+                                    <a href="{{ route('shops.chain', $chainInfo['slug']) }}" class="flex items-center justify-center gap-1.5 text-blue-700 hover:text-blue-900 text-xs font-bold w-full py-2 mt-1 transition-colors">
+                                        {{ $chainInfo['name'] }}の全店舗在庫一覧を見る
+                                        <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                                    </a>
                                 </div>
                                 @endif
                             </div>

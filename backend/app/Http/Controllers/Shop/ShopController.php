@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Shop\StoreShopAcceptanceReportRequest;
+use App\Http\Resources\Bike\ListingResource;
 use App\Mail\ShopAcceptanceReportSubmitted;
 use App\Models\BikeModel;
 use App\Models\BlogPost;
@@ -314,6 +315,23 @@ class ShopController extends Controller
         $mainShop = $shops->sortByDesc('listings_count')->first();
         $mainShopStock = $mainShop?->listings_count ?? 0;
 
+        // チェーン全店舗横断の実在庫サンプル（最新24台）。カードは他ページと同じ ListingResource 形式
+        // （生モデル渡しで maker/画像/整形価格が空になる不具合を避ける）。ItemList(Product/Offer) の素にもする。
+        $shopIds = $shops->pluck('id');
+        $latestModels = Listing::whereIn('shop_id', $shopIds)
+            ->where('is_sold_out', false)
+            ->with(['shop', 'site', 'bikeModel.manufacturer', 'bikeModel.categoryData', 'bikeModel.nationalPriceStat', 'tags'])
+            ->orderByDesc('created_at')
+            ->limit(24)
+            ->get();
+        $latestListings = collect(ListingResource::collection($latestModels)->resolve());
+        $itemList = $latestModels->map(fn (Listing $l) => [
+            'name' => $l->title ?: ($l->bikeModel?->name ?? '中古バイク'),
+            'url' => route('bikes.show', $l->id),
+            'image' => (is_array($l->image_urls) && ! empty($l->image_urls)) ? $l->image_urls[0] : null,
+            'price' => $l->total_price ? (int) $l->total_price : null,
+        ])->values()->all();
+
         // 解説記事（公開済みのみ）。config の guide_slug が設定されたチェーンだけ表示される。
         $guideArticle = ! empty($chain['guide_slug'])
             ? BlogPost::published()->where('slug', $chain['guide_slug'])->first(['id', 'slug', 'title'])
@@ -325,7 +343,7 @@ class ShopController extends Controller
             ['label' => 'ショップマップ', 'url' => route('shops.map'), 'icon' => 'store', 'description' => 'バイクショップを探す'],
         ];
 
-        return view('shops.chain', compact('chain', 'chainSlug', 'shops', 'totalStock', 'mainShop', 'mainShopStock', 'crossLinks', 'guideArticle'));
+        return view('shops.chain', compact('chain', 'chainSlug', 'shops', 'totalStock', 'mainShop', 'mainShopStock', 'crossLinks', 'guideArticle', 'latestListings', 'itemList'));
     }
 
     /**
