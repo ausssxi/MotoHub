@@ -11,8 +11,9 @@ uses(RefreshDatabase::class);
 
 function ccUsedListing(int $displacement, int $totalPrice, string $title): Listing
 {
-    $site = Site::firstOrNew(['name' => 'テストサイト']);
-    $site->forceFill(['name' => 'テストサイト'])->save();
+    // Site は $fillable 非依存で生成（forceFill）。name は unique なので毎回一意に。
+    $site = new Site;
+    $site->forceFill(['name' => 'テストサイト '.uniqid()])->save();
 
     return Listing::forceCreate([
         'site_id' => $site->id,
@@ -64,10 +65,17 @@ it('emits ItemList Product/Offer schema reflecting in-stock used listings', func
 });
 
 it('does not emit an empty ItemList when there is no inventory (no doorway schema)', function () {
-    Cache::flush();
+    // 在庫ゼロを決定論的に検証（実DBの在庫有無に依存しない）＝空データをキャッシュに注入。
+    Cache::put('category_landing:v2:cc:125', [
+        'kpi' => ['total_count' => 0, 'avg_price' => null, 'min_price' => null, 'max_price' => null],
+        'top_models' => collect(),
+        'latest_listings' => collect(),
+        'item_list' => [],
+    ], 3600);
+
     $html = $this->get(route('bikes.category_cc', '125'))->assertOk()->getContent();
 
-    // 在庫ゼロ＝ItemList を出さない（空schemaを作らない）。BreadcrumbList は維持。
+    // item_list 空＝ItemList を出さない（空schemaを作らない）。BreadcrumbList は維持。
     expect($html)->not->toContain('"@type":"ItemList"')
         ->toContain('BreadcrumbList');
 });
