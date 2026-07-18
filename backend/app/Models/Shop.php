@@ -50,28 +50,41 @@ final class Shop extends Model
 
     /**
      * メーカー正規ディーラー判定。service_tags の「◯◯正規店」バッジ（Webike由来）から
-     * メーカー名を返す。★チェーン該当店は二重分類しない（$chainSlug!==null なら null）。
-     * 非該当（正規店バッジ無し）も null＝「その他/独立店」扱い（"個人店"とは断定しない）。
+     * メーカー名を抽出→正規化→ config('bike.maker_dealer_brands') の輸入ブランド allowlist に
+     * 一致すれば「ブランドキー」を返す（例: harley）。map.js は返ったキーで色/ラベルを引く。
+     * ★国産(HONDA/SUZUKI/YAMAHA/KAWASAKI)・「その他正規店」・未知は allowlist 非該当＝null（＝地図で「その他」）。
+     * ★チェーン該当店は二重分類しない（$chainSlug!==null なら null）。"個人店"とは断定しない。
      */
     public static function makerDealer(mixed $serviceTags, ?string $chainSlug): ?string
     {
         if ($chainSlug !== null || ! is_array($serviceTags)) {
             return null;
         }
+        $brands = config('bike.maker_dealer_brands', []);
         foreach ($serviceTags as $tag) {
             $tag = (string) $tag;
-            if (str_ends_with($tag, '正規店')) {
-                return trim(preg_replace('/正規店$/u', '', $tag)); // メーカー名（例: ハーレーダビッドソン）
+            if (! str_ends_with($tag, '正規店')) {
+                continue;
+            }
+            // 「◯◯正規店」→ メーカー名を正規化。国産/「その他」/未知は allowlist 非該当＝スキップ。
+            // マルチブランド店は次のタグを見て輸入ブランドを拾う（国産→スキップ→輸入拾い）。
+            $maker = self::normalizeForMatch((string) preg_replace('/正規店$/u', '', $tag));
+            foreach ($brands as $key => $aliases) {
+                foreach ($aliases as $alias) {
+                    if ($alias !== '' && str_contains($maker, self::normalizeForMatch($alias))) {
+                        return $key; // 輸入ブランドキー
+                    }
+                }
             }
         }
 
         return null;
     }
 
-    /** 店名/パターン照合用の正規化: 全角英数→半角・半角カナ→全角カナ・小文字化・空白除去。 */
+    /** 店名/メーカー照合用の正規化: 全角英数→半角・半角カナ→全角カナ・濁点合成・小文字化・空白/中黒除去。 */
     private static function normalizeForMatch(string $s): string
     {
-        return mb_strtolower(str_replace(['　', ' '], '', mb_convert_kana($s, 'aKs')));
+        return mb_strtolower(str_replace(['　', ' ', '・', '･'], '', mb_convert_kana($s, 'aKVs')));
     }
 
     /**

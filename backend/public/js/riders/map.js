@@ -46,28 +46,34 @@
     var chainIconCache = {};
     var makerIconCache = {};
 
-    // メーカー正規ディーラー（別カテゴリ）。チェーン（色塗り丸）と区別するため「角丸四角」形にする。
-    // maker 文字列（サーバーが正規店バッジから抽出）をキーワード判定して色/短ラベルを割当（不明は汎用「正規」）。
-    function makerDef(maker) {
-        var k = String(maker || '').toLowerCase();
-        if (k.indexOf('ハーレー') >= 0 || k.indexOf('harley') >= 0) return { label: 'H-D', color: '#111827' };
-        if (k.indexOf('トライアンフ') >= 0 || k.indexOf('triumph') >= 0) return { label: 'TRI', color: '#7f1d1d' };
-        if (k.indexOf('bmw') >= 0) return { label: 'BMW', color: '#1e3a8a' };
-        if (k.indexOf('ktm') >= 0) return { label: 'KTM', color: '#c2410c' };
-        if (k.indexOf('ドゥカティ') >= 0 || k.indexOf('ducati') >= 0) return { label: 'DUC', color: '#9d174d' };
-        if (k.indexOf('ハスク') >= 0 || k.indexOf('husq') >= 0) return { label: 'HQV', color: '#1e40af' };
-        return { label: '正規', color: '#d97706' }; // 国産等・汎用の正規ディーラー
-    }
-    function makerIconFor(maker) {
-        var d = makerDef(maker);
-        if (makerIconCache[d.label]) return makerIconCache[d.label];
+    // メーカー正規ディーラー（別カテゴリ・輸入ブランドのみ）。チェーン（色塗り丸）と区別するため「角丸四角」形。
+    // ★キーは config/bike.php maker_dealer_brands と一致（サーバーが item.maker_dealer にブランドキーを返す）。
+    //   キーワード照合はしない＝サーバーが正規化・allowlist判定済のキーだけを渡す。国産/その他/未知は null（=その他ピン）。
+    var BRAND_DEALERS = {
+        'harley':        { label: 'H-D', color: '#111827' },
+        'triumph':       { label: 'TRI', color: '#7f1d1d' },
+        'bmw':           { label: 'BMW', color: '#1e3a8a' },
+        'ktm':           { label: 'KTM', color: '#c2410c' },
+        'ducati':        { label: 'DUC', color: '#9d174d' },
+        'husqvarna':     { label: 'HQV', color: '#1e40af' },
+        'vespa':         { label: 'VES', color: '#0d9488' },
+        'kymco':         { label: 'KYM', color: '#047857' },
+        'aprilia':       { label: 'APR', color: '#7e22ce' },
+        'indian':        { label: 'IND', color: '#78350f' },
+        'royal-enfield': { label: 'RE',  color: '#3f3f46' },
+        'beta':          { label: 'BET', color: '#b45309' },
+    };
+    function makerIconFor(key) {
+        var d = BRAND_DEALERS[key];
+        if (!d) return null; // 未知キーは通常来ない（サーバーは既知キーのみ返す）。保険で null＝従来アイコン。
+        if (makerIconCache[key]) return makerIconCache[key];
         var icon = L.divIcon({
             className: '',
             html: '<div style="width:28px;height:28px;border-radius:6px;background:' + d.color + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;line-height:1;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.35);">' + d.label + '</div>',
             iconSize: [28, 28],
             iconAnchor: [14, 14],
         });
-        makerIconCache[d.label] = icon;
+        makerIconCache[key] = icon;
         return icon;
     }
 
@@ -230,7 +236,8 @@
                 if (item.chain && CHAIN_ICONS[item.chain]) {
                     icon = chainIconFor(item.chain);
                 } else if (item.maker_dealer) {
-                    icon = makerIconFor(item.maker_dealer);
+                    var mi = makerIconFor(item.maker_dealer);
+                    if (mi) icon = mi; // 既知ブランドキーのみ（null=従来アイコン）
                 }
             }
 

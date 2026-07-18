@@ -72,6 +72,27 @@ return [
         'reverse-auto' => ['name' => 'リバースオート', 'patterns' => ['リバースオート', 'reverse auto']],
     ],
 
+    // メーカー正規ディーラーの「輸入ブランド」allowlist（キー => 別名リスト）。
+    // service_tags の「◯◯正規店」バッジから Shop::makerDealer() がメーカー名を抽出→正規化→
+    // ここに一致すればブランドキーを返す。★国産(HONDA/SUZUKI/YAMAHA/KAWASAKI)・「その他正規店」・
+    //   未知は allowlist 非該当＝null（＝地図では「その他」の青ピン）。国産の別途除外リストは不要。
+    // ★キーは public/js/riders/map.js の BRAND_DEALERS と一致させること（色/ラベルは map.js 側）。
+    // 別名は Shop::makerDealer 内で同じ正規化（全角→半角・小文字・空白/中黒除去）をかけて部分一致。
+    'maker_dealer_brands' => [
+        'harley'        => ['ハーレー', 'harley'],
+        'triumph'       => ['トライアンフ', 'triumph'],
+        'bmw'           => ['bmw'],
+        'ktm'           => ['ktm'],
+        'ducati'        => ['ドゥカティ', 'ducati'],
+        'husqvarna'     => ['ハスクバーナ', 'husqvarna', 'husq'],
+        'vespa'         => ['ベスパ', 'vespa'],
+        'kymco'         => ['キムコ', 'kymco'],
+        'aprilia'       => ['アプリリア', 'aprilia'],
+        'indian'        => ['インディアン', 'indian'],
+        'royal-enfield' => ['ロイヤルエンフィールド', 'royalenfield', 'royal enfield'],
+        'beta'          => ['ベータ', 'beta'],
+    ],
+
     // ランキングの設定
     'ranking' => [
         'top_page_limit' => 16,
