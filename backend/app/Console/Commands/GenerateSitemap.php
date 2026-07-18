@@ -130,6 +130,9 @@ class GenerateSitemap extends Command
             // 新基準原付ハブ（対象モデル+実在庫相場・恒久slug）
             ['route' => 'shinkijun_gentsuki', 'priority' => '0.8', 'freq' => 'daily'],
 
+            // 保険ハブ（維持費早見表+一括見積もり送客・恒久slug）
+            ['route' => 'hoken', 'priority' => '0.7', 'freq' => 'monthly'],
+
             // 駐車場マップ
             ['route' => 'parking.index',     'priority' => '0.8', 'freq' => 'daily'],
 

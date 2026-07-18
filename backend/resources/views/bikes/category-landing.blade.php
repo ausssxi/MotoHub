@@ -82,6 +82,21 @@
                         <i data-lucide="chevron-right" class="shrink-0 w-5 h-5 text-blue-400 group-hover:translate-x-0.5 transition-transform"></i>
                     </a>
                 @endif
+
+                {{-- 保険ハブへの誘導（この排気量の維持費・保険）＝双方向内部リンク --}}
+                @if($mode === 'cc')
+                    <a href="{{ route('hoken') }}"
+                       class="group mt-3 flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl p-4 max-w-4xl hover:border-emerald-400 hover:shadow-md transition-all">
+                        <span class="shrink-0 w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
+                            <i data-lucide="receipt-japanese-yen" class="w-5 h-5"></i>
+                        </span>
+                        <span class="flex-1 min-w-0">
+                            <span class="block text-sm font-black text-gray-900">{{ $pageInfo['label'] ?? 'この排気量' }}の維持費・保険（税金・自賠責）</span>
+                            <span class="block text-xs text-gray-500 mt-0.5">軽自動車税・自賠責の固定費早見表と、任意保険・ファミリーバイク特約の選び方</span>
+                        </span>
+                        <i data-lucide="chevron-right" class="shrink-0 w-5 h-5 text-emerald-400 group-hover:translate-x-0.5 transition-transform"></i>
+                    </a>
+                @endif
             </div>
         </div>
 
