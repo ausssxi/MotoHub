@@ -345,7 +345,7 @@ final class ListingSearchService
         });
     }
 
-    public function getPopularTags(): array { return ['ETC', 'ドラレコ', 'ワンオーナー', 'ABS', '低走行', 'グリップヒーター', '社外マフラー', 'USB電源']; }
+    public function getPopularTags(): array { return ['ETC', 'ドラレコ', 'ワンオーナー', 'ノーマル車', 'ABS', '低走行', 'グリップヒーター', '社外マフラー', 'USB電源']; }
 
     /**
      * 検索結果ページ向けのおすすめ車種を取得
