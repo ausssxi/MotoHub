@@ -33,6 +33,27 @@
             ]
         }
         </script>
+        {{-- ItemList(Product/Offer): ページ内の中古在庫を反映（穴②）。price は円・実在庫のみ。 --}}
+        @php
+            $itemListSchema = [
+                '@context' => 'https://schema.org', '@type' => 'ItemList',
+                'name' => $pageInfo['label'].'の中古バイク一覧',
+                'itemListElement' => collect($itemList ?? [])->values()->map(function ($it, $i) {
+                    $product = ['@type' => 'Product', 'name' => $it['name'], 'url' => $it['url']];
+                    if (! empty($it['image'])) { $product['image'] = $it['image']; }
+                    if (! empty($it['price'])) {
+                        $product['offers'] = [
+                            '@type' => 'Offer', 'price' => (int) $it['price'], 'priceCurrency' => 'JPY',
+                            'availability' => 'https://schema.org/InStock', 'url' => $it['url'],
+                        ];
+                    }
+                    return ['@type' => 'ListItem', 'position' => $i + 1, 'item' => $product];
+                })->all(),
+            ];
+        @endphp
+        @if(! empty($itemListSchema['itemListElement']))
+        <script type="application/ld+json">{!! json_encode($itemListSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+        @endif
     </x-slot:styles>
 
     <x-slot:navigation>
