@@ -181,6 +181,25 @@
                             </div>
                         </template>
 
+                        {{-- 出張バッテリー救援（バッテリー系カード＝fitment_task='battery' かつ url設定時のみ）。
+                             ★煽らない落ち着いた補助リンク・主役を奪わない・PR表記・rel=nofollow sponsored。
+                             商品リンク(自分で交換)とは別ニーズ（急ぎ/自走不能）として併存。 --}}
+                        <template x-if="card?.fitment_task === 'battery' && batteryRescue.url">
+                            <div class="mt-3 bg-gray-50 border border-gray-200 rounded-xl p-4">
+                                <div class="flex items-center gap-1.5 mb-1">
+                                    <span class="text-[13px] font-black text-gray-700" x-text="batteryRescue.label">出張バッテリー救援サービス</span>
+                                    <span class="text-[9px] font-bold text-gray-400 border border-gray-300 rounded px-1 py-0.5">PR</span>
+                                </div>
+                                <p class="text-[12px] text-gray-500 leading-relaxed mb-2.5" x-text="batteryRescue.sub"></p>
+                                <a :href="batteryRescue.url" target="_blank" rel="nofollow sponsored noopener"
+                                   @click="trackCta('battery_rescue')"
+                                   class="inline-flex items-center gap-1.5 text-[13px] font-black text-gray-700 hover:text-blue-700 transition-colors">
+                                    救援サービスを見る
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+                                </a>
+                            </div>
+                        </template>
+
                         {{-- 解決フィードバック（CTA群の下・控えめ・1セッション1回） --}}
                         <div class="mt-5 pt-4 border-t border-gray-100" x-data="{ done: false }">
                             <template x-if="!done">
@@ -240,11 +259,14 @@
             userBikes: @json($userFitmentBikes),
             urlTemplate: @js(route('fitments.show', ['bikeModel' => '__SLUG__', 'task' => '__TASK__'])),
         };
+        // 出張バッテリー救援（url 未設定なら空＝CTA非表示）。fitment_task='battery' カードのみで使う。
+        window.__batteryRescue = @json($batteryRescue);
 
         function troubleTool() {
             return {
                 cfg: window.__troubleCfg,
                 fit: window.__troubleFitment,
+                batteryRescue: window.__batteryRescue || {},
                 fitSlug: '',
                 phase: 'select',     // 'select' | 'question' | 'result'
                 symptomKey: null,

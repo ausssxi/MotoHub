@@ -27,6 +27,8 @@ final class TroubleController extends Controller
             'verdicts' => config('diagnosis.verdicts', []),
             'fitmentModels' => $this->publishedFitmentModels(),
             'userFitmentBikes' => $this->userFitmentBikes(),
+            // 出張バッテリー救援CTA（url 未設定なら blade 側で非表示）。fitment_task='battery' カードのみ表示。
+            'batteryRescue' => config('diagnosis.battery_rescue', []),
             // カード直リンク着地（?card=）のみ noindex で薄ページのインデックスを防ぐ。
             // トップ /trouble・?symptom= 単独は index 維持。
             'noindex' => request()->filled('card'),

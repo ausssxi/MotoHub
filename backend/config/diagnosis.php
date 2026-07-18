@@ -17,6 +17,18 @@ declare(strict_types=1);
 
 return [
 
+    // ── 出張バッテリー救援サービス（A8提携・アフィリエイト）──
+    // ★fitment_task='battery' のカード（バッテリー系症状）にだけ、落ち着いた補助リンクとして添える。
+    //   「今上がって動けない・急ぐ」人向け。商品リンク(parts)＝自分で交換 とは別ニーズなので併存。
+    // ★url 未設定なら CTA 非表示（偽ボタンを出さない）。景表法: PR表記＋rel=nofollow sponsored。
+    'battery_rescue' => [
+        'url' => env('BATTERY_RESCUE_AFFILIATE_URL', ''),
+        'provider' => env('BATTERY_RESCUE_PROVIDER', ''), // 例: バッテリー110番（承認済表記）
+        // ★煽らない・安全を主役にした落ち着いた文言（「今すぐ電話！」等の不安喚起はしない）
+        'label' => '出張バッテリー救援サービス',
+        'sub' => 'バッテリーが上がって自分では動かせない・急ぐ場合は、出張で対応してくれる救援サービスもあります。',
+    ],
+
     // ── 共有答えカード（12枚）。複数の症状から同じカードへ収束する ──
     // verdict 凡例: diy / diy_then_shop / check_then_shop / shop / solved
     // article は null 許容（記事未作成のカードは結果画面でCTAを出さない）
