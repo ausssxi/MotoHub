@@ -2,6 +2,43 @@
     <x-slot:title>{{ $chain['name'] }}の中古バイク在庫一覧【全国{{ $shops->count() }}店舗・{{ number_format($totalStock) }}台】| MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $chain['name'] }}全{{ $shops->count() }}店舗の中古バイク在庫を一括検索。現在{{ number_format($totalStock) }}台の在庫から価格・車種で比較できます。店舗情報・営業時間・アクセスも掲載。</x-slot:metaDescription>
 
+    {{-- 在庫5台未満は薄いページ＝noindex（ライコランド等の空チェーンを自動除外・doorway対策） --}}
+    @if($totalStock < 5)
+        <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
+    @endif
+
+    <x-slot:styles>
+        {{-- 構造化データ: BreadcrumbList + ItemList(Product/Offer)。ItemList は在庫が有る時のみ。 --}}
+        @php
+            $chainBreadcrumb = [
+                '@context' => 'https://schema.org', '@type' => 'BreadcrumbList',
+                'itemListElement' => [
+                    ['@type' => 'ListItem', 'position' => 1, 'name' => 'HOME', 'item' => url('/')],
+                    ['@type' => 'ListItem', 'position' => 2, 'name' => 'ショップマップ', 'item' => route('shops.map')],
+                    ['@type' => 'ListItem', 'position' => 3, 'name' => $chain['name'], 'item' => url()->current()],
+                ],
+            ];
+            $chainItemList = [
+                '@context' => 'https://schema.org', '@type' => 'ItemList', 'name' => $chain['name'].'の中古バイク在庫',
+                'itemListElement' => collect($itemList ?? [])->values()->map(function ($it, $i) {
+                    $product = ['@type' => 'Product', 'name' => $it['name'], 'url' => $it['url']];
+                    if (! empty($it['image'])) { $product['image'] = $it['image']; }
+                    if (! empty($it['price'])) {
+                        $product['offers'] = [
+                            '@type' => 'Offer', 'price' => (int) $it['price'], 'priceCurrency' => 'JPY',
+                            'availability' => 'https://schema.org/InStock', 'url' => $it['url'],
+                        ];
+                    }
+                    return ['@type' => 'ListItem', 'position' => $i + 1, 'item' => $product];
+                })->all(),
+            ];
+        @endphp
+        <script type="application/ld+json">{!! json_encode($chainBreadcrumb, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+        @if(! empty($chainItemList['itemListElement']))
+        <script type="application/ld+json">{!! json_encode($chainItemList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+        @endif
+    </x-slot:styles>
+
     <x-slot:navigation>
         <x-navigation :showSearch="true" />
     </x-slot:navigation>
@@ -67,6 +104,21 @@
                     </a>
                 </div>
             </div>
+            @endif
+
+            {{-- チェーン全店舗横断の最新在庫（実在庫カード・ListingResource経由） --}}
+            @if($latestListings->isNotEmpty())
+            <section class="mb-10">
+                <h2 class="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="clock" class="w-5 h-5 text-blue-500"></i>
+                    {{ $chain['name'] }}の最新在庫
+                </h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    @foreach($latestListings as $listing)
+                        @include('bikes.partials.bike_card', ['listing' => $listing, 'isFirstView' => $loop->index < 4])
+                    @endforeach
+                </div>
+            </section>
             @endif
 
             {{-- 都道府県別グループ --}}
