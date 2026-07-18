@@ -27,7 +27,42 @@
                 border-color: #f59e0b !important;
             }
             #map.has-spot-popup { z-index: 45 !important; }
-            @media (max-width: 640px) { #map { height: 50vh; } }
+
+            /* ===== モバイル全画面（地図主役）＋ 結果ボトムシート（ロケスマ風・A） ===== */
+            /* デスクトップ(≥768px)は従来レイアウト維持（このブロックは max-width:767px のみ） */
+            @media (max-width: 767px) {
+                /* 地図をビューポート占有（上部ナビ3.5rem を除く。下の bottom-nav(60px) には
+                   結果シート・現在地・アクションがフロートで乗るため地図は viewport 下端まで） */
+                #map { height: calc(100dvh - 3.5rem); }
+
+                /* 結果（件数バー＋カード列）を下からのボトムシート化。折りたたみ時はピークバーのみ。 */
+                #results-sheet {
+                    position: fixed; left: 0; right: 0; bottom: 60px; /* fixed bottom-nav(60px)の上 */
+                    z-index: 44;
+                    background: #fff;
+                    border-radius: 16px 16px 0 0;
+                    box-shadow: 0 -4px 20px rgba(0,0,0,.14);
+                    transition: max-height .3s cubic-bezier(.4,0,.2,1);
+                    max-height: 68px;            /* peek: ハンドル＋件数バー（"地図内にN件"）が見える高さ */
+                    overflow: hidden;
+                }
+                #results-sheet.sheet-open { max-height: 56dvh; overflow: visible; }
+                #results-sheet .sheet-handle { display: flex; } /* モバイルのみハンドル表示 */
+
+                /* アクションツールバーを地図上フロート（左寄せ・右は現在地/凡例のぶん空ける） */
+                #map-actions {
+                    position: absolute; left: 12px; right: 60px;
+                    bottom: calc(60px + 68px + 8px);  /* bottom-nav + peek + 余白 */
+                    z-index: 43;
+                    border-radius: 12px;
+                }
+                /* 現在地ボタン・凡例も bottom-nav＋シートpeek の上へ持ち上げる（右側に縦積み） */
+                #btn-current-location { bottom: calc(60px + 68px + 8px) !important; }
+                #map-legend { bottom: calc(60px + 68px + 8px + 48px) !important; }
+            }
+            /* デスクトップ: ハンドルは出さない（シートはただの通常フロー） */
+            .sheet-handle { display: none; }
+
             .scrollbar-hide::-webkit-scrollbar { display: none; }
             .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
             .leaflet-routing-container { display: none !important; }
@@ -208,7 +243,7 @@
         </button>
 
         {{-- 凡例（SHOPピンの3区分・折りたたみ・過度にしない）。現在地ボタンの上。 --}}
-        <div class="absolute bottom-16 right-3 z-40" x-data="{ open: false }">
+        <div id="map-legend" class="absolute bottom-16 right-3 z-40" x-data="{ open: false }">
             <button type="button" @click="open = !open"
                     class="bg-white px-2.5 py-1.5 rounded-lg shadow-md border border-gray-200 text-[11px] font-bold text-gray-600 hover:text-blue-600 transition-colors flex items-center gap-1">
                 <i data-lucide="info" class="w-3.5 h-3.5"></i> 凡例
@@ -259,6 +294,13 @@
         </div>{{-- /#map-actions --}}
     </div>{{-- /outer --}}
 
+    {{-- 結果ボトムシート（モバイル=下からのシート・ピーク/展開 / デスクトップ=通常フロー） --}}
+    <div id="results-sheet" x-data="{ open: false }" :class="{ 'sheet-open': open }">
+    {{-- ハンドル（モバイルのみ・タップで展開/折りたたみ） --}}
+    <button type="button" class="sheet-handle w-full flex-col items-center pt-2 pb-1 bg-white" @click="open = !open" :aria-expanded="open" aria-label="結果パネルを開閉">
+        <span class="block w-10 h-1 rounded-full bg-gray-300"></span>
+    </button>
+
     {{-- ルート情報バー --}}
     <div id="route-info-bar" class="hidden bg-pink-50 border-t border-b border-pink-200 px-4 py-2 flex items-center gap-4">
         <div class="flex items-center gap-1.5">
@@ -271,10 +313,10 @@
         <span id="route-poi-count" class="text-xs font-bold text-purple-600"></span>
     </div>
 
-    {{-- 件数バー + 距離フィルタ --}}
-    <div class="bg-white border-t border-b border-gray-200 px-4 py-2 flex items-center gap-3">
+    {{-- 件数バー + 距離フィルタ（モバイルはタップでシート開閉。select はバブリング止め） --}}
+    <div class="bg-white border-t border-b border-gray-200 px-4 py-2 flex items-center gap-3 md:cursor-default cursor-pointer" @click="open = !open">
         <span id="result-count" class="text-sm font-black text-gray-800 shrink-0">地図内に0件</span>
-        <div id="distance-filter" class="flex items-center gap-1 ml-auto shrink-0" style="display:none;">
+        <div id="distance-filter" class="flex items-center gap-1 ml-auto shrink-0" style="display:none;" @click.stop>
             <select id="distance-select" class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-blue-300">
                 <option value="0">距離制限なし</option>
                 <option value="5">5km圏内</option>
@@ -282,6 +324,8 @@
                 <option value="20">20km圏内</option>
             </select>
         </div>
+        {{-- 開閉インジケータ（モバイルのみ） --}}
+        <i data-lucide="chevron-up" class="md:hidden w-4 h-4 text-gray-400 ml-auto transition-transform" :class="open ? '' : 'rotate-180'"></i>
         <span class="text-xs text-gray-400 shrink-0 hidden sm:inline">← スクロール →</span>
     </div>
 
@@ -291,6 +335,7 @@
          style="min-height: 120px;">
         <div class="flex items-center justify-center w-full text-sm text-gray-400">地図を移動するとスポットが表示されます</div>
     </div>
+    </div>{{-- /#results-sheet --}}
 
     {{-- 駐車場ページ・ツーリングガイドへのリンク --}}
     <div class="bg-white px-4 py-2 border-b border-gray-100 flex justify-end items-center gap-4">

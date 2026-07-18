@@ -20,7 +20,12 @@ it('renders the riders map with markercluster assets and the mobile bottom-sheet
         ->toContain('id="layer-chips"')
         // 既存アクションが残っている（撤去されていない）
         ->toContain('btn-route-toggle')
-        ->toContain('btn-current-location');
+        ->toContain('btn-current-location')
+        // A: 結果ボトムシート（モバイル全画面UI）。件数バー・カードはシート内に維持。
+        ->toContain('id="results-sheet"')
+        ->toContain('sheet-handle')
+        ->toContain('id="result-count"')
+        ->toContain('id="result-cards"');
 });
 
 it('loads markercluster after leaflet core and before map.js (dependency order)', function () {
