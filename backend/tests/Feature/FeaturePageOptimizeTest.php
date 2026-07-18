@@ -10,12 +10,46 @@ use App\Models\Site;
 use App\Services\Bike\ListingSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Laravel\Scout\EngineManager;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    // 検索は collection ドライバ（DB直・外部Meili非依存）に固定＝コンテナ環境でも安定。
-    config(['scout.driver' => 'collection']);
+    // ListingSearchService/Repository は final でモック不可、かつ実装の検索コールバックは Meili 専用シグネチャ。
+    // NullEngine を継承した「DB直・コールバック非実行」の偽エンジンに固定して、Meili非依存で描画を通す。
+    $engine = new class extends \Laravel\Scout\Engines\NullEngine
+    {
+        private function models(\Laravel\Scout\Builder $builder)
+        {
+            return $builder->model->newQuery()->where('is_sold_out', false)->get();
+        }
+
+        public function search(\Laravel\Scout\Builder $builder)
+        {
+            $m = $this->models($builder);
+
+            return ['hits' => $m, 'total' => $m->count(), 'facetDistribution' => []];
+        }
+
+        public function paginate(\Laravel\Scout\Builder $builder, $perPage, $page)
+        {
+            $m = $this->models($builder);
+
+            return ['hits' => $m, 'total' => $m->count(), 'facetDistribution' => []];
+        }
+
+        public function map(\Laravel\Scout\Builder $builder, $results, $model)
+        {
+            return collect($results['hits'] ?? []);
+        }
+
+        public function getTotalCount($results)
+        {
+            return $results['total'] ?? 0;
+        }
+    };
+    app(EngineManager::class)->extend('faketest', fn () => $engine);
+    config(['scout.driver' => 'faketest']);
     Cache::flush();
 });
 
@@ -81,7 +115,7 @@ it('exposes ノーマル車 in the popular tags (search sidebar)', function () {
         ->toContain('ワンオーナー'); // 既存も維持
 });
 
-// ---- #1 title に動的【N台】＋BreadcrumbList（KPI/blade由来＝検索非依存で堅牢） ----
+// ---- #1 title に動的【N台】＋BreadcrumbList（KPI/blade由来） ----
 
 it('appends the live 【N台】 count to the feature title and emits BreadcrumbList', function () {
     makeFeature('ftest-count', 'テスト特集', []); // 条件なし＝全active priced をKPIが数える
@@ -89,7 +123,7 @@ it('appends the live 【N台】 count to the feature title and emits BreadcrumbL
 
     $html = $this->get('/features/ftest-count')->assertOk()->getContent();
 
-    expect($html)->toContain('【1台】')          // KPI(直DB)由来＝検索ドライバ非依存
+    expect($html)->toContain('【1台】')          // KPI(直DB)由来
         ->toContain('BreadcrumbList')
         ->toContain('特集一覧');                 // パンくずの中間
 });
@@ -97,7 +131,7 @@ it('appends the live 【N台】 count to the feature title and emits BreadcrumbL
 // ---- #4 在庫ゼロ: noindex＋ItemList非出力＋【N台】を付けない（doorway無し） ----
 
 it('noindexes and emits no ItemList when the feature has zero inventory', function () {
-    makeFeature('ftest-empty', 'カラ特集', ['max_price' => 1]); // 1万円以下＝該当なし
+    makeFeature('ftest-empty', 'カラ特集', []); // 在庫を作らない＝0件
 
     $html = $this->get('/features/ftest-empty')->assertOk()->getContent();
 
