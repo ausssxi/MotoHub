@@ -41,3 +41,16 @@ it('loads markercluster after leaflet core and before map.js (dependency order)'
         ->and($leaflet)->toBeLessThan($cluster)   // leaflet 本体が先
         ->and($cluster)->toBeLessThan($mapJs);    // markercluster は map.js より前
 });
+
+// B: /riders-map だけモバイルで bottom-nav を隠す（他ページは維持・ヘッダーは残す）
+it('hides the mobile bottom-nav on /riders-map only, keeps it on other pages', function () {
+    $map = $this->get(route('riders.map'))->assertOk()->getContent();
+    // 非表示CSSがある＝モバイルで bottom-nav を隠す。要素自体はDOMに存在（共通ナビ・ヘッダーは残す）。
+    expect($map)->toContain('#bottom-nav { display: none !important; }')
+        ->toContain('id="bottom-nav"');
+
+    // 他ページ（保険ハブ）は非表示CSS無し＝bottom-nav 表示のまま（グローバル挙動を壊さない）。
+    $other = $this->get(route('hoken'))->assertOk()->getContent();
+    expect($other)->toContain('id="bottom-nav"')
+        ->not->toContain('#bottom-nav { display: none !important; }');
+});

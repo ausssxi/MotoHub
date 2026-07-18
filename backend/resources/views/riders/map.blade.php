@@ -31,13 +31,19 @@
             /* ===== モバイル全画面（地図主役）＋ 結果ボトムシート（ロケスマ風・A） ===== */
             /* デスクトップ(≥768px)は従来レイアウト維持（このブロックは max-width:767px のみ） */
             @media (max-width: 767px) {
-                /* 地図をビューポート占有（上部ナビ3.5rem を除く。下の bottom-nav(60px) には
-                   結果シート・現在地・アクションがフロートで乗るため地図は viewport 下端まで） */
+                /* B: /riders-map のモバイルのみ bottom-nav を隠して地図領域を最大化。
+                   このCSSは /riders-map の <style> にだけ載る＝他ページのボトムナビは無改変。
+                   ヘッダー（上部ナビ）は残す＝遷移動線を確保。 */
+                #bottom-nav { display: none !important; }
+                body { padding-bottom: 0 !important; }
+
+                /* 地図をビューポート占有（上部ナビ3.5rem のみ除く。bottom-nav が無いので viewport 下端まで） */
                 #map { height: calc(100dvh - 3.5rem); }
 
-                /* 結果（件数バー＋カード列）を下からのボトムシート化。折りたたみ時はピークバーのみ。 */
+                /* 結果（件数バー＋カード列）を下からのボトムシート化。折りたたみ時はピークバーのみ。
+                   bottom-nav 撤去に伴い bottom:0（viewport 下端）へ。 */
                 #results-sheet {
-                    position: fixed; left: 0; right: 0; bottom: 60px; /* fixed bottom-nav(60px)の上 */
+                    position: fixed; left: 0; right: 0; bottom: 0;
                     z-index: 44;
                     background: #fff;
                     border-radius: 16px 16px 0 0;
@@ -49,16 +55,15 @@
                 #results-sheet.sheet-open { max-height: 56dvh; overflow: visible; }
                 #results-sheet .sheet-handle { display: flex; } /* モバイルのみハンドル表示 */
 
-                /* アクションツールバーを地図上フロート（左寄せ・右は現在地/凡例のぶん空ける） */
+                /* 浮遊コントロールは「シートpeek(68px) の上」へ（bottom-nav 撤去ぶん 60px 下げて再計算）。 */
                 #map-actions {
                     position: absolute; left: 12px; right: 60px;
-                    bottom: calc(60px + 68px + 8px);  /* bottom-nav + peek + 余白 */
+                    bottom: calc(68px + 8px);  /* peek + 余白 */
                     z-index: 43;
                     border-radius: 12px;
                 }
-                /* 現在地ボタン・凡例も bottom-nav＋シートpeek の上へ持ち上げる（右側に縦積み） */
-                #btn-current-location { bottom: calc(60px + 68px + 8px) !important; }
-                #map-legend { bottom: calc(60px + 68px + 8px + 48px) !important; }
+                #btn-current-location { bottom: calc(68px + 8px) !important; }
+                #map-legend { bottom: calc(68px + 8px + 48px) !important; }
             }
             /* デスクトップ: ハンドルは出さない（シートはただの通常フロー） */
             .sheet-handle { display: none; }
