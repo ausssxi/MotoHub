@@ -26,6 +26,24 @@ final class Shop extends Model
     public const SOURCE_USER = 'user';
 
     /**
+     * 店名からチェーンslugを解決する（config/bike.php の pattern＝チェーン横断ページと同一判定）。
+     * 非チェーン店は null。マップのチェーン別ピン・チェーン横断導線で共用。
+     */
+    public static function chainSlug(?string $name): ?string
+    {
+        if ($name === null || $name === '') {
+            return null;
+        }
+        foreach (config('bike.chains', []) as $slug => $chain) {
+            if (! empty($chain['pattern']) && str_contains($name, $chain['pattern'])) {
+                return $slug;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * ユーザー投稿由来の「新規店」か。新規店は誤情報防止のため口コミコメントも
      * 承認へ回す（即反映しない）。既存スクレイパー店は常に false。
      * 基準日数は config('shop.new_user_shop_days')。

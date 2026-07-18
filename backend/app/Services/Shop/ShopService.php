@@ -172,11 +172,16 @@ final class ShopService
      */
     public function getShopsInArea(array $coords): Collection
     {
-        return $this->shopRepo->findInBounds(
+        $shops = $this->shopRepo->findInBounds(
             (float)$coords['sw_lat'],
             (float)$coords['sw_lng'],
             (float)$coords['ne_lat'],
             (float)$coords['ne_lng']
         );
+
+        // マップのチェーン別ピン用に chain slug を付与（非チェーンは null）。判定は config/bike.php pattern。
+        $shops->each(fn ($shop) => $shop->setAttribute('chain', Shop::chainSlug($shop->name)));
+
+        return $shops;
     }
 }
