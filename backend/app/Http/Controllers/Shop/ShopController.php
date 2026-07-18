@@ -53,28 +53,46 @@ class ShopController extends Controller
         // 販売実績データ
         $data['salesStats'] = $this->getShopSalesStats($id);
 
-        // チェーン店判定（在庫一括管理の案内用）
+        // チェーン店判定（在庫一括管理の案内用）。判定は Shop::chainSlug に委譲（pattern/patterns 両対応・表記ゆれ吸収）。
         $data['chainInfo'] = null;
         $shop = $data['shop'];
-        foreach (config('bike.chains', []) as $slug => $chain) {
-            if (str_contains($shop->name, $chain['pattern'])) {
-                $mainShop = \App\Models\Shop::where('name', 'like', "%{$chain['pattern']}%")
-                    ->withCount(['listings' => fn ($q) => $q->where('is_sold_out', 0)])
-                    ->orderByDesc('listings_count')
-                    ->first();
-                if ($mainShop && $mainShop->id !== $shop->id && $mainShop->listings_count > 0) {
-                    $data['chainInfo'] = [
-                        'name' => $chain['name'],
-                        'slug' => $slug,
-                        'main_shop_id' => $mainShop->id,
-                        'stock' => $mainShop->listings_count,
-                    ];
-                }
-                break;
+        $chainSlug = Shop::chainSlug($shop->name);
+        if ($chainSlug !== null) {
+            $chain = config("bike.chains.{$chainSlug}");
+            $mainShop = $this->chainShopsQuery($chain)
+                ->withCount(['listings' => fn ($q) => $q->where('is_sold_out', 0)])
+                ->orderByDesc('listings_count')
+                ->first();
+            if ($mainShop && $mainShop->id !== $shop->id && $mainShop->listings_count > 0) {
+                $data['chainInfo'] = [
+                    'name' => $chain['name'],
+                    'slug' => $chainSlug,
+                    'main_shop_id' => $mainShop->id,
+                    'stock' => $mainShop->listings_count,
+                ];
             }
         }
 
         return view('shops.show', $data);
+    }
+
+    /**
+     * チェーン設定（pattern または patterns）から、別名を OR like でまとめた店舗クエリを返す。
+     * pattern(文字列) / patterns(配列) の混在を吸収し、支店名・英字別名も拾う。
+     *
+     * @param  array<string, mixed>  $chain
+     */
+    private function chainShopsQuery(array $chain): \Illuminate\Database\Eloquent\Builder
+    {
+        $patterns = $chain['patterns'] ?? (isset($chain['pattern']) ? [$chain['pattern']] : []);
+
+        return Shop::where(function ($q) use ($patterns) {
+            foreach ($patterns as $p) {
+                if ($p !== '') {
+                    $q->orWhere('name', 'like', '%'.$p.'%');
+                }
+            }
+        });
     }
 
     /**
@@ -305,7 +323,8 @@ class ShopController extends Controller
         }
 
         $chain = $chains[$chainSlug];
-        $shops = Shop::where('name', 'like', "%{$chain['pattern']}%")
+        // pattern/patterns 両対応の OR like（別名・支店名・英字表記を吸収）。
+        $shops = $this->chainShopsQuery($chain)
             ->withCount(['listings' => fn ($q) => $q->where('is_sold_out', 0)])
             ->orderByDesc('listings_count')
             ->get();
