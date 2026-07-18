@@ -206,6 +206,21 @@
                 title="現在地に移動">
             <i data-lucide="crosshair" class="w-5 h-5"></i>
         </button>
+
+        {{-- 凡例（SHOPピンの3区分・折りたたみ・過度にしない）。現在地ボタンの上。 --}}
+        <div class="absolute bottom-16 right-3 z-40" x-data="{ open: false }">
+            <button type="button" @click="open = !open"
+                    class="bg-white px-2.5 py-1.5 rounded-lg shadow-md border border-gray-200 text-[11px] font-bold text-gray-600 hover:text-blue-600 transition-colors flex items-center gap-1">
+                <i data-lucide="info" class="w-3.5 h-3.5"></i> 凡例
+            </button>
+            <div x-show="open" x-cloak x-transition
+                 class="absolute bottom-full right-0 mb-1.5 w-44 bg-white rounded-xl shadow-lg border border-gray-100 p-3 text-[11px] font-bold text-gray-600 space-y-1.5">
+                <p class="text-[10px] text-gray-400 mb-1">SHOPピンの種類</p>
+                <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-[#dc2626] text-white items-center justify-center text-[8px] font-black">RB</span> チェーン店（色＋略称）</div>
+                <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-md bg-[#d97706] text-white items-center justify-center text-[8px] font-black">正規</span> メーカー正規店</div>
+                <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-white border-[3px] border-[#2563eb] items-center justify-center text-[9px]">&#x1F3CD;&#xFE0F;</span> その他のSHOP</div>
+            </div>
+        </div>
       </div>{{-- /#map-stage --}}
 
         {{-- アクション: モバイル=地図直下の横スクロールツールバー / PC=地図オーバーレイ（従来位置・無改変） --}}

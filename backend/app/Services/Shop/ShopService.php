@@ -179,8 +179,14 @@ final class ShopService
             (float)$coords['ne_lng']
         );
 
-        // マップのチェーン別ピン用に chain slug を付与（非チェーンは null）。判定は config/bike.php pattern。
-        $shops->each(fn ($shop) => $shop->setAttribute('chain', Shop::chainSlug($shop->name)));
+        // マップのピン分類を付与: chain（チェーン別）→ maker_dealer（正規店バッジ・チェーン非該当のみ）→ その他(null)。
+        // service_tags は判定に使うのみでクライアントには送らない（payload肥大・生バッジ非公開）。
+        $shops->each(function ($shop) {
+            $chain = Shop::chainSlug($shop->name);
+            $shop->setAttribute('chain', $chain);
+            $shop->setAttribute('maker_dealer', Shop::makerDealer($shop->service_tags, $chain));
+            $shop->makeHidden('service_tags');
+        });
 
         return $shops;
     }

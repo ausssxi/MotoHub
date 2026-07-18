@@ -41,8 +41,35 @@
         'bikeland':       { label: 'BL',  color: '#0d9488' },
         'scs':            { label: 'SCS', color: '#0e7490' },
         'honda-dream':    { label: 'HD',  color: '#b91c1c' },
+        'reverse-auto':   { label: 'RA',  color: '#0369a1' },
     };
     var chainIconCache = {};
+    var makerIconCache = {};
+
+    // メーカー正規ディーラー（別カテゴリ）。チェーン（色塗り丸）と区別するため「角丸四角」形にする。
+    // maker 文字列（サーバーが正規店バッジから抽出）をキーワード判定して色/短ラベルを割当（不明は汎用「正規」）。
+    function makerDef(maker) {
+        var k = String(maker || '').toLowerCase();
+        if (k.indexOf('ハーレー') >= 0 || k.indexOf('harley') >= 0) return { label: 'H-D', color: '#111827' };
+        if (k.indexOf('トライアンフ') >= 0 || k.indexOf('triumph') >= 0) return { label: 'TRI', color: '#7f1d1d' };
+        if (k.indexOf('bmw') >= 0) return { label: 'BMW', color: '#1e3a8a' };
+        if (k.indexOf('ktm') >= 0) return { label: 'KTM', color: '#c2410c' };
+        if (k.indexOf('ドゥカティ') >= 0 || k.indexOf('ducati') >= 0) return { label: 'DUC', color: '#9d174d' };
+        if (k.indexOf('ハスク') >= 0 || k.indexOf('husq') >= 0) return { label: 'HQV', color: '#1e40af' };
+        return { label: '正規', color: '#d97706' }; // 国産等・汎用の正規ディーラー
+    }
+    function makerIconFor(maker) {
+        var d = makerDef(maker);
+        if (makerIconCache[d.label]) return makerIconCache[d.label];
+        var icon = L.divIcon({
+            className: '',
+            html: '<div style="width:28px;height:28px;border-radius:6px;background:' + d.color + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;line-height:1;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.35);">' + d.label + '</div>',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+        });
+        makerIconCache[d.label] = icon;
+        return icon;
+    }
 
     // チェーン別ピン（色塗り丸＋白ラベル）。従来のSHOPピン（白丸＋色border）と見分けやすい反転配色。
     function chainIconFor(slug) {
@@ -197,10 +224,14 @@
             var lng = parseFloat(item.longitude || item.lng);
             if (!lat || !lng) return;
 
-            // SHOPピンのみ、チェーン店はチェーン別アイコンに差し替え（非チェーン/他レイヤーは従来アイコン）。
+            // SHOPピンのみ分類差し替え: チェーン別 → メーカー正規店 → その他(従来アイコン)。他レイヤーは従来のまま。
             var icon = defaultIcon;
-            if (layerKey === 'shop' && item.chain && CHAIN_ICONS[item.chain]) {
-                icon = chainIconFor(item.chain);
+            if (layerKey === 'shop') {
+                if (item.chain && CHAIN_ICONS[item.chain]) {
+                    icon = chainIconFor(item.chain);
+                } else if (item.maker_dealer) {
+                    icon = makerIconFor(item.maker_dealer);
+                }
             }
 
             var marker = L.marker([lat, lng], { icon: icon }).addTo(clusterGroup);

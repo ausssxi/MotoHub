@@ -26,7 +26,8 @@ final class Shop extends Model
     public const SOURCE_USER = 'user';
 
     /**
-     * 店名からチェーンslugを解決する（config/bike.php の pattern＝チェーン横断ページと同一判定）。
+     * 店名からチェーンslugを解決する（config/bike.php の pattern/patterns＝チェーン横断ページと同一判定）。
+     * 表記ゆれ吸収: 全角→半角・小文字化・空白除去で正規化してから部分一致（REVERSE AUTO/全角SBS 等）。
      * 非チェーン店は null。マップのチェーン別ピン・チェーン横断導線で共用。
      */
     public static function chainSlug(?string $name): ?string
@@ -34,13 +35,43 @@ final class Shop extends Model
         if ($name === null || $name === '') {
             return null;
         }
+        $n = self::normalizeForMatch($name);
         foreach (config('bike.chains', []) as $slug => $chain) {
-            if (! empty($chain['pattern']) && str_contains($name, $chain['pattern'])) {
-                return $slug;
+            $patterns = $chain['patterns'] ?? (isset($chain['pattern']) ? [$chain['pattern']] : []);
+            foreach ($patterns as $p) {
+                if ($p !== '' && str_contains($n, self::normalizeForMatch($p))) {
+                    return $slug;
+                }
             }
         }
 
         return null;
+    }
+
+    /**
+     * メーカー正規ディーラー判定。service_tags の「◯◯正規店」バッジ（Webike由来）から
+     * メーカー名を返す。★チェーン該当店は二重分類しない（$chainSlug!==null なら null）。
+     * 非該当（正規店バッジ無し）も null＝「その他/独立店」扱い（"個人店"とは断定しない）。
+     */
+    public static function makerDealer(mixed $serviceTags, ?string $chainSlug): ?string
+    {
+        if ($chainSlug !== null || ! is_array($serviceTags)) {
+            return null;
+        }
+        foreach ($serviceTags as $tag) {
+            $tag = (string) $tag;
+            if (str_ends_with($tag, '正規店')) {
+                return trim(preg_replace('/正規店$/u', '', $tag)); // メーカー名（例: ハーレーダビッドソン）
+            }
+        }
+
+        return null;
+    }
+
+    /** 店名/パターン照合用の正規化: 全角英数→半角・半角カナ→全角カナ・小文字化・空白除去。 */
+    private static function normalizeForMatch(string $s): string
+    {
+        return mb_strtolower(str_replace(['　', ' '], '', mb_convert_kana($s, 'aKs')));
     }
 
     /**

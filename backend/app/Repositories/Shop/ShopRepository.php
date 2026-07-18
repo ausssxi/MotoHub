@@ -36,7 +36,8 @@ final class ShopRepository
         // 座標NULLの店は whereNotNull で除外（既存挙動）。
         // shop_type / source はフェーズ2のピン色分け用にペイロードへ含める（UIは今回スコープ外）。
         return Shop::query()
-            ->select(['id', 'name', 'address', 'latitude', 'longitude', 'prefecture', 'shop_type', 'source'])
+            // service_tags はメーカー正規店バッジ判定用（クライアントへは送らず getShopsInArea で hidden 化）。
+            ->select(['id', 'name', 'address', 'latitude', 'longitude', 'prefecture', 'shop_type', 'source', 'service_tags'])
             ->whereNotNull('latitude')
             ->whereBetween('latitude', [$swLat, $neLat])
             ->whereBetween('longitude', [$swLng, $neLng])

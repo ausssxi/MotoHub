@@ -52,19 +52,24 @@ return [
     ],
 
     // チェーン店定義（shops.name の LIKE 検索で判別）
+    // pattern（文字列）or patterns（別名配列）で店名マッチ。判定は Shop::chainSlug()＝
+    // 全角→半角・小文字化・空白除去で正規化してから部分一致（表記ゆれ吸収）。
+    // カタカナ↔英字の橋渡しが要るチェーン（リバースオート/SOX/レッドバロン）は patterns に英字別名を併記。
     'chains' => [
-        'red-baron'   => ['name' => 'レッドバロン', 'pattern' => 'レッドバロン'],
+        'red-baron'   => ['name' => 'レッドバロン', 'patterns' => ['レッドバロン', 'red baron']],
         'bikeo'       => ['name' => 'バイク王',     'pattern' => 'バイク王'],
         'bikekan'     => ['name' => 'バイク館',     'pattern' => 'バイク館', 'guide_slug' => 'bikekan-used-bike-guide-2026'],
         'scs'         => ['name' => 'SCS',          'pattern' => 'SCS'],
         'naps'        => ['name' => 'ナップス',     'pattern' => 'ナップス'],
         'ricoland'    => ['name' => 'ライコランド', 'pattern' => 'ライコランド'],
-        'sox'         => ['name' => 'バイカーズステーションSOX', 'pattern' => 'ソックス'],
+        'sox'         => ['name' => 'バイカーズステーションSOX', 'patterns' => ['ソックス', 'sox']],
         'bikeland'    => ['name' => 'バイクランド', 'pattern' => 'バイクランド'],
         'honda-dream' => ['name' => 'ホンダドリーム', 'pattern' => 'ホンダドリーム'],
         'kawasaki-plaza' => ['name' => 'カワサキプラザ', 'pattern' => 'カワサキプラザ'],
         'ysp'         => ['name' => 'YSP',         'pattern' => 'YSP'],
         'sbs'         => ['name' => 'SBS（スズキバイクショップ）', 'pattern' => 'ＳＢＳ'],
+        // 追加（在庫確認済）。REVERSE AUTO / Reverse Auto の英字表記も吸収。
+        'reverse-auto' => ['name' => 'リバースオート', 'patterns' => ['リバースオート', 'reverse auto']],
     ],
 
     // ランキングの設定
