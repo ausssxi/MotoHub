@@ -1,11 +1,46 @@
 <x-layout>
-    {{-- SEO メタ情報 --}}
-    <x-slot:title>{{ $feature->title }} | MotoHub</x-slot:title>
+    {{-- SEO メタ情報。件数はKPI（無ければpagination）。0台は noindex（category-landing と同house style）。 --}}
+    @php $featureCount = (int) ($featureKpi['total_count'] ?? $pagination['total'] ?? 0); @endphp
+    <x-slot:title>{{ $feature->title }}@if($featureCount > 0)【{{ number_format($featureCount) }}台】@endif | MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $feature->meta_description }}</x-slot:metaDescription>
 
     @if($pagination['total'] === 0)
         <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
     @endif
+
+    <x-slot:styles>
+        {{-- 構造化データ: BreadcrumbList + ItemList(Product/Offer)。ItemList は在庫が有る時のみ。 --}}
+        @php
+            $breadcrumbSchema = [
+                '@context' => 'https://schema.org', '@type' => 'BreadcrumbList',
+                'itemListElement' => [
+                    ['@type' => 'ListItem', 'position' => 1, 'name' => 'HOME', 'item' => url('/')],
+                    ['@type' => 'ListItem', 'position' => 2, 'name' => '特集一覧', 'item' => route('features.index')],
+                    ['@type' => 'ListItem', 'position' => 3, 'name' => $feature->title, 'item' => url()->current()],
+                ],
+            ];
+            $featureItemList = [
+                '@context' => 'https://schema.org', '@type' => 'ItemList', 'name' => $feature->title,
+                'itemListElement' => collect($items ?? [])->values()->map(function ($it, $i) {
+                    $product = ['@type' => 'Product', 'name' => $it['name'] ?? '中古バイク', 'url' => route('bikes.show', $it['id'])];
+                    if (! empty($it['images'][0])) { $product['image'] = $it['images'][0]; }
+                    // total_price は「万円」整形文字列（例 15.0）。円に復元して Offer に載せる。
+                    $raw = str_replace(',', '', (string) ($it['total_price'] ?? ''));
+                    if (is_numeric($raw) && (float) $raw > 0) {
+                        $product['offers'] = [
+                            '@type' => 'Offer', 'price' => (int) round(((float) $raw) * 10000), 'priceCurrency' => 'JPY',
+                            'availability' => 'https://schema.org/InStock', 'url' => route('bikes.show', $it['id']),
+                        ];
+                    }
+                    return ['@type' => 'ListItem', 'position' => $i + 1, 'item' => $product];
+                })->all(),
+            ];
+        @endphp
+        <script type="application/ld+json">{!! json_encode($breadcrumbSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+        @if(! empty($featureItemList['itemListElement']))
+        <script type="application/ld+json">{!! json_encode($featureItemList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+        @endif
+    </x-slot:styles>
 
     <x-slot:scripts>
         <script src="{{ asset('js/compare/manager.js') }}?v={{ asset_buster(public_path('js/compare/manager.js')) }}" defer></script>
