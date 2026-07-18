@@ -56,8 +56,8 @@ it('renders the maintenance-cost block with the correct fixed amounts and no 任
         ->toContain('最終確認')
         ->toContain('損害保険料率算出機構')     // 出典
         ->toContain('2026年11月')            // 改定注記
-        ->toContain(route('hoken'))          // 任意保険はハブへ内部リンク
-        ->toContain('一律の目安はありません'); // 任意保険の額は出さない
+        ->toContain(route('hoken'))            // 任意保険はハブへ内部リンク
+        ->toContain('一律の目安額はありません'); // 任意保険の額は出さない（実装の文言に一致）
 });
 
 it('shows 原付一種扱い + ファミリーバイク特約 for a 新基準原付 model page block', function () {
