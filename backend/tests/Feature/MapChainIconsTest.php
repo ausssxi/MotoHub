@@ -27,7 +27,7 @@ function mapShop(string $name, float $lat = 35.68, float $lng = 139.76): Shop
 it('resolves the chain slug from a shop name (null for non-chain)', function () {
     expect(Shop::chainSlug('レッドバロン府中'))->toBe('red-baron')
         ->and(Shop::chainSlug('バイク王 なんば店'))->toBe('bikeo')
-        ->and(Shop::chainSlug('カワサキ プラザ横浜'))->toBeNull()   // 半角空白入りは pattern 不一致
+        ->and(Shop::chainSlug('カワサキ プラザ横浜'))->toBe('kawasaki-plaza') // 半角空白入りも正規化で吸収
         ->and(Shop::chainSlug('カワサキプラザ横浜'))->toBe('kawasaki-plaza')
         ->and(Shop::chainSlug('街の個人バイク店'))->toBeNull()
         ->and(Shop::chainSlug(null))->toBeNull();
