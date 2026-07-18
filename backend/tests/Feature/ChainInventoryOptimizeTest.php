@@ -8,6 +8,7 @@ use App\Models\Listing;
 use App\Models\Manufacturer;
 use App\Models\Shop;
 use App\Models\Site;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -58,8 +59,10 @@ function chainListing(Shop $shop, ?BikeModel $model, int $yen = 200000): Listing
 // ---- #1 リンク切れ修正コマンド ----
 
 it('fixes /blog/shops/chain/ typos in blog bodies (and is idempotent)', function () {
+    $author = User::factory()->create();
     $p = new BlogPost;
     $p->forceFill([
+        'author_id' => $author->id, // blog_posts.author_id は NOT NULL
         'slug' => 't-'.uniqid(), 'title' => 'テスト記事',
         'body' => '在庫はこちら → https://motohub.jp/blog/shops/chain/honda-dream をどうぞ。',
     ])->save();
