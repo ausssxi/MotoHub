@@ -26,6 +26,38 @@
     let distanceLimitKm = 0; // 0 = no limit
     let fetchGeneration = 0;
 
+    // チェーン別アイコン定義（slug=サーバーが config/bike.php pattern で付与）。
+    // ★ロゴ画像は使わない（商標回避）＝色＋短ラベルで識別。
+    const CHAIN_ICONS = {
+        'red-baron':      { label: 'RB',  color: '#dc2626' },
+        'bikeo':          { label: '王',  color: '#16a34a' },
+        'bikekan':        { label: '館',  color: '#7c3aed' },
+        'kawasaki-plaza': { label: 'KP',  color: '#15803d' },
+        'ysp':            { label: 'YSP', color: '#1d4ed8' },
+        'sbs':            { label: 'SBS', color: '#ea580c' },
+        'sox':            { label: 'SOX', color: '#4f46e5' },
+        'naps':           { label: 'ナ',  color: '#db2777' },
+        'ricoland':       { label: 'ラ',  color: '#ca8a04' },
+        'bikeland':       { label: 'BL',  color: '#0d9488' },
+        'scs':            { label: 'SCS', color: '#0e7490' },
+        'honda-dream':    { label: 'HD',  color: '#b91c1c' },
+    };
+    var chainIconCache = {};
+
+    // チェーン別ピン（色塗り丸＋白ラベル）。従来のSHOPピン（白丸＋色border）と見分けやすい反転配色。
+    function chainIconFor(slug) {
+        if (chainIconCache[slug]) return chainIconCache[slug];
+        var c = CHAIN_ICONS[slug];
+        var icon = L.divIcon({
+            className: '',
+            html: '<div style="width:30px;height:30px;border-radius:50%;background:' + c.color + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;line-height:1;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.35);">' + c.label + '</div>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
+        });
+        chainIconCache[slug] = icon;
+        return icon;
+    }
+
     // Create circular div icon with emoji, white bg + colored border
     function createIcon(color, label) {
         return L.divIcon({
@@ -158,12 +190,18 @@
     // Process fetched data for a layer（マーカーは単一クラスタグループへ投入）
     function processLayerData(layerKey, items) {
         var config = layerConfig[layerKey];
-        var icon = createIcon(config.color, config.label);
+        var defaultIcon = createIcon(config.color, config.label);
 
         items.forEach(function(item) {
             var lat = parseFloat(item.latitude || item.lat);
             var lng = parseFloat(item.longitude || item.lng);
             if (!lat || !lng) return;
+
+            // SHOPピンのみ、チェーン店はチェーン別アイコンに差し替え（非チェーン/他レイヤーは従来アイコン）。
+            var icon = defaultIcon;
+            if (layerKey === 'shop' && item.chain && CHAIN_ICONS[item.chain]) {
+                icon = chainIconFor(item.chain);
+            }
 
             var marker = L.marker([lat, lng], { icon: icon }).addTo(clusterGroup);
             marker.on('click', function() { showDetail(layerKey, item); });
