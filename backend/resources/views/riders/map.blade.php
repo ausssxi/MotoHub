@@ -254,7 +254,7 @@
                 <i data-lucide="info" class="w-3.5 h-3.5"></i> 凡例
             </button>
             <div x-show="open" x-cloak x-transition
-                 class="absolute bottom-full right-0 mb-1.5 w-44 bg-white rounded-xl shadow-lg border border-gray-100 p-3 text-[11px] font-bold text-gray-600 space-y-1.5">
+                 class="absolute bottom-full right-0 mb-1.5 w-52 max-h-[70vh] overflow-y-auto bg-white rounded-xl shadow-lg border border-gray-100 p-3 text-[11px] font-bold text-gray-600 space-y-1.5">
                 <p class="text-[10px] text-gray-400 mb-1">SHOPピンの種類</p>
                 <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-[#dc2626] text-white items-center justify-center text-[8px] font-black">RB</span> チェーン店（色＋略称）</div>
                 <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-md bg-[#d97706] text-white items-center justify-center text-[8px] font-black">正規</span> メーカー正規店</div>
@@ -264,6 +264,17 @@
                 <div class="flex items-center gap-2"><span class="inline-flex w-7 h-4 rounded bg-[#2563eb] text-white items-center justify-center text-[8px] font-black">eco</span> エコステーション21</div>
                 <div class="flex items-center gap-2"><span class="inline-flex w-7 h-4 rounded bg-[#f59e0b] text-white items-center justify-center text-[8px] font-black">P</span> その他運営（会社名表示）</div>
                 <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-white border-[3px] border-[#16a34a] items-center justify-center text-[9px]">&#x1F17F;&#xFE0F;</span> 市営・自治体</div>
+                <p class="text-[10px] text-gray-400 mb-1 pt-1.5 border-t border-gray-100">GSピンの種類（ひし形）</p>
+                <div class="grid grid-cols-2 gap-x-2 gap-y-1">
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#f97316]"></span> ENEOS</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#be123c]"></span> 出光</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#0891b2]"></span> コスモ</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#15803d]"></span> JA-SS</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#7c3aed]"></span> ホクレン</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#0d9488]"></span> キグナス</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#ca8a04]"></span> 太陽石油</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#64748b]"></span> その他運営</div>
+                </div>
             </div>
         </div>
       </div>{{-- /#map-stage --}}

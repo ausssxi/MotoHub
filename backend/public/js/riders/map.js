@@ -114,6 +114,38 @@
         return icon;
     }
 
+    // GS(ガソリンスタンド)レイヤー専用の運営ブランドアイコン（ショップ/駐車場とは別系統）。
+    // 形状は区別のため「ひし形（回転した角丸四角）」。キーはサーバー(Poi::gasBrand)が返す:
+    //   eneos/idemitsu/cosmo/ja-ss/hokuren/kygnus/solato=固有色 / 'other'=その他運営（グレー）
+    //   / null=brand不明（=従来の赤⛽）。'exclude'（非GS）はサーバー側で除外済みで届かない。
+    var GAS_BRAND_ICONS = {
+        'eneos':    { label: 'EN', color: '#f97316' }, // オレンジ
+        'idemitsu': { label: '出', color: '#be123c' }, // クリムゾン
+        'cosmo':    { label: 'コ', color: '#0891b2' }, // シアン
+        'ja-ss':    { label: 'JA', color: '#15803d' }, // グリーン（農協系）
+        'hokuren':  { label: 'ホ', color: '#7c3aed' }, // パープル
+        'kygnus':   { label: 'キ', color: '#0d9488' }, // ティール
+        'solato':   { label: '太', color: '#ca8a04' }, // ゴールド
+        'other':    { label: '油', color: '#64748b' }, // グレー（その他運営）
+    };
+    var gasBrandIconCache = {};
+    function gasBrandIconFor(key) {
+        var b = GAS_BRAND_ICONS[key];
+        if (!b) return null; // 未知キー/null は従来の赤⛽
+        if (gasBrandIconCache[key]) return gasBrandIconCache[key];
+        var icon = L.divIcon({
+            className: '',
+            html: '<div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;">'
+                + '<div style="width:22px;height:22px;transform:rotate(45deg);border-radius:5px;background:' + b.color + ';border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;">'
+                + '<span style="transform:rotate(-45deg);color:#fff;font-size:9px;font-weight:900;line-height:1;">' + b.label + '</span>'
+                + '</div></div>',
+            iconSize: [34, 34],
+            iconAnchor: [17, 17],
+        });
+        gasBrandIconCache[key] = icon;
+        return icon;
+    }
+
     // Create circular div icon with emoji, white bg + colored border
     function createIcon(color, label) {
         return L.divIcon({
@@ -267,6 +299,11 @@
                     var pi = parkingBrandIconFor(item.brand);
                     if (pi) icon = pi; // 自治体名/無し（brand=null）は従来の緑🅿️
                 }
+            } else if (layerKey === 'gas_station') {
+                if (item.gas_brand) {
+                    var gi = gasBrandIconFor(item.gas_brand);
+                    if (gi) icon = gi; // brand不明（gas_brand=null）は従来の赤⛽
+                }
             }
 
             var marker = L.marker([lat, lng], { icon: icon }).addTo(clusterGroup);
@@ -363,6 +400,9 @@
                 lines += '<p class="text-[10px] text-yellow-600 mt-0.5">' + buildStars(item.avg_rating) + ' ' + parseFloat(item.avg_rating).toFixed(1) + '</p>';
             }
         } else if (layerKey === 'gas_station') {
+            if (item.gas_operator) {
+                lines += '<p class="text-[10px] font-bold text-red-600 mt-0.5">' + escapeHtml(item.gas_operator) + '</p>';
+            }
             var gsSubtitle = gsDisplayName(item).sub;
             if (gsSubtitle) {
                 lines += '<p class="text-[10px] font-bold text-gray-600 mt-0.5">' + escapeHtml(gsSubtitle) + '</p>';
@@ -521,6 +561,7 @@
             var gs = gsDisplayName(item);
             html = '<h3 class="text-base font-black text-gray-900 mb-1">' + escapeHtml(gs.main) + '</h3>'
                 + (gs.sub ? '<p class="text-sm font-bold text-gray-500 mb-2">' + escapeHtml(gs.sub) + '</p>' : '')
+                + (item.gas_operator ? '<span class="inline-block px-2.5 py-1 bg-red-50 text-red-700 text-[11px] font-bold rounded-md mb-3">運営: ' + escapeHtml(item.gas_operator) + '</span>' : '')
                 + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
                 + (item.opening_hours ? '<div class="bg-gray-50 rounded-lg p-3 mb-3"><div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">営業時間</span><span class="text-xs text-gray-700">' + escapeHtml(item.opening_hours) + '</span></div></div>' : '')
                 + gmapBtn + routeBtn;
