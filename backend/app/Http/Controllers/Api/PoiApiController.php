@@ -44,28 +44,34 @@ final class PoiApiController extends Controller
                 ->get(['id', 'osm_id', 'type', 'name', 'latitude', 'longitude', 'address', 'brand', 'opening_hours']);
         });
 
-        return response()->json($this->withGasBrands($pois));
+        return response()->json($this->withPoiBrands($pois));
     }
 
     /**
-     * GS(type=gas_station)行に運営ブランド（gas_brand/gas_operator）を注入し、
-     * 明確な非GS（gasBrand='exclude'）はペイロードから落とす。
+     * GS(gas_brand/gas_operator)・コンビニ(cvs_brand/cvs_operator)に運営ブランドを注入し、
+     * 'exclude'（非GS誤ラベル/閉店タグ）はペイロードから落とす。
      *
      * ★キャッシュ「取得後」に適用＝デプロイ直後から即反映（1hキャッシュの再生成待ちが不要）。
-     *   GS以外のtype（コンビニ/道の駅）はそのまま素通し。
+     *   対象外のtype（道の駅等）はそのまま素通し。
      */
-    private function withGasBrands(\Illuminate\Support\Collection|\Illuminate\Database\Eloquent\Collection $pois): \Illuminate\Support\Collection
+    private function withPoiBrands(\Illuminate\Support\Collection|\Illuminate\Database\Eloquent\Collection $pois): \Illuminate\Support\Collection
     {
         return $pois->map(function (Poi $poi) {
-            if ($poi->type !== 'gas_station') {
-                return $poi;
+            if ($poi->type === 'gas_station') {
+                $brand = Poi::gasBrand($poi->brand);
+                if ($brand === 'exclude') {
+                    return null; // 非GS誤ラベルは地図に出さない
+                }
+                $poi->setAttribute('gas_brand', $brand);
+                $poi->setAttribute('gas_operator', Poi::gasOperatorLabel($poi->brand, $brand));
+            } elseif ($poi->type === 'convenience_store') {
+                $brand = Poi::cvsBrand($poi->brand);
+                if ($brand === 'exclude') {
+                    return null; // 閉店タグ(disused:)は地図に出さない
+                }
+                $poi->setAttribute('cvs_brand', $brand);
+                $poi->setAttribute('cvs_operator', Poi::cvsOperatorLabel($poi->brand, $brand));
             }
-            $brand = Poi::gasBrand($poi->brand);
-            if ($brand === 'exclude') {
-                return null; // 非GS誤ラベルは地図に出さない
-            }
-            $poi->setAttribute('gas_brand', $brand);
-            $poi->setAttribute('gas_operator', Poi::gasOperatorLabel($poi->brand, $brand));
 
             return $poi;
         })->filter()->values();
@@ -143,7 +149,7 @@ final class PoiApiController extends Controller
             return array_map(fn ($r) => $r['poi'], $results);
         });
 
-        return response()->json($this->withGasBrands(collect($pois)));
+        return response()->json($this->withPoiBrands(collect($pois)));
     }
 
     /**

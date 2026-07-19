@@ -275,6 +275,17 @@
                     <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#ca8a04]"></span> 太陽石油</div>
                     <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#64748b]"></span> その他運営</div>
                 </div>
+                <p class="text-[10px] text-gray-400 mb-1 pt-1.5 border-t border-gray-100">コンビニピンの種類（六角形）</p>
+                <div class="grid grid-cols-2 gap-x-2 gap-y-1">
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#16a34a]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> セブン</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#1e40af]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> ファミマ</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#0ea5e9]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> ローソン</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#ca8a04]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> ミニストップ</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#dc2626]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> デイリー</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#ea580c]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> セイコマ</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#7c3aed]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> NewDays</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#64748b]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> その他</div>
+                </div>
             </div>
         </div>
       </div>{{-- /#map-stage --}}

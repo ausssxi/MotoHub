@@ -146,6 +146,34 @@
         return icon;
     }
 
+    // コンビニレイヤー専用の運営ブランドアイコン（GSひし形・ショップ丸・駐車場タグと区別＝「六角形」）。
+    // キーはサーバー(Poi::cvsBrand)が返す。'other'=その他チェーン（グレー）/ null=不明（従来アイコン）。
+    var CVS_BRAND_ICONS = {
+        'seven':          { label: '7',  color: '#16a34a' }, // グリーン
+        'familymart':     { label: 'FM', color: '#1e40af' }, // 紺
+        'lawson':         { label: 'LW', color: '#0ea5e9' }, // 空色
+        'ministop':       { label: 'MS', color: '#ca8a04' }, // 金
+        'daily-yamazaki': { label: 'DY', color: '#dc2626' }, // 赤
+        'seicomart':      { label: 'セ', color: '#ea580c' }, // 橙
+        'newdays':        { label: 'ND', color: '#7c3aed' }, // 紫
+        'other':          { label: '他', color: '#64748b' }, // グレー（その他チェーン）
+    };
+    var cvsBrandIconCache = {};
+    function cvsBrandIconFor(key) {
+        var b = CVS_BRAND_ICONS[key];
+        if (!b) return null; // 未知キー/null は従来アイコン
+        if (cvsBrandIconCache[key]) return cvsBrandIconCache[key];
+        var hex = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
+        var icon = L.divIcon({
+            className: '',
+            html: '<div style="width:30px;height:28px;background:' + b.color + ';-webkit-clip-path:' + hex + ';clip-path:' + hex + ';filter:drop-shadow(0 1px 2px rgba(0,0,0,.4));display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:900;line-height:1;">' + b.label + '</div>',
+            iconSize: [30, 28],
+            iconAnchor: [15, 14],
+        });
+        cvsBrandIconCache[key] = icon;
+        return icon;
+    }
+
     // Create circular div icon with emoji, white bg + colored border
     function createIcon(color, label) {
         return L.divIcon({
@@ -304,6 +332,11 @@
                     var gi = gasBrandIconFor(item.gas_brand);
                     if (gi) icon = gi; // brand不明（gas_brand=null）は従来の赤⛽
                 }
+            } else if (layerKey === 'convenience_store') {
+                if (item.cvs_brand) {
+                    var ci = cvsBrandIconFor(item.cvs_brand);
+                    if (ci) icon = ci; // brand不明（cvs_brand=null）は従来アイコン
+                }
             }
 
             var marker = L.marker([lat, lng], { icon: icon }).addTo(clusterGroup);
@@ -412,6 +445,9 @@
                 lines += '<p class="text-[10px] text-gray-500 mt-0.5">' + escapeHtml(item.opening_hours) + '</p>';
             }
         } else if (layerKey === 'convenience_store') {
+            if (item.cvs_operator) {
+                lines += '<p class="text-[10px] font-bold text-gray-600 mt-0.5">' + escapeHtml(item.cvs_operator) + '</p>';
+            }
             lines += '<p class="text-[10px] text-gray-400 truncate mt-0.5">' + escapeHtml(item.address || '') + '</p>';
         } else if (layerKey === 'michi_no_eki') {
             lines += '<p class="text-[10px] text-gray-400 truncate mt-0.5">' + escapeHtml(item.address || '') + '</p>';
@@ -568,6 +604,7 @@
         } else if (layerKey === 'convenience_store') {
             var cvs = gsDisplayName(item);
             html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(cvs.main) + '</h3>'
+                + (item.cvs_operator ? '<span class="inline-block px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-md mb-3">' + escapeHtml(item.cvs_operator) + '</span>' : '')
                 + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
                 + gmapBtn + routeBtn;
         } else if (layerKey === 'michi_no_eki') {

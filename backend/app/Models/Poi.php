@@ -118,4 +118,58 @@ final class Poi extends Model
 
         return mb_strlen($name) > 10 ? mb_substr($name, 0, 10).'…' : $name;
     }
+
+    /**
+     * コンビニ(type=convenience_store)の brand から運営分類キーを返す（GSと同型）。
+     *
+     *   固有色7: seven/familymart/lawson/ministop/daily-yamazaki/seicomart/newdays
+     *   'other'   … その他チェーン（ポプラ/Heart・in 等）
+     *   'exclude' … 閉店タグ(disused:) → ペイロードから除外
+     *   null      … brand 空/不明 → 従来アイコン
+     */
+    public static function cvsBrand(?string $brand): ?string
+    {
+        if ($brand === null || trim($brand) === '') {
+            return null;
+        }
+
+        $n = \App\Support\ShopNameNormalizer::normalize($brand);
+
+        // 閉店タグ等の除外（ブランド照合より前）。
+        foreach ((array) config('convenience.exclude', []) as $bad) {
+            $needle = \App\Support\ShopNameNormalizer::normalize((string) $bad);
+            if ($needle !== '' && str_contains($n, $needle)) {
+                return 'exclude';
+            }
+        }
+
+        foreach ((array) config('convenience.brands', []) as $key => $def) {
+            foreach (($def['patterns'] ?? []) as $pattern) {
+                $needle = \App\Support\ShopNameNormalizer::normalize((string) $pattern);
+                if ($needle !== '' && str_contains($n, $needle)) {
+                    return $key;
+                }
+            }
+        }
+
+        return 'other';
+    }
+
+    /**
+     * コンビニのピン/詳細に出す運営表示名。固有ブランドは config の表示名、
+     * 'other' は生の屋号を短縮。null/'exclude' は表示名なし。
+     */
+    public static function cvsOperatorLabel(?string $brand, ?string $cvsBrand): ?string
+    {
+        if ($cvsBrand === null || $cvsBrand === 'exclude') {
+            return null;
+        }
+        if ($cvsBrand !== 'other') {
+            return config("convenience.brands.$cvsBrand.name", $cvsBrand);
+        }
+
+        $name = trim((string) $brand);
+
+        return mb_strlen($name) > 10 ? mb_substr($name, 0, 10).'…' : $name;
+    }
 }
