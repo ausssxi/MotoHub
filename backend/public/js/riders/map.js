@@ -91,6 +91,29 @@
         return icon;
     }
 
+    // 駐車場レイヤー専用の運営ブランドアイコン（ショップの CHAIN_ICONS/BRAND_DEALERS とは別系統）。
+    // 形状はショップと区別するため「横長の角丸タグ」。キーはサーバー(BikeParking::parkingBrand)が返す:
+    //   'akippa'/'ecostation'=固有色 / 'other'=その他運営（共通色）/ null=自治体名・無し（=従来の緑🅿️）。
+    var PARKING_BRAND_ICONS = {
+        'akippa':     { label: 'ak',  color: '#e4007f' }, // マゼンタ（akippa）
+        'ecostation': { label: 'eco', color: '#2563eb' }, // ブルー（エコステーション21）
+        'other':      { label: 'P',   color: '#f59e0b' }, // アンバー（その他運営バッジ）
+    };
+    var parkingBrandIconCache = {};
+    function parkingBrandIconFor(key) {
+        var b = PARKING_BRAND_ICONS[key];
+        if (!b) return null; // 未知キー/null は従来の緑🅿️
+        if (parkingBrandIconCache[key]) return parkingBrandIconCache[key];
+        var icon = L.divIcon({
+            className: '',
+            html: '<div style="width:34px;height:22px;border-radius:6px;background:' + b.color + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;line-height:1;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.35);">' + b.label + '</div>',
+            iconSize: [34, 22],
+            iconAnchor: [17, 11],
+        });
+        parkingBrandIconCache[key] = icon;
+        return icon;
+    }
+
     // Create circular div icon with emoji, white bg + colored border
     function createIcon(color, label) {
         return L.divIcon({
@@ -239,6 +262,11 @@
                     var mi = makerIconFor(item.maker_dealer);
                     if (mi) icon = mi; // 既知ブランドキーのみ（null=従来アイコン）
                 }
+            } else if (layerKey === 'parking') {
+                if (item.brand) {
+                    var pi = parkingBrandIconFor(item.brand);
+                    if (pi) icon = pi; // 自治体名/無し（brand=null）は従来の緑🅿️
+                }
             }
 
             var marker = L.marker([lat, lng], { icon: icon }).addTo(clusterGroup);
@@ -324,6 +352,7 @@
         } else if (layerKey === 'parking') {
             lines += '<p class="text-[10px] text-gray-400 truncate mt-0.5">' + escapeHtml(item.address || '') + '</p>';
             var meta = [];
+            if (item.operator) meta.push(item.operator);
             if (item.parking_type) meta.push(parkingTypeLabel(item.parking_type));
             var price = priceDisplay(item);
             if (price) meta.push(price);
@@ -454,6 +483,9 @@
             }
             // 情報テーブル
             html += '<div class="bg-gray-50 rounded-lg p-3 mb-3 space-y-2">';
+            if (item.operator) {
+                html += '<div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">運営</span><span class="text-xs text-gray-700">' + escapeHtml(item.operator) + '</span></div>';
+            }
             if (item.available_hours) {
                 html += '<div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">営業時間</span><span class="text-xs text-gray-700">' + escapeHtml(item.available_hours) + '</span></div>';
             }

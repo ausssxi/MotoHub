@@ -27,13 +27,26 @@ final class ParkingService
 
     public function getParkingsInArea(array $coords, ?string $parkingType = null): Collection
     {
-        return $this->parkingRepo->findInBounds(
+        $parkings = $this->parkingRepo->findInBounds(
             (float) $coords['sw_lat'],
             (float) $coords['sw_lng'],
             (float) $coords['ne_lat'],
             (float) $coords['ne_lng'],
             $parkingType
         );
+
+        // 運営ブランドを各駐車場に注入（地図ピンの色分け用）。
+        //   brand    : 'akippa' | 'ecostation' | 'other' | null（=自治体名/無し＝緑🅿️）
+        //   operator : ピン/詳細に出す運営表示名（brand が null のときは無し）
+        // 生の management_company はクライアントに送らない（短縮ラベル operator のみ露出）。
+        $parkings->each(function (BikeParking $p): void {
+            $brand = BikeParking::parkingBrand($p->management_company);
+            $p->setAttribute('brand', $brand);
+            $p->setAttribute('operator', BikeParking::parkingOperatorLabel($p->management_company, $brand));
+            $p->makeHidden('management_company');
+        });
+
+        return $parkings;
     }
 
     public function getParkingDetail(int $id): array

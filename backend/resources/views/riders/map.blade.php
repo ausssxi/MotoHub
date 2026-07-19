@@ -259,6 +259,11 @@
                 <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-[#dc2626] text-white items-center justify-center text-[8px] font-black">RB</span> チェーン店（色＋略称）</div>
                 <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-md bg-[#d97706] text-white items-center justify-center text-[8px] font-black">正規</span> メーカー正規店</div>
                 <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-white border-[3px] border-[#2563eb] items-center justify-center text-[9px]">&#x1F3CD;&#xFE0F;</span> その他のSHOP</div>
+                <p class="text-[10px] text-gray-400 mb-1 pt-1.5 border-t border-gray-100">駐車場ピンの種類</p>
+                <div class="flex items-center gap-2"><span class="inline-flex w-7 h-4 rounded bg-[#e4007f] text-white items-center justify-center text-[8px] font-black">ak</span> akippa</div>
+                <div class="flex items-center gap-2"><span class="inline-flex w-7 h-4 rounded bg-[#2563eb] text-white items-center justify-center text-[8px] font-black">eco</span> エコステーション21</div>
+                <div class="flex items-center gap-2"><span class="inline-flex w-7 h-4 rounded bg-[#f59e0b] text-white items-center justify-center text-[8px] font-black">P</span> その他運営（会社名表示）</div>
+                <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-white border-[3px] border-[#16a34a] items-center justify-center text-[9px]">&#x1F17F;&#xFE0F;</span> 市営・自治体</div>
             </div>
         </div>
       </div>{{-- /#map-stage --}}
