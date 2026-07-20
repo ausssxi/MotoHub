@@ -409,9 +409,12 @@
                 {{-- メインコンテンツ --}}
                 <div class="lg:col-span-8">
 
-                    {{-- ===== オーナーの声 ダイジェスト（タブ操作なしで視界に入れる＝投稿導線の露出） =====
-                         スペックはタブ内容のため物理的な「スペック直後」は取れない。タブ内容の手前・常時表示に置く。
-                         既存変数（$model->reviews / $modelQuestions）を流用し追加クエリなし。 --}}
+                    {{-- ===== タブ1: 概要 ===== --}}
+                    <div id="tab-panel-overview" class="tab-panel space-y-8">
+
+                    {{-- ===== オーナーの声 ダイジェスト（概要タブの先頭に配置＝投稿導線の露出。在庫/パーツ等の他タブでは非表示） =====
+                         概要パネル内に置くことでタブ切替の表示/非表示を継承する（他タブに切り替えると消える）。
+                         レビュー本体はレビュー・FAQタブに別途あり。既存変数（$model->reviews / $modelThreads）を流用し追加クエリなし。 --}}
                     @php
                         $digestReviews = $model->reviews->sortByDesc('created_at')->take(2);
                         $digestReviewCount = $model->reviews->count();
@@ -494,8 +497,6 @@
                         </div>
                     </div>
 
-                    {{-- ===== タブ1: 概要 ===== --}}
-                    <div id="tab-panel-overview" class="tab-panel space-y-8">
 
                     {{-- 新基準原付ハブへの相互リンク（対象/ベース/旧50ccモデルのみ表示） --}}
                     @include('bikes.partials.shinkijun-link', ['model' => $model])
