@@ -55,6 +55,8 @@ class ShopController extends Controller
 
         // チェーン店判定（在庫一括管理の案内用）。判定は Shop::chainSlug に委譲（pattern/patterns 両対応・表記ゆれ吸収）。
         $data['chainInfo'] = null;
+        $data['isNationalStockEntry'] = false; // 全国共有型の在庫ゼロ個店＝SEO最適化対象（下記の単一条件で決定）
+        $data['nationalStockSummary'] = null;
         $shop = $data['shop'];
         $chainSlug = Shop::chainSlug($shop->name);
         if ($chainSlug !== null) {
@@ -71,9 +73,60 @@ class ShopController extends Controller
                     'stock' => $mainShop->listings_count,
                 ];
             }
+
+            // 全国共有型（config national_stock）の在庫ゼロ個店だけを最適化対象にする。
+            // canonical / title / meta / schema の全分岐は view 側でこの単一フラグだけを参照する。
+            if ($this->isNationalStockZeroShop((int) $data['stockCount'], $chainSlug, $data['chainInfo'])) {
+                $data['isNationalStockEntry'] = true;
+                $data['nationalStockSummary'] = $this->getChainNationalSummary($chainSlug, $chain);
+            }
         }
 
         return view('shops.show', $data);
+    }
+
+    /**
+     * この個店ページを「全国在庫への入口」として最適化する唯一の条件（出し分けの単一の正本）。
+     * ①自店在庫が0 ②チェーン店 ③そのチェーンに在庫を持つ親店舗が別に存在（chainInfo!=null＝全国在庫>0）
+     * ④config で national_stock=true の全国共有型（＝レッドバロン/ナップスのみ。店舗別型/混在型は除外）。
+     *
+     * この4条件を満たさない店（店舗別型の在庫あり店・非チェーン店・全国在庫0のチェーン）は
+     * canonical/title/meta/schema を一切変更しない。
+     */
+    private function isNationalStockZeroShop(int $ownStock, ?string $chainSlug, ?array $chainInfo): bool
+    {
+        return $ownStock === 0
+            && $chainSlug !== null
+            && $chainInfo !== null
+            && ! empty(config("bike.chains.{$chainSlug}.national_stock"));
+    }
+
+    /**
+     * 全国共有型チェーンの「軽い在庫サマリー」（主要車種Top3）。全個店で内容同一のためチェーン単位で
+     * キャッシュ（307個店 → チェーン数分の実クエリに圧縮）。台数自体は chainInfo['stock']（追加クエリ0）。
+     *
+     * @param  array<string, mixed>  $chain
+     * @return array{topModels: array<int, array{name: string, count: int}>}
+     */
+    private function getChainNationalSummary(string $chainSlug, array $chain): array
+    {
+        return Cache::remember("chain_national_summary_{$chainSlug}", 1800, function () use ($chain) {
+            $shopIds = $this->chainShopsQuery($chain)->pluck('id');
+
+            $topModels = Listing::whereIn('shop_id', $shopIds)
+                ->where('is_sold_out', false)
+                ->whereNotNull('bike_model_id')
+                ->join('bike_models', 'listings.bike_model_id', '=', 'bike_models.id')
+                ->select('bike_models.name', DB::raw('COUNT(*) as cnt'))
+                ->groupBy('bike_models.name')
+                ->orderByDesc('cnt')
+                ->limit(3)
+                ->get()
+                ->map(fn ($r) => ['name' => (string) $r->name, 'count' => (int) $r->cnt])
+                ->all();
+
+            return ['topModels' => $topModels];
+        });
     }
 
     /**

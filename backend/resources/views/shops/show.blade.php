@@ -1,14 +1,35 @@
 <x-layout>
-    @php $isRepair = ($shop->shop_type ?? null) === 'repair_only'; @endphp
-    <x-slot:title>{{ $isRepair
-        ? $shop->name . '（バイク整備・修理）｜' . $shop->prefecture . ($shop->city ?? '') . ' - MotoHub'
-        : $shop->name . 'の在庫・取扱車両一覧' . ($stockCount > 0 ? '【' . number_format($stockCount) . '台】' : '') . '｜中古バイク検索 - MotoHub' }}</x-slot:title>
+    @php
+        $isRepair = ($shop->shop_type ?? null) === 'repair_only';
+        // 全国共有型（レッドバロン/ナップス）の在庫ゼロ個店だけ true。canonical/title/meta/noindex の
+        // 全分岐はこの単一フラグだけを参照する（店舗別型・非チェーン・全国在庫0は false＝一切変更なし）。
+        $isNationalEntry = ($isNationalStockEntry ?? false) && ! empty($chainInfo);
 
-    <x-slot:metaDescription>{{ $description }}</x-slot:metaDescription>
+        if ($isRepair) {
+            $pageTitle = $shop->name . '（バイク整備・修理）｜' . $shop->prefecture . ($shop->city ?? '') . ' - MotoHub';
+            $pageDescription = $description;
+        } elseif ($isNationalEntry) {
+            // 在庫ゼロの実態＋その店で取り寄せできる価値を表す（誇大回避）。
+            $pageTitle = $shop->name . '｜' . $chainInfo['name'] . '全国在庫' . number_format($chainInfo['stock']) . '台から取り寄せ可能｜MotoHub';
+            $pageDescription = $shop->name . 'は' . $shop->prefecture . 'の' . $chainInfo['name'] . '店舗です。' . $chainInfo['name'] . 'は在庫を全国で一括管理しており、現在' . number_format($chainInfo['stock']) . '台の在庫から' . $shop->prefecture . 'へ取り寄せできます。所在地・営業時間・アクセスはこちら。';
+        } else {
+            $pageTitle = $shop->name . 'の在庫・取扱車両一覧' . ($stockCount > 0 ? '【' . number_format($stockCount) . '台】' : '') . '｜中古バイク検索 - MotoHub';
+            $pageDescription = $description;
+        }
+    @endphp
+    <x-slot:title>{{ $pageTitle }}</x-slot:title>
+
+    <x-slot:metaDescription>{{ $pageDescription }}</x-slot:metaDescription>
+
+    {{-- 全国共有型の在庫ゼロ個店は「独立した価値あるページ」として自己参照canonical＋index。 --}}
+    @if($isNationalEntry)
+        <x-slot:canonical>{{ route('shops.show', $shop->id) }}</x-slot:canonical>
+    @endif
 
     @php
         // 位置情報なし → noindex。販売店は在庫0台でも noindex（整備店は在庫0が正常なので除外）。
-        $noindex = (! $shop->latitude || ! $shop->longitude) || (! $isRepair && ($pagination['total'] ?? 0) === 0);
+        // ただし全国共有型の在庫ゼロ個店（$isNationalEntry）は独立ページとして index する＝noindexから除外。
+        $noindex = (! $shop->latitude || ! $shop->longitude) || (! $isRepair && ($pagination['total'] ?? 0) === 0 && ! $isNationalEntry);
     @endphp
     @if($noindex)
         <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
@@ -64,6 +85,9 @@
                                 @endif
                             </div>
                             <h1 class="text-xl font-black text-gray-900 leading-tight mb-2">{{ $shop->name }}</h1>
+                            @if($isNationalEntry)
+                            <p class="text-sm font-bold text-blue-700 mb-2">{{ $chainInfo['name'] }}全国在庫{{ number_format($chainInfo['stock']) }}台から{{ $shop->prefecture }}へ取り寄せ可能</p>
+                            @endif
                             <span class="inline-block bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-1 rounded-full border border-blue-100">
                                 {{ $shop->prefecture }}
                             </span>
@@ -541,6 +565,9 @@
                                 <div class="mt-4 mx-auto max-w-sm bg-blue-50 border border-blue-200 rounded-xl p-4">
                                     <p class="text-sm font-bold text-blue-900">{{ $chainInfo['name'] }}の在庫は一括管理されています</p>
                                     <p class="text-xs text-blue-600 mt-1">現在 {{ number_format($chainInfo['stock']) }}台 の在庫があります</p>
+                                    @if(!empty($nationalStockSummary['topModels']))
+                                    <p class="text-[11px] text-blue-500 mt-2 leading-relaxed">主要車種：{{ collect($nationalStockSummary['topModels'])->map(fn ($m) => $m['name'] . '（' . $m['count'] . '台）')->join(' / ') }}</p>
+                                    @endif
                                     <a href="{{ route('shops.show', $chainInfo['main_shop_id']) }}" class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold w-full py-3 rounded-lg mt-3 transition-colors">
                                         <i data-lucide="bike" class="w-4 h-4"></i>
                                         在庫を見る

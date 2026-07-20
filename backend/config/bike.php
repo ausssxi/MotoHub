@@ -55,12 +55,15 @@ return [
     // pattern（文字列）or patterns（別名配列）で店名マッチ。判定は Shop::chainSlug()＝
     // 全角→半角・小文字化・空白除去で正規化してから部分一致（表記ゆれ吸収）。
     // カタカナ↔英字の橋渡しが要るチェーン（リバースオート/SOX/レッドバロン）は patterns に英字別名を併記。
+    // national_stock=true: 在庫を親店舗に全国集約する「全国共有型」チェーン（個店は在庫0）。
+    // 実データ検証済（在庫あり店=1・top店share≈100%）。在庫0個店ページを「全国在庫への入口」として
+    // 最適化する唯一の対象（店舗別型/混在型は付けない＝従来通り自店在庫・一切変更しない）。
     'chains' => [
-        'red-baron'   => ['name' => 'レッドバロン', 'patterns' => ['レッドバロン', 'red baron']],
+        'red-baron'   => ['name' => 'レッドバロン', 'patterns' => ['レッドバロン', 'red baron'], 'national_stock' => true],
         'bikeo'       => ['name' => 'バイク王',     'pattern' => 'バイク王'],
         'bikekan'     => ['name' => 'バイク館',     'pattern' => 'バイク館', 'guide_slug' => 'bikekan-used-bike-guide-2026'],
         'scs'         => ['name' => 'SCS',          'pattern' => 'SCS'],
-        'naps'        => ['name' => 'ナップス',     'pattern' => 'ナップス'],
+        'naps'        => ['name' => 'ナップス',     'pattern' => 'ナップス', 'national_stock' => true],
         'ricoland'    => ['name' => 'ライコランド', 'pattern' => 'ライコランド'],
         'sox'         => ['name' => 'バイカーズステーションSOX', 'patterns' => ['ソックス', 'sox']],
         'bikeland'    => ['name' => 'バイクランド', 'pattern' => 'バイクランド'],
