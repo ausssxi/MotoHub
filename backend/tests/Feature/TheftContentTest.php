@@ -14,9 +14,9 @@ function nsResetTheftCache(): void
     $rp->setValue(null, null);
 }
 
-function installTheftData(array $data): void
+function installTheftData(array $national): void
 {
-    file_put_contents(base_path('storage/_theft_test.json'), json_encode($data));
+    file_put_contents(base_path('storage/_theft_test.json'), json_encode(['national' => $national]));
     config(['theft.data_path' => 'storage/_theft_test.json']);
     nsResetTheftCache();
 }
@@ -29,89 +29,67 @@ afterEach(function () {
 function theftSample(): array
 {
     return [
-        'years' => [2023, 2024],
-        'prefectures' => [
-            '東京都' => ['2023' => ['recognized' => 500, 'cleared' => 50], '2024' => ['recognized' => 600, 'cleared' => 60]],
-            '大阪府' => ['2024' => ['recognized' => 550, 'cleared' => 110]],
-        ],
+        '2022' => ['recognized' => 0, 'cleared' => 0],       // 未投入（0）→除外
+        '2023' => ['recognized' => 16000, 'cleared' => 3000],
+        '2024' => ['recognized' => 15000, 'cleared' => 2900],
+        '2025' => ['recognized' => 14552, 'cleared' => 2970],
     ];
 }
 
-// ─────────── ハブ /theft ───────────
+// ─────────── ハブ /theft（全国版） ───────────
 
-it('renders the hub and hides ranking + CTA when data/affiliate are empty (no fake button, no invented numbers)', function () {
-    installTheftData(['years' => [], 'prefectures' => []]);
+it('renders the hub and hides summary + CTA when data/affiliate are empty (no fake numbers, no fake button)', function () {
+    installTheftData(['2025' => ['recognized' => 0, 'cleared' => 0]]); // 全て0＝未投入
     config(['theft.affiliate.url' => '']);
 
     $html = $this->get(route('theft'))->assertOk()->getContent();
 
-    expect($html)->toContain('バイクの盗難対策の基本')        // 対策一般論は常に出る
-        ->toContain('統計データは準備中')                      // データ未投入は準備中（数字を創作しない）
-        ->toContain('警察庁')                                  // 出典表記
-        ->not->toContain('rel="nofollow sponsored');           // CTA非表示（偽ボタンを置かない）
+    expect($html)->toContain('バイクの盗難対策の基本')   // 対策一般論は常に出る
+        ->toContain('統計データは準備中')                 // データ未投入は準備中
+        ->not->toContain('認知件数（')                     // 最新年サマリは出さない
+        ->not->toContain('rel="nofollow sponsored');       // CTA非表示（偽ボタンを置かない）
 });
 
-it('shows the ranking table and PR CTA when data + affiliate url are present', function () {
+it('shows the national summary, trend and PR CTA when data + affiliate url are present', function () {
     installTheftData(theftSample());
     config(['theft.affiliate.url' => 'https://example.com/zuttoride']);
 
     $html = $this->get(route('theft'))->assertOk()->getContent();
 
-    expect($html)->toContain('都道府県別 オートバイ盗ランキング')
-        ->toContain('東京都')
-        ->toContain('600')                                     // 認知件数がテキストで入る（クロール可能）
-        ->toContain('rel="nofollow sponsored noopener"')       // PRアフィリCTA
-        ->toContain('PR');
-});
-
-// ─────────── 面② 県別ページ差し込み ───────────
-
-it('injects the theft block on an area page only when data exists (else hidden)', function () {
-    installTheftData(theftSample());
-    $html = $this->get(route('bikes.area_index', '東京都'))->assertOk()->getContent();
-    expect($html)->toContain('東京都のバイク盗難データ')
-        ->toContain('第1位')                                   // 全国順位
-        ->toContain('全国のバイク盗難ランキングを見る');        // /theft への相互リンク
-
-    // データ空 → ブロックごと非表示（安全なフォールバック）
-    installTheftData(['years' => [], 'prefectures' => []]);
-    $html2 = $this->get(route('bikes.area_index', '大阪府'))->assertOk()->getContent();
-    expect($html2)->not->toContain('のバイク盗難データ');
+    expect($html)->toContain('14,552')                     // 最新年の認知件数（テキスト＝クロール可能）
+        ->toContain('20.4')                                // 検挙率 2970/14552
+        ->toContain('-3.0')                                // 前年比 (14552-15000)/15000
+        ->toContain('認知件数の推移')                       // 折れ線見出し
+        ->toContain('rel="nofollow sponsored noopener"')   // PR CTA
+        ->toContain('警察庁');                             // 出典
 });
 
 // ─────────── TheftStats 算出ロジック ───────────
 
-it('computes clearance rate / rank / series and resolves prefecture names', function () {
+it('computes latest summary (rate/yoy) and excludes un-entered (0) years from the series', function () {
     installTheftData(theftSample());
 
-    $t = TheftStats::forPrefecture('東京'); // 前方一致で「東京都」へ名寄せ
-    expect($t['prefecture'])->toBe('東京都')
-        ->and($t['recognized'])->toBe(600)
-        ->and($t['clearance_rate'])->toBe(10.0)                // 60/600
-        ->and($t['rank'])->toBe(1)
-        ->and(array_column($t['series'], 'recognized'))->toBe([500, 600]);
+    $latest = TheftStats::latest();
+    expect($latest['year'])->toBe(2025)
+        ->and($latest['recognized'])->toBe(14552)
+        ->and($latest['clearance_rate'])->toBe(20.4)
+        ->and($latest['yoy_pct'])->toBe(-3.0);
 
-    expect(TheftStats::forPrefecture('存在しない県'))->toBeNull();
-    expect(collect(TheftStats::rankingTable())->pluck('prefecture')->all())->toBe(['東京都', '大阪府']);
+    // 0の年(2022)は除外・年昇順
+    expect(collect(TheftStats::series())->pluck('year')->all())->toBe([2023, 2024, 2025]);
+
+    // データ全欠損 → hasData false・latest null
+    installTheftData([]);
+    expect(TheftStats::hasData())->toBeFalse()
+        ->and(TheftStats::latest())->toBeNull();
 });
 
-it('uses standard competition ranking (1224): ties share a rank, next rank skips', function () {
-    installTheftData([
-        'years' => [2024],
-        'prefectures' => [
-            '東京都' => ['2024' => ['recognized' => 600, 'cleared' => 60]],
-            '大阪府' => ['2024' => ['recognized' => 550, 'cleared' => 110]],
-            '神奈川県' => ['2024' => ['recognized' => 550, 'cleared' => 55]], // 大阪と同数
-            '愛知県' => ['2024' => ['recognized' => 300, 'cleared' => 30]],  // 次は4位（3位スキップ）
-        ],
-    ]);
+// ─────────── 撤去確認（県別ブロックの痕跡が area-index に無い） ───────────
 
-    // 県コード順で 神奈川(14) が 大阪(27) より前・どちらも2位、愛知は4位
-    expect(collect(TheftStats::rankingTable())->map(fn ($r) => $r['prefecture'].':'.$r['rank'])->all())
-        ->toBe(['東京都:1', '神奈川県:2', '大阪府:2', '愛知県:4']);
+it('leaves no county theft block on area pages after scope reduction', function () {
+    installTheftData(theftSample());
 
-    // 県別「全国◯位」もこれに従う
-    expect(TheftStats::forPrefecture('大阪府')['rank'])->toBe(2)
-        ->and(TheftStats::forPrefecture('神奈川県')['rank'])->toBe(2)
-        ->and(TheftStats::forPrefecture('愛知県')['rank'])->toBe(4);
+    $html = $this->get(route('bikes.area_index', '東京都'))->assertOk()->getContent();
+    expect($html)->not->toContain('のバイク盗難データ')           // 県別ブロック撤去済
+        ->not->toContain('全国のバイク盗難ランキングを見る');
 });

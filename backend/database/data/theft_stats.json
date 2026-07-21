@@ -1,10 +1,19 @@
 {
     "meta": {
-        "source_label": "警察庁『犯罪統計』第9表 街頭犯罪等 都道府県別（e-Stat）",
-        "source_url": "https://www.e-stat.go.jp/stat-search/files?tstat=000001103615",
-        "crime": "オートバイ盗",
-        "note": "各年の確定値（1〜12月累計）。recognized=認知件数, cleared=検挙件数。数値は docs/theft-data.md の手順で e-Stat から整形して投入する（初版は未投入＝空）。"
+        "source_label": "警察庁『犯罪統計』（e-Stat）",
+        "source_url": "https://www.e-stat.go.jp/stat-search/files?kikan=00130",
+        "unit": "オートバイ盗（全国・認知件数/検挙件数）",
+        "note": "第2表 窃盗 手口別のオートバイ盗（全国）。各年の【確定値】CSVから投入。recognized=認知, cleared=検挙。2025のみ実値、他年は0のまま=未投入（グラフ・サマリから除外）。docs/theft-data.md 参照。",
+        "checked_at": "2026-07"
     },
-    "years": [],
-    "prefectures": {}
+    "national": {
+        "2018": { "recognized": 0, "cleared": 0 },
+        "2019": { "recognized": 0, "cleared": 0 },
+        "2020": { "recognized": 0, "cleared": 0 },
+        "2021": { "recognized": 0, "cleared": 0 },
+        "2022": { "recognized": 0, "cleared": 0 },
+        "2023": { "recognized": 0, "cleared": 0 },
+        "2024": { "recognized": 0, "cleared": 0 },
+        "2025": { "recognized": 14552, "cleared": 2970 }
+    }
 }

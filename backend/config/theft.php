@@ -14,16 +14,13 @@ declare(strict_types=1);
 return [
     'slug' => 'theft',
 
-    // 出典表示（第9表 街頭犯罪等 都道府県別・オートバイ盗内訳）。
-    'source_label' => "警察庁『犯罪統計』第9表 街頭犯罪等 都道府県別（e-Stat）",
-    'source_url' => 'https://www.e-stat.go.jp/stat-search/files?tstat=000001103615',
+    // 出典表示（第2表 窃盗 手口別のオートバイ盗＝全国値）。都道府県別は機械可読データが無いため扱わない。
+    'source_label' => "警察庁『犯罪統計』（e-Stat）",
+    'source_url' => 'https://www.e-stat.go.jp/stat-search/files?kikan=00130',
 
-    // 対象年（最新確定年）と最終確認（YYYY-MM）。年次差し替え時に更新。
+    // 最新確定年と最終確認（YYYY-MM）。年次差し替え時に更新。
     'data_year' => 2025,
     'checked_at' => '2026-07',
-
-    // 表示指標。初版は実数件数（count）。人口10万人あたり(per100k)はPhase2。
-    'metric' => 'count',
 
     // 静的データの配置。
     'data_path' => 'database/data/theft_stats.json',
