@@ -1239,6 +1239,9 @@
                     </div>
                     @endif
 
+                    {{-- ローン「月々の目安」（サーバー描画・静的）。JS計算機の直前に配置＝クロール可能テキストを先に。 --}}
+                    @include('bikes.partials.loan-estimate')
+
                     {{-- ローンシミュレーター --}}
                     @if(is_numeric($listing->total_price))
                     <div id="loan-simulator" data-total-price="{{ $listing->total_price }}" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mt-8">
@@ -1277,7 +1280,7 @@
                                 </div>
                                 <div>
                                     <label class="text-xs font-bold text-gray-500 block mb-2">実質年率 (%)</label>
-                                    <input type="number" id="loan-rate" value="5.9" step="0.1" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl focus:ring-green-500 focus:border-green-500 block p-3">
+                                    <input type="number" id="loan-rate" value="4.9" step="0.1" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl focus:ring-green-500 focus:border-green-500 block p-3">
                                 </div>
                                 <input type="hidden" id="loan-bonus" value="0">
                             </div>
