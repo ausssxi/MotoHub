@@ -15,7 +15,7 @@ return [
     'slug' => 'theft',
 
     // 出典表示（第2表 窃盗 手口別のオートバイ盗＝全国値）。都道府県別は機械可読データが無いため扱わない。
-    'source_label' => "警察庁『犯罪統計』（e-Stat）",
+    'source_label' => '警察庁『犯罪統計』（e-Stat）',
     'source_url' => 'https://www.e-stat.go.jp/stat-search/files?kikan=00130',
 
     // 最新確定年と最終確認（YYYY-MM）。年次差し替え時に更新。

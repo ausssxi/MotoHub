@@ -63,7 +63,8 @@ it('shows the national summary, trend and PR CTA when data + affiliate url are p
         // グラフ要素（inline SVG・依存ゼロ）
         ->toContain('<polyline')                           // 折れ線
         ->toContain('theftArea')                           // エリア塗りの linearGradient
-        ->toContain('>2022<')                              // 全年の横軸ラベル
+        ->toContain('>2023<')                              // 横軸の年ラベル（fixtureは2022を0で除外＝2023〜2025）
+        ->toContain('>2025<')                              // 全年ラベルが出ている（最新年）
         // CTA（env設定時・景表法PR表記・自前テキストボタン）
         ->toContain('rel="nofollow sponsored noopener"')
         ->toContain('PR・広告')
