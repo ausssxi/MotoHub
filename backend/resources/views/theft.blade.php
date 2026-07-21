@@ -46,7 +46,7 @@
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 text-center">
                     <p class="text-[11px] font-bold text-gray-400 mb-1">前年比</p>
                     @if($latest['yoy_pct'] !== null)
-                    <p class="text-2xl font-black leading-none {{ $latest['yoy_pct'] <= 0 ? 'text-emerald-600' : 'text-red-600' }}">{{ $latest['yoy_pct'] > 0 ? '+' : '' }}{{ $latest['yoy_pct'] }}<span class="text-xs text-gray-400 font-bold ml-0.5">%</span></p>
+                    <p class="text-2xl font-black leading-none {{ $latest['yoy_pct'] <= 0 ? 'text-emerald-600' : 'text-red-600' }}">{{ ($latest['yoy_pct'] > 0 ? '+' : '') . number_format($latest['yoy_pct'], 1) }}<span class="text-xs text-gray-400 font-bold ml-0.5">%</span></p>
                     @else
                     <p class="text-2xl font-black text-gray-300 leading-none">-</p>
                     @endif
@@ -59,7 +59,7 @@
                 検挙件数は <span class="font-bold text-gray-900">{{ number_format($latest['cleared']) }}件</span>
                 （検挙率 {{ $latest['clearance_rate'] !== null ? $latest['clearance_rate'].'%' : '-' }}）でした。
                 @if($latest['yoy_pct'] !== null)
-                前年からの増減は <span class="font-bold {{ $latest['yoy_pct'] <= 0 ? 'text-emerald-600' : 'text-red-600' }}">{{ $latest['yoy_pct'] > 0 ? '+' : '' }}{{ $latest['yoy_pct'] }}%</span> です。
+                前年からの増減は <span class="font-bold {{ $latest['yoy_pct'] <= 0 ? 'text-emerald-600' : 'text-red-600' }}">{{ ($latest['yoy_pct'] > 0 ? '+' : '') . number_format($latest['yoy_pct'], 1) }}%</span> です。
                 @endif
             </p>
 
