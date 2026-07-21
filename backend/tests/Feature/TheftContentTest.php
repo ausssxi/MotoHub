@@ -83,6 +83,14 @@ it('links /theft and /hoken from the global footer (reachable on every page)', f
         ->toContain('バイクの盗難データ（全国）'); // フッターの /theft アンカー文言
 });
 
+it('renders the global header (navigation) and a visual breadcrumb on /theft', function () {
+    installTheftData(theftSample());
+    $html = $this->get(route('theft'))->assertOk()->getContent();
+    expect($html)->toContain('aria-label="Breadcrumb"')   // 視覚パンくず（他ページと同作法）
+        ->toContain('その他')                              // グローバルナビ（その他ドロップダウン）＝ヘッダー描画の証跡
+        ->toContain(route('ranking.index'));               // ナビのランキングリンク
+});
+
 // ─────────── TheftStats 算出ロジック ───────────
 
 it('computes latest summary (rate/yoy) and excludes un-entered (0) years from the series', function () {

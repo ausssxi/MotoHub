@@ -2,6 +2,7 @@
     <x-slot:title>バイク盗難（オートバイ盗）全国データと推移・盗難対策｜MotoHub</x-slot:title>
     <x-slot:metaDescription>警察庁の犯罪統計（オートバイ盗）をもとに、バイク盗難の全国の認知件数・検挙率・年次推移と、効果的な盗難対策をMotoHubがまとめました。</x-slot:metaDescription>
     <x-slot:canonical>{{ route('theft') }}</x-slot:canonical>
+    <x-slot:navigation><x-navigation :showSearch="true" /></x-slot:navigation>
 
     @php
         $breadcrumb = [
@@ -24,6 +25,15 @@
     <script type="application/ld+json">{!! json_encode($faqSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
 
     <div class="max-w-3xl mx-auto px-4 py-8 sm:py-12">
+        {{-- パンくず --}}
+        <nav class="text-xs font-bold text-gray-400 mb-6" aria-label="Breadcrumb">
+            <ol class="flex items-center space-x-2">
+                <li><a href="/" class="hover:text-gray-600 transition-colors">ホーム</a></li>
+                <li><span class="text-gray-300">></span></li>
+                <li class="text-gray-600">バイクの盗難データ</li>
+            </ol>
+        </nav>
+
         <header class="mb-8">
             <h1 class="text-2xl sm:text-3xl font-black text-gray-900 leading-tight">バイクの盗難データ（オートバイ盗・全国）と対策</h1>
             <p class="text-sm text-gray-500 mt-3 leading-relaxed">警察庁の犯罪統計（オートバイ盗）をもとに、全国の認知件数・検挙率・年次推移を淡々とまとめています。数字はそのまま掲載し、過度に不安を煽らないことを方針としています。</p>

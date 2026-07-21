@@ -142,6 +142,14 @@
                             <i data-lucide="star" class="w-3.5 h-3.5"></i>
                             レビュー
                         </a>
+                        <a href="{{ route('hoken') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+                            バイク保険・維持費
+                        </a>
+                        <a href="{{ route('theft') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+                            バイクの盗難データ
+                        </a>
                         <div class="my-1 border-t border-gray-100"></div>
                         {{-- ゲームセクション --}}
                         <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-widest">ゲーム</p>
