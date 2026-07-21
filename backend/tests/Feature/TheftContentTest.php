@@ -94,3 +94,24 @@ it('computes clearance rate / rank / series and resolves prefecture names', func
     expect(TheftStats::forPrefecture('存在しない県'))->toBeNull();
     expect(collect(TheftStats::rankingTable())->pluck('prefecture')->all())->toBe(['東京都', '大阪府']);
 });
+
+it('uses standard competition ranking (1224): ties share a rank, next rank skips', function () {
+    installTheftData([
+        'years' => [2024],
+        'prefectures' => [
+            '東京都' => ['2024' => ['recognized' => 600, 'cleared' => 60]],
+            '大阪府' => ['2024' => ['recognized' => 550, 'cleared' => 110]],
+            '神奈川県' => ['2024' => ['recognized' => 550, 'cleared' => 55]], // 大阪と同数
+            '愛知県' => ['2024' => ['recognized' => 300, 'cleared' => 30]],  // 次は4位（3位スキップ）
+        ],
+    ]);
+
+    // 県コード順で 神奈川(14) が 大阪(27) より前・どちらも2位、愛知は4位
+    expect(collect(TheftStats::rankingTable())->map(fn ($r) => $r['prefecture'].':'.$r['rank'])->all())
+        ->toBe(['東京都:1', '神奈川県:2', '大阪府:2', '愛知県:4']);
+
+    // 県別「全国◯位」もこれに従う
+    expect(TheftStats::forPrefecture('大阪府')['rank'])->toBe(2)
+        ->and(TheftStats::forPrefecture('神奈川県')['rank'])->toBe(2)
+        ->and(TheftStats::forPrefecture('愛知県')['rank'])->toBe(4);
+});

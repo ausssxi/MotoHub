@@ -132,28 +132,41 @@ final class TheftStats
     }
 
     /**
-     * 全国ランキング（最新年・認知件数降順）。同値は都道府県コード順で安定。
+     * 全国ランキング（最新年・認知件数降順）。順位は標準競争順位（1224方式）：
+     * 同数は同順位、次順位は件数分スキップ（例：3位が2県なら次は5位）。同数の表示順は都道府県コード順で安定。
      *
      * @return array<int,array{rank:int, prefecture:string, recognized:int, cleared:int, clearance_rate:?float}>
      */
     public static function rankingTable(): array
     {
+        return array_map(fn ($r) => [
+            'rank' => $r['rank'],
+            'prefecture' => $r['prefecture'],
+            'recognized' => $r['recognized'],
+            'cleared' => $r['cleared'],
+            'clearance_rate' => self::clearanceRate($r['recognized'], $r['cleared']),
+        ], self::rankedRows());
+    }
+
+    /**
+     * rankingBase に標準競争順位（1224）を付与。同数（recognized 一致）は同順位、
+     * 次の異なる値は「その要素の並び位置＋1」＝スキップ。
+     *
+     * @return array<int,array{prefecture:string, recognized:int, cleared:int, _ord:int, rank:int}>
+     */
+    private static function rankedRows(): array
+    {
         $rows = self::rankingBase();
-        $out = [];
-        $rank = 0;
+        $prevVal = null;
+        $prevRank = 0;
         foreach ($rows as $i => $r) {
-            // 同値は同順位にせず単純連番（順位の一意性を優先＝表示が安定）
-            $rank = $i + 1;
-            $out[] = [
-                'rank' => $rank,
-                'prefecture' => $r['prefecture'],
-                'recognized' => $r['recognized'],
-                'cleared' => $r['cleared'],
-                'clearance_rate' => self::clearanceRate($r['recognized'], $r['cleared']),
-            ];
+            $rank = ($prevVal !== null && $r['recognized'] === $prevVal) ? $prevRank : $i + 1;
+            $rows[$i]['rank'] = $rank;
+            $prevVal = $r['recognized'];
+            $prevRank = $rank;
         }
 
-        return $out;
+        return $rows;
     }
 
     /**
@@ -233,9 +246,9 @@ final class TheftStats
 
     private static function rankOf(string $pref, int $year): int
     {
-        foreach (self::rankingBase() as $i => $r) {
+        foreach (self::rankedRows() as $r) {
             if ($r['prefecture'] === $pref) {
-                return $i + 1;
+                return $r['rank']; // 標準競争順位（1224）
             }
         }
 
