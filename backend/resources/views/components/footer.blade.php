@@ -112,6 +112,12 @@
                     <div class="basis-full h-0 sm:hidden"></div>
                     
                     <li>
+                        <a href="{{ route('hoken') }}" class="footer-link">バイク保険・維持費</a>
+                    </li>
+                    <li>
+                        <a href="{{ route('theft') }}" class="footer-link">バイクの盗難データ（全国）</a>
+                    </li>
+                    <li>
                         <a href="{{ route('pages.widget') }}" class="footer-link">相場ウィジェット</a>
                     </li>
                     <li>

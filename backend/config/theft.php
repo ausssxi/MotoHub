@@ -29,9 +29,11 @@ return [
     // url 未設定の間は CTA 自体を非表示（偽ボタンを置かない）。insurance.affiliate と同型。
     'affiliate' => [
         'url' => env('ZUTTORIDE_AFFILIATE_URL', ''),
+        // 任意: moshimo のインプレッション計測URL。設定時のみ CTA表示で 1x1 img を出す（未設定は出さない）。
+        'imp_url' => env('ZUTTORIDE_IMP_URL', ''),
         'provider' => env('ZUTTORIDE_AFFILIATE_PROVIDER', 'ZuttoRide'),
-        // 事実ベースの文言のみ（誇大・不安を過度に煽らない）。
-        'headline' => 'バイクの盗難保険を検討する',
-        'sub' => '盗難・いたずら等に備える専用保険。補償内容・保険料は条件で変わるため、公式サイトでご確認ください。',
+        // 事実ベースの文言のみ（誇大・不安を過度に煽らない）。保険募集はせず外部見積もりへ送客。
+        'headline' => 'バイク盗難保険（ZuttoRide）を無料で見積もり',
+        'sub' => '盗難・いたずら等に備える専用保険。補償内容・保険料は条件で変わるため、公式サイトで無料見積もりを確認できます。',
     ],
 ];

@@ -67,11 +67,7 @@
             @if(count($series) >= 2)
             <section class="mb-8 bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
                 <h2 class="text-base font-black text-gray-900 mb-3">オートバイ盗 認知件数の推移（{{ $series[0]['year'] }}〜{{ end($series)['year'] }}年・全国）</h2>
-                @include('bikes.partials.sparkline', ['points' => array_column($series, 'recognized'), 'w' => 640, 'h' => 140, 'color' => '#dc2626', 'label' => 'オートバイ盗（全国）の認知件数の推移'])
-                <div class="flex justify-between text-[11px] text-gray-400 font-bold mt-1">
-                    <span>{{ $series[0]['year'] }}年 {{ number_format($series[0]['recognized']) }}件</span>
-                    <span>{{ end($series)['year'] }}年 {{ number_format(end($series)['recognized']) }}件</span>
-                </div>
+                @include('bikes.partials.theft-chart', ['series' => $series])
             </section>
             @endif
         @else
@@ -88,22 +84,26 @@
                 <li><span class="font-bold text-gray-800">複数ロックの併用</span>：チェーン＋ディスクロック等、種類の異なる鍵で解錠の手間を増やす。</li>
                 <li><span class="font-bold text-gray-800">保管場所</span>：屋内・防犯カメラのある駐輪場・人目のある場所を選ぶ。</li>
                 <li><span class="font-bold text-gray-800">アラーム・車体カバー</span>：振動アラームやカバーで物色対象になりにくくする。</li>
-                <li><span class="font-bold text-gray-800">保険での備え</span>：任意保険の車両補償や専用の盗難保険も選択肢。</li>
+                <li><span class="font-bold text-gray-800">保険での備え</span>：任意保険の車両補償や専用の盗難保険も選択肢（<a href="{{ route('hoken') }}" class="text-blue-600 hover:underline font-bold">バイク保険・維持費の解説</a>）。</li>
             </ul>
         </section>
 
         {{-- 盗難保険CTA（★affiliate.url 設定時のみ・PR表記付き。未設定なら偽ボタンを出さない） --}}
         @if(!empty($ctaUrl))
         <section class="mb-8 bg-gray-900 rounded-3xl p-6 text-center">
-            <p class="text-white/70 text-[10px] font-black tracking-widest uppercase mb-2">PR</p>
+            <p class="text-white/70 text-[10px] font-black tracking-widest uppercase mb-2">PR・広告</p>
+            <p class="text-white/60 text-xs mb-1">盗難に備えるなら ——</p>
             <h2 class="text-white text-lg font-black mb-1">{{ $affiliate['headline'] }}</h2>
             <p class="text-white/60 text-xs mb-4 leading-relaxed">{{ $affiliate['sub'] }}</p>
             <a href="{{ $ctaUrl }}" target="_blank" rel="nofollow sponsored noopener"
                class="inline-flex items-center gap-2 bg-white text-gray-900 font-black text-sm px-6 py-3 rounded-full hover:bg-gray-100 transition-colors">
-                <i data-lucide="shield-check" class="w-4 h-4"></i>公式サイトで詳細を見る
+                <i data-lucide="shield-check" class="w-4 h-4"></i>見積もりをみる
             </a>
             @if(!empty($affiliate['provider']))
             <p class="text-white/50 text-[10px] font-bold mt-3">提供: {{ $affiliate['provider'] }}・PR</p>
+            @endif
+            @if(!empty($affiliate['imp_url']))
+            <img src="{{ $affiliate['imp_url'] }}" width="1" height="1" alt="" style="border:0;position:absolute;left:-9999px;" aria-hidden="true">
             @endif
         </section>
         @endif
@@ -127,6 +127,8 @@
         @endif
         <nav class="flex flex-wrap gap-3 text-xs font-bold">
             <a href="{{ route('hoken') }}" class="inline-flex items-center gap-1.5 text-gray-500 hover:text-black"><i data-lucide="shield" class="w-3.5 h-3.5"></i>バイク保険・維持費</a>
+            <a href="{{ route('bikes.models') }}" class="inline-flex items-center gap-1.5 text-gray-500 hover:text-black"><i data-lucide="book-open" class="w-3.5 h-3.5"></i>車種一覧から探す</a>
+            <a href="{{ route('mybikes.index') }}" class="inline-flex items-center gap-1.5 text-gray-500 hover:text-black"><i data-lucide="garage" class="w-3.5 h-3.5"></i>愛車をガレージで管理</a>
             <a href="{{ route('bikes.prefectures') }}" class="inline-flex items-center gap-1.5 text-gray-500 hover:text-black"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i>地域から中古バイクを探す</a>
         </nav>
 

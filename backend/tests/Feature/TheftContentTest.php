@@ -60,8 +60,26 @@ it('shows the national summary, trend and PR CTA when data + affiliate url are p
         ->toContain('20.4')                                // 検挙率 2970/14552
         ->toContain('+25.0')                               // 前年比 (14552-11641)/11641 = +25.0%
         ->toContain('認知件数の推移')                       // 折れ線見出し
-        ->toContain('rel="nofollow sponsored noopener"')   // PR CTA
+        // グラフ要素（inline SVG・依存ゼロ）
+        ->toContain('<polyline')                           // 折れ線
+        ->toContain('theftArea')                           // エリア塗りの linearGradient
+        ->toContain('>2022<')                              // 全年の横軸ラベル
+        // CTA（env設定時・景表法PR表記・自前テキストボタン）
+        ->toContain('rel="nofollow sponsored noopener"')
+        ->toContain('PR・広告')
+        ->toContain('見積もりをみる')
+        // 本文の文脈内部リンク（nofollow無し）
+        ->toContain(route('hoken'))
+        ->toContain(route('bikes.models'))
+        ->toContain(route('mybikes.index'))
         ->toContain('警察庁');                             // 出典
+});
+
+it('links /theft and /hoken from the global footer (reachable on every page)', function () {
+    // 軽量な /hoken ページのフッターで検証＝全ページから /theft へ辿れることの担保。
+    $html = $this->get(route('hoken'))->assertOk()->getContent();
+    expect($html)->toContain(route('theft'))
+        ->toContain('バイクの盗難データ（全国）'); // フッターの /theft アンカー文言
 });
 
 // ─────────── TheftStats 算出ロジック ───────────
