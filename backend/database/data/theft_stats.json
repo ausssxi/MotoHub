@@ -1,19 +1,14 @@
 {
-    "meta": {
-        "source_label": "警察庁『犯罪統計』（e-Stat）",
-        "source_url": "https://www.e-stat.go.jp/stat-search/files?kikan=00130",
-        "unit": "オートバイ盗（全国・認知件数/検挙件数）",
-        "note": "第2表 窃盗 手口別のオートバイ盗（全国）。各年の【確定値】CSVから投入。recognized=認知, cleared=検挙。2025のみ実値、他年は0のまま=未投入（グラフ・サマリから除外）。docs/theft-data.md 参照。",
-        "checked_at": "2026-07"
-    },
-    "national": {
-        "2018": { "recognized": 0, "cleared": 0 },
-        "2019": { "recognized": 0, "cleared": 0 },
-        "2020": { "recognized": 0, "cleared": 0 },
-        "2021": { "recognized": 0, "cleared": 0 },
-        "2022": { "recognized": 0, "cleared": 0 },
-        "2023": { "recognized": 0, "cleared": 0 },
-        "2024": { "recognized": 0, "cleared": 0 },
-        "2025": { "recognized": 14552, "cleared": 2970 }
-    }
+  "meta": {
+    "source_label": "警察庁『犯罪統計』（e-Stat）",
+    "source_url": "https://www.e-stat.go.jp/stat-search/files?kikan=00130",
+    "unit": "オートバイ盗（全国・認知件数/検挙件数）",
+    "checked_at": "2026-07"
+  },
+  "national": {
+    "2022": {"recognized": 7913, "cleared": 1458},
+    "2023": {"recognized": 9946, "cleared": 1717},
+    "2024": {"recognized": 11641, "cleared": 2127},
+    "2025": {"recognized": 14552, "cleared": 2970}
+  }
 }
