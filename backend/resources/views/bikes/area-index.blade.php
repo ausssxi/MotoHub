@@ -170,6 +170,9 @@
             </section>
             @endif
 
+            {{-- 盗難データブロック（面②・サーバー描画・表示時計算・データ未投入県は非表示） --}}
+            @include('bikes.partials.theft-stats')
+
             {{-- 全件検索リンク --}}
             <div class="text-center mt-10">
                 <a href="{{ route('bikes.search', ['prefecture' => $prefecture]) }}"

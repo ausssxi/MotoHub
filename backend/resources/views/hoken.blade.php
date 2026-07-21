@@ -140,6 +140,7 @@
                     <a href="{{ route('bikes.category_cc', $cc['slug']) }}" class="text-xs font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 hover:border-blue-300 hover:text-blue-600 transition-colors">{{ $cc['label'] }}のバイク</a>
                     @endforeach
                     <a href="{{ route('shinkijun_gentsuki') }}" class="text-xs font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 hover:border-blue-300 hover:text-blue-600 transition-colors">新基準原付</a>
+                    <a href="{{ route('theft') }}" class="text-xs font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 hover:border-red-300 hover:text-red-600 transition-colors">バイク盗難データ・対策</a>
                 </div>
             </section>
 

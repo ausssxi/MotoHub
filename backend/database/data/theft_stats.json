@@ -1,0 +1,10 @@
+{
+    "meta": {
+        "source_label": "警察庁『犯罪統計』第9表 街頭犯罪等 都道府県別（e-Stat）",
+        "source_url": "https://www.e-stat.go.jp/stat-search/files?tstat=000001103615",
+        "crime": "オートバイ盗",
+        "note": "各年の確定値（1〜12月累計）。recognized=認知件数, cleared=検挙件数。数値は docs/theft-data.md の手順で e-Stat から整形して投入する（初版は未投入＝空）。"
+    },
+    "years": [],
+    "prefectures": {}
+}

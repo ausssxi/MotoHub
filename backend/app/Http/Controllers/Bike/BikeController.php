@@ -295,7 +295,13 @@ final class BikeController extends Controller
             return compact('totalCount', 'makers', 'categories', 'displacements', 'models');
         });
 
-        return view('bikes.area-index', array_merge($data, ['prefecture' => $prefecture]));
+        // 盗難ブロック（面②）はキャッシュ外で表示時算出（静的JSON参照）＝area_index_v2 のbump不要。
+        $theftStats = \App\Support\TheftStats::forPrefecture($prefecture);
+
+        return view('bikes.area-index', array_merge($data, [
+            'prefecture' => $prefecture,
+            'theftStats' => $theftStats,
+        ]));
     }
 
     /**
