@@ -29,10 +29,10 @@ afterEach(function () {
 function theftSample(): array
 {
     return [
-        '2022' => ['recognized' => 0, 'cleared' => 0],       // 未投入（0）→除外
+        '2022' => ['recognized' => 0, 'cleared' => 0],           // 未投入（0）→除外
         '2023' => ['recognized' => 16000, 'cleared' => 3000],
-        '2024' => ['recognized' => 15000, 'cleared' => 2900],
-        '2025' => ['recognized' => 14552, 'cleared' => 2970],
+        '2024' => ['recognized' => 11641, 'cleared' => 2400],    // 実データ 2024=11641
+        '2025' => ['recognized' => 14552, 'cleared' => 2970],    // 実データ 2025=14552
     ];
 }
 
@@ -58,7 +58,7 @@ it('shows the national summary, trend and PR CTA when data + affiliate url are p
 
     expect($html)->toContain('14,552')                     // 最新年の認知件数（テキスト＝クロール可能）
         ->toContain('20.4')                                // 検挙率 2970/14552
-        ->toContain('-3.0')                                // 前年比 (14552-15000)/15000
+        ->toContain('+25.0')                               // 前年比 (14552-11641)/11641 = +25.0%
         ->toContain('認知件数の推移')                       // 折れ線見出し
         ->toContain('rel="nofollow sponsored noopener"')   // PR CTA
         ->toContain('警察庁');                             // 出典
@@ -73,7 +73,7 @@ it('computes latest summary (rate/yoy) and excludes un-entered (0) years from th
     expect($latest['year'])->toBe(2025)
         ->and($latest['recognized'])->toBe(14552)
         ->and($latest['clearance_rate'])->toBe(20.4)
-        ->and($latest['yoy_pct'])->toBe(-3.0);
+        ->and($latest['yoy_pct'])->toBe(25.0); // (14552-11641)/11641
 
     // 0の年(2022)は除外・年昇順
     expect(collect(TheftStats::series())->pluck('year')->all())->toBe([2023, 2024, 2025]);
