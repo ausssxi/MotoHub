@@ -1,0 +1,23 @@
+{{-- akippa（予約できる駐車場）送客CTA。自前テキスト・env制御・保険/盗難と同作法。
+     config('parking.affiliate.akippa.url')（AKIPPA_AFFILIATE_URL）未設定なら非表示＝偽ボタンを置かない。
+     ★akippaは四輪中心のため二輪可否は断定しない（「バイク可の駐車場も探せる」程度に留める）。 --}}
+@php $akippa = config('parking.affiliate.akippa', []); $akippaUrl = $akippa['url'] ?? ''; @endphp
+@if(!empty($akippaUrl))
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
+    <p class="text-[10px] font-black tracking-widest text-gray-300 uppercase mb-1">PR・広告</p>
+    <div class="flex items-start gap-3">
+        <span class="bg-green-50 text-green-600 p-2 rounded-lg shrink-0"><i data-lucide="calendar-check" class="w-5 h-5"></i></span>
+        <div class="min-w-0">
+            <p class="text-sm font-black text-gray-900">満車が心配なら、予約できる駐車場</p>
+            <p class="text-xs text-gray-500 leading-relaxed mt-0.5">事前予約でスペースを確保。バイク可の駐車場も探せます（akippa）。</p>
+            <a href="{{ $akippaUrl }}" target="_blank" rel="nofollow sponsored noopener"
+               class="mt-3 inline-flex items-center gap-1.5 bg-gray-900 hover:bg-black text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-colors">
+                <i data-lucide="calendar-check" class="w-4 h-4"></i>予約できる駐車場を探す
+            </a>
+        </div>
+    </div>
+    @if(!empty($akippa['imp_url']))
+    <img src="{{ $akippa['imp_url'] }}" width="1" height="1" alt="" style="border:0;position:absolute;left:-9999px;" aria-hidden="true">
+    @endif
+</div>
+@endif

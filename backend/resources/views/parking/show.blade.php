@@ -274,6 +274,9 @@
                 </div>
             </div>
 
+            {{-- akippa 予約駐車場CTA（料金ヒーロー直後・env未設定時は非表示・PR/広告・rel=nofollow sponsored） --}}
+            @include('parking.partials.akippa-cta')
+
             {{-- 口コミサマリー（検索流入者のファーストビュー用・料金の下に埋もれさせず本体へアンカー） --}}
             <a href="#reviews" class="block bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6 hover:border-green-200 transition-colors">
                 <div class="flex items-center justify-between gap-3">
