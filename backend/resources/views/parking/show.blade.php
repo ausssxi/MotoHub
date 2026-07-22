@@ -269,7 +269,12 @@
                     <p>情報更新日: {{ $parking->jmpsa_updated_at->format('Y年n月j日') }}</p>
                     @endif
                     @if($parking->source_url)
+                    {{-- akippa.com の出典は直リンクを外す（アフィリを経由しない予約直リンク＝成果漏れ防止）。導線はCTA(ディープリンク)に一本化。 --}}
+                    @if(\Illuminate\Support\Str::startsWith($parking->source_url, 'https://www.akippa.com/'))
+                    <p>出典: <span class="text-gray-500">{{ parse_url($parking->source_url, PHP_URL_HOST) }}</span></p>
+                    @else
                     <p>出典: <a href="{{ $parking->source_url }}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">{{ parse_url($parking->source_url, PHP_URL_HOST) }}</a></p>
+                    @endif
                     @endif
                 </div>
             </div>
