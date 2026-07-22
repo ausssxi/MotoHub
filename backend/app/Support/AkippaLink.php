@@ -38,6 +38,7 @@ final class AkippaLink
         // ディープリンク：A8MAT設定 かつ 飛び先が akippa.com 内（厳格チェック）。
         if ($a8mat !== '' && is_string($sourceUrl) && str_starts_with($sourceUrl, self::AKIPPA_URL_PREFIX)) {
             $redirect = rawurlencode($sourceUrl); // 元URL全体を1回だけエンコード（二重エンコード回避）
+
             return [
                 'url' => 'https://px.a8.net/svt/ejp?a8mat='.$a8mat.'&a8ejpredirect='.$redirect,
                 'deeplink' => true,
