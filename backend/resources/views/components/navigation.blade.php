@@ -60,10 +60,10 @@
                     </span>
                 </a>
 
-                {{-- バイク診断 --}}
+                {{-- バイク相性診断 --}}
                 <a href="/shindan" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isShindan ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest group relative" title="あなたにぴったりの1台を診断">
                     <i data-lucide="sparkles" class="w-4 h-4 text-blue-500 group-hover:animate-pulse"></i>
-                    <span class="hidden xl:inline">バイク診断</span>
+                    <span class="hidden xl:inline">バイク相性診断</span>
                     <span class="absolute -top-0.5 -right-0.5 flex h-2 w-2">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
@@ -109,7 +109,7 @@
                         <i data-lucide="chevron-down" class="w-3 h-3 transition-transform duration-200" x-bind:class="{ 'rotate-180': open }"></i>
                     </button>
                     <div x-show="open" x-transition
-                         class="absolute left-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
+                         class="absolute left-0 top-full mt-1 w-48 max-h-[calc(100vh-5rem)] overflow-y-auto bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
                          style="display: none;">
                         <a href="{{ route('bikes.trends') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
                             <i data-lucide="trophy" class="w-3.5 h-3.5"></i>
@@ -135,7 +135,7 @@
                         <i data-lucide="chevron-down" class="w-3 h-3 transition-transform duration-200" x-bind:class="{ 'rotate-180': open }"></i>
                     </button>
                     <div x-show="open" x-transition
-                         class="absolute left-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
+                         class="absolute left-0 top-full mt-1 w-48 max-h-[calc(100vh-5rem)] overflow-y-auto bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
                          style="display: none;">
                         {{-- コンテンツ --}}
                         <a href="{{ route('bikes.reviews_index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
@@ -184,7 +184,7 @@
                             <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
                             パーツ
                         </a>
-                        <a href="{{ route('trouble.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap" title="症状から原因を切り分け（バイク選びの「バイク診断」とは別）">
+                        <a href="{{ route('trouble.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap" title="症状から原因を切り分け（バイク選びの「バイク相性診断」とは別）">
                             <i data-lucide="stethoscope" class="w-3.5 h-3.5"></i>
                             症状診断
                         </a>
@@ -436,7 +436,7 @@
                         <i data-lucide="sparkles" class="w-6 h-6 fill-current"></i>
                     </div>
                     <div>
-                        <p class="text-sm font-black">AIバイク診断</p>
+                        <p class="text-sm font-black">AIバイク相性診断</p>
                         <p class="text-[10px] text-white/70 font-bold">あなたにぴったりの1台を提案</p>
                     </div>
                 </div>
