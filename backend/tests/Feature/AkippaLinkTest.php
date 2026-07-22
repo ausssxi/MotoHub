@@ -4,40 +4,49 @@ declare(strict_types=1);
 
 use App\Support\AkippaLink;
 
-it('generates a per-parking A8 deeplink when A8MAT is set and source_url is on akippa.com', function () {
-    config(['parking.affiliate.akippa.a8mat' => 'ABC123', 'parking.affiliate.akippa.url' => 'https://generic.example/akippa']);
+// id=8306 相当：予約URLは notes に文章として埋め込み（末尾 」・utm付き）。
+const AKIPPA_NOTES = '▼ご利用の際は駐車場予約サービス「akippa」のサイトよりご予約ください。https://www.akippa.com/parking/f5eb4aa1?utm_source=jmpsa&utm_medium=referral&utm_campaign=jmpsa」';
+const AKIPPA_URL = 'https://www.akippa.com/parking/f5eb4aa1?utm_source=jmpsa&utm_medium=referral&utm_campaign=jmpsa';
 
-    $src = 'https://www.akippa.com/parking/hash1?utm_source=jmpsa';
-    $cta = AkippaLink::ctaFor('akippa株式会社', $src);
-
-    expect($cta['deeplink'])->toBeTrue()
-        ->and($cta['url'])->toBe('https://px.a8.net/svt/ejp?a8mat=ABC123&a8ejpredirect='.rawurlencode($src));
+it('extracts the akippa url from notes (utm preserved, trailing 」 excluded)', function () {
+    expect(AkippaLink::extractAkippaUrl(AKIPPA_NOTES))->toBe(AKIPPA_URL);
 });
 
-it('falls back to the generic link for an akippa parking when A8MAT is unset', function () {
-    config(['parking.affiliate.akippa.a8mat' => '', 'parking.affiliate.akippa.url' => 'https://generic.example/akippa']);
+it('falls back to description when notes has no akippa url, else null', function () {
+    expect(AkippaLink::extractAkippaUrl('ただの備考', 'ご予約は https://www.akippa.com/parking/xyz?a=1 から'))
+        ->toBe('https://www.akippa.com/parking/xyz?a=1')
+        ->and(AkippaLink::extractAkippaUrl('備考', 'akippaリンク無し'))->toBeNull()
+        ->and(AkippaLink::extractAkippaUrl(null, null))->toBeNull();
+});
 
-    $cta = AkippaLink::ctaFor('akippa株式会社', 'https://www.akippa.com/parking/x');
+it('strips the akippa url from text but keeps the surrounding wording', function () {
+    $stripped = AkippaLink::stripAkippaUrl(AKIPPA_NOTES);
+    expect($stripped)->not->toContain('https://www.akippa.com')  // 生URL消滅
+        ->toContain('ご予約ください');                           // 文言は残る
+});
+
+it('generates a per-parking A8 deeplink from notes when A8MAT is set', function () {
+    config(['parking.affiliate.akippa.a8mat' => 'ABC123', 'parking.affiliate.akippa.url' => 'https://generic.example/akippa']);
+
+    $cta = AkippaLink::ctaFor('akippa株式会社', AKIPPA_NOTES, null);
+
+    expect($cta['deeplink'])->toBeTrue()
+        ->and($cta['url'])->toBe('https://px.a8.net/svt/ejp?a8mat=ABC123&a8ejpredirect='.rawurlencode(AKIPPA_URL));
+});
+
+it('falls back to the generic link for an akippa parking with no url in notes/description', function () {
+    config(['parking.affiliate.akippa.a8mat' => 'ABC123', 'parking.affiliate.akippa.url' => 'https://generic.example/akippa']);
+
+    $cta = AkippaLink::ctaFor('akippa株式会社', 'URL無しの備考', 'これも無し');
 
     expect($cta['deeplink'])->toBeFalse()
         ->and($cta['url'])->toBe('https://generic.example/akippa');
 });
 
-it('does NOT deeplink when the redirect target is not on https://www.akippa.com/ (strict domain check)', function () {
+it('returns null for non-akippa parkings and when nothing is configured', function () {
     config(['parking.affiliate.akippa.a8mat' => 'ABC123', 'parking.affiliate.akippa.url' => 'https://generic.example/akippa']);
+    expect(AkippaLink::ctaFor('パラカ株式会社', AKIPPA_NOTES, null))->toBeNull();
 
-    // http:// / 別ドメイン / スプーフ / null は全て非ディープリンク（汎用へフォールバック）
-    expect(AkippaLink::ctaFor('akippa株式会社', 'http://www.akippa.com/parking/x')['deeplink'])->toBeFalse()
-        ->and(AkippaLink::ctaFor('akippa株式会社', 'https://evil.example/www.akippa.com/')['deeplink'])->toBeFalse()
-        ->and(AkippaLink::ctaFor('akippa株式会社', null)['deeplink'])->toBeFalse();
-});
-
-it('returns null (no CTA) for non-akippa parkings and when no link is configured', function () {
-    config(['parking.affiliate.akippa.a8mat' => 'ABC123', 'parking.affiliate.akippa.url' => 'https://generic.example/akippa']);
-    expect(AkippaLink::ctaFor('パラカ株式会社', 'https://www.akippa.com/parking/x'))->toBeNull()
-        ->and(AkippaLink::ctaFor(null, null))->toBeNull();
-
-    // akippa物件でも url も a8mat も無ければ非表示（偽リンクを置かない）
     config(['parking.affiliate.akippa.a8mat' => '', 'parking.affiliate.akippa.url' => '']);
-    expect(AkippaLink::ctaFor('akippa株式会社', 'https://www.akippa.com/parking/x'))->toBeNull();
+    expect(AkippaLink::ctaFor('akippa株式会社', AKIPPA_NOTES, null))->toBeNull();
 });

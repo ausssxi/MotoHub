@@ -4,7 +4,7 @@
        ・A8MAT設定＋source_urlがakippa.com内 → その駐車場へのディープリンク（成果がユーザーに入る）
        ・以外 → 汎用リンク（akippaトップ）へフォールバック／リンク無しなら非表示
      ★akippaは四輪中心のため二輪可否は断定しない（「バイク可の駐車場も探せる」程度に留める）。 --}}
-@php $akippaCta = \App\Support\AkippaLink::ctaFor($parking->management_company ?? null, $parking->source_url ?? null); @endphp
+@php $akippaCta = \App\Support\AkippaLink::ctaFor($parking->management_company ?? null, $parking->notes ?? null, $parking->description ?? null); @endphp
 @if($akippaCta)
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
     <p class="text-[10px] font-black tracking-widest text-gray-300 uppercase mb-1">PR・広告</p>
