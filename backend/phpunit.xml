@@ -35,9 +35,9 @@
         <env name="NIGHTWATCH_ENABLED" value="false"/>
 
         <!-- 外部APIクレデンシャルの空化（force=true）。
-             .env.testing が無いため testing は backend/.env を読む。実キーが入っていると
-             Http::fake の書き忘れでテストが本物の外部API（楽天/Yahoo/AI等）を叩いて事故る
-             （MaintenanceBatteryTest が楽天を実呼び出ししていた実績）。
+             .env.testing が無いため testing は backend/.env（およびコンテナの実env var）を読む。
+             実キーが入っていると Http::fake の書き忘れでテストが本物の外部API（楽天/Yahoo等）を
+             叩いて事故る（MaintenanceBatteryTest が楽天を実呼び出ししていた実績）。
              各サービスはキー未設定時に通信せず空を返すガードを持つ（例: ProductSearchService）。
              ※OAuthの client_id/secret（redirect生成）・recaptcha secret（検証分岐）・mail（array駆動）は
                挙動を変えうるため据え置き。個別テストが必要な値は自前で config()->set して上書きする。 -->
@@ -47,7 +47,6 @@
         <env name="YAHOO_CLIENT_ID" value="" force="true"/>
         <env name="VALUECOMMERCE_SID" value="" force="true"/>
         <env name="VALUECOMMERCE_PID" value="" force="true"/>
-        <env name="ANTHROPIC_API_KEY" value="" force="true"/>
         <env name="OPENAI_API_KEY" value="" force="true"/>
         <env name="GEMINI_API_KEY" value="" force="true"/>
         <env name="YOUTUBE_API_KEY" value="" force="true"/>
@@ -59,5 +58,15 @@
         <env name="TWITTER_ACCESS_TOKEN_SECRET" value="" force="true"/>
         <env name="SLACK_BOT_USER_OAUTH_TOKEN" value="" force="true"/>
         <env name="INDEXNOW_KEY" value="" force="true"/>
+
+        <!-- Anthropic だけは「空」でなくダミー値にする。Garage の OCR/音声テストは HTTP を Http::fake し、
+             かつ GarageAiExtractor の `if (! $apiKey) throw`（→502）ガードを通す必要があるため。
+             ダミーなので実キーは使わず、fake 忘れ時はダミーキーで 401→502 と loud に落ちる（実APIに成功アクセスしない）。 -->
+        <env name="ANTHROPIC_API_KEY" value="testing-dummy-key" force="true"/>
+
+        <!-- バックアップ保存先を test では local に固定（コンテナが R2_ENDPOINT/BACKUP_DISK を
+             実env varで渡しても force で上書き）。BackupConfigTest の「R2未設定→local」前提を成立させる。 -->
+        <env name="R2_ENDPOINT" value="" force="true"/>
+        <env name="BACKUP_DISK" value="local" force="true"/>
     </php>
 </phpunit>
