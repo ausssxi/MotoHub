@@ -17,9 +17,11 @@ function tireModel(?string $front, ?string $rear = null, string $name = 'テス�
         $m = new Manufacturer;
         $m->forceFill(['name' => 'ホンダ', 'slug' => 'honda-tire'])->save();
     }
+    $uniq = uniqid();
     $bm = new BikeModel;
     $bm->forceFill([
-        'manufacturer_id' => $m->id, 'name' => $name, 'slug' => 'tire-'.uniqid(),
+        // name も slug と同様にユニーク化（bike_models.name の UNIQUE 制約対策。1テスト内で複数台作るため）。
+        'manufacturer_id' => $m->id, 'name' => $name.'-'.$uniq, 'slug' => 'tire-'.$uniq,
         'tire_size_front' => $front, 'tire_size_rear' => $rear,
     ])->save();
 
