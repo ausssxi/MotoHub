@@ -510,6 +510,9 @@
                     {{-- メンテナンス情報：バッテリーの目安（面②・verified時のみ表示・型番非表示でカニバリ回避） --}}
                     @include('bikes.partials.maintenance-battery', ['model' => $model])
 
+                    {{-- メンテナンス情報：タイヤサイズの目安（面②・データ有時のみ表示・正規化サイズ＋商品アフィリ） --}}
+                    @include('bikes.partials.maintenance-tire', ['model' => $model])
+
                     {{-- 車種紹介テキスト（SEOの要） --}}
                     <div id="overview" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
                         <h2 class="text-xl font-black text-gray-900 mb-4 flex items-center gap-2">
