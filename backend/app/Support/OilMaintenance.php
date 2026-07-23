@@ -35,7 +35,8 @@ final class OilMaintenance
             'rich' => $rich,
             'general' => $general,
             'oil_keyword' => $oilKeyword,
-            'filter_search_url' => route('parts.search', ['keyword' => $model->name.' オイルフィルター']),
+            // parts.search は JSON API（生JSONが表示される）。人間が見る HTML の価格比較ページ parts.compare へ送る。
+            'filter_search_url' => route('parts.compare', ['keyword' => $model->name.' オイルフィルター']),
             'article_url' => (string) config('fitments.tasks.oil.article_url', ''),
             'checked_at' => (string) config('fitments.oil_general.checked_at', ''),
         ];

@@ -55,7 +55,8 @@ final class BatteryMaintenance
             'frame_count' => $rows->count(),
             'product_keyword' => $productKeyword,
             'fitment_url' => route('fitments.show', ['bikeModel' => $model->slug, 'task' => 'battery']),
-            'search_url' => route('parts.search', ['keyword' => $model->name.' バッテリー']),
+            // parts.search は JSON API（生JSONが表示される）。人間が見る HTML の価格比較ページ parts.compare へ送る。
+            'search_url' => route('parts.compare', ['keyword' => $model->name.' バッテリー']),
             'sources' => self::sources($rows),
             'verified_at' => $rows->max('verified_at'),
         ];

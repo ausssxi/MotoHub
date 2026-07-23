@@ -145,6 +145,8 @@ it('falls back to a search link (no product cards) when part numbers vary across
     $html = view('bikes.partials.maintenance-battery', ['model' => $m])->render();
 
     expect($html)->toContain('対応バッテリーを探す')
+        ->toContain('/parts/compare')          // HTML価格比較ページへ（JSON API /parts/search ではない）
+        ->not->toContain('/parts/search')
         ->not->toContain('おすすめバッテリー')
         ->not->toContain('PR・広告');
 });

@@ -55,7 +55,8 @@ it('falls back to the displacement-band general guide when no verified oil row e
     expect($data['mode'])->toBe('general')
         ->and($data['general']['label'])->toBe('126〜250cc')
         ->and($data['general']['capacity'])->toBe('約1.0〜2.0L')
-        ->and($data['oil_keyword'])->toBe('バイク エンジンオイル 250cc');
+        // 一般モードの用品keywordは排気量サフィックスを付けず全帯共通（Yahoo誤マッチ回避・キャッシュ収束）。
+        ->and($data['oil_keyword'])->toBe('バイク エンジンオイル');
 });
 
 it('ignores non-verified oil rows (no fake data)', function () {
@@ -80,7 +81,9 @@ it('renders the rich block with DB values, sources and 「この車種の推奨�
     expect($html)->toContain('この車種の推奨')
         ->toContain('10W-40')->toContain('1.6L')->toContain('MA2')->toContain('6000km')
         ->toContain('メーカー公式')                         // 出典
-        ->toContain('オイルフィルターを探す');              // フィルタ検索リンク
+        ->toContain('オイルフィルターを探す')              // フィルタ検索リンク
+        ->toContain('/parts/compare')                       // HTML価格比較ページへ（JSON API /parts/search ではない）
+        ->not->toContain('/parts/search');
 });
 
 it('renders the general fallback block with band values, disclaimer and source', function () {
