@@ -84,6 +84,9 @@ it('collapses differing spec values across frame codes to 型式による and dr
 // ─────────── partial 描画（model_detail はSQLite描画不可のため partial 単体で検証） ───────────
 
 it('renders the rich block with 区分 and 適合表 link but NOT the part number (カニバリ回避)', function () {
+    // 用品APIは未設定＝商品カードは出ない。keyword由来の型番が MotoHub 自前の chrome に漏れないことだけを検証。
+    // （他テストがキャッシュに入れた外部商品を引かないよう flush して分離する）
+    cache()->flush();
     $m = batteryModel();
     batteryFitment($m);
 
@@ -98,6 +101,7 @@ it('renders the rich block with 区分 and 適合表 link but NOT the part numbe
 });
 
 it('renders nothing when no verified battery row exists', function () {
+    cache()->flush();
     $html = view('bikes.partials.maintenance-battery', ['model' => batteryModel()])->render();
 
     expect(trim($html))->toBe('');
@@ -108,7 +112,7 @@ it('renders affiliate battery product cards (rel=nofollow sponsored + PR) when p
     cache()->flush();
     Http::fake([
         'openapi.rakuten.co.jp/*' => Http::response(['Items' => [['Item' => [
-            'itemCode' => 'shop:123', 'itemName' => 'テスト用バッテリー YTX4L-BS',
+            'itemCode' => 'shop:123', 'itemName' => 'テスト用バッテリー 12V VRLA', // 外部商品名に型番は入れない（テストの意図を純化）
             'mediumImageUrls' => [['imageUrl' => 'https://img.example/b.jpg']],
             'itemPrice' => 3980, 'itemUrl' => 'https://item.rakuten.co.jp/shop/battery/?scid=aff1',
         ]]]], 200),
