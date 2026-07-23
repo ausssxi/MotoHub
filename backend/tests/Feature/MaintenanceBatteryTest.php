@@ -84,9 +84,12 @@ it('collapses differing spec values across frame codes to 型式による and dr
 // ─────────── partial 描画（model_detail はSQLite描画不可のため partial 単体で検証） ───────────
 
 it('renders the rich block with 区分 and 適合表 link but NOT the part number (カニバリ回避)', function () {
-    // 用品APIは未設定＝商品カードは出ない。keyword由来の型番が MotoHub 自前の chrome に漏れないことだけを検証。
-    // （他テストがキャッシュに入れた外部商品を引かないよう flush して分離する）
+    // テスト環境は backend/.env の実クレデンシャルを読むため、fake を張らないと
+    // ProductSearchService が本物の楽天/Yahoo API を叩き、実在商品名（型番入り）が描画されてしまう。
+    // ここは「MotoHub 自前の chrome に型番が漏れない」ことだけを検証したいので、商品API応答を空に固定する。
     cache()->flush();
+    Http::fake(['*' => Http::response([], 200)]);
+
     $m = batteryModel();
     batteryFitment($m);
 
