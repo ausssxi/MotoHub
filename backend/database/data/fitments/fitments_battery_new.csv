@@ -1,0 +1,8 @@
+bike_model_id,model_name_check,model_slug,task,frame_code,year_range,oem_part_no,recommended_part_no,compatibles,spec,source_1_name,source_1_url,source_2_name,source_2_url,verified_at,note
+439,ジョルノ,giorno,battery,,,,GTZ6V,,voltage=12V;capacity=5Ah;type=VRLA,Honda公式Q&A(原付一種) qa016,https://www.honda.co.jp/customer/motor/scooter50/faq/qa016/,,,2026-07-25,"ジョルノ/タクト/Dunk=GS YUASA GTZ6V(FAQ明記)。互換品は要確認。"
+4766,ファツィオ,fazzio-125,battery,8BJ-SEL6J,,,YTZ7V,,voltage=12V;capacity=6Ah;type=VRLA,ヤマハ ファツィオ 価格・仕様ページ,https://www.yamaha-motor.co.jp/mc/lineup/fazzio/spec.html,,,2026-07-25,"公式スペック:YTZ7V 12V-6.0Ah(10HR)。互換品は要確認。"
+1373,xsr155,xsr155,battery,MTM155-A,,,YTZ6V,,voltage=12V;capacity=5Ah;type=VRLA,ヤマハ XSR155(MTM155-A) 取扱説明書 DG0-F8199-J0,https://www2.yamaha-motor.co.jp/jp/manual/mc/index,,,2026-07-25,"取説:YTZ6V 12V-5.0Ah(10HR)。互換品は要確認。"
+1285,sr400,sr400,battery,,,,GT4B-5,,voltage=12V;capacity=2.5Ah;type=VRLA,ヤマハ SR400 取扱説明書 B9F-28199-J11,https://www2.yamaha-motor.co.jp/jp/manual/mc/index,,,2026-07-25,"取説:GT4B-5 12V-2.5Ah(10HR)。互換品は要確認。"
+1116,ハヤブサ,hayabusa-1300,battery,,,,HY110SS,,voltage=12V;capacity=6Ah;type=Li-ion,スズキ ハヤブサ 取扱説明書 99011-10L40,https://www1.suzuki.co.jp/motor/support/owners_manual/,,,2026-07-25,"取説諸元:リチウムイオンバッテリHY110SS 12V-6Ah。Li-ion専用・鉛用と非互換。互換品は要確認。"
+900,gixxer 250,gixxer-250,battery,,,,YTX7L-BS,,voltage=12V;capacity=6Ah;type=VRLA,スズキ GIXXER 250/SF 250 取扱説明書 99011-41KJ0,https://www1.suzuki.co.jp/motor/support/owners_manual/,,,2026-07-25,"取説諸元:YTX7L-BS メンテナンスフリー 12V-6Ah。GIXXER SF250共通。互換品は要確認。"
+898,gixxer 150,gixxer-150,battery,,,,FTX7L-BS,,voltage=12V;capacity=6Ah;type=VRLA,スズキ ジクサー(GIXXER 150) 取扱説明書 99011-34J10,https://www1.suzuki.co.jp/motor/support/owners_manual/,,,2026-07-25,"取説諸元:FTX7L-BS メンテナンスフリー 12V-6Ah。互換品は要確認。"
