@@ -510,6 +510,9 @@
                     {{-- メンテナンス情報：バッテリーの目安（面②・verified時のみ表示・型番非表示でカニバリ回避） --}}
                     @include('bikes.partials.maintenance-battery', ['model' => $model])
 
+                    {{-- メンテナンス情報：プラグの目安（面②・verified時のみ表示・型番非表示でカニバリ回避） --}}
+                    @include('bikes.partials.maintenance-plug', ['model' => $model])
+
                     {{-- メンテナンス情報：タイヤサイズの目安（面②・データ有時のみ表示・正規化サイズ＋商品アフィリ） --}}
                     @include('bikes.partials.maintenance-tire', ['model' => $model])
 
