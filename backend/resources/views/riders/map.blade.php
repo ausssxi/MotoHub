@@ -27,7 +27,47 @@
                 border-color: #f59e0b !important;
             }
             #map.has-spot-popup { z-index: 45 !important; }
-            @media (max-width: 640px) { #map { height: 50vh; } }
+
+            /* ===== モバイル全画面（地図主役）＋ 結果ボトムシート（ロケスマ風・A） ===== */
+            /* デスクトップ(≥768px)は従来レイアウト維持（このブロックは max-width:767px のみ） */
+            @media (max-width: 767px) {
+                /* B: /riders-map のモバイルのみ bottom-nav を隠して地図領域を最大化。
+                   このCSSは /riders-map の <style> にだけ載る＝他ページのボトムナビは無改変。
+                   ヘッダー（上部ナビ）は残す＝遷移動線を確保。 */
+                #bottom-nav { display: none !important; }
+                body { padding-bottom: 0 !important; }
+
+                /* 地図をビューポート占有（上部ナビ3.5rem のみ除く。bottom-nav が無いので viewport 下端まで） */
+                #map { height: calc(100dvh - 3.5rem); }
+
+                /* 結果（件数バー＋カード列）を下からのボトムシート化。折りたたみ時はピークバーのみ。
+                   bottom-nav 撤去に伴い bottom:0（viewport 下端）へ。 */
+                #results-sheet {
+                    position: fixed; left: 0; right: 0; bottom: 0;
+                    z-index: 44;
+                    background: #fff;
+                    border-radius: 16px 16px 0 0;
+                    box-shadow: 0 -4px 20px rgba(0,0,0,.14);
+                    transition: max-height .3s cubic-bezier(.4,0,.2,1);
+                    max-height: 68px;            /* peek: ハンドル＋件数バー（"地図内にN件"）が見える高さ */
+                    overflow: hidden;
+                }
+                #results-sheet.sheet-open { max-height: 56dvh; overflow: visible; }
+                #results-sheet .sheet-handle { display: flex; } /* モバイルのみハンドル表示 */
+
+                /* 浮遊コントロールは「シートpeek(68px) の上」へ（bottom-nav 撤去ぶん 60px 下げて再計算）。 */
+                #map-actions {
+                    position: absolute; left: 12px; right: 60px;
+                    bottom: calc(68px + 8px);  /* peek + 余白 */
+                    z-index: 43;
+                    border-radius: 12px;
+                }
+                #btn-current-location { bottom: calc(68px + 8px) !important; }
+                #map-legend { bottom: calc(68px + 8px + 48px) !important; }
+            }
+            /* デスクトップ: ハンドルは出さない（シートはただの通常フロー） */
+            .sheet-handle { display: none; }
+
             .scrollbar-hide::-webkit-scrollbar { display: none; }
             .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
             .leaflet-routing-container { display: none !important; }
@@ -208,17 +248,44 @@
         </button>
 
         {{-- 凡例（SHOPピンの3区分・折りたたみ・過度にしない）。現在地ボタンの上。 --}}
-        <div class="absolute bottom-16 right-3 z-40" x-data="{ open: false }">
+        <div id="map-legend" class="absolute bottom-16 right-3 z-40" x-data="{ open: false }">
             <button type="button" @click="open = !open"
                     class="bg-white px-2.5 py-1.5 rounded-lg shadow-md border border-gray-200 text-[11px] font-bold text-gray-600 hover:text-blue-600 transition-colors flex items-center gap-1">
                 <i data-lucide="info" class="w-3.5 h-3.5"></i> 凡例
             </button>
             <div x-show="open" x-cloak x-transition
-                 class="absolute bottom-full right-0 mb-1.5 w-44 bg-white rounded-xl shadow-lg border border-gray-100 p-3 text-[11px] font-bold text-gray-600 space-y-1.5">
+                 class="absolute bottom-full right-0 mb-1.5 w-52 max-h-[70vh] overflow-y-auto bg-white rounded-xl shadow-lg border border-gray-100 p-3 text-[11px] font-bold text-gray-600 space-y-1.5">
                 <p class="text-[10px] text-gray-400 mb-1">SHOPピンの種類</p>
                 <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-[#dc2626] text-white items-center justify-center text-[8px] font-black">RB</span> チェーン店（色＋略称）</div>
                 <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-md bg-[#d97706] text-white items-center justify-center text-[8px] font-black">正規</span> メーカー正規店</div>
                 <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-white border-[3px] border-[#2563eb] items-center justify-center text-[9px]">&#x1F3CD;&#xFE0F;</span> その他のSHOP</div>
+                <p class="text-[10px] text-gray-400 mb-1 pt-1.5 border-t border-gray-100">駐車場ピンの種類</p>
+                <div class="flex items-center gap-2"><span class="inline-flex w-7 h-4 rounded bg-[#e4007f] text-white items-center justify-center text-[8px] font-black">ak</span> akippa</div>
+                <div class="flex items-center gap-2"><span class="inline-flex w-7 h-4 rounded bg-[#2563eb] text-white items-center justify-center text-[8px] font-black">eco</span> エコステーション21</div>
+                <div class="flex items-center gap-2"><span class="inline-flex w-7 h-4 rounded bg-[#f59e0b] text-white items-center justify-center text-[8px] font-black">P</span> その他運営（会社名表示）</div>
+                <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-white border-[3px] border-[#16a34a] items-center justify-center text-[9px]">&#x1F17F;&#xFE0F;</span> 市営・自治体</div>
+                <p class="text-[10px] text-gray-400 mb-1 pt-1.5 border-t border-gray-100">GSピンの種類（ひし形）</p>
+                <div class="grid grid-cols-2 gap-x-2 gap-y-1">
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#f97316]"></span> ENEOS</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#be123c]"></span> 出光</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#0891b2]"></span> コスモ</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#15803d]"></span> JA-SS</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#7c3aed]"></span> ホクレン</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#0d9488]"></span> キグナス</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#ca8a04]"></span> 太陽石油</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-flex w-4 h-4 rounded-sm rotate-45 bg-[#64748b]"></span> その他運営</div>
+                </div>
+                <p class="text-[10px] text-gray-400 mb-1 pt-1.5 border-t border-gray-100">コンビニピンの種類（六角形）</p>
+                <div class="grid grid-cols-2 gap-x-2 gap-y-1">
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#16a34a]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> セブン</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#1e40af]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> ファミマ</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#0ea5e9]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> ローソン</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#ca8a04]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> ミニストップ</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#dc2626]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> デイリー</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#ea580c]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> セイコマ</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#7c3aed]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> NewDays</div>
+                    <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#64748b]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> その他</div>
+                </div>
             </div>
         </div>
       </div>{{-- /#map-stage --}}
@@ -259,6 +326,13 @@
         </div>{{-- /#map-actions --}}
     </div>{{-- /outer --}}
 
+    {{-- 結果ボトムシート（モバイル=下からのシート・ピーク/展開 / デスクトップ=通常フロー） --}}
+    <div id="results-sheet" x-data="{ open: false }" :class="{ 'sheet-open': open }">
+    {{-- ハンドル（モバイルのみ・タップで展開/折りたたみ） --}}
+    <button type="button" class="sheet-handle w-full flex-col items-center pt-2 pb-1 bg-white" @click="open = !open" :aria-expanded="open" aria-label="結果パネルを開閉">
+        <span class="block w-10 h-1 rounded-full bg-gray-300"></span>
+    </button>
+
     {{-- ルート情報バー --}}
     <div id="route-info-bar" class="hidden bg-pink-50 border-t border-b border-pink-200 px-4 py-2 flex items-center gap-4">
         <div class="flex items-center gap-1.5">
@@ -271,10 +345,10 @@
         <span id="route-poi-count" class="text-xs font-bold text-purple-600"></span>
     </div>
 
-    {{-- 件数バー + 距離フィルタ --}}
-    <div class="bg-white border-t border-b border-gray-200 px-4 py-2 flex items-center gap-3">
+    {{-- 件数バー + 距離フィルタ（モバイルはタップでシート開閉。select はバブリング止め） --}}
+    <div class="bg-white border-t border-b border-gray-200 px-4 py-2 flex items-center gap-3 md:cursor-default cursor-pointer" @click="open = !open">
         <span id="result-count" class="text-sm font-black text-gray-800 shrink-0">地図内に0件</span>
-        <div id="distance-filter" class="flex items-center gap-1 ml-auto shrink-0" style="display:none;">
+        <div id="distance-filter" class="flex items-center gap-1 ml-auto shrink-0" style="display:none;" @click.stop>
             <select id="distance-select" class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-blue-300">
                 <option value="0">距離制限なし</option>
                 <option value="5">5km圏内</option>
@@ -282,6 +356,8 @@
                 <option value="20">20km圏内</option>
             </select>
         </div>
+        {{-- 開閉インジケータ（モバイルのみ） --}}
+        <i data-lucide="chevron-up" class="md:hidden w-4 h-4 text-gray-400 ml-auto transition-transform" :class="open ? '' : 'rotate-180'"></i>
         <span class="text-xs text-gray-400 shrink-0 hidden sm:inline">← スクロール →</span>
     </div>
 
@@ -291,6 +367,7 @@
          style="min-height: 120px;">
         <div class="flex items-center justify-center w-full text-sm text-gray-400">地図を移動するとスポットが表示されます</div>
     </div>
+    </div>{{-- /#results-sheet --}}
 
     {{-- 駐車場ページ・ツーリングガイドへのリンク --}}
     <div class="bg-white px-4 py-2 border-b border-gray-100 flex justify-end items-center gap-4">

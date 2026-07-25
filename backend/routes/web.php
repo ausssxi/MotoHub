@@ -467,6 +467,9 @@ Route::get('/shinkijun-gentsuki', [\App\Http\Controllers\ShinkijunGentsukiContro
 // 保険ハブ（情報提供＋一括見積もり送客・恒久slug）
 Route::get('/hoken', [\App\Http\Controllers\HokenController::class, 'show'])->name('hoken');
 
+// 盗難データハブ（情報提供＋盗難保険送客・恒久slug）
+Route::get('/theft', [\App\Http\Controllers\TheftController::class, 'show'])->name('theft');
+
 // お気に入り・比較機能 (未ログインでも閲覧可能なページ)
 Route::get('/wishlist', [BikeController::class, 'wishlist'])->name('wishlist');
 Route::get('/api/wishlist/fetch', [BikeController::class, 'fetchWishlist'])->name('api.wishlist.fetch');

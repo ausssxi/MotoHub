@@ -18,7 +18,8 @@ final class BikeParkingRepository
     public function findInBounds(float $swLat, float $swLng, float $neLat, float $neLng, ?string $parkingType = null, int $limit = 200): Collection
     {
         $query = BikeParking::query()
-            ->select(['id', 'name', 'address', 'latitude', 'longitude', 'prefecture', 'parking_type', 'price_per_hour', 'price_per_day', 'price_per_month', 'is_free', 'avg_rating', 'reviews_count', 'used_count', 'is_covered', 'is_locked', 'capacity', 'available_hours', 'price_detail'])
+            // management_company は運営ブランド判定用（クライアントへは送らず getParkingsInArea で hidden 化）。
+            ->select(['id', 'name', 'address', 'latitude', 'longitude', 'prefecture', 'parking_type', 'price_per_hour', 'price_per_day', 'price_per_month', 'is_free', 'avg_rating', 'reviews_count', 'used_count', 'is_covered', 'is_locked', 'capacity', 'available_hours', 'price_detail', 'management_company'])
             ->active()
             ->inBounds($swLat, $swLng, $neLat, $neLng);
 

@@ -44,7 +44,37 @@ final class PoiApiController extends Controller
                 ->get(['id', 'osm_id', 'type', 'name', 'latitude', 'longitude', 'address', 'brand', 'opening_hours']);
         });
 
-        return response()->json($pois);
+        return response()->json($this->withPoiBrands($pois));
+    }
+
+    /**
+     * GS(gas_brand/gas_operator)・コンビニ(cvs_brand/cvs_operator)に運営ブランドを注入し、
+     * 'exclude'（非GS誤ラベル/閉店タグ）はペイロードから落とす。
+     *
+     * ★キャッシュ「取得後」に適用＝デプロイ直後から即反映（1hキャッシュの再生成待ちが不要）。
+     *   対象外のtype（道の駅等）はそのまま素通し。
+     */
+    private function withPoiBrands(\Illuminate\Support\Collection|\Illuminate\Database\Eloquent\Collection $pois): \Illuminate\Support\Collection
+    {
+        return $pois->map(function (Poi $poi) {
+            if ($poi->type === 'gas_station') {
+                $brand = Poi::gasBrand($poi->brand);
+                if ($brand === 'exclude') {
+                    return null; // 非GS誤ラベルは地図に出さない
+                }
+                $poi->setAttribute('gas_brand', $brand);
+                $poi->setAttribute('gas_operator', Poi::gasOperatorLabel($poi->brand, $brand));
+            } elseif ($poi->type === 'convenience_store') {
+                $brand = Poi::cvsBrand($poi->brand);
+                if ($brand === 'exclude') {
+                    return null; // 閉店タグ(disused:)は地図に出さない
+                }
+                $poi->setAttribute('cvs_brand', $brand);
+                $poi->setAttribute('cvs_operator', Poi::cvsOperatorLabel($poi->brand, $brand));
+            }
+
+            return $poi;
+        })->filter()->values();
     }
 
     public function alongRoute(Request $request): JsonResponse
@@ -119,7 +149,7 @@ final class PoiApiController extends Controller
             return array_map(fn ($r) => $r['poi'], $results);
         });
 
-        return response()->json($pois);
+        return response()->json($this->withPoiBrands(collect($pois)));
     }
 
     /**

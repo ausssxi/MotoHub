@@ -34,7 +34,8 @@ it('uses the same button classes as the 質問する CTA (blue, build-safe)', fu
     // 質問する と同一クラス（bg-blue-600 / hover:bg-blue-700 / rounded-full）を流用
     expect($b)->toContain('bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700');
     // 旧・レビュー書くボタンの bg-black は残っていない（青に統一）
-    $digest = substr($b, strpos($b, 'オーナーの声 ダイジェスト'), strpos($b, 'id="tab-panel-overview"') - strpos($b, 'オーナーの声 ダイジェスト'));
+    // ダイジェストは概要パネル内（overview開始の後）へ移動したため、終端は次タブ(market)を基準にする。
+    $digest = substr($b, strpos($b, 'オーナーの声 ダイジェスト'), strpos($b, 'id="tab-panel-market"') - strpos($b, 'オーナーの声 ダイジェスト'));
     expect($digest)->not->toContain('bg-black');
 });
 

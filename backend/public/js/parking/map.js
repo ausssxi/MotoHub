@@ -15,7 +15,12 @@ document.addEventListener('DOMContentLoaded', () => {
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
 
-    let markers = [];
+    // マーカークラスタリング（ライダーズマップと同方式）。CDN未ロード時は素の layerGroup にフォールバック。
+    const clusterGroup = (typeof L.markerClusterGroup === 'function')
+        ? L.markerClusterGroup({ maxClusterRadius: 50, showCoverageOnHover: false, spiderfyOnMaxZoom: true, chunkedLoading: true })
+        : L.layerGroup();
+    clusterGroup.addTo(map);
+
     let parkingsCache = [];
     let debounceTimer = null;
     let isPanning = false;
@@ -237,20 +242,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const parkings = await response.json();
             parkingsCache = parkings;
 
-            // マーカー更新
-            markers.forEach(m => map.removeLayer(m));
-            markers = [];
+            // マーカー更新（クラスタごとクリア）
+            clusterGroup.clearLayers();
 
             parkings.forEach(p => {
                 const hasReviews = p.reviews_count > 0;
-                const marker = L.marker([p.latitude, p.longitude], { icon: createParkingIcon(hasReviews) }).addTo(map);
+                const marker = L.marker([p.latitude, p.longitude], { icon: createParkingIcon(hasReviews) }).addTo(clusterGroup);
 
                 // マーカークリック → パネル表示
                 marker.on('click', () => {
                     openPanel(p);
                 });
-
-                markers.push(marker);
             });
 
             // カード描画

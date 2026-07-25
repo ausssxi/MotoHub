@@ -133,6 +133,9 @@ class GenerateSitemap extends Command
             // 保険ハブ（維持費早見表+一括見積もり送客・恒久slug）
             ['route' => 'hoken', 'priority' => '0.7', 'freq' => 'monthly'],
 
+            // 盗難データハブ（全国オートバイ盗トレンド+盗難保険送客・恒久slug）
+            ['route' => 'theft', 'priority' => '0.7', 'freq' => 'monthly'],
+
             // 駐車場マップ
             ['route' => 'parking.index',     'priority' => '0.8', 'freq' => 'daily'],
 

@@ -10,16 +10,19 @@ function detailBlade(): string
 
 // ─────────── A. ダイジェストの新設・位置 ───────────
 
-it('renders the owner-voice digest before the tab panels (visible without operating tabs)', function () {
+it('renders the owner-voice digest inside the overview tab (hidden on other tabs)', function () {
     $b = detailBlade();
 
     expect($b)->toContain('オーナーの声 ダイジェスト')          // 新設セクション
         ->toContain('オーナーレビュー')
         ->toContain('クチコミ・相談');
 
-    // ダイジェストはタブ内容(tab-panel-overview)より手前に置かれている
-    expect(strpos($b, 'オーナーの声 ダイジェスト'))
-        ->toBeLessThan(strpos($b, 'id="tab-panel-overview"'));
+    // ダイジェストは概要パネル内に置かれる（overviewパネル開始の後・marketタブより前）＝
+    // 概要タブでのみ表示、他タブ（相場/在庫/パーツ/ニュース）ではパネルごと非表示になる。
+    $digestPos = strpos($b, 'オーナーの声 ダイジェスト');
+    expect($digestPos)
+        ->toBeGreaterThan(strpos($b, 'id="tab-panel-overview"'))
+        ->toBeLessThan(strpos($b, 'id="tab-panel-market"'));
 });
 
 it('reuses existing controller variables for the digest (no new query)', function () {

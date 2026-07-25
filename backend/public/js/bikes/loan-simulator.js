@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 初期設定 (Bladeからデータ属性で渡された総額を取得)
     const totalPrice = parseInt(container.dataset.totalPrice) * 10000; // 万円 -> 円
-    const defaultRate = 5.9; // 年利(%)
+    const defaultRate = 4.9; // 年利(%)（静的目安ブロック / config loan.sample_apr と一致）
 
     // 要素の取得
     const inputs = {

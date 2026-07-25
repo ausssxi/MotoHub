@@ -199,4 +199,59 @@ final class BikeParking extends Model
 
         return $parts ? implode(' / ', $parts) : '料金不明';
     }
+
+    /**
+     * 運営会社（management_company）から地図ピンの運営分類キーを返す。
+     *
+     *  (A) 市区町村名で終わる（＝自治体名だけ） / NULL・空 → null（緑🅿️・バッジなし）
+     *  (B) それ以外＝具体的な組織名 → config/parking.php brands に一致すればそのキー、
+     *      一致しなければ 'other'（共通色バッジ＋会社名短縮ラベル）
+     *
+     * ★(A)判定は「正規化後の末尾が[市区町村]の1文字」で行う（実データ43,950件で検証済）。
+     *   このため「岡山市北区」のように"区で終わる"文字列も(A)に落ちる既知の性質があるが、
+     *   実データに該当は無い（本物は「岡山市北区役所維持管理課…」で末尾が[市区町村]でないため(B)）。
+     */
+    public static function parkingBrand(?string $mgmt): ?string
+    {
+        if ($mgmt === null || trim($mgmt) === '') {
+            return null; // 運営会社なし → 緑
+        }
+
+        // (A) 末尾の全半角スペースだけ落として「市区町村で終わるか」を判定（検証tinkerと同一ロジック）。
+        $trimmed = preg_replace('/[\s\x{3000}]+$/u', '', trim($mgmt)) ?? '';
+        if (preg_match('/[市区町村]$/u', $trimmed)) {
+            return null;
+        }
+
+        // (B) 組織名あり → 固有ブランド照合（両辺を正規化して部分一致）。
+        $normalized = \App\Support\ShopNameNormalizer::normalize($mgmt);
+        foreach ((array) config('parking.brands', []) as $key => $def) {
+            foreach (($def['patterns'] ?? []) as $pattern) {
+                $needle = \App\Support\ShopNameNormalizer::normalize((string) $pattern);
+                if ($needle !== '' && str_contains($normalized, $needle)) {
+                    return $key;
+                }
+            }
+        }
+
+        return 'other'; // 具体組織だが固有ブランド外 → 共通色バッジ
+    }
+
+    /**
+     * 地図ピン/詳細に出す運営表示名。固有ブランドは config の表示名、
+     * 'other' は会社名を短縮（長い役所名などをピンに載せられる長さに）。緑（null）は表示名なし。
+     */
+    public static function parkingOperatorLabel(?string $mgmt, ?string $brand): ?string
+    {
+        if ($brand === null) {
+            return null;
+        }
+        if ($brand !== 'other') {
+            return config("parking.brands.$brand.name", $brand);
+        }
+
+        $name = trim((string) $mgmt);
+
+        return mb_strlen($name) > 10 ? mb_substr($name, 0, 10).'…' : $name;
+    }
 }

@@ -69,7 +69,7 @@
                     <i data-lucide="sparkles" class="w-5 h-5 text-purple-600"></i>
                 </div>
                 <div>
-                    <p class="text-sm font-black text-gray-900">バイク診断</p>
+                    <p class="text-sm font-black text-gray-900">バイク相性診断</p>
                     <p class="text-[10px] text-gray-400">あなたにぴったりのバイクを診断</p>
                 </div>
             </a>

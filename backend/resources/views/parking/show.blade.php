@@ -209,7 +209,8 @@
                     </div>
 
                     @if($parking->notes || $parking->price_detail)
-                    <p class="text-sm text-gray-500 mt-2">※{{ $parking->notes ?: $parking->price_detail }}</p>
+                    {{-- notes内の生akippa URLは除去（成果漏れ防止・導線はディープリンクCTAに一本化・文言は残す） --}}
+                    <p class="text-sm text-gray-500 mt-2">※{{ $parking->notes ? \App\Support\AkippaLink::stripAkippaUrl($parking->notes) : $parking->price_detail }}</p>
                     @endif
                 </div>
 
@@ -256,7 +257,7 @@
                 {{-- description（notesと別の補足情報がある場合のみ表示） --}}
                 @if($parking->description && $parking->description !== $parking->notes)
                 <div class="bg-gray-50 rounded-xl p-4 mb-5">
-                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ $parking->description }}</p>
+                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ \App\Support\AkippaLink::stripAkippaUrl($parking->description) }}</p>
                 </div>
                 @endif
 
@@ -269,10 +270,18 @@
                     <p>情報更新日: {{ $parking->jmpsa_updated_at->format('Y年n月j日') }}</p>
                     @endif
                     @if($parking->source_url)
+                    {{-- akippa.com の出典は直リンクを外す（アフィリを経由しない予約直リンク＝成果漏れ防止）。導線はCTA(ディープリンク)に一本化。 --}}
+                    @if(\Illuminate\Support\Str::startsWith($parking->source_url, 'https://www.akippa.com/'))
+                    <p>出典: <span class="text-gray-500">{{ parse_url($parking->source_url, PHP_URL_HOST) }}</span></p>
+                    @else
                     <p>出典: <a href="{{ $parking->source_url }}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">{{ parse_url($parking->source_url, PHP_URL_HOST) }}</a></p>
+                    @endif
                     @endif
                 </div>
             </div>
+
+            {{-- akippa 予約駐車場CTA（料金ヒーロー直後・env未設定時は非表示・PR/広告・rel=nofollow sponsored） --}}
+            @include('parking.partials.akippa-cta')
 
             {{-- 口コミサマリー（検索流入者のファーストビュー用・料金の下に埋もれさせず本体へアンカー） --}}
             <a href="#reviews" class="block bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6 hover:border-green-200 transition-colors">

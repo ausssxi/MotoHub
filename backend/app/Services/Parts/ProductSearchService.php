@@ -52,20 +52,15 @@ final class ProductSearchService
         $cacheKey = 'garage_product_search_'.md5($keyword.'_'.$hits);
 
         return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($keyword, $hits) {
-            $items = array_merge(
+            // 各モールAPIの関連度順を尊重してマージ（楽天→Yahoo）。
+            // ★価格昇順ソートは廃止する：Yahoo はジャンル絞りが無く、最安の無関係品
+            //   （チェーンクリップ¥5・ドレンパッキン¥15 等）が上位に浮上し、楽天の良質な該当商品を
+            //   押しのけて「おすすめ商品」枠を汚染していた（本番のオイル/バッテリー枠で誤表示が発生）。
+            //   関連度順なら各モールが該当商品を上位に返すため、先頭 slice がそのまま良質候補になる。
+            return array_merge(
                 $this->searchRakuten($keyword, $hits),
                 $this->searchYahoo($keyword, $hits),
             );
-
-            // 価格昇順（安い順）。価格0（不明）は末尾。
-            usort($items, function ($a, $b) {
-                $pa = $a['price'] > 0 ? $a['price'] : PHP_INT_MAX;
-                $pb = $b['price'] > 0 ? $b['price'] : PHP_INT_MAX;
-
-                return $pa <=> $pb;
-            });
-
-            return $items;
         });
     }
 
@@ -139,11 +134,12 @@ final class ProductSearchService
         }
 
         try {
+            // sort は指定しない＝Yahoo 既定の関連度（-score）順。
+            // ★以前の '+price'（価格昇順）は最安の無関係品を上位に押し上げ、おすすめ枠を汚染していた。
             $response = Http::timeout(self::TIMEOUT)->get(self::YAHOO_URL, [
                 'appid' => $clientId,
                 'query' => $keyword,
                 'results' => $hits,
-                'sort' => '+price',
             ]);
 
             if (! $response->successful()) {

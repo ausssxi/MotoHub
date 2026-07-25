@@ -704,8 +704,13 @@ final class BikeController extends Controller
                 }
             }
 
+            // ローン「月々の目安」はサーバー描画（薄コンテンツ対策＋UX）。生・円モデルで価格解決するため
+            // Resource変換前の $listing を渡す（総額 ?? 本体・min_price判定はヘルパーに集約）。ライブ/売り切れ共通。
+            $loanEstimate = \App\Support\LoanEstimate::forListing($listing);
+
             return view('bikes.show', [
                 'listing' => $data,
+                'loanEstimate' => $loanEstimate,
                 'bikeModelForUrl' => $listing->bikeModel,
                 'relatedListings' => ListingResource::collection($relatedRaw)->resolve(),
                 'similarListings' => ListingResource::collection($similarRaw)->resolve(),
