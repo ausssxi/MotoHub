@@ -1,0 +1,6 @@
+bike_model_id,model_name_check,model_slug,task,frame_code,year_range,oem_part_no,recommended_part_no,compatibles,spec,source_1_name,source_1_url,source_2_name,source_2_url,verified_at,note_public,note_internal,cost_oil_range,cost_shop_range,cost_diy_range,cost_updated_at
+898,"gixxer 150",gixxer-150,plug,,,,CPR7EA-9,,heat=7;plugs=1,"スズキ ジクサー(GIXXER 150) 取扱説明書 99011-34J10",https://www1.suzuki.co.jp/motor/support/owners_manual/,,,2026-07-25,,"取説諸元:標準 NGK CPR7EA-9(DENSO U22EPR9/CHAMPION RG8YC)・ギャップ0.8-0.9mm。単気筒。",,,,
+900,"gixxer 250",gixxer-250,plug,,,,MR8E-9,,heat=8;plugs=1,"スズキ GIXXER 250/SF 250 取扱説明書 99011-41KJ0",https://www1.suzuki.co.jp/motor/support/owners_manual/,,,2026-07-25,,"取説諸元:標準プラグ NGK MR8E-9。単気筒。GIXXER SF250共通。",,,,
+1116,ハヤブサ,hayabusa-1300,plug,,,,CR8EIA-9,,heat=8;plugs=4,"スズキ ハヤブサ 取扱説明書 99011-10L40",https://www1.suzuki.co.jp/motor/support/owners_manual/,,,2026-07-25,,"取説諸元:標準プラグ NGK CR8EIA-9・ギャップ0.8-0.9mm。4気筒。",,,,
+1285,sr400,sr400,plug,,,,BPR6ES,,heat=6;plugs=1,"ヤマハ SR400 取扱説明書 B9F-28199-J11",https://www2.yamaha-motor.co.jp/jp/manual/mc/index,,,2026-07-25,,"取説:標準プラグ NGK BPR6ES・ギャップ0.7-0.8mm。単気筒。",,,,
+1373,xsr155,xsr155,plug,MTM155-A,,,MR8E-9,,heat=8;plugs=1,"ヤマハ XSR155(MTM155-A) 取扱説明書 DG0-F8199-J0",https://www2.yamaha-motor.co.jp/jp/manual/mc/index,,,2026-07-25,,"取説:標準プラグ NGK MR8E9(=MR8E-9)・ギャップ0.8-0.9mm。単気筒。",,,,
