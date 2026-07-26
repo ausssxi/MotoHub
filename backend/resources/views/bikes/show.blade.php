@@ -46,11 +46,13 @@
          Google含むその他の bot と人間は従来どおり noindex,follow を維持。
          ※本文HTMLは全UA共通でクローキングではない（変えるのは robots 指示値だけ）。
          ※UA詐称対策(reverse DNS による正規Bingbot検証)は未実装。必要になれば
-           ここを controller 側のフラグ＋RDNS検証へ差し替える設計余地を残す。 --}}
+           ここを controller 側のフラグ＋RDNS検証へ差し替える設計余地を残す。
+         ※売り切れ個体は在庫ゼロで購入不可のため、Bingbotに対しても noindex,follow とする。 --}}
     @php
         $isBingbot = str_contains(strtolower(request()->userAgent() ?? ''), 'bingbot');
+        $isSoldOut = (bool) ($listing->is_sold_out ?? false);
     @endphp
-    <x-slot:robotsMeta>{{ $isBingbot ? 'index, follow' : 'noindex, follow' }}</x-slot:robotsMeta>
+    <x-slot:robotsMeta>{{ ($isBingbot && ! $isSoldOut) ? 'index, follow' : 'noindex, follow' }}</x-slot:robotsMeta>
 
     {{-- OGP画像は常に自動生成の相場比較グラフ（deal_ogp）を使う。
          販売店写真（$listing->images）は販売店の著作物のためOGP/SNSカードには使わない。 --}}
