@@ -43,3 +43,4 @@ backend/node_modules/puppeteer/
 
 # Viteビルド成果物は derived（deploy時 npm run build で生成）＝コミットしない
 backend/public/build/
+*:Zone.Identifier

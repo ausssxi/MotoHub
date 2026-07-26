@@ -42,6 +42,8 @@ use App\Http\Controllers\Shindan\ShindanController;
 use App\Http\Controllers\Shop\ShopAreaController;
 use App\Http\Controllers\Shop\ShopController;
 use App\Http\Controllers\Trouble\TroubleController;
+use App\Http\Controllers\License\LicenseController;
+use App\Http\Controllers\License\LicenseSchoolController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -686,3 +688,12 @@ use App\Http\Controllers\FeedController;
 Route::get('/feed/news', [FeedController::class, 'news'])->name('feed.news');
 Route::get('/feed/blog', [FeedController::class, 'blog'])->name('feed.blog');
 Route::get('/feed/original', [FeedController::class, 'original'])->name('feed.original');
+
+// バイク免許ガイド
+Route::get('/license', [LicenseController::class, 'index'])->name('license.index');
+// 二輪教習が受けられる指定自動車教習所一覧（/license/{class} ワイルドカードより前に定義すること）
+Route::get('/license/schools', [LicenseSchoolController::class, 'index'])->name('license.schools.index');
+Route::get('/license/schools/{pref}', [LicenseSchoolController::class, 'show'])->name('license.schools.show')
+    ->where('pref', '[a-z]+');
+Route::get('/license/{class}', [LicenseController::class, 'show'])->name('license.show')
+    ->where('class', 'gentsuki|kogata|futsuu|oogata');
