@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Models\BikeModel;
 use App\Models\BikeParking;
 use App\Models\Category;
+use App\Models\DrivingSchool;
 use App\Models\Listing;
 use App\Models\Manufacturer;
 use App\Models\SeoCompare;
@@ -171,10 +172,37 @@ class GenerateSitemap extends Command
             ['route' => 'pages.contact',     'priority' => '0.3', 'freq' => 'monthly'],
             ['route' => 'pages.privacy-policy', 'priority' => '0.1', 'freq' => 'yearly'],
             ['route' => 'pages.terms',       'priority' => '0.1', 'freq' => 'yearly'],
+            // バイク免許ガイド
+            ['route' => 'license.index', 'priority' => '0.7', 'freq' => 'weekly'],
+            ['route' => 'license.show', 'params' => ['class' => 'gentsuki'], 'priority' => '0.6', 'freq' => 'weekly'],
+            ['route' => 'license.show', 'params' => ['class' => 'kogata'], 'priority' => '0.6', 'freq' => 'weekly'],
+            ['route' => 'license.show', 'params' => ['class' => 'futsuu'], 'priority' => '0.6', 'freq' => 'weekly'],
+            ['route' => 'license.show', 'params' => ['class' => 'oogata'], 'priority' => '0.6', 'freq' => 'weekly'],
+            // 二輪教習が受けられる指定自動車教習所（都道府県別）
+            ['route' => 'license.schools.index', 'priority' => '0.6', 'freq' => 'weekly'],
         ];
 
+        // 教習所の都道府県ページは、公開データがある県だけを動的に追加する。
+        // （0件の県は show() が abort(404) するため、404 URL を sitemap に載せない。
+        //  公開判定は LicenseSchoolController と同一条件: published() + nirin()。）
+        DrivingSchool::query()
+            ->published()
+            ->nirin()
+            ->select('prefecture_slug')
+            ->distinct()
+            ->orderBy('prefecture_slug')
+            ->pluck('prefecture_slug')
+            ->each(function (string $slug) use (&$staticPages) {
+                $staticPages[] = [
+                    'route' => 'license.schools.show',
+                    'params' => ['pref' => $slug],
+                    'priority' => '0.6',
+                    'freq' => 'weekly',
+                ];
+            });
+
         foreach ($staticPages as $page) {
-            $this->writeUrl($handle, route($page['route']), date('Y-m-d'), $page['freq'], $page['priority']);
+            $this->writeUrl($handle, route($page['route'], $page['params'] ?? []), date('Y-m-d'), $page['freq'], $page['priority']);
             $count++;
         }
 
