@@ -23,7 +23,7 @@ final class LicenseSchoolController extends Controller
         $prefectures = DrivingSchool::query()
             ->published()
             ->nirin()
-            ->selectRaw('prefecture_slug, prefecture, COUNT(*) as count')
+            ->selectRaw('prefecture_slug, prefecture, COUNT(*) as count, MAX(verified_at) as last_verified')
             ->groupBy('prefecture_slug', 'prefecture')
             ->orderBy('prefecture_slug')
             ->get();

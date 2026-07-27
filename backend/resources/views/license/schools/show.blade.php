@@ -76,6 +76,9 @@
 
             {{-- 免責文・出典 --}}
             <section class="border-t border-slate-200 pt-6">
+                @if($lastVerified)
+                    <p class="text-[11px] text-slate-400 mb-3">最終確認: {{ $lastVerified->format('Y') }}年{{ $lastVerified->format('n') }}月</p>
+                @endif
                 <p class="text-[11px] text-slate-400 leading-relaxed">
                     この一覧は各都道府県の指定自動車教習所協会が公表している会員校リストをもとに作成しています。協会に加盟していない教習所や、掲載後に取扱いが変わった教習所は反映されていない場合があります。教習料金・入校条件・二輪教習の実施状況は各教習所が個別に定めているため、お申し込み前に必ず各校の公式サイトでご確認ください。
                 </p>
@@ -83,7 +86,6 @@
                     @foreach($sourceUrls as $url)
                         出典：<a href="{{ $url }}" target="_blank" rel="nofollow noopener" class="text-blue-600 hover:underline">{{ $url }}</a>@if(!$loop->last)<br>@endif
                     @endforeach
-                    （最終確認：{{ $lastVerified?->format('Y-m-d') }}）
                 </p>
             </section>
 

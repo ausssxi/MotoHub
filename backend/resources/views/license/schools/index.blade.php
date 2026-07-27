@@ -41,6 +41,10 @@
                                     <span class="font-black text-slate-900 text-lg">{{ $p->prefecture }}</span>
                                     <span class="text-sm font-black text-blue-700 tabular-nums">{{ number_format($p->count) }}校</span>
                                 </div>
+                                @if($p->last_verified)
+                                    @php($lv = \Illuminate\Support\Carbon::parse($p->last_verified))
+                                    <div class="text-[11px] text-slate-400 mt-1">最終確認: {{ $lv->format('Y') }}年{{ $lv->format('n') }}月</div>
+                                @endif
                             </a>
                         @endforeach
                     </div>
