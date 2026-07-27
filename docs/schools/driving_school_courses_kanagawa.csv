@@ -1,0 +1,10 @@
+prefecture_slug,school_name,vehicle_class,transmission,prerequisite,enrollment_type,price_yen,price_note,source_url,verified_at,verify_method
+kanagawa,秦野自動車教習所,futsuu_nirin,mt,none,commute,163570,"規定時限で卒業した場合の総額（入所金・学科・教本・写真・技能・卒業検定・卒業証明書を含む／税込／2025年4月1日現在）。超過分は別途",https://hadano-ds.co.jp/info/wp-content/uploads/price_nirin20250401_2.pdf,2026-07-27,human
+kanagawa,秦野自動車教習所,futsuu_nirin,at,none,commute,150370,"規定時限で卒業した場合の総額（入所金・学科・教本・写真・技能・卒業検定・卒業証明書を含む／税込／2025年4月1日現在）。超過分は別途",https://hadano-ds.co.jp/info/wp-content/uploads/price_nirin20250401_2.pdf,2026-07-27,human
+kanagawa,秦野自動車教習所,futsuu_nirin,mt,car,commute,104720,"規定時限で卒業した場合の総額（入所金・学科・教本・写真・技能・卒業検定・卒業証明書を含む／税込／2025年4月1日現在）。超過分は別途",https://hadano-ds.co.jp/info/wp-content/uploads/price_nirin20250401_2.pdf,2026-07-27,human
+kanagawa,秦野自動車教習所,futsuu_nirin,at,car,commute,91520,"規定時限で卒業した場合の総額（入所金・学科・教本・写真・技能・卒業検定・卒業証明書を含む／税込／2025年4月1日現在）。超過分は別途",https://hadano-ds.co.jp/info/wp-content/uploads/price_nirin20250401_2.pdf,2026-07-27,human
+kanagawa,秦野自動車教習所,kogata_nirin,mt,none,commute,140470,"規定時限で卒業した場合の総額（入所金・学科・教本・写真・技能・卒業検定・卒業証明書を含む／税込／2025年4月1日現在）。超過分は別途",https://hadano-ds.co.jp/info/wp-content/uploads/price_nirin20250401_2.pdf,2026-07-27,human
+kanagawa,秦野自動車教習所,kogata_nirin,at,none,commute,130570,"規定時限で卒業した場合の総額（入所金・学科・教本・写真・技能・卒業検定・卒業証明書を含む／税込／2025年4月1日現在）。超過分は別途",https://hadano-ds.co.jp/info/wp-content/uploads/price_nirin20250401_2.pdf,2026-07-27,human
+kanagawa,秦野自動車教習所,kogata_nirin,mt,car,commute,81620,"規定時限で卒業した場合の総額（入所金・学科・教本・写真・技能・卒業検定・卒業証明書を含む／税込／2025年4月1日現在）。超過分は別途",https://hadano-ds.co.jp/info/wp-content/uploads/price_nirin20250401_2.pdf,2026-07-27,human
+kanagawa,秦野自動車教習所,kogata_nirin,at,car,commute,75020,"規定時限で卒業した場合の総額（入所金・学科・教本・写真・技能・卒業検定・卒業証明書を含む／税込／2025年4月1日現在）。超過分は別途",https://hadano-ds.co.jp/info/wp-content/uploads/price_nirin20250401_2.pdf,2026-07-27,human
+kanagawa,秦野自動車教習所,oogata_nirin,mt,futsuu_nirin_mt,commute,111100,"規定時限で卒業した場合の総額（入所金・学科・教本・写真・技能・卒業検定・卒業証明書を含む／税込／2025年4月1日現在）。超過分は別途",https://hadano-ds.co.jp/info/wp-content/uploads/price_oogatanirin20250401.pdf,2026-07-27,human
