@@ -58,3 +58,5 @@ backend/public/build/
 
 # Viteのビルドキャッシュ（自動再生成される）
 backend/node_modules/.vite/
+__pycache__/
+*.pyc
