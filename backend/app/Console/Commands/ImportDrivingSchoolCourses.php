@@ -25,7 +25,7 @@ class ImportDrivingSchoolCourses extends Command
     /** CSV ヘッダ（この順で固定）。 */
     private const COLUMNS = [
         'prefecture_slug', 'school_name', 'vehicle_class', 'transmission', 'prerequisite',
-        'enrollment_type', 'price_yen', 'price_note', 'source_url', 'verified_at',
+        'enrollment_type', 'price_yen', 'price_note', 'source_url', 'verified_at', 'verify_method',
     ];
 
     /** upsert の一致キー（ユニーク制約と同じ5列）。 */
@@ -109,6 +109,7 @@ class ImportDrivingSchoolCourses extends Command
                 'price_note' => $data['price_note'] !== '' ? $data['price_note'] : null,
                 'source_url' => $data['source_url'],
                 'verified_at' => $data['verified_at'] !== '' ? $data['verified_at'] : null,
+                'verify_method' => $data['verify_method'] !== '' ? $data['verify_method'] : DrivingSchoolCourse::VERIFY_HUMAN,
             ];
 
             $existing = DrivingSchoolCourse::query()->where($keys)->first();
@@ -199,6 +200,11 @@ class ImportDrivingSchoolCourses extends Command
 
         if ($d['verified_at'] !== '' && ! $this->isValidDate($d['verified_at'])) {
             return "verified_at が Y-m-d 形式ではありません: {$d['verified_at']}";
+        }
+
+        // verify_method は空なら human 扱い。非空なら許可値のみ。
+        if ($d['verify_method'] !== '' && ! in_array($d['verify_method'], DrivingSchoolCourse::VERIFY_METHODS, true)) {
+            return 'verify_method は '.implode(' / ', DrivingSchoolCourse::VERIFY_METHODS)." のみ: {$d['verify_method']}";
         }
 
         return null;

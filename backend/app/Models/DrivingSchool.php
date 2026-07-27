@@ -32,6 +32,13 @@ class DrivingSchool extends Model
         self::STATUS_CLOSED,
     ];
 
+    /** verify_method: 人が確認 / 機械が判定。 */
+    public const VERIFY_HUMAN = 'human';
+
+    public const VERIFY_MACHINE = 'machine';
+
+    public const VERIFY_METHODS = [self::VERIFY_HUMAN, self::VERIFY_MACHINE];
+
     protected $fillable = [
         'prefecture',
         'prefecture_slug',
@@ -43,6 +50,7 @@ class DrivingSchool extends Model
         'source_url',
         'verified_at',
         'status',
+        'verify_method',
     ];
 
     protected $casts = [

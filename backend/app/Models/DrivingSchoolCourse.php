@@ -60,6 +60,13 @@ class DrivingSchoolCourse extends Model
 
     public const ENROLLMENT_TYPES = [self::ENROLLMENT_COMMUTE, self::ENROLLMENT_CAMP];
 
+    // verify_method: 人が確認 / 機械が判定
+    public const VERIFY_HUMAN = 'human';
+
+    public const VERIFY_MACHINE = 'machine';
+
+    public const VERIFY_METHODS = [self::VERIFY_HUMAN, self::VERIFY_MACHINE];
+
     /** 表示用ラベル辞書。 */
     private const VEHICLE_CLASS_LABELS = [
         self::CLASS_KOGATA_NIRIN => '小型二輪',
@@ -85,6 +92,7 @@ class DrivingSchoolCourse extends Model
         'price_note',
         'source_url',
         'verified_at',
+        'verify_method',
     ];
 
     protected $casts = [

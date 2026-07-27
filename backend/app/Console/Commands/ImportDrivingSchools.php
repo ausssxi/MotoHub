@@ -23,7 +23,7 @@ class ImportDrivingSchools extends Command
     /** CSV ヘッダ（この順で固定）。 */
     private const COLUMNS = [
         'prefecture', 'prefecture_slug', 'city', 'name',
-        'official_url', 'futsuu_nirin', 'oogata_nirin', 'source_url', 'verified_at', 'status',
+        'official_url', 'futsuu_nirin', 'oogata_nirin', 'source_url', 'verified_at', 'status', 'verify_method',
     ];
 
     public function handle(): int
@@ -86,6 +86,7 @@ class ImportDrivingSchools extends Command
                 'source_url' => $data['source_url'],
                 'verified_at' => $data['verified_at'] !== '' ? $data['verified_at'] : null,
                 'status' => $data['status'] !== '' ? $data['status'] : DrivingSchool::STATUS_OPEN,
+                'verify_method' => $data['verify_method'] !== '' ? $data['verify_method'] : DrivingSchool::VERIFY_HUMAN,
             ];
 
             $existing = DrivingSchool::query()
@@ -181,6 +182,11 @@ class ImportDrivingSchools extends Command
         // status は空なら open 扱い。非空なら許可値のみ。
         if ($d['status'] !== '' && ! in_array($d['status'], DrivingSchool::STATUSES, true)) {
             return 'status は '.implode(' / ', DrivingSchool::STATUSES)." のみ: {$d['status']}";
+        }
+
+        // verify_method は空なら human 扱い。非空なら許可値のみ。
+        if ($d['verify_method'] !== '' && ! in_array($d['verify_method'], DrivingSchool::VERIFY_METHODS, true)) {
+            return 'verify_method は '.implode(' / ', DrivingSchool::VERIFY_METHODS)." のみ: {$d['verify_method']}";
         }
 
         return null;
