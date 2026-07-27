@@ -15,6 +15,22 @@ use Illuminate\Database\Eloquent\Model;
  */
 class DrivingSchool extends Model
 {
+    /** 通常営業・二輪教習を受付中。公開対象。 */
+    public const STATUS_OPEN = 'open';
+
+    /** 二輪教習を一時停止／見合せ中。校は存続。再開したら open に戻す候補。非公開。 */
+    public const STATUS_NIRIN_SUSPENDED = 'nirin_suspended';
+
+    /** 廃業・営業終了。恒久的に非公開。 */
+    public const STATUS_CLOSED = 'closed';
+
+    /** 取りうる status の全値。 */
+    public const STATUSES = [
+        self::STATUS_OPEN,
+        self::STATUS_NIRIN_SUSPENDED,
+        self::STATUS_CLOSED,
+    ];
+
     protected $fillable = [
         'prefecture',
         'prefecture_slug',
@@ -25,6 +41,7 @@ class DrivingSchool extends Model
         'oogata_nirin',
         'source_url',
         'verified_at',
+        'status',
     ];
 
     protected $casts = [
@@ -33,10 +50,10 @@ class DrivingSchool extends Model
         'verified_at' => 'date',
     ];
 
-    /** 公開対象（人手確認済み）だけに絞る。 */
+    /** 公開対象（人手確認済み かつ status=open）だけに絞る。 */
     public function scopePublished(Builder $q): Builder
     {
-        return $q->whereNotNull('verified_at');
+        return $q->whereNotNull('verified_at')->where('status', self::STATUS_OPEN);
     }
 
     /** 普通二輪または大型二輪に対応する校だけに絞る。 */

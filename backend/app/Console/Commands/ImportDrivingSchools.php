@@ -23,7 +23,7 @@ class ImportDrivingSchools extends Command
     /** CSV ヘッダ（この順で固定）。 */
     private const COLUMNS = [
         'prefecture', 'prefecture_slug', 'city', 'name',
-        'official_url', 'futsuu_nirin', 'oogata_nirin', 'source_url', 'verified_at',
+        'official_url', 'futsuu_nirin', 'oogata_nirin', 'source_url', 'verified_at', 'status',
     ];
 
     public function handle(): int
@@ -85,6 +85,7 @@ class ImportDrivingSchools extends Command
                 'oogata_nirin' => $data['oogata_nirin'] === '1',
                 'source_url' => $data['source_url'],
                 'verified_at' => $data['verified_at'] !== '' ? $data['verified_at'] : null,
+                'status' => $data['status'] !== '' ? $data['status'] : DrivingSchool::STATUS_OPEN,
             ];
 
             $existing = DrivingSchool::query()
@@ -175,6 +176,11 @@ class ImportDrivingSchools extends Command
 
         if ($d['verified_at'] !== '' && ! $this->isValidDate($d['verified_at'])) {
             return "verified_at が Y-m-d 形式ではありません: {$d['verified_at']}";
+        }
+
+        // status は空なら open 扱い。非空なら許可値のみ。
+        if ($d['status'] !== '' && ! in_array($d['status'], DrivingSchool::STATUSES, true)) {
+            return 'status は '.implode(' / ', DrivingSchool::STATUSES)." のみ: {$d['status']}";
         }
 
         return null;
