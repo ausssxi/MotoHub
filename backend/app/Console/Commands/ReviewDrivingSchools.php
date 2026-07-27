@@ -5,17 +5,19 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\DrivingSchool;
+use App\Models\DrivingSchoolCourse;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 
 /**
  * 教習所データの棚卸し（sweep 用リスト出力）。
  *
- * - 要再確認 : status=open の公開校で verified_at が --days より古いもの（確認が古い）。
- * - 再開候補 : status=nirin_suspended（二輪一時停止）の校。再開していないか公式を見に行く対象。
- * - 廃業     : status=closed の校（参考表示）。
+ * - 要再確認     : status=open の公開校で verified_at が --days より古いもの（確認が古い）。
+ * - 再開候補     : status=nirin_suspended（二輪一時停止）の校。再開していないか公式を見に行く対象。
+ * - 廃業         : status=closed の校（参考表示）。
+ * - 料金の要再確認: verified_at が --days より古い、または NULL の course 行（料金の確認が古い/未確認）。
  *
- * 各行は「都道府県 / 校名 / 市区町村 / verified_at / official_url」。そのまま
+ * 各行は「都道府県 / 校名 / (市区町村 or コース) / verified_at / URL」。そのまま
  * 公式サイト巡回（sweep）の対象リストとして使える形式で出す。
  */
 class ReviewDrivingSchools extends Command
@@ -52,11 +54,50 @@ class ReviewDrivingSchools extends Command
             ->orderBy('prefecture_slug')
             ->get();
 
+        // 料金の要再確認: verified_at が古い or NULL の course（NULL を先頭に、次いで古い順）
+        $staleCourses = DrivingSchoolCourse::query()
+            ->with('drivingSchool')
+            ->where(function ($q) use ($cutoff) {
+                $q->whereNull('verified_at')->orWhereDate('verified_at', '<=', $cutoff);
+            })
+            ->orderByRaw('verified_at IS NOT NULL')
+            ->orderBy('verified_at')
+            ->get();
+
         $this->section("要再確認（status=open・verified_at が {$days} 日より古い / 基準日 {$cutoff->toDateString()}）", $stale);
         $this->section('再開候補（status=nirin_suspended・二輪の再開を確認しに行く対象）', $suspended);
         $this->section('廃業（status=closed・参考）', $closed);
+        $this->courseSection("料金の要再確認（course の verified_at が {$days} 日より古い or 未確認）", $staleCourses);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * 料金(course)セクションを出力する。行=都道府県/校名/コース/verified_at/source_url。
+     *
+     * @param  \Illuminate\Support\Collection<int, DrivingSchoolCourse>  $rows
+     */
+    private function courseSection(string $title, $rows): void
+    {
+        $this->newLine();
+        $this->line("=== {$title} — {$rows->count()}件 ===");
+
+        if ($rows->isEmpty()) {
+            $this->line('  （該当なし）');
+
+            return;
+        }
+
+        foreach ($rows as $c) {
+            $school = $c->drivingSchool;
+            $this->line(implode("\t", [
+                $school?->prefecture ?? '(不明)',
+                $school?->name ?? '(不明)',
+                $c->label,
+                $c->verified_at?->toDateString() ?? '(未確認)',
+                $c->source_url ?: '(URLなし)',
+            ]));
+        }
     }
 
     /**

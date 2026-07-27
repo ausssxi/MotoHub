@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * 二輪教習に対応した指定自動車教習所。
@@ -49,6 +50,12 @@ class DrivingSchool extends Model
         'oogata_nirin' => 'boolean',
         'verified_at' => 'date',
     ];
+
+    /** この校の二輪コース料金（区分×MT/AT×所持免許）。 */
+    public function courses(): HasMany
+    {
+        return $this->hasMany(DrivingSchoolCourse::class);
+    }
 
     /** 公開対象（人手確認済み かつ status=open）だけに絞る。 */
     public function scopePublished(Builder $q): Builder
