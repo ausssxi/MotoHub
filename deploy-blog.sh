@@ -40,19 +40,16 @@ echo "[6/8] 設定キャッシュチェック..."
 docker compose exec app php artisan config:cache
 docker compose exec app php artisan config:clear
 
-# 7. php-fpm の OPcache をリセット
-# 注意: php artisan(CLI) の OPcache と fpm の OPcache は別物。
-# コンパイル済みビュー/PHPの更新を即時反映させるため、必ず fpm 側をリセットする。
-# opcache_reset.php は fpm 経由(HTTP)で叩いて初めて fpm の OPcache をクリアできる。
-# 注意: app コンテナは fpm 専用で HTTP を持たない(localhost を叩くと 000 で空振り)。
-# 必ず nginx(web) 経由で叩く。主: docker ネットワークの web サービス、
-# 副: 公開ドメイン。どちらも失敗したら app 再起動でフォールバック(保険)。
+# 7. php-fpm の OPcache をリセット（コード反映時に必須。データのみの投入では影響なし）
+# 有効経路は公開ドメイン(nginx→fpm)の https://motohub.jp/opcache_reset.php のみ。
+# app コンテナ内から http://web/opcache_reset.php を叩くと nginx が 301 を返し fpm に届かない。
+# さらに curl -f / -fsS は 301 を成功(exit 0)扱いにするため、成否は HTTP 200 を明示判定する。
 echo "[7/8] php-fpm OPcache をリセット..."
-if docker compose exec -T app sh -c 'curl -fsS http://web/opcache_reset.php >/dev/null 2>&1' \
-   || curl -fsS https://motohub.jp/opcache_reset.php >/dev/null 2>&1; then
-    echo "  OPcache をリセットしました (opcache_reset.php)"
+OPCACHE_CODE=$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' https://motohub.jp/opcache_reset.php)
+if [ "$OPCACHE_CODE" = "200" ]; then
+    echo "  OPcache をリセットしました (HTTP 200 / opcache_reset.php)"
 else
-    echo "  HTTP 経由のリセットに失敗。app コンテナを再起動して fpm OPcache をクリアします..."
+    echo "  HTTP リセット不成立 (HTTP $OPCACHE_CODE)。app コンテナを再起動して fpm OPcache をクリアします..."
     docker compose restart app
     echo "  app コンテナを再起動しました"
 fi
