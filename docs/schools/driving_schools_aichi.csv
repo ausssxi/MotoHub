@@ -1,0 +1,35 @@
+prefecture,prefecture_slug,city,name,official_url,futsuu_nirin,oogata_nirin,source_url,verified_at,status,verify_method
+愛知県,aichi,一宮市,一宮自動車学校,https://138ds.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,春日井市,マジオドライバーズスクール春日井校,https://www.magionet.co.jp/kasugai/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,一宮市,苅安賀自動車学校,http://kariyasuka.co.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,江南市,江南自動車学校,http://www.kohnan-dvs.co.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,human
+愛知県,aichi,小牧市,小牧市自動車学校,http://www.komaki-ds.com/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,human
+愛知県,aichi,瀬戸市,瀬戸自動車学校,https://www.sejikou.com/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,human
+愛知県,aichi,春日井市,名古屋自動車学校春日井校,http://www.nagoyads.co.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,一宮市,尾西自動車学校,https://www.bisai.co.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,丹羽郡大口町,名鉄自動車学校 犬山,https://www.meitetsu.ac.jp/mdso/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,津島市,あさひ自動車学校,https://asahi-toyama.co.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,愛西市,津島自動車学校,http://www.tsushima-ds.co.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,名古屋市北区,あいち自動車学校,https://www.aichi-ds.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,human
+愛知県,aichi,名古屋市西区,中京自動車学校,http://www.chukyo-ds.co.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,名古屋市昭和区,中部日本自動車学校,http://www.e-chubu.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,名古屋市天白区,名古屋自動車学校天白校,http://www.nagoyads.co.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,名古屋市港区,名古屋自動車学校港校,http://www.nagoyads.co.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,名古屋市緑区,緑ヶ丘自動車学校,http://www.midori-ds.com/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,名古屋市港区,名四自動車学校,http://www.meiyon-ds.jp,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,名古屋市緑区,名鉄自動車学校,https://www.meitetsu.ac.jp/mdsl/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,岡崎市,岡崎自動車学校,https://okazaki-ds.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,安城市,コアラドライブ 安城,https://www.coaradrive.com/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,岡崎市,上地自動車学校,http://ueji-online.ne.jp/,1,0,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,岡崎市,岡崎南自動車学校,https://okazaki-minami-ds.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,刈谷市,刈谷自動車学校,http://kariji.co.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,岡崎市,享成自動車学校,https://kyosei-ds.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,西尾市,享成自動車学校桜町校,https://sakuramachi.kyosei-ds.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,human
+愛知県,aichi,豊田市,豊田自動車学校,https://toyota-ds.jp/,1,1,https://toyota-ds.jp/news/887.html,2026-07-28,nirin_suspended,human
+愛知県,aichi,豊田市,トヨタ中央自動車学校,http://www.tcds.co.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,西尾市,西尾自動車学校,https://www.nishio-ds.co.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,知立市,知立自動車学校,http://www.happy-car-life.co.jp/chiryu/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,みよし市,三好自動車学校,http://license-ds.com/m/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,蒲郡市,蒲郡自動車学校,http://gamaji.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,豊川市,タカラ自動車学校,http://www.takara-ds.co.jp/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
+愛知県,aichi,豊橋市,ユタカ自動車学校,https://yutaka-ds.jp/toyohashi/,1,1,http://www.adsa.or.jp/license/map.html,2026-07-28,open,machine
