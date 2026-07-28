@@ -23,6 +23,11 @@
 
         <div class="max-w-3xl mx-auto px-4 py-10 space-y-10">
 
+            {{-- 受付状況の注意書き（ページに一度だけ） --}}
+            <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-[13px] text-amber-900 leading-relaxed">
+                受付状況は変わることがあります。定員や休講により、掲載時点と異なる場合があります。お申し込み前に各校の公式サイトでご確認ください。
+            </div>
+
             {{-- 一覧 --}}
             <section>
                 <div class="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
@@ -45,6 +50,10 @@
                                                class="font-bold text-blue-700 hover:underline">{{ $s->name }}</a>
                                         @else
                                             <span class="font-bold text-slate-900">{{ $s->name }}</span>
+                                        @endif
+                                        <div class="text-[11px] text-slate-400 mt-1">{{ $s->verified_at->format('Y') }}年{{ $s->verified_at->format('n') }}月時点で公式サイトに二輪教習の案内を確認</div>
+                                        @if($s->isStale())
+                                            <div class="text-[11px] text-amber-600 mt-0.5">この情報は確認から時間が経っています</div>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-center {{ $s->futsuu_nirin ? 'font-black text-emerald-600' : 'text-slate-300' }}">
@@ -76,9 +85,6 @@
 
             {{-- 免責文・出典 --}}
             <section class="border-t border-slate-200 pt-6">
-                @if($lastVerified)
-                    <p class="text-[11px] text-slate-400 mb-3">最終確認: {{ $lastVerified->format('Y') }}年{{ $lastVerified->format('n') }}月</p>
-                @endif
                 <p class="text-[11px] text-slate-400 leading-relaxed">
                     この一覧は各都道府県の指定自動車教習所協会が公表している会員校リストをもとに作成しています。協会に加盟していない教習所や、掲載後に取扱いが変わった教習所は反映されていない場合があります。教習料金・入校条件・二輪教習の実施状況は各教習所が個別に定めているため、お申し込み前に必ず各校の公式サイトでご確認ください。
                 </p>

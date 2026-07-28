@@ -20,13 +20,21 @@ final class LicenseSchoolController extends Controller
      */
     public function index()
     {
+        // 鮮度（isStale）は tier×現在時刻の判定でモデルにロジックを集約しているため、
+        // SQL 集約にせず行を読み込み、県ごとに 掲載校数 と「stale が1件以上あるか」を PHP で畳む。
         $prefectures = DrivingSchool::query()
             ->published()
             ->nirin()
-            ->selectRaw('prefecture_slug, prefecture, COUNT(*) as count, MAX(verified_at) as last_verified')
-            ->groupBy('prefecture_slug', 'prefecture')
             ->orderBy('prefecture_slug')
-            ->get();
+            ->get(['prefecture', 'prefecture_slug', 'verified_at'])
+            ->groupBy('prefecture_slug')
+            ->map(fn ($schools) => (object) [
+                'prefecture' => $schools->first()->prefecture,
+                'prefecture_slug' => $schools->first()->prefecture_slug,
+                'count' => $schools->count(),
+                'has_stale' => $schools->contains(fn ($s) => $s->isStale()),
+            ])
+            ->values();
 
         return view('license.schools.index', [
             'prefectures' => $prefectures,
@@ -53,7 +61,6 @@ final class LicenseSchoolController extends Controller
             'prefecture' => $schools->first()->prefecture,
             'schools' => $schools,
             'sourceUrls' => $schools->pluck('source_url')->filter()->unique()->values(),
-            'lastVerified' => $schools->max('verified_at'),
         ]);
     }
 }

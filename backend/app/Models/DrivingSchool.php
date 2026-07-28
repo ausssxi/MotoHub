@@ -77,6 +77,24 @@ class DrivingSchool extends Model
         return $q->where(fn ($w) => $w->where('futsuu_nirin', true)->orWhere('oogata_nirin', true));
     }
 
+    /**
+     * verified_at からの経過が確認頻度の閾値を超えたら true（鮮度の注意書き用）。
+     *
+     * 閾値は tier で分ける: 重点層（config の focus_prefectures）=6ヶ月、全国層=13ヶ月。
+     * tier は prefecture_slug から config で引く（DBに列は持たない）。verified_at が未設定なら stale 扱い。
+     */
+    public function isStale(): bool
+    {
+        if ($this->verified_at === null) {
+            return true;
+        }
+
+        $focus = config('driving_schools.focus_prefectures', []);
+        $months = in_array($this->prefecture_slug, $focus, true) ? 6 : 13;
+
+        return $this->verified_at->lt(now()->subMonthsNoOverflow($months));
+    }
+
     /** 対応している免許区分のラベル配列（true のものだけ）。 */
     public function getLicenseLabelsAttribute(): array
     {

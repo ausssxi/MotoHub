@@ -39,11 +39,10 @@
                                class="block bg-white rounded-2xl border border-slate-200 p-5 hover:border-blue-400 hover:shadow-lg transition">
                                 <div class="flex items-center justify-between">
                                     <span class="font-black text-slate-900 text-lg">{{ $p->prefecture }}</span>
-                                    <span class="text-sm font-black text-blue-700 tabular-nums">{{ number_format($p->count) }}校</span>
+                                    <span class="text-sm font-black text-blue-700 tabular-nums">{{ number_format($p->count) }}校を掲載</span>
                                 </div>
-                                @if($p->last_verified)
-                                    @php($lv = \Illuminate\Support\Carbon::parse($p->last_verified))
-                                    <div class="text-[11px] text-slate-400 mt-1">最終確認: {{ $lv->format('Y') }}年{{ $lv->format('n') }}月</div>
+                                @if($p->has_stale)
+                                    <div class="text-[11px] text-amber-600 mt-1">一部の情報は確認から時間が経っています</div>
                                 @endif
                             </a>
                         @endforeach
