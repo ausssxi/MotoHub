@@ -207,6 +207,10 @@
                             <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
                             ツーリングガイド・スポット
                         </a>
+                        <a href="{{ route('license.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+                            バイク免許
+                        </a>
                         <a href="{{ route('data') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
                             <i data-lucide="database" class="w-3.5 h-3.5"></i>
                             データ提供
@@ -549,6 +553,15 @@
                         <p class="text-xs font-black text-gray-800">ツーリングガイド・スポット</p>
                         <p class="text-[10px] text-gray-400">全国{{ \App\Models\TouringSpot::count() }}スポット掲載</p>
                     </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
+            <a href="{{ route('license.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="book-open" class="w-4 h-4 text-blue-600"></i>
+                    </div>
+                    <p class="text-xs font-black text-gray-800">バイク免許</p>
                 </div>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
             </a>

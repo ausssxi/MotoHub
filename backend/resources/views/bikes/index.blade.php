@@ -679,8 +679,22 @@
                     </div>
                 </div>
 
+                @php
+                    // 排気量カテゴリ slug → 必要な免許区分（LicenseController::CLASSES の cc_min/cc_max と突合済み）。
+                    //  50(〜50)→gentsuki(1-50) / 125(51-125)→kogata(51-125) / 250(126-250)・400(251-400)→futsuu(126-400)
+                    //  750(401-750)・over750(751-)→oogata(401-9999)
+                    $licenseClassMap = [
+                        '50' => 'gentsuki', '125' => 'kogata', '250' => 'futsuu',
+                        '400' => 'futsuu', '750' => 'oogata', 'over750' => 'oogata',
+                    ];
+                    $licenseClassName = [
+                        'gentsuki' => '原付一種', 'kogata' => '原付二種',
+                        'futsuu' => '普通二輪', 'oogata' => '大型二輪',
+                    ];
+                @endphp
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                     @foreach($licenses as $license)
+                        <div class="flex flex-col gap-1.5">
                         <a href="{{ route('bikes.category_cc', ['slug' => $license['slug']]) }}"
                            class="group relative overflow-hidden rounded-2xl p-6 {{ $license['color'] }} transition-all duration-300 hover:shadow-lg border border-transparent hover:border-current flex flex-col items-center justify-center text-center h-32">
 
@@ -698,6 +712,14 @@
                                 </span>
                             </div>
                         </a>
+                        @if(!empty($licenseClassMap[$license['slug']]))
+                            @php $lc = $licenseClassMap[$license['slug']]; @endphp
+                            <a href="{{ route('license.show', $lc) }}"
+                               class="text-[11px] font-bold text-center text-gray-500 hover:text-blue-600 hover:underline transition-colors">
+                                必要な免許：{{ $licenseClassName[$lc] }} →
+                            </a>
+                        @endif
+                        </div>
                     @endforeach
                 </div>
             </section>

@@ -6,11 +6,21 @@
         <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
+    <x-jsonld.breadcrumb-list :items="[
+        ['name' => 'HOME', 'url' => route('bikes.index')],
+        ['name' => '二輪免許が取れる指定自動車教習所'],
+    ]" />
+
     <div class="bg-gray-50 min-h-screen">
 
         {{-- ヒーロー --}}
         <div class="bg-gradient-to-br from-slate-900 to-blue-900 text-white pt-10 pb-12 px-4">
             <div class="max-w-3xl mx-auto text-center">
+                <nav class="text-xs text-blue-300 font-bold mb-4 text-left">
+                    <a href="{{ route('bikes.index') }}" class="hover:underline">HOME</a>
+                    <span class="mx-1.5 text-blue-500">/</span>
+                    <span class="text-blue-100">二輪免許が取れる指定自動車教習所</span>
+                </nav>
                 <div class="text-4xl mb-3">🏍️</div>
                 <h1 class="text-2xl sm:text-3xl font-black tracking-tight mb-2">二輪免許が取れる指定自動車教習所</h1>
                 <p class="text-blue-200 text-sm font-bold">

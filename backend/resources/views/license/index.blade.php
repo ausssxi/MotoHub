@@ -7,11 +7,21 @@
         <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
+    <x-jsonld.breadcrumb-list :items="[
+        ['name' => 'HOME', 'url' => route('bikes.index')],
+        ['name' => 'バイク免許ガイド'],
+    ]" />
+
     <div class="bg-gray-50 min-h-screen">
 
         {{-- ヒーロー --}}
         <div class="bg-gradient-to-br from-slate-900 to-blue-900 text-white pt-10 pb-12 px-4">
             <div class="max-w-4xl mx-auto text-center">
+                <nav class="text-xs text-blue-300 font-bold mb-4 text-left">
+                    <a href="{{ route('bikes.index') }}" class="hover:underline">HOME</a>
+                    <span class="mx-1.5 text-blue-500">/</span>
+                    <span class="text-blue-100">バイク免許ガイド</span>
+                </nav>
                 <div class="text-4xl mb-3">🪪</div>
                 <h1 class="text-2xl sm:text-3xl font-black tracking-tight mb-2">バイク免許の種類と選び方</h1>
                 <p class="text-blue-200 text-sm font-bold">
@@ -73,6 +83,22 @@
                         </a>
                     @endforeach
                 </div>
+            </section>
+
+            {{-- 教習所を探す導線 --}}
+            <section>
+                <a href="{{ route('license.schools.index') }}"
+                   class="block bg-white rounded-2xl border border-slate-200 p-5 hover:border-blue-400 hover:shadow-lg transition">
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <div class="font-black text-slate-900 text-lg mb-1">🏍️ 二輪免許が取れる教習所を探す</div>
+                            <p class="text-sm text-slate-600 leading-relaxed">
+                                普通二輪・大型二輪の教習を行っている指定自動車教習所を、都道府県別にまとめています。@if($schoolPrefectureCount > 0)（{{ $schoolPrefectureCount }}都道府県・{{ number_format($schoolCount) }}校を掲載）@endif
+                            </p>
+                        </div>
+                        <span class="text-blue-700 font-black text-xl shrink-0">→</span>
+                    </div>
+                </a>
             </section>
 
             {{-- 比較表 --}}

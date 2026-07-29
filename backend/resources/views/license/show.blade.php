@@ -7,6 +7,12 @@
         <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
+    <x-jsonld.breadcrumb-list :items="[
+        ['name' => 'HOME', 'url' => route('bikes.index')],
+        ['name' => 'バイク免許ガイド', 'url' => route('license.index')],
+        ['name' => $c['name']],
+    ]" />
+
     <div class="bg-gray-50 min-h-screen">
 
         {{-- ヒーロー --}}
@@ -111,10 +117,17 @@
                 </div>
 
                 @if(empty($c['school_cost']))
-                    <p class="text-xs text-slate-500 mt-3 leading-relaxed">
-                        なお、指定自動車教習所に通う場合の教習料金は各教習所が個別に設定しており、
-                        全国的な公的統計は公表されていません。実際の金額はお近くの教習所の公式サイトで確認してください。
-                    </p>
+                    @if(in_array($c['key'], ['futsuu', 'oogata'], true))
+                        <p class="text-xs text-slate-500 mt-3 leading-relaxed">
+                            なお、指定自動車教習所に通う場合の教習料金は各教習所が個別に設定しており、
+                            全国的な公的統計は公表されていません。<a href="{{ route('license.schools.index') }}" class="text-blue-700 font-bold hover:underline">教習所費用は各県の教習所ページで確認</a>できます。
+                        </p>
+                    @else
+                        <p class="text-xs text-slate-500 mt-3 leading-relaxed">
+                            なお、指定自動車教習所に通う場合の教習料金は各教習所が個別に設定しており、
+                            全国的な公的統計は公表されていません。実際の金額はお近くの教習所の公式サイトで確認してください。
+                        </p>
+                    @endif
                 @else
                     {{-- 教習所費用スロット（確認済みデータが入ったらここに表示） --}}
                     <div class="mt-4 bg-white rounded-2xl border border-slate-200 p-4">
@@ -187,6 +200,50 @@
                     <div class="text-blue-200 text-sm font-bold">{{ $c['range_label'] }}・{{ number_format($c['stats']['stock']) }}台の在庫から</div>
                 </a>
             </section>
+
+            {{-- 教習所を探す（二輪教習は普通二輪・大型二輪のみ＝futsuu/oogata でのみ出す） --}}
+            @if(in_array($c['key'], ['futsuu', 'oogata'], true))
+                <section>
+                    <a href="{{ route('license.schools.index') }}"
+                       class="block bg-white rounded-2xl border border-slate-200 p-5 hover:border-blue-400 hover:shadow-lg transition">
+                        <div class="flex items-center justify-between gap-4">
+                            <div>
+                                <div class="font-black text-slate-900 text-base mb-1">🏍️ {{ $c['name'] }}の教習が受けられる教習所を探す</div>
+                                <p class="text-sm text-slate-600 leading-relaxed">普通二輪・大型二輪の教習を行っている指定自動車教習所を、都道府県別にまとめています。</p>
+                            </div>
+                            <span class="text-blue-700 font-black text-xl shrink-0">→</span>
+                        </div>
+                    </a>
+                </section>
+            @endif
+
+            {{-- ステップアップ（前後の区分へ順送り。gentsukiの前・oogataの後は出さない） --}}
+            @if($prev || $next)
+                <section>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            @if($prev)
+                                <a href="{{ route('license.show', $prev['key']) }}"
+                                   class="block bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-400 transition h-full">
+                                    <div class="text-[11px] text-slate-400 font-bold mb-1">← ひとつ手前</div>
+                                    <div class="text-sm font-black text-slate-900">{{ $prev['emoji'] }} {{ $prev['name'] }}</div>
+                                    <div class="text-xs text-slate-500 mt-0.5">{{ $prev['range_label'] }}</div>
+                                </a>
+                            @endif
+                        </div>
+                        <div>
+                            @if($next)
+                                <a href="{{ route('license.show', $next['key']) }}"
+                                   class="block bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-400 transition h-full text-right">
+                                    <div class="text-[11px] text-slate-400 font-bold mb-1">つぎのステップ →</div>
+                                    <div class="text-sm font-black text-slate-900">{{ $next['emoji'] }} {{ $next['name'] }}</div>
+                                    <div class="text-xs text-slate-500 mt-0.5">{{ $next['range_label'] }}</div>
+                                </a>
+                            @endif
+                        </div>
+                    </div>
+                </section>
+            @endif
 
             {{-- ステップアップ導線 --}}
             <section>

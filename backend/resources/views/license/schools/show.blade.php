@@ -6,6 +6,12 @@
         <x-navigation :showSearch="true" />
     </x-slot:navigation>
 
+    <x-jsonld.breadcrumb-list :items="[
+        ['name' => 'HOME', 'url' => route('bikes.index')],
+        ['name' => '二輪免許が取れる指定自動車教習所', 'url' => route('license.schools.index')],
+        ['name' => $prefecture],
+    ]" />
+
     <div class="bg-gray-50 min-h-screen">
 
         {{-- ヒーロー --}}

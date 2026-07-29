@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\License;
 
 use App\Http\Controllers\Controller;
+use App\Models\DrivingSchool;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -144,10 +145,16 @@ class LicenseController extends Controller
 
         $totalStock = array_sum(array_column(array_column($classes, 'stats'), 'stock'));
 
+        // 教習所一覧への導線用（件数はDBの公開データから算出・ベタ書きしない）。
+        $schoolCount = DrivingSchool::published()->nirin()->count();
+        $schoolPrefectureCount = DrivingSchool::published()->nirin()->distinct()->count('prefecture_slug');
+
         return view('license.index', [
             'classes'    => $classes,
             'totalStock' => $totalStock,
             'sources'    => self::SOURCES,
+            'schoolCount' => $schoolCount,
+            'schoolPrefectureCount' => $schoolPrefectureCount,
         ]);
     }
 

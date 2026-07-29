@@ -165,6 +165,12 @@
                     <li>
                         <a href="{{ route('garage.public.index') }}" class="footer-link">愛車ガレージ</a>
                     </li>
+                    <li>
+                        <a href="{{ route('license.index') }}" class="footer-link">バイク免許ガイド</a>
+                    </li>
+                    <li>
+                        <a href="{{ route('license.schools.index') }}" class="footer-link">教習所を探す</a>
+                    </li>
                 </ul>
             </nav>
 
