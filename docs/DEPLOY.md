@@ -28,3 +28,10 @@ APP_ENV=production / APP_URL=https://motohub.jp。ローカル開発機（WSL, A
 ## 積み残し
 
 - opcache_reset.php は無認証で誰でも叩ける。キャッシュを繰り返しクリアされる余地があり、将来的に要塞化（IP制限・トークン等）。
+
+## IndexNow（keyLocation の実体ファイルが必須）
+
+- IndexNow は `keyLocation` の実体ファイル `public/<key>.txt` が無いと、POST が 200（受理）でも後段のキー検証で 404 となり、送信URLが無効化される（＝反映されない）。
+- キーは `env('INDEXNOW_KEY')` = `config('services.indexnow.key')`。送信は `GenerateSitemap::submitIndexNow`（`keyLocation=https://motohub.jp/<key>.txt`）。
+- キーファイルは `backend/public/<key>.txt`（git管理下・全環境共通・公開前提で非秘匿・中身はキー文字列のみ/末尾改行なし）。2026-07-29 commit `d445049d` で設置済み。
+- キーを環境変数で更新するときは、同名の `public/<key>.txt` も差し替えること（ファイル名＝キー値のため）。static配信なので view:clear / OPcache リセットは不要・本番は pull のみ。
