@@ -23,4 +23,55 @@ return [
     ],
 
     'default_tier' => 'nation',
+
+    /*
+    |--------------------------------------------------------------------------
+    | 県協会リンク（個別掲載を行っていない都道府県）
+    |--------------------------------------------------------------------------
+    |
+    | 教習所を個別に掲載していない県について、一覧ページ（/license/schools）下部
+    | から各県の指定自動車教習所協会（一次ソース）の公式サイトへ外部リンクする。
+    | 個別県ページ（show）や sitemap は生やさない（薄ページを作らない方針）。
+    |
+    | 出典＝全指連 zensiren.or.jp/nwide-info/「47都道府県協会一覧」（2026-07-29 確認）。
+    | name は各協会サイトの title 由来の正式名称（学校/教習所・財団・府 の揺れをそのまま）。
+    | url は https 実測 200 を採用。https が提供されない4県（栃木・群馬・福井・滋賀）
+    | のみ http 実測 200 を採用（https 強制は各サイトで 403/TLS/接続拒否/404 になるため）。
+    | 並びは北から南。保留7県（石川=500・長崎=404・奈良・和歌山・鳥取・佐賀・大分＝
+    | 全指連一覧にリンク無し）は URL 未確認のため入れない（NOTES で要URL確認）。
+    |
+    */
+
+    'association_links' => [
+        'aomori' => ['name' => '一般社団法人青森県指定自動車教習所協会', 'url' => 'https://www.aoshikyo.jp/'],
+        'iwate' => ['name' => '一般社団法人 岩手県指定自動車教習所協会', 'url' => 'https://iwate-siteikyou.sakura.ne.jp/'],
+        'miyagi' => ['name' => '一般社団法人 宮城県指定自動車教習所協会', 'url' => 'https://miyazikyo.jp/'],
+        'akita' => ['name' => '一般社団法人 秋田県指定自動車教習所協会', 'url' => 'https://akita-adsa.com/'],
+        'yamagata' => ['name' => '一般社団法人 山形県指定自動車教習所協会', 'url' => 'https://www.yamagata-shiteikyo.or.jp/'],
+        'fukushima' => ['name' => '一般社団法人 福島県指定自動車教習所協会', 'url' => 'https://www.fukushima-adsa.org/'],
+        'ibaraki' => ['name' => '一般社団法人 茨城県指定自動車教習所協会', 'url' => 'https://iadsa.or.jp/'],
+        'tochigi' => ['name' => '一般社団法人 栃木県指定自動車教習所協会', 'url' => 'http://www.totikyou.jp/'],
+        'gunma' => ['name' => '一般社団法人 群馬県指定自動車教習所協会', 'url' => 'http://gunma-adsa.com/'],
+        'yamanashi' => ['name' => '山梨県指定自動車教習所協会', 'url' => 'https://y-shiteikyo.com/'],
+        'nagano' => ['name' => '一般社団法人 長野県指定自動車教習所協会', 'url' => 'https://e-office.gr.jp/kyosyujyo/'],
+        'niigata' => ['name' => '一般社団法人 新潟県指定自動車教習所協会', 'url' => 'https://www.niigatashiteikyo.or.jp/'],
+        'toyama' => ['name' => '富山県指定自動車教習所協会', 'url' => 'https://www.tomijikyo.or.jp/'],
+        'fukui' => ['name' => '一般社団法人 福井県指定自動車教習所協会', 'url' => 'http://www.fukuiadsa.or.jp/'],
+        'gifu' => ['name' => '岐阜県指定自動車教習所協会', 'url' => 'https://www.gishikyo.jp/'],
+        'mie' => ['name' => '一般社団法人 三重県指定自動車教習所協会', 'url' => 'https://miejikyo.com/'],
+        'shiga' => ['name' => '滋賀県指定自動車教習所協会', 'url' => 'http://www.shiga-shiteikyo.org/'],
+        'kyoto' => ['name' => '一般社団法人京都府指定自動車教習所協会', 'url' => 'https://www.kyoto-shiteikyo.or.jp/'],
+        'shimane' => ['name' => '一般社団法人 島根県指定自動車教習所協会', 'url' => 'https://shimajikyo.jp/'],
+        'okayama' => ['name' => '岡山県指定自動車教習所協会', 'url' => 'https://www.okajikyo.or.jp/'],
+        'hiroshima' => ['name' => '広島県指定自動車学校協会', 'url' => 'https://www.hirojikyo.info/'],
+        'yamaguchi' => ['name' => '一般社団法人山口県指定自動車学校協会', 'url' => 'https://yamajikyo.jp/'],
+        'tokushima' => ['name' => '徳島県指定自動車教習所協会', 'url' => 'https://tokushikyo.sakura.ne.jp/'],
+        'kagawa' => ['name' => '一般社団法人 香川県指定自動車学校協会', 'url' => 'https://kadsa.or.jp/'],
+        'ehime' => ['name' => '一般社団法人 愛媛県指定自動車教習所協会', 'url' => 'https://www.eadsa.or.jp/'],
+        'kochi' => ['name' => '一般社団法人 高知県指定自動車学校協会', 'url' => 'https://www.kochi-shiteikyo.or.jp/'],
+        'kumamoto' => ['name' => '一般財団法人 熊本県指定自動車教習所協会', 'url' => 'https://www.kumakyo.or.jp/'],
+        'miyazaki' => ['name' => '一般社団法人宮崎県指定自動車学校協会', 'url' => 'https://miyashiji.org/'],
+        'kagoshima' => ['name' => '鹿児島県指定自動車教習所協会', 'url' => 'https://www.ka-shiteikyo.school-info.jp/'],
+        'okinawa' => ['name' => '一般社団法人 沖縄県指定自動車学校協会', 'url' => 'https://www.okizikyo.or.jp/'],
+    ],
 ];

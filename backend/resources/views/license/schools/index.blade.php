@@ -50,6 +50,26 @@
                 @endif
             </section>
 
+            {{-- その他の都道府県（個別掲載なし・県協会へ外部リンク） --}}
+            @if(!empty($associationLinks) && count($associationLinks) > 0)
+                <section class="border-t border-slate-200 pt-8">
+                    <h2 class="text-base font-black text-slate-700 mb-1">その他の都道府県</h2>
+                    <p class="text-xs text-slate-500 leading-relaxed mb-4">
+                        これらの県では個別の教習所掲載を行っていません。各県の指定自動車教習所協会の一覧をご利用ください。
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach($associationLinks as $link)
+                            <a href="{{ $link->url }}" target="_blank" rel="noopener"
+                               title="{{ $link->name }}"
+                               class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:border-blue-300 hover:text-blue-700 transition">
+                                {{ $link->prefecture }}
+                                <span class="text-slate-300" aria-hidden="true">↗</span>
+                            </a>
+                        @endforeach
+                    </div>
+                </section>
+            @endif
+
             {{-- 免責文 --}}
             <section class="border-t border-slate-200 pt-6">
                 <p class="text-[11px] text-slate-400 leading-relaxed">

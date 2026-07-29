@@ -194,3 +194,16 @@
   - **室蘭総合自動車学校＝nirin_suspended(human)**：`muroran-sogo.com`「**今年度の**二輪教習の入校を令和8年6月30日をもちまして終了／他車種も一部制限」。締切後で新規入校不可。「今年度の」＝翌年度再開の含み。**再確認トリガ=翌年度**。
 - **偽陽性**：恵庭=定員一時停止+再開明示／北広島=冬季シーズン終了+翌期再開明示／余市・鉄工団地・静内総合・根室相互=キャンペーン/イベント/免許種別列挙/COVID古ログ。生発火38/67＝57%は大半が休校日・お盆等。**真の停止=小樽中央(閉校)・室蘭総合(二輪停止)の2校**。
 - **city補正**：静内総合の source addr が「日高郡ひだか町」（新が欠落＝実在しない自治体）→実在の**日高郡新ひだか町**に補正（`_build_csv_4pref.py` の CITY_FIX、1件のみ）。city導出は市優先(郡regex誤射回避)・政令市は札幌市+区・県名混入除去で罠回避済み。
+
+## 県協会リンク（個別掲載しない県・2026-07-29）
+`/license/schools` インデックス下部に「その他の都道府県」セクションを追加し、個別掲載しない県は**県協会（一次ソース）公式サイトへ外部リンク**するだけにする（個別県ページ`show`・sitemapは生やさない＝薄ページ回避）。
+- 定義＝`config/driving_schools.php` の `association_links`（slug=>[name,url]、北→南）。tier定義（focus_prefectures/default_tier）は不変。
+- Controller `LicenseSchoolController::index` が config を読み、県名を`TouringSpot::PREFECTURE_SLUG_MAP`で補って view へ。Blade はピル型外部リンク（target=_blank rel=noopener・↗・**校数は出さない**＝校数カードと視覚区別）。
+- 一次ソース＝全指連 `zensiren.or.jp/nwide-info/`「47都道府県協会一覧」（raw hrefでLLM要約と一致照合済・まとめ/比較サイト不使用）。
+- **投入30県（https実測200・北→南）**：青森・岩手・宮城・秋田・山形・福島・茨城・栃木・群馬・山梨・長野・新潟・富山・福井・岐阜・三重・滋賀・京都・島根・岡山・広島・山口・徳島・香川・愛媛・高知・熊本・宮崎・鹿児島・沖縄。
+  - うち**http のみ4県**（https強制で403/TLS/接続拒否/404）：栃木`totikyou.jp`(https403)・群馬`gunma-adsa.com`(https TLSエラー)・福井`fukuiadsa.or.jp`(https接続拒否)・滋賀`shiga-shiteikyo.org`(https404)。configは http 実測200を採用。**将来https化されたら差し替え**。
+  - 名称の揺れをそのまま採用：広島・山口・香川・高知・宮崎・沖縄=「指定自動車**学校**協会」、熊本=「一般**財団**法人」、京都=「京都**府**」。
+- **保留7県（未投入・要URL確認）**：
+  - 石川`idsa.or.jp`＝全指連掲載URLだが現在**HTTP 500**（http/https・UA変更とも Internal Server Error）。復旧後に投入。
+  - 長崎`vectz.com/nadsa`＝全指連掲載URLが**404**（リンク切れ）。代替URLは推測せず、別途一次源で要確認。
+  - 奈良・和歌山・鳥取・佐賀・大分＝全指連一覧に**協会リンクなし**。各県警の指定教習所一覧等で別途要確認。**推測URLは充てない。**

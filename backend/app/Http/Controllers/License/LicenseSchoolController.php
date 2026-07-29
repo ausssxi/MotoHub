@@ -6,6 +6,7 @@ namespace App\Http\Controllers\License;
 
 use App\Http\Controllers\Controller;
 use App\Models\DrivingSchool;
+use App\Models\TouringSpot;
 
 /**
  * 二輪教習が受けられる指定自動車教習所の一覧（/license/schools）。
@@ -36,8 +37,20 @@ final class LicenseSchoolController extends Controller
             ])
             ->values();
 
+        // 個別掲載していない県は、県協会（一次ソース）の公式サイトへ外部リンクするだけ。
+        // 個別県ページ・sitemap は生やさない（config/driving_schools.php の association_links）。
+        // 県名は正準マップ（TouringSpot::PREFECTURE_SLUG_MAP）から補い、リンク文言に使う。
+        $associationLinks = collect(config('driving_schools.association_links', []))
+            ->map(fn ($link, $slug) => (object) [
+                'prefecture' => TouringSpot::prefectureNameFromSlug($slug) ?? $slug,
+                'name' => $link['name'],
+                'url' => $link['url'],
+            ])
+            ->values();
+
         return view('license.schools.index', [
             'prefectures' => $prefectures,
+            'associationLinks' => $associationLinks,
         ]);
     }
 
