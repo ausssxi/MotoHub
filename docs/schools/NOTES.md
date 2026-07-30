@@ -200,10 +200,13 @@
 - 定義＝`config/driving_schools.php` の `association_links`（slug=>[name,url]、北→南）。tier定義（focus_prefectures/default_tier）は不変。
 - Controller `LicenseSchoolController::index` が config を読み、県名を`TouringSpot::PREFECTURE_SLUG_MAP`で補って view へ。Blade はピル型外部リンク（target=_blank rel=noopener・↗・**校数は出さない**＝校数カードと視覚区別）。
 - 一次ソース＝全指連 `zensiren.or.jp/nwide-info/`「47都道府県協会一覧」（raw hrefでLLM要約と一致照合済・まとめ/比較サイト不使用）。
-- **投入30県（https実測200・北→南）**：青森・岩手・宮城・秋田・山形・福島・茨城・栃木・群馬・山梨・長野・新潟・富山・福井・岐阜・三重・滋賀・京都・島根・岡山・広島・山口・徳島・香川・愛媛・高知・熊本・宮崎・鹿児島・沖縄。
-  - うち**http のみ4県**（https強制で403/TLS/接続拒否/404）：栃木`totikyou.jp`(https403)・群馬`gunma-adsa.com`(https TLSエラー)・福井`fukuiadsa.or.jp`(https接続拒否)・滋賀`shiga-shiteikyo.org`(https404)。configは http 実測200を採用。**将来https化されたら差し替え**。
+- **投入33県（北→南）**：青森・岩手・宮城・秋田・山形・福島・茨城・栃木・群馬・山梨・長野・新潟・富山・福井・岐阜・三重・滋賀・京都・鳥取・島根・岡山・広島・山口・徳島・香川・愛媛・高知・長崎・熊本・大分・宮崎・鹿児島・沖縄。
+  - うち**http のみ5県**（https強制で403/TLS/接続拒否/404）：栃木`totikyou.jp`(https403)・群馬`gunma-adsa.com`(https TLSエラー)・福井`fukuiadsa.or.jp`(https接続拒否)・滋賀`shiga-shiteikyo.org`(https404)・岐阜`www.gishikyo.jp`（共用証明書 `*.bizmw.com` が `www.gishikyo.jp` を含まず **ERR_CERT_COMMON_NAME_INVALID**）。configは http 実測200を採用。**将来https化されたら差し替え**。
   - 名称の揺れをそのまま採用：広島・山口・香川・高知・宮崎・沖縄=「指定自動車**学校**協会」、熊本=「一般**財団**法人」、京都=「京都**府**」。
-- **保留7県（未投入・要URL確認）**：
+- **解決3県（投入済み）**：
+  - 長崎＝**解決**。全指連掲載の`vectz.com/nadsa`は404だったが、一次源として`nadsa.jp`（一般社団法人 長崎県指定自動車学校協会・加盟校17校の住所/電話を掲載）を確認し採用。投入済み。
+  - 鳥取＝**解決**。協会サイトは確認できず、鳥取県公式（とりネット／鳥取県広報課）の指定自動車教習所一覧9校を一次源として採用（`www.pref.tottori.lg.jp/320880.htm`）。name も「協会」とせず県公式一覧として表記。投入済み。
+  - 大分＝**解決**。協会サイトは確認できず、大分県警察本部の指定自動車教習所一覧17校を一次源として採用（`www.pref.oita.jp/site/keisatu/mennsyu.html`）。name も「協会」とせず県警一覧として表記。投入済み。
+- **保留4県（未投入・要URL確認）**：
   - 石川`idsa.or.jp`＝全指連掲載URLだが現在**HTTP 500**（http/https・UA変更とも Internal Server Error）。復旧後に投入。
-  - 長崎`vectz.com/nadsa`＝全指連掲載URLが**404**（リンク切れ）。代替URLは推測せず、別途一次源で要確認。
-  - 奈良・和歌山・鳥取・佐賀・大分＝全指連一覧に**協会リンクなし**。各県警の指定教習所一覧等で別途要確認。**推測URLは充てない。**
+  - 奈良・和歌山・佐賀＝全指連一覧に協会リンクなし、県警サイトにも公式の一覧ページが見当たらず。**推測URLは充てない**。要個別精査。
