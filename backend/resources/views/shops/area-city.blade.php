@@ -394,7 +394,7 @@
                     @php
                         $img = null;
                         if ($nl->local_image_paths && is_array($nl->local_image_paths) && count($nl->local_image_paths) > 0) {
-                            $img = asset('storage/' . $nl->local_image_paths[0]);
+                            $img = listing_image_url($nl->local_image_paths[0]);
                         } elseif ($nl->image_urls) {
                             $img = is_array($nl->image_urls) ? ($nl->image_urls[0] ?? null) : $nl->image_urls;
                         }

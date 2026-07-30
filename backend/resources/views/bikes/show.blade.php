@@ -1792,7 +1792,7 @@
                         <a href="{{ route('bikes.show', $active->id) }}" class="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
                             <div class="aspect-[4/3] bg-gray-100 overflow-hidden">
                                 @if(!empty($activeImg) && is_array($activeImg))
-                                <img src="{{ asset('storage/' . ltrim($activeImg[0], '/')) }}" alt="{{ $active->title }}" class="w-full h-full object-cover" loading="lazy">
+                                <img src="{{ listing_image_url($activeImg[0]) }}" alt="{{ $active->title }}" class="w-full h-full object-cover" loading="lazy">
                                 @else
                                 <div class="w-full h-full flex items-center justify-center text-gray-300">
                                     <i data-lucide="image-off" class="w-6 h-6"></i>

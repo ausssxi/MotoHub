@@ -92,7 +92,7 @@ class Listing extends Model
                 if (! empty($attributes['local_image_paths'])) {
                     $localPaths = json_decode($attributes['local_image_paths'], true);
                     if (is_array($localPaths) && ! empty($localPaths)) {
-                        return array_map(fn ($path) => asset('storage/'.ltrim($path, '/')), $localPaths);
+                        return array_map(fn ($path) => listing_image_url($path), $localPaths);
                     }
                 }
                 if (! empty($attributes['image_urls'])) {

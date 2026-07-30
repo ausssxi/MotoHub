@@ -61,6 +61,23 @@ return [
             'report' => false,
         ],
 
+        // Cloudflare R2（S3互換）。在庫画像（listings/...）の退避先。
+        // バックアップ用 r2 とは別バケット(motohub-images)・別資格情報(R2_IMAGES_*)。
+        // 公開URLは Custom Domain https://img.motohub.jp（R2_IMAGES_URL）から生成する。
+        // R2 は path-style エンドポイントを要求するため use_path_style_endpoint=true。
+        'r2_images' => [
+            'driver' => 's3',
+            'key' => env('R2_IMAGES_ACCESS_KEY_ID'),
+            'secret' => env('R2_IMAGES_SECRET_ACCESS_KEY'),
+            'region' => env('R2_IMAGES_DEFAULT_REGION', 'auto'),
+            'bucket' => env('R2_IMAGES_BUCKET'),
+            'url' => env('R2_IMAGES_URL'),
+            'endpoint' => env('R2_IMAGES_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

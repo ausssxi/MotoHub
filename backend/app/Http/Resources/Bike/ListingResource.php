@@ -7,7 +7,6 @@ namespace App\Http\Resources\Bike;
 use App\Services\Bike\RegionalBargainService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * 出品データをフロントエンド向けのJSON/配列に変換するリソースクラス。
@@ -170,7 +169,7 @@ class ListingResource extends JsonResource
         }
 
         if (! empty($localPaths) && is_array($localPaths)) {
-            return array_map(fn ($p) => Storage::disk('public')->url(ltrim($p, '/')), $localPaths);
+            return array_map(fn ($p) => listing_image_url($p), $localPaths);
         }
 
         if (is_string($remoteUrls)) {
