@@ -107,3 +107,8 @@ Schedule::command('poi:fetch')->dailyAt('03:30');
 
 // POI住所逆ジオコーディング（毎日4:30 — 5000件ずつ段階処理）
 Schedule::command('poi:geocode')->dailyAt('04:30');
+
+// ディスク使用率チェック（毎日7:00 — backup:monitor 08:00 の前）
+// ディスク100%→全ページ500の再発防止。しきい値超過時のみメール通知。
+// appendOutputTo は付けない（無制限ログ増加を新規に増やさないため）。
+Schedule::command('system:check-disk')->dailyAt('07:00');
