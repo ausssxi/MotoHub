@@ -875,12 +875,22 @@
                                 '前ブレーキ' => $model->brake_type_front,
                                 '後ブレーキ' => $model->brake_type_rear,
                             ];
+
+                            // 排気量→必要免許（1つ）。新基準原付の対象モデルは125ccでも原付免許で
+                            // 乗れるため排気量ベース判定と食い違う → 除外（判定は shinkijun-link と同条件）。
+                            $licenseClass = bike_license_class($model->displacement);
+                            $isShinkijunTarget = in_array($model->name, config('shinkijun.target_models', []), true);
                             @endphp
 
                             @foreach(array_filter($specs) as $label => $value)
                                 <div class="flex justify-between items-center py-3 border-b border-gray-50 last:border-0 sm:nth-last-child(-n+2):border-0">
                                     <span class="text-xs font-bold text-gray-500 whitespace-nowrap">{{ $label }}</span>
-                                    <span class="text-sm font-black text-gray-800 text-right max-w-[60%] leading-tight">{{ $value }}</span>
+                                    <span class="text-sm font-black text-gray-800 text-right max-w-[60%] leading-tight">
+                                        {{ $value }}
+                                        @if($label === '総排気量' && $licenseClass && ! $isShinkijunTarget)
+                                            <span class="block mt-1 text-xs font-bold text-gray-500">必要な免許：<a href="{{ $licenseClass['url'] }}" class="text-blue-600 hover:underline">{{ $licenseClass['name'] }}</a></span>
+                                        @endif
+                                    </span>
                                 </div>
                             @endforeach
                             

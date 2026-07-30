@@ -49,6 +49,43 @@ if (! function_exists('listing_image_url')) {
     }
 }
 
+if (! function_exists('bike_license_class')) {
+    /**
+     * 排気量(cc)から、運転に最低限必要な免許区分を1つ返す。
+     *
+     * 区分の境界値は App\Http\Controllers\License\LicenseController::CLASSES を
+     * 唯一の正典として参照する（cc_min/cc_max をそのまま使い、ここに書き写さない）。
+     * 車種詳細ページのスペック表から /license/{class} への内部リンクに使う。
+     *
+     * 新基準原付（125cc でも原付免許で運転可）の対象モデルは排気量ベースの
+     * 判定と食い違うため、呼び出し側でモデル名判定して除外すること（このヘルパは
+     * 排気量しか受け取らないため対象/非対象を区別できない）。
+     *
+     * @param  int|null  $displacement  排気量(cc)
+     * @return array{key:string,name:string,formal:string,url:string}|null
+     *         区分が定まらない（NULL・1未満・どの帯にも該当しない）場合は null
+     */
+    function bike_license_class(?int $displacement): ?array
+    {
+        if ($displacement === null || $displacement < 1) {
+            return null;
+        }
+
+        foreach (\App\Http\Controllers\License\LicenseController::CLASSES as $key => $c) {
+            if ($displacement >= $c['cc_min'] && $displacement <= $c['cc_max']) {
+                return [
+                    'key'    => $key,
+                    'name'   => $c['name'],
+                    'formal' => $c['formal'],
+                    'url'    => route('license.show', ['class' => $key]),
+                ];
+            }
+        }
+
+        return null;
+    }
+}
+
 if (! function_exists('diagnosis_repair_slugs')) {
     /**
      * 症状診断ツール（/trouble）の答えカードが深掘り先として指すブログ記事の
