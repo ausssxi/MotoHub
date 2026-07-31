@@ -51,12 +51,20 @@ class DrivingSchool extends Model
         'verified_at',
         'status',
         'verify_method',
+        'address',
+        'latitude',
+        'longitude',
+        'geocoded_at',
+        'geocode_status',
     ];
 
     protected $casts = [
         'futsuu_nirin' => 'boolean',
         'oogata_nirin' => 'boolean',
         'verified_at' => 'date',
+        'latitude' => 'float',
+        'longitude' => 'float',
+        'geocoded_at' => 'datetime',
     ];
 
     /** この校の二輪コース料金（区分×MT/AT×所持免許）。 */
