@@ -54,7 +54,7 @@
             @if($mapSchools->isNotEmpty())
             <section>
                 <h2 class="text-lg font-black text-slate-900 mb-3">地図で見る</h2>
-                <div id="schools-map" class="w-full rounded-2xl border border-slate-200" style="height:360px"
+                <div id="schools-map" class="w-full h-[320px] sm:h-[460px] rounded-2xl border border-slate-200"
                      data-schools='@json($mapMarkers)'></div>
                 @if($missingCoordCount > 0)
                     <p class="text-[11px] text-slate-400 mt-2">※ 位置情報が未登録のため地図に表示していない教習所が {{ $missingCoordCount }} 校あります（一覧には掲載しています）。</p>
@@ -154,7 +154,7 @@
                     });
                 }
 
-                var map = L.map('schools-map', { scrollWheelZoom: false });
+                var map = L.map('schools-map', { scrollWheelZoom: false, zoomSnap: 0.25 });
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
                     maxZoom: 18,
@@ -178,9 +178,9 @@
                 });
 
                 if (markers.length === 1) {
-                    map.setView(markers[0].getLatLng(), 14);
+                    map.setView(markers[0].getLatLng(), 15);
                 } else if (markers.length > 1) {
-                    map.fitBounds(L.featureGroup(markers).getBounds().pad(0.2));
+                    map.fitBounds(L.featureGroup(markers).getBounds(), { padding: [16, 16] });
                 }
             })();
             </script>
