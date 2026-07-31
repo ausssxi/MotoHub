@@ -92,7 +92,7 @@ class GeocodeDrivingSchools extends Command
             }
 
             // GsiGeocodingService が内部で prefecture.city.street を連結する。
-            $sent = (string) $school->prefecture.(string) $school->city.$street;
+            $sent = (string) $school->prefecture.$this->geocodeCity((string) $school->city).$street;
 
             $result = $geocoder->geocode((string) $school->prefecture, $this->geocodeCity((string) $school->city), $street);
 
