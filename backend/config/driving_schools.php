@@ -80,4 +80,25 @@ return [
         'kagoshima' => ['name' => '鹿児島県指定自動車教習所協会', 'url' => 'https://www.ka-shiteikyo.school-info.jp/'],
         'okinawa' => ['name' => '一般社団法人 沖縄県指定自動車学校協会', 'url' => 'https://www.okizikyo.or.jp/'],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | アフィリエイト（教習所ページ /license/schools/{pref} の合宿導線）
+    |--------------------------------------------------------------------------
+    |
+    | 通いの教習所一覧の下に、合宿免許の申込先へ送客する枠を出す。★承認後に発行URLを
+    | env に入れる。url 未設定の間は枠自体を非表示（偽ボタンを置かない）。
+    | insurance.affiliate / theft.affiliate と同型。二輪の合宿可否・料金・日程は申込先で
+    | 確認させる文言にする（合宿で二輪が取れると断定しない）。
+    |
+    */
+
+    'affiliate' => [
+        'url' => env('SCHOOL_AFFILIATE_URL', ''),
+        // 任意: インプレッション計測URL。設定時のみ CTA表示で 1x1 img を出す（未設定は出さない）。
+        'imp_url' => env('SCHOOL_AFFILIATE_IMP_URL', ''),
+        'provider' => env('SCHOOL_AFFILIATE_PROVIDER', ''),
+        // リンクのアンカーテキスト。未設定ならリンク自体を出さない。
+        'label' => env('SCHOOL_AFFILIATE_LABEL', ''),
+    ],
 ];

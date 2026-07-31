@@ -106,6 +106,33 @@
                 </div>
             </section>
 
+            {{-- 合宿免許アフィリCTA（★affiliate.url 設定時のみ・PR表記付き。未設定なら枠自体を出さない） --}}
+            @php
+                $schoolAffiliate = config('driving_schools.affiliate', []);
+                $schoolCtaUrl = $schoolAffiliate['url'] ?? '';
+            @endphp
+            @if(!empty($schoolCtaUrl) && !empty($schoolAffiliate['label']))
+                <section>
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 text-center">
+                        <p class="text-[10px] font-black tracking-widest uppercase text-slate-400 mb-2">PR・広告</p>
+                        <h2 class="text-lg font-black text-slate-900 mb-1">短期間でまとめて取りたいなら合宿という方法もあります</h2>
+                        <p class="text-[13px] text-slate-600 leading-relaxed mb-4">通いの教習所のほかに、合宿で免許を取る方法もあります。二輪の合宿を扱っているか、料金や日程は申込先のサイトでご確認ください。</p>
+                        @if(!empty($schoolAffiliate['label']))
+                            <a href="{{ $schoolCtaUrl }}" target="_blank" rel="nofollow sponsored noopener"
+                               class="inline-flex items-center gap-2 bg-slate-900 text-white font-black text-sm px-6 py-3 rounded-full hover:bg-slate-800 transition-colors">
+                                {{ $schoolAffiliate['label'] }}
+                            </a>
+                        @endif
+                        @if(!empty($schoolAffiliate['provider']))
+                            <p class="text-[10px] font-bold text-slate-400 mt-3">提供: {{ $schoolAffiliate['provider'] }}・PR</p>
+                        @endif
+                        @if(!empty($schoolAffiliate['imp_url']))
+                            <img src="{{ $schoolAffiliate['imp_url'] }}" width="1" height="1" alt="" style="border:0;position:absolute;left:-9999px;" aria-hidden="true">
+                        @endif
+                    </div>
+                </section>
+            @endif
+
             {{-- 免許区分への導線 --}}
             <section>
                 <div class="grid sm:grid-cols-2 gap-3">
