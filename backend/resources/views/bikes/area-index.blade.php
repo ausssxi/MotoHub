@@ -170,6 +170,11 @@
             </section>
             @endif
 
+            {{-- 教習所ページへの内部リンク（公開県のみ表示） --}}
+            <div class="mb-8">
+                <x-license.schools-link :prefecture="$prefecture" />
+            </div>
+
             {{-- 全件検索リンク --}}
             <div class="text-center mt-10">
                 <a href="{{ route('bikes.search', ['prefecture' => $prefecture]) }}"

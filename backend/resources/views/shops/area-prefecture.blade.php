@@ -261,6 +261,11 @@
                 <x-cross-links :crossLinks="$crossLinks" />
             </div>
 
+            {{-- 教習所ページへの内部リンク（公開県のみ表示） --}}
+            <div class="mt-4">
+                <x-license.schools-link :prefecture="$prefecture" />
+            </div>
+
             {{-- 未掲載店の投稿導線 --}}
             <a href="{{ route('shops.submit.create', ['pref' => $prefecture]) }}"
                class="mt-8 flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-2xl p-5 hover:shadow-md transition-shadow">

@@ -207,6 +207,11 @@
             <div class="mt-8">
                 <x-cross-links :crossLinks="$crossLinks" />
             </div>
+
+            {{-- 教習所ページへの内部リンク（公開県のみ表示） --}}
+            <div class="mt-4">
+                <x-license.schools-link :prefecture="$prefecture" />
+            </div>
         </div>
     </div>
 </x-layout>
