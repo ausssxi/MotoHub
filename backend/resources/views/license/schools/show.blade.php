@@ -117,6 +117,52 @@
                 </div>
             </section>
 
+            {{-- 同じ県の関連ページ（在庫/販売店/駐車場） --}}
+            @if($areaLinks['shops'] || $areaLinks['parking'] || $areaLinks['bikes'])
+                <section>
+                    <h2 class="text-lg font-black text-slate-900 mb-3">{{ $prefecture }}で免許を取ったあとに</h2>
+                    <div class="grid sm:grid-cols-3 gap-3">
+                        @if($areaLinks['bikes'])
+                            <a href="{{ route('bikes.area_index', $areaLinks['bikes_short']) }}"
+                               class="block bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-400 transition">
+                                <div class="text-sm font-black text-slate-900">🛵 {{ $prefecture }}の中古バイクを探す</div>
+                            </a>
+                        @endif
+                        @if($areaLinks['shops'])
+                            <a href="{{ route('shops.area.prefecture', $prefecture) }}"
+                               class="block bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-400 transition">
+                                <div class="text-sm font-black text-slate-900">🏪 {{ $prefecture }}のバイク販売店を見る</div>
+                            </a>
+                        @endif
+                        @if($areaLinks['parking'])
+                            <a href="{{ route('parking.area.prefecture', $prefecture) }}"
+                               class="block bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-400 transition">
+                                <div class="text-sm font-black text-slate-900">🅿️ {{ $prefecture }}のバイク駐車場を探す</div>
+                            </a>
+                        @endif
+                    </div>
+                </section>
+            @endif
+
+            {{-- 他の都道府県の教習所 --}}
+            @php
+                $others = collect($otherPrefectures)->reject(fn ($p) => $p['slug'] === $pref);
+            @endphp
+            @if($others->isNotEmpty())
+                <section>
+                    <h2 class="text-lg font-black text-slate-900 mb-3">他の都道府県から探す</h2>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach($others as $p)
+                            <a href="{{ route('license.schools.show', $p['slug']) }}"
+                               class="inline-flex items-baseline gap-1 bg-white rounded-lg border border-slate-200 px-3 py-1.5 hover:border-blue-400 transition">
+                                <span class="text-sm font-bold text-slate-900">{{ $p['name'] }}</span>
+                                <span class="text-[11px] text-slate-400">{{ $p['count'] }}校</span>
+                            </a>
+                        @endforeach
+                    </div>
+                </section>
+            @endif
+
             {{-- 免責文・出典 --}}
             <section class="border-t border-slate-200 pt-6">
                 <p class="text-[11px] text-slate-400 leading-relaxed">

@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\License;
 
 use App\Http\Controllers\Controller;
+use App\Models\BikeParking;
 use App\Models\DrivingSchool;
+use App\Models\Listing;
+use App\Models\Shop;
 use App\Models\TouringSpot;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * 二輪教習が受けられる指定自動車教習所の一覧（/license/schools）。
@@ -69,11 +73,49 @@ final class LicenseSchoolController extends Controller
 
         abort_if($schools->isEmpty(), 404);
 
+        $prefecture = $schools->first()->prefecture;
+
+        // 同県に在庫/販売店/駐車場ページが存在するか（1回だけ exists 判定）。
+        // bikes 系は shops.prefecture を短縮形(都府県サフィックス除去・道は残す)で前方一致。
+        $areaLinks = Cache::remember("license.schools.area_links.{$pref}", 3600, function () use ($prefecture) {
+            $short = preg_replace('/[都府県]$/u', '', $prefecture);
+
+            return [
+                'bikes_short' => $short,
+                'shops' => Shop::where('prefecture', $prefecture)->exists(),
+                'parking' => BikeParking::active()->byPrefecture($prefecture)->exists(),
+                'bikes' => Listing::query()
+                    ->join('shops', 'listings.shop_id', '=', 'shops.id')
+                    ->where('shops.prefecture', 'like', $short.'%')
+                    ->where('listings.is_sold_out', false)
+                    ->exists(),
+            ];
+        });
+
+        // 他県の教習所ページ一覧（回遊用）。素の配列で保持。
+        $otherPrefectures = Cache::remember('license.schools.pref_list', 3600, function () {
+            return DrivingSchool::query()
+                ->published()
+                ->nirin()
+                ->orderBy('prefecture_slug')
+                ->get(['prefecture', 'prefecture_slug'])
+                ->groupBy('prefecture_slug')
+                ->map(fn ($g) => [
+                    'slug' => $g->first()->prefecture_slug,
+                    'name' => $g->first()->prefecture,
+                    'count' => $g->count(),
+                ])
+                ->values()
+                ->all();
+        });
+
         return view('license.schools.show', [
             'pref' => $pref,
-            'prefecture' => $schools->first()->prefecture,
+            'prefecture' => $prefecture,
             'schools' => $schools,
             'sourceUrls' => $schools->pluck('source_url')->filter()->unique()->values(),
+            'areaLinks' => $areaLinks,
+            'otherPrefectures' => $otherPrefectures,
         ]);
     }
 }
