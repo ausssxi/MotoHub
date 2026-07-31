@@ -94,7 +94,7 @@ class GeocodeDrivingSchools extends Command
             // GsiGeocodingService が内部で prefecture.city.street を連結する。
             $sent = (string) $school->prefecture.(string) $school->city.$street;
 
-            $result = $geocoder->geocode((string) $school->prefecture, (string) $school->city, $street);
+            $result = $geocoder->geocode((string) $school->prefecture, $this->geocodeCity((string) $school->city), $street);
 
             if ($result === null) {
                 $failed++;
@@ -175,6 +175,24 @@ class GeocodeDrivingSchools extends Command
         }
 
         return $address;
+    }
+
+    /**
+     * GSI へ照合させる city 値を返す。
+     *
+     * 国土地理院APIは町村の住所で郡を省いた title を返すため、city=「足柄上郡開成町」だと
+     * GsiGeocodingService の「city が title に含まれること」照合に失敗する。
+     * 郡を含み末尾が町/村の場合のみ郡を除いた値（開成町）を照合用に使う。座標は同一。
+     * 「郡山市」のように郡を含むが町村で終わらない市名は誤除去しない（末尾町/村限定）。
+     * stripCity（address からの city 除去）は従来どおり元の city を使い、これは照合用のみ。
+     */
+    private function geocodeCity(string $city): string
+    {
+        if (preg_match('/^.+?郡(.+[町村])$/u', $city, $m) === 1) {
+            return $m[1];
+        }
+
+        return $city;
     }
 
     /** GSI は公共APIのため1件ごとに待機する。 */
