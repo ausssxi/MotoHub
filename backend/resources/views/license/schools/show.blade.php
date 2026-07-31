@@ -85,6 +85,9 @@
                                         @else
                                             <span class="font-bold text-slate-900">{{ $s->name }}</span>
                                         @endif
+                                        @if($s->address)
+                                            <div class="text-xs text-slate-600 mt-1">{{ $s->address }}</div>
+                                        @endif
                                         <div class="text-[11px] text-slate-400 mt-1">{{ $s->verified_at->format('Y') }}年{{ $s->verified_at->format('n') }}月時点で公式サイトに二輪教習の案内を確認</div>
                                         @if($s->isStale())
                                             <div class="text-[11px] text-amber-600 mt-0.5">この情報は確認から時間が経っています</div>
