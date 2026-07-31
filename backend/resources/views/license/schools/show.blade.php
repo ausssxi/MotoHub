@@ -34,6 +34,34 @@
                 受付状況は変わることがあります。定員や休講により、掲載時点と異なる場合があります。お申し込み前に各校の公式サイトでご確認ください。
             </div>
 
+            @php
+                // 地図に出すのは緯度経度が両方入っている校のみ。一覧表（下）は従来どおり全件。
+                $mapSchools = $schools->filter(fn ($s) => $s->latitude !== null && $s->longitude !== null)->values();
+                $missingCoordCount = $schools->count() - $mapSchools->count();
+                // 埋め込む項目は name/latitude/longitude/city/official_url/futsuu_nirin/oogata_nirin のみ。
+                $mapMarkers = $mapSchools->map(fn ($s) => [
+                    'name' => $s->name,
+                    'latitude' => (float) $s->latitude,
+                    'longitude' => (float) $s->longitude,
+                    'city' => $s->city,
+                    'official_url' => $s->official_url,
+                    'futsuu_nirin' => (bool) $s->futsuu_nirin,
+                    'oogata_nirin' => (bool) $s->oogata_nirin,
+                ])->values();
+            @endphp
+
+            {{-- 地図（座標のある校のみ）。座標が0件なら、このブロック・Leaflet CSS/JS を一切出力しない。 --}}
+            @if($mapSchools->isNotEmpty())
+            <section>
+                <h2 class="text-lg font-black text-slate-900 mb-3">地図で見る</h2>
+                <div id="schools-map" class="w-full rounded-2xl border border-slate-200" style="height:360px"
+                     data-schools='@json($mapMarkers)'></div>
+                @if($missingCoordCount > 0)
+                    <p class="text-[11px] text-slate-400 mt-2">※ 位置情報が未登録のため地図に表示していない教習所が {{ $missingCoordCount }} 校あります（一覧には掲載しています）。</p>
+                @endif
+            </section>
+            @endif
+
             {{-- 一覧 --}}
             <section>
                 <div class="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
@@ -103,4 +131,59 @@
 
         </div>
     </div>
+
+    {{-- 座標のある校が1件以上のときだけ Leaflet を読み込む。0件なら slot 自体を登録しない
+         （$styles / $scripts は未定義のまま＝出力は従来と1バイトも変わらない）。 --}}
+    @if($mapSchools->isNotEmpty())
+        <x-slot:styles>
+            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+        </x-slot:styles>
+        <x-slot:scripts>
+            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+            <script>
+            (function () {
+                var el = document.getElementById('schools-map');
+                if (!el || typeof L === 'undefined') return;
+                var schools = [];
+                try { schools = JSON.parse(el.dataset.schools || '[]'); } catch (e) { return; }
+                if (!schools.length) return;
+
+                function esc(v) {
+                    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+                        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+                    });
+                }
+
+                var map = L.map('schools-map', { scrollWheelZoom: false });
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                    maxZoom: 18,
+                }).addTo(map);
+
+                var markers = [];
+                schools.forEach(function (s) {
+                    var lat = parseFloat(s.latitude), lng = parseFloat(s.longitude);
+                    if (isNaN(lat) || isNaN(lng)) return;
+                    var marker = L.marker([lat, lng]).addTo(map);
+                    var title = s.official_url
+                        ? '<a href="' + esc(s.official_url) + '" target="_blank" rel="nofollow noopener" style="color:#1d4ed8;font-weight:700;">' + esc(s.name) + '</a>'
+                        : '<span style="font-weight:700;">' + esc(s.name) + '</span>';
+                    var html = '<div style="font-size:12px;line-height:1.6;">' + title
+                        + '<br>' + esc(s.city)
+                        + '<br>普通二輪：' + (s.futsuu_nirin ? '○' : '—')
+                        + '　大型二輪：' + (s.oogata_nirin ? '○' : '—')
+                        + '</div>';
+                    marker.bindPopup(html);
+                    markers.push(marker);
+                });
+
+                if (markers.length === 1) {
+                    map.setView(markers[0].getLatLng(), 14);
+                } else if (markers.length > 1) {
+                    map.fitBounds(L.featureGroup(markers).getBounds().pad(0.2));
+                }
+            })();
+            </script>
+        </x-slot:scripts>
+    @endif
 </x-layout>
