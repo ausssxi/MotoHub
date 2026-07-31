@@ -1,6 +1,6 @@
 prefecture,prefecture_slug,city,name,official_url,futsuu_nirin,oogata_nirin,source_url,verified_at,status,verify_method
 兵庫県,hyogo,赤穂市,赤穂自動車教習所,http://www.ako-ds.com/,1,1,https://www.hyogo-dsa.or.jp/,2026-07-29,open,machine
-兵庫県,hyogo,姫路市,網千自動車教習所,http://www.aboshi.co.jp/,1,1,https://www.hyogo-dsa.or.jp/,2026-07-29,open,machine
+兵庫県,hyogo,姫路市,網干自動車教習所,http://www.aboshi.co.jp/,1,1,https://www.hyogo-dsa.or.jp/,2026-07-29,open,machine
 兵庫県,hyogo,尼崎市,尼崎ドライブスクール,http://www.amagasaki-ds.co.jp/,1,1,https://www.amagasaki-ds.co.jp/normal_motorcycle,2026-07-29,nirin_suspended,human
 兵庫県,hyogo,神戸市西区,伊川谷自動車学院,https://www.heiwa-license.co.jp/,1,1,https://www.hyogo-dsa.or.jp/,2026-07-29,open,machine
 兵庫県,hyogo,小野市,小野自動車教習所,http://www.ono-ms.co.jp/,1,0,https://www.hyogo-dsa.or.jp/,2026-07-29,open,machine
