@@ -209,20 +209,36 @@
                     maxZoom: 18,
                 }).addTo(map);
 
-                var markers = [];
+                var groups = {};
+                var order = [];
                 schools.forEach(function (s) {
                     var lat = parseFloat(s.latitude), lng = parseFloat(s.longitude);
                     if (isNaN(lat) || isNaN(lng)) return;
-                    var marker = L.marker([lat, lng]).addTo(map);
+                    var key = lat + ',' + lng;
+                    if (!groups[key]) {
+                        groups[key] = { lat: lat, lng: lng, items: [] };
+                        order.push(key);
+                    }
+                    groups[key].items.push(s);
+                });
+                function popupBlock(s) {
                     var title = s.official_url
                         ? '<a href="' + esc(s.official_url) + '" target="_blank" rel="nofollow noopener" style="color:#1d4ed8;font-weight:700;">' + esc(s.name) + '</a>'
                         : '<span style="font-weight:700;">' + esc(s.name) + '</span>';
-                    var html = '<div style="font-size:12px;line-height:1.6;">' + title
+                    return title
                         + '<br>' + esc(s.city)
                         + '<br>普通二輪：' + (s.futsuu_nirin ? '○' : '—')
-                        + '　大型二輪：' + (s.oogata_nirin ? '○' : '—')
-                        + '</div>';
-                    marker.bindPopup(html);
+                        + '　大型二輪：' + (s.oogata_nirin ? '○' : '—');
+                }
+                var markers = [];
+                order.forEach(function (key) {
+                    var g = groups[key];
+                    var body = g.items.map(popupBlock).join('<hr style="margin:8px 0;border:0;border-top:1px solid #e2e8f0;">');
+                    var head = g.items.length > 1
+                        ? '<div style="font-weight:700;margin-bottom:6px;">この場所に' + g.items.length + '校</div>'
+                        : '';
+                    var marker = L.marker([g.lat, g.lng]).addTo(map);
+                    marker.bindPopup('<div style="font-size:12px;line-height:1.6;">' + head + body + '</div>');
                     markers.push(marker);
                 });
 
