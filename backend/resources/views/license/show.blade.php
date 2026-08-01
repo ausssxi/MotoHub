@@ -148,7 +148,7 @@
             @php
                 $licAff = config('license.affiliate', []);
             @endphp
-            @if(!empty($licAff['url']) && !empty($licAff['banner_url']))
+            @if(!empty($licAff['url']) && !empty($licAff['banner_url']) && request()->route('class') !== 'gentsuki')
                 <section>
                     <div class="bg-white rounded-2xl border border-slate-200 p-6 text-center">
                         <p class="text-[10px] font-black tracking-widest uppercase text-slate-400 mb-2">PR・広告</p>
