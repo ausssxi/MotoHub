@@ -579,14 +579,16 @@
                                     バイクです。
                                     @if($model->weight)車両重量は{{ $model->weight }}kgで、@endif
                                     @if($model->seat_height)シート高{{ $model->seat_height }}mmと@endif
-                                    @if($model->displacement && $model->displacement <= 125)
-                                        原付二種クラスならではの扱いやすさが魅力です。
+                                    @if($model->displacement && $model->displacement <= 50)
+                                        原付一種ならではの維持費の安さと取り回しのよさが魅力です。
+                                    @elseif($model->displacement && $model->displacement <= 125)
+                                        125ccまでの排気量ならではの取り回しのよさと維持費の安さが魅力です。
                                     @elseif($model->displacement && $model->displacement <= 250)
-                                        車検不要の250ccクラスとして維持費の安さが魅力です。
+                                        普通二輪免許で乗れて車検も不要な、維持費の軽さが魅力です。
                                     @elseif($model->displacement && $model->displacement <= 400)
-                                        普通二輪免許で乗れる400ccクラスのモデルです。
+                                        普通二輪免許で乗れる上限クラスならではの余裕ある走りが魅力です。
                                     @elseif($model->displacement && $model->displacement > 400)
-                                        大型バイクならではのパワフルな走りが魅力です。
+                                        大型二輪免許が必要なクラスならではのパワフルな走りが魅力です。
                                     @endif
                                 </p>
 
