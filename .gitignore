@@ -60,3 +60,10 @@ backend/public/build/
 backend/node_modules/.vite/
 __pycache__/
 *.pyc
+
+# 作業用の一時ファイル（履歴には入れない）
+docs/schools/_work/
+backend/database/data/_archive/
+backend/database/data/fitments/_bad_dupes/
+backend/database/data/fitments/gyro_test.csv
+*:Zone.Identifier
