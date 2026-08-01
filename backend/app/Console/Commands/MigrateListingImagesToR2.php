@@ -25,7 +25,8 @@ class MigrateListingImagesToR2 extends Command
     protected $signature = 'listings:migrate-images-to-r2
         {--dry-run : 実際にはコピーせず、対象件数・合計サイズ・スキップ予定数だけ集計}
         {--site= : 対象サイトを限定（goobike / bds / webike）}
-        {--limit= : 評価するファイル数の上限（動作確認・部分移行用）}';
+        {--limit= : 評価するファイル数の上限（動作確認・部分移行用）}
+        {--since-hours= : 指定時間以内に更新されたファイルだけを対象にする（日次の差分転送用）}';
 
     protected $description = '在庫画像（listings/...）をローカルからCloudflare R2（r2_images）へ移行';
 
@@ -37,6 +38,21 @@ class MigrateListingImagesToR2 extends Command
         $dryRun = (bool) $this->option('dry-run');
         $siteFilter = $this->option('site');
         $limit = $this->option('limit') !== null ? (int) $this->option('limit') : null;
+
+        // 差分転送用の時間窓（時間）。指定されたら正の整数のみ許可。
+        $sinceHoursRaw = $this->option('since-hours');
+        $sinceHours = null;
+        if ($sinceHoursRaw !== null) {
+            if (! is_numeric($sinceHoursRaw) || (int) $sinceHoursRaw <= 0) {
+                $this->error('--since-hours は正の整数（時間）で指定してください。');
+
+                return self::FAILURE;
+            }
+            $sinceHours = (int) $sinceHoursRaw;
+        }
+
+        // 指定時のみ、この時刻より古い更新のファイルは対象外にする。
+        $cutoff = $sinceHours !== null ? time() - $sinceHours * 3600 : null;
 
         // 誤って空ディスクへ書かないよう、エンドポイント未設定なら即停止。
         if (empty(config('filesystems.disks.r2_images.endpoint'))) {
@@ -70,6 +86,7 @@ class MigrateListingImagesToR2 extends Command
         $errors = 0;
         $totalBytes = 0;    // 転送対象の合計サイズ
         $seen = 0;          // 評価したファイル総数（limit 判定用）
+        $outOfWindow = 0;   // --since-hours 指定時、更新が古く対象外にしたファイル数
         $reachedLimit = false;
 
         foreach ($sites as $site) {
@@ -90,6 +107,21 @@ class MigrateListingImagesToR2 extends Command
                         $reachedLimit = true;
                         break;
                     }
+
+                    // 差分転送: 更新が時間窓より古いファイルは対象外（R2へは一切問い合わせない）。
+                    // lastModified が取れない場合は取りこぼし防止のため対象に含める側へ倒す。
+                    if ($sinceHours !== null) {
+                        try {
+                            if ($source->lastModified($file) < $cutoff) {
+                                $outOfWindow++;
+
+                                continue;
+                            }
+                        } catch (\Throwable $e) {
+                            // 取得失敗は握りつぶし、このファイルは対象に含める。
+                        }
+                    }
+
                     $seen++;
 
                     try {
@@ -130,6 +162,9 @@ class MigrateListingImagesToR2 extends Command
         $this->line('評価ファイル数        : '.number_format($seen));
         $this->line(($dryRun ? '転送予定' : '転送済み').'件数        : '.number_format($transferred));
         $this->line('スキップ（既存同一）  : '.number_format($skipped));
+        if ($sinceHours !== null) {
+            $this->line('対象外（更新が古い）  : '.number_format($outOfWindow));
+        }
         $this->line(($dryRun ? '転送予定' : '転送対象').'合計サイズ  : '.$this->humanBytes($totalBytes));
         if ($errors > 0) {
             $this->warn('エラー件数            : '.number_format($errors));

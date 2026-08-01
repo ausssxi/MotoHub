@@ -115,6 +115,13 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->withoutOverlapping()
                  ->appendOutputTo($crawlingLog);
 
+        // 在庫画像の差分をR2へ転送。image_syncer(04:00)の後。直近30時間に更新された
+        // ファイルだけを見るので日次でも軽い。
+        $schedule->command('listings:migrate-images-to-r2 --since-hours=30')
+                 ->dailyAt('06:00')
+                 ->withoutOverlapping()
+                 ->appendOutputTo($crawlingLog);
+
         // カタログスペックの自動収集・穴埋め (04:30〜)
         // 未取得の車種がない場合は数秒で終了します
         $schedule->exec("python3 {$basePath}/bikebros/spec_collector.py")
