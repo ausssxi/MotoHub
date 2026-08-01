@@ -26,7 +26,10 @@ if (! function_exists('listing_image_url')) {
      *
      * DB の local_image_paths には "listings/..." の相対パスが入る。表示側は
      * この関数だけを通すことで、保存先をローカル(public)⇔R2(r2_images)で
-     * 切り替えられる。切替は env('LISTING_IMAGE_DISK') の1箇所で行う。
+     * 切り替えられる。切替は config('filesystems.listing_image_disk') の1箇所で行う。
+     * config:cache 済み環境では config ファイル以外の env() は .env を読まず常に既定値を
+     * 返すため、ここでは env() を直接呼ばず config 経由にしてある（config/filesystems.php で
+     * env('LISTING_IMAGE_DISK') を解決）。
      *
      *   'public'    → asset('storage/'.$path)（＝従来と完全に同一のURL・既定）
      *   'r2_images' → https://img.motohub.jp/{path}（R2 Custom Domain）
@@ -39,7 +42,7 @@ if (! function_exists('listing_image_url')) {
     {
         $path = ltrim($path, '/');
 
-        if (env('LISTING_IMAGE_DISK', 'public') === 'r2_images') {
+        if (config('filesystems.listing_image_disk', 'public') === 'r2_images') {
             $base = rtrim((string) config('filesystems.disks.r2_images.url'), '/');
 
             return $base.'/'.$path;

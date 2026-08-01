@@ -15,6 +15,11 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
+    // 在庫画像の参照先ディスク。'public'（ローカル）か 'r2_images'（R2）。
+    // config 経由にすることで config:cache 済みでも切替が効く（config以外の env() は
+    // config:cache 済み環境で .env を読まず常に既定値になるため）。
+    'listing_image_disk' => env('LISTING_IMAGE_DISK', 'public'),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
