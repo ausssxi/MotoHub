@@ -43,6 +43,7 @@ class ParkingAreaController extends Controller
             ['label' => '中古バイク検索', 'url' => route('bikes.search', ['prefecture' => mb_substr($prefecture, 0, -1)]), 'icon' => 'search', 'description' => $prefecture.'の在庫を検索'],
             ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => '全国の駐車場を探す'],
             ['label' => 'ショップマップ', 'url' => route('shops.map'), 'icon' => 'store', 'description' => 'バイクショップを探す'],
+            ['label' => 'バイク盗難データ', 'url' => route('theft'), 'icon' => 'shield-alert', 'description' => '全国の盗難件数と対策'],
         ];
 
         return view('parking.area', array_merge($data, ['crossLinks' => $crossLinks]));
@@ -71,6 +72,7 @@ class ParkingAreaController extends Controller
             ['label' => '中古バイク検索', 'url' => route('bikes.search', ['prefecture' => mb_substr($prefecture, 0, -1)]), 'icon' => 'search', 'description' => $prefecture.'の在庫を検索'],
             ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => '全国の駐車場を探す'],
             ['label' => $prefecture.'の駐車場', 'url' => route('parking.area.prefecture', $prefecture), 'icon' => 'map-pin', 'description' => $prefecture.'の駐車場一覧'],
+            ['label' => 'バイク盗難データ', 'url' => route('theft'), 'icon' => 'shield-alert', 'description' => '全国の盗難件数と対策'],
         ];
 
         return view('parking.area-city', array_merge($data, [
@@ -109,6 +111,7 @@ class ParkingAreaController extends Controller
             ['label' => '中古バイク検索', 'url' => route('bikes.search', ['prefecture' => mb_substr($prefecture, 0, -1)]), 'icon' => 'search', 'description' => $prefecture.'の在庫を検索'],
             ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => '全国の駐車場を探す'],
             ['label' => $prefecture.'の駐車場', 'url' => route('parking.area.prefecture', $prefecture), 'icon' => 'map-pin', 'description' => $prefecture.'の駐車場一覧'],
+            ['label' => 'バイク盗難データ', 'url' => route('theft'), 'icon' => 'shield-alert', 'description' => '全国の盗難件数と対策'],
         ];
 
         return view('parking.station-show', array_merge($data, [

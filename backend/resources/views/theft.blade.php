@@ -143,5 +143,9 @@
         </nav>
 
         <p class="text-[11px] text-gray-400 leading-relaxed mt-6">本ページは公的統計（警察庁犯罪統計）に基づく情報提供を目的としています。統計値は出典のとおり掲載し、独自の推測値は作成していません。盗難保険は商品により補償・保険料が異なるため、加入検討時は各社の公式情報をご確認ください。</p>
+
+        <div class="mt-8">
+            <x-cross-links :crossLinks="$crossLinks" />
+        </div>
     </div>
 </x-layout>

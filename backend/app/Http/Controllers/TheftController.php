@@ -17,6 +17,12 @@ final class TheftController extends Controller
 {
     public function show(): View
     {
+        $crossLinks = [
+            ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => '全国の駐車場を探す'],
+            ['label' => 'バイクショップを探す', 'url' => route('shops.map'), 'icon' => 'store', 'description' => '近くのショップを探す'],
+            ['label' => '中古バイク検索', 'url' => route('bikes.search'), 'icon' => 'search', 'description' => '全国の在庫を検索'],
+        ];
+
         return view('theft', [
             'hasData' => TheftStats::hasData(),
             'latest' => TheftStats::latest(),
@@ -24,6 +30,7 @@ final class TheftController extends Controller
             'source' => TheftStats::sourceMeta(),
             'affiliate' => config('theft.affiliate'),
             'faqs' => $this->faqs(),
+            'crossLinks' => $crossLinks,
         ]);
     }
 
