@@ -68,6 +68,7 @@ final class ParkingService
             ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => '他の駐車場を探す'],
             ['label' => 'バイク診断', 'url' => route('shindan.index'), 'icon' => 'sparkles', 'description' => 'あなたにピッタリの1台'],
             ['label' => '愛車ガレージ', 'url' => route('mybikes.index'), 'icon' => 'car', 'description' => '愛車を登録・管理'],
+            ['label' => 'バイク盗難データ', 'url' => route('theft'), 'icon' => 'shield-alert', 'description' => '全国の盗難件数と対策'],
         ];
 
         // このエリアで売っているバイク（市区町村レベルに絞り込み、なければ都道府県）
