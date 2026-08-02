@@ -42,6 +42,10 @@ final class RentalGarageApiController extends Controller
                 ->where('is_active', true)
                 ->whereNotNull('latitude')
                 ->whereNotNull('longitude')
+                // 代表点（市区町村どまり）は地図に出さない。座標がある(=whereNotNull)ことは別途担保。
+                // ※ 将来のユーザー投稿は地図上でピンを置く方式で座標が正確なため、投稿時に
+                //   geocode_status='ok' を入れる前提（この条件で除外されない）。
+                ->where('geocode_status', '!=', 'approximate')
                 ->whereBetween('latitude', [$swLat, $neLat])
                 ->whereBetween('longitude', [$swLng, $neLng])
                 ->when($types, fn ($q) => $q->whereIn('garage_type', $types))
