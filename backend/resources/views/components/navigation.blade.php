@@ -61,7 +61,7 @@
                 </a>
 
                 {{-- バイク相性診断 --}}
-                <a href="/shindan" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isShindan ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest group relative" title="あなたにぴったりの1台を診断">
+                <a href="{{ route('shindan.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isShindan ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest group relative" title="あなたにぴったりの1台を診断">
                     <i data-lucide="sparkles" class="w-4 h-4 text-blue-500 group-hover:animate-pulse"></i>
                     <span class="hidden xl:inline">バイク相性診断</span>
                     <span class="absolute -top-0.5 -right-0.5 flex h-2 w-2">
@@ -536,12 +536,30 @@
                 </div>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
             </a>
+            <a href="{{ route('market') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="line-chart" class="w-4 h-4 text-blue-600"></i>
+                    </div>
+                    <p class="text-xs font-black text-gray-800">相場トップ</p>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
             <a href="{{ route('bikes.trends') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 bg-rose-100 rounded-full flex items-center justify-center">
                         <i data-lucide="trophy" class="w-4 h-4 text-rose-600"></i>
                     </div>
                     <p class="text-xs font-black text-gray-800">相場ランキング</p>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+            </a>
+            <a href="{{ route('bikes.region_price_index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 mt-2 active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="map-pinned" class="w-4 h-4 text-green-600"></i>
+                    </div>
+                    <p class="text-xs font-black text-gray-800">エリア別相場</p>
                 </div>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
             </a>

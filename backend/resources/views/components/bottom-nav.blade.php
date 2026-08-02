@@ -64,6 +64,15 @@
 
             {{-- ツール --}}
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1">ツール</p>
+            <a href="{{ route('ai-search') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="bot" class="w-5 h-5 text-purple-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">AIで探す</p>
+                    <p class="text-[10px] text-gray-400">条件を話しかけるだけでOK</p>
+                </div>
+            </a>
             <a href="{{ route('shindan.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
                 <div class="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
                     <i data-lucide="sparkles" class="w-5 h-5 text-purple-600"></i>
@@ -151,13 +160,31 @@
 
             {{-- 情報 --}}
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mt-3 mb-1">情報</p>
-            <a href="{{ route('blog.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                <div class="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center">
-                    <i data-lucide="pen-line" class="w-5 h-5 text-amber-600"></i>
+            <a href="{{ route('market') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="line-chart" class="w-5 h-5 text-blue-600"></i>
                 </div>
                 <div>
-                    <p class="text-sm font-black text-gray-900">ブログ</p>
-                    <p class="text-[10px] text-gray-400">バイクに関する記事を読む</p>
+                    <p class="text-sm font-black text-gray-900">相場トップ</p>
+                    <p class="text-[10px] text-gray-400">中古バイク相場のまとめ</p>
+                </div>
+            </a>
+            <a href="{{ route('bikes.trends') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="trending-up" class="w-5 h-5 text-red-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">相場ランキング</p>
+                    <p class="text-[10px] text-gray-400">人気車種のトレンドを確認</p>
+                </div>
+            </a>
+            <a href="{{ route('bikes.region_price_index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="map-pinned" class="w-5 h-5 text-green-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">エリア別相場</p>
+                    <p class="text-[10px] text-gray-400">地域ごとの価格差</p>
                 </div>
             </a>
             <a href="{{ route('sell.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
@@ -169,13 +196,40 @@
                     <p class="text-[10px] text-gray-400">愛車の買取価格を調べる</p>
                 </div>
             </a>
-            <a href="{{ route('bikes.trends') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                <div class="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
-                    <i data-lucide="trending-up" class="w-5 h-5 text-red-600"></i>
+            <a href="{{ route('bikes.reviews_index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="star" class="w-5 h-5 text-blue-600"></i>
                 </div>
                 <div>
-                    <p class="text-sm font-black text-gray-900">相場ランキング</p>
-                    <p class="text-[10px] text-gray-400">人気車種のトレンドを確認</p>
+                    <p class="text-sm font-black text-gray-900">レビュー</p>
+                    <p class="text-[10px] text-gray-400">オーナーの口コミを読む</p>
+                </div>
+            </a>
+            <a href="{{ route('hoken') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="shield" class="w-5 h-5 text-blue-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">バイク保険・維持費</p>
+                    <p class="text-[10px] text-gray-400">保険と維持費の目安</p>
+                </div>
+            </a>
+            <a href="{{ route('theft') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="shield-alert" class="w-5 h-5 text-red-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">バイクの盗難データ</p>
+                    <p class="text-[10px] text-gray-400">全国の盗難件数と対策</p>
+                </div>
+            </a>
+            <a href="{{ route('blog.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="pen-line" class="w-5 h-5 text-amber-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">ブログ</p>
+                    <p class="text-[10px] text-gray-400">バイクに関する記事を読む</p>
                 </div>
             </a>
 
@@ -208,6 +262,15 @@
                     <p class="text-[10px] text-gray-400">地域・店名で探す／掲載リクエスト</p>
                 </div>
             </a>
+            <a href="{{ route('license.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="book-open" class="w-5 h-5 text-blue-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">バイク免許</p>
+                    <p class="text-[10px] text-gray-400">免許区分と取り方ガイド</p>
+                </div>
+            </a>
 
             {{-- マイページ --}}
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mt-3 mb-1">マイページ</p>
@@ -227,6 +290,15 @@
                 <div>
                     <p class="text-sm font-black text-gray-900">お気に入り</p>
                     <p class="text-[10px] text-gray-400">気になる車両を確認</p>
+                </div>
+            </a>
+            <a href="{{ route('garage.public.index') }}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 bg-pink-50 rounded-xl flex items-center justify-center">
+                    <i data-lucide="bike" class="w-5 h-5 text-pink-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-900">みんなの愛車ガレージ</p>
+                    <p class="text-[10px] text-gray-400">みんなの公開ガレージを見る</p>
                 </div>
             </a>
         </div>
