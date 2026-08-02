@@ -22,6 +22,9 @@
                 <p class="text-sm text-gray-500 leading-relaxed max-w-3xl">
                     中古バイクの相場は地域で差が出ます。全国8エリアの中央値を比較して地域差が大きい車種をまとめました。安く買えるエリアを車種ごとに確認できます。
                 </p>
+                <a href="{{ route('market') }}" class="inline-flex items-center gap-1 mt-3 text-xs font-black text-blue-600 hover:underline">
+                    <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>中古バイク相場トップへ
+                </a>
             </div>
         </div>
 

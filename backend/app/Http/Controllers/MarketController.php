@@ -70,9 +70,18 @@ final class MarketController extends Controller
         };
 
         // 値上がり/値下がり集計（TrendService はそのまま利用）。データ0件でも空配列で落ちない。
+        // ハブでは上位5件だけ見せ、全件は /bikes/trends（相場ランキング）へ送る。
         $ranking = $this->trendService->getRanking($rankDays);
-        $risers = array_slice($ranking['rise'] ?? [], 0, 10);
-        $fallers = array_slice($ranking['drop'] ?? [], 0, 10);
+        $risers = array_slice($ranking['rise'] ?? [], 0, 5);
+        $fallers = array_slice($ranking['drop'] ?? [], 0, 5);
+
+        // 関連ページ導線（theft ハブと同じ $crossLinks 方式・<x-cross-links> で描画）。
+        $crossLinks = [
+            ['label' => 'エリア別 中古相場', 'url' => route('bikes.region_price_index'), 'icon' => 'map-pin', 'description' => '地域ごとの価格差'],
+            ['label' => '値下げ中の車両', 'url' => route('bikes.price_drops'), 'icon' => 'trending-down', 'description' => '直近で値下げされた車両'],
+            ['label' => 'お買い得車両', 'url' => route('bikes.bargains'), 'icon' => 'tag', 'description' => '相場より割安な車両'],
+            ['label' => '買取相場をチェック', 'url' => route('sell.index'), 'icon' => 'coins', 'description' => '売りたい人向け'],
+        ];
 
         return view('market', [
             'summary' => $summary,
@@ -80,6 +89,7 @@ final class MarketController extends Controller
             'risers' => $risers,
             'fallers' => $fallers,
             'days' => $days,
+            'crossLinks' => $crossLinks,
         ]);
     }
 }

@@ -68,7 +68,7 @@
 
             {{-- 値上がりランキング --}}
             <section>
-                <h2 class="text-xl font-black text-slate-900 mb-4">値上がりしている車種 TOP10</h2>
+                <h2 class="text-xl font-black text-slate-900 mb-4">値上がりしている車種 TOP5</h2>
                 @if(empty($risers))
                     <div class="bg-white rounded-2xl border border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
                         集計対象がありません。
@@ -89,12 +89,15 @@
                             </a>
                         @endforeach
                     </div>
+                    <a href="{{ route('bikes.trends') }}" class="inline-flex items-center gap-1 mt-3 text-xs font-black text-blue-700 hover:underline">
+                        値上がりランキングをすべて見る（30件）<i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                    </a>
                 @endif
             </section>
 
             {{-- 値下がりランキング --}}
             <section>
-                <h2 class="text-xl font-black text-slate-900 mb-4">値下がりしている車種 TOP10</h2>
+                <h2 class="text-xl font-black text-slate-900 mb-4">値下がりしている車種 TOP5</h2>
                 @if(empty($fallers))
                     <div class="bg-white rounded-2xl border border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
                         集計対象がありません。
@@ -115,8 +118,14 @@
                             </a>
                         @endforeach
                     </div>
+                    <a href="{{ route('bikes.trends') }}" class="inline-flex items-center gap-1 mt-3 text-xs font-black text-blue-700 hover:underline">
+                        値下がりランキングをすべて見る（30件）<i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                    </a>
                 @endif
             </section>
+
+            {{-- 関連ページ（theft ハブと同じ $crossLinks 方式） --}}
+            <x-cross-links :crossLinks="$crossLinks" />
 
             {{-- 補足 --}}
             <section class="border-t border-slate-200 pt-6">

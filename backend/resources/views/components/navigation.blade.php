@@ -111,6 +111,10 @@
                     <div x-show="open" x-transition
                          class="absolute left-0 top-full mt-1 w-48 max-h-[calc(100vh-5rem)] overflow-y-auto bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50"
                          style="display: none;">
+                        <a href="{{ route('market') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="line-chart" class="w-3.5 h-3.5"></i>
+                            相場トップ
+                        </a>
                         <a href="{{ route('bikes.trends') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
                             <i data-lucide="trophy" class="w-3.5 h-3.5"></i>
                             相場ランキング

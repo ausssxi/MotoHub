@@ -18,7 +18,10 @@
             <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             お買い得バイク
         </h1>
-        <p class="text-sm text-gray-500 mb-6">相場より20%以上安い掘り出し物を毎日更新</p>
+        <p class="text-sm text-gray-500 mb-2">相場より20%以上安い掘り出し物を毎日更新</p>
+        <a href="{{ route('market') }}" class="inline-flex items-center gap-1 mb-6 text-xs font-black text-blue-600 hover:underline">
+            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>中古バイク相場トップへ
+        </a>
 
         {{-- 統計ヘッダー --}}
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">

@@ -23,6 +23,9 @@
                 <p class="text-gray-500 font-bold text-sm leading-relaxed">
                     過去{{ $trends['period']['days'] ?? 30 }}日間（{{ $trends['period']['from'] ?? '' }} 〜 {{ $trends['period']['to'] ?? '' }}）の市場データを分析。<br class="hidden sm:block">今が買い時の値下がり車種や、プレミア化している高騰車種をチェック！
                 </p>
+                <a href="{{ route('market') }}" class="inline-flex items-center gap-1 mt-4 text-xs font-black text-blue-600 hover:underline">
+                    <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>中古バイク相場トップへ
+                </a>
             </div>
 
             {{-- タブ --}}
