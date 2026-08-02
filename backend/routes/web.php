@@ -472,6 +472,9 @@ Route::get('/hoken', [\App\Http\Controllers\HokenController::class, 'show'])->na
 // 盗難データハブ（情報提供＋盗難保険送客・恒久slug）
 Route::get('/theft', [\App\Http\Controllers\TheftController::class, 'show'])->name('theft');
 
+// 中古バイク相場ハブ（恒久slug・自社集計・データ蓄積とともに精度が上がる）
+Route::get('/market', [\App\Http\Controllers\MarketController::class, 'show'])->name('market');
+
 // お気に入り・比較機能 (未ログインでも閲覧可能なページ)
 Route::get('/wishlist', [BikeController::class, 'wishlist'])->name('wishlist');
 Route::get('/api/wishlist/fetch', [BikeController::class, 'fetchWishlist'])->name('api.wishlist.fetch');
