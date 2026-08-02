@@ -12,6 +12,7 @@
         convenience_store: { endpoint: '/api/pois?type=convenience_store', color: '#ea580c', label: '\uD83C\uDFEA', title: 'コンビニ' },
         michi_no_eki:      { endpoint: '/api/roadside-stations', color: '#9333ea', label: '\uD83D\uDEE3\uFE0F', title: '道の駅' },
         blog:              { endpoint: '/api/blog/map-pins', color: '#0891b2', label: '\u270D\uFE0F', title: '記事' },
+        car_wash:          { endpoint: '/api/pois?type=car_wash', color: '#0ea5e9', label: '\uD83D\uDEBF', title: '洗車場' },
         saved_spots:       { endpoint: '/api/spots', color: '#f59e0b', label: '\u2B50', title: 'お気に入り' },
     };
 
@@ -264,7 +265,7 @@
     // Fetch all enabled layers
     function fetchAllLayers() {
         var gen = ++fetchGeneration;
-        var layers = window.ridersMapLayers || { shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, blog: false, saved_spots: false };
+        var layers = window.ridersMapLayers || { shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, car_wash: false, blog: false, saved_spots: false };
         var bounds = map.getBounds();
         var ne = bounds.getNorthEast();
         var sw = bounds.getSouthWest();

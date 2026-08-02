@@ -187,14 +187,14 @@
         {{-- レイヤートグル（1行横スクロール＝地図の占有面積を最小化） --}}
         <div id="layer-chips" class="absolute top-14 left-3 right-3 z-40 flex flex-nowrap overflow-x-auto scrollbar-hide gap-1.5 pb-1"
              x-data="{
-                 shop: true, parking: true, gas: false, cvs: false, michi: false, blog: false, saved_spots: {{ auth()->check() ? 'true' : 'false' }},
+                 shop: true, parking: true, gas: false, cvs: false, michi: false, carwash: false, blog: false, saved_spots: {{ auth()->check() ? 'true' : 'false' }},
                  notify() {
-                     let l = {shop: this.shop, parking: this.parking, gas_station: this.gas, convenience_store: this.cvs, michi_no_eki: this.michi, blog: this.blog, saved_spots: this.saved_spots};
+                     let l = {shop: this.shop, parking: this.parking, gas_station: this.gas, convenience_store: this.cvs, michi_no_eki: this.michi, car_wash: this.carwash, blog: this.blog, saved_spots: this.saved_spots};
                      window.ridersMapLayers = l;
                      window.dispatchEvent(new CustomEvent('layers-changed', {detail: l}));
                  }
              }"
-             x-init="window.ridersMapLayers = {shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, blog: false, saved_spots: {{ auth()->check() ? 'true' : 'false' }}}">
+             x-init="window.ridersMapLayers = {shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, car_wash: false, blog: false, saved_spots: {{ auth()->check() ? 'true' : 'false' }}}">
             <button type="button" @click="shop = !shop; notify()"
                     class="layer-btn px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1"
                     :style="shop ? 'background:#2563eb;color:#fff;border:2px solid #2563eb' : 'background:#fff;color:#4b5563;border:2px solid #e5e7eb'">
@@ -224,6 +224,12 @@
                     :style="michi ? 'background:#9333ea;color:#fff;border:2px solid #9333ea' : 'background:#fff;color:#4b5563;border:2px solid #e5e7eb'">
                 <span class="text-sm leading-none">&#x1F6E3;&#xFE0F;</span>
                 道の駅
+            </button>
+            <button type="button" @click="carwash = !carwash; notify()"
+                    class="layer-btn px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1"
+                    :style="carwash ? 'background:#0ea5e9;color:#fff;border:2px solid #0ea5e9' : 'background:#fff;color:#4b5563;border:2px solid #e5e7eb'">
+                <span class="text-sm leading-none">&#x1F6BF;</span>
+                洗車場
             </button>
             <button type="button" @click="blog = !blog; notify()"
                     class="layer-btn px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1"

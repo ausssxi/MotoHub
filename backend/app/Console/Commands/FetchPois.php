@@ -10,11 +10,19 @@ use Illuminate\Support\Facades\Http;
 
 final class FetchPois extends Command
 {
-    protected $signature = 'poi:fetch {--type= : gas_station, convenience_store, or michi_no_eki}';
+    protected $signature = 'poi:fetch {--type= : gas_station, convenience_store, michi_no_eki, or car_wash}';
 
-    protected $description = 'Overpass APIからPOIデータ（ガソリンスタンド・コンビニ・道の駅）を取得';
+    protected $description = 'Overpass APIからPOIデータ（ガソリンスタンド・コンビニ・道の駅・洗車場）を取得';
 
     private const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+
+    // OSM の node / way は id 名前空間が別のため、同一 type 内で node と way が同一 id だと
+    // (osm_id, type) unique 制約で衝突する。car_wash の way/relation はこの値でオフセットして分離する。
+    // node id < ~1.3e10 / way id < ~2e9 に対し 1e13 は十分離れており、bigInteger の範囲内。
+    private const WAY_ID_OFFSET = 10_000_000_000_000;
+
+    // 畜産の防疫設備（バイクの洗車場ではない）。名称に含む要素は取り込まない。
+    private const CAR_WASH_EXCLUDE = '車両消毒槽';
 
     private const REGIONS = [
         '北海道' => [41.3, 139.3, 45.6, 145.8],
@@ -31,6 +39,9 @@ final class FetchPois extends Command
         'gas_station' => '[out:json][timeout:120];(node["amenity"="fuel"]({bbox});way["amenity"="fuel"]({bbox}););out center;',
         'convenience_store' => '[out:json][timeout:120];(node["shop"="convenience"]["name"~"セブン|ローソン|ファミリーマート|ミニストップ|デイリーヤマザキ|セイコーマート|ポプラ|NewDays"]({bbox}););out center;',
         'michi_no_eki' => '[out:json][timeout:120];(node["name"~"道の駅"]({bbox});way["name"~"道の駅"]({bbox}););out center;',
+        // 洗車場（amenity=car_wash）。way が全体の半数超のため node/way 両方を取得し、
+        // way は座標を持たないので「out center tags;」で center 座標とタグを得る。
+        'car_wash' => '[out:json][timeout:120];(node["amenity"="car_wash"]({bbox});way["amenity"="car_wash"]({bbox}););out center tags;',
     ];
 
     public function handle(): int
@@ -48,6 +59,7 @@ final class FetchPois extends Command
         }
 
         $totalInserted = 0;
+        $skippedDisinfection = 0; // 車両消毒槽としてスキップした件数（car_wash）
 
         foreach ($types as $type) {
             $this->info("=== {$type} の取得開始 ===");
@@ -60,6 +72,11 @@ final class FetchPois extends Command
                     implode(',', $bbox),
                     self::TYPE_QUERIES[$type]
                 );
+
+                // 生成した Overpass クエリは -v で確認できる（実際に叩かずに文字列を検証したい場合用）。
+                if ($this->getOutput()->isVerbose()) {
+                    $this->line("  Overpass query: {$query}");
+                }
 
                 try {
                     $response = Http::timeout(120)
@@ -89,8 +106,14 @@ final class FetchPois extends Command
 
                         $tags = $element['tags'] ?? [];
 
+                        // 畜産の防疫設備（車両消毒槽）はバイクの洗車場ではないため除外。
+                        if (isset($tags['name']) && mb_strpos($tags['name'], self::CAR_WASH_EXCLUDE) !== false) {
+                            $skippedDisinfection++;
+                            continue;
+                        }
+
                         Poi::updateOrCreate(
-                            ['osm_id' => $element['id'], 'type' => $type],
+                            ['osm_id' => $this->resolveOsmId($element, $type), 'type' => $type],
                             [
                                 'name' => $tags['name'] ?? $tags['brand'] ?? '名称不明',
                                 'latitude' => $lat,
@@ -114,8 +137,30 @@ final class FetchPois extends Command
         }
 
         $this->info("完了: 合計 {$totalInserted} 件処理");
+        if ($skippedDisinfection > 0) {
+            $this->info("除外（車両消毒槽）: {$skippedDisinfection} 件スキップ");
+        }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * 保存する osm_id を決める。
+     *
+     * OSM の node と way は id 名前空間が別で、同一 type 内で衝突し得る。
+     * 既存タイプ（gas_station / convenience_store / michi_no_eki）の保存済み osm_id を
+     * 壊さないよう、オフセット適用は car_wash に限定する。node はそのまま、way/relation は
+     * WAY_ID_OFFSET を加えて分離する。
+     */
+    private function resolveOsmId(array $element, string $type): int
+    {
+        $id = (int) $element['id'];
+
+        if ($type === 'car_wash' && ($element['type'] ?? 'node') !== 'node') {
+            return self::WAY_ID_OFFSET + $id;
+        }
+
+        return $id;
     }
 
     private function buildAddress(array $tags): ?string
