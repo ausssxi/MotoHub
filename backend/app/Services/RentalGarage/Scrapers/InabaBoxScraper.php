@@ -124,11 +124,18 @@ final class InabaBoxScraper extends AbstractRentalGarageScraper
             return null;
         }
 
-        $name = $this->normalizeText($link->text(''));
+        // 先頭の【…】注記（開店予定日等）を名前から切り離す。
+        $split = $this->splitNameAnnotation($link->text(''));
+        $name = $split['name'];
+        $annotation = $split['annotation'];
         $sourceUrl = $this->normalizeUrl($link->attr('href') ?? '');
         if ($name === '' || $sourceUrl === '') {
             return null;
         }
+
+        // 開店前物件（注記に「予定」を含む）は非公開。イナバは開店後に注記を外すため、
+        // 再取得時に自動で公開へ切り替わる（fetch 側で is_active を更新対象にすること）。
+        $isActive = ! ($annotation !== null && str_contains($annotation, '予定'));
 
         // garage_type: 「屋外型」(label-outside)→container /「屋内型」(label-inside)→indoor / 不明→other。
         // 判定に使う文字列 = クラス 'label-outside'/'label-inside' とテキスト '屋外'/'屋内'。
@@ -175,13 +182,17 @@ final class InabaBoxScraper extends AbstractRentalGarageScraper
         $rawAddress = $address;
         $cleanAddress = $this->normalizeAddress($rawAddress);
         $descParts = [];
+        if ($annotation !== null) {
+            $descParts[] = '開店情報: '.$annotation;
+        }
         if ($access !== '') {
             $descParts[] = $access;
         }
         if ($cleanAddress !== $rawAddress && $rawAddress !== '') {
             $descParts[] = '所在地表記: '.$rawAddress;
         }
-        $description = $descParts !== [] ? implode(' / ', $descParts) : null;
+        // 複数ある場合は改行で連結（開店情報／所在地表記のラベル行を分けて検証しやすくする）。
+        $description = $descParts !== [] ? implode("\n", $descParts) : null;
 
         // 設備アイコン: img src の -on/-off で判定。li が無ければ「書いていない」= null。
         $is24h = $this->iconState($node, 'icon-use-24h');   // 「24時間利用可」
@@ -208,6 +219,7 @@ final class InabaBoxScraper extends AbstractRentalGarageScraper
             'website_url' => $sourceUrl,
             'source_url' => $sourceUrl,
             'description' => $description,
+            'is_active' => $isActive,
         ];
     }
 

@@ -160,6 +160,33 @@ abstract class AbstractRentalGarageScraper
     }
 
     /**
+     * 店舗名の先頭に付く【…】ブロック（開店予定日などの注記）を切り離す。
+     * 例「【2026年8月下旬OPEN予定】イナバボックス蓮田黒浜店」
+     *   → ['name' => 'イナバボックス蓮田黒浜店', 'annotation' => '2026年8月下旬OPEN予定']
+     *
+     * ※ 全角【】・半角[]・全角［］に対応。先頭に無い括弧には触れない（^ アンカー必須）。
+     *
+     * @return array{name: string, annotation: string|null}
+     */
+    protected function splitNameAnnotation(string $rawName): array
+    {
+        $name = $this->normalizeText($rawName);
+
+        // 先頭の括弧ブロックのみ。中身を捕捉し、括弧ごと除去する。
+        if (preg_match('/^\s*[【\[［](.*?)[】\]］]\s*/u', $name, $m)) {
+            $annotation = $this->normalizeText($m[1]);
+            $name = $this->normalizeText(preg_replace('/^\s*[【\[［].*?[】\]］]\s*/u', '', $name) ?? $name);
+
+            return [
+                'name' => $name,
+                'annotation' => $annotation !== '' ? $annotation : null,
+            ];
+        }
+
+        return ['name' => $name, 'annotation' => null];
+    }
+
+    /**
      * 住所末尾の位置説明を除去する。番地の後ろに付く「〜の南東」「〜付近」等は
      * そのまま GSI に渡すとジオコーディングが失敗するため、末尾に対してのみ削る。
      *

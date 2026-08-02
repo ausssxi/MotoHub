@@ -47,6 +47,7 @@ final class FetchRentalGarages extends Command
 
         $succeeded = []; // ['label'=>]
         $failed = [];    // ['label'=>]
+        $totalInactive = 0; // 開店前で is_active=false として保存した件数（全社合計）
 
         foreach ($keys as $key) {
             /** @var AbstractRentalGarageScraper $scraper */
@@ -57,7 +58,8 @@ final class FetchRentalGarages extends Command
             $total = 0;
             $new = 0;
             $updated = 0;
-            $skipped = 0; // 既存が source=user のためスキップした件数
+            $skipped = 0;  // 既存が source=user のためスキップした件数
+            $inactive = 0; // 開店前で is_active=false として保存した件数（この社）
 
             try {
                 foreach ($scraper->fetch($limit) as $row) {
@@ -68,7 +70,7 @@ final class FetchRentalGarages extends Command
                         ->where('source_url', $row['source_url'])
                         ->first();
 
-                    // ユーザー投稿はスクレイピングで壊さない。
+                    // ユーザー投稿はスクレイピングで壊さない（is_active も触らない）。
                     if ($existing !== null && $existing->source === 'user') {
                         $skipped++;
                         if ($dryRun) {
@@ -78,16 +80,23 @@ final class FetchRentalGarages extends Command
                         continue;
                     }
 
+                    // is_active はスクレイパーが付与（開店前=false）。未設定なら公開扱い。
+                    $rowActive = (bool) ($row['is_active'] ?? true);
+                    if (! $rowActive) {
+                        $inactive++;
+                    }
+
                     if ($dryRun) {
                         $existing !== null ? $updated++ : $new++;
                         $this->line(sprintf(
-                            '  %s %s / %s / %s〜%s円 / %s',
+                            '  %s %s / %s / %s〜%s円 / %s / %s',
                             $existing !== null ? '[update]' : '[new]',
                             $row['name'],
                             $row['garage_type'],
                             $row['monthly_fee_min'] ?? '?',
                             $row['monthly_fee_max'] ?? '?',
-                            $row['address'] ?? ''
+                            $row['address'] ?? '',
+                            $rowActive ? '公開' : '非公開(開店予定)'
                         ));
 
                         continue;
@@ -113,13 +122,15 @@ final class FetchRentalGarages extends Command
                 }
 
                 $this->info(sprintf(
-                    '[%s] %d件 登録/更新（新規 %d / 更新 %d / スキップ %d）',
+                    '[%s] %d件 登録/更新（新規 %d / 更新 %d / スキップ %d / 非公開 %d）',
                     $label,
                     $total,
                     $new,
                     $updated,
-                    $skipped
+                    $skipped,
+                    $inactive
                 ));
+                $totalInactive += $inactive;
                 $succeeded[] = ['label' => $label];
             } catch (\Throwable $e) {
                 $this->error("[{$label}] エラー: {$e->getMessage()}");
@@ -127,7 +138,7 @@ final class FetchRentalGarages extends Command
             }
         }
 
-        $this->printSummary($succeeded, $failed);
+        $this->printSummary($succeeded, $failed, $totalInactive);
 
         return empty($failed) ? self::SUCCESS : self::FAILURE;
     }
@@ -138,7 +149,7 @@ final class FetchRentalGarages extends Command
      * @param  array<int, array{label: string}>  $succeeded
      * @param  array<int, array{label: string}>  $failed
      */
-    private function printSummary(array $succeeded, array $failed): void
+    private function printSummary(array $succeeded, array $failed, int $totalInactive): void
     {
         $this->newLine();
         $this->info('===== 実行サマリ =====');
@@ -147,6 +158,8 @@ final class FetchRentalGarages extends Command
         foreach ($succeeded as $s) {
             $this->line("  ✓ {$s['label']}");
         }
+
+        $this->info("うち開店前で非公開: {$totalInactive}件");
 
         if (empty($failed)) {
             return;

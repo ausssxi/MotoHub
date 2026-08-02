@@ -667,7 +667,7 @@
             }
             var gFee = garageFeeDisplay(item);
             if (gFee) {
-                gRows += '<div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">月額</span><span class="text-xs text-gray-700">' + escapeHtml(gFee) + '</span></div>';
+                gRows += '<div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">月額（区画により変動）</span><span class="text-xs text-gray-700">' + escapeHtml(gFee) + '</span></div>';
             }
             if (item.size_text) {
                 gRows += '<div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">サイズ</span><span class="text-xs text-gray-700">' + escapeHtml(item.size_text) + '</span></div>';
