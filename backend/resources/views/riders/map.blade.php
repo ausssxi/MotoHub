@@ -303,6 +303,7 @@
                 <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-white border-[3px] border-[#7c3aed] items-center justify-center text-[9px]">&#x1F3E0;</span> 屋内ガレージ</div>
                 <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-white border-[3px] border-[#f59e0b] items-center justify-center text-[9px]">&#x1F3E0;</span> 屋外コンテナ</div>
                 <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-white border-[3px] border-[#64748b] items-center justify-center text-[9px]">&#x1F3E0;</span> 青空月極</div>
+                <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-white border-[3px] border-[#db2777] items-center justify-center text-[9px]">&#x1F3E0;</span> その他・不明</div>
             </div>
         </div>
       </div>{{-- /#map-stage --}}

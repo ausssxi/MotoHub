@@ -116,19 +116,22 @@ final class StorageOhScraper extends AbstractRentalGarageScraper
         // 施設全体の型ではなく「バイク区画の型」を採る（施設が屋外でもバイク区画が屋内なら indoor）。
         $hasIndoorBike = false;
         $hasOutdoorBike = false;
-        $crawler->filter('[class*="ShopDetailContents_size__"]')->each(function (Crawler $n) use (&$hasIndoorBike, &$hasOutdoorBike): void {
+        $hasUnspecBike = false; // 「バイクBOX」等、屋内/屋外の明記が無いラベル
+        $crawler->filter('[class*="ShopDetailContents_size__"]')->each(function (Crawler $n) use (&$hasIndoorBike, &$hasOutdoorBike, &$hasUnspecBike): void {
             $t = $n->text('');
             if (mb_strpos($t, 'バイク') === false) {
                 return;
             }
             if (mb_strpos($t, '屋外') !== false) {
                 $hasOutdoorBike = true;
-            } else {
-                // 「屋外」明記が無いバイクラベル（屋内バイク／月極バイク駐車場等）は屋内扱い。
+            } elseif (mb_strpos($t, '屋内') !== false) {
                 $hasIndoorBike = true;
+            } else {
+                // 屋内/屋外を明記しないバイクラベル（バイクBOX 等）。型は施設プロースで後判定。
+                $hasUnspecBike = true;
             }
         });
-        if (! $hasIndoorBike && ! $hasOutdoorBike) {
+        if (! $hasIndoorBike && ! $hasOutdoorBike && ! $hasUnspecBike) {
             return null; // バイク区画なし＝対象外（yield しない）
         }
 
@@ -142,17 +145,15 @@ final class StorageOhScraper extends AbstractRentalGarageScraper
             PREG_SET_ORDER
         );
 
-        // garage_type: バイク区画の型で判定（屋外優先）。読めなければ施設の型→other にフォールバック。
+        // garage_type: バイク区画ラベルの型を優先（屋外＞屋内）。
+        // ラベルに型が無い（バイクBOX 等）場合は施設の店舗情報プロースの型で判定し、
+        // それも読めなければ other（＝不明。indoor と断定しない）。
         if ($hasOutdoorBike) {
             $garageType = 'container';
         } elseif ($hasIndoorBike) {
             $garageType = 'indoor';
-        } elseif (str_contains($bodyText, '屋外型')) {
-            $garageType = 'container';
-        } elseif (str_contains($bodyText, '屋内型')) {
-            $garageType = 'indoor';
         } else {
-            $garageType = 'other';
+            $garageType = $this->facilityProseType($bodyText) ?? 'other';
         }
 
         // size_text: バイク区画の寸法を優先。無ければ施設のサイズ表記「サイズ …帖」。
@@ -264,6 +265,21 @@ final class StorageOhScraper extends AbstractRentalGarageScraper
         });
 
         return $found;
+    }
+
+    /**
+     * 店舗情報プロースの「○型トランクルーム」から施設型を返す。屋外→container / 屋内→indoor / 無し→null。
+     *
+     * ※ ナビ/フッターの「屋内型トランクルーム 屋外型トランクルーム …」という列挙（両型が全頁に出る）は
+     *   直後がさらに「屋」「・」「紹介」なので否定先読みで除外し、店舗説明文の型のみ拾う。
+     */
+    private function facilityProseType(string $bodyText): ?string
+    {
+        if (preg_match('/(屋外|屋内)型トランクルーム(?![\s　]*屋)(?!・)(?!\s*紹介)/u', $bodyText, $m)) {
+            return $m[1] === '屋外' ? 'container' : 'indoor';
+        }
+
+        return null;
     }
 
     /**

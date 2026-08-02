@@ -177,17 +177,18 @@
     }
 
     // レンタルガレージ専用アイコン（種別で border 色を出し分け・形状は従来の丸🏠）。
-    // キーはサーバー(RentalGarage.garage_type): indoor/container/open=固有色 / other・未知は defaultIcon。
+    // キーはサーバー(RentalGarage.garage_type): indoor/container/open/other=固有色 / 未知のみ defaultIcon。
     // ※ 凡例(map.blade.php)の色と二重管理。変更時は両方揃えること。
     var GARAGE_TYPE_ICONS = {
         'indoor':    '#7c3aed', // 屋内ガレージ（紫）
         'container': '#f59e0b', // 屋外コンテナ（橙）
         'open':      '#64748b', // 青空月極（灰）
+        'other':     '#db2777', // その他・不明（ローズ）。どのレイヤー色とも非衝突・上記3色と明確に別相
     };
     var garageIconCache = {};
     function garageIconFor(type) {
         var color = GARAGE_TYPE_ICONS[type];
-        if (!color) return null; // other/未知は defaultIcon（=layerConfig.color の紫）
+        if (!color) return null; // 未知の型のみ defaultIcon（=layerConfig.color の紫）
         if (garageIconCache[type]) return garageIconCache[type];
         var icon = createIcon(color, '\uD83C\uDFE0');
         garageIconCache[type] = icon;
