@@ -48,7 +48,12 @@ final class GeocodeRentalGarages extends Command
         $sleepMs = (int) $this->option('sleep');
         $limit = $this->option('limit') !== null ? (int) $this->option('limit') : null;
 
-        $query = RentalGarage::query()->orderBy('id');
+        // geocode_status='source'（スクレイパー提供の権威座標）は --force / --retry-* でも絶対に処理しない。
+        $sourceExcluded = RentalGarage::query()->where('geocode_status', 'source')->count();
+
+        $query = RentalGarage::query()
+            ->where('geocode_status', '!=', 'source')
+            ->orderBy('id');
         if (! $force) {
             $statuses = ['pending'];
             if ($this->option('retry-failed')) {
@@ -63,6 +68,10 @@ final class GeocodeRentalGarages extends Command
             $query->limit($limit);
         }
         $records = $query->get();
+
+        if ($sourceExcluded > 0) {
+            $this->info("source（スクレイパー提供座標）につき除外: {$sourceExcluded} 件");
+        }
 
         $totalTargets = $records->count();
         if ($totalTargets === 0) {
@@ -291,9 +300,11 @@ final class GeocodeRentalGarages extends Command
      */
     private function demoteDuplicateCoordinates(): array
     {
+        // source（スクレイパー提供の権威座標）は降格対象外なので検査から除外する。
         $dupes = RentalGarage::query()
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
+            ->where('geocode_status', '!=', 'source')
             ->selectRaw('latitude, longitude, COUNT(*) as c')
             ->groupBy('latitude', 'longitude')
             ->havingRaw('COUNT(*) >= 2')
@@ -306,6 +317,7 @@ final class GeocodeRentalGarages extends Command
             $rows = RentalGarage::query()
                 ->where('latitude', $d->latitude)
                 ->where('longitude', $d->longitude)
+                ->where('geocode_status', '!=', 'source')
                 ->get(['id', 'address']);
 
             // 正規化後の住所が全件一致か（前後空白を除いて厳密一致）。

@@ -53,6 +53,7 @@ final class FetchRentalGarages extends Command
         $totalPrefNull = 0;    // 都道府県が判定できなかった
         $totalSaveFailed = 0;  // 1レコードの保存に失敗した件数
         $totalNeedsReview = 0; // dry-run で必須項目欠落として要確認になった件数
+        $totalDeactivated = 0; // 全件再取得で未出現となり非公開化した件数（掲載終了/シグナル喪失）
         $saveFailures = [];    // 表示用: ['source_url'=>, 'msg'=>] を最大10件まで
 
         foreach ($keys as $key) {
@@ -69,11 +70,15 @@ final class FetchRentalGarages extends Command
             $prefNull = 0;    // 都道府県が判定できなかった
             $saveFailed = 0;  // 保存失敗
             $needsReview = 0; // dry-run 必須項目欠落
+            $seen = [];       // 今回 yield された source_url（全件突合による非公開化に使う）
 
             $fetchFailed = false;
             try {
                 foreach ($scraper->fetch($limit) as $row) {
                     $total++;
+                    if (isset($row['source_url']) && $row['source_url'] !== '') {
+                        $seen[] = $row['source_url'];
+                    }
 
                     // 既存レコード（ソフトデリート済みも含めて source_url で照合）。
                     $existing = RentalGarage::withTrashed()
@@ -139,9 +144,10 @@ final class FetchRentalGarages extends Command
                     try {
                         if ($existing !== null) {
                             $data = $row + ['source' => 'official'];
-                            // 住所が変わった場合のみ再ジオコーディング対象へ戻す。同じなら座標を保持
-                            // （row に latitude/longitude/geocode_status を含めないため既存値は温存）。
-                            if ($existing->address !== ($row['address'] ?? null)) {
+                            // 住所が変わった場合のみ再ジオコーディング対象へ戻す。同じなら座標を保持。
+                            // ただしスクレイパーが座標を提供している行（geocode_status を含む＝'source'）は
+                            // 権威データなので pending に戻さない。
+                            if (! isset($row['geocode_status']) && $existing->address !== ($row['address'] ?? null)) {
                                 $data['geocode_status'] = 'pending';
                             }
                             if ($existing->trashed()) {
@@ -183,6 +189,21 @@ final class FetchRentalGarages extends Command
                 }
                 $failed[] = ['label' => $label];
             } else {
+                // 全件フル取得が成功したときのみ、今回未出現の official 行を非公開化する
+                // （バイクシグナル喪失・掲載終了。削除はしない）。--limit / dry-run の部分取得では行わない。
+                if (! $dryRun && $limit === null) {
+                    $deactivated = RentalGarage::query()
+                        ->where('operator', $label)
+                        ->where('source', 'official')
+                        ->where('is_active', true)
+                        ->whereNotIn('source_url', $seen)
+                        ->update(['is_active' => false]);
+                    if ($deactivated > 0) {
+                        $totalDeactivated += $deactivated;
+                        $this->warn("[{$label}] 未出現のため非公開化（掲載終了/シグナル喪失）: {$deactivated}件");
+                    }
+                }
+
                 $this->info(sprintf(
                     '[%s] %d件 登録/更新（新規 %d / 更新 %d / スキップ %d / 非公開 %d / 保存失敗 %d / 都道府県null %d）',
                     $label,
@@ -204,6 +225,7 @@ final class FetchRentalGarages extends Command
             'saveFailed' => $totalSaveFailed,
             'saveFailures' => $saveFailures,
             'needsReview' => $totalNeedsReview,
+            'deactivated' => $totalDeactivated,
             'dryRun' => $dryRun,
         ]);
 
@@ -225,7 +247,7 @@ final class FetchRentalGarages extends Command
      *
      * @param  array<int, array{label: string}>  $succeeded
      * @param  array<int, array{label: string}>  $failed
-     * @param  array{inactive:int, prefNull:int, saveFailed:int, saveFailures:array<int, array{source_url:string, msg:string}>, needsReview:int, dryRun:bool}  $stats
+     * @param  array{inactive:int, prefNull:int, saveFailed:int, saveFailures:array<int, array{source_url:string, msg:string}>, needsReview:int, deactivated:int, dryRun:bool}  $stats
      */
     private function printSummary(array $succeeded, array $failed, array $stats): void
     {
@@ -238,6 +260,7 @@ final class FetchRentalGarages extends Command
         }
 
         $this->info("うち開店前で非公開: {$stats['inactive']}件");
+        $this->info("未出現のため非公開化（掲載終了/シグナル喪失）: {$stats['deactivated']}件");
         $this->info("都道府県が判定できなかった: {$stats['prefNull']}件");
         $this->info("保存に失敗: {$stats['saveFailed']}件");
 

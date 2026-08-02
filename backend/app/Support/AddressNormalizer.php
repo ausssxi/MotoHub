@@ -20,8 +20,14 @@ final class AddressNormalizer
         $s = self::normalizeWhitespace($address);
 
         // 1) ハイフン類を半角ハイフン(U+002D)に統一。番地区切りが機種依存記号だと解決精度が落ちるため。
-        //    ｰ(U+FF70) ー(U+30FC) −(U+2212) ―(U+2015) ‐(U+2010) ‑(U+2011) ­(U+00AD)
-        $s = str_replace(["\u{FF70}", "\u{30FC}", "\u{2212}", "\u{2015}", "\u{2010}", "\u{2011}", "\u{00AD}"], '-', $s);
+        //    －(U+FF0D 全角ハイフンマイナス・住所頻出) ｰ(U+FF70) ー(U+30FC) −(U+2212 MINUS) ﹣(U+FE63 SMALL)
+        //    U+2010〜U+2015 全て: ‐(U+2010) ‑(U+2011) ‒(U+2012 FIGURE DASH) –(U+2013 EN) —(U+2014 EM) ―(U+2015 HORIZONTAL BAR)
+        //    ­(U+00AD SOFT HYPHEN)
+        $s = str_replace([
+            "\u{FF0D}", "\u{FF70}", "\u{30FC}", "\u{2212}", "\u{FE63}",
+            "\u{2010}", "\u{2011}", "\u{2012}", "\u{2013}", "\u{2014}", "\u{2015}",
+            "\u{00AD}",
+        ], '-', $s);
 
         // 2) 全角数字→半角数字。
         $s = mb_convert_kana($s, 'n');

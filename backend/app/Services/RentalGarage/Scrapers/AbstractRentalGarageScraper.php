@@ -47,8 +47,11 @@ abstract class AbstractRentalGarageScraper
     {
         for ($attempt = 0; $attempt <= self::MAX_RETRIES; $attempt++) {
             try {
+                // connectTimeout: 接続確立の上限。timeout: 応答完了までの上限。
+                // 両方を明示し、応答が返らないときに永久ブロックしないようにする（イナバ側にも効く）。
                 $response = Http::withHeaders(['User-Agent' => self::USER_AGENT])
-                    ->timeout(15)
+                    ->connectTimeout(10)
+                    ->timeout(30)
                     ->get($url);
 
                 if ($response->successful()) {
