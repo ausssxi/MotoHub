@@ -98,7 +98,7 @@ final class BikeModel extends Model
                         ? json_decode($listing->local_image_paths, true)
                         : $listing->local_image_paths;
                     if (! empty($localPaths) && is_array($localPaths)) {
-                        return asset('storage/'.ltrim($localPaths[0], '/'));
+                        return listing_image_url(ltrim($localPaths[0], '/'));
                     }
                 }
 
@@ -106,6 +106,8 @@ final class BikeModel extends Model
                 if (is_array($this->local_image_path) && ! empty($this->local_image_path)) {
                     $path = ltrim($this->local_image_path[0], '/');
 
+                    // ここは models/ 配下（bike_models.local_image_path）。R2へ移行したのは listings/ 配下だけなので、
+                    // listing_image_url() を通すと r2_images 時に models/ が404になる。据え置きで storage/ 直参照のまま。
                     return asset('storage/'.$path);
                 }
 
@@ -122,7 +124,7 @@ final class BikeModel extends Model
                         ? json_decode($altListing->local_image_paths, true)
                         : $altListing->local_image_paths;
                     if (! empty($altPaths) && is_array($altPaths)) {
-                        return asset('storage/'.ltrim($altPaths[0], '/'));
+                        return listing_image_url(ltrim($altPaths[0], '/'));
                     }
                 }
 
