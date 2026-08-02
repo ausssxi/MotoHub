@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\RentalGarage;
+use App\Support\AddressNormalizer;
+use App\Support\JapanCityPrefecture;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 
@@ -81,8 +83,11 @@ final class GeocodeRentalGarages extends Command
             $pref = trim((string) ($garage->prefecture ?? ''));
             $addr = trim((string) ($garage->address ?? ''));
 
-            // address が既にフル住所ならそのまま。都道府県が欠けていれば前置（二重前置は避ける）。
-            $full = ($pref !== '' && $addr !== '' && ! str_starts_with($addr, $pref)) ? $pref.$addr : $addr;
+            // address が47都道府県のいずれかで始まっていない場合に限り prefecture を前置。
+            // 既に都道府県で始まっていれば絶対に前置しない（pref+city 二重前置の再発防止）。
+            $full = ($pref !== '' && $addr !== '' && ! JapanCityPrefecture::startsWithPrefecture($addr))
+                ? $pref.$addr
+                : $addr;
 
             $lat = null;
             $lng = null;
@@ -154,13 +159,14 @@ final class GeocodeRentalGarages extends Command
             }
         }
 
-        // 事後: 重複座標（2件以上が同一 lat/lng）＝代表点とみなし approximate へ落とす。
-        $demoted = $this->demoteDuplicateCoordinates();
+        // 事後: 重複座標（2件以上が同一 lat/lng）を検査。住所が混在するグループのみ代表点として降格。
+        ['demoted' => $demoted, 'preservedGroups' => $preservedGroups] = $this->demoteDuplicateCoordinates();
 
         $this->newLine();
         $this->info('===== 完了 =====');
         $this->info("処理: {$processed} 件 → ok {$ok} / approximate {$approximate} / failed {$failed} / out_of_range {$outOfRange}");
         $this->info("重複座標により approximate に降格: {$demoted} 件");
+        $this->info("同一敷地（住所一致）とみなし降格を見送ったグループ: {$preservedGroups} 件");
 
         // テーブル全体の最終内訳。
         $breakdown = RentalGarage::query()
@@ -277,11 +283,13 @@ final class GeocodeRentalGarages extends Command
     }
 
     /**
-     * 同一 (latitude, longitude) を2件以上持つ座標を代表点とみなし、その 'ok' 行を 'approximate' に降格。
+     * 同一 (latitude, longitude) を2件以上持つ座標グループを検査する。
+     * グループ内の正規化後 address が全件同一なら「同一敷地の別棟」とみなし降格しない。
+     * 1件でも住所が異なれば代表点とみなし、そのグループの 'ok' 行を 'approximate' に降格する。
      *
-     * @return int 降格した件数
+     * @return array{demoted: int, preservedGroups: int}
      */
-    private function demoteDuplicateCoordinates(): int
+    private function demoteDuplicateCoordinates(): array
     {
         $dupes = RentalGarage::query()
             ->whereNotNull('latitude')
@@ -292,7 +300,27 @@ final class GeocodeRentalGarages extends Command
             ->get();
 
         $demoted = 0;
+        $preservedGroups = 0;
+
         foreach ($dupes as $d) {
+            $rows = RentalGarage::query()
+                ->where('latitude', $d->latitude)
+                ->where('longitude', $d->longitude)
+                ->get(['id', 'address']);
+
+            // 正規化後の住所が全件一致か（前後空白を除いて厳密一致）。
+            $normalized = $rows
+                ->map(fn ($r) => trim(AddressNormalizer::normalize((string) $r->address)))
+                ->unique();
+
+            if ($normalized->count() === 1) {
+                // 全件同一住所＝同一敷地の別棟（松戸秋山 1〜3号店等）。降格しない。
+                $preservedGroups++;
+
+                continue;
+            }
+
+            // 住所が混在＝代表点（市役所等）。ok を approximate に降格。
             $demoted += RentalGarage::query()
                 ->where('latitude', $d->latitude)
                 ->where('longitude', $d->longitude)
@@ -300,6 +328,6 @@ final class GeocodeRentalGarages extends Command
                 ->update(['geocode_status' => 'approximate']);
         }
 
-        return $demoted;
+        return ['demoted' => $demoted, 'preservedGroups' => $preservedGroups];
     }
 }
