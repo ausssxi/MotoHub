@@ -11,6 +11,7 @@
         gas_station:       { endpoint: '/api/pois?type=gas_station', color: '#dc2626', label: '\u26FD', title: 'GS' },
         convenience_store: { endpoint: '/api/pois?type=convenience_store', color: '#ea580c', label: '\uD83C\uDFEA', title: 'コンビニ' },
         michi_no_eki:      { endpoint: '/api/roadside-stations', color: '#9333ea', label: '\uD83D\uDEE3\uFE0F', title: '道の駅' },
+        rental_garage:     { endpoint: '/api/rental-garages', color: '#7c3aed', label: '\uD83C\uDFE0', title: 'レンタルガレージ' },
         blog:              { endpoint: '/api/blog/map-pins', color: '#0891b2', label: '\u270D\uFE0F', title: '記事' },
         car_wash:          { endpoint: '/api/pois?type=car_wash', color: '#0ea5e9', label: '\uD83D\uDEBF', title: '洗車場' },
         saved_spots:       { endpoint: '/api/spots', color: '#f59e0b', label: '\u2B50', title: 'お気に入り' },
@@ -175,6 +176,24 @@
         return icon;
     }
 
+    // レンタルガレージ専用アイコン（種別で border 色を出し分け・形状は従来の丸🏠）。
+    // キーはサーバー(RentalGarage.garage_type): indoor/container/open=固有色 / other・未知は defaultIcon。
+    // ※ 凡例(map.blade.php)の色と二重管理。変更時は両方揃えること。
+    var GARAGE_TYPE_ICONS = {
+        'indoor':    '#7c3aed', // 屋内ガレージ（紫）
+        'container': '#f59e0b', // 屋外コンテナ（橙）
+        'open':      '#64748b', // 青空月極（灰）
+    };
+    var garageIconCache = {};
+    function garageIconFor(type) {
+        var color = GARAGE_TYPE_ICONS[type];
+        if (!color) return null; // other/未知は defaultIcon（=layerConfig.color の紫）
+        if (garageIconCache[type]) return garageIconCache[type];
+        var icon = createIcon(color, '\uD83C\uDFE0');
+        garageIconCache[type] = icon;
+        return icon;
+    }
+
     // Create circular div icon with emoji, white bg + colored border
     function createIcon(color, label) {
         return L.divIcon({
@@ -265,7 +284,7 @@
     // Fetch all enabled layers
     function fetchAllLayers() {
         var gen = ++fetchGeneration;
-        var layers = window.ridersMapLayers || { shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, car_wash: false, blog: false, saved_spots: false };
+        var layers = window.ridersMapLayers || { shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, car_wash: false, rental_garage: false, blog: false, saved_spots: false };
         var bounds = map.getBounds();
         var ne = bounds.getNorthEast();
         var sw = bounds.getSouthWest();
@@ -337,6 +356,11 @@
                 if (item.cvs_brand) {
                     var ci = cvsBrandIconFor(item.cvs_brand);
                     if (ci) icon = ci; // brand不明（cvs_brand=null）は従来アイコン
+                }
+            } else if (layerKey === 'rental_garage') {
+                if (item.garage_type) {
+                    var ri = garageIconFor(item.garage_type);
+                    if (ri) icon = ri; // other/未知は従来の紫🏠（defaultIcon）
                 }
             }
 
@@ -453,6 +477,13 @@
         } else if (layerKey === 'michi_no_eki') {
             lines += '<p class="text-[10px] text-gray-400 truncate mt-0.5">' + escapeHtml(item.address || '') + '</p>';
             lines += michiNoEkiFacilities(item);
+        } else if (layerKey === 'rental_garage') {
+            lines += '<p class="text-[10px] text-gray-400 truncate mt-0.5">' + escapeHtml(item.address || '') + '</p>';
+            var gMeta = [garageTypeLabel(item.garage_type)];
+            if (item.operator) gMeta.push(item.operator);
+            var gFee2 = garageFeeDisplay(item);
+            if (gFee2) gMeta.push(gFee2);
+            lines += '<p class="text-[10px] text-gray-500 mt-0.5">' + escapeHtml(gMeta.join(' / ')) + '</p>';
         } else if (layerKey === 'blog') {
             if (item.excerpt) {
                 lines += '<p class="text-[10px] text-gray-500 truncate mt-0.5">' + escapeHtml(item.excerpt) + '</p>';
@@ -528,6 +559,23 @@
         if (item.price_per_day) parts.push(Number(item.price_per_day).toLocaleString() + '円/日');
         if (item.price_per_month) parts.push(Number(item.price_per_month).toLocaleString() + '円/月');
         return parts.length ? parts.join(' / ') : '';
+    }
+
+    // レンタルガレージ種別ラベル（RentalGarage::garageTypeLabel と揃える）
+    function garageTypeLabel(type) {
+        var labels = { indoor: '屋内ガレージ', container: '屋外コンテナ', open: '青空月極', other: 'その他' };
+        return labels[type] || 'その他';
+    }
+
+    // 月額表示。両方=「min〜max円」/ min のみ=「min円〜」/ max のみ=「〜max円」/ 無し=''。
+    function garageFeeDisplay(item) {
+        var min = item.monthly_fee_min, max = item.monthly_fee_max;
+        var has = function(v) { return v !== null && v !== undefined && v !== ''; };
+        var fmt = function(v) { return Number(v).toLocaleString(); };
+        if (has(min) && has(max)) return fmt(min) + '〜' + fmt(max) + '円';
+        if (has(min)) return fmt(min) + '円〜';
+        if (has(max)) return '〜' + fmt(max) + '円';
+        return '';
     }
 
     // Show detail panel
@@ -608,6 +656,38 @@
                 + (item.cvs_operator ? '<span class="inline-block px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-md mb-3">' + escapeHtml(item.cvs_operator) + '</span>' : '')
                 + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
                 + gmapBtn + routeBtn;
+        } else if (layerKey === 'rental_garage') {
+            html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(item.name || '名称不明') + '</h3>'
+                + '<span class="inline-block px-2.5 py-1 bg-purple-50 text-purple-700 text-[11px] font-bold rounded-md mb-3">' + escapeHtml(garageTypeLabel(item.garage_type)) + '</span>'
+                + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '');
+            // 情報テーブル（運営・月額・サイズ）
+            var gRows = '';
+            if (item.operator) {
+                gRows += '<div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">運営</span><span class="text-xs text-gray-700">' + escapeHtml(item.operator) + '</span></div>';
+            }
+            var gFee = garageFeeDisplay(item);
+            if (gFee) {
+                gRows += '<div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">月額</span><span class="text-xs text-gray-700">' + escapeHtml(gFee) + '</span></div>';
+            }
+            if (item.size_text) {
+                gRows += '<div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">サイズ</span><span class="text-xs text-gray-700">' + escapeHtml(item.size_text) + '</span></div>';
+            }
+            if (gRows) {
+                html += '<div class="bg-gray-50 rounded-lg p-3 mb-3 space-y-2">' + gRows + '</div>';
+            }
+            // 設備バッジ
+            var gBadges = [];
+            if (item.is_24h) gBadges.push('24時間出入り可');
+            if (item.has_power) gBadges.push('電源あり');
+            if (item.has_shutter) gBadges.push('シャッター付');
+            if (gBadges.length) {
+                html += '<div class="flex flex-wrap gap-1 mb-3">' + gBadges.map(function(b) { return '<span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold rounded">' + b + '</span>'; }).join('') + '</div>';
+            }
+            // 事業者の物件詳細ページ
+            if (item.website_url) {
+                html += '<a href="' + escapeHtml(item.website_url) + '" target="_blank" rel="noopener" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition">詳細を見る &rarr;</a>';
+            }
+            html += gmapBtn + routeBtn;
         } else if (layerKey === 'michi_no_eki') {
             html = '';
             // サムネイル画像

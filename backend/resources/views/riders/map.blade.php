@@ -187,14 +187,14 @@
         {{-- レイヤートグル（1行横スクロール＝地図の占有面積を最小化） --}}
         <div id="layer-chips" class="absolute top-14 left-3 right-3 z-40 flex flex-nowrap overflow-x-auto scrollbar-hide gap-1.5 pb-1"
              x-data="{
-                 shop: true, parking: true, gas: false, cvs: false, michi: false, carwash: false, blog: false, saved_spots: {{ auth()->check() ? 'true' : 'false' }},
+                 shop: true, parking: true, gas: false, cvs: false, michi: false, carwash: false, rentalgarage: false, blog: false, saved_spots: {{ auth()->check() ? 'true' : 'false' }},
                  notify() {
-                     let l = {shop: this.shop, parking: this.parking, gas_station: this.gas, convenience_store: this.cvs, michi_no_eki: this.michi, car_wash: this.carwash, blog: this.blog, saved_spots: this.saved_spots};
+                     let l = {shop: this.shop, parking: this.parking, gas_station: this.gas, convenience_store: this.cvs, michi_no_eki: this.michi, car_wash: this.carwash, rental_garage: this.rentalgarage, blog: this.blog, saved_spots: this.saved_spots};
                      window.ridersMapLayers = l;
                      window.dispatchEvent(new CustomEvent('layers-changed', {detail: l}));
                  }
              }"
-             x-init="window.ridersMapLayers = {shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, car_wash: false, blog: false, saved_spots: {{ auth()->check() ? 'true' : 'false' }}}">
+             x-init="window.ridersMapLayers = {shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, car_wash: false, rental_garage: false, blog: false, saved_spots: {{ auth()->check() ? 'true' : 'false' }}}">
             <button type="button" @click="shop = !shop; notify()"
                     class="layer-btn px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1"
                     :style="shop ? 'background:#2563eb;color:#fff;border:2px solid #2563eb' : 'background:#fff;color:#4b5563;border:2px solid #e5e7eb'">
@@ -230,6 +230,12 @@
                     :style="carwash ? 'background:#0ea5e9;color:#fff;border:2px solid #0ea5e9' : 'background:#fff;color:#4b5563;border:2px solid #e5e7eb'">
                 <span class="text-sm leading-none">&#x1F6BF;</span>
                 洗車場
+            </button>
+            <button type="button" @click="rentalgarage = !rentalgarage; notify()"
+                    class="layer-btn px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1"
+                    :style="rentalgarage ? 'background:#7c3aed;color:#fff;border:2px solid #7c3aed' : 'background:#fff;color:#4b5563;border:2px solid #e5e7eb'">
+                <span class="text-sm leading-none">&#x1F3E0;</span>
+                レンタルガレージ
             </button>
             <button type="button" @click="blog = !blog; notify()"
                     class="layer-btn px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1"
@@ -292,6 +298,11 @@
                     <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#7c3aed]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> NewDays</div>
                     <div class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 bg-[#64748b]" style="clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"></span> その他</div>
                 </div>
+                {{-- ※ 色は public/js/riders/map.js の layerConfig と揃えること --}}
+                <p class="text-[10px] text-gray-400 mb-1 pt-1.5 border-t border-gray-100">レンタルガレージの種類</p>
+                <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-white border-[3px] border-[#7c3aed] items-center justify-center text-[9px]">&#x1F3E0;</span> 屋内ガレージ</div>
+                <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-white border-[3px] border-[#f59e0b] items-center justify-center text-[9px]">&#x1F3E0;</span> 屋外コンテナ</div>
+                <div class="flex items-center gap-2"><span class="inline-flex w-5 h-5 rounded-full bg-white border-[3px] border-[#64748b] items-center justify-center text-[9px]">&#x1F3E0;</span> 青空月極</div>
             </div>
         </div>
       </div>{{-- /#map-stage --}}

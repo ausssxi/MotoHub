@@ -492,6 +492,7 @@ Route::prefix('api')->group(function () {
     Route::get('/pois', [PoiApiController::class, 'search'])->name('api.pois');
     Route::post('/pois/along-route', [PoiApiController::class, 'alongRoute'])->name('api.pois.along_route');
     Route::get('/roadside-stations', [RoadsideStationApiController::class, 'search'])->name('api.roadside_stations');
+    Route::get('/rental-garages', [\App\Http\Controllers\Api\RentalGarageApiController::class, 'search'])->name('api.rental_garages');
 });
 
 // 管理者限定: 承認前の投稿画像プレビュー配信（非公開ディスク・is_admin以外は404）
