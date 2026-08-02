@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\RentalGarage\Scrapers;
 
+use App\Support\JapanCityPrefecture;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
@@ -117,9 +118,10 @@ abstract class AbstractRentalGarageScraper
     }
 
     /**
-     * 住所先頭から都道府県を抜く。東京都/北海道/京都府/大阪府/〇〇県 に対応。取れなければ null。
+     * 住所先頭に都道府県が「文字として」付いていればそれを返す。無ければ null。
+     * （フォールバックはしない純粋な前方一致判定。extractCity で prefix 剥がしにも使う。）
      */
-    protected function extractPrefecture(string $address): ?string
+    private function matchPrefecturePrefix(string $address): ?string
     {
         if (preg_match('/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/u', $address, $m)) {
             return $m[1];
@@ -129,16 +131,29 @@ abstract class AbstractRentalGarageScraper
     }
 
     /**
+     * 住所から都道府県を得る。先頭に都道府県表記があればそれ、無ければ
+     * 政令市・23区の市区名から引く（岡山市…等、市名始まり表記の救済）。取れなければ null。
+     */
+    protected function extractPrefecture(string $address): ?string
+    {
+        $literal = $this->matchPrefecturePrefix($address);
+        if ($literal !== null) {
+            return $literal;
+        }
+
+        // 「岡山市北区…」のように都道府県が省略された市区名始まりを救済。
+        return JapanCityPrefecture::fromCity($address);
+    }
+
+    /**
      * 都道府県の次の市区町村を抜く。「〇〇郡△△町」は1単位として扱う。取れなければ null。
+     * 都道府県が住所先頭に「文字として」ある場合のみ剥がす。市区名始まり（フォールバックで
+     * 都道府県を引いたケース）は住所そのものから先頭の市区町村を拾う。
      */
     protected function extractCity(string $address): ?string
     {
-        $pref = $this->extractPrefecture($address);
-        if ($pref === null) {
-            return null;
-        }
-
-        $rest = mb_substr($address, mb_strlen($pref));
+        $literal = $this->matchPrefecturePrefix($address);
+        $rest = $literal !== null ? mb_substr($address, mb_strlen($literal)) : $address;
 
         // 郡＋町/村 は「郡」単独で切らず町/村まで含める。それ以外は先頭の市/区/町/村まで。
         if (preg_match('/^(.+?郡.+?[町村]|.+?[市区町村])/u', $rest, $m)) {
@@ -146,6 +161,22 @@ abstract class AbstractRentalGarageScraper
         }
 
         return null;
+    }
+
+    /**
+     * 店舗名の先頭に事業者名を補って表記を揃える（例「北長瀬店」→「イナバボックス北長瀬店」）。
+     * 一覧HTMLが事業者名を省く物件がまれにあるため。既に事業者名を含む名前には付け足さない。
+     */
+    protected function ensureOperatorPrefix(string $name, string $operator): string
+    {
+        if ($name === '' || $operator === '') {
+            return $name;
+        }
+        if (str_contains($name, $operator)) {
+            return $name;
+        }
+
+        return $operator.$name;
     }
 
     /**

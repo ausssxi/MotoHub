@@ -47,7 +47,13 @@ final class FetchRentalGarages extends Command
 
         $succeeded = []; // ['label'=>]
         $failed = [];    // ['label'=>]
-        $totalInactive = 0; // 開店前で is_active=false として保存した件数（全社合計）
+
+        // 全社合計の集計。
+        $totalInactive = 0;    // 開店前で is_active=false
+        $totalPrefNull = 0;    // 都道府県が判定できなかった
+        $totalSaveFailed = 0;  // 1レコードの保存に失敗した件数
+        $totalNeedsReview = 0; // dry-run で必須項目欠落として要確認になった件数
+        $saveFailures = [];    // 表示用: ['source_url'=>, 'msg'=>] を最大10件まで
 
         foreach ($keys as $key) {
             /** @var AbstractRentalGarageScraper $scraper */
@@ -58,19 +64,23 @@ final class FetchRentalGarages extends Command
             $total = 0;
             $new = 0;
             $updated = 0;
-            $skipped = 0;  // 既存が source=user のためスキップした件数
-            $inactive = 0; // 開店前で is_active=false として保存した件数（この社）
+            $skipped = 0;     // 既存が source=user のためスキップ
+            $inactive = 0;    // 開店前で is_active=false
+            $prefNull = 0;    // 都道府県が判定できなかった
+            $saveFailed = 0;  // 保存失敗
+            $needsReview = 0; // dry-run 必須項目欠落
 
+            $fetchFailed = false;
             try {
                 foreach ($scraper->fetch($limit) as $row) {
                     $total++;
 
                     // 既存レコード（ソフトデリート済みも含めて source_url で照合）。
                     $existing = RentalGarage::withTrashed()
-                        ->where('source_url', $row['source_url'])
+                        ->where('source_url', $row['source_url'] ?? '')
                         ->first();
 
-                    // ユーザー投稿はスクレイピングで壊さない（is_active も触らない）。
+                    // ユーザー投稿はスクレイピングで壊さない（is_active も触らない・丸ごとスキップ）。
                     if ($existing !== null && $existing->source === 'user') {
                         $skipped++;
                         if ($dryRun) {
@@ -85,71 +95,139 @@ final class FetchRentalGarages extends Command
                     if (! $rowActive) {
                         $inactive++;
                     }
+                    if (($row['prefecture'] ?? null) === null) {
+                        $prefNull++;
+                    }
 
                     if ($dryRun) {
+                        // 保存はしないまま必須項目の欠落を検出して警告。
+                        $missing = [];
+                        if (($row['name'] ?? '') === '') {
+                            $missing[] = 'name';
+                        }
+                        if (($row['address'] ?? '') === '') {
+                            $missing[] = 'address';
+                        }
+                        if (($row['prefecture'] ?? null) === null) {
+                            $missing[] = 'prefecture';
+                        }
+                        if (($row['source_url'] ?? '') === '') {
+                            $missing[] = 'source_url';
+                        }
+                        if ($missing !== []) {
+                            $needsReview++;
+                        }
+
                         $existing !== null ? $updated++ : $new++;
                         $this->line(sprintf(
-                            '  %s %s / %s / %s〜%s円 / %s / %s',
+                            ' %s %s %s / %s / %s〜%s円 / %s / %s%s',
+                            $missing !== [] ? '!' : ' ',
                             $existing !== null ? '[update]' : '[new]',
-                            $row['name'],
-                            $row['garage_type'],
+                            $row['name'] ?? '',
+                            $row['garage_type'] ?? '',
                             $row['monthly_fee_min'] ?? '?',
                             $row['monthly_fee_max'] ?? '?',
                             $row['address'] ?? '',
-                            $rowActive ? '公開' : '非公開(開店予定)'
+                            $rowActive ? '公開' : '非公開(開店予定)',
+                            $missing !== [] ? '  [欠落: '.implode(',', $missing).']' : ''
                         ));
 
                         continue;
                     }
 
-                    if ($existing !== null) {
-                        $data = $row + ['source' => 'official'];
-                        // 住所が変わった場合のみ再ジオコーディング対象へ戻す。同じなら座標を保持
-                        // （row に latitude/longitude/geocode_status を含めないため既存値は温存される）。
-                        if ($existing->address !== $row['address']) {
-                            $data['geocode_status'] = 'pending';
+                    // 1レコードの保存失敗で社全体を止めない。失敗しても次へ。
+                    try {
+                        if ($existing !== null) {
+                            $data = $row + ['source' => 'official'];
+                            // 住所が変わった場合のみ再ジオコーディング対象へ戻す。同じなら座標を保持
+                            // （row に latitude/longitude/geocode_status を含めないため既存値は温存）。
+                            if ($existing->address !== ($row['address'] ?? null)) {
+                                $data['geocode_status'] = 'pending';
+                            }
+                            if ($existing->trashed()) {
+                                $existing->restore();
+                            }
+                            $existing->update($data);
+                            $updated++;
+                        } else {
+                            // 新規作成: geocode_status は DB既定の 'pending' のまま。
+                            RentalGarage::create($row + ['source' => 'official']);
+                            $new++;
                         }
-                        if ($existing->trashed()) {
-                            $existing->restore();
+                    } catch (\Throwable $e) {
+                        $saveFailed++;
+                        if (count($saveFailures) < 10) {
+                            $saveFailures[] = [
+                                'source_url' => $row['source_url'] ?? '(no url)',
+                                'msg' => $this->summarizeException($e),
+                            ];
                         }
-                        $existing->update($data);
-                        $updated++;
-                    } else {
-                        // 新規作成: geocode_status は DB既定の 'pending' のまま。
-                        RentalGarage::create($row + ['source' => 'official']);
-                        $new++;
                     }
                 }
+            } catch (\Throwable $e) {
+                // 取得処理自体が落ちた（ジェネレータ例外など）＝この社は失敗扱い。
+                $this->error("[{$label}] 取得処理エラー: {$e->getMessage()}");
+                $fetchFailed = true;
+            }
 
+            $totalInactive += $inactive;
+            $totalPrefNull += $prefNull;
+            $totalSaveFailed += $saveFailed;
+            $totalNeedsReview += $needsReview;
+
+            // 成功/失敗判定: 取得0件 または 取得処理が例外 のときのみ失敗。
+            // 一部レコードの保存失敗は失敗扱いにしない（件数はサマリに出す）。
+            if ($fetchFailed || $total === 0) {
+                if (! $fetchFailed) {
+                    $this->warn("[{$label}] 取得0件でした");
+                }
+                $failed[] = ['label' => $label];
+            } else {
                 $this->info(sprintf(
-                    '[%s] %d件 登録/更新（新規 %d / 更新 %d / スキップ %d / 非公開 %d）',
+                    '[%s] %d件 登録/更新（新規 %d / 更新 %d / スキップ %d / 非公開 %d / 保存失敗 %d / 都道府県null %d）',
                     $label,
                     $total,
                     $new,
                     $updated,
                     $skipped,
-                    $inactive
+                    $inactive,
+                    $saveFailed,
+                    $prefNull
                 ));
-                $totalInactive += $inactive;
                 $succeeded[] = ['label' => $label];
-            } catch (\Throwable $e) {
-                $this->error("[{$label}] エラー: {$e->getMessage()}");
-                $failed[] = ['label' => $label];
             }
         }
 
-        $this->printSummary($succeeded, $failed, $totalInactive);
+        $this->printSummary($succeeded, $failed, [
+            'inactive' => $totalInactive,
+            'prefNull' => $totalPrefNull,
+            'saveFailed' => $totalSaveFailed,
+            'saveFailures' => $saveFailures,
+            'needsReview' => $totalNeedsReview,
+            'dryRun' => $dryRun,
+        ]);
 
         return empty($failed) ? self::SUCCESS : self::FAILURE;
     }
 
     /**
-     * 実行サマリ（成功／失敗の社一覧）を出力（FetchPois::printSummary と同流儀）。
+     * 例外メッセージを1行・120字までに要約。
+     */
+    private function summarizeException(\Throwable $e): string
+    {
+        $msg = preg_replace('/\s+/', ' ', $e->getMessage()) ?? $e->getMessage();
+
+        return mb_strlen($msg) > 120 ? mb_substr($msg, 0, 120).'…' : $msg;
+    }
+
+    /**
+     * 実行サマリ（成功／失敗の社一覧・各種件数）を出力（FetchPois::printSummary と同流儀）。
      *
      * @param  array<int, array{label: string}>  $succeeded
      * @param  array<int, array{label: string}>  $failed
+     * @param  array{inactive:int, prefNull:int, saveFailed:int, saveFailures:array<int, array{source_url:string, msg:string}>, needsReview:int, dryRun:bool}  $stats
      */
-    private function printSummary(array $succeeded, array $failed, int $totalInactive): void
+    private function printSummary(array $succeeded, array $failed, array $stats): void
     {
         $this->newLine();
         $this->info('===== 実行サマリ =====');
@@ -159,7 +237,24 @@ final class FetchRentalGarages extends Command
             $this->line("  ✓ {$s['label']}");
         }
 
-        $this->info("うち開店前で非公開: {$totalInactive}件");
+        $this->info("うち開店前で非公開: {$stats['inactive']}件");
+        $this->info("都道府県が判定できなかった: {$stats['prefNull']}件");
+        $this->info("保存に失敗: {$stats['saveFailed']}件");
+
+        // 保存失敗の内訳（最大10件、11件目以降はまとめる）。
+        if (! empty($stats['saveFailures'])) {
+            foreach ($stats['saveFailures'] as $sf) {
+                $this->line("  - {$sf['source_url']} : {$sf['msg']}");
+            }
+            $rest = $stats['saveFailed'] - count($stats['saveFailures']);
+            if ($rest > 0) {
+                $this->line("  … 他 {$rest} 件");
+            }
+        }
+
+        if ($stats['dryRun']) {
+            $this->warn("要確認: {$stats['needsReview']}件（必須項目の欠落）");
+        }
 
         if (empty($failed)) {
             return;

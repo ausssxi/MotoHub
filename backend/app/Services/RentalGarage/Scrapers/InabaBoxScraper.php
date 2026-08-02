@@ -126,7 +126,8 @@ final class InabaBoxScraper extends AbstractRentalGarageScraper
 
         // 先頭の【…】注記（開店予定日等）を名前から切り離す。
         $split = $this->splitNameAnnotation($link->text(''));
-        $name = $split['name'];
+        // 一覧で事業者名を省く物件（例「北長瀬店」）があるため、事業者名を補って表記を揃える。
+        $name = $this->ensureOperatorPrefix($split['name'], self::OPERATOR);
         $annotation = $split['annotation'];
         $sourceUrl = $this->normalizeUrl($link->attr('href') ?? '');
         if ($name === '' || $sourceUrl === '') {
