@@ -194,7 +194,10 @@
                      window.dispatchEvent(new CustomEvent('layers-changed', {detail: l}));
                  }
              }"
-             x-init="window.ridersMapLayers = {shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, car_wash: false, rental_garage: false, blog: false, saved_spots: {{ auth()->check() ? 'true' : 'false' }}}">
+             x-init="
+                 if (new URLSearchParams(window.location.search).get('layer') === 'rental_garage') { rentalgarage = true; }
+                 window.ridersMapLayers = {shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, car_wash: false, rental_garage: rentalgarage, blog: false, saved_spots: {{ auth()->check() ? 'true' : 'false' }}};
+             ">
             <button type="button" @click="shop = !shop; notify()"
                     class="layer-btn px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1"
                     :style="shop ? 'background:#2563eb;color:#fff;border:2px solid #2563eb' : 'background:#fff;color:#4b5563;border:2px solid #e5e7eb'">
@@ -252,6 +255,20 @@
             </button>
             @endauth
         </div>
+
+        {{-- レンタルガレージ登録ボタン（駐輪場マップの登録ボタンと同型の導線）。route要ログイン。
+             レンタルガレージのレイヤーがONのときだけ表示（l.rental_garage に連動）。
+             位置=bottom-4 left-3: ズームコントロールは無効(zoomControl:false)、現在地/凡例は右下、
+             PCのアクションバーは bottom-20 と離れており重ならない。 --}}
+        <a href="{{ route('rental-garage.create') }}"
+           x-data="{ show: false }"
+           x-init="show = !!(window.ridersMapLayers && window.ridersMapLayers.rental_garage)"
+           x-show="show" x-cloak
+           @layers-changed.window="show = !!$event.detail.rental_garage"
+           class="absolute bottom-4 left-3 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-md flex items-center gap-1.5 text-xs font-bold hover:bg-gray-700 transition z-40">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            ガレージ登録
+        </a>
 
         {{-- 現在地ボタン（#map-stage 内＝地図に追従。アクションバーで下に伸びても位置がずれない） --}}
         <button id="btn-current-location" class="absolute bottom-4 right-3 bg-white p-2.5 rounded-lg shadow-md z-40 text-gray-600 hover:text-blue-600 transition-colors border border-gray-200"

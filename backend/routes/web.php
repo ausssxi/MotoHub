@@ -412,6 +412,13 @@ Route::middleware('auth')->prefix('parking')->name('parking.')->controller(Parki
     Route::put('/{bikeParking}', 'update')->name('update')->where('bikeParking', '[0-9]+');
 });
 
+// レンタルガレージ投稿（要ログイン・駐輪場と同構成。store は 1時間3件の throttle）
+Route::middleware('auth')->prefix('rental-garage')->name('rental-garage.')
+    ->controller(\App\Http\Controllers\RentalGarage\RentalGarageController::class)->group(function () {
+        Route::get('/create', 'create')->name('create');
+        Route::post('/', 'store')->name('store')->middleware('throttle:3,60'); // 同一IP 1時間3件
+    });
+
 // AR駐車場・ショップファインダー
 Route::get('/ar', [ArController::class, 'index'])->name('ar.index');
 
