@@ -97,6 +97,9 @@ class GenerateSitemap extends Command
         foreach (glob(public_path('sitemap-touring*.xml')) as $old) {
             unlink($old);
         }
+        foreach (glob(public_path('sitemap-rental-garage*.xml')) as $old) {
+            unlink($old);
+        }
         $this->info('古いサイトマップファイルを削除しました。');
 
         $sitemapFiles = [];
@@ -909,6 +912,36 @@ class GenerateSitemap extends Command
 
         $this->closeSitemap($handle);
         $this->info(" -> {$totalParkingCount} URL (Parking Total, {$parkingFileIndex} files)");
+
+        // =========================================================
+        // 4.5b. レンタルガレージ詳細 (sitemap-rental-garage.xml)
+        //   noindex 対象（source=user かつ is_verified=false）は含めない。
+        // =========================================================
+        $rentalGarageFileName = 'sitemap-rental-garage.xml';
+        $handle = $this->openSitemap($rentalGarageFileName);
+        $sitemapFiles[] = $rentalGarageFileName;
+        $rentalGarageCount = 0;
+
+        \App\Models\RentalGarage::query()
+            ->where('is_active', true)
+            ->where(fn ($q) => $q->where('source', '!=', 'user')->orWhere('is_verified', true))
+            ->select('id', 'updated_at')
+            ->orderByDesc('updated_at')
+            ->chunk(1000, function ($garages) use (&$handle, &$rentalGarageCount) {
+                foreach ($garages as $garage) {
+                    $this->writeUrl(
+                        $handle,
+                        route('rental-garage.show', $garage->id),
+                        optional($garage->updated_at)->format('Y-m-d') ?? date('Y-m-d'),
+                        'weekly',
+                        '0.6'
+                    );
+                    $rentalGarageCount++;
+                }
+            });
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$rentalGarageCount} URL (Rental Garage)");
 
         // =========================================================
         // 4.6. 駐車場エリアページ (sitemap-parking-area.xml)

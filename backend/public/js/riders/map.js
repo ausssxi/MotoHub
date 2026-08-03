@@ -579,6 +579,20 @@
         return '';
     }
 
+    // OSM opening_hours が24時間営業を示すなら 24hバッジHTMLを返す（"24/7" / "24時間"）
+    function open24hBadge(item) {
+        var oh = (item.opening_hours || '').trim();
+        if (/24\/7/.test(oh) || /24\s*時間/.test(oh)) {
+            return '<span class="inline-block px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-bold rounded-md mb-3 ml-1">24時間営業</span>';
+        }
+        return '';
+    }
+
+    // OSM由来データ（GS/コンビニ/洗車場）の ODbL クレジット（詳細パネル内表記）
+    function osmDataCredit() {
+        return '<p class="text-[10px] text-gray-400 mt-3">データ: &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" class="underline">OpenStreetMap contributors</a> (ODbL)</p>';
+    }
+
     // Show detail panel
     function showDetail(layerKey, item) {
         var panel = document.getElementById('detail-panel');
@@ -648,15 +662,26 @@
             html = '<h3 class="text-base font-black text-gray-900 mb-1">' + escapeHtml(gs.main) + '</h3>'
                 + (gs.sub ? '<p class="text-sm font-bold text-gray-500 mb-2">' + escapeHtml(gs.sub) + '</p>' : '')
                 + (item.gas_operator ? '<span class="inline-block px-2.5 py-1 bg-red-50 text-red-700 text-[11px] font-bold rounded-md mb-3">運営: ' + escapeHtml(item.gas_operator) + '</span>' : '')
+                + open24hBadge(item)
                 + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
                 + (item.opening_hours ? '<div class="bg-gray-50 rounded-lg p-3 mb-3"><div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">営業時間</span><span class="text-xs text-gray-700">' + escapeHtml(item.opening_hours) + '</span></div></div>' : '')
-                + gmapBtn + routeBtn;
+                + gmapBtn + routeBtn + osmDataCredit();
         } else if (layerKey === 'convenience_store') {
             var cvs = gsDisplayName(item);
             html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(cvs.main) + '</h3>'
                 + (item.cvs_operator ? '<span class="inline-block px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-md mb-3">' + escapeHtml(item.cvs_operator) + '</span>' : '')
+                + open24hBadge(item)
                 + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
-                + gmapBtn + routeBtn;
+                + (item.opening_hours ? '<div class="bg-gray-50 rounded-lg p-3 mb-3"><div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">営業時間</span><span class="text-xs text-gray-700">' + escapeHtml(item.opening_hours) + '</span></div></div>' : '')
+                + gmapBtn + routeBtn + osmDataCredit();
+        } else if (layerKey === 'car_wash') {
+            // A1修正: car_wash の分岐が無く本文が空だった。pois が持つ name/brand/address/opening_hours で構成。
+            html = '<h3 class="text-base font-black text-gray-900 mb-1">' + escapeHtml(item.name || '洗車場') + '</h3>'
+                + (item.brand ? '<span class="inline-block px-2.5 py-1 bg-sky-50 text-sky-700 text-[11px] font-bold rounded-md mb-3">' + escapeHtml(item.brand) + '</span>' : '')
+                + open24hBadge(item)
+                + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
+                + (item.opening_hours ? '<div class="bg-gray-50 rounded-lg p-3 mb-3"><div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">営業時間</span><span class="text-xs text-gray-700">' + escapeHtml(item.opening_hours) + '</span></div></div>' : '')
+                + gmapBtn + routeBtn + osmDataCredit();
         } else if (layerKey === 'rental_garage') {
             html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(item.name || '名称不明') + '</h3>'
                 + '<span class="inline-block px-2.5 py-1 bg-purple-50 text-purple-700 text-[11px] font-bold rounded-md mb-3">' + escapeHtml(garageTypeLabel(item.garage_type)) + '</span>'
@@ -684,9 +709,9 @@
             if (gBadges.length) {
                 html += '<div class="flex flex-wrap gap-1 mb-3">' + gBadges.map(function(b) { return '<span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold rounded">' + b + '</span>'; }).join('') + '</div>';
             }
-            // 事業者の物件詳細ページ
-            if (item.website_url) {
-                html += '<a href="' + escapeHtml(item.website_url) + '" target="_blank" rel="noopener" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition">詳細を見る &rarr;</a>';
+            // MotoHub内の詳細ページ（公式サイトリンクはページ内に配置）。既存の /parking/ 等と同じ内部パス方式。
+            if (item.id) {
+                html += '<a href="/rental-garages/' + item.id + '" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition">詳細を見る &rarr;</a>';
             }
             html += gmapBtn + routeBtn;
         } else if (layerKey === 'michi_no_eki') {

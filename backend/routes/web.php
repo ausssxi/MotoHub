@@ -419,6 +419,10 @@ Route::middleware('auth')->prefix('rental-garage')->name('rental-garage.')
         Route::post('/', 'store')->name('store')->middleware('throttle:3,60'); // 同一IP 1時間3件
     });
 
+// レンタルガレージ詳細（公開・is_active=false は404）
+Route::get('/rental-garages/{id}', [\App\Http\Controllers\RentalGarage\RentalGarageController::class, 'show'])
+    ->name('rental-garage.show')->where('id', '[0-9]+');
+
 // AR駐車場・ショップファインダー
 Route::get('/ar', [ArController::class, 'index'])->name('ar.index');
 

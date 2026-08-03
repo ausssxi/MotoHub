@@ -6,9 +6,13 @@ namespace App\Http\Controllers\RentalGarage;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RentalGarage\StoreRentalGarageRequest;
+use App\Models\BikeParking;
+use App\Models\Poi;
 use App\Models\RentalGarage;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Collection;
 
 final class RentalGarageController extends Controller
 {
@@ -18,6 +22,94 @@ final class RentalGarageController extends Controller
     public function create(): View
     {
         return view('rental_garage.create');
+    }
+
+    /**
+     * 詳細ページ（公開）。is_active=false は404。
+     */
+    public function show(int $id): View
+    {
+        $garage = RentalGarage::query()->where('id', $id)->where('is_active', true)->firstOrFail();
+
+        $lat = (float) $garage->latitude;
+        $lng = (float) $garage->longitude;
+        $hasCoords = $garage->latitude !== null && $garage->longitude !== null;
+
+        // 半径3km以内の関連（薄いページ対策の内部リンク）。
+        $nearbyGarages = $hasCoords ? $this->nearby(
+            RentalGarage::query()->where('is_active', true)->where('id', '!=', $garage->id), $lat, $lng
+        ) : new Collection();
+        $nearbyCarWashes = $hasCoords ? $this->nearby(
+            Poi::query()->where('type', 'car_wash'), $lat, $lng
+        ) : new Collection();
+        $nearbyParkings = $hasCoords ? $this->nearby(
+            BikeParking::query()->where('is_active', true), $lat, $lng
+        ) : new Collection();
+
+        // 同一都道府県の月額中央値（比較の一文用）。
+        $prefMedian = $garage->prefecture ? $this->prefectureMonthlyMedian($garage->prefecture) : null;
+
+        // source=user かつ未確認は noindex。
+        $noindex = $garage->source === 'user' && ! $garage->is_verified;
+
+        $crossLinks = [
+            ['label' => 'ライダーズマップ', 'url' => route('riders.map'), 'icon' => 'map', 'description' => 'ガレージ・洗車場・GSを地図で'],
+            ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => 'バイク駐車場を探す'],
+            ['label' => '中古バイク検索', 'url' => route('bikes.search'), 'icon' => 'search', 'description' => '全国の在庫を検索'],
+            ['label' => 'バイク盗難データ', 'url' => route('theft'), 'icon' => 'shield-alert', 'description' => '盗難対策に安全な保管を'],
+        ];
+
+        return view('rental_garage.show', compact(
+            'garage', 'nearbyGarages', 'nearbyCarWashes', 'nearbyParkings', 'prefMedian', 'noindex', 'crossLinks'
+        ));
+    }
+
+    /**
+     * 与えたクエリから半径3km以内のレコードを近い順に最大5件返す（バウンディングボックス＋ハバーサイン）。
+     */
+    private function nearby(Builder $query, float $lat, float $lng): Collection
+    {
+        $latDelta = 3 / 111.0; // ~3km
+        $lngDelta = 3 / (111.0 * max(cos(deg2rad($lat)), 0.01));
+
+        return $query
+            ->whereNotNull('latitude')->whereNotNull('longitude')
+            ->whereBetween('latitude', [$lat - $latDelta, $lat + $latDelta])
+            ->whereBetween('longitude', [$lng - $lngDelta, $lng + $lngDelta])
+            ->limit(60)
+            ->get()
+            ->each(fn ($r) => $r->setAttribute('dist_m', $this->haversineMeters($lat, $lng, (float) $r->latitude, (float) $r->longitude)))
+            ->filter(fn ($r) => $r->dist_m <= 3000)
+            ->sortBy('dist_m')
+            ->take(5)
+            ->values();
+    }
+
+    /** 中央値の信頼できる最小サンプル数。これ未満の都道府県では比較文を出さない。 */
+    private const MEDIAN_MIN_SAMPLE = 5;
+
+    /**
+     * 同一都道府県・公開中のレンタルガレージの月額下限の中央値（円）。
+     * monthly_fee_min が null の行は必ず除外。サンプルが MEDIAN_MIN_SAMPLE 未満なら null（＝比較文非表示）。
+     */
+    private function prefectureMonthlyMedian(string $prefecture): ?int
+    {
+        $vals = RentalGarage::query()
+            ->where('is_active', true)
+            ->where('prefecture', $prefecture)
+            ->whereNotNull('monthly_fee_min')
+            ->pluck('monthly_fee_min')
+            ->map(fn ($v) => (int) $v)
+            ->sort()
+            ->values();
+
+        $n = $vals->count();
+        if ($n < self::MEDIAN_MIN_SAMPLE) {
+            return null; // 1件の県で「中央値＝自身」になる無意味な比較を防ぐ
+        }
+        $mid = intdiv($n, 2);
+
+        return $n % 2 === 1 ? $vals[$mid] : (int) (($vals[$mid - 1] + $vals[$mid]) / 2);
     }
 
     /**
@@ -47,19 +139,19 @@ final class RentalGarageController extends Controller
             return back()->withInput()->withErrors(['monthly_fee_max' => '月額の上限は下限以上で入力してください。']);
         }
 
-        // 防御3 重複チェック: 半径100m以内に同名または同運営があれば拒否し、既存への導線を示す。
+        // 防御3 重複チェック: 半径100m以内に同名または同運営があれば拒否し、既存の詳細ページへ導線を示す。
         $dup = $this->findNearbyDuplicate($data);
         if ($dup !== null) {
             return back()->withInput()
                 ->with('duplicate', [
                     'name' => $dup->name,
                     'address' => (string) $dup->address,
-                    'map_url' => route('riders.map'),
+                    'url' => route('rental-garage.show', $dup->id),
                 ])
-                ->withErrors(['name' => "半径100m以内に「{$dup->name}」が既に登録されています。地図でご確認ください。"]);
+                ->withErrors(['name' => "半径100m以内に「{$dup->name}」が既に登録されています。既存の詳細ページをご確認ください。"]);
         }
 
-        RentalGarage::create($data + [
+        $garage = RentalGarage::create($data + [
             'source' => 'user',
             'is_active' => true,
             'is_verified' => false,
@@ -69,17 +161,15 @@ final class RentalGarageController extends Controller
             'source_url' => null, // ユーザー投稿は常に null（unique制約下でも MySQL は複数NULLを許容）
         ]);
 
-        // 投稿座標を中心に・レンタルガレージのレイヤーONで着地（map.js が lat/lng/zoom を読む）。
-        return $this->registeredRedirect((float) $data['latitude'], (float) $data['longitude']);
+        // 投稿者が自分の登録施設を確認できるよう、詳細ページへ着地。
+        return redirect()->route('rental-garage.show', $garage->id)
+            ->with('success', 'レンタルガレージを登録しました！ありがとうございます。');
     }
 
-    private function registeredRedirect(?float $lat = null, ?float $lng = null): RedirectResponse
+    private function registeredRedirect(): RedirectResponse
     {
-        $params = ($lat !== null && $lng !== null)
-            ? ['lat' => $lat, 'lng' => $lng, 'zoom' => 16, 'layer' => 'rental_garage']
-            : [];
-
-        return redirect()->route('riders.map', $params)
+        // honeypot 破棄時のダミー着地（保存していないので詳細ページは無い）。
+        return redirect()->route('riders.map')
             ->with('success', 'レンタルガレージを登録しました！ありがとうございます。');
     }
 

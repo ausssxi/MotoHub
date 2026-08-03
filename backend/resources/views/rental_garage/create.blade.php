@@ -51,7 +51,7 @@
                     @if(session('duplicate'))
                     <div class="mt-2 pt-2 border-t border-red-200 text-xs">
                         既存: <strong>{{ session('duplicate')['name'] }}</strong>（{{ session('duplicate')['address'] }}）
-                        <a href="{{ session('duplicate')['map_url'] }}" class="underline font-bold ml-1">地図で確認する</a>
+                        <a href="{{ session('duplicate')['url'] }}" class="underline font-bold ml-1">既存の詳細を見る</a>
                     </div>
                     @endif
                 </div>
