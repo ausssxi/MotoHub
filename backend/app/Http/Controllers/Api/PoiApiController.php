@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Poi;
+use App\Models\RoadsideStation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -26,9 +27,11 @@ final class PoiApiController extends Controller
         $swLat = (float) $request->input('sw_lat');
         $swLng = (float) $request->input('sw_lng');
 
+        // 道の駅は roadside_stations 由来（/api/roadside-stations）へ一本化したため既定から除外。
+        // type を明示指定された場合はそのまま尊重する。
         $types = $request->input('type')
             ? explode(',', $request->input('type'))
-            : ['gas_station', 'convenience_store', 'michi_no_eki'];
+            : ['gas_station', 'convenience_store'];
 
         // 3桁丸めでキャッシュキー生成
         $cacheKey = sprintf(
@@ -90,7 +93,8 @@ final class PoiApiController extends Controller
 
         $coordinates = $request->input('coordinates');
         $bufferKm = (float) ($request->input('buffer_km', 0.3));
-        $types = $request->input('types', ['gas_station', 'convenience_store', 'michi_no_eki']);
+        // 道の駅は roadside_stations 由来へ一本化。既定から除外し、明示指定時のみ下で roadside から取得。
+        $types = $request->input('types', ['gas_station', 'convenience_store']);
 
         // Cache key from coordinate hash
         $cacheKey = 'pois_along:' . md5(json_encode($coordinates)) . ':' . $bufferKm . ':' . implode(',', $types);
@@ -106,50 +110,94 @@ final class PoiApiController extends Controller
             $neLat = max($lats) + $bufferDeg;
             $neLng = max($lngs) + $bufferDeg;
 
-            $candidates = Poi::inBounds($swLat, $swLng, $neLat, $neLng)
-                ->ofType($types)
-                ->limit(2000)
-                ->get(['id', 'osm_id', 'type', 'name', 'latitude', 'longitude', 'address', 'brand', 'opening_hours']);
+            // 道の駅(michi_no_eki)は pois ではなく roadside_stations から取得。他種別は従来どおり pois。
+            $wantsMichi = in_array('michi_no_eki', $types, true);
+            $poiTypes = array_values(array_filter($types, fn ($t) => $t !== 'michi_no_eki'));
 
-            // Filter by actual distance to route segments
-            $bufferM = $bufferKm * 1000;
-            $results = [];
+            $candidates = collect();
 
-            foreach ($candidates as $poi) {
-                $minDist = PHP_FLOAT_MAX;
-                for ($i = 0; $i < count($coordinates) - 1; $i++) {
-                    $d = $this->pointToSegmentDistance(
-                        (float) $poi->latitude,
-                        (float) $poi->longitude,
-                        $coordinates[$i][0],
-                        $coordinates[$i][1],
-                        $coordinates[$i + 1][0],
-                        $coordinates[$i + 1][1]
-                    );
-                    if ($d < $minDist) {
-                        $minDist = $d;
-                    }
-                    if ($minDist <= $bufferM) {
-                        break; // Already within buffer, no need to check further
-                    }
-                }
-
-                if ($minDist <= $bufferM) {
-                    $results[] = [
-                        'poi' => $poi,
-                        'distance' => $minDist,
-                    ];
-                }
+            if ($poiTypes !== []) {
+                $candidates = $candidates->merge(
+                    Poi::inBounds($swLat, $swLng, $neLat, $neLng)
+                        ->ofType($poiTypes)
+                        ->limit(2000)
+                        ->get(['id', 'osm_id', 'type', 'name', 'latitude', 'longitude', 'address', 'brand', 'opening_hours'])
+                );
             }
 
-            // Sort by distance, limit 500
-            usort($results, fn ($a, $b) => $a['distance'] <=> $b['distance']);
-            $results = array_slice($results, 0, 500);
+            if ($wantsMichi) {
+                // 座標NULLの駅は必ず除外。pois とキー名/型を揃える（latitude/longitude は float）。
+                $stations = RoadsideStation::query()
+                    ->whereNotNull('latitude')
+                    ->whereNotNull('longitude')
+                    ->whereBetween('latitude', [$swLat, $neLat])
+                    ->whereBetween('longitude', [$swLng, $neLng])
+                    ->limit(2000)
+                    ->get(['id', 'name', 'latitude', 'longitude', 'address']);
 
-            return array_map(fn ($r) => $r['poi'], $results);
+                $candidates = $candidates->merge(
+                    $stations->map(fn (RoadsideStation $s) => (new Poi())->forceFill([
+                        'id' => $s->id,
+                        'type' => 'michi_no_eki',
+                        'name' => $s->name,
+                        'latitude' => (float) $s->latitude,   // roadside は decimal:7=文字列 → float に統一
+                        'longitude' => (float) $s->longitude,
+                        'address' => $s->address,
+                    ]))
+                );
+            }
+
+            // ルート沿い判定は pois/道の駅で共通の1実装を使う（判定を2重実装しない・上限500/距離昇順も共通）。
+            return $this->filterAlongRoute($candidates, $coordinates, $bufferKm);
         });
 
         return response()->json($this->withPoiBrands(collect($pois)));
+    }
+
+    /**
+     * ルート座標列との最短距離が buffer 内の候補だけを残し、距離昇順で最大500件返す。
+     * pois・道の駅（Poiインスタンスへ整形済み）どちらの候補にも共通で使う。
+     *
+     * @param  \Illuminate\Support\Collection<int, Poi>  $candidates
+     * @return array<int, Poi>
+     */
+    private function filterAlongRoute($candidates, array $coordinates, float $bufferKm): array
+    {
+        $bufferM = $bufferKm * 1000;
+        $results = [];
+
+        foreach ($candidates as $poi) {
+            $minDist = PHP_FLOAT_MAX;
+            for ($i = 0; $i < count($coordinates) - 1; $i++) {
+                $d = $this->pointToSegmentDistance(
+                    (float) $poi->latitude,
+                    (float) $poi->longitude,
+                    $coordinates[$i][0],
+                    $coordinates[$i][1],
+                    $coordinates[$i + 1][0],
+                    $coordinates[$i + 1][1]
+                );
+                if ($d < $minDist) {
+                    $minDist = $d;
+                }
+                if ($minDist <= $bufferM) {
+                    break; // Already within buffer, no need to check further
+                }
+            }
+
+            if ($minDist <= $bufferM) {
+                $results[] = [
+                    'poi' => $poi,
+                    'distance' => $minDist,
+                ];
+            }
+        }
+
+        // Sort by distance, limit 500
+        usort($results, fn ($a, $b) => $a['distance'] <=> $b['distance']);
+        $results = array_slice($results, 0, 500);
+
+        return array_map(fn ($r) => $r['poi'], $results);
     }
 
     /**

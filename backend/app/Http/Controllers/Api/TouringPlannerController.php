@@ -49,7 +49,10 @@ final class TouringPlannerController extends Controller
             ->limit(15)
             ->get();
 
-        $stations = RoadsideStation::whereBetween('latitude', [$lat - $degree, $lat + $degree])
+        // 座標NULLの駅を明示除外（whereBetween の NULL 落ちに依存させない）。:99 の座標文字列連結の安全も担保。
+        $stations = RoadsideStation::whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->whereBetween('latitude', [$lat - $degree, $lat + $degree])
             ->whereBetween('longitude', [$lng - $degree, $lng + $degree])
             ->select('name', 'latitude', 'longitude', 'address', 'has_restaurant', 'has_onsen', 'has_gas_station')
             ->limit(15)

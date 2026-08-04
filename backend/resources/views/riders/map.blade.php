@@ -128,8 +128,8 @@
         <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
         <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
         <script src="{{ asset('js/common/map-search.js') }}?v={{ asset_buster(public_path('js/common/map-search.js')) }}"></script>
-        <script src="{{ asset('js/riders/poi-name.js') }}?v={{ time() }}"></script>
-        <script src="{{ asset('js/riders/map.js') }}?v={{ time() }}"></script>
+        <script src="{{ asset('js/riders/poi-name.js') }}?v={{ asset_buster(public_path('js/riders/poi-name.js')) }}"></script>
+        <script src="{{ asset('js/riders/map.js') }}?v={{ asset_buster(public_path('js/riders/map.js')) }}"></script>
         <script src="{{ asset('js/riders/route.js') }}?v={{ time() }}"></script>
         @auth
             <script src="{{ asset('js/riders/blog-pin.js') }}?v={{ time() }}"></script>

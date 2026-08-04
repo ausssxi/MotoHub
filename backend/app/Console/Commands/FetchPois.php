@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Http;
 final class FetchPois extends Command
 {
     protected $signature = 'poi:fetch
-        {--type= : gas_station, convenience_store, michi_no_eki, or car_wash}
+        {--type= : gas_station, convenience_store, or car_wash}
         {--region= : 特定の地方のみ実行（例: 中部）。未指定は全地方}';
 
     protected $description = 'Overpass APIからPOIデータ（ガソリンスタンド・コンビニ・道の駅・洗車場）を取得';
@@ -58,7 +58,7 @@ final class FetchPois extends Command
     private const TYPE_QUERIES = [
         'gas_station' => '[out:json][timeout:120];(node["amenity"="fuel"]({bbox});way["amenity"="fuel"]({bbox}););out center;',
         'convenience_store' => '[out:json][timeout:120];(node["shop"="convenience"]["name"~"セブン|ローソン|ファミリーマート|ミニストップ|デイリーヤマザキ|セイコーマート|ポプラ|NewDays"]({bbox}););out center;',
-        'michi_no_eki' => '[out:json][timeout:120];(node["name"~"道の駅"]({bbox});way["name"~"道の駅"]({bbox}););out center;',
+        // 道の駅は roadside_stations（国交省公式一覧）へ一本化したため、OSM由来の取得は廃止。
         // 洗車場（amenity=car_wash）。way が全体の半数超のため node/way 両方を取得し、
         // way は座標を持たないので「out center tags;」で center 座標とタグを得る。
         'car_wash' => '[out:json][timeout:120];(node["amenity"="car_wash"]({bbox});way["amenity"="car_wash"]({bbox}););out center tags;',

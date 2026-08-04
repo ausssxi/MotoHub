@@ -218,7 +218,7 @@
 
     <x-slot:scripts>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script src="{{ asset('js/riders/poi-name.js') }}"></script>
-        <script src="{{ asset('js/blog/embedded-map.js') }}"></script>
+        <script src="{{ asset('js/riders/poi-name.js') }}?v={{ asset_buster(public_path('js/riders/poi-name.js')) }}"></script>
+        <script src="{{ asset('js/blog/embedded-map.js') }}?v={{ asset_buster(public_path('js/blog/embedded-map.js')) }}"></script>
     </x-slot:scripts>
 </x-layout>
