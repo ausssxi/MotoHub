@@ -30,6 +30,9 @@ final class RoadsideStationApiController extends Controller
 
         $stations = Cache::remember($cacheKey, 3600, function () use ($swLat, $swLng, $neLat, $neLng) {
             return RoadsideStation::query()
+                // 座標未設定（公式一覧の新規駅など）は地図に出さない。
+                ->whereNotNull('latitude')
+                ->whereNotNull('longitude')
                 ->whereBetween('latitude', [$swLat, $neLat])
                 ->whereBetween('longitude', [$swLng, $neLng])
                 ->limit(300)

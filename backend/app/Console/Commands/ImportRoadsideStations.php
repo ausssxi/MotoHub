@@ -8,16 +8,26 @@ use App\Models\RoadsideStation;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 
+/**
+ * 道の駅データを it-social.net API / CSV から取り込む（Wikipedia由来のデータを含む）。
+ *
+ * ★台帳の名称ポリシー: 道の駅の「名称(name)」は国土交通省の公式一覧を正とし、
+ *   本コマンドは名称の正としない。よって既存行の name は上書きせず、name は新規作成時のみ設定する。
+ *   （summary / image_url / has_* 系は本コマンドが更新するため、公式一覧との整合を崩しうる。
+ *    意図した実行のみ許すため --allow-overwrite を必須とする。）
+ */
 final class ImportRoadsideStations extends Command
 {
     protected $signature = 'roadside-stations:import
                             {--source=api : データソース (api|csv)}
                             {--file= : CSVファイルのパス (デフォルト: storage/app/roadside_stations.csv)}
-                            {--pref= : 都道府県コード (01-47) で絞り込み}';
+                            {--pref= : 都道府県コード (01-47) で絞り込み}
+                            {--allow-overwrite : 台帳の上書き更新を許可（未指定は警告して中止）}';
 
     protected $description = '道の駅データをインポート（API個別取得 or CSV一括読み込み）';
 
     private const API_BASE = 'https://it-social.net/roadside_station/json/';
+    private const USER_AGENT = 'MotoHubBot/1.0 (+https://motohub.jp/)';
     private const SLEEP_SEC = 3;
     private const RETRY_WAIT_SEC = 30;
     private const MAX_RETRIES = 3;
@@ -83,6 +93,12 @@ final class ImportRoadsideStations extends Command
 
     public function handle(): int
     {
+        if (! $this->option('allow-overwrite')) {
+            $this->warn('このコマンドは Wikipedia 由来のデータで台帳を更新します。名称は上書きしませんが、summary・image_url・has_* 系は上書きされます。公式一覧との整合を崩す可能性があるため、意図して実行する場合のみ --allow-overwrite を付けてください。');
+
+            return self::FAILURE;
+        }
+
         return match ($this->option('source')) {
             'csv'   => $this->handleCsv(),
             'api'   => $this->handleApi(),
@@ -165,7 +181,7 @@ final class ImportRoadsideStations extends Command
             sleep(self::SLEEP_SEC);
 
             try {
-                $response = Http::timeout(15)->get($url);
+                $response = Http::withHeaders(['User-Agent' => self::USER_AGENT])->timeout(15)->get($url);
             } catch (\Throwable $e) {
                 $this->warn("  {$code}: 接続エラー ({$e->getMessage()}) → リトライ {$attempt}/" . self::MAX_RETRIES);
                 sleep(self::RETRY_WAIT_SEC);
@@ -231,34 +247,37 @@ final class ImportRoadsideStations extends Command
 
         $website = $str('Webサイト1') ?: $str('Webサイト2') ?: $str('Webサイト3') ?: $str('Webサイト4');
 
-        RoadsideStation::updateOrCreate(
-            ['station_code' => $code],
-            [
-                'name'            => $str('名称'),
-                'nickname'        => $str('通称') ?: null,
-                'address'         => $str('住所') ?: null,
-                'latitude'        => $lat,
-                'longitude'       => $lng,
-                'prefecture'      => $str('都道府県') ?: null,
-                'city'            => $str('市区町村') ?: null,
-                'route'           => $str('登録路線') ?: null,
-                'image_url'       => $str('画像') ?: null,
-                'summary'         => $str('概要') ?: null,
-                'website_url'     => $website ?: null,
-                'wikipedia_url'   => $str('Wikipedia') ?: null,
-                'has_atm'         => $flag('ATM'),
-                'has_restaurant'  => $flag('レストラン') || $flag('軽食喫茶'),
-                'has_onsen'       => $flag('温泉施設'),
-                'has_ev_charging' => $flag('EV充電施設'),
-                'has_wifi'        => $flag('無線LAN'),
-                'has_shower'      => $flag('シャワー'),
-                'has_camp'        => $flag('キャンプ場等'),
-                'has_gas_station' => $flag('ガソリンスタンド'),
-                'has_observatory' => $flag('展望台'),
-                'has_shop'        => $flag('ショップ'),
-                'designated_year' => ($y = (int) ($data['指定年'] ?? 0)) > 0 ? $y : null,
-            ]
-        );
+        // name は公式一覧を正とするため更新側から除外（新規作成時のみ設定）。
+        $payload = [
+            'nickname'        => $str('通称') ?: null,
+            'address'         => $str('住所') ?: null,
+            'latitude'        => $lat,
+            'longitude'       => $lng,
+            'prefecture'      => $str('都道府県') ?: null,
+            'city'            => $str('市区町村') ?: null,
+            'route'           => $str('登録路線') ?: null,
+            'image_url'       => $str('画像') ?: null,
+            'summary'         => $str('概要') ?: null,
+            'website_url'     => $website ?: null,
+            'wikipedia_url'   => $str('Wikipedia') ?: null,
+            'has_atm'         => $flag('ATM'),
+            'has_restaurant'  => $flag('レストラン') || $flag('軽食喫茶'),
+            'has_onsen'       => $flag('温泉施設'),
+            'has_ev_charging' => $flag('EV充電施設'),
+            'has_wifi'        => $flag('無線LAN'),
+            'has_shower'      => $flag('シャワー'),
+            'has_camp'        => $flag('キャンプ場等'),
+            'has_gas_station' => $flag('ガソリンスタンド'),
+            'has_observatory' => $flag('展望台'),
+            'has_shop'        => $flag('ショップ'),
+            'designated_year' => ($y = (int) ($data['指定年'] ?? 0)) > 0 ? $y : null,
+        ];
+
+        $station = RoadsideStation::firstOrNew(['station_code' => $code]);
+        if (! $station->exists) {
+            $station->name = $str('名称'); // 新規作成時のみ。既存の name は触らない。
+        }
+        $station->fill($payload)->save();
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -396,33 +415,36 @@ final class ImportRoadsideStations extends Command
 
     private function upsertFromCsvRow(string $code, array $row, array $colMap): void
     {
-        RoadsideStation::updateOrCreate(
-            ['station_code' => $code],
-            [
-                'name'            => $this->csvCol($row, $colMap, 'name'),
-                'nickname'        => $this->csvCol($row, $colMap, 'nickname') ?: null,
-                'address'         => $this->csvCol($row, $colMap, 'address') ?: null,
-                'latitude'        => (float) ($this->csvCol($row, $colMap, 'lat') ?: 0),
-                'longitude'       => (float) ($this->csvCol($row, $colMap, 'lng') ?: 0),
-                'prefecture'      => $this->csvCol($row, $colMap, 'prefecture') ?: null,
-                'city'            => $this->csvCol($row, $colMap, 'city') ?: null,
-                'route'           => $this->csvCol($row, $colMap, 'route') ?: null,
-                'image_url'       => $this->csvCol($row, $colMap, 'image') ?: null,
-                'summary'         => $this->csvCol($row, $colMap, 'summary') ?: null,
-                'website_url'     => $this->csvCol($row, $colMap, 'website') ?: null,
-                'wikipedia_url'   => $this->csvCol($row, $colMap, 'wikipedia') ?: null,
-                'has_atm'         => $this->csvFlag($row, $colMap, 'atm'),
-                'has_restaurant'  => $this->csvFlag($row, $colMap, 'restaurant') || $this->csvFlag($row, $colMap, 'cafe'),
-                'has_onsen'       => $this->csvFlag($row, $colMap, 'onsen'),
-                'has_ev_charging' => $this->csvFlag($row, $colMap, 'ev_charging'),
-                'has_wifi'        => $this->csvFlag($row, $colMap, 'wifi'),
-                'has_shower'      => $this->csvFlag($row, $colMap, 'shower'),
-                'has_camp'        => $this->csvFlag($row, $colMap, 'camp'),
-                'has_gas_station' => $this->csvFlag($row, $colMap, 'gas_station'),
-                'has_observatory' => $this->csvFlag($row, $colMap, 'observatory'),
-                'has_shop'        => $this->csvFlag($row, $colMap, 'shop'),
-                'designated_year' => ($y = $this->csvCol($row, $colMap, 'designated_year')) !== '' ? (int) $y : null,
-            ]
-        );
+        // name は公式一覧を正とするため更新側から除外（新規作成時のみ設定）。
+        $payload = [
+            'nickname'        => $this->csvCol($row, $colMap, 'nickname') ?: null,
+            'address'         => $this->csvCol($row, $colMap, 'address') ?: null,
+            'latitude'        => (float) ($this->csvCol($row, $colMap, 'lat') ?: 0),
+            'longitude'       => (float) ($this->csvCol($row, $colMap, 'lng') ?: 0),
+            'prefecture'      => $this->csvCol($row, $colMap, 'prefecture') ?: null,
+            'city'            => $this->csvCol($row, $colMap, 'city') ?: null,
+            'route'           => $this->csvCol($row, $colMap, 'route') ?: null,
+            'image_url'       => $this->csvCol($row, $colMap, 'image') ?: null,
+            'summary'         => $this->csvCol($row, $colMap, 'summary') ?: null,
+            'website_url'     => $this->csvCol($row, $colMap, 'website') ?: null,
+            'wikipedia_url'   => $this->csvCol($row, $colMap, 'wikipedia') ?: null,
+            'has_atm'         => $this->csvFlag($row, $colMap, 'atm'),
+            'has_restaurant'  => $this->csvFlag($row, $colMap, 'restaurant') || $this->csvFlag($row, $colMap, 'cafe'),
+            'has_onsen'       => $this->csvFlag($row, $colMap, 'onsen'),
+            'has_ev_charging' => $this->csvFlag($row, $colMap, 'ev_charging'),
+            'has_wifi'        => $this->csvFlag($row, $colMap, 'wifi'),
+            'has_shower'      => $this->csvFlag($row, $colMap, 'shower'),
+            'has_camp'        => $this->csvFlag($row, $colMap, 'camp'),
+            'has_gas_station' => $this->csvFlag($row, $colMap, 'gas_station'),
+            'has_observatory' => $this->csvFlag($row, $colMap, 'observatory'),
+            'has_shop'        => $this->csvFlag($row, $colMap, 'shop'),
+            'designated_year' => ($y = $this->csvCol($row, $colMap, 'designated_year')) !== '' ? (int) $y : null,
+        ];
+
+        $station = RoadsideStation::firstOrNew(['station_code' => $code]);
+        if (! $station->exists) {
+            $station->name = $this->csvCol($row, $colMap, 'name'); // 新規作成時のみ
+        }
+        $station->fill($payload)->save();
     }
 }
