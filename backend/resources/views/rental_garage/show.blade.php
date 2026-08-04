@@ -175,7 +175,7 @@
                     <h2 class="text-xs font-black text-gray-900 mb-2">近くの洗車場</h2>
                     <ul class="space-y-1.5">
                         @foreach($nearbyCarWashes as $c)
-                        <li><a href="{{ route('riders.map', ['lat' => $c->latitude, 'lng' => $c->longitude, 'zoom' => 16, 'layer' => 'car_wash']) }}" class="text-xs text-sky-600 hover:underline font-bold">{{ $c->name }}</a></li>
+                        <li><a href="{{ route('riders.map', ['lat' => $c->latitude, 'lng' => $c->longitude, 'zoom' => 16, 'layer' => 'car_wash']) }}" class="text-xs text-sky-600 hover:underline font-bold">{{ $c->display_name }}</a></li>
                         @endforeach
                     </ul>
                 </div>

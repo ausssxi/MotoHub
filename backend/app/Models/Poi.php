@@ -26,6 +26,32 @@ final class Poi extends Model
         'longitude' => 'float',
     ];
 
+    /** POI種別の日本語名（表示名フォールバックの最終段）。 */
+    private const TYPE_LABELS = [
+        'gas_station' => 'ガソリンスタンド',
+        'convenience_store' => 'コンビニ',
+        'michi_no_eki' => '道の駅',
+        'car_wash' => '洗車場',
+    ];
+
+    /**
+     * 表示名フォールバック（name が null/空でも空文字にしない・センチネルも使わない）。
+     * 順序: name → brand → 種別名。map.js の resolveName と同順序（PHP側の単一実装）。
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        $name = trim((string) ($this->name ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+        $brand = trim((string) ($this->brand ?? ''));
+        if ($brand !== '') {
+            return $brand;
+        }
+
+        return self::TYPE_LABELS[$this->type] ?? 'スポット';
+    }
+
     public function scopeInBounds(Builder $query, float $swLat, float $swLng, float $neLat, float $neLng): Builder
     {
         return $query

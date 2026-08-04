@@ -113,7 +113,9 @@
                         if (!itemLat || !itemLng) return;
 
                         var marker = L.marker([itemLat, itemLng], { icon: icon }).addTo(group);
-                        var name = item.name || item.shop_name || item.title || '名称不明';
+                        var name = (window.MotoHub && window.MotoHub.resolvePoiName)
+                            ? window.MotoHub.resolvePoiName(key, item)
+                            : (item.name || item.shop_name || item.title || '');
 
                         var popupHtml = '<div style="min-width:160px;">';
 

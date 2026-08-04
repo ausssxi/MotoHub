@@ -52,7 +52,7 @@ final class RentalGarageApiController extends Controller
                 ->limit(200)
                 ->get([
                     'id', 'name', 'operator', 'garage_type', 'latitude', 'longitude', 'address',
-                    'monthly_fee_min', 'monthly_fee_max', 'size_text', 'is_24h', 'has_power', 'has_shutter',
+                    'monthly_fee_min', 'monthly_fee_max', 'size_text', 'is_24h', 'has_power', 'has_security', 'has_shutter',
                     'website_url', 'source',
                 ]);
         });

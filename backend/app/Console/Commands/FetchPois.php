@@ -141,7 +141,7 @@ final class FetchPois extends Command
                         Poi::updateOrCreate(
                             ['osm_id' => $this->resolveOsmId($element, $type), 'type' => $type],
                             [
-                                'name' => $tags['name'] ?? $tags['brand'] ?? '名称不明',
+                                'name' => $tags['name'] ?? $tags['brand'] ?? null,
                                 'latitude' => $lat,
                                 'longitude' => $lon,
                                 'address' => $this->buildAddress($tags),

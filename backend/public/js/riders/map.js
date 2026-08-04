@@ -368,7 +368,7 @@
             var marker = L.marker([lat, lng], { icon: icon }).addTo(clusterGroup);
             marker.on('click', function() { showDetail(layerKey, item); });
 
-            var displayName = item.name || item.shop_name || item.title || '名称不明';
+            var displayName = resolveName(layerKey, item);
             if (layerKey === 'gas_station' || layerKey === 'convenience_store') {
                 displayName = gsDisplayName(item).main;
             }
@@ -512,6 +512,15 @@
     }
 
     // GS/convenience store display name
+    // 表示名フォールバックは共通実装（poi-name.js の window.MotoHub.resolvePoiName）を使う。
+    // 未読込時の保険として種別名も返せないケースは空文字に留める。
+    function resolveName(layerKey, item) {
+        if (window.MotoHub && typeof window.MotoHub.resolvePoiName === 'function') {
+            return window.MotoHub.resolvePoiName(layerKey, item);
+        }
+        return (item && item.name) || (layerConfig[layerKey] && layerConfig[layerKey].title) || '';
+    }
+
     // nameがbrandと異なる具体名 → nameをそのまま使用
     // name == brand or nameなし → brand（市区町村名）形式
     function gsDisplayName(item) {
@@ -529,12 +538,12 @@
         }
 
         // name == brand or nameなし → brand（場所）形式
-        var base = name || brand || '名称不明';
+        var base = name || brand || resolveName(item.type, item);
         if (item.address) {
             var loc = shortLocation(item.address);
             if (loc) return { main: base + '（' + loc + '）', sub: '' };
         }
-        if (!name && brand) return { main: brand + '（名称不明）', sub: '' };
+        if (!name && brand) return { main: brand, sub: '' };
         return { main: base, sub: '' };
     }
 
@@ -676,14 +685,14 @@
                 + gmapBtn + routeBtn + osmDataCredit();
         } else if (layerKey === 'car_wash') {
             // A1修正: car_wash の分岐が無く本文が空だった。pois が持つ name/brand/address/opening_hours で構成。
-            html = '<h3 class="text-base font-black text-gray-900 mb-1">' + escapeHtml(item.name || '洗車場') + '</h3>'
+            html = '<h3 class="text-base font-black text-gray-900 mb-1">' + escapeHtml(resolveName('car_wash', item)) + '</h3>'
                 + (item.brand ? '<span class="inline-block px-2.5 py-1 bg-sky-50 text-sky-700 text-[11px] font-bold rounded-md mb-3">' + escapeHtml(item.brand) + '</span>' : '')
                 + open24hBadge(item)
                 + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
                 + (item.opening_hours ? '<div class="bg-gray-50 rounded-lg p-3 mb-3"><div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">営業時間</span><span class="text-xs text-gray-700">' + escapeHtml(item.opening_hours) + '</span></div></div>' : '')
                 + gmapBtn + routeBtn + osmDataCredit();
         } else if (layerKey === 'rental_garage') {
-            html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(item.name || '名称不明') + '</h3>'
+            html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(resolveName('rental_garage', item)) + '</h3>'
                 + '<span class="inline-block px-2.5 py-1 bg-purple-50 text-purple-700 text-[11px] font-bold rounded-md mb-3">' + escapeHtml(garageTypeLabel(item.garage_type)) + '</span>'
                 + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '');
             // 情報テーブル（運営・月額・サイズ）
@@ -705,6 +714,7 @@
             var gBadges = [];
             if (item.is_24h) gBadges.push('24時間出入り可');
             if (item.has_power) gBadges.push('電源あり');
+            if (item.has_security) gBadges.push('防犯設備');
             if (item.has_shutter) gBadges.push('シャッター付');
             if (gBadges.length) {
                 html += '<div class="flex flex-wrap gap-1 mb-3">' + gBadges.map(function(b) { return '<span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold rounded">' + b + '</span>'; }).join('') + '</div>';

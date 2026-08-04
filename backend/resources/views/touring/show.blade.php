@@ -215,6 +215,7 @@
         </script>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+        <script src="{{ asset('js/riders/poi-name.js') }}"></script>
         <script src="{{ asset('js/blog/embedded-map.js') }}"></script>
     </x-slot:scripts>
 </x-layout>
