@@ -511,6 +511,15 @@ Route::get('/admin/shop-submissions/{submission}/image', [\App\Http\Controllers\
     ->name('admin.shop-submission.image')
     ->where('submission', '[0-9]+');
 
+// 管理者限定: 道の駅の座標入力（座標NULLの駅を地図クリックで埋める・コントローラで is_admin以外は404）
+Route::middleware('auth')->group(function () {
+    Route::get('/admin/roadside-stations/coordinates', [\App\Http\Controllers\Admin\RoadsideStationCoordinateController::class, 'index'])
+        ->name('admin.roadside-stations.coordinates.index');
+    Route::post('/admin/roadside-stations/{station}/coordinates', [\App\Http\Controllers\Admin\RoadsideStationCoordinateController::class, 'update'])
+        ->name('admin.roadside-stations.coordinates.update')
+        ->where('station', '[0-9]+');
+});
+
 // 固定ページ (運営者情報など)
 Route::prefix('pages')->name('pages.')->group(function () {
     Route::get('/about', [PageController::class, 'about'])->name('about');
