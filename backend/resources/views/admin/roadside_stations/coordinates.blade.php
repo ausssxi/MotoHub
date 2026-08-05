@@ -6,8 +6,18 @@
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
         <style>
             #rs-coord-stage { height: calc(100vh - 8rem); }
-            #rs-map { height: 100%; min-height: 60vh; z-index: 10; border-radius: 12px; }
+            /* 地図の高さは祖先の行高（PCで駅リストに引きずられて伸びる）に依存させず、
+               ビューポート基準の確定値にする。14rem = ステージのオフセット8rem
+               ＋ 地図下の保存パネル/余白 ≒ 6rem。短い画面用に min-height で床を確保。 */
+            #rs-map { height: calc(100vh - 14rem); min-height: 360px; z-index: 10; border-radius: 12px; }
             .rs-row.selected { background:#ede9fe; border-color:#7c3aed; }
+            /* PC(md+)では左右が同一グリッド行に入るため、108件の駅リストが行高を押し広げ、
+               height:100% だった地図がその巨大高さを受け取って崩れていた。左リスト列を
+               ビューポート基準で高さ確定＋独立スクロールにし、行をリスト内容で伸ばさない。 */
+            @media (min-width: 768px) {
+                #rs-coord-stage > * { min-height: 0; }
+                #rs-list-col { max-height: calc(100vh - 8rem); overflow-y: auto; min-height: 0; }
+            }
         </style>
     </x-slot:styles>
 
@@ -36,7 +46,7 @@
 
         <div id="rs-coord-stage" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             {{-- 左: 未設定一覧（ここだけスクロール） --}}
-            <div class="flex flex-col min-h-0 bg-white rounded-2xl border border-gray-100 p-3">
+            <div id="rs-list-col" class="flex flex-col min-h-0 bg-white rounded-2xl border border-gray-100 p-3">
                 <select id="rs-pref-filter" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-2 shrink-0">
                     <option value="">すべての都道府県</option>
                     @foreach($prefs as $p)
