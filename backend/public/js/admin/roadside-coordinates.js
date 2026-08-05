@@ -107,6 +107,54 @@ document.addEventListener('DOMContentLoaded', function () {
         setMarker(e.latlng.lat, e.latlng.lng);
     });
 
+    // 住所／緯度経度 検索欄。GSI以外のジオコーダは呼ばない。明示操作（Enter/ボタン）1回につき1リクエストのみ。
+    var searchForm = document.getElementById('rs-search-form');
+    var searchInput = document.getElementById('rs-search');
+
+    function showSearchError(msg) {
+        errorEl.textContent = msg;
+        errorEl.classList.remove('hidden');
+    }
+
+    // 「緯度, 経度」なら地図クリックと同一の setMarker でピンを置く（ピン設置処理は再利用・二重管理しない）。
+    // 住所なら既存 geocodeGSI で寄せるだけ（代表点は正確でないためピンは置かない）。
+    async function runSearch() {
+        var raw = (searchInput.value || '').trim();
+        errorEl.classList.add('hidden');
+        if (!raw) return; // (C) 空のときは何もしない
+
+        var m = raw.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,、]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+        if (m) {
+            // (A) 緯度経度
+            var lat = parseFloat(m[1]);
+            var lng = parseFloat(m[2]);
+            // サーバ側 validation と同じ範囲（緯度 20〜46 / 経度 122〜154）
+            if (lat >= 20 && lat <= 46 && lng >= 122 && lng <= 154) {
+                map.setView([lat, lng], 17);
+                setMarker(lat, lng); // クリック時と完全に同じ状態（ピン・ドラッグ可・座標表示・保存有効化）
+            } else {
+                showSearchError('日本国内の範囲外です'); // 地図は動かさない
+            }
+            return;
+        }
+
+        // (B) 住所とみなす。GSI のみ（Nominatim等へフォールバックしない）。成功時は寄せるだけ。
+        var g = await geocodeGSI(raw);
+        if (g) {
+            map.setView([g.lat, g.lng], 16); // ピンは置かない
+        } else {
+            showSearchError('見つかりませんでした'); // 地図は動かさない
+        }
+    }
+
+    if (searchForm) {
+        // Enter（input内でのsubmit）とボタン押下の両方をここで捕捉。form 遷移は preventDefault で抑止。
+        searchForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            runSearch();
+        });
+    }
+
     // 都道府県フィルタ（クライアント側のみ・サーバ往復なし）
     prefFilter.addEventListener('change', function () {
         var val = prefFilter.value;

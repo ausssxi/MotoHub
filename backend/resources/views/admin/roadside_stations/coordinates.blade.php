@@ -7,9 +7,10 @@
         <style>
             #rs-coord-stage { height: calc(100vh - 8rem); }
             /* 地図の高さは祖先の行高（PCで駅リストに引きずられて伸びる）に依存させず、
-               ビューポート基準の確定値にする。14rem = ステージのオフセット8rem
-               ＋ 地図下の保存パネル/余白 ≒ 6rem。短い画面用に min-height で床を確保。 */
-            #rs-map { height: calc(100vh - 14rem); min-height: 360px; z-index: 10; border-radius: 12px; }
+               ビューポート基準の確定値にする。17rem = ステージのオフセット8rem
+               ＋ 地図下の保存パネル/余白 ≒ 6rem ＋ 地図上の検索欄＋gap ≒ 3rem。
+               短い画面用に min-height で床を確保。 */
+            #rs-map { height: calc(100vh - 17rem); min-height: 360px; z-index: 10; border-radius: 12px; }
             .rs-row.selected { background:#ede9fe; border-color:#7c3aed; }
             /* PC(md+)では左右が同一グリッド行に入るため、108件の駅リストが行高を押し広げ、
                height:100% だった地図がその巨大高さを受け取って崩れていた。左リスト列を
@@ -80,6 +81,15 @@
 
             {{-- 右: 地図＋保存 --}}
             <div class="flex flex-col min-h-0 gap-2">
+                {{-- 住所／緯度経度 検索欄（地図の上）。Enter・ボタンとも JS で submit を preventDefault。 --}}
+                <form id="rs-search-form" class="shrink-0 flex items-center gap-2">
+                    <input id="rs-search" type="text" placeholder="住所、または 緯度, 経度" autocomplete="off"
+                           class="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                    <button id="rs-search-btn" type="submit"
+                            class="shrink-0 bg-gray-700 text-white font-bold px-4 py-2 rounded-lg hover:bg-gray-800 transition text-sm">
+                        移動
+                    </button>
+                </form>
                 <div class="flex-1 min-h-0">
                     <div id="rs-map"></div>
                 </div>
