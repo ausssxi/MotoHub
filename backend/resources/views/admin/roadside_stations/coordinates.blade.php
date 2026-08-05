@@ -6,7 +6,7 @@
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
         <style>
             #rs-coord-stage { height: calc(100vh - 8rem); }
-            #rs-map { height: 100%; z-index: 10; border-radius: 12px; }
+            #rs-map { height: 100%; min-height: 60vh; z-index: 10; border-radius: 12px; }
             .rs-row.selected { background:#ede9fe; border-color:#7c3aed; }
         </style>
     </x-slot:styles>

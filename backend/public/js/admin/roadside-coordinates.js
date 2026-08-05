@@ -29,6 +29,11 @@ document.addEventListener('DOMContentLoaded', function () {
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
 
+    // コンテナの高さ確定がレイアウト後になる場合があるため、確定後にサイズを再計算する
+    setTimeout(function () { map.invalidateSize(); }, 0);
+    setTimeout(function () { map.invalidateSize(); }, 300);
+    window.addEventListener('resize', function () { map.invalidateSize(); });
+
     function fmt(n) { return Number(n).toFixed(7); }
 
     function updateSaveState() {
