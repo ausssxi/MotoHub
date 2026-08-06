@@ -423,6 +423,11 @@ Route::middleware('auth')->prefix('rental-garage')->name('rental-garage.')
 Route::get('/rental-garages/{id}', [\App\Http\Controllers\RentalGarage\RentalGarageController::class, 'show'])
     ->name('rental-garage.show')->where('id', '[0-9]+');
 
+// 道の駅 詳細（公開・認証なし）。station_code は先頭ゼロを含む5桁文字列（intキャスト禁止）。
+Route::get('/michinoeki/{station_code}', [\App\Http\Controllers\RoadsideStation\RoadsideStationController::class, 'show'])
+    ->name('michinoeki.show')
+    ->where('station_code', '[0-9]{5}');
+
 // AR駐車場・ショップファインダー
 Route::get('/ar', [ArController::class, 'index'])->name('ar.index');
 

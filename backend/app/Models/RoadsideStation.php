@@ -53,4 +53,40 @@ final class RoadsideStation extends Model
         'has_shop' => 'boolean',
         'designated_year' => 'integer',
     ];
+
+    /**
+     * image_url（Commons の Special:FilePath 形式）から、人間が閲覧できる
+     * ファイル説明ページ（https://commons.wikimedia.org/wiki/File:<ファイル名>）のURLを返す。
+     * クレジット表記の「Wikimedia Commons」リンク先に使う。
+     *
+     * ファイル名の取り出しは FetchRoadsideImageCredits::commonsFileName と同一規則
+     * （クエリ除去 → Special:FilePath/ 以降 → rawurldecode）。
+     * Special:FilePath 形式でない、または image_url が null のときは null。
+     * ※ 表示時のみ計算するアクセサ。$appends には追加しない。
+     */
+    public function getImageSourceUrlAttribute(): ?string
+    {
+        $url = $this->image_url;
+        if (! is_string($url) || $url === '') {
+            return null;
+        }
+
+        // クエリ・フラグメントを除去してからパスを見る。
+        $path = parse_url($url, PHP_URL_PATH);
+        if (! is_string($path) || ! str_contains($path, 'Special:FilePath/')) {
+            return null;
+        }
+
+        $segment = substr($path, strpos($path, 'Special:FilePath/') + strlen('Special:FilePath/'));
+        // 念のため最後のセグメントのみ（保険）。
+        if (str_contains($segment, '/')) {
+            $segment = substr($segment, strrpos($segment, '/') + 1);
+        }
+        $fileName = trim(rawurldecode($segment));
+        if ($fileName === '') {
+            return null;
+        }
+
+        return 'https://commons.wikimedia.org/wiki/File:'.$fileName;
+    }
 }
