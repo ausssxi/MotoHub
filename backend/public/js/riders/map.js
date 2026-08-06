@@ -748,10 +748,16 @@
             if (item.summary) {
                 html += '<p class="text-xs text-gray-600 mb-3 leading-relaxed">' + escapeHtml(item.summary) + '</p>';
             }
-            // 外部リンク
-            var extUrl = item.website_url || item.wikipedia_url;
-            if (extUrl) {
-                html += '<a href="' + escapeHtml(extUrl) + '" target="_blank" rel="noopener" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition">詳しく見る &rarr;</a>';
+            // 導線は MotoHub の詳細ページ一本に絞る（public/js は URL ハードコードの例外）。
+            // station_code は先頭ゼロを含む5桁文字列。/^\d{5}$/ に一致する場合のみ詳細ページへ
+            // （/michinoeki/undefined を絶対に生成しない）。
+            // まとめサイトへ流出する公式URL欄はどの分岐でも一切出力しない。
+            var michiCode = String(item.station_code || '');
+            if (/^\d{5}$/.test(michiCode)) {
+                html += '<a href="/michinoeki/' + michiCode + '" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition">詳細ページを見る &rarr;</a>';
+            } else if (item.wikipedia_url) {
+                // station_code 不正時のみ Wikipedia を副次リンクとして出す（公式URL欄は使わない）。
+                html += '<a href="' + escapeHtml(item.wikipedia_url) + '" target="_blank" rel="noopener" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-200 transition">詳しく見る &rarr;</a>';
             }
             html += gmapBtn + routeBtn;
         } else if (layerKey === 'blog') {

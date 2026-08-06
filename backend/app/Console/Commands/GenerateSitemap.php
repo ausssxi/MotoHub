@@ -944,6 +944,74 @@ class GenerateSitemap extends Command
         $this->info(" -> {$rentalGarageCount} URL (Rental Garage)");
 
         // =========================================================
+        // 4.5c. 道の駅 (sitemap-roadside.xml)
+        //   一覧 + 都道府県別(実在prefectureのみ) + 各駅詳細(全件)。
+        //   station_code は先頭ゼロを含む5桁文字列なので int にキャストしない。
+        // =========================================================
+        $this->info('道の駅サイトマップを生成中...');
+        $roadsideFileName = 'sitemap-roadside.xml';
+        $handle = $this->openSitemap($roadsideFileName);
+        $sitemapFiles[] = $roadsideFileName;
+        $roadsideCount = 0;
+
+        // 一覧トップ（lastmod は全駅の MAX(updated_at)。集計値は Carbon にキャストされず文字列で返るため明示変換）
+        $roadsideMaxUpdated = \App\Models\RoadsideStation::max('updated_at');
+        $roadsideIndexLastmod = $roadsideMaxUpdated
+            ? \Carbon\Carbon::parse($roadsideMaxUpdated)->format('Y-m-d')
+            : date('Y-m-d');
+        $this->writeUrl($handle, route('michinoeki.index'), $roadsideIndexLastmod, 'weekly', '0.8');
+        $roadsideCount++;
+
+        // 都道府県別: 実在 prefecture のうち、正準な47都道府県ホワイトリスト（コントローラを単一の出所とする）に
+        // 含まれるものだけ出力。lastmod は prefecture ごとの MAX(updated_at) を1クエリで集計（47回投げない）。
+        $roadsideWhitelist = \App\Http\Controllers\RoadsideStation\RoadsideStationController::prefectures();
+        $roadsidePrefMax = \App\Models\RoadsideStation::query()
+            ->whereNotNull('prefecture')
+            ->where('prefecture', '!=', '')
+            ->selectRaw('prefecture, MAX(updated_at) as last_updated')
+            ->groupBy('prefecture')
+            ->orderBy('prefecture')
+            ->pluck('last_updated', 'prefecture');
+
+        $roadsideExcludedPrefs = [];
+        foreach ($roadsidePrefMax as $pref => $lastUpdated) {
+            if (! in_array($pref, $roadsideWhitelist, true)) {
+                $roadsideExcludedPrefs[] = $pref;
+
+                continue;
+            }
+            // 集計値の MAX(updated_at) は文字列。明示的に Y-m-d へ変換（取れなければ当日にフォールバック）。
+            $areaLastmod = $lastUpdated
+                ? \Carbon\Carbon::parse($lastUpdated)->format('Y-m-d')
+                : date('Y-m-d');
+            $this->writeUrl($handle, route('michinoeki.area', $pref), $areaLastmod, 'weekly', '0.7');
+            $roadsideCount++;
+        }
+        if ($roadsideExcludedPrefs !== []) {
+            $this->warn('道の駅: ホワイトリスト外の都道府県を'.count($roadsideExcludedPrefs).'件除外: '.implode(', ', $roadsideExcludedPrefs));
+        }
+
+        // 各駅詳細（全件・select を station_code + updated_at に絞り chunk で回す）
+        \App\Models\RoadsideStation::query()
+            ->select('station_code', 'updated_at')
+            ->orderBy('station_code')
+            ->chunk(1000, function ($stations) use ($handle, &$roadsideCount) {
+                foreach ($stations as $station) {
+                    $this->writeUrl(
+                        $handle,
+                        route('michinoeki.show', $station->station_code),
+                        $station->updated_at?->format('Y-m-d') ?? date('Y-m-d'),
+                        'monthly',
+                        '0.6'
+                    );
+                    $roadsideCount++;
+                }
+            });
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$roadsideCount} URL (Roadside Stations)");
+
+        // =========================================================
         // 4.6. 駐車場エリアページ (sitemap-parking-area.xml)
         // =========================================================
         $this->info('駐車場エリアサイトマップを生成中...');

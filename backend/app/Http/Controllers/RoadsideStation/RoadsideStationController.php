@@ -14,6 +14,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 final class RoadsideStationController extends Controller
 {
@@ -38,6 +39,17 @@ final class RoadsideStationController extends Controller
         '四国' => ['徳島県', '香川県', '愛媛県', '高知県'],
         '九州・沖縄' => ['福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'],
     ];
+
+    /**
+     * 全都道府県（フルネーム）の正準リスト。REGIONS を平坦化して47件・重複なしで返す。
+     * 都道府県リストの単一の出所。サイトマップ生成など、コントローラ外からも参照する。
+     *
+     * @return array<int, string>
+     */
+    public static function prefectures(): array
+    {
+        return array_merge(...array_values(self::REGIONS));
+    }
 
     /**
      * 道の駅 一覧ページ（全国・地方区分別の都道府県リンク）。
@@ -68,6 +80,13 @@ final class RoadsideStationController extends Controller
                 }
             }
 
+            // データドリフト検知: 47都道府県の合計と総件数が食い違ったら1本だけ警告。
+            // closure 内なのでキャッシュ有効中(24h)は再実行されず、毎リクエストは走らない。
+            $grandTotal = RoadsideStation::count();
+            if ($grandTotal !== $total) {
+                Log::warning('道の駅の件数ドリフト: 47都道府県の合計='.$total.' / 総件数='.$grandTotal);
+            }
+
             return ['total' => $total, 'regions' => $regions, 'allPrefectures' => $allPrefectures];
         });
 
@@ -82,6 +101,14 @@ final class RoadsideStationController extends Controller
      */
     public function area(string $prefecture): View
     {
+        // 未知の都道府県はキャッシュキーに到達させない。
+        //  (a) 生入力がキーに入るとキャッシュキーが無限に増える → 47通りに固定。
+        //  (b) Cache::remember は値 null をミス扱いにするため、存在しない県は毎回DBを叩く → 到達前に弾く。
+        // 正準な47都道府県ホワイトリスト（prefectures()）に無ければ即404。
+        if (! in_array($prefecture, self::prefectures(), true)) {
+            abort(404);
+        }
+
         $data = Cache::remember("roadside_area:{$prefecture}", 86400, function () use ($prefecture) {
             $stations = RoadsideStation::query()
                 ->where('prefecture', $prefecture)

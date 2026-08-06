@@ -127,6 +127,9 @@
                         <a href="{{ route('riders.map') }}" class="footer-link">ライダーズマップ</a>
                     </li>
                     <li>
+                        <a href="{{ route('michinoeki.index') }}" class="footer-link">道の駅を探す</a>
+                    </li>
+                    <li>
                         <a href="{{ route('parking.index') }}" class="footer-link">バイク駐車場マップ</a>
                     </li>
                     <li>
