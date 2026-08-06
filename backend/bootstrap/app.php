@@ -180,13 +180,12 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->withoutOverlapping();
 
 
-        // R2転送済みの在庫画像をローカルから掃除 (06:30)
-        // migrate-images-to-r2(06:00)の後・sitemap:generate(07:00)の前。R2に同名同サイズが
-        // ある古い更新分だけ削除し、ローカルの再蓄積を防ぐ。
-        $schedule->command('listings:prune-local-images --execute')
-                 ->dailyAt('06:30')
-                 ->withoutOverlapping()
-                 ->appendOutputTo($crawlingLog);
+        // 【重要】listings:prune-local-images はスケジュール登録しない
+        // scraper/common/pipelines.py の MotoHubImagePipeline が
+        // os.path.exists(filepath) でダウンロード要否を判定しているため、
+        // ローカル画像を削除すると次回クロールで取得元サイトから再取得が発生する。
+        // 日次削除は稼働在庫の全画像を数日周期で取り直すことになるので行わない。
+        // 必要時のみ手動実行すること。
 
         // サイトマップ生成 (07:00)
         // 全ての更新が完了した後に実行
