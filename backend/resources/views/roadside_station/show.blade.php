@@ -72,12 +72,16 @@
     <div class="bg-gray-50 min-h-screen py-8">
         <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
 
-            {{-- パンくず --}}
+            {{-- パンくず（prefecture があれば4階層・無ければ道の駅＞駅名の3階層） --}}
             <nav class="flex text-xs font-bold text-gray-400 mb-6" aria-label="Breadcrumb">
                 <ol class="flex items-center space-x-2">
                     <li><a href="/" class="hover:text-gray-600 transition-colors">HOME</a></li>
                     <li><span class="text-gray-300">＞</span></li>
-                    <li><a href="{{ route('riders.map') }}" class="hover:text-gray-600 transition-colors">ライダーズマップ</a></li>
+                    <li><a href="{{ route('michinoeki.index') }}" class="hover:text-gray-600 transition-colors">道の駅</a></li>
+                    @if($station->prefecture)
+                    <li><span class="text-gray-300">＞</span></li>
+                    <li><a href="{{ route('michinoeki.area', $station->prefecture) }}" class="hover:text-gray-600 transition-colors">{{ $station->prefecture }}</a></li>
+                    @endif
                     <li><span class="text-gray-300">＞</span></li>
                     <li><span class="text-gray-800">{{ $station->name }}</span></li>
                 </ol>
@@ -247,14 +251,25 @@
             ];
         }
 
+        // パンくずと同構成: HOME ＞ 道の駅 ＞ (都道府県) ＞ 駅名。prefecture 空なら都道府県段を省く。
+        $ldCrumbs = [
+            ['name' => 'HOME', 'item' => url('/')],
+            ['name' => '道の駅', 'item' => route('michinoeki.index')],
+        ];
+        if (filled($station->prefecture)) {
+            $ldCrumbs[] = ['name' => $station->prefecture, 'item' => route('michinoeki.area', $station->prefecture)];
+        }
+        $ldCrumbs[] = ['name' => $station->name, 'item' => route('michinoeki.show', $station->station_code)];
+
         $ldBreadcrumb = [
             '@context' => 'https://schema.org',
             '@type' => 'BreadcrumbList',
-            'itemListElement' => [
-                ['@type' => 'ListItem', 'position' => 1, 'name' => 'HOME', 'item' => url('/')],
-                ['@type' => 'ListItem', 'position' => 2, 'name' => 'ライダーズマップ', 'item' => route('riders.map')],
-                ['@type' => 'ListItem', 'position' => 3, 'name' => $station->name, 'item' => route('michinoeki.show', $station->station_code)],
-            ],
+            'itemListElement' => array_map(fn ($c, $i) => [
+                '@type' => 'ListItem',
+                'position' => $i + 1,
+                'name' => $c['name'],
+                'item' => $c['item'],
+            ], $ldCrumbs, array_keys($ldCrumbs)),
         ];
     @endphp
     <script type="application/ld+json">{!! json_encode($ld, $ldFlags) !!}</script>
