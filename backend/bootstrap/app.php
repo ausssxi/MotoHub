@@ -180,6 +180,14 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->withoutOverlapping();
 
 
+        // R2転送済みの在庫画像をローカルから掃除 (06:30)
+        // migrate-images-to-r2(06:00)の後・sitemap:generate(07:00)の前。R2に同名同サイズが
+        // ある古い更新分だけ削除し、ローカルの再蓄積を防ぐ。
+        $schedule->command('listings:prune-local-images --execute')
+                 ->dailyAt('06:30')
+                 ->withoutOverlapping()
+                 ->appendOutputTo($crawlingLog);
+
         // サイトマップ生成 (07:00)
         // 全ての更新が完了した後に実行
         $schedule->command('sitemap:generate')
