@@ -29,6 +29,7 @@ final class PoiAreaController extends Controller
     private const TYPES = [
         'gas_station' => ['prefix' => 'gs', 'label' => 'ガソリンスタンド', 'other' => 'convenience_store'],
         'convenience_store' => ['prefix' => 'konbini', 'label' => 'コンビニ', 'other' => 'gas_station'],
+        'car_wash' => ['prefix' => 'senshajo', 'label' => '洗車場', 'other' => 'gas_station'],
     ];
 
     /**

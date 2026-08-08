@@ -1021,6 +1021,7 @@ class GenerateSitemap extends Command
         $poiAreaSitemaps = [
             ['type' => 'gas_station', 'prefix' => 'gs', 'file' => 'sitemap-gs.xml', 'label' => 'Gas Station'],
             ['type' => 'convenience_store', 'prefix' => 'konbini', 'file' => 'sitemap-konbini.xml', 'label' => 'Convenience Store'],
+            ['type' => 'car_wash', 'prefix' => 'senshajo', 'file' => 'sitemap-senshajo.xml', 'label' => 'Car Wash'],
         ];
         foreach ($poiAreaSitemaps as $poiArea) {
             $this->info("{$poiArea['label']}まとめサイトマップを生成中...");

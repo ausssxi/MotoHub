@@ -448,6 +448,12 @@ Route::get('/konbini/{prefecture}', [\App\Http\Controllers\Poi\PoiAreaController
     ->defaults('type', 'convenience_store')->name('konbini.prefecture');
 Route::get('/konbini/{prefecture}/{city}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'city'])
     ->defaults('type', 'convenience_store')->name('konbini.city');
+Route::get('/senshajo', [\App\Http\Controllers\Poi\PoiAreaController::class, 'index'])
+    ->defaults('type', 'car_wash')->name('senshajo.index');
+Route::get('/senshajo/{prefecture}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'prefecture'])
+    ->defaults('type', 'car_wash')->name('senshajo.prefecture');
+Route::get('/senshajo/{prefecture}/{city}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'city'])
+    ->defaults('type', 'car_wash')->name('senshajo.city');
 
 // AR駐車場・ショップファインダー
 Route::get('/ar', [ArController::class, 'index'])->name('ar.index');
