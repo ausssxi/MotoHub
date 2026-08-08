@@ -1,6 +1,6 @@
 <x-layout>
     <x-slot:title>{{ $prefecture }}{{ $city }}の{{ $label }}（{{ number_format($count) }}件） - MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $prefecture }}{{ $city }}の{{ $label }}{{ number_format($count) }}件を一覧。住所・営業時間・ブランド情報を掲載しています。</x-slot:metaDescription>
+    <x-slot:metaDescription>{{ $prefecture }}{{ $city }}の{{ $label }}{{ number_format($count) }}件を一覧。{{ $metaTail }}</x-slot:metaDescription>
 
     <x-slot:navigation>
         <x-navigation :showSearch="true" />

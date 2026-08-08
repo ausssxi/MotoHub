@@ -23,13 +23,17 @@ use Illuminate\Support\Facades\Cache;
 final class PoiAreaController extends Controller
 {
     /**
-     * 種別ごとのメタ（ルート接頭辞・表示ラベル・もう一方の種別）。
+     * 種別ごとのメタ（ルート接頭辞・表示ラベル・もう一方の種別・市区町村ページの meta description 末尾文）。
      * gas_station は name も brand も無い行が2,200件あるため city ページは address で代替表示する。
+     *
+     * metaTail は市区町村ページの meta description の後半（「…を一覧。」に続く一文）。type ごとに実態へ合わせる。
+     * 洗車場は671件中 住所32件・営業時間31件しかデータが無いため、GS用の「住所・営業時間・ブランド」文言は使わない。
+     * 一覧・都道府県ページの meta は $label だけで自然な汎用文のため type 分岐せず据え置き。
      */
     private const TYPES = [
-        'gas_station' => ['prefix' => 'gs', 'label' => 'ガソリンスタンド', 'other' => 'convenience_store'],
-        'convenience_store' => ['prefix' => 'konbini', 'label' => 'コンビニ', 'other' => 'gas_station'],
-        'car_wash' => ['prefix' => 'senshajo', 'label' => '洗車場', 'other' => 'gas_station'],
+        'gas_station' => ['prefix' => 'gs', 'label' => 'ガソリンスタンド', 'other' => 'convenience_store', 'metaTail' => '住所・営業時間・ブランド情報を掲載しています。'],
+        'convenience_store' => ['prefix' => 'konbini', 'label' => 'コンビニ', 'other' => 'gas_station', 'metaTail' => '住所・営業時間・ブランド情報を掲載しています。'],
+        'car_wash' => ['prefix' => 'senshajo', 'label' => '洗車場', 'other' => 'gas_station', 'metaTail' => 'セルフ洗車場・洗車機の場所を地図で確認できます。'],
     ];
 
     /**
@@ -192,6 +196,7 @@ final class PoiAreaController extends Controller
         return view('poi_area.city', [
             'routePrefix' => $meta['prefix'],
             'label' => $meta['label'],
+            'metaTail' => $meta['metaTail'],
             'prefecture' => $prefecture,
             'city' => $city,
             'count' => $pois->count(),
