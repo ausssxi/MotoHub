@@ -1012,6 +1012,77 @@ class GenerateSitemap extends Command
         $this->info(" -> {$roadsideCount} URL (Roadside Stations)");
 
         // =========================================================
+        // 4.5d. GS・コンビニ まとめページ (sitemap-gs.xml / sitemap-konbini.xml)
+        //   全国インデックス + 都道府県別(実在のみ) + 市区町村別(実在のみ)。
+        //   都道府県・市区町村は pois.prefecture / pois.city を GROUP BY して求める。
+        //   municipality_code が NULL の行（行政区域未判定＝ページが存在しない）は除外し、
+        //   0件の地名を載せて 404 をサイトマップに入れないようにする。
+        // =========================================================
+        $poiAreaSitemaps = [
+            ['type' => 'gas_station', 'prefix' => 'gs', 'file' => 'sitemap-gs.xml', 'label' => 'Gas Station'],
+            ['type' => 'convenience_store', 'prefix' => 'konbini', 'file' => 'sitemap-konbini.xml', 'label' => 'Convenience Store'],
+        ];
+        foreach ($poiAreaSitemaps as $poiArea) {
+            $this->info("{$poiArea['label']}まとめサイトマップを生成中...");
+            $handle = $this->openSitemap($poiArea['file']);
+            $sitemapFiles[] = $poiArea['file'];
+            $poiAreaCount = 0;
+
+            // 全国インデックス（lastmod はこの種別の MAX(updated_at)。集計値は文字列で返るため明示変換）
+            $poiTypeMaxUpdated = \App\Models\Poi::query()
+                ->where('type', $poiArea['type'])
+                ->whereNotNull('municipality_code')
+                ->max('updated_at');
+            $poiIndexLastmod = $poiTypeMaxUpdated
+                ? \Carbon\Carbon::parse($poiTypeMaxUpdated)->format('Y-m-d')
+                : date('Y-m-d');
+            $this->writeUrl($handle, route($poiArea['prefix'].'.index'), $poiIndexLastmod, 'weekly', '0.8');
+            $poiAreaCount++;
+
+            // 都道府県別（実在 prefecture のみ・lastmod は prefecture ごとの MAX(updated_at) を1クエリ集計）
+            $poiPrefMax = \App\Models\Poi::query()
+                ->where('type', $poiArea['type'])
+                ->whereNotNull('municipality_code')
+                ->whereNotNull('prefecture')
+                ->where('prefecture', '!=', '')
+                ->selectRaw('prefecture, MAX(updated_at) as last_updated')
+                ->groupBy('prefecture')
+                ->orderBy('prefecture')
+                ->pluck('last_updated', 'prefecture');
+            foreach ($poiPrefMax as $pref => $lastUpdated) {
+                $prefLastmod = $lastUpdated
+                    ? \Carbon\Carbon::parse($lastUpdated)->format('Y-m-d')
+                    : date('Y-m-d');
+                $this->writeUrl($handle, route($poiArea['prefix'].'.prefecture', $pref), $prefLastmod, 'weekly', '0.7');
+                $poiAreaCount++;
+            }
+
+            // 市区町村別（実在 city のみ・(prefecture, city) ごとの MAX(updated_at) を1クエリ集計）
+            $poiCityMax = \App\Models\Poi::query()
+                ->where('type', $poiArea['type'])
+                ->whereNotNull('municipality_code')
+                ->whereNotNull('prefecture')
+                ->where('prefecture', '!=', '')
+                ->whereNotNull('city')
+                ->where('city', '!=', '')
+                ->selectRaw('prefecture, city, MAX(updated_at) as last_updated')
+                ->groupBy('prefecture', 'city')
+                ->orderBy('prefecture')
+                ->orderBy('city')
+                ->get();
+            foreach ($poiCityMax as $row) {
+                $cityLastmod = $row->last_updated
+                    ? \Carbon\Carbon::parse($row->last_updated)->format('Y-m-d')
+                    : date('Y-m-d');
+                $this->writeUrl($handle, route($poiArea['prefix'].'.city', [$row->prefecture, $row->city]), $cityLastmod, 'weekly', '0.6');
+                $poiAreaCount++;
+            }
+
+            $this->closeSitemap($handle);
+            $this->info(" -> {$poiAreaCount} URL ({$poiArea['label']})");
+        }
+
+        // =========================================================
         // 4.6. 駐車場エリアページ (sitemap-parking-area.xml)
         // =========================================================
         $this->info('駐車場エリアサイトマップを生成中...');
