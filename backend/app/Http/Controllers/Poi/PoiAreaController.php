@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Poi;
 use App\Http\Controllers\Controller;
 use App\Models\Poi;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -58,8 +59,9 @@ final class PoiAreaController extends Controller
     /**
      * 一覧ページ（都道府県ごとの件数と各都道府県へのリンク）。
      */
-    public function index(string $type): View
+    public function index(Request $request): View
     {
+        $type = (string) $request->route('type');
         $meta = self::TYPES[$type] ?? abort(404);
 
         $data = Cache::remember("poi_area_index:{$type}", 86400, function () use ($type) {
@@ -90,8 +92,9 @@ final class PoiAreaController extends Controller
     /**
      * 都道府県別（市区町村を件数付きで一覧・full_name 昇順・0件は載せない）。該当0件は404。
      */
-    public function prefecture(string $type, string $prefecture): View
+    public function prefecture(Request $request, string $prefecture): View
     {
+        $type = (string) $request->route('type');
         $meta = self::TYPES[$type] ?? abort(404);
 
         if (! in_array($prefecture, self::prefectures(), true)) {
@@ -136,8 +139,9 @@ final class PoiAreaController extends Controller
      * 市区町村別 POI 一覧。該当0件は404。
      * 表示名は name → brand → address → 「名称不明」の優先順。並びは brand, name, id 昇順で安定化。
      */
-    public function city(string $type, string $prefecture, string $city): View
+    public function city(Request $request, string $prefecture, string $city): View
     {
+        $type = (string) $request->route('type');
         $meta = self::TYPES[$type] ?? abort(404);
 
         if (! in_array($prefecture, self::prefectures(), true)) {
