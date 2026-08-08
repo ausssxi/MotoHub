@@ -131,7 +131,7 @@
                         <p class="text-sm font-black text-white leading-none">AIで探す <i data-lucide="chevron-right" class="w-4 h-4 inline-block group-hover:translate-x-1 transition-transform"></i></p>
                     </div>
                 </a>
-                <a href="/shindan" class="group relative inline-flex items-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl hover:bg-white/20 transition-all shadow-xl">
+                <a href="{{ route('shindan.index') }}" class="group relative inline-flex items-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl hover:bg-white/20 transition-all shadow-xl">
                     <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white border-2 border-white/20 shadow-lg">
                         <i data-lucide="sparkles" class="w-4 h-4 fill-current"></i>
                     </div>
@@ -934,7 +934,7 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {{-- 診断カード --}}
-                    <a href="/shindan"
+                    <a href="{{ route('shindan.index') }}"
                        class="group relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-blue-600 to-indigo-700 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 flex flex-col justify-between h-32 sm:h-40 border border-white/10">
                         <div class="absolute -right-6 -bottom-6 opacity-20 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500">
                             <i data-lucide="sparkles" class="w-32 h-32 text-white"></i>

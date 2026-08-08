@@ -438,7 +438,7 @@
                 </div>
                 <i data-lucide="chevron-right" class="w-5 h-5 opacity-50"></i>
             </a>
-            <a href="/shindan" class="flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl text-white shadow-lg active:scale-[0.98] transition-all mt-2">
+            <a href="{{ route('shindan.index') }}" class="flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl text-white shadow-lg active:scale-[0.98] transition-all mt-2">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
                         <i data-lucide="sparkles" class="w-6 h-6 fill-current"></i>

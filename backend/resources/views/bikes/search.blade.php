@@ -749,7 +749,7 @@
                                         車種名が決まっていない方も大歓迎。5つの質問に答えるだけで、MotoHubのAIがあなたの理想に最も近いバイクを3台提案します。
                                     </p>
 
-                                    <a href="/shindan" class="inline-flex items-center gap-3 bg-white text-gray-900 px-8 py-4 rounded-2xl font-black text-sm hover:bg-blue-50 transition-all shadow-xl active:scale-95 group">
+                                    <a href="{{ route('shindan.index') }}" class="inline-flex items-center gap-3 bg-white text-gray-900 px-8 py-4 rounded-2xl font-black text-sm hover:bg-blue-50 transition-all shadow-xl active:scale-95 group">
                                         今すぐバイク診断をはじめる
                                         <i data-lucide="arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform"></i>
                                     </a>
