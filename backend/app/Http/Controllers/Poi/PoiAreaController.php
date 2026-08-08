@@ -157,18 +157,24 @@ final class PoiAreaController extends Controller
             ->orderBy('brand')
             ->orderBy('name')
             ->orderBy('id')
-            ->get(['id', 'name', 'brand', 'address', 'opening_hours']);
+            ->get(['id', 'name', 'brand', 'address', 'opening_hours', 'latitude', 'longitude', 'municipality_code']);
 
         if ($pois->isEmpty()) {
             abort(404);
         }
 
-        $items = $pois->map(fn (Poi $p): array => [
-            'display' => $this->displayName($p),
-            'brand' => filled($p->brand) ? (string) $p->brand : null,
-            'address' => filled($p->address) ? (string) $p->address : null,
-            'opening_hours' => filled($p->opening_hours) ? (string) $p->opening_hours : null,
-        ])->all();
+        $items = $pois->map(function (Poi $p): array {
+            $display = $this->displayName($p);
+            $brand = filled($p->brand) ? (string) $p->brand : null;
+
+            return [
+                'display' => $display,
+                // 表示名（name→brand→address）と同一のブランドは重複行になるので出さない。
+                'brand' => ($brand !== null && $brand !== $display) ? $brand : null,
+                'address' => filled($p->address) ? (string) $p->address : null,
+                'opening_hours' => filled($p->opening_hours) ? (string) $p->opening_hours : null,
+            ];
+        })->all();
 
         $other = self::TYPES[$meta['other']];
 
@@ -186,12 +192,62 @@ final class PoiAreaController extends Controller
             'city' => $city,
             'count' => $pois->count(),
             'items' => $items,
+            // 掲載10件未満のページだけ、近隣市区町村の同種別POIを最寄り5件補足する。
+            'nearby' => $this->nearbyPois($pois, $type),
             // 同じ市区町村の「もう一方の種別」ページへのリンク（存在するときだけ出す）。
             'otherPrefix' => $other['prefix'],
             'otherLabel' => $other['label'],
             'otherCount' => $otherCount,
             'crossLinks' => $this->listingCrossLinks(),
         ]);
+    }
+
+    /**
+     * 近隣の市区町村にある同種別POIの最寄り最大5件。掲載10件以上のページや、半径内に無い離島では空配列。
+     *
+     * 基準点はページ掲載POIの緯度経度の平均。±2.0度で粗く絞ってから ST_Distance_Sphere（メートル）で
+     * 実距離順に並べる。SRID 0 の POINT は「経度・緯度」の順（POINT(longitude, latitude)）。
+     * リンクが壊れないよう、都道府県・市区町村・市区町村コードが揃った行のみ対象にする。
+     *
+     * @param  \Illuminate\Support\Collection<int, Poi>  $pagePois  当該ページの掲載POI
+     * @return array<int, array{prefecture: string, city: string, display: string, km: float}>
+     */
+    private function nearbyPois($pagePois, string $type): array
+    {
+        if ($pagePois->count() >= 10) {
+            return [];
+        }
+
+        $avgLat = (float) $pagePois->avg('latitude');
+        $avgLng = (float) $pagePois->avg('longitude');
+
+        // 当該市区町村（コード）を除外。full_name 重複に備え、ページ上の全コードを除く。
+        $excludeCodes = $pagePois->pluck('municipality_code')->filter()->unique()->values()->all();
+
+        return Poi::query()
+            ->where('type', $type)
+            ->whereNotNull('municipality_code')
+            ->whereNotNull('prefecture')->where('prefecture', '!=', '')
+            ->whereNotNull('city')->where('city', '!=', '')
+            ->when($excludeCodes !== [], fn ($q) => $q->whereNotIn('municipality_code', $excludeCodes))
+            // ±2.0度で粗く矩形絞り（インデックスを効かせる前段）。
+            ->whereBetween('latitude', [$avgLat - 2.0, $avgLat + 2.0])
+            ->whereBetween('longitude', [$avgLng - 2.0, $avgLng + 2.0])
+            ->selectRaw(
+                'id, name, brand, address, prefecture, city, '
+                .'ST_Distance_Sphere(POINT(longitude, latitude), POINT(?, ?)) AS dist_m',
+                [$avgLng, $avgLat]
+            )
+            ->orderBy('dist_m')
+            ->limit(5)
+            ->get()
+            ->map(fn (Poi $p): array => [
+                'prefecture' => (string) $p->prefecture,
+                'city' => (string) $p->city,
+                'display' => $this->displayName($p),
+                'km' => round(((float) $p->dist_m) / 1000, 1),
+            ])
+            ->all();
     }
 
     /**

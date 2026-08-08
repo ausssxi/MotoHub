@@ -55,6 +55,22 @@
                 </ul>
             </div>
 
+            {{-- 近隣の市区町村にある最寄り（掲載が少ないページのみ・0件なら非表示） --}}
+            @if(!empty($nearby))
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mt-6">
+                <h2 class="text-sm font-black text-gray-900 mb-3">近隣の市区町村にある最寄りの{{ $label }}</h2>
+                <ul class="divide-y divide-gray-50">
+                    @foreach($nearby as $n)
+                    <li class="py-2.5">
+                        <a href="{{ route($routePrefix.'.city', [$n['prefecture'], $n['city']]) }}" class="text-sm text-purple-700 font-bold hover:underline">{{ $n['prefecture'] }}{{ $n['city'] }}</a>
+                        <span class="text-[11px] text-gray-400 ml-1">約{{ number_format($n['km'], 1) }}km</span>
+                        <p class="text-[11px] text-gray-500 mt-0.5"><i data-lucide="map-pin" class="inline w-3 h-3"></i> {{ $n['display'] }}</p>
+                    </li>
+                    @endforeach
+                </ul>
+            </div>
+            @endif
+
             {{-- 回遊リンク --}}
             <div class="mt-6">
                 <x-cross-links :crossLinks="$crossLinks" />
