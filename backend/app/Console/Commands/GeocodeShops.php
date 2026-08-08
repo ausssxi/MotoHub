@@ -4,142 +4,260 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\Shop;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
+use App\Services\GsiGeocodingService;
+use Illuminate\Console\Command;
 
+/**
+ * ショップ（shops）の住所から緯度経度を取得する（国土地理院 GSI）。
+ *
+ * - 自前 Http::get はやめ、GsiGeocodingService::geocode() に委譲する（県代表点への誤ピンを弾く品質ガード付き）。
+ * - shops.address は「東京都 港区 芝3-16-1」のように都道府県と市区町村の間に空白を持つ行が多い。
+ *   旧実装は空白で分割して先頭要素だけ（＝「東京都」）を送っていたため、都庁など自治体代表点に固まっていた。
+ *   → 空白は「切り捨てる区切り」ではなく「除去して連結するもの」として扱い、
+ *     address から prefecture / city を先頭一致で剥がして $street を作る（stripCity）。
+ * - 保存するのは latitude / longitude の2カラムのみ。name / address / city / prefecture 等は絶対に更新しない。
+ *   ShopObserver が address から city を再計算するため、座標バッチでの巻き添え更新を避けて saveQuietly() で保存する。
+ * - null / 範囲外は「未取得のまま」にする。もっともらしく間違った粗い座標を保存しない。
+ * - --dry-run では API は呼ぶが DB 書き込みは一切しない。
+ *
+ * ※ 既定（オプション無し）は「座標が欠けている行だけを対象に DB へ書き込む」。
+ *   bootstrap/app.php で毎週火曜03:30に引数なしで実行されるため、この既定挙動を変えない。
+ */
 class GeocodeShops extends Command
 {
-    protected $signature = 'shops:geocode {--force : 取得済みデータも再取得する}';
-    protected $description = 'ショップの住所から緯度経度を取得して保存します（国土地理院API使用）';
+    protected $signature = 'shops:geocode
+        {--dry-run : DB へ書き込まず、取得結果のみ表示}
+        {--pref= : prefecture で対象を絞る}
+        {--limit= : 対象件数の上限}
+        {--force : 座標が入っている行も再取得する}
+        {--spaced-only : 住所に空白を含む行だけを対象にする}
+        {--sleep=1000 : 1件ごとの待機ミリ秒（GSIは公共API）}';
 
-    public function handle(): void
+    protected $description = 'ショップの住所から緯度経度を取得する（国土地理院ジオコーディング）';
+
+    /** 日本の緯度の妥当範囲。 */
+    private const LAT_MIN = 20.0;
+
+    private const LAT_MAX = 46.0;
+
+    /** 日本の経度の妥当範囲。 */
+    private const LNG_MIN = 122.0;
+
+    private const LNG_MAX = 154.0;
+
+    public function handle(GsiGeocodingService $geocoder): int
     {
-        $this->info('ショップの座標取得を開始します (国土地理院API)...');
+        $dryRun = (bool) $this->option('dry-run');
+        $pref = $this->option('pref');
+        $limit = $this->option('limit') !== null ? (int) $this->option('limit') : null;
+        $force = (bool) $this->option('force');
+        $spacedOnly = (bool) $this->option('spaced-only');
+        $sleepMs = (int) $this->option('sleep');
 
-        $query = Shop::query();
-        
-        if (!$this->option('force')) {
-            $query->whereNull('latitude')->orWhereNull('longitude');
+        $query = Shop::query()
+            ->whereNotNull('address')
+            ->where('address', '!=', '');
+
+        // 座標が欠けている行だけを対象（--force で再取得）。OR を明示的に括る。
+        if (! $force) {
+            $query->where(function ($q) {
+                $q->whereNull('latitude')->orWhereNull('longitude');
+            });
         }
 
-        $shops = $query->whereNotNull('address')->get();
+        // 住所に半角/全角の空白を含む行だけに限定（今回の修正対象を絞り込むため）。
+        if ($spacedOnly) {
+            $query->where(function ($q) {
+                $q->where('address', 'like', '% %')
+                    ->orWhere('address', 'like', '%　%');
+            });
+        }
+
+        if ($pref !== null && $pref !== '') {
+            $query->where('prefecture', $pref);
+        }
+
+        $query->orderBy('id');
+
+        if ($limit !== null) {
+            $query->limit($limit);
+        }
+
+        $shops = $query->get();
 
         if ($shops->isEmpty()) {
-            $this->info('対象となるショップはありませんでした。');
-            return;
+            $this->info('対象のショップはありません。');
+
+            return self::SUCCESS;
         }
 
-        $bar = $this->output->createProgressBar($shops->count());
-        $bar->start();
+        if ($dryRun) {
+            $this->info('[DRY RUN] DB へは書き込みません。');
+        }
+        $this->info(count($shops).'件を処理します。');
 
-        $successCount = 0;
-        $failCount = 0;
+        $ok = 0;
+        $failed = 0;
+        $outOfRange = 0;
+        $cityMissing = 0;
+        $cityMissingIds = [];
 
         foreach ($shops as $shop) {
-            if (mb_strlen($shop->address) < 3) {
-                $bar->advance();
+            $prefecture = (string) $shop->prefecture;
+            $city = (string) $shop->city;
+
+            // city が空だと GsiGeocodingService の「title に city が含まれること」照合が働かず
+            // 粗い座標（県/市代表点）を弾けないため、処理せずスキップする。
+            if (trim($city) === '') {
+                $cityMissing++;
+                if (count($cityMissingIds) < 20) {
+                    $cityMissingIds[] = $shop->id;
+                }
+
                 continue;
             }
 
-            // 1. 住所を整形
-            $cleanAddress = $this->cleanAddress($shop->address);
-            
-            // 2. 検索実行（見つかるまで住所を短くして再トライ）
-            $coords = $this->searchCoordinatesWithFallback($cleanAddress);
+            // stripCity には「元の city（郡付き）」を渡す。address には郡付きで入っているため。
+            $street = $this->buildStreet($prefecture, $city, (string) $shop->address);
 
-            if ($coords) {
-                $shop->update([
-                    'latitude' => $coords['lat'],
-                    'longitude' => $coords['lon'],
-                ]);
-                $successCount++;
-            } else {
-                // Log::warning("Geocode failed. ID:{$shop->id}, Address:{$shop->address}");
-                $failCount++;
+            // GSI 照合用の city は郡を落とした値（title は郡抜きで返るため）。
+            $geocodeCity = $this->geocodeCity($city);
+
+            // 実際に GSI へ渡る文字列（prefecture + city + street を連結）。
+            $sent = $prefecture.$geocodeCity.$street;
+
+            $result = $geocoder->geocode($prefecture, $geocodeCity, $street);
+
+            if ($result === null) {
+                $failed++;
+                $this->line("{$shop->name} / 送信=「{$sent}」 / failed");
+                $this->pause($sleepMs);
+
+                continue;
             }
 
-            // サーバー負荷軽減のため0.5秒待機
-            usleep(500000); 
-            $bar->advance();
+            $lat = (float) $result['lat'];
+            $lng = (float) $result['lng'];
+
+            if ($lat < self::LAT_MIN || $lat > self::LAT_MAX || $lng < self::LNG_MIN || $lng > self::LNG_MAX) {
+                $outOfRange++;
+                $this->line("{$shop->name} / 送信=「{$sent}」 / out_of_range({$lat},{$lng})");
+                $this->pause($sleepMs);
+
+                continue;
+            }
+
+            $ok++;
+            $this->line("{$shop->name} / 送信=「{$sent}」 / ok({$lat},{$lng})");
+
+            if (! $dryRun) {
+                // 座標2カラムのみ更新。ShopObserver の巻き添え（address→city 再計算）を避けて saveQuietly。
+                $shop->latitude = $lat;
+                $shop->longitude = $lng;
+                $shop->saveQuietly();
+            }
+
+            $this->pause($sleepMs);
         }
 
-        $bar->finish();
         $this->newLine();
-        $this->info("完了しました！ (成功: {$successCount}件 / 失敗: {$failCount}件)");
+        $this->info(sprintf(
+            '対象: %d件 / 成功: %d件 / 失敗: %d件 / city欠落スキップ: %d件 / 範囲外: %d件',
+            count($shops),
+            $ok,
+            $failed,
+            $cityMissing,
+            $outOfRange,
+        ));
+
+        if ($cityMissingIds !== []) {
+            $this->line('city欠落の id（最大20件）: '.implode(', ', $cityMissingIds));
+        }
+
+        if ($dryRun) {
+            $this->newLine();
+            $this->warn('DRY RUN のため実際の更新は行っていません。');
+        }
+
+        return self::SUCCESS;
     }
 
     /**
-     * 住所を短くしながら再帰的に検索する
+     * address から GSI へ渡す street を作る。
+     *
+     * a. 全角英数字・全角スペースを半角化
+     * b. 半角/全角の空白をすべて除去（分割して先頭を取るのではなく、除去して連結）
+     * c. 先頭が prefecture で始まっていれば剥がす
+     * d. 続いて先頭が city（政令市の区を含む）で始まっていれば剥がす
+     *
+     * 例: prefecture=東京都 / city=港区 / address=「東京都 港区 芝3-16-1」→ 芝3-16-1
      */
-    private function searchCoordinatesWithFallback(string $address): ?array
+    private function buildStreet(string $prefecture, string $city, string $address): string
     {
-        // ベースの検索
-        $result = $this->callApi($address);
-        if ($result) return $result;
+        // a. 全角英数字（a）と全角スペース（s）を半角化
+        $street = mb_convert_kana($address, 'as');
+        // b. 半角・全角の空白をすべて除去
+        $street = preg_replace('/[\s\x{3000}]+/u', '', $street) ?? $street;
+        $street = trim($street);
 
-        // 見つからない場合、末尾の「数字」や「ハイフン」を削って再トライ
-        // 例: "山形市あかねケ丘3-7-26" -> "山形市あかねケ丘3-7" -> "山形市あかねケ丘3"
-        
-        $shorterAddress = preg_replace('/[-－][0-9]+$/u', '', $address);
-        
-        if ($shorterAddress === $address) {
-            $shorterAddress = preg_replace('/[0-9]+$/u', '', $address);
+        // c. 先頭の prefecture を剥がす
+        if ($prefecture !== '' && str_starts_with($street, $prefecture)) {
+            $street = mb_substr($street, mb_strlen($prefecture));
         }
 
-        if ($shorterAddress === $address || mb_strlen($shorterAddress) < 5) {
-            return null;
-        }
+        // d. 先頭の city を剥がす（政令市の区にも対応）
+        $street = $this->stripCity($city, $street);
 
-        return $this->searchCoordinatesWithFallback($shorterAddress);
+        return trim($street);
     }
 
     /**
-     * 国土地理院APIを叩く
+     * street 先頭の city を剥がす。
+     *
+     * city 全体（例: 横浜市都筑区）で始まればそれを剥がす。
+     * そうでなく、政令市の区名末尾（例: 都筑区）だけで始まる場合はその区名を剥がす。
+     * GsiGeocodingService の A-1（address が city / 区名で始まる場合の重複除去）と同じ考え方。
      */
-    private function callApi(string $address): ?array
+    private function stripCity(string $city, string $street): string
     {
-        try {
-            // 国土地理院 地名検索API
-            $response = Http::get('https://msearch.gsi.go.jp/address-search/AddressSearch', [
-                'q' => $address,
-            ]);
+        if ($city !== '' && str_starts_with($street, $city)) {
+            return mb_substr($street, mb_strlen($city));
+        }
 
-            if ($response->successful() && !empty($response->json())) {
-                $data = $response->json()[0];
-                $geometry = $data['geometry'] ?? null;
-                $coords = $geometry['coordinates'] ?? null;
-
-                // 国土地理院APIは [経度, 緯度] の順で返ってくるので注意
-                if ($coords && count($coords) === 2) {
-                    return [
-                        'lat' => $coords[1], // 2番目が緯度
-                        'lon' => $coords[0], // 1番目が経度
-                    ];
-                }
+        if (preg_match('/市(.+?区)$/u', $city, $m) === 1) {
+            $cityTail = $m[1];
+            if (str_starts_with($street, $cityTail)) {
+                return mb_substr($street, mb_strlen($cityTail));
             }
-        } catch (\Exception $e) {
-            Log::error("API Error: " . $e->getMessage());
         }
-        
-        return null;
+
+        return $street;
     }
 
     /**
-     * 住所のクリーニング
+     * GSI へ照合させる city 値を返す。
+     *
+     * 国土地理院APIは町村の住所で郡を省いた title を返すため、city=「足柄上郡開成町」だと
+     * GsiGeocodingService の「city が title に含まれること」照合に失敗する。
+     * 郡を含み末尾が町/村の場合のみ郡を除いた値（開成町）を照合用に使う。座標は同一。
+     * 「郡山市」のように郡を含むが町村で終わらない市名は誤除去しない（末尾町/村限定）。
+     * stripCity（address からの city 除去）は従来どおり元の city を使い、これは照合用のみ。
      */
-    private function cleanAddress(string $address): string
+    private function geocodeCity(string $city): string
     {
-        $address = mb_convert_kana($address, 'n'); // 全角数字を半角に
-        $address = preg_replace('/[0-9]+[F|階].*$/u', '', $address); // フロア削除
-        $address = preg_replace('/[0-9]+号室.*$/u', '', $address); // 号室削除
-        
-        // ビル名などを削除
-        $parts = preg_split('/[\s　]+/u', $address);
-        if (count($parts) > 1) {
-            return $parts[0];
+        if (preg_match('/^.+?郡(.+[町村])$/u', $city, $m) === 1) {
+            return $m[1];
         }
-        return $address;
+
+        return $city;
+    }
+
+    /** GSI は公共APIのため1件ごとに待機する。 */
+    private function pause(int $ms): void
+    {
+        if ($ms > 0) {
+            usleep($ms * 1000);
+        }
     }
 }
