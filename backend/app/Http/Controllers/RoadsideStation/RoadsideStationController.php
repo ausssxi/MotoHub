@@ -127,7 +127,7 @@ final class RoadsideStationController extends Controller
                 $byCity[$city][] = [
                     'station_code' => $s->station_code,
                     'name' => $s->name,
-                    'nickname' => $s->nickname,
+                    'nickname' => $s->nickname_list[0] ?? null,
                     'city' => $s->city,
                     'address' => $s->address,
                     'route' => $s->route,

@@ -89,4 +89,24 @@ final class RoadsideStation extends Model
 
         return 'https://commons.wikimedia.org/wiki/File:'.$fileName;
     }
+
+    /**
+     * nickname（"あさひかわ|旭川地場産業振興センター|あさひかわ" のような
+     * パイプ区切りの別名リスト）を、表示用の配列にして返す。
+     * '|' で分割 → 各要素 trim → 空文字除去 → 完全一致の重複除去 → 添字振り直し。
+     * nickname が null / 空文字なら空配列。
+     * ※ 表示時のみ計算するアクセサ。$appends には追加しない。
+     */
+    public function getNicknameListAttribute(): array
+    {
+        $nickname = $this->nickname;
+        if (! is_string($nickname) || $nickname === '') {
+            return [];
+        }
+
+        $parts = array_map('trim', explode('|', $nickname));
+        $parts = array_filter($parts, static fn (string $p): bool => $p !== '');
+
+        return array_values(array_unique($parts));
+    }
 }

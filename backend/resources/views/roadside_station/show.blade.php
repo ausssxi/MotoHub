@@ -94,11 +94,11 @@
                 </h1>
 
                 {{-- バッジ --}}
-                @if($station->nickname || $station->designated_year)
+                @if(count($station->nickname_list) > 0 || $station->designated_year)
                 <div class="flex flex-wrap items-center gap-2 mb-4">
-                    @if($station->nickname)
-                    <span class="inline-block px-2.5 py-1 bg-purple-50 text-purple-700 text-[11px] font-bold rounded-md">{{ $station->nickname }}</span>
-                    @endif
+                    @foreach($station->nickname_list as $nickname)
+                    <span class="inline-block px-2.5 py-1 bg-purple-50 text-purple-700 text-[11px] font-bold rounded-md">{{ $nickname }}</span>
+                    @endforeach
                     @if($station->designated_year)
                     <span class="inline-block px-2.5 py-1 bg-gray-100 text-gray-600 text-[11px] font-bold rounded-md">{{ $station->designated_year }}年登録</span>
                     @endif
