@@ -20,7 +20,7 @@ use Illuminate\Console\Command;
  */
 class BackfillRentalGarageCity extends Command
 {
-    protected $signature = 'rental-garages:backfill-city
+    protected $signature = 'rental_garage:backfill-city
         {--execute : 実際に更新する（未指定は dry-run）}
         {--limit= : 処理件数の上限}';
 

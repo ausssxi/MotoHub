@@ -17,7 +17,7 @@ use Illuminate\Console\Command;
  */
 class NormalizeRentalGarageSizeText extends Command
 {
-    protected $signature = 'rental-garages:normalize-size-text
+    protected $signature = 'rental_garage:normalize-size-text
         {--execute : 実際に更新する（未指定は dry-run）}
         {--limit= : 処理件数の上限}';
 
