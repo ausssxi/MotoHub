@@ -41,6 +41,21 @@
                     @foreach($items as $it)
                     <li class="py-2.5">
                         <p class="text-sm text-gray-900 font-bold">{{ $it['display'] }}</p>
+                        {{-- 洗車場の設備バッジ。self_service=yes/only→セルフ、automated=yes→洗車機。no/fixme/NULLは非表示（GS・コンビニは常にNULL） --}}
+                        @php
+                            $isSelf = in_array($it['self_service'] ?? null, ['yes', 'only'], true);
+                            $isAutomated = ($it['automated'] ?? null) === 'yes';
+                        @endphp
+                        @if($isSelf || $isAutomated)
+                        <div class="flex flex-wrap gap-1 mt-1">
+                            @if($isSelf)
+                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-100 rounded-full px-2 py-0.5"><i data-lucide="hand" class="w-3 h-3"></i>セルフ</span>
+                            @endif
+                            @if($isAutomated)
+                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-100 rounded-full px-2 py-0.5"><i data-lucide="droplets" class="w-3 h-3"></i>洗車機</span>
+                            @endif
+                        </div>
+                        @endif
                         @if($it['brand'])
                         <p class="text-[11px] text-gray-500 mt-0.5"><i data-lucide="tag" class="inline w-3 h-3"></i> {{ $it['brand'] }}</p>
                         @endif

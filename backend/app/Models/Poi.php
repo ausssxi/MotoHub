@@ -18,6 +18,8 @@ final class Poi extends Model
         'address',
         'brand',
         'opening_hours',
+        'self_service',
+        'automated',
     ];
 
     protected $casts = [

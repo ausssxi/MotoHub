@@ -166,6 +166,8 @@ final class FetchPois extends Command
                                 'address' => $this->buildAddress($tags),
                                 'brand' => $tags['brand'] ?? $tags['operator'] ?? null,
                                 'opening_hours' => $tags['opening_hours'] ?? null,
+                                'self_service' => $tags['self_service'] ?? null,
+                                'automated' => $tags['automated'] ?? null,
                             ]
                         );
                         $count++;

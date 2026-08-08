@@ -158,7 +158,7 @@ final class PoiAreaController extends Controller
             ->orderBy('brand')
             ->orderBy('name')
             ->orderBy('id')
-            ->get(['id', 'name', 'brand', 'address', 'opening_hours', 'latitude', 'longitude', 'municipality_code']);
+            ->get(['id', 'name', 'brand', 'address', 'opening_hours', 'self_service', 'automated', 'latitude', 'longitude', 'municipality_code']);
 
         if ($pois->isEmpty()) {
             abort(404);
@@ -174,6 +174,9 @@ final class PoiAreaController extends Controller
                 'brand' => ($brand !== null && $brand !== $display) ? $brand : null,
                 'address' => filled($p->address) ? (string) $p->address : null,
                 'opening_hours' => filled($p->opening_hours) ? (string) $p->opening_hours : null,
+                // 洗車場の設備フラグ（OSM の生値）。バッジ判定はビュー側で行う。GS/コンビニは通常 NULL。
+                'self_service' => $p->self_service,
+                'automated' => $p->automated,
             ];
         })->all();
 
