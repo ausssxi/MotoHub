@@ -58,7 +58,7 @@
             {{-- 近隣の市区町村にある最寄り（掲載が少ないページのみ・0件なら非表示） --}}
             @if(!empty($nearby))
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mt-6">
-                <h2 class="text-sm font-black text-gray-900 mb-3">近隣の市区町村にある最寄りの{{ $label }}</h2>
+                <h2 class="text-sm font-black text-gray-900 mb-3">近隣の市区町村にある最寄りの{{ $label }}（直線距離）</h2>
                 <ul class="divide-y divide-gray-50">
                     @foreach($nearby as $n)
                     <li class="py-2.5">
