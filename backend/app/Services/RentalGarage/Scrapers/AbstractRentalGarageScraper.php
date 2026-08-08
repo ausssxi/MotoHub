@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\RentalGarage\Scrapers;
 
+use App\Services\Parking\AddressParser;
 use App\Support\AddressNormalizer;
 use App\Support\JapanCityPrefecture;
 use Illuminate\Http\Client\ConnectionException;
@@ -25,6 +26,12 @@ abstract class AbstractRentalGarageScraper
     protected const MAX_RETRIES = 3;
     protected const RETRY_BACKOFF = [5, 15, 45]; // 秒（リトライ1/2/3回目の待機）
     protected const RETRYABLE_STATUSES = [429, 502, 503, 504];
+
+    /**
+     * 市区町村抽出に使う共通パーサ。コンストラクタDIが無いクラス構成のため遅延生成してキャッシュする。
+     * shops / parkings / stations と同じ App\Services\Parking\AddressParser を共有する。
+     */
+    private ?AddressParser $addressParser = null;
 
     /** スクレイパー識別子（config/rental_garages.php のキーと一致）。例: 'inaba' */
     abstract public function key(): string;
@@ -150,21 +157,23 @@ abstract class AbstractRentalGarageScraper
     }
 
     /**
-     * 都道府県の次の市区町村を抜く。「〇〇郡△△町」は1単位として扱う。取れなければ null。
-     * 都道府県が住所先頭に「文字として」ある場合のみ剥がす。市区名始まり（フォールバックで
-     * 都道府県を引いたケース）は住所そのものから先頭の市区町村を拾う。
+     * 住所から市区町村を抜く。取れなければ null。
+     *
+     * 旧実装の自前正規表現は第2候補が非貪欲なため「名古屋市名東区…」で最初の「市」で止まり、
+     * 政令市の区を取り落としていた。shops / parkings / stations と共有の AddressParser は
+     * 第1候補が /^(.+?市.+?区)/ で政令市＋区を最優先に拾うため、これに委譲して統一する。
      */
     protected function extractCity(string $address): ?string
     {
-        $literal = $this->matchPrefecturePrefix($address);
-        $rest = $literal !== null ? mb_substr($address, mb_strlen($literal)) : $address;
+        $city = $this->addressParser()->parse($address)['city'];
 
-        // 郡＋町/村 は「郡」単独で切らず町/村まで含める。それ以外は先頭の市/区/町/村まで。
-        if (preg_match('/^(.+?郡.+?[町村]|.+?[市区町村])/u', $rest, $m)) {
-            return $m[1];
-        }
+        return $city !== '' ? $city : null;
+    }
 
-        return null;
+    /** AddressParser を遅延生成してキャッシュする（コンストラクタDIが無い構成のため）。 */
+    private function addressParser(): AddressParser
+    {
+        return $this->addressParser ??= new AddressParser;
     }
 
     /**
