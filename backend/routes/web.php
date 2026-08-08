@@ -434,6 +434,21 @@ Route::get('/michinoeki/{station_code}', [\App\Http\Controllers\RoadsideStation\
     ->name('michinoeki.show')
     ->where('station_code', '[0-9]{5}');
 
+// GS・コンビニ 市区町村まとめ（公開・認証なし）。種別は defaults('type', ...) で共通コントローラに渡す。
+// 地名は日本語をそのままURLに使う（michinoeki.area と同流儀）。
+Route::get('/gs', [\App\Http\Controllers\Poi\PoiAreaController::class, 'index'])
+    ->defaults('type', 'gas_station')->name('gs.index');
+Route::get('/gs/{prefecture}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'prefecture'])
+    ->defaults('type', 'gas_station')->name('gs.prefecture');
+Route::get('/gs/{prefecture}/{city}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'city'])
+    ->defaults('type', 'gas_station')->name('gs.city');
+Route::get('/konbini', [\App\Http\Controllers\Poi\PoiAreaController::class, 'index'])
+    ->defaults('type', 'convenience_store')->name('konbini.index');
+Route::get('/konbini/{prefecture}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'prefecture'])
+    ->defaults('type', 'convenience_store')->name('konbini.prefecture');
+Route::get('/konbini/{prefecture}/{city}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'city'])
+    ->defaults('type', 'convenience_store')->name('konbini.city');
+
 // AR駐車場・ショップファインダー
 Route::get('/ar', [ArController::class, 'index'])->name('ar.index');
 
