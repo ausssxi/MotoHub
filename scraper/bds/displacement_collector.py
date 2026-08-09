@@ -17,6 +17,7 @@ parent_dir = os.path.dirname(current_dir) # scraper フォルダ
 sys.path.append(parent_dir)
 
 from utils import normalize_name, extract_displacement
+from common.base_spider import MOTOHUB_USER_AGENT
 
 # ==========================================
 # 1. 環境設定 & DB接続
@@ -94,7 +95,8 @@ class DisplacementSpider(scrapy.Spider):
         'DOWNLOAD_DELAY': 0.5,
         'COOKIES_ENABLED': False,
         'ITEM_PIPELINES': {'__main__.DisplacementPipeline': 300},
-        'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'USER_AGENT': MOTOHUB_USER_AGENT,
+        'ROBOTSTXT_OBEY': True,
     }
 
     # メーカーリストは動的に取得することも可能だが、現状のリストを維持しつつ整理

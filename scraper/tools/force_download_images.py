@@ -24,6 +24,7 @@ if scraper_root not in sys.path:
 # commonモジュールのインポート
 try:
     from common.database import SessionLocal, Listing
+    from common.user_agent import MOTOHUB_USER_AGENT, is_image_url_allowed
 except ImportError:
     print("エラー: commonモジュールが見つかりません。")
     print(f"検索パス: {sys.path}")
@@ -84,9 +85,15 @@ def get_extension(url):
     return "jpg"
 
 def download_file(url, filepath):
+    # robots.txt で取得を拒否されているホスト（例: img.webike-cdn.net）は
+    # 新規ダウンロードしない。既存画像は削除せずそのまま配信する。
+    if not is_image_url_allowed(url):
+        logger.info(f"robots.txt により画像取得をスキップ: {url}")
+        return False
     try:
+        # ブラウザ詐称はやめ、MotoHubBot として正直に名乗る
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            'User-Agent': MOTOHUB_USER_AGENT
         }
         response = requests.get(url, headers=headers, timeout=10)
         

@@ -3,6 +3,11 @@ import datetime
 from sqlalchemy import update, or_
 from common.database import SessionLocal, Site, Listing, PriceHistory
 
+# User-Agent の定義は common/user_agent.py に一元化した（scrapy 非依存の軽量モジュール）。
+# ここでは後方互換のため再エクスポートする（既存17スパイダーの
+# `from common.base_spider import ..., MOTOHUB_USER_AGENT` はそのまま動く）。
+from common.user_agent import MOTOHUB_USER_AGENT
+
 # もし ShopManager を使っていない場合は削除してください（環境に合わせて調整）
 # from common.shop_manager import ShopManager
 

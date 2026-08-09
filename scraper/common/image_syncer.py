@@ -10,6 +10,13 @@ from sqlalchemy import create_engine, Column, BigInteger, JSON, Text, String
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from dotenv import load_dotenv
 
+# common パッケージを import できるよう scraper ルートを検索パスに追加する。
+# （このスクリプトは `python common/image_syncer.py` で単体起動されるため）
+_scraper_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _scraper_root not in sys.path:
+    sys.path.append(_scraper_root)
+from common.user_agent import MOTOHUB_USER_AGENT, is_image_url_allowed
+
 # ==========================================
 # 1. 環境設定 & データベース定義
 # ==========================================
@@ -120,14 +127,21 @@ async def download_image(client, url, sub_dir, retries=3):
     """リトライ機能付き並列ダウンロード＆変換"""
     if not url or not str(url).startswith("http"):
         return None
-    
+
+    # robots.txt で取得を拒否されているホスト（例: img.webike-cdn.net）は
+    # 新規ダウンロードしない。既存画像は削除せずそのまま配信する。
+    if not is_image_url_allowed(url):
+        logging.info(f"robots.txt により画像取得をスキップ: {url}")
+        return None
+
     async with semaphore:
         for attempt in range(retries):
             try:
                 # 負荷分散のための微小なウェイト
                 await asyncio.sleep(random.uniform(0.1, 0.3))
                 
-                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                # ブラウザ詐称はやめ、MotoHubBot として正直に名乗る
+                headers = {"User-Agent": MOTOHUB_USER_AGENT}
                 resp = await client.get(url, headers=headers, timeout=20.0)
                 
                 if resp.status_code == 200:

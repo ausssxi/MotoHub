@@ -2,6 +2,7 @@ import os
 import requests
 import logging
 from common.database import SessionLocal, Listing, BikeModel, Shop, Manufacturer
+from common.user_agent import MOTOHUB_USER_AGENT, is_image_url_allowed
 
 class MotoHubImagePipeline:
     """
@@ -93,7 +94,13 @@ class MotoHubImagePipeline:
         for i, url in enumerate(image_urls):
             if not url or not url.startswith('http'):
                 continue
-                
+
+            # robots.txt で取得を拒否されているホスト（例: img.webike-cdn.net）は
+            # 新規ダウンロードしない。既存画像は削除せずそのまま配信する。
+            if not is_image_url_allowed(url):
+                self.logger.info(f"robots.txt により画像取得をスキップ: {url}")
+                continue
+
             try:
                 clean_url = url.split('?')[0]
                 parts = clean_url.split('.')
@@ -110,9 +117,9 @@ class MotoHubImagePipeline:
                 if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
                     save_success = True
                 else:
-                    # User-Agentを設定してブロック回避
+                    # ブラウザ詐称はやめ、MotoHubBot として正直に名乗る
                     headers = {
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                        "User-Agent": MOTOHUB_USER_AGENT
                     }
                     res = requests.get(url, headers=headers, timeout=10)
                     

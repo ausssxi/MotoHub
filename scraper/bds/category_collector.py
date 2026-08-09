@@ -18,6 +18,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from utils import normalize_name, extract_displacement
+from common.base_spider import MOTOHUB_USER_AGENT
 
 # ==========================================
 # 1. データベース設定
@@ -211,7 +212,8 @@ class CategorySpider(scrapy.Spider):
         'DOWNLOAD_DELAY': 0.8,
         'COOKIES_ENABLED': False,
         'ITEM_PIPELINES': {'__main__.CategoryPipeline': 300},
-        'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ...',
+        'USER_AGENT': MOTOHUB_USER_AGENT,
+        'ROBOTSTXT_OBEY': True,
     }
 
     def parse(self, response):

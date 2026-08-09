@@ -15,7 +15,7 @@ import re
 import logging
 
 # 共通基盤のインポート
-from common.base_spider import BaseBikeSpider
+from common.base_spider import BaseBikeSpider, MOTOHUB_USER_AGENT
 # ★追加: ShopManagerをインポート
 from common.shop_manager import ShopManager
 from utils import normalize_prefecture
@@ -35,7 +35,8 @@ class WebikeShopSpider(BaseBikeSpider):
         'DOWNLOAD_DELAY': 1.0,
         'COOKIES_ENABLED': False,
         # Typo修正: reply Gecko -> like Gecko
-        'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'USER_AGENT': MOTOHUB_USER_AGENT,
+        'ROBOTSTXT_OBEY': True,
         'ITEM_PIPELINES': {
             'common.pipelines.MotoHubImagePipeline': 300,
         },

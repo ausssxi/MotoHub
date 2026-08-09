@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 # 共通基盤のインポート
 from common.database import SessionLocal, Listing, Site
+from common.base_spider import MOTOHUB_USER_AGENT
 
 class WebikeDescriptionFixSpider(scrapy.Spider):
     """
@@ -38,7 +39,8 @@ class WebikeDescriptionFixSpider(scrapy.Spider):
         'AUTOTHROTTLE_MAX_DELAY': 10,
         'AUTOTHROTTLE_TARGET_CONCURRENCY': 1.0,
         'COOKIES_ENABLED': True,
-        'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'USER_AGENT': MOTOHUB_USER_AGENT,
+        'ROBOTSTXT_OBEY': True,
         'ITEM_PIPELINES': {}, 
     }
 

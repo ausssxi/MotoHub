@@ -8,6 +8,12 @@ import unicodedata
 import os
 import sys
 
+# common パッケージ（正直な User-Agent 定義）を import できるよう scraper ルートを検索パスに追加
+_scraper_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _scraper_root not in sys.path:
+    sys.path.append(_scraper_root)
+from common.user_agent import MOTOHUB_USER_AGENT
+
 # ==========================================
 # .env ファイルから設定を読み込む関数 (完全互換版)
 # ==========================================
@@ -94,7 +100,7 @@ def get_goobike_catalog_links(maker_en):
     url = f"https://www.goobike.com/catalog/{maker_en}/index.html"
     print(f"  [探索] {maker_en} のカタログ一覧を取得中...")
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'User-Agent': MOTOHUB_USER_AGENT,
     }
     try:
         res = requests.get(url, headers=headers, timeout=10)
@@ -194,7 +200,7 @@ def fetch_goobike_specs(maker_name, model_name):
     print(f"  └ 🔗 カタログ発見: {detail_url}")
 
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': MOTOHUB_USER_AGENT,
         'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
     }
 

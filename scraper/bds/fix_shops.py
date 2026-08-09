@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 # 共通基盤のインポート
 from common.database import SessionLocal, Listing, Shop, ShopIdentifier, Site
 from utils import normalize_prefecture
+from common.base_spider import MOTOHUB_USER_AGENT
 
 class BdsShopFixSpider(scrapy.Spider):
     """
@@ -35,7 +36,8 @@ class BdsShopFixSpider(scrapy.Spider):
         'DOWNLOAD_DELAY': 0.5,
         'RANDOMIZE_DOWNLOAD_DELAY': True,
         'COOKIES_ENABLED': True,
-        'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'USER_AGENT': MOTOHUB_USER_AGENT,
+        'ROBOTSTXT_OBEY': True,
         'ITEM_PIPELINES': {}, 
     }
 

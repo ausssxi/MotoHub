@@ -14,6 +14,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 from utils import normalize_name, extract_displacement
+from common.base_spider import MOTOHUB_USER_AGENT
 
 env_path = os.path.join(parent_dir, '..', '.env')
 load_dotenv(dotenv_path=env_path)
@@ -118,7 +119,8 @@ class WebikeCategorySpider(scrapy.Spider):
         'DOWNLOAD_DELAY': 1.0,
         'COOKIES_ENABLED': False,
         'ITEM_PIPELINES': {'__main__.CategoryPipeline': 300},
-        'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ...',
+        'USER_AGENT': MOTOHUB_USER_AGENT,
+        'ROBOTSTXT_OBEY': True,
     }
 
     def parse(self, response):

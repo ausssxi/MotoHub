@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 
 # 共通ユーティリティをインポート
 from utils import normalize_name, extract_displacement
+from common.base_spider import MOTOHUB_USER_AGENT
 
 # ==========================================
 # 1. 環境設定 & DB接続
@@ -91,7 +92,8 @@ class WebikeModelSpider(scrapy.Spider):
         'CONCURRENT_REQUESTS': 8,
         'DOWNLOAD_DELAY': 1.2,
         'COOKIES_ENABLED': False,
-        'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'USER_AGENT': MOTOHUB_USER_AGENT,
+        'ROBOTSTXT_OBEY': True,
         'ITEM_PIPELINES': {
             'common.pipelines.MotoHubImagePipeline': 300,
         },

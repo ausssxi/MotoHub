@@ -15,7 +15,7 @@ import re
 
 # 共通基盤のインポート
 from common.database import Listing, BikeModelIdentifier, ShopIdentifier
-from common.base_spider import BaseBikeSpider
+from common.base_spider import BaseBikeSpider, MOTOHUB_USER_AGENT
 
 class BDSListingSpider(BaseBikeSpider):
     """
@@ -30,7 +30,8 @@ class BDSListingSpider(BaseBikeSpider):
         'CONCURRENT_REQUESTS': 8,
         'DOWNLOAD_DELAY': 0.7,
         'COOKIES_ENABLED': False,
-        'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'USER_AGENT': MOTOHUB_USER_AGENT,
+        'ROBOTSTXT_OBEY': True,
         'ITEM_PIPELINES': {
             'common.pipelines.MotoHubImagePipeline': 300,
         },
