@@ -4,8 +4,19 @@ declare(strict_types=1);
 
 namespace App\Services\Parking;
 
+use Illuminate\Support\Facades\DB;
+
 final class AddressParser
 {
+    /**
+     * 正規化済み municipalities.full_name の集合（key=正規化名, value=元の名称）。
+     * プロセス内で1回だけ読み込み、以降は再利用する。
+     * null=未ロード、[]=ロード済み（DB接続不可・空を含む）。
+     *
+     * @var array<string,string>|null
+     */
+    private static ?array $municipalitySet = null;
+
     private const PREFECTURES = [
         '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
         '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
@@ -102,10 +113,9 @@ final class AddressParser
         }
 
         if ($city === '') {
-            // 候補を優先順位順に収集（先にマッチしたものが高優先）
-            // 優先: (a) 郡+町村 → (b) 政令市の市区 → (c) 市/区/町/村
-            // 郡+町村 を最優先にすることで、町村名に「市」を含む自治体
-            // （高市郡明日香村, 吉野郡下市町 等）を一般市パターンで途中まで切らずに取れる。
+            // 候補を4パターンで全て収集する（優先順位で決め打ちせず、全候補を集める）。
+            //   (a) 郡+町村 / (b) 政令市の市区 / (c) 一般市 / (c) 特別区
+            // 配列順は従来のフォールバック優先順位（郡町村 → 政令市市区 → 市 → 区）を保つ。
             $candidates = [];
 
             // (a) 郡+町村: ○○郡○○町/村（「神崎郡市川町」「高市郡明日香村」等を正しく処理）
@@ -128,12 +138,19 @@ final class AddressParser
                 $candidates[] = $m[1];
             }
 
-            // 最初にバリデーションを通過する候補を採用
-            foreach ($candidates as $candidate) {
-                $validated = self::validateCity($candidate);
-                if ($validated !== '') {
-                    $city = $validated;
-                    break;
+            // (1) 権威データ（municipalities.full_name）に実在する候補を採用。
+            //     複数該当する場合は文字数が最長のものを採る（例: 浜松市中央区 > 浜松市）。
+            $city = self::matchAgainstMunicipalities($candidates);
+
+            // (2) 実在一致が1つも無ければ、従来の優先順位（配列順で最初にバリデーション
+            //     を通過した候補）でフォールバックする。挙動を後退させない。
+            if ($city === '') {
+                foreach ($candidates as $candidate) {
+                    $validated = self::validateCity($candidate);
+                    if ($validated !== '') {
+                        $city = $validated;
+                        break;
+                    }
                 }
             }
         }
@@ -210,5 +227,103 @@ final class AddressParser
         }
 
         return $city;
+    }
+
+    /**
+     * 候補群のうち municipalities.full_name に実在するものを返す。
+     * 複数該当時は文字数が最長のもの（同長は配列順で先勝ち＝優先順位を尊重）。
+     * 実在一致が無い、またはデータ未ロード時は空文字を返す。
+     *
+     * @param  list<string>  $candidates
+     */
+    private static function matchAgainstMunicipalities(array $candidates): string
+    {
+        $set = self::municipalitySet();
+        if ($set === []) {
+            return '';
+        }
+
+        $best = '';
+        foreach ($candidates as $candidate) {
+            $key = self::normalizeForMatch($candidate);
+            if ($key === '' || ! isset($set[$key])) {
+                continue;
+            }
+            if (mb_strlen($candidate) > mb_strlen($best)) {
+                $best = $candidate;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * municipalities.full_name の集合をプロセス内で1回だけ読み込み、static に保持する。
+     * DBに接続できない場合（テスト等）は例外を握りつぶし空配列を返す（＝従来ロジックへ）。
+     *
+     * @return array<string,string> key=正規化済みfull_name, value=元のfull_name
+     */
+    private static function municipalitySet(): array
+    {
+        if (self::$municipalitySet !== null) {
+            return self::$municipalitySet;
+        }
+
+        // 読込を試みたら結果（空を含む）を保持し、以降クエリを発行しない。
+        self::$municipalitySet = [];
+
+        try {
+            $set = [];
+            foreach (DB::table('municipalities')->pluck('full_name') as $name) {
+                $key = self::normalizeForMatch((string) $name);
+                if ($key !== '') {
+                    $set[$key] = (string) $name;
+                }
+            }
+            self::$municipalitySet = $set;
+        } catch (\Throwable $e) {
+            // DB未接続・テーブル未作成等はフォールバックへ委ねる。
+            self::$municipalitySet = [];
+        }
+
+        return self::$municipalitySet;
+    }
+
+    /**
+     * 照合用の正規化: 「ヶ」→「ケ」の表記ゆれ吸収 + 空白除去。
+     * （N03は「龍ケ崎市」、住所は「龍ヶ崎市」のような差があるため）
+     */
+    private static function normalizeForMatch(string $s): string
+    {
+        $s = str_replace('ヶ', 'ケ', $s);
+        $s = preg_replace('/[\s　]+/u', '', $s);
+
+        return $s ?? '';
+    }
+
+    /**
+     * テスト用: municipalities の読み込みをモックする。
+     * full_name の配列を渡すと、以降の照合はこの集合に対して行われる。
+     *
+     * @param  list<string>  $fullNames
+     */
+    public static function setMunicipalitiesForTesting(array $fullNames): void
+    {
+        $set = [];
+        foreach ($fullNames as $name) {
+            $key = self::normalizeForMatch($name);
+            if ($key !== '') {
+                $set[$key] = $name;
+            }
+        }
+        self::$municipalitySet = $set;
+    }
+
+    /**
+     * テスト用: キャッシュ済みの municipalities 集合を破棄し、次回再読み込みさせる。
+     */
+    public static function flushMunicipalityCache(): void
+    {
+        self::$municipalitySet = null;
     }
 }
