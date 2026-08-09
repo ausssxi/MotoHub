@@ -55,6 +55,13 @@ Schedule::command('news:refresh')->dailyAt('02:30')->withoutOverlapping()->runIn
 
 // 一括sold_out除外IDの事前計算は bootstrap/app.php の 04:50 に一本化（cache:warm-ranking 05:10 の前）
 
+// 売却済み在庫のローカル画像をR2転送後に掃除（毎日6:30）。
+// listings:migrate-images-to-r2（bootstrap/app.php で毎日6:00・--since-hours=30）が
+// R2へ転送し終えてから走る必要があるため、その30分後の6:30に配置する。R2未確認は削除しない
+// ガードも併存するが、転送完了後に回すことで取りこぼしを防ぐ。対象は売却済み在庫のみ（稼働在庫は
+// 消すと次回クロールで再取得が走るため絶対に対象にしない — 2026-08-07 の実測に基づく設計）。
+Schedule::command('listings:prune-local-images --execute')->dailyAt('06:30');
+
 // ランキングニュース自動生成
 Schedule::command('news:generate-ranking --type=daily')->dailyAt('06:00');
 Schedule::command('news:generate-ranking --type=weekly')->weeklyOn(1, '06:30');

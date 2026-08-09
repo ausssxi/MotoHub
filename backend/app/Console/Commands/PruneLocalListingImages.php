@@ -4,35 +4,47 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\Listing;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * R2 へ転送済みの在庫画像（storage/app/public/listings/...）をローカルから削除する。
+ * R2 へ転送済みの「売却済み在庫」画像（storage/app/public/listings/...）をローカルから削除する。
  * listings:migrate-images-to-r2（転送）の後始末に相当し、削除処理は転送とは別コマンドに分離する。
+ *
+ * ■ なぜ「売却済み在庫」だけを対象にするのか（2026-08-07 の実測に基づく設計）
+ *   scraper/common/pipelines.py は os.path.exists(filepath) でダウンロード要否を判定するため、
+ *   稼働在庫（is_sold_out=0）のローカル画像を消すと、次回クロールで取得元サイトから即座に
+ *   再取得が走ってしまう。実際 8/7 夜に全在庫のローカル画像を削除したところ、翌朝までに
+ *   約112,000件の再取得が発生した（＝削除が無意味になるうえ、取得元サイトへ不要な負荷）。
+ *   一方、売却済み在庫（is_sold_out=1）はクロール対象から外れるため再取得が起きず、
+ *   売却済み画像 約409,000枚（約14GB）は再取得ゼロで恒久的に削減できた。
+ *   → 本コマンドは DB を「is_sold_out=1」で絞った listing だけを起点に処理し、稼働在庫の
+ *     ファイルには決して触れない。
  *
  * 安全設計:
  *  - 配信元が r2_images でない（ローカル配信に戻っている）場合は絶対に削除しない。
+ *  - 起点は is_sold_out=1 の listing のみ。稼働在庫（is_sold_out=0）は SQL の時点で除外。
+ *  - 売却直後の再出品での取りこぼしを避けるため、last_seen_at が --days 日より前のものだけ。
  *  - R2 に同名かつ同サイズが存在するファイルだけを削除対象にする。R2 未確認は削除しない。
- *  - 更新が新しいファイル（既定 48時間以内）は削除しない。6時の転送（--since-hours=30）より
- *    必ず広い時間窓を取る。lastModified が取れない場合も安全側（削除しない）に倒す。
- *  - 350,000ディレクトリ規模のため allFiles で全件一括展開しない。
- *    site → shard 単位で遅延列挙し、shard ごとにファイルを処理する。
- *  - 触れるのは listings/ 配下のみ。ogp/ shops/ models/ blog/ 等には一切触れない。
+ *  - 触れるのは各 listing の local_image_paths に記録されたファイルのみ。
  */
 class PruneLocalListingImages extends Command
 {
     protected $signature = 'listings:prune-local-images
         {--execute : 実際に削除する（未指定は dry-run）}
+        {--days=14 : 売却（last_seen_at）からこの日数より前の在庫だけを対象にする}
         {--site= : 対象サイトを限定（goobike / bds / webike）}
-        {--older-than-hours=48 : この時間より古い更新のファイルだけを対象にする}
-        {--limit= : 評価するファイル数の上限}';
+        {--limit= : 評価する売却済み在庫の件数上限}';
 
-    protected $description = 'R2へ転送済みの在庫画像（listings/...）をローカルから削除（既定 dry-run・--execute で実行）';
+    protected $description = 'R2へ転送済みの「売却済み」在庫画像をローカルから削除（既定 dry-run・--execute で実行）。稼働在庫は対象外';
 
-    /** 進捗ログを出す間隔（ファイル数） */
+    /** 進捗ログを出す間隔（listing 件数） */
     private const LOG_EVERY = 500;
+
+    /** DB からの取り出し単位 */
+    private const CHUNK = 500;
 
     public function handle(): int
     {
@@ -51,87 +63,95 @@ class PruneLocalListingImages extends Command
             return self::FAILURE;
         }
 
-        // 安全装置3: --older-than-hours は正の整数（既定 48）。6時の転送窓（30h）より必ず広く取る。
-        $olderThanRaw = $this->option('older-than-hours');
-        if (! is_numeric($olderThanRaw) || (int) $olderThanRaw <= 0) {
-            $this->error('--older-than-hours は正の整数（時間）で指定してください。中止します。');
+        // 安全装置3: --days は正の整数（既定 14）。売却直後の再出品を避けるため少し寝かせる。
+        $daysRaw = $this->option('days');
+        if (! is_numeric($daysRaw) || (int) $daysRaw <= 0) {
+            $this->error('--days は正の整数（日数）で指定してください。中止します。');
 
             return self::FAILURE;
         }
-        $olderThanHours = (int) $olderThanRaw;
+        $days = (int) $daysRaw;
 
         $dryRun = ! (bool) $this->option('execute');
         $siteFilter = $this->option('site');
         $limit = $this->option('limit') !== null ? (int) $this->option('limit') : null;
 
-        // この時刻より新しい更新のファイルは削除しない。
-        $cutoff = time() - $olderThanHours * 3600;
+        // last_seen_at がこの時刻より前の売却済み在庫だけを対象にする。
+        $cutoff = now()->subDays($days);
 
         $local = Storage::disk('public');
         $r2 = Storage::disk('r2_images');
 
-        // listings 配下の site（goobike/bds/webike）を列挙。--site 指定時は限定。
-        $sites = collect($local->directories('listings'))
-            ->map(fn ($dir) => basename($dir))
-            ->when($siteFilter, fn ($c) => $c->filter(fn ($s) => $s === $siteFilter))
-            ->values();
+        // ★ 起点は「売却済み在庫」のみ。is_sold_out=0（稼働在庫）はこの where で除外され、
+        //   以降のファイル操作には一切載らない（＝稼働在庫の画像は絶対に削除されない）。
+        $query = Listing::query()
+            ->where('is_sold_out', true)
+            ->whereNotNull('last_seen_at')
+            ->where('last_seen_at', '<', $cutoff)
+            ->whereNotNull('local_image_paths');
 
-        if ($sites->isEmpty()) {
-            $this->info($siteFilter
-                ? "サイト '{$siteFilter}' の在庫画像は見つかりませんでした。"
-                : '削除対象の在庫画像はありません（listings/ が空）。');
-
-            return self::SUCCESS;
+        $sitePrefix = null;
+        if ($siteFilter !== null && $siteFilter !== '') {
+            // local_image_paths は "listings/{site}/{shard}/{id}/{n}.jpg" 形式で保存されている。
+            $sitePrefix = "listings/{$siteFilter}/";
         }
 
         $this->info(($dryRun ? '[DRY RUN] ' : '')
-            ."対象サイト: {$sites->implode(', ')} / {$olderThanHours}時間より古い更新が対象");
+            ."対象: 売却済み(is_sold_out=1) かつ last_seen_at < {$cutoff->toDateTimeString()}"
+            .($siteFilter ? " / サイト {$siteFilter}" : ''));
 
-        $deleted = 0;           // 削除（dry-run では「削除予定」）
+        $seen = 0;              // 評価した売却済み listing 数
+        $filesDeleted = 0;      // 削除（dry-run では「削除予定」）ファイル数
         $freedBytes = 0;        // 解放（予定）サイズ
         $r2Unconfirmed = 0;     // R2に無い or サイズ不一致で削除しなかった件数
-        $tooNew = 0;            // 更新が新しく（または取得失敗で）対象外にした件数
+        $missingLocal = 0;      // ローカルに既に無かった件数
         $emptyDirsDeleted = 0;  // 削除した空の掲載IDディレクトリ数
         $errors = 0;
-        $seen = 0;              // 評価したファイル総数（limit 判定用）
         $reachedLimit = false;
 
-        foreach ($sites as $site) {
-            if ($reachedLimit) {
-                break;
-            }
+        $query->orderBy('id')->chunkById(self::CHUNK, function ($listings) use (
+            $local, $r2, $dryRun, $sitePrefix, $limit,
+            &$seen, &$filesDeleted, &$freedBytes, &$r2Unconfirmed,
+            &$missingLocal, &$emptyDirsDeleted, &$errors, &$reachedLimit
+        ) {
+            foreach ($listings as $listing) {
+                if ($limit !== null && $seen >= $limit) {
+                    $reachedLimit = true;
 
-            $sitePath = "listings/{$site}";
-
-            // shard 単位で遅延列挙。shard ごとに allFiles するので一括展開しない。
-            foreach ($local->directories($sitePath) as $shardDir) {
-                if ($reachedLimit) {
-                    break;
+                    return false; // これ以上チャンクを進めない
                 }
 
-                foreach ($local->allFiles($shardDir) as $file) {
-                    if ($limit !== null && $seen >= $limit) {
-                        $reachedLimit = true;
-                        break;
+                $paths = $listing->local_image_paths;
+                if (! is_array($paths) || $paths === []) {
+                    continue;
+                }
+
+                // --site 指定時は当該サイトのパスだけに絞る。
+                if ($sitePrefix !== null) {
+                    $paths = array_values(array_filter(
+                        $paths,
+                        fn ($p) => is_string($p) && str_starts_with($p, $sitePrefix)
+                    ));
+                    if ($paths === []) {
+                        continue;
                     }
+                }
 
-                    // 更新が新しいファイルは削除しない。lastModified が取れない場合も
-                    // 安全側（＝削除対象から外す）に倒してスキップする。
-                    try {
-                        if ($local->lastModified($file) > $cutoff) {
-                            $tooNew++;
+                $seen++;
+                $idDirs = [];
 
-                            continue;
-                        }
-                    } catch (\Throwable $e) {
-                        $tooNew++;
-
+                foreach ($paths as $file) {
+                    if (! is_string($file) || $file === '') {
                         continue;
                     }
 
-                    $seen++;
-
                     try {
+                        if (! $local->exists($file)) {
+                            $missingLocal++;
+
+                            continue;
+                        }
+
                         $localSize = $local->size($file);
 
                         // R2 に同名かつ同サイズがあるときだけ削除対象。無い/違うなら絶対に削除しない。
@@ -140,55 +160,61 @@ class PruneLocalListingImages extends Command
 
                             if (! $dryRun) {
                                 $local->delete($file);
-
-                                // 空になった掲載IDディレクトリ（shard の直下）だけを掃除する。
-                                // shard ディレクトリ・サイトディレクトリは削除しない。
-                                $idDir = dirname($file);
-                                if ($idDir !== $shardDir
-                                    && dirname($idDir) === $shardDir
-                                    && $local->files($idDir) === []
-                                    && $local->directories($idDir) === []) {
-                                    $local->deleteDirectory($idDir);
-                                    $emptyDirsDeleted++;
-                                }
+                                $idDirs[dirname($file)] = true;
                             }
-                            $deleted++;
+                            $filesDeleted++;
                         } else {
-                            // R2未確認（未転送 or サイズ不一致）→ 削除しない。
                             $r2Unconfirmed++;
                         }
                     } catch (\Throwable $e) {
                         $errors++;
                         $this->warn("エラー: {$file} - {$e->getMessage()}");
                     }
+                }
 
-                    if ($seen % self::LOG_EVERY === 0) {
-                        $this->line(sprintf(
-                            '  ...評価 %d 件 / %s %d 件 / R2未確認 %d 件%s',
-                            $seen,
-                            $dryRun ? '削除予定' : '削除',
-                            $deleted,
-                            $r2Unconfirmed,
-                            $errors > 0 ? " / エラー {$errors} 件" : ''
-                        ));
+                // 空になった掲載IDディレクトリだけを掃除する（実削除時のみ）。
+                if (! $dryRun) {
+                    foreach (array_keys($idDirs) as $idDir) {
+                        try {
+                            if ($local->files($idDir) === [] && $local->directories($idDir) === []) {
+                                $local->deleteDirectory($idDir);
+                                $emptyDirsDeleted++;
+                            }
+                        } catch (\Throwable $e) {
+                            // ディレクトリ掃除の失敗は致命的でないので記録のみ。
+                            $this->warn("空ディレクトリ削除失敗: {$idDir} - {$e->getMessage()}");
+                        }
                     }
                 }
+
+                if ($seen % self::LOG_EVERY === 0) {
+                    $this->line(sprintf(
+                        '  ...売却済み在庫 %s 件評価 / %s %s ファイル / R2未確認 %s%s',
+                        number_format($seen),
+                        $dryRun ? '削除予定' : '削除',
+                        number_format($filesDeleted),
+                        number_format($r2Unconfirmed),
+                        $errors > 0 ? " / エラー {$errors} 件" : ''
+                    ));
+                }
             }
-        }
+
+            return true;
+        });
 
         $this->newLine();
         $this->info('==== 集計 ====');
-        $this->line('評価ファイル数          : '.number_format($seen));
-        $this->line(($dryRun ? '削除予定' : '削除').'件数            : '.number_format($deleted));
-        $this->line(($dryRun ? '解放予定' : '解放').'サイズ          : '.$this->humanBytes($freedBytes));
-        $this->line('R2未確認でスキップ      : '.number_format($r2Unconfirmed));
-        $this->line('新しすぎてスキップ      : '.number_format($tooNew));
-        $this->line('削除した空ディレクトリ数: '.number_format($emptyDirsDeleted));
+        $this->line('評価した売却済み在庫  : '.number_format($seen));
+        $this->line(($dryRun ? '削除予定' : '削除').'ファイル数    : '.number_format($filesDeleted));
+        $this->line(($dryRun ? '解放予定' : '解放').'サイズ        : '.$this->humanBytes($freedBytes));
+        $this->line('R2未確認でスキップ    : '.number_format($r2Unconfirmed));
+        $this->line('ローカルに既に無し    : '.number_format($missingLocal));
+        $this->line('削除した空ディレクトリ: '.number_format($emptyDirsDeleted));
         if ($errors > 0) {
-            $this->warn('エラー件数              : '.number_format($errors));
+            $this->warn('エラー件数            : '.number_format($errors));
         }
         if ($reachedLimit) {
-            $this->comment("--limit={$limit} に達したため打ち切りました（未評価のファイルが残っています）。");
+            $this->comment("--limit={$limit} に達したため打ち切りました（未評価の売却済み在庫が残っています）。");
         }
 
         // R2未確認が出た＝6時の転送が失敗している兆候の可能性。ログに残す。
@@ -198,7 +224,7 @@ class PruneLocalListingImages extends Command
 
         if ($dryRun) {
             $this->newLine();
-            $this->comment('DRY RUN のため実際の削除は行っていません。');
+            $this->comment('DRY RUN のため実際の削除は行っていません。--execute で削除します。');
         }
 
         return $errors > 0 ? self::FAILURE : self::SUCCESS;
