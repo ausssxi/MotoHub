@@ -105,6 +105,10 @@ Schedule::command('x:post-ranking-image --type=bargains')->weeklyOn(3, '12:00');
 // POIデータ取得（毎日3:30 — Overpass APIからGS・コンビニ・道の駅）
 Schedule::command('poi:fetch')->dailyAt('03:30');
 
+// POI市区町村割り当て（毎日4:10 — poi:fetch(3:30)で増えたPOIに座標→N03ポリゴンから市区町村を付与）。
+// 未割当(municipality_code=NULL)のままだと市区町村まとめページにもサイトマップにも出ない。poi:geocode(4:30)より前に実行すること。
+Schedule::command('pois:assign-municipality --execute')->dailyAt('04:10');
+
 // POI住所逆ジオコーディング（毎日4:30 — 5000件ずつ段階処理）
 Schedule::command('poi:geocode')->dailyAt('04:30');
 
