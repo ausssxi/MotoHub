@@ -64,8 +64,18 @@ final class GsiGeocodingService
 
             $title = (string) ($features[0]['properties']['title'] ?? '');
 
-            // A-2: title に市区名（主要部）が含まれること。県名のみ等の上位レベル一致は不採用。
-            $needle = $cityTail ?? $city;
+            // A-2: title に市区町村レベルの照合語（needle）が含まれること。県名のみ＝上位レベルへの
+            // フォールバック結果は不採用（誤って県庁所在地の座標を掴むのを防ぐ）。
+            // needle の決め方:
+            //  - 政令市の区（「〜市〜区」）: 区は再編・廃止で title に現れないことがある
+            //    （実測: city「浜松市東区」→ GSIの title は「静岡県浜松市」/「静岡県浜松市浜名区」）。
+            //    市の部分だけ（「浜松市」）を照合語にし、title が市を含めば採用する。
+            //  - 東京23区など「〜区」のみ（例「大田区」）: 従来どおり city 全体で照合。
+            //  - 市・町・村（例「三木市」）: 従来どおり city 全体で照合。
+            $needle = $city;
+            if (preg_match('/^(.+?市).+区$/u', $city, $mm)) {
+                $needle = $mm[1];
+            }
             if ($needle !== '' && ! str_contains($title, $needle)) {
                 Log::warning('GSI geocoding rejected: title lacks city (県レベルfallbackの疑い)', [
                     'query' => $query,
