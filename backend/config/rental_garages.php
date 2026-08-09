@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Services\RentalGarage\Scrapers\InabaBoxScraper;
+use App\Services\RentalGarage\Scrapers\KaseScraper;
 use App\Services\RentalGarage\Scrapers\StorageOhScraper;
 
 return [
@@ -16,5 +17,6 @@ return [
     'scrapers' => [
         'inaba' => InabaBoxScraper::class,
         'storageoh' => StorageOhScraper::class,
+        'kase' => KaseScraper::class,
     ],
 ];
