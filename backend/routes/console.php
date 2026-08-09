@@ -112,6 +112,11 @@ Schedule::command('pois:assign-municipality --execute')->dailyAt('04:10');
 // POI住所逆ジオコーディング（毎日4:30 — 5000件ずつ段階処理）
 Schedule::command('poi:geocode')->dailyAt('04:30');
 
+// OGP画像キャッシュの掃除（毎日4:40 — 90日より古い ogp/ 配下のキャッシュを削除）。
+// 遅延生成キャッシュなので消しても次アクセスで再生成される。掃除が無く月2GB増だった対策。
+// 直前の poi:geocode(4:30) と重ならないよう 4:40 に配置（他ジョブとも非衝突の空き枠）。
+Schedule::command('ogp:prune --execute')->dailyAt('04:40');
+
 // ディスク使用率チェック（毎日7:00 — backup:monitor 08:00 の前）
 // ディスク100%→全ページ500の再発防止。しきい値超過時のみメール通知。
 // appendOutputTo は付けない（無制限ログ増加を新規に増やさないため）。
