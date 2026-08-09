@@ -5,18 +5,29 @@ declare(strict_types=1);
 namespace App\Services\RentalGarage\Scrapers;
 
 use App\Models\RentalGarage;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * 加瀬倉庫「レンタルボックス」（kase3535.com）スクレイパー。
  *
  * robots.txt は Allow: /（禁止は /favorite/ /history/ /search/ *.pdf /api/ のみ、2026-08 確認）。
- * よって /search/ は使わず、/type/bike/ 配下の静的な一覧ページ（バイク収納）だけを辿る。
+ * よって /search/ は使わず、/type/bike/ 配下（バイク収納）だけを辿る。
+ *
+ * ■ sitemap を起点にする理由（2026-08 実測）
+ *   都道府県ページ /type/bike/{県}/ の2ページ目以降（?page 相当）は、件数表示（「全146件」
+ *   「21-40」）は正しく出るのに物件カードが描画されず「物件が見つかりませんでした」になる
+ *   （加瀬側サイトの不具合でこちらでは回避不可）。そのため都道府県ページのページ送りでは
+ *   各県20件で頭打ちになり取りこぼす。一方、市区町村ページ /type/bike/{県}/{市区町村}/ は
+ *   正常に描画され、それらは sitemap.xml に173件すべて載っている。よって都道府県ページ＋
+ *   ページ送りをやめ、sitemap から市区町村ページを列挙して辿る方式に変更した。
  *
  * 導線（2026-08 時点で本番確認）:
- *   - 都道府県一覧: https://www.kase3535.com/type/bike/
- *       ページ内の href から都道府県スラッグ（aichi, tokyo …）を得る（/type/bike/{slug}/）。
- *   - バイク収納一覧: /type/bike/{slug}/ 、2ページ目以降は /type/bike/{slug}/page/{n}/（1ページ20件）。
+ *   - サイトマップ: https://www.kase3535.com/sitemap.xml
+ *       バイク収納の市区町村ページ ^https://www\.kase3535\.com/type/bike/[a-z]+/[a-z]+/$
+ *       （173件想定）だけを抽出する。sitemap にはバイク収納以外の物件URL(約1,916件)も
+ *       含まれるが、それらは使わない（「バイク収納可」の絞り込みが失われるため）。
+ *   - 市区町村ページ: /type/bike/{県}/{市区町村}/（正常描画・ページ送り無し）
  *       物件詳細URLは href のパスが正規表現 ^/[a-z]+/[a-z]+/[0-9]+/$ に一致するものとして現れる。
  *   - 物件詳細: /{都道府県スラッグ}/{市区町村スラッグ}/{数字ID}/
  *       JSON-LD（SelfStorage / Product）が埋め込まれている:
@@ -31,11 +42,14 @@ use Symfony\Component\DomCrawler\Crawler;
 final class KaseScraper extends AbstractRentalGarageScraper
 {
     private const BASE = 'https://www.kase3535.com';
-    private const LIST_ROOT = self::BASE.'/type/bike/';
+    private const SITEMAP_URL = self::BASE.'/sitemap.xml';
     private const OPERATOR = '加瀬倉庫';
 
-    /** 都道府県ごとのページ送り安全上限（無限ループ防止）。 */
-    private const MAX_PAGES_PER_PREF = 200;
+    /**
+     * 市区町村ページの1ページ表示上限。ちょうどこの件数が取れた場合は、機能していない
+     * ページ送りで残りを取りこぼしている可能性があるため警告ログを出す（後追い用）。
+     */
+    private const PAGE_SIZE = 20;
 
     public function key(): string
     {
@@ -57,86 +71,84 @@ final class KaseScraper extends AbstractRentalGarageScraper
 
     public function fetch(?int $limit = null): iterable
     {
-        $rootHtml = $this->get(self::LIST_ROOT);
-        if ($rootHtml === null) {
-            return; // 都道府県一覧が取れなければ何も出さない
+        $sitemap = $this->get(self::SITEMAP_URL);
+        if ($sitemap === null) {
+            return; // sitemap が取れなければ何も出さない
         }
 
-        $slugs = $this->extractPrefectureSlugs($rootHtml);
-        if ($slugs === []) {
+        $cityUrls = $this->extractCityUrlsFromSitemap($sitemap);
+        if ($cityUrls === []) {
             return;
         }
 
         $emitted = 0;
-        $seenDetail = []; // 詳細URLの重複取得を防ぐ（都道府県をまたいだ重複も含む）
+        $seenDetail = []; // 詳細URLの重複取得を防ぐ（市区町村をまたいだ重複も含む）
 
-        foreach ($slugs as $slug) {
-            for ($page = 1; $page <= self::MAX_PAGES_PER_PREF; $page++) {
-                $listUrl = $page === 1
-                    ? self::LIST_ROOT.$slug.'/'
-                    : self::LIST_ROOT.$slug.'/page/'.$page.'/';
+        foreach ($cityUrls as $cityUrl) {
+            $this->throttle(); // 市区町村ページ取得前に3秒
+            $html = $this->get($cityUrl);
+            if ($html === null) {
+                continue; // この市区町村は飛ばす（他は続行）
+            }
 
-                $this->throttle(); // 一覧ページ取得前に3秒
-                $html = $this->get($listUrl);
-                if ($html === null) {
-                    break; // このページが取れなければ当該都道府県は打ち切り
+            $detailUrls = $this->extractDetailUrls($html);
+
+            // 20件ちょうど＝機能していないページ送りで残りを取りこぼしている可能性。
+            // 後から手当てできるよう、市区町村URLと件数を残す。
+            if (count($detailUrls) === self::PAGE_SIZE) {
+                Log::warning('KaseScraper: 市区町村ページが20件ちょうど。ページ送り取りこぼしの可能性', [
+                    'city_url' => $cityUrl,
+                    'count' => count($detailUrls),
+                ]);
+            }
+
+            foreach ($detailUrls as $detailUrl) {
+                if (isset($seenDetail[$detailUrl])) {
+                    continue;
+                }
+                $seenDetail[$detailUrl] = true;
+
+                $this->throttle(); // 詳細ページ取得前に3秒
+                $detailHtml = $this->get($detailUrl);
+                if ($detailHtml === null) {
+                    continue;
                 }
 
-                $detailUrls = $this->extractDetailUrls($html);
-                $newOnPage = 0;
-
-                foreach ($detailUrls as $detailUrl) {
-                    if (isset($seenDetail[$detailUrl])) {
-                        continue;
-                    }
-                    $seenDetail[$detailUrl] = true;
-                    $newOnPage++;
-
-                    $this->throttle(); // 詳細ページ取得前に3秒
-                    $detailHtml = $this->get($detailUrl);
-                    if ($detailHtml === null) {
-                        continue;
-                    }
-
-                    $row = $this->parseDetail($detailHtml, $detailUrl);
-                    if ($row === null) {
-                        continue;
-                    }
-
-                    yield $row;
-                    $emitted++;
-                    if ($limit !== null && $emitted >= $limit) {
-                        return;
-                    }
+                $row = $this->parseDetail($detailHtml, $detailUrl);
+                if ($row === null) {
+                    continue;
                 }
 
-                // 新規物件が1件も無いページに達したら最終ページの先とみなして打ち切る
-                // （末尾を超えた page/{n}/ が最終ページを返し続けても無限ループしない）。
-                if ($newOnPage === 0) {
-                    break;
+                yield $row;
+                $emitted++;
+                if ($limit !== null && $emitted >= $limit) {
+                    return;
                 }
             }
         }
     }
 
     /**
-     * /type/bike/ ページから都道府県スラッグ（aichi, tokyo …）を重複なく抽出する。
+     * sitemap.xml から「バイク収納の市区町村ページ」URL のみを重複なく抽出する。
+     * ^https://www\.kase3535\.com/type/bike/[a-z]+/[a-z]+/$ に一致する <loc> だけを採る
+     * （バイク収納以外の物件URLは対象外＝バイク可の絞り込みを維持）。
      *
      * @return array<int, string>
      */
-    private function extractPrefectureSlugs(string $html): array
+    private function extractCityUrlsFromSitemap(string $sitemap): array
     {
-        $crawler = new Crawler($html);
+        if (! preg_match_all('#<loc>\s*([^<]+?)\s*</loc>#u', $sitemap, $m)) {
+            return [];
+        }
 
-        $slugs = [];
-        $crawler->filter('a')->each(function (Crawler $a) use (&$slugs): void {
-            $path = $this->hrefPath($a->attr('href') ?? '');
-            if ($path !== null && preg_match('#^/type/bike/([a-z]+)/$#', $path, $m)) {
-                $slugs[$m[1]] = true;
+        $urls = [];
+        foreach ($m[1] as $loc) {
+            if (preg_match('#^https://www\.kase3535\.com/type/bike/[a-z]+/[a-z]+/$#', $loc)) {
+                $urls[$loc] = true;
             }
-        });
+        }
 
-        return array_keys($slugs);
+        return array_keys($urls);
     }
 
     /**
