@@ -56,6 +56,20 @@ final class GsiGeocodingService
 
         $query = $prefecture.$city.$address;
 
+        // A-3: 合併等で「愛知県長久手町愛知県長久手市菖蒲池1015」のように、先頭以外の位置に
+        // prefecture が再出現し、その位置から現在の正しい住所（合併後の住所）が丸ごと始まって
+        // いる行が本番ログにある。再出現位置から後ろだけをクエリとして使う。
+        // このケースは city による needle 判定を行わず、代わりに「title が prefecture だけで
+        // ないこと（市区町村以下が含まれること）」を採用条件にする（下の A-2 分岐参照）。
+        $prefectureRestart = false;
+        if ($prefecture !== '') {
+            $pos = mb_strpos($query, $prefecture, 1);
+            if ($pos !== false) {
+                $query = mb_substr($query, $pos);
+                $prefectureRestart = true;
+            }
+        }
+
         try {
             $response = Http::timeout(5)->get(self::ENDPOINT, ['q' => $query]);
 
@@ -74,26 +88,51 @@ final class GsiGeocodingService
 
             // A-2: title に市区町村レベルの照合語（needle）が含まれること。県名のみ＝上位レベルへの
             // フォールバック結果は不採用（誤って県庁所在地の座標を掴むのを防ぐ）。
-            // needle の決め方:
-            //  - 政令市の区（「〜市〜区」）: 区は再編・廃止で title に現れないことがある
-            //    （実測: city「浜松市東区」→ GSIの title は「静岡県浜松市」/「静岡県浜松市浜名区」）。
-            //    市の部分だけ（「浜松市」）を照合語にし、title が市を含めば採用する。
-            //  - 東京23区など「〜区」のみ（例「大田区」）: 従来どおり city 全体で照合。
-            //  - 市・町・村（例「三木市」）: 従来どおり city 全体で照合。
-            $needle = $city;
-            if (preg_match('/^(.+?市).+区$/u', $city, $mm)) {
-                $needle = $mm[1];
-            }
-            // 比較は matchNormalize を通す（title は「龍ケ崎市」、needle は「龍ヶ崎市」のように
-            // 「ヶ／ケ」等の表記ゆれがあるため）。クエリ文字列そのものは変えない。
-            if ($needle !== '' && ! str_contains(self::matchNormalize($title), self::matchNormalize($needle))) {
-                Log::warning('GSI geocoding rejected: title lacks city (県レベルfallbackの疑い)', [
-                    'query' => $query,
-                    'title' => $title,
-                    'needle' => $needle,
-                ]);
+            if ($prefectureRestart) {
+                // A-3 でクエリを prefecture 再出現位置から切り出したケース。city は元の（合併前等の）
+                // 値でクエリと食い違うため needle 判定は行わない。代わりに title が prefecture だけ
+                // でないこと（市区町村以下が含まれること）を条件にする。
+                $normTitle = self::matchNormalize($title);
+                $normPref = self::matchNormalize($prefecture);
+                $rest = str_starts_with($normTitle, $normPref)
+                    ? mb_substr($normTitle, mb_strlen($normPref))
+                    : $normTitle;
+                if ($rest === '') {
+                    Log::warning('GSI geocoding rejected: title is prefecture only (県レベルfallbackの疑い)', [
+                        'query' => $query,
+                        'title' => $title,
+                        'prefecture' => $prefecture,
+                    ]);
 
-                return null;
+                    return null;
+                }
+            } else {
+                // needle の決め方:
+                //  - 政令市の区（「〜市〜区」）: 区は再編・廃止で title に現れないことがある
+                //    （実測: city「浜松市東区」→ GSIの title は「静岡県浜松市」/「静岡県浜松市浜名区」）。
+                //    市の部分だけ（「浜松市」）を照合語にし、title が市を含めば採用する。
+                //  - 郡下の町村（「〜郡〜町」「〜郡〜村」）: 地理院の title は郡を省略する
+                //    （実測: city「高市郡明日香村」→ title「奈良県明日香村…」）。郡より後ろの町村名
+                //    （「明日香村」）を照合語にする。
+                //  - 東京23区など「〜区」のみ（例「大田区」）: 従来どおり city 全体で照合。
+                //  - 市・町・村（例「三木市」）: 従来どおり city 全体で照合。
+                $needle = $city;
+                if (preg_match('/^(.+?市).+区$/u', $city, $mm)) {
+                    $needle = $mm[1];
+                } elseif (preg_match('/郡(.+?[町村])$/u', $city, $mg)) {
+                    $needle = $mg[1];
+                }
+                // 比較は matchNormalize を通す（title は「龍ケ崎市」、needle は「龍ヶ崎市」のように
+                // 「ヶ／ケ」等の表記ゆれがあるため）。クエリ文字列そのものは変えない。
+                if ($needle !== '' && ! str_contains(self::matchNormalize($title), self::matchNormalize($needle))) {
+                    Log::warning('GSI geocoding rejected: title lacks city (県レベルfallbackの疑い)', [
+                        'query' => $query,
+                        'title' => $title,
+                        'needle' => $needle,
+                    ]);
+
+                    return null;
+                }
             }
 
             // GeoJSON: coordinates は [経度, 緯度] の順（lng, lat）
