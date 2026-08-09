@@ -34,6 +34,14 @@ final class GsiGeocodingService
             return null;
         }
 
+        // city の先頭に prefecture が二重に入っている行の対策（本番ログに
+        // 「福岡県福岡県古賀市…」「東京都東京都北区…」等）。city 列が「福岡県古賀市」のように
+        // 都道府県名を含むのが原因。以降のクエリ組み立て・A-1・needle すべてで、
+        // prefecture を剥がした city（例「古賀市」）を使う。
+        if ($prefecture !== '' && str_starts_with($city, $prefecture)) {
+            $city = mb_substr($city, mb_strlen($prefecture));
+        }
+
         // A-1: address が city（または政令市の区名末尾要素）で始まる場合は重複を除去。
         // 例: city「横浜市都筑区」に対し address「都筑区荏田南…」→ 「荏田南…」
         $cityTail = null;
@@ -76,7 +84,9 @@ final class GsiGeocodingService
             if (preg_match('/^(.+?市).+区$/u', $city, $mm)) {
                 $needle = $mm[1];
             }
-            if ($needle !== '' && ! str_contains($title, $needle)) {
+            // 比較は matchNormalize を通す（title は「龍ケ崎市」、needle は「龍ヶ崎市」のように
+            // 「ヶ／ケ」等の表記ゆれがあるため）。クエリ文字列そのものは変えない。
+            if ($needle !== '' && ! str_contains(self::matchNormalize($title), self::matchNormalize($needle))) {
                 Log::warning('GSI geocoding rejected: title lacks city (県レベルfallbackの疑い)', [
                     'query' => $query,
                     'title' => $title,
@@ -112,6 +122,19 @@ final class GsiGeocodingService
         $s = mb_convert_kana($s, 'a');           // 全角英数記号→半角（全角ハイフンU+FF0Dも半角化）
         $s = str_replace(['−', '—', '―', 'ｰ'], '-', $s); // マイナス/ダッシュ/半角長音→ハイフン
         $s = preg_replace('/[\s\x{3000}]+/u', '', $s) ?? $s; // スペース除去（半角・全角）
+
+        return trim($s);
+    }
+
+    /**
+     * title と needle の「比較専用」正規化。地理院へ送るクエリ文字列には使わない。
+     * ・「ヶ」→「ケ」、「ヵ」→「カ」（例: 龍ヶ崎市 vs 龍ケ崎市 / 保土ヶ谷区 vs 保土ケ谷区 の表記ゆれ吸収）
+     * ・半角/全角スペース除去、trim
+     */
+    private static function matchNormalize(string $s): string
+    {
+        $s = str_replace(['ヶ', 'ヵ'], ['ケ', 'カ'], $s);
+        $s = preg_replace('/[\s\x{3000}]+/u', '', $s) ?? $s;
 
         return trim($s);
     }
