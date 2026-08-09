@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Services\Parking\AddressParser;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -18,6 +19,10 @@ use Illuminate\Support\Facades\Log;
 final class GsiGeocodingService
 {
     private const ENDPOINT = 'https://msearch.gsi.go.jp/address-search/AddressSearch';
+
+    public function __construct(
+        private readonly AddressParser $addressParser,
+    ) {}
 
     /**
      * prefecture + city + address からジオコーディング。見つからない/検証NG/失敗時は null。
@@ -89,41 +94,44 @@ final class GsiGeocodingService
             // A-2: title に市区町村レベルの照合語（needle）が含まれること。県名のみ＝上位レベルへの
             // フォールバック結果は不採用（誤って県庁所在地の座標を掴むのを防ぐ）。
             if ($prefectureRestart) {
-                // A-3 でクエリを prefecture 再出現位置から切り出したケース。city は元の（合併前等の）
-                // 値でクエリと食い違うため needle 判定は行わない。代わりに title が prefecture だけ
-                // でないこと（市区町村以下が含まれること）を条件にする。
-                $normTitle = self::matchNormalize($title);
-                $normPref = self::matchNormalize($prefecture);
-                $rest = str_starts_with($normTitle, $normPref)
-                    ? mb_substr($normTitle, mb_strlen($normPref))
-                    : $normTitle;
-                if ($rest === '') {
-                    Log::warning('GSI geocoding rejected: title is prefecture only (県レベルfallbackの疑い)', [
-                        'query' => $query,
-                        'title' => $title,
-                        'prefecture' => $prefecture,
-                    ]);
+                // A-3 でクエリを prefecture 再出現位置から切り出したケース。渡された city は元の
+                // （合併前等の）値でクエリと食い違うため使わない。切り出し後のクエリから
+                // AddressParser で市区町村を取り直し、その needle が title に含まれることを要求する。
+                //   例: 「埼玉県鳩ヶ谷市南1-1-1」→ city「鳩ヶ谷市」。title「埼玉県鳩山」（鳩山町）は
+                //       含まないので棄却（約40km 離れた誤自治体の座標を掴むのを防ぐ）。
+                $parsedCity = $this->addressParser->parse($query)['city'];
+                if ($parsedCity !== '') {
+                    $needle = $this->cityNeedle($parsedCity);
+                    if ($needle !== '' && ! str_contains(self::matchNormalize($title), self::matchNormalize($needle))) {
+                        Log::warning('GSI geocoding rejected: title lacks city (A-3切り出し後・誤自治体の疑い)', [
+                            'query' => $query,
+                            'title' => $title,
+                            'needle' => $needle,
+                        ]);
 
-                    return null;
+                        return null;
+                    }
+                } else {
+                    // 市区町村を取り直せないときは保険として「title が prefecture だけ」を棄却する。
+                    $normTitle = self::matchNormalize($title);
+                    $normPref = self::matchNormalize($prefecture);
+                    $rest = str_starts_with($normTitle, $normPref)
+                        ? mb_substr($normTitle, mb_strlen($normPref))
+                        : $normTitle;
+                    if ($rest === '') {
+                        Log::warning('GSI geocoding rejected: title is prefecture only (県レベルfallbackの疑い)', [
+                            'query' => $query,
+                            'title' => $title,
+                            'prefecture' => $prefecture,
+                        ]);
+
+                        return null;
+                    }
                 }
             } else {
-                // needle の決め方:
-                //  - 政令市の区（「〜市〜区」）: 区は再編・廃止で title に現れないことがある
-                //    （実測: city「浜松市東区」→ GSIの title は「静岡県浜松市」/「静岡県浜松市浜名区」）。
-                //    市の部分だけ（「浜松市」）を照合語にし、title が市を含めば採用する。
-                //  - 郡下の町村（「〜郡〜町」「〜郡〜村」）: 地理院の title は郡を省略する
-                //    （実測: city「高市郡明日香村」→ title「奈良県明日香村…」）。郡より後ろの町村名
-                //    （「明日香村」）を照合語にする。
-                //  - 東京23区など「〜区」のみ（例「大田区」）: 従来どおり city 全体で照合。
-                //  - 市・町・村（例「三木市」）: 従来どおり city 全体で照合。
-                $needle = $city;
-                if (preg_match('/^(.+?市).+区$/u', $city, $mm)) {
-                    $needle = $mm[1];
-                } elseif (preg_match('/郡(.+?[町村])$/u', $city, $mg)) {
-                    $needle = $mg[1];
-                }
                 // 比較は matchNormalize を通す（title は「龍ケ崎市」、needle は「龍ヶ崎市」のように
                 // 「ヶ／ケ」等の表記ゆれがあるため）。クエリ文字列そのものは変えない。
+                $needle = $this->cityNeedle($city);
                 if ($needle !== '' && ! str_contains(self::matchNormalize($title), self::matchNormalize($needle))) {
                     Log::warning('GSI geocoding rejected: title lacks city (県レベルfallbackの疑い)', [
                         'query' => $query,
@@ -150,6 +158,28 @@ final class GsiGeocodingService
 
             return null;
         }
+    }
+
+    /**
+     * A-2 の照合語（needle）を city から決める。
+     *  - 政令市の区（「〜市〜区」）: 区は再編・廃止で title に現れないことがある
+     *    （実測: city「浜松市東区」→ GSIの title は「静岡県浜松市」/「静岡県浜松市浜名区」）。
+     *    市の部分だけ（「浜松市」）を照合語にし、title が市を含めば採用する。
+     *  - 郡下の町村（「〜郡〜町」「〜郡〜村」）: 地理院の title は郡を省略する
+     *    （実測: city「高市郡明日香村」→ title「奈良県明日香村…」）。郡より後ろの町村名
+     *    （「明日香村」）を照合語にする。
+     *  - 東京23区など「〜区」のみ（例「大田区」）／市・町・村（例「三木市」）: city 全体で照合。
+     */
+    private function cityNeedle(string $city): string
+    {
+        if (preg_match('/^(.+?市).+区$/u', $city, $mm)) {
+            return $mm[1];
+        }
+        if (preg_match('/郡(.+?[町村])$/u', $city, $mg)) {
+            return $mg[1];
+        }
+
+        return $city;
     }
 
     /**

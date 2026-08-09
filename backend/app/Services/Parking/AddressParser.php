@@ -103,23 +103,27 @@ final class AddressParser
 
         if ($city === '') {
             // 候補を優先順位順に収集（先にマッチしたものが高優先）
+            // 優先: (a) 郡+町村 → (b) 政令市の市区 → (c) 市/区/町/村
+            // 郡+町村 を最優先にすることで、町村名に「市」を含む自治体
+            // （高市郡明日香村, 吉野郡下市町 等）を一般市パターンで途中まで切らずに取れる。
             $candidates = [];
 
-            // 1. 政令指定都市: ○○市○○区
-            if (preg_match('/^(.+?市.+?区)/u', $cityRest, $m)) {
-                $candidates[] = $m[1];
-            }
-            // 2. 郡+町村: ○○郡○○町/村（「神崎郡市川町」等を正しく処理）
+            // (a) 郡+町村: ○○郡○○町/村（「神崎郡市川町」「高市郡明日香村」等を正しく処理）
+            //     ただし「大和郡山市」のように "郡" を含む市名を郡町村と誤認しないようガードする。
             if (preg_match('/^(.+?郡.+?[町村])/u', $cityRest, $m)
-                && (!str_contains($m[1], '市') || str_contains($m[1], '郡市'))
+                && ! self::gunMatchLooksLikeCity($m[1])
             ) {
                 $candidates[] = $m[1];
             }
-            // 3. 一般市
+            // (b) 政令指定都市: ○○市○○区
+            if (preg_match('/^(.+?市.+?区)/u', $cityRest, $m)) {
+                $candidates[] = $m[1];
+            }
+            // (c) 一般市
             if (preg_match('/^(.+?市)/u', $cityRest, $m)) {
                 $candidates[] = $m[1];
             }
-            // 4. 東京特別区
+            // (c) 東京特別区
             if (preg_match('/^(.+?区)/u', $cityRest, $m)) {
                 $candidates[] = $m[1];
             }
@@ -143,6 +147,37 @@ final class AddressParser
         }
 
         return ['prefecture' => $pref, 'city' => $city];
+    }
+
+    /**
+     * 郡パターン「○○郡○○町/村」でマッチした文字列が、実際には "郡" を含む市名
+     * （大和郡山市 等）を誤って捕捉していないか判定する。
+     *
+     * 郡より後ろ（本来は町村名部分）に「市」が現れ、かつその部分が「市」で始まらず、
+     * 末尾も「市町」「市村」でない場合は、市名の一部を巻き込んでいるとみなして真を返す。
+     *   大和郡山市本町 → 郡以降「山市本町」→ 市が中間      → true（市の誤マッチ）
+     *   吉野郡下市町   → 郡以降「下市町」  → 末尾が「市町」  → false（正しい町村）
+     *   神崎郡市川町   → 郡以降「市川町」  → 「市」で始まる  → false（正しい町村）
+     *   高市郡明日香村 → 郡以降「明日香村」→ 「市」を含まない → false（正しい町村）
+     */
+    private static function gunMatchLooksLikeCity(string $match): bool
+    {
+        $gunPos = mb_strpos($match, '郡');
+        if ($gunPos === false) {
+            return false;
+        }
+        $afterGun = mb_substr($match, $gunPos + 1);
+
+        if (! str_contains($afterGun, '市')) {
+            return false;
+        }
+        // 町村名そのものが「市」で始まる（市川町 等）／末尾が「市町」「市村」（下市町, 余市町 等）
+        // なら「市」は町村名の一部。市名の巻き込みではない。
+        if (str_starts_with($afterGun, '市') || preg_match('/市[町村]$/u', $afterGun)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
