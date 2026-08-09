@@ -20,6 +20,55 @@ final class GsiGeocodingService
 {
     private const ENDPOINT = 'https://msearch.gsi.go.jp/address-search/AddressSearch';
 
+    /**
+     * 廃止・改称された市区町村の補正表。キーは「都道府県|旧city」で、
+     * 都道府県と city の組み合わせが一致したときだけ適用する（同名の別自治体を
+     * 巻き込まないよう city 単独では判定しない）。
+     *
+     * 各エントリ:
+     *   'city'          置換後の現行 city（必須）
+     *   'street_prefix' street(=address) の先頭に付与する旧地名（任意）。
+     *                   合併で旧町名が現行住所に大字として残るケース用。
+     *
+     * 出典: 総務省「市町村合併の記録」/ 各自治体の合併・市制施行告示。
+     * すべて国土地理院 AddressSearch API で実際に座標が返ることを確認済み。
+     *   兵庫県 篠山市     : 2019-05-01 「丹波篠山市」へ改称
+     *   愛知県 長久手町   : 2012-01-04 市制施行で「長久手市」
+     *   福岡県 那珂川町   : 2018-10-01 市制施行で「那珂川市」
+     *   千葉県 大網白里町 : 2013-01-01 市制施行で「大網白里市」
+     *   静岡県 新居町     : 2010-03-23 湖西市へ編入。現行住所は「湖西市新居町…」なので
+     *                       street 先頭へ「新居町」を残す
+     *   愛知県 七宝町     : 2010-03-22 美和町・甚目寺町と合併し「あま市」。現行住所は
+     *                       「あま市七宝町…」なので street 先頭へ「七宝町」を残す
+     *   兵庫県 北区       : 神戸市の行政区。city 列に「神戸市」が欠けた行の補正
+     */
+    private const CITY_CORRECTIONS = [
+        '兵庫県|篠山市' => ['city' => '丹波篠山市'],
+        '愛知県|長久手町' => ['city' => '長久手市'],
+        '福岡県|那珂川町' => ['city' => '那珂川市'],
+        '千葉県|大網白里町' => ['city' => '大網白里市'],
+        '静岡県|新居町' => ['city' => '湖西市', 'street_prefix' => '新居町'],
+        '愛知県|七宝町' => ['city' => 'あま市', 'street_prefix' => '七宝町'],
+        '兵庫県|北区' => ['city' => '神戸市北区'],
+    ];
+
+    /**
+     * 廃止された行政区を street(=address) 内で置換する表。キーは「都道府県|city」で、
+     * その city のときだけ適用する。city は変えず address 内の表記だけを直す。
+     * 値は [旧表記 => 新表記]。
+     *
+     * 出典: 奥州市は 2006-02-20 に5市町村が合併して発足し、旧市町村単位の地域自治区
+     * （水沢区・江刺区・前沢区・胆沢区・衣川区）を設けていたが後に廃止され、現行住所は
+     * 区を含まない（例: 岩手県奥州市水沢真城…）。国土地理院 AddressSearch で確認済み。
+     */
+    private const STREET_WARD_REPLACEMENTS = [
+        '岩手県|奥州市' => [
+            '水沢区' => '水沢',
+            '胆沢区' => '胆沢',
+            '衣川区' => '衣川',
+        ],
+    ];
+
     public function __construct(
         private readonly AddressParser $addressParser,
     ) {}
@@ -58,6 +107,10 @@ final class GsiGeocodingService
         } elseif ($cityTail !== null && str_starts_with($address, $cityTail)) {
             $address = ltrim(mb_substr($address, mb_strlen($cityTail)));
         }
+
+        // 廃止・改称された市区町村を現行名へ補正する。クエリ組み立て前に適用し、
+        // 置換後の city は下の needle 算出にもそのまま使われる。表に無い組み合わせは素通り。
+        [$city, $address] = $this->applyMunicipalityCorrections($prefecture, $city, $address);
 
         $query = $prefecture.$city.$address;
 
@@ -158,6 +211,59 @@ final class GsiGeocodingService
 
             return null;
         }
+    }
+
+    /**
+     * 廃止・改称された市区町村を現行名へ補正する。都道府県と city の組み合わせが
+     * 表にあるときだけ適用し、無ければ引数をそのまま返す（他の組み合わせの挙動は変えない）。
+     * 補正したときは後から効果を追えるよう Log::info で記録する。
+     *
+     * @return array{0: string, 1: string} [補正後 city, 補正後 address]
+     */
+    private function applyMunicipalityCorrections(string $prefecture, string $city, string $address): array
+    {
+        // 改称・市制施行・編入（city を置換し、必要なら旧地名を street 先頭へ残す）
+        $key = $prefecture.'|'.$city;
+        if (isset(self::CITY_CORRECTIONS[$key])) {
+            $rule = self::CITY_CORRECTIONS[$key];
+            $newCity = $rule['city'];
+            $prefix = $rule['street_prefix'] ?? '';
+
+            $newAddress = $address;
+            if ($prefix !== '' && ! str_starts_with($newAddress, $prefix)) {
+                $newAddress = $prefix.$newAddress;
+            }
+
+            Log::info('GSI geocoding: 廃止・改称された市区町村を補正', [
+                'prefecture' => $prefecture,
+                'from_city' => $city,
+                'to_city' => $newCity,
+                'street_prefix' => $prefix,
+                'address_before' => $address,
+                'address_after' => $newAddress,
+            ]);
+
+            $city = $newCity;
+            $address = $newAddress;
+        }
+
+        // 廃止された行政区を street 内で置換（city はそのまま）
+        $wardKey = $prefecture.'|'.$city;
+        if (isset(self::STREET_WARD_REPLACEMENTS[$wardKey])) {
+            $replaced = strtr($address, self::STREET_WARD_REPLACEMENTS[$wardKey]);
+            if ($replaced !== $address) {
+                Log::info('GSI geocoding: 廃止された行政区を street で置換', [
+                    'prefecture' => $prefecture,
+                    'city' => $city,
+                    'address_before' => $address,
+                    'address_after' => $replaced,
+                ]);
+
+                $address = $replaced;
+            }
+        }
+
+        return [$city, $address];
     }
 
     /**
