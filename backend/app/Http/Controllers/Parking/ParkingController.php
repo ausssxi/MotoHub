@@ -40,6 +40,11 @@ class ParkingController extends Controller
      */
     public function show(BikeParking $bikeParking): View
     {
+        // 承認制: 非公開（is_active=false）の投稿は直リンクでも閲覧・共有させない。
+        // RentalGarageController::show() が is_active=true で絞って firstOrFail するのと同作法。
+        // 公開中データ（is_active=1）はそのまま通る。
+        abort_if(! $bikeParking->is_active, 404);
+
         $data = $this->parkingService->getParkingDetail($bikeParking->id);
 
         return view('parking.show', $data);
@@ -87,13 +92,14 @@ class ParkingController extends Controller
      */
     public function store(StoreParkingRequest $request): RedirectResponse
     {
-        $parking = $this->parkingService->registerParking(
+        $this->parkingService->registerParking(
             $request->user(),
             $request->validated()
         );
 
-        return redirect()->route('parking.show', $parking)
-            ->with('success', '駐車場を登録しました！');
+        // 承認制（is_active=false で作成）。確認後に公開される旨を投稿フォームで通知する。
+        return redirect()->route('parking.create')
+            ->with('submission_success', '1');
     }
 
     /**

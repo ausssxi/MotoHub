@@ -10,6 +10,7 @@ use Filament\Resources\Resource;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class RentalGarageResource extends Resource
 {
@@ -212,6 +213,14 @@ class RentalGarageResource extends Resource
                 Tables\Filters\SelectFilter::make('garage_type')
                     ->label('タイプ')
                     ->options(self::GARAGE_TYPE_OPTIONS),
+
+                // ユーザー投稿（source=user）でまだ確認していない（is_verified=0）ものだけを抽出。
+                // 承認制にしたユーザー投稿を管理者が拾って確認・公開するための導線。
+                Tables\Filters\Filter::make('unverified_user_submissions')
+                    ->label('ユーザー投稿の未確認')
+                    ->query(fn (Builder $query): Builder => $query
+                        ->where('source', 'user')
+                        ->where('is_verified', false)),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

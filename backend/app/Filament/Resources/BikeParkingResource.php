@@ -10,6 +10,7 @@ use Filament\Resources\Resource;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class BikeParkingResource extends Resource
 {
@@ -255,6 +256,15 @@ class BikeParkingResource extends Resource
 
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label('公開'),
+
+                // ユーザー投稿（user_id あり）でまだ確認していない（is_verified=0）ものだけを抽出。
+                // 承認制にしたユーザー投稿を管理者が拾って確認・公開するための導線。
+                // ※ JMPSA/bikepark インポート分は user_id=NULL のため対象外。
+                Tables\Filters\Filter::make('unverified_user_submissions')
+                    ->label('ユーザー投稿の未確認')
+                    ->query(fn (Builder $query): Builder => $query
+                        ->whereNotNull('user_id')
+                        ->where('is_verified', false)),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

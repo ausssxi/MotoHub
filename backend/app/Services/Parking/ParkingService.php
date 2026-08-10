@@ -130,6 +130,10 @@ final class ParkingService
         $images = $data['images'] ?? [];
         unset($data['images']);
 
+        // 承認制: ユーザー投稿は管理画面で確認するまで非公開（店舗投稿 shop_submissions と同作法）。
+        // bike_parkings.is_active は DB 既定 true のため、ここで明示的に false を上書きする。
+        $data['is_active'] = false;
+
         $parking = $this->parkingRepo->create($user, $data);
 
         // 画像保存

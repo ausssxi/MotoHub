@@ -38,7 +38,13 @@
                     <i data-lucide="square-parking" class="w-5 h-5 text-green-600"></i>
                     バイク駐車場を登録
                 </h1>
-                <p class="text-xs text-gray-500 mb-6">あなたが知っているバイク駐車場の情報を共有しましょう。</p>
+                <p class="text-xs text-gray-500 mb-6">あなたが知っているバイク駐車場の情報を共有しましょう。運営の確認後に公開されます。</p>
+
+                @if(session('submission_success'))
+                <div class="bg-green-50 border border-green-200 text-green-800 text-sm rounded-xl px-4 py-3 mb-6">
+                    ありがとうございます。投稿を受け付けました。運営の確認後に公開されます。
+                </div>
+                @endif
 
                 @if($errors->any())
                 <div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-6">

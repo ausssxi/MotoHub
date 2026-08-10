@@ -151,9 +151,11 @@ final class RentalGarageController extends Controller
                 ->withErrors(['name' => "半径100m以内に「{$dup->name}」が既に登録されています。既存の詳細ページをご確認ください。"]);
         }
 
-        $garage = RentalGarage::create($data + [
+        RentalGarage::create($data + [
             'source' => 'user',
-            'is_active' => true,
+            // 承認制: ユーザー投稿は管理画面で確認するまで非公開（店舗投稿 shop_submissions と同作法）。
+            // 未確認の地図情報が即公開されると、実在しない保管場所へ人を誘導しかねないため。
+            'is_active' => false,
             'is_verified' => false,
             // Leaflet のピン座標なので権威扱い。ジオコーダーで上書きしない（source は geocode 対象外）。
             'geocode_status' => 'source',
@@ -161,16 +163,15 @@ final class RentalGarageController extends Controller
             'source_url' => null, // ユーザー投稿は常に null（unique制約下でも MySQL は複数NULLを許容）
         ]);
 
-        // 投稿者が自分の登録施設を確認できるよう、詳細ページへ着地。
-        return redirect()->route('rental-garage.show', $garage->id)
-            ->with('success', 'レンタルガレージを登録しました！ありがとうございます。');
+        // 確認後に公開される旨を投稿フォームで通知（is_active=false のため詳細ページは404・着地させない）。
+        return $this->registeredRedirect();
     }
 
     private function registeredRedirect(): RedirectResponse
     {
-        // honeypot 破棄時のダミー着地（保存していないので詳細ページは無い）。
-        return redirect()->route('riders.map')
-            ->with('success', 'レンタルガレージを登録しました！ありがとうございます。');
+        // 投稿後の着地。honeypot 破棄時もこれを使い、本物の成功と同じ着地・文言でボットに気取らせない。
+        return redirect()->route('rental-garage.create')
+            ->with('submission_success', '1');
     }
 
     /**
