@@ -8,15 +8,33 @@ use App\Models\Poi;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 
+/**
+ * POIの住所を国土地理院の逆ジオコーディングで埋めるバッチ（毎日4:30）。
+ *
+ * ★Nominatim(OpenStreetMap)フォールバックは 2026-08-10 に完全撤去した。理由:
+ *   1. 利用ポリシー違反: Nominatim の利用ポリシーは「大量データの一括ジオコーディング」を
+ *      明確に禁止している。本バッチは毎日最大5000件を対象に叩いており、これに反していた。
+ *   2. 費用対効果が成立しない: 実測で住所付きPOIは2日間で19件しか増えず(12,805→12,824)、
+ *      その間毎日1万リクエスト規模を投げて成果は1日10件程度だった。
+ *   加えて 2026-08-08 に国土数値情報N03を導入し、都道府県・市区町村は全48,005件を
+ *   APIなしで座標から判定できるようになった(prefecture/city/municipality_code列)。
+ *   Nominatim が担っていたのは番地レベルの住所のみで、上記の通り成果が乏しいため撤去する。
+ *
+ * さらに失敗の再試行を止めるため geocode_failed_at を記録する。GSIが失敗した行には時刻を刻み、
+ * 既定ではその行を翌日以降の対象から外す(--retry-failed で明示的に再挑戦できる)。対象クエリには
+ * orderBy('id') を付け、毎日同じ先頭を舐め続けずに処理が前へ進むようにする。
+ */
 final class GeocodePois extends Command
 {
-    protected $signature = 'poi:geocode {--limit=5000 : 1回の実行で処理する最大件数}';
+    protected $signature = 'poi:geocode
+        {--limit=5000 : 1回の実行で処理する最大件数}
+        {--retry-failed : geocode_failed_at が記録済みの失敗行も対象に含める}
+        {--sleep=1000 : 1件ごとの待機ミリ秒（GSIは公共API）}';
 
-    protected $description = '国土地理院 + Nominatim(フォールバック)でPOIの住所を逆ジ���コーディング';
+    protected $description = '国土地理院でPOIの住所を逆ジオコーディング（失敗は記録し既定では再試行しない）';
 
     private const GSI_GEOCODE_URL = 'https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress';
     private const GSI_MUNI_URL = 'https://maps.gsi.go.jp/js/muni.js';
-    private const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/reverse';
 
     /** @var array<string, string> muniCd => "都道府県市区町村" */
     private array $muniMap = [];
@@ -24,6 +42,7 @@ final class GeocodePois extends Command
     public function handle(): int
     {
         $limit = (int) $this->option('limit');
+        $sleepMs = (int) $this->option('sleep');
 
         // 市区町村コード→名称テーブルを取得
         $this->info('市区町村コードテーブルを取得中...');
@@ -34,9 +53,16 @@ final class GeocodePois extends Command
         $this->info('  ' . count($this->muniMap) . '件の市区町村を読み込み');
 
         // addressがNULLまたは空文字のPOIのみ取得（既存の住所は絶対に上書きし��い）
+        // 既定では失敗記録済み(geocode_failed_at IS NOT NULL)を除外し、毎日同じ失敗行を叩かない。
+        // --retry-failed を付けたときだけ失敗行も対象に含める。
+        // orderBy('id') で毎回同じ先頭を舐めず、未処理の後方へ処理を前進させる。
         $pois = Poi::where(function ($q) {
                 $q->whereNull('address')->orWhere('address', '');
             })
+            ->when(! $this->option('retry-failed'), function ($q) {
+                $q->whereNull('geocode_failed_at');
+            })
+            ->orderBy('id')
             ->limit($limit)
             ->get();
 
@@ -47,7 +73,6 @@ final class GeocodePois extends Command
 
         $this->info("対象: {$pois->count()}件");
         $gsiSuccess = 0;
-        $nominatimSuccess = 0;
         $failed = 0;
 
         foreach ($pois as $poi) {
@@ -56,39 +81,37 @@ final class GeocodePois extends Command
                 continue;
             }
 
-            // 1. 国土地理院APIで試行
+            // 国土地理院APIで試行（Nominatimフォールバックは撤去済み。クラスコメント参照）。
             $address = $this->tryGsi($poi);
 
             if ($address !== null) {
-                $poi->update(['address' => $address]);
+                // 成功。過去に失敗記録があっても住所が取れたのでクリアする。
+                $poi->update(['address' => $address, 'geocode_failed_at' => null]);
                 $gsiSuccess++;
-                $this->logProgress($gsiSuccess + $nominatimSuccess);
-                usleep(200000); // 0.2秒
+                $this->logProgress($gsiSuccess);
+                $this->pause($sleepMs);
                 continue;
             }
 
-            // 2. フォールバック: Nominatim (OpenStreetMap)
-            $address = $this->tryNominatim($poi);
-
-            if ($address !== null) {
-                $poi->update(['address' => $address]);
-                $nominatimSuccess++;
-                $this->logProgress($gsiSuccess + $nominatimSuccess);
-                sleep(1); // Nominatimのレート制限: 1リクエスト/秒
-                continue;
-            }
-
-            // 3. 両方失敗 → スキップ
+            // 失敗 → geocode_failed_at を刻んで既定では翌日以降の対象から外す。
+            $poi->update(['geocode_failed_at' => now()]);
             $this->warn("  [{$poi->id}] 住所取得不可 (座標: {$poi->latitude},{$poi->longitude})");
             $failed++;
-            sleep(1); // Nominatimを呼んだ後なので1秒待機
+            $this->pause($sleepMs);
         }
 
-        $total = $gsiSuccess + $nominatimSuccess;
         $this->newLine();
-        $this->info("完了: 成功 {$total}件 (国土地理院: {$gsiSuccess} / Nominatim: {$nominatimSuccess}) / 失敗 {$failed}件");
+        $this->info("完了: 成功 {$gsiSuccess}件 (国土地理院) / 失敗 {$failed}件");
 
         return self::SUCCESS;
+    }
+
+    /** GSI は公共APIのため1件ごとに待機する（shops:geocode と同作法）。 */
+    private function pause(int $ms): void
+    {
+        if ($ms > 0) {
+            usleep($ms * 1000);
+        }
     }
 
     /**
@@ -126,73 +149,6 @@ final class GeocodePois extends Command
             return $muniName . $lv01Nm;
         } catch (\Exception $e) {
             $this->error("  [{$poi->id}] GSIエラー: {$e->getMessage()}");
-            return null;
-        }
-    }
-
-    /**
-     * Nominatim (OpenStreetMap) の逆ジオコーディングAPIで住所を取得
-     */
-    private function tryNominatim(Poi $poi): ?string
-    {
-        try {
-            $response = Http::timeout(10)
-                ->withHeaders(['User-Agent' => 'MotoHub/1.0 (https://motohub.jp)'])
-                ->get(self::NOMINATIM_URL, [
-                    'lat' => $poi->latitude,
-                    'lon' => $poi->longitude,
-                    'format' => 'json',
-                    'accept-language' => 'ja',
-                ]);
-
-            if (! $response->successful()) {
-                return null;
-            }
-
-            $data = $response->json();
-
-            // display_name から住所を取得（日本語で返される）
-            $displayName = $data['display_name'] ?? null;
-            if (! $displayName) {
-                return null;
-            }
-
-            // Nominatimのdisplay_nameは「番地, 町名, 区, 市, 都道府県, 国」の逆順
-            // address構造体からも組み立て可能
-            $addr = $data['address'] ?? [];
-            $parts = [];
-
-            // 都道府県
-            $pref = $addr['province'] ?? $addr['state'] ?? '';
-            if ($pref) {
-                $parts[] = $pref;
-            }
-
-            // 市区町村
-            $city = $addr['city'] ?? $addr['town'] ?? $addr['village'] ?? $addr['county'] ?? '';
-            if ($city) {
-                $parts[] = $city;
-            }
-
-            // 区（政令指定都市）
-            $suburb = $addr['suburb'] ?? $addr['city_district'] ?? '';
-            if ($suburb && $suburb !== $city) {
-                $parts[] = $suburb;
-            }
-
-            // 町名・番地
-            $neighbourhood = $addr['neighbourhood'] ?? $addr['quarter'] ?? '';
-            if ($neighbourhood) {
-                $parts[] = $neighbourhood;
-            }
-
-            if (empty($parts)) {
-                return null;
-            }
-
-            return implode('', $parts);
-        } catch (\Exception $e) {
-            $this->error("  [{$poi->id}] Nominatimエラー: {$e->getMessage()}");
             return null;
         }
     }

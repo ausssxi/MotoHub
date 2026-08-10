@@ -20,12 +20,14 @@ final class Poi extends Model
         'opening_hours',
         'self_service',
         'automated',
+        'geocode_failed_at',
     ];
 
     protected $casts = [
         'osm_id' => 'integer',
         'latitude' => 'float',
         'longitude' => 'float',
+        'geocode_failed_at' => 'datetime',
     ];
 
     /** POI種別の日本語名（表示名フォールバックの最終段）。 */
