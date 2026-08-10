@@ -230,35 +230,19 @@ final class NormalizeRoadsideNicknames extends Command
     }
 
     /**
-     * 重複判定用のキーを作る。
-     *   - 全角英数記号(U+FF01–FF5E) を半角へ（！→! ｉ→i Ｗ→W （）→() など）
-     *   - 「ヶ」U+30F6 → 「ケ」U+30B1
-     *   - 空白（半角・全角 U+3000）を除去
-     * ※ カタカナの「ケ」U+30B1 はそのまま（ヶ→ケ の一方向のみ変換）。
+     * 重複判定用のキーを作る（全角半角・ヶ／ケ・空白差の吸収）。
+     * 実装は RoadsideStation::normalizationKey に集約（一覧の「愛称=名称」判定と単一実装で共有）。
      */
     private function dedupeKey(string $s): string
     {
-        // 全角英数記号 U+FF01–FF5E → 半角 U+0021–007E（差は 0xFEE0 固定）。
-        $s = preg_replace_callback(
-            '/[\x{FF01}-\x{FF5E}]/u',
-            static fn (array $m): string => mb_chr(mb_ord($m[0]) - 0xFEE0),
-            $s
-        ) ?? $s;
-
-        // 「ヶ」→「ケ」
-        $s = str_replace("\u{30F6}", "\u{30B1}", $s);
-
-        // 空白（半角・全角）を除去
-        $s = preg_replace('/[\s\x{3000}]+/u', '', $s) ?? $s;
-
-        return $s;
+        return RoadsideStation::normalizationKey($s);
     }
 
     /**
-     * name から「道の駅」を除いた判定用の部分文字列を返す。
+     * name から「道の駅」を除いた判定用の部分文字列を返す（RoadsideStation に集約）。
      */
     private function nameCore(string $name): string
     {
-        return trim(str_replace('道の駅', '', $name));
+        return RoadsideStation::nameCore($name);
     }
 }

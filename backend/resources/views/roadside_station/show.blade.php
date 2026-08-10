@@ -109,8 +109,9 @@
                 @if($station->address)
                 <p class="text-xs text-gray-500 mb-1"><i data-lucide="map-pin" class="inline w-3.5 h-3.5"></i> {{ $station->address }}</p>
                 @endif
-                @if($station->route)
-                <p class="text-xs text-gray-500 mb-3"><i data-lucide="milestone" class="inline w-3.5 h-3.5"></i> {{ $station->route }}</p>
+                @if(count($station->route_list) > 0)
+                {{-- route は「国道12号|国道233号」のようなパイプ区切り。route_list で分割し「・」で読みやすく連結。 --}}
+                <p class="text-xs text-gray-500 mb-3"><i data-lucide="milestone" class="inline w-3.5 h-3.5"></i> {{ implode('・', $station->route_list) }}</p>
                 @endif
 
                 {{-- 地図（座標が無ければセクションごと省略） --}}

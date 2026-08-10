@@ -1,3 +1,4 @@
+@use('App\Models\RoadsideStation')
 <x-layout>
     <x-slot:title>{{ $prefecture }}の道の駅一覧（{{ number_format($count) }}駅）｜市区町村別 - MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $prefecture }}の道の駅{{ number_format($count) }}駅を市区町村別に一覧。各駅の地図・アクセス・周辺のガソリンスタンド・コンビニ・洗車場情報を掲載。</x-slot:metaDescription>
@@ -30,14 +31,17 @@
                         @foreach($stations as $s)
                         <li class="py-2">
                             <a href="{{ route('michinoeki.show', $s['station_code']) }}" class="text-sm text-purple-700 font-bold hover:underline">{{ $s['name'] }}</a>
-                            @if($s['nickname'])
+                            {{-- 愛称が名称（「道の駅」除去後）と表記ゆれ違いだけの実質同一なら出さない（半角i/全角ｉ・ヶ/ケ 等）。 --}}
+                            @if($s['nickname'] && ! RoadsideStation::nicknameMatchesName($s['nickname'], $s['name']))
                             <span class="text-[11px] text-gray-400 ml-1">{{ $s['nickname'] }}</span>
                             @endif
                             @if($s['address'])
                             <p class="text-[11px] text-gray-500 mt-0.5"><i data-lucide="map-pin" class="inline w-3 h-3"></i> {{ $s['address'] }}</p>
                             @endif
-                            @if($s['route'])
-                            <p class="text-[11px] text-gray-400 mt-0.5"><i data-lucide="milestone" class="inline w-3 h-3"></i> {{ $s['route'] }}</p>
+                            {{-- route は「国道12号|国道233号」のパイプ区切り。分割して「・」で読みやすく連結。 --}}
+                            @php $routeList = RoadsideStation::splitPipeList($s['route']); @endphp
+                            @if(count($routeList) > 0)
+                            <p class="text-[11px] text-gray-400 mt-0.5"><i data-lucide="milestone" class="inline w-3 h-3"></i> {{ implode('・', $routeList) }}</p>
                             @endif
                         </li>
                         @endforeach
