@@ -19,6 +19,15 @@ use Illuminate\Support\Facades\Http;
  *   GSI が「愛知県名古屋市」等の代表点（市役所）に丸まってしまう（多数の重複座標の原因）。
  *   → 本コマンドでは GSI エンドポイントを直接叩き、フル住所をそのまま渡す。加えて title を見て
  *     「市区町村どまりの代表点」を弾く。GsiGeocodingService は他機能が使うため変更しない。
+ *
+ * ★Nominatim(OpenStreetMap)フォールバックは 2026-08-10 に完全撤去した。理由:
+ *   1. 利用ポリシー違反: Nominatim は「大量データの一括ジオコーディング」を明確に禁止している。
+ *      加瀬倉庫の取り込みで701件が座標未設定になっており、このまま流すと違反になる。
+ *   2. 地理院のみで十分: poi:geocode で Nominatim を外し地理院のみにしたところ 220/220 件成功。
+ *      GSI 単独で機能することを実測で確認済み。
+ *   本コマンドは共有 GsiGeocodingService ではなく GSI エンドポイントを直接叩いているため（上記の
+ *   二重前置回避のため）、2026-08-10 の GsiGeocodingService 側改善（政令市の区・ヶ/ケの表記ゆれ・
+ *   郡の省略・廃止/改称自治体の対応表・浜松市の区再編）は直接は反映されない点に留意。
  */
 final class GeocodeRentalGarages extends Command
 {
@@ -29,12 +38,10 @@ final class GeocodeRentalGarages extends Command
         {--limit= : 処理件数上限}
         {--sleep=1000 : 1件ごとの待機ミリ秒（既定1秒）}';
 
-    protected $description = 'rental_garages の住所をジオコーディングし座標を埋める（GSI→Nominatim→切り詰めの順・代表点を弾く）';
+    protected $description = 'rental_garages の住所をジオコーディングし座標を埋める（GSI→切り詰めの順・代表点を弾く）';
 
     private const GSI_ENDPOINT = 'https://msearch.gsi.go.jp/address-search/AddressSearch';
-    private const NOMINATIM_ENDPOINT = 'https://nominatim.openstreetmap.org/search';
     private const GSI_USER_AGENT = 'MotoHubBot/1.0 (+https://motohub.jp/)';
-    private const NOMINATIM_USER_AGENT = 'MotoHub/1.0 (https://motohub.jp; rental garage map)';
 
     // 日本の緯度経度おおよその範囲（範囲外は誤ジオコーディングとして out_of_range 扱い）。
     private const JP_LAT_MIN = 20.0;
@@ -110,20 +117,10 @@ final class GeocodeRentalGarages extends Command
                     $lng = $g['lng'];
                     $status = 'ok';
                 }
-
-                // 段2: GSI が代表点/失敗なら Nominatim にフル住所。番地レベルなら ok。
-                if ($status === null) {
-                    $n = $this->nominatimQuery($full);
-                    usleep(1_100_000); // Nominatim: 1秒1リクエスト厳守
-                    if ($n !== null) {
-                        $lat = $n['lat'];
-                        $lng = $n['lng'];
-                        $status = 'ok';
-                    }
-                }
             }
 
-            // 段3: それでもだめなら市区町村まで切り詰めて GSI。取れたら座標は入れるが approximate。
+            // 段2: それでもだめなら市区町村まで切り詰めて GSI。取れたら座標は入れるが approximate。
+            // （Nominatim フォールバックは撤去済み。クラスコメント参照）
             if ($status === null && $pref !== '' && $garage->city) {
                 $g3 = $this->gsiQuery($pref.(string) $garage->city);
                 if ($g3 !== null) {
@@ -140,7 +137,7 @@ final class GeocodeRentalGarages extends Command
                 $lng = null;
             }
 
-            // 段4: 全部だめなら failed。
+            // 段3: 全部だめなら failed。
             if ($status === null) {
                 $status = 'failed';
             }
@@ -224,45 +221,6 @@ final class GeocodeRentalGarages extends Command
                 'lat' => (float) $coords[1], // GeoJSON は [経度, 緯度]
                 'lng' => (float) $coords[0],
                 'title' => (string) ($features[0]['properties']['title'] ?? ''),
-            ];
-        } catch (\Throwable $e) {
-            return null;
-        }
-    }
-
-    /**
-     * Nominatim にクエリ（GeocodeParkings と同流儀）。番地レベル（house_number か road あり）のときだけ座標を返す。
-     *
-     * @return array{lat: float, lng: float}|null
-     */
-    private function nominatimQuery(string $q): ?array
-    {
-        try {
-            $response = Http::withHeaders(['User-Agent' => self::NOMINATIM_USER_AGENT])
-                ->timeout(10)
-                ->get(self::NOMINATIM_ENDPOINT, [
-                    'format' => 'json',
-                    'q' => $q,
-                    'countrycodes' => 'jp',
-                    'limit' => 1,
-                    'addressdetails' => 1,
-                ]);
-
-            if (! $response->successful() || empty($response->json())) {
-                return null;
-            }
-
-            $result = $response->json()[0];
-            $detail = $result['address'] ?? [];
-
-            // 番地レベル判定: house_number か road（街路）があれば採用。市区町村どまりは不採用。
-            if (! isset($detail['house_number']) && ! isset($detail['road'])) {
-                return null;
-            }
-
-            return [
-                'lat' => (float) $result['lat'],
-                'lng' => (float) $result['lon'],
             ];
         } catch (\Throwable $e) {
             return null;
