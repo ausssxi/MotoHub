@@ -26,6 +26,52 @@ final class Shop extends Model
     public const SOURCE_USER = 'user';
 
     /**
+     * 掲載停止対象の画像配信ホスト（image_url に対する部分一致キーワード）。
+     *
+     * webike-cdn: 権利者・株式会社リバークレイン（ウェビック）より 2026-08-10 付で
+     * 「取得済の画像も含めた掲載の停止」を要請され承諾。Listing::IMAGE_SUPPRESSED_SITE_IDS と同思想で、
+     * DB の値は消さず表示アクセサでのみ隠す。
+     * ※ image_url を消すと display_image_url が local_image_path（先方画像のローカルコピー）を
+     *   出し続け、逆に local_image_path だけ消すと image_url（先方CDN直リンク）が生き残るため、両方同時に抑止する。
+     *
+     * @var array<int, string>
+     */
+    public const SUPPRESSED_IMAGE_HOST_KEYWORDS = ['webike-cdn'];
+
+    /**
+     * ユーザー投稿画像の公開ディレクトリ接頭辞（ShopSubmissionImageService::PUBLIC_DIR と一致）。
+     * この配下のローカル画像は先方由来ではないため、掲載停止でも抑止しない。
+     */
+    private const USER_IMAGE_PATH_PREFIX = 'shop-user/';
+
+    /**
+     * 与えた画像URLが掲載停止ホスト由来か（大文字小文字は無視）。
+     */
+    public static function imageSourceIsSuppressed(?string $url): bool
+    {
+        if ($url === null || $url === '') {
+            return false;
+        }
+        $needle = strtolower($url);
+        foreach (self::SUPPRESSED_IMAGE_HOST_KEYWORDS as $keyword) {
+            if ($keyword !== '' && str_contains($needle, strtolower($keyword))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * この店舗の画像（image_url / local_image_path / display_image_url）を表示上すべて隠すべきか。
+     * ※ アクセサ経由で読むと無限再帰になるため、判定は必ず生値（getRawOriginal）で行う。
+     */
+    public function imagesAreSuppressed(): bool
+    {
+        return self::imageSourceIsSuppressed($this->getRawOriginal('image_url'));
+    }
+
+    /**
      * 店名からチェーンslugを解決する（config/bike.php の pattern/patterns＝チェーン横断ページと同一判定）。
      * 表記ゆれ吸収: 全角→半角・小文字化・空白除去で正規化してから部分一致（REVERSE AUTO/全角SBS 等）。
      * 非チェーン店は null。マップのチェーン別ピン・チェーン横断導線で共用。
@@ -142,6 +188,12 @@ final class Shop extends Model
     {
         return Attribute::make(
             get: function (mixed $value, array $attributes) {
+                // 0. 掲載停止店舗（webike-cdn 由来）は画像なし扱い。1・2 を塞げば結果的に null だが、
+                //    意図を明示するため冒頭で early return する。
+                if (self::imageSourceIsSuppressed($attributes['image_url'] ?? null)) {
+                    return null;
+                }
+
                 // 1. ローカル保存された画像がある場合
                 if (! empty($attributes['local_image_path'])) {
                     // storage/shops/... の形式にして返す
@@ -155,6 +207,42 @@ final class Shop extends Model
 
                 // 3. 画像がない場合
                 return null;
+            },
+        );
+    }
+
+    /**
+     * image_url（外部CDN直リンク）。掲載停止ホスト由来なら null を返し、直リンク表示・直リクエストを止める。
+     * ※ 判定・返却とも $attributes['image_url']（生値）を使い、$this->image_url を参照しない（無限再帰防止）。
+     */
+    protected function imageUrl(): Attribute
+    {
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) {
+                $raw = $attributes['image_url'] ?? null;
+
+                return self::imageSourceIsSuppressed($raw) ? null : $raw;
+            },
+        );
+    }
+
+    /**
+     * local_image_path（ローカル保存画像の相対パス）。掲載停止店舗なら null を返す。
+     * ただし 'shop-user/' 配下はユーザー投稿画像で先方由来ではないため抑止しない
+     *（webike-cdn 店舗にユーザー投稿画像は付かない設計だが、巻き込み事故を防ぐ保険）。
+     * ※ 物理ファイル削除など生値が要る経路は getRawOriginal('local_image_path') を使うこと。
+     */
+    protected function localImagePath(): Attribute
+    {
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) {
+                $raw = $attributes['local_image_path'] ?? null;
+
+                if ($raw !== null && str_starts_with((string) $raw, self::USER_IMAGE_PATH_PREFIX)) {
+                    return $raw;
+                }
+
+                return self::imageSourceIsSuppressed($attributes['image_url'] ?? null) ? null : $raw;
             },
         );
     }
