@@ -117,7 +117,8 @@ final class BikeModel extends Model
                     ->whereNotNull('local_image_paths')
                     ->where('local_image_paths', '!=', '[]')
                     ->orderByDesc('id')
-                    ->first(['id', 'local_image_paths']);
+                    // site_id は掲載停止サイト（Webike）の画像非表示判定に必須（Listing::imagesAreSuppressed）。
+                    ->first(['id', 'site_id', 'local_image_paths']);
 
                 if ($altListing) {
                     $altPaths = is_string($altListing->local_image_paths)

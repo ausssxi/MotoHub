@@ -28,6 +28,29 @@ class Listing extends Model
     ];
 
     /**
+     * 画像を一切表示しないサイトID（sites テーブル: 1=GooBike / 2=BDS / 3=Webike）。
+     *
+     * Webike(=3): 権利者・株式会社リバークレイン（ウェビック）より 2026-08-10 付で
+     * 「許諾は致しかねますので、取得済の画像も含めた掲載の停止をお願いします」との回答を受領。
+     * → 取得済のローカル画像(local_image_paths)も、先方CDN直リンク(image_urls)も表示に一切使わない。
+     *   DB のデータ（image_urls 等）は将来のために残し、表示経路のアクセサでのみ画像なし扱いにする。
+     *   ※ local_image_paths を消すと images アクセサが image_urls(先方CDN直リンク)へフォールバックし、
+     *     閲覧のたびに先方サーバへ直リンク要求が飛ぶ“より悪い”状態になるため、判定は site_id で行う。
+     *
+     * @var array<int, int>
+     */
+    public const IMAGE_SUPPRESSED_SITE_IDS = [3];
+
+    /**
+     * この在庫が「画像掲載停止」対象サイト（Webike 等）のものか。
+     * これが true のとき images / image_urls / local_image_paths は表示上すべて空になる。
+     */
+    public function imagesAreSuppressed(): bool
+    {
+        return in_array((int) $this->site_id, self::IMAGE_SUPPRESSED_SITE_IDS, true);
+    }
+
+    /**
      * conditionカラム('新車'/'中古車')からis_newを算出するアクセサ
      */
     protected function isNew(): Attribute
@@ -89,6 +112,11 @@ class Listing extends Model
     {
         return Attribute::make(
             get: function (mixed $value, array $attributes) {
+                // 掲載停止サイト（Webike 等）は、ローカル画像も先方CDN直リンクも使わず画像なし扱い。
+                // ここで弾かないと local が空のとき image_urls（先方CDN）へフォールバックしてしまう。
+                if ($this->imagesAreSuppressed()) {
+                    return [];
+                }
                 if (! empty($attributes['local_image_paths'])) {
                     $localPaths = json_decode($attributes['local_image_paths'], true);
                     if (is_array($localPaths) && ! empty($localPaths)) {
@@ -102,6 +130,43 @@ class Listing extends Model
                 }
 
                 return [];
+            },
+        );
+    }
+
+    /**
+     * image_urls（先方CDN直リンク配列）。掲載停止サイトは空配列を返し、直リンク表示・直リクエストを止める。
+     * ※ $casts の 'array' より get mutator が優先されるため、$value は生JSON文字列で渡る（自前で decode）。
+     *   掲載停止でない場合は従来のキャスト（null→null / JSON→配列）と同じ結果を返す。
+     * ※ 判定に site_id を使うため、image_urls を表示に使うクエリは site_id も select すること
+     *   （partial select で site_id を落とすと停止判定ができない）。
+     */
+    protected function imageUrls(): Attribute
+    {
+        return Attribute::make(
+            get: function (mixed $value) {
+                if ($this->imagesAreSuppressed()) {
+                    return [];
+                }
+
+                return $value === null ? null : json_decode($value, true);
+            },
+        );
+    }
+
+    /**
+     * local_image_paths（取得済みローカル画像の相対パス配列）。掲載停止サイトは空配列を返す。
+     * ※ 物理ファイルの掃除（PruneLocalListingImages）は表示ポリシーと無関係なので getRawOriginal で生値を読む。
+     */
+    protected function localImagePaths(): Attribute
+    {
+        return Attribute::make(
+            get: function (mixed $value) {
+                if ($this->imagesAreSuppressed()) {
+                    return [];
+                }
+
+                return $value === null ? null : json_decode($value, true);
             },
         );
     }

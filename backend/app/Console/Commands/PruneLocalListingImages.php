@@ -121,7 +121,10 @@ class PruneLocalListingImages extends Command
                     return false; // これ以上チャンクを進めない
                 }
 
-                $paths = $listing->local_image_paths;
+                // 物理ファイルの掃除は表示ポリシー（掲載停止サイトの画像非表示）と無関係。
+                // local_image_paths アクセサは掲載停止サイトで空配列を返すため、ここは生値(DB原本)を読む。
+                $rawPaths = $listing->getRawOriginal('local_image_paths');
+                $paths = is_array($rawPaths) ? $rawPaths : (is_string($rawPaths) ? json_decode($rawPaths, true) : null);
                 if (! is_array($paths) || $paths === []) {
                     continue;
                 }

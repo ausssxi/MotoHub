@@ -214,7 +214,8 @@ final class ListingRepository
     {
         return Listing::query()
             ->select([
-                'id', 'bike_model_id', 'shop_id', 'title', 'total_price',
+                // site_id は掲載停止サイト（Webike）の画像非表示判定に必須（Listing::imagesAreSuppressed）。
+                'id', 'bike_model_id', 'shop_id', 'site_id', 'title', 'total_price',
                 'model_year', 'mileage', 'image_urls', 'created_at', 'bargain_score',
             ])
             ->with(['shop:id,prefecture', 'bikeModel:id,name', 'bikeModel.nationalPriceStat'])
