@@ -407,7 +407,7 @@ Route::prefix('parking/area')->name('parking.area.')->controller(ParkingAreaCont
 
 // 駐車場マップ（要ログイン）
 Route::middleware('auth')->prefix('parking')->name('parking.')->controller(ParkingController::class)->group(function () {
-    Route::post('/', 'store')->name('store');
+    Route::post('/', 'store')->name('store')->middleware('throttle:3,60'); // 同一IP 1時間3件（レンタルガレージ store と同一）
     Route::get('/{bikeParking}/edit', 'edit')->name('edit')->where('bikeParking', '[0-9]+');
     Route::put('/{bikeParking}', 'update')->name('update')->where('bikeParking', '[0-9]+');
 });
