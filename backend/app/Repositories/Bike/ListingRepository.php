@@ -7,6 +7,7 @@ namespace App\Repositories\Bike;
 use App\Models\Listing;
 use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * バイクの出品情報に関する「検索・取得」操作を担当
@@ -25,12 +26,40 @@ final class ListingRepository
         'listings.view_count_today', 'listings.favorite_count',
     ];
 
+    /**
+     * 閲覧数を+1する。
+     *
+     * ロック待ちを1秒で打ち切る。深夜バッチ（listings:compute-capped-sold）が listings を
+     * 広範囲にロックしている間にここへ来ると、既定の innodb_lock_wait_timeout=50秒ぶん
+     * ユーザーを待たせてしまうため（2026-08-04〜08-11 に11件発生）。
+     * カウントは落ちてもよいが、ページ表示を50秒待たせるのは割に合わない。
+     * 1秒で諦めた場合は 1205 が投げられ、呼び出し元（BikeController::show）が握って表示を続ける。
+     *
+     * ※ この設定は「このインクリメントのためだけ」のもの。在庫詳細ページのリクエストでは
+     *   他に書き込みが無いことを確認済み（show() の try 内に increment 以外の書き込みは無し）。
+     * ※ 影響範囲: MySQL接続は永続接続ではない（config/database.php の mysql options に
+     *   PDO::ATTR_PERSISTENT が無く、php-fpm もリクエストごとに接続を張り直す）。よって
+     *   他リクエストへ漏れることはないが、同一リクエスト内の後続クエリへ残らないよう
+     *   finally で DEFAULT（グローバル値）へ戻す。
+     */
     public function incrementViewCount(int $id): void
     {
-        Listing::where('id', $id)->incrementEach([
-            'view_count_total' => 1,
-            'view_count_today' => 1,
-        ]);
+        $isMysql = DB::connection()->getDriverName() === 'mysql';
+
+        if ($isMysql) {
+            DB::statement('SET SESSION innodb_lock_wait_timeout = 1');
+        }
+
+        try {
+            Listing::where('id', $id)->incrementEach([
+                'view_count_total' => 1,
+                'view_count_today' => 1,
+            ]);
+        } finally {
+            if ($isMysql) {
+                DB::statement('SET SESSION innodb_lock_wait_timeout = DEFAULT');
+            }
+        }
     }
 
     public function searchByKeyword(?string $keyword, ?string $prefecture, string $sort, array $filters, int $perPage): Paginator
