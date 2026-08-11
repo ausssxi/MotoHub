@@ -423,13 +423,27 @@ final class BikeController extends Controller
             ], 404);
         }
 
-        try {
-            $isSoldOut = (bool) $listing->is_sold_out;
+        $isSoldOut = (bool) $listing->is_sold_out;
 
-            if (! $isSoldOut) {
+        // 閲覧数のインクリメントはページ表示の本質ではない副作用なので、下の try からは切り離す。
+        // 以前はこの下の try の中にあり、深夜バッチとの行ロック競合で 1205（Lock wait timeout）が
+        // 出ると catch が errors.404 を返していた。2026-08-04〜08-11 の11件は、いずれも
+        // ユーザーが約50秒（innodb_lock_wait_timeout の既定）待たされた末に404を見ている。
+        // カウントは落ちてもよいが、ページは必ず出す。
+        if (! $isSoldOut) {
+            try {
                 $this->bikeService->incrementViewCount($id);
+            } catch (\Throwable $e) {
+                // 「表示に失敗した」と読み違えられないよう、カウンタ更新の失敗だと分かる文言にする
+                // （旧 'Listing show failed' が表示障害と誤解される原因だった）。
+                \Illuminate\Support\Facades\Log::warning('Listing view counter increment failed (表示は継続)', [
+                    'id' => $id,
+                    'error' => $e->getMessage(),
+                ]);
             }
+        }
 
+        try {
             $relatedRaw = $listing->bike_model_id
                 ? $this->bikeService->getRelatedListings($listing->bike_model_id, $listing->id, 8)
                 : collect();
