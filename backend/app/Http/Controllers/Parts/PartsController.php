@@ -5,12 +5,25 @@ namespace App\Http\Controllers\Parts;
 use App\Http\Controllers\Controller;
 use App\Models\BikeModel;
 use App\Services\Parts\PartsCodeExtractor;
+use Illuminate\Http\Client\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class PartsController extends Controller
 {
+    /** 価格比較の取得結果キャッシュTTL（秒） */
+    private const COMPARE_CACHE_TTL = 600;
+
+    /**
+     * 両モールとも取得できなかったときのキャッシュTTL（秒）。
+     * 通常TTLで焼くと一時的なタイムアウトで10分間ずっと空ページになる。かといって
+     * キャッシュしないと相手APIが不調なときにアクセスのたび叩いて追い打ちをかける。
+     * 短めに焼いて、次の1分後の閲覧で再取得されるようにする。
+     */
+    private const COMPARE_CACHE_TTL_ON_FAILURE = 60;
+
     /**
      * キーワード組み立て（共通）
      */
@@ -263,6 +276,48 @@ class PartsController extends Controller
     }
 
     /**
+     * Http::pool の結果から、そのモールのJSONを取り出す。取れなければ null。
+     *
+     * ⚠️ pool は「接続できなかったリクエスト」に対して Response ではなく
+     *    Illuminate\Http\Client\ConnectionException を **返す**（投げない）。
+     *    PendingRequest::makePromise() の otherwise が
+     *      return $exception;
+     *    としているため。したがって isset() だけ確認して ->successful() を呼ぶと
+     *      Call to undefined method Illuminate\Http\Client\ConnectionException::successful()
+     *    で落ちる（本番で発生。cURL error 28 のタイムアウトと同時刻）。
+     *    ここで型を確かめ、Response 以外は「そのモールは結果なし」として扱う。
+     *
+     * 接続失敗を握りつぶさないよう、モール名と理由は必ずログに残す。
+     */
+    private function poolJson(array $responses, string $mall): ?array
+    {
+        $result = $responses[$mall] ?? null;
+
+        if ($result instanceof Response) {
+            if (! $result->successful()) {
+                Log::warning("parts:compare {$mall} がエラー応答を返しました", [
+                    'status' => $result->status(),
+                ]);
+
+                return null;
+            }
+
+            $json = $result->json();
+
+            return is_array($json) ? $json : null;
+        }
+
+        if ($result instanceof \Throwable) {
+            // 接続自体が確立していない（cURL 28 のタイムアウト等）のでレスポンスは存在しない。
+            Log::warning("parts:compare {$mall} へ接続できませんでした", [
+                'error' => $result->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
      * 価格比較ページ（JAN/品番/キーワードで楽天・Yahoo並列取得）
      */
     public function compare(Request $request)
@@ -295,7 +350,9 @@ class PartsController extends Controller
         $displayTitle = $keyword ?: $partnum ?: $jan;
 
         $cacheKey = 'parts_compare_' . md5($searchQuery);
-        $cached = Cache::remember($cacheKey, 600, function () use ($searchQuery) {
+        $cached = Cache::get($cacheKey);
+
+        if ($cached === null) {
             $responses = Http::pool(fn ($pool) => [
                 $pool->as('rakuten')->withHeaders([
                     'Origin' => 'https://motohub.jp', 'Referer' => 'https://motohub.jp', 'User-Agent' => 'MotoHub',
@@ -317,13 +374,20 @@ class PartsController extends Controller
                 ]),
             ]);
 
-            return [
-                'rakuten' => isset($responses['rakuten']) && $responses['rakuten']->successful()
-                    ? $responses['rakuten']->json() : null,
-                'yahoo'   => isset($responses['yahoo']) && $responses['yahoo']->successful()
-                    ? $responses['yahoo']->json() : null,
+            $cached = [
+                'rakuten' => $this->poolJson($responses, 'rakuten'),
+                'yahoo'   => $this->poolJson($responses, 'yahoo'),
             ];
-        });
+
+            // 片方でも取れていれば通常TTL。両方だめなら短いTTLで焼いて早めに再試行する。
+            Cache::put(
+                $cacheKey,
+                $cached,
+                ($cached['rakuten'] !== null || $cached['yahoo'] !== null)
+                    ? self::COMPARE_CACHE_TTL
+                    : self::COMPARE_CACHE_TTL_ON_FAILURE
+            );
+        }
 
         $rakutenItems = $cached['rakuten'] ? $this->formatRakutenItems($cached['rakuten'], withCodes: true) : [];
         $yahooItems   = $cached['yahoo']   ? $this->formatYahooItems($cached['yahoo']) : [];
