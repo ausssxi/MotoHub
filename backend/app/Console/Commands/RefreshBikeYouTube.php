@@ -27,6 +27,9 @@ final class RefreshBikeYouTube extends Command
 
     private bool $quotaExceeded = false;
 
+    /** クォータ超過を検知したときの HTTP ステータス（403 or 429） */
+    private ?int $quotaStatus = null;
+
     public function handle(): int
     {
         $apiKey = config('services.youtube.api_key');
@@ -39,7 +42,11 @@ final class RefreshBikeYouTube extends Command
         $limit = max(1, (int) $this->option('limit'));
         $all = (bool) $this->option('all');
 
-        // 在庫あり車種を人気順。DB動画が無いものだけを対象（人気順で優先）。
+        // DB動画が無い在庫あり車種が対象。対象は定義上 bike_model_videos を持たないので、
+        // 「最後にYouTubeへ問い合わせた日時」は bike_models.youtube_checked_at で持つ。
+        // 未問い合わせ(NULL)が先頭、次に古い順。同着は従来どおり人気順。
+        // これでクォータ超過による打ち切りが起きても、次回の実行が続きから回る。
+        // ※ MySQL / SQLite とも ORDER BY ... ASC は NULL を先頭に並べる。
         $models = BikeModel::query()
             ->with('manufacturer')
             ->whereHas('listings', fn ($q) => $q->active())
@@ -49,6 +56,7 @@ final class RefreshBikeYouTube extends Command
                     ->whereColumn('bike_model_videos.bike_model_id', 'bike_models.id');
             })
             ->withCount(['listings' => fn ($q) => $q->active()])
+            ->orderBy('youtube_checked_at')
             ->orderByDesc('listings_count')
             ->get();
 
@@ -60,11 +68,6 @@ final class RefreshBikeYouTube extends Command
         $skipped = 0;
 
         foreach ($models as $model) {
-            if ($this->quotaExceeded) {
-                $this->warn('クォータ超過のため処理を停止');
-                break;
-            }
-
             if ($done >= $limit) {
                 break;
             }
@@ -77,10 +80,29 @@ final class RefreshBikeYouTube extends Command
 
             $count = $this->fetchForModel($model, $apiKey);
 
+            // クォータ超過後はリクエストを投げても成功しない。ここで打ち切り、
+            // ログは1件ごとではなくこの1行だけ出す。
+            // youtube_checked_at は更新しない（実際には答えを得ていないため、次回も先頭に来る）。
+            if ($this->quotaExceeded) {
+                Log::warning('YouTube APIクォータ超過のため処理を打ち切り (youtube:refresh)', [
+                    'status' => $this->quotaStatus,
+                    'processed' => $done,
+                    'limit' => $limit,
+                    'stopped_at' => $model->name,
+                    'saved' => $saved,
+                ]);
+                $this->warn("クォータ超過（HTTP {$this->quotaStatus}）のため {$done} 件処理した時点で打ち切りました");
+                break;
+            }
+
             if ($count < 0) {
-                // 403等エラー: quotaExceededなら次ループで停止。それ以外は1件消費扱いで継続。
+                // クォータ以外のエラー。1件消費扱いで継続する（従来どおり）。
                 continue;
             }
+
+            // 問い合わせて答えが返った車種にだけ日時を刻む。
+            // updated_at を動かさないよう Query Builder で直接更新する。
+            DB::table('bike_models')->where('id', $model->id)->update(['youtube_checked_at' => now()]);
 
             $done++;
 
@@ -95,6 +117,7 @@ final class RefreshBikeYouTube extends Command
 
         $this->info("完了: 取得試行={$done} 保存動画={$saved}件 動画ゼロ={$empty} skip(空マーカー)={$skipped}");
 
+        // クォータ超過による打ち切りは想定内なので正常終了扱いにする。
         return self::SUCCESS;
     }
 
@@ -114,9 +137,11 @@ final class RefreshBikeYouTube extends Command
                 'key' => $apiKey,
             ]);
 
-            if ($response->status() === 403) {
-                Log::warning('YouTube API クォータ超過 (youtube:refresh)', ['model' => $model->name]);
+            // 403=quotaExceeded / 429=rateLimitExceeded。どちらも以降のリクエストは
+            // 成功しないので打ち切る。ここではログを出さず、打ち切り時に1行だけ出す。
+            if ($response->status() === 403 || $response->status() === 429) {
                 $this->quotaExceeded = true;
+                $this->quotaStatus = $response->status();
 
                 return -1;
             }

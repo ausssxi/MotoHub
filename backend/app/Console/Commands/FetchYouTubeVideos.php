@@ -18,6 +18,9 @@ class FetchYouTubeVideos extends Command
     private int $totalSaved = 0;
     private bool $quotaExceeded = false;
 
+    /** クォータ超過を検知したときの HTTP ステータス（403 or 429） */
+    private ?int $quotaStatus = null;
+
     public function handle(): int
     {
         $apiKey = config('services.youtube.api_key');
@@ -28,7 +31,9 @@ class FetchYouTubeVideos extends Command
 
         $chunk = (int) $this->option('chunk');
 
-        // 動画未取得の車種を優先、次に古い順
+        // 動画未取得の車種を優先、次に最後に更新した日時の古い順。
+        // （MAX(updated_at) は動画が無ければ NULL になり、MySQL/SQLite とも ASC で先頭に来る）
+        // クォータ超過で打ち切られても、次回の実行が続きから回る並びになっている。
         $models = BikeModel::query()
             ->leftJoin('bike_model_videos', 'bike_models.id', '=', 'bike_model_videos.bike_model_id')
             ->select('bike_models.*')
@@ -42,24 +47,38 @@ class FetchYouTubeVideos extends Command
             return self::SUCCESS;
         }
 
-        $this->info("YouTube動画取得を開始（{$models->count()}車種）");
+        $total = $models->count();
+        $this->info("YouTube動画取得を開始（{$total}車種）");
+
+        $processed = 0;
 
         foreach ($models as $i => $model) {
-            if ($this->quotaExceeded) {
-                $this->warn('クォータ超過のため処理を停止');
-                break;
-            }
-
             $num = $i + 1;
             $count = $this->fetchForModel($model, $apiKey);
+            $processed++;
 
             if ($count >= 0) {
-                $this->line("[{$num}/{$models->count()}] {$model->name}: {$count}件取得");
+                $this->line("[{$num}/{$total}] {$model->name}: {$count}件取得");
+            }
+
+            // クォータ超過後はリクエストを投げても成功しない。ここで打ち切り、
+            // ログは1件ごとではなくこの1行だけ出す。
+            if ($this->quotaExceeded) {
+                Log::warning('YouTube APIクォータ超過のため処理を打ち切り (youtube:fetch-videos)', [
+                    'status' => $this->quotaStatus,
+                    'processed' => $processed,
+                    'total' => $total,
+                    'stopped_at' => $model->name,
+                    'saved' => $this->totalSaved,
+                ]);
+                $this->warn("クォータ超過（HTTP {$this->quotaStatus}）のため {$processed}/{$total} 件目で処理を打ち切りました");
+                break;
             }
         }
 
-        $this->info("完了: {$models->count()}車種処理、{$this->totalSaved}件の動画を保存");
+        $this->info("完了: {$processed}/{$total}車種処理、{$this->totalSaved}件の動画を保存");
 
+        // クォータ超過による打ち切りは想定内なので正常終了扱いにする。
         return self::SUCCESS;
     }
 
@@ -79,9 +98,11 @@ class FetchYouTubeVideos extends Command
                 'key' => $apiKey,
             ]);
 
-            if ($response->status() === 403) {
-                Log::warning('YouTube API クォータ超過', ['model' => $model->name]);
+            // 403=quotaExceeded / 429=rateLimitExceeded。どちらも以降のリクエストは
+            // 成功しないので打ち切る。ここではログを出さず、打ち切り時に1行だけ出す。
+            if ($response->status() === 403 || $response->status() === 429) {
                 $this->quotaExceeded = true;
+                $this->quotaStatus = $response->status();
                 return -1;
             }
 
