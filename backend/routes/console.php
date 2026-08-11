@@ -1,8 +1,16 @@
 <?php
 
+use App\Support\ScheduledTaskFailureLog;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
+
+// ↓ ->runInBackground() を付けた3件だけ ->onFailure() を明示している。Laravel は
+//   ScheduleRunCommand で `$event->exitCode != 0 && ! $event->runInBackground` のときしか
+//   ScheduledTaskFailed を投げないため、バックグラウンド実行の失敗は RecordScheduledTaskFailure
+//   （通常のスケジュール用リスナー）では捕捉できず、日次サマリの死角になるため。
+//   onFailure は schedule:finish から Event::finish() 経由で呼ばれ、終了コードが入った状態で走る。
+//   ※ このとき例外オブジェクトは存在しない（単に終了コードが非0なだけ）ので output は null。
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -37,7 +45,8 @@ Schedule::command('blog:generate-sitemap')->dailyAt('03:00');
 // YouTube動画取得（毎日3:00・render pathから分離）
 // DB動画が無い在庫車種を人気順に最大80件/日 = 8,000 units でquota厳守。
 // 旧 youtube:fetch-videos --chunk=50 を置換（render pathがAPIを叩かなくなったため一本化）。
-Schedule::command('youtube:refresh')->dailyAt('03:00')->withoutOverlapping()->runInBackground();
+$youtubeRefresh = Schedule::command('youtube:refresh')->dailyAt('03:00')->withoutOverlapping()->runInBackground();
+$youtubeRefresh->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($youtubeRefresh));
 
 // YouTube動画リフレッシュ（毎週月曜3:30）
 Schedule::command('youtube:refresh-videos --days=30')->weeklyOn(1, '03:30');
@@ -47,11 +56,13 @@ Schedule::command('news:fetch')->hourly();
 
 // 楽天パーツ事前取得（在庫車種を日次ローテーション・render pathから分離）
 // 失効分のみ約800件/日 → 7日TTLで全在庫車種(~4300)をカバー。A案のためwarmとの順序不問。
-Schedule::command('parts:refresh')->dailyAt('02:00')->withoutOverlapping()->runInBackground();
+$partsRefresh = Schedule::command('parts:refresh')->dailyAt('02:00')->withoutOverlapping()->runInBackground();
+$partsRefresh->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($partsRefresh));
 
 // 車種別ニュース事前取得（Google News RSS・render pathから分離）
 // RSSは1コール~2sと軽いので上限大きめ。7日TTLで在庫全車種を日次カバー。
-Schedule::command('news:refresh')->dailyAt('02:30')->withoutOverlapping()->runInBackground();
+$newsRefresh = Schedule::command('news:refresh')->dailyAt('02:30')->withoutOverlapping()->runInBackground();
+$newsRefresh->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($newsRefresh));
 
 // 一括sold_out除外IDの事前計算は bootstrap/app.php の 04:50 に一本化（cache:warm-ranking 05:10 の前）
 
@@ -126,6 +137,11 @@ Schedule::command('poi:geocode')->dailyAt('04:30')->appendOutputTo(storage_path(
 // 定常状態が約7万件・5.6GBになるため、上限を約2GBに抑える30日とする（コマンド既定の90日は据え置き）。
 // 直前の poi:geocode(4:30) と重ならないよう 4:40 に配置（他ジョブとも非衝突の空き枠）。
 Schedule::command('ogp:prune --execute --days=30')->dailyAt('04:40')->appendOutputTo(storage_path('logs/poi.log'));
+
+// 日次異常サマリ通知（毎日8:00 — 前日のスケジュール失敗・ERROR/WARNING・ディスク使用率を1通に）。
+// 「laravel.log に記録はあるが誰も見ない」状態の解消が目的なので、異常が無い日も必ず送る
+// （届かないこと自体を「通知の仕組みが壊れた」サインとして使うため）。
+Schedule::command('ops:daily-report')->dailyAt('08:00')->appendOutputTo(storage_path('logs/ops.log'));
 
 // ディスク使用率チェック（毎日7:00 — backup:monitor 08:00 の前）
 // ディスク100%→全ページ500の再発防止。しきい値超過時のみメール通知。

@@ -8,6 +8,7 @@ use App\Models\Listing;
 use App\Models\MyBike;
 use App\Models\Review; // ★作成したComposerをインポート
 use App\Models\Shop;
+use App\Listeners\RecordScheduledTaskFailure;
 use App\Observers\ListingObserver;
 use App\Observers\MyBikeObserver;
 use App\Observers\ReviewObserver;
@@ -15,8 +16,10 @@ use App\Observers\ShopObserver;
 use App\Services\Bike\ListingSearchService;
 use App\View\Composers\WishlistComposer;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -101,6 +104,12 @@ class AppServiceProvider extends ServiceProvider
         \App\Models\ModelAnswer::observe(\App\Observers\ModelAnswerObserver::class);
         \App\Models\DiscussionThread::observe(\App\Observers\DiscussionThreadObserver::class);
         \App\Models\DiscussionReply::observe(\App\Observers\DiscussionReplyObserver::class);
+
+        // スケジュール失敗をDBへ記録する（ops:daily-report が日次で集計・通知する）。
+        // ログの grep ではなくイベント購読なので、スケジュール登録を1箇所で拾える。
+        // ※ ->runInBackground() の3件にはこのイベントが飛ばないため、routes/console.php 側で
+        //   ->onFailure() を付けて同じ ScheduledTaskFailureLog へ記録している。
+        Event::listen(ScheduledTaskFailed::class, RecordScheduledTaskFailure::class);
 
         Socialite::extend('line', function ($app) {
             $config = $app['config']['services.line'];

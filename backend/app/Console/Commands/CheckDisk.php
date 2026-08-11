@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Support\DiskUsage;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -11,9 +12,8 @@ use Illuminate\Support\Facades\Mail;
 /**
  * ディスク使用率の事前検知（先日のディスク100%→全ページ500の再発防止）。
  *
- * storage_path() を対象に disk_free_space()/disk_total_space() で使用率を算出する。
- * 本番では backend/ がホストの /dev/vda2 上のバインドマウントのため、この値でホストの
- * ディスク逼迫を検知できる。du は 42GB ツリーで数分ハングするため一切使わない（統計値のみ）。
+ * 使用率の算出そのものは App\Support\DiskUsage に切り出した（ops:daily-report と共用。
+ * 二重実装して数字が食い違うのを防ぐため）。取得方法・丸め方は切り出し前と同じ。
  *
  * しきい値以上（または --force）でメール通知。宛先は config('backup.notifications.mail.to')
  * を再利用（BACKUP_NOTIFICATION_EMAIL → CONTACT_ADMIN_EMAIL → info@motohub.jp のフォールバック
@@ -31,17 +31,18 @@ final class CheckDisk extends Command
         $threshold = (int) $this->option('threshold');
         $path = storage_path();
 
-        $total = disk_total_space($path);
-        $free = disk_free_space($path);
+        $usage = DiskUsage::current($path);
 
-        if ($total === false || $free === false || $total <= 0) {
+        if ($usage === null) {
             $this->error("ディスク情報を取得できませんでした: {$path}");
 
             return self::FAILURE;
         }
 
-        $used = $total - $free;
-        $usedPercent = (int) round($used / $total * 100);
+        $total = $usage['total'];
+        $free = $usage['free'];
+        $used = $usage['used'];
+        $usedPercent = $usage['used_percent'];
 
         // 常に人間可読でコンソール出力（手動実行で状態確認できるように）
         $this->info('ディスク使用状況');
@@ -105,16 +106,10 @@ final class CheckDisk extends Command
 
     /**
      * バイト数を人間可読形式（B/KB/MB/GB/TB）に整形する。
+     * 実装は App\Support\DiskUsage と共用（ops:daily-report と表記を揃えるため）。
      */
     private function humanize(float $bytes): string
     {
-        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        $i = 0;
-        while ($bytes >= 1024 && $i < count($units) - 1) {
-            $bytes /= 1024;
-            $i++;
-        }
-
-        return round($bytes, 1).' '.$units[$i];
+        return DiskUsage::humanize($bytes);
     }
 }
