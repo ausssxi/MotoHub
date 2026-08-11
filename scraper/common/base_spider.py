@@ -138,5 +138,15 @@ class BaseBikeSpider(scrapy.Spider):
 
     def closed(self, reason):
         """スパイダー終了時にDB接続を閉じる"""
+        # 店舗コレクターの実行サマリ: 取得元サイトのテスト店を何件弾いたか。
+        # ShopManager を使わないスパイダー（出品・車種収集など）では何も出さない。
+        shop_manager = getattr(self, 'shop_manager', None)
+        if shop_manager is not None:
+            self.logger.info(
+                f"Excluded test shops: {shop_manager.excluded_count} "
+                f"(by identifier: {shop_manager.excluded_by_identifier}, "
+                f"by name: {shop_manager.excluded_by_name})"
+            )
+
         self.db.close()
         self.logger.info(f"Spider closed: {reason}")

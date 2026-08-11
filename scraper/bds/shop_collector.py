@@ -55,7 +55,8 @@ class BdsShopSpider(BaseBikeSpider):
     # ★追加: コンストラクタでShopManagerを初期化
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.shop_manager = ShopManager(self.db)
+        # site_name はテスト店の除外判定（common/shop_exclusions.py）のキーに使う
+        self.shop_manager = ShopManager(self.db, site_name=self.site_name)
 
     def start_requests(self):
         """都道府県ごとにリクエストを開始"""

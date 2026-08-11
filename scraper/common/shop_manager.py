@@ -2,22 +2,60 @@ import re
 import logging
 from sqlalchemy import or_
 from .database import Shop, ShopIdentifier
+from .shop_exclusions import find_exclusion
 from utils import normalize_prefecture
 
 class ShopManager:
     """
     店舗の名寄せ（重複排除）と保存を管理するクラス。
     電話番号や店名・住所を基に、複数サイトにまたがる同一店舗を特定します。
+
+    取得元サイトのテスト店は common/shop_exclusions.py の定義に従いここで弾く
+    （3つの shop_collector が共有する唯一の保存入口なので、1か所で防げる）。
+    site_name は除外判定のキーに使う。省略した場合は識別子による除外が効かず、
+    店名パターンによる除外だけが効く。
     """
-    def __init__(self, db_session):
+    def __init__(self, db_session, site_name=None):
         self.db = db_session
         self.logger = logging.getLogger(__name__)
+        self.site_name = site_name
+        # 実行サマリ用の除外カウンタ
+        self.excluded_by_identifier = 0
+        self.excluded_by_name = 0
+
+    @property
+    def excluded_count(self):
+        """このクロールで除外したテスト店の総数"""
+        return self.excluded_by_identifier + self.excluded_by_name
 
     def get_or_create_shop(self, site_id, site_shop_id, data):
         """
         サイト固有の店舗ID、または電話番号等から既存店舗を特定し、
         必要であれば新規作成・識別子の紐付けを行います。
+
+        取得元サイトのテスト店と判定した場合は、保存も名寄せも行わず None を返します。
+        （呼び出し側は返り値が None のとき画像パイプラインへも渡しません）
         """
+        # 取得元サイトのテスト店を除外する。DBに一切触れる前に判定する。
+        exclusion = find_exclusion(self.site_name, site_shop_id, data.get('name'))
+        if exclusion:
+            if exclusion['rule'] == 'identifier':
+                self.excluded_by_identifier += 1
+            else:
+                self.excluded_by_name += 1
+
+            # 黙って捨てると後から「なぜ無いのか」が追えなくなるので必ず残す。
+            # 店名で弾いた場合も識別子を併記し、除外リストへ追記できるようにする。
+            self.logger.warning(
+                "[shop-excluded] rule=%s site=%s identifier=%s name=%r detail=%s",
+                exclusion['rule'],
+                self.site_name,
+                site_shop_id,
+                data.get('name'),
+                exclusion['detail'],
+            )
+            return None
+
         # 都道府県を正式名称に正規化（重複判定・保存の両方で表記揺れを吸収する）
         data['prefecture'] = normalize_prefecture(data.get('prefecture'))
 
