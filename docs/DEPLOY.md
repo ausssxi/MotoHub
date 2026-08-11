@@ -1,24 +1,56 @@
 # デプロイ運用メモ
 
-## ⚠️ 最初に: `git pull` だけでは Web 側に反映されない
+## ⚠️ 最初に: `git pull` の直後は Web 側の反映に最大2秒の窓がある
 
-app コンテナは **php-fpm** で動いており、fpm のワーカーが OPcache に古いバイトコードを
-保持し続ける。`git pull` した直後は、
+app コンテナは **php-fpm** で動いており、OPcache がバイトコードを保持している。
+ただし本番は `opcache.validate_timestamps=On` / `opcache.revalidate_freq=2` なので、
+**pull したコードは最大2秒で自動的に反映される**（永続的に古いままにはならない）。
 
-- CLI（`php artisan route:list` 等）は**新しいコードを見る**
-- Web（nginx → fpm）は**古いコードのまま動く**
+問題になるのはこの2秒の窓で、その間は
 
-という食い違いが起きる。**pull の後に必ず php-fpm を再読み込みすること。**
+- CLI（`php artisan route:list` 等）は**新しいコードを見る**（`opcache.enable_cli=Off`）
+- Web（nginx → fpm）は**まだ古いコードで動く**
 
-実例（2026-08-11）: 新ルート `rental-garage.area.*` を pull した直後、該当URLが全部 404。
+という食い違いが起きる。**pull 直後に Web を確認すると偽陰性になる。**
+
+### 実測値（2026-08-11・本番 app コンテナ）
+
+次に誰かが疑ったとき測り直さなくて済むよう記録しておく。
+
+```
+opcache.enable              => On
+opcache.enable_cli          => Off
+opcache.validate_timestamps => On
+opcache.revalidate_freq     => 2
+php-fpm master              => PID 1（/proc/1/cmdline で確認）
+kill -USR2 1                => 成功する
+```
+
+確認コマンド:
+
+```bash
+docker compose exec app php -i | grep -E 'opcache\.(enable|enable_cli|validate_timestamps|revalidate_freq)'
+```
+
+### 事例: 2秒の窓を踏んだ偽陰性（2026-08-11）
+
+新ルート `rental-garage.area.*` を pull した**直後**に Web を確認したところ、該当URLが 404。
 さらにフッターが `route('rental-garage.area.index')` を呼ぶため、404ページの描画で
-`Route [rental-garage.area.index] not defined` が laravel.log に大量に記録された。
-ルートキャッシュは存在せず、原因は fpm の OPcache。`docker compose restart app` で解消。
+`Route [rental-garage.area.index] not defined` が laravel.log に記録された
+（窓の間に来たリクエストの分だけ例外が出る）。
+
+このとき `docker compose restart app` で解消したが、**これは「反映されない障害」ではなく
+再検証窓の中で確認してしまった偽陰性**だった。restart までの間に再確認しておらず、
+放置していても自然に解消していた可能性が高い。ルートキャッシュも存在しなかった。
+
+教訓は「反映漏れが起きる」ではなく **「pull 直後の確認結果を信じてはいけない」**。
+明示的に再読み込みしてから確認すれば、この窓を踏まずに済む。
 
 ## 通常のデプロイ手順
 
-リポジトリ直下の **`./deploy.sh`** を本番サーバで実行する。上記の再読み込みを含む一連の手順を
-まとめてある。
+リポジトリ直下の **`./deploy.sh`** を本番サーバで実行する。明示的な再読み込みを含む一連の手順を
+まとめてある。再読み込みは反映漏れを防ぐためではなく、**上の2秒の窓を確実に閉じてから
+スモークテストするため**にある（窓を跨いだ確認で「デプロイ失敗」と誤判断しないようにする）。
 
 ```bash
 cd /var/www/motohub
@@ -53,8 +85,12 @@ curl -s -o /dev/null -w '%{http_code}\n' https://motohub.jp/   # 200 を確認
 
 `kill -USR2 1` は app コンテナの PID 1（= php-fpm master, `CMD ["php-fpm"]`）に
 graceful reload を指示する。処理中のリクエストを落とさずにワーカーを入れ替えられるため、
-`docker compose restart app` より安全。master の PID は次で確認できる
-（このイメージには `ps` が入っていないので `/proc` を見る）。
+`docker compose restart app` より安全。
+
+なお reload を省いても、`validate_timestamps=On` / `revalidate_freq=2` なので2秒待てば反映される。
+reload するのは待ち時間を無くし、直後の `curl` 確認を信頼できるものにするため。
+
+master の PID は次で確認できる（このイメージには `ps` が入っていないので `/proc` を見る）。
 
 ```bash
 docker compose exec app sh -c "tr '\0' ' ' < /proc/1/cmdline; echo"

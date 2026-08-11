@@ -3,16 +3,21 @@
 # MotoHub 汎用デプロイスクリプト（本番サーバの /var/www/motohub で実行する）
 #
 # ■ このスクリプトが存在する理由
-#   git pull だけでは Web 側にコードが反映されない。app コンテナは php-fpm で動いており、
-#   fpm のワーカープロセスが OPcache に古いバイトコードを保持し続けるため。
-#   2026-08-11、新ルート（rental-garage.area.*）を pull した直後に
-#     - CLI（php artisan route:list）には新ルートが出る
-#     - Web は該当URLが全部404、さらにフッターの route() が
-#       「Route [rental-garage.area.index] not defined」を投げて laravel.log を埋めた
-#   という事故が起きた（ルートキャッシュは存在しない＝原因は fpm 側の OPcache）。
-#   docker compose restart app で解消した。同じ理由で、その前の画像抑止デプロイでも
-#   古い出力が1件だけしばらく残っていた。
-#   → 「PHP の再読み込み」を必ず踏むために、手順を実行可能な形にした。
+#   git pull した直後は、Web 側の反映に最大2秒の窓がある。app コンテナは php-fpm で動いており、
+#   OPcache がバイトコードを保持しているため。ただし本番は
+#     opcache.enable=On / opcache.enable_cli=Off
+#     opcache.validate_timestamps=On / opcache.revalidate_freq=2   ← 2026-08-11 実測
+#   なので、放っておいても最大2秒で自動的に反映される（永続的に古いままにはならない）。
+#
+#   問題はこの2秒の窓で、その間は CLI（artisan route:list など）は新しいコードを見るのに
+#   Web はまだ古いコードで動く。つまり pull 直後の確認は偽陰性になる。
+#   2026-08-11、新ルート（rental-garage.area.*）を pull した直後に Web を確認して該当URLが
+#   404 になり、フッターの route() が「Route [rental-garage.area.index] not defined」を投げて
+#   laravel.log に記録された。restart で解消したが、これは反映漏れではなく再検証窓を
+#   踏んだ偽陰性で、待っていれば自然に解消していた（ルートキャッシュも存在しなかった）。
+#
+#   → このスクリプトが明示的に再読み込みするのは「反映漏れを防ぐため」ではなく、
+#     「2秒の窓を確実に閉じてからスモークテストし、デプロイ失敗と誤判断しないため」。
 #
 # ■ やらないこと（意図的に人間に委ねる）
 #   - マイグレーションの自動実行（要否を表示するだけ）
@@ -32,8 +37,8 @@ set -euo pipefail
 # 公開ドメイン経由で確認する（docs/DEPLOY.md の OPcache の項と同じ理由）。
 SMOKE_BASE="${SMOKE_BASE:-https://motohub.jp}"
 
-# スモークテスト対象。今日404になった /rental-garages/area を必ず含める
-# （ルート追加が Web に反映されたかを、事故と同じ経路で確かめる）。
+# スモークテスト対象。2026-08-11 に一時的に404が見えた /rental-garages/area を必ず含める
+# （ルート追加が Web に反映されたかを、当時と同じ経路で確かめる）。
 SMOKE_PATHS=(
     "/"
     "/bikes/search"
@@ -67,7 +72,7 @@ cat <<'EOS'
   3. composer.lock の差分を確認（install はしない・必要なら表示のみ）
   4. 未実行マイグレーションの有無を確認（migrate はしない・表示のみ）
   5. ビューキャッシュの削除
-  6. php-fpm の graceful reload（OPcache を確実に捨てる／404事故の再発防止）
+  6. php-fpm の graceful reload（OPcache の2秒の再検証窓を閉じてから確認するため）
   7. 主要ページのスモークテスト
 
 破壊的な操作（migrate / composer install）は自動実行しません。
@@ -160,10 +165,14 @@ for cache_file in bootstrap/cache/routes-v7.php bootstrap/cache/config.php; do
     fi
 done
 
-# ── 6. php-fpm の再読み込み（今日の事故の再発防止） ──────
-step "[6/7] php-fpm を graceful reload（OPcache を捨てる）"
+# ── 6. php-fpm の再読み込み（偽陰性の防止） ─────────────
+step "[6/7] php-fpm を graceful reload（OPcache の再検証窓を閉じる）"
 # ここが本スクリプトの主目的。
-# app コンテナは CMD ["php-fpm"] なので php-fpm master が PID 1。
+# 本番は validate_timestamps=On / revalidate_freq=2 なので放置でも最大2秒で反映されるが、
+# その窓の中で次のスモークテストを走らせると古いコードに当たって偽陰性になる。
+# 先に明示的に捨てておけば、7の結果をそのまま信用できる。
+#
+# app コンテナは CMD ["php-fpm"] なので php-fpm master が PID 1（2026-08-11 実測）。
 # master に SIGUSR2 を送ると設定を読み直してワーカーを入れ替える（graceful reload）。
 # 処理中のリクエストを落とさずに OPcache を捨てられるため、restart より安全。
 if docker compose exec -T app sh -c 'kill -USR2 1' 2>/dev/null; then
