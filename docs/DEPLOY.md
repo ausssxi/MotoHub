@@ -1,5 +1,68 @@
 # デプロイ運用メモ
 
+## ⚠️ 最初に: `git pull` だけでは Web 側に反映されない
+
+app コンテナは **php-fpm** で動いており、fpm のワーカーが OPcache に古いバイトコードを
+保持し続ける。`git pull` した直後は、
+
+- CLI（`php artisan route:list` 等）は**新しいコードを見る**
+- Web（nginx → fpm）は**古いコードのまま動く**
+
+という食い違いが起きる。**pull の後に必ず php-fpm を再読み込みすること。**
+
+実例（2026-08-11）: 新ルート `rental-garage.area.*` を pull した直後、該当URLが全部 404。
+さらにフッターが `route('rental-garage.area.index')` を呼ぶため、404ページの描画で
+`Route [rental-garage.area.index] not defined` が laravel.log に大量に記録された。
+ルートキャッシュは存在せず、原因は fpm の OPcache。`docker compose restart app` で解消。
+
+## 通常のデプロイ手順
+
+リポジトリ直下の **`./deploy.sh`** を本番サーバで実行する。上記の再読み込みを含む一連の手順を
+まとめてある。
+
+```bash
+cd /var/www/motohub
+./deploy.sh          # 実行内容を表示して確認を求める
+./deploy.sh --yes    # 確認なし（自動化用）
+```
+
+`deploy.sh` がやること:
+
+1. デプロイ前のコミットを記録・表示（切り戻し用）／作業ツリーが汚れていれば中止
+2. `git pull --ff-only`（差分が無ければ何もせず終了）
+3. `composer.lock` の差分確認 — **install はしない。必要ならコマンドを表示するだけ**
+4. 未実行マイグレーションの確認 — **migrate はしない。必要ならコマンドを表示するだけ**
+5. `php artisan view:clear`（このプロジェクトが使っているのはビューキャッシュのみ。
+   `config:cache` / `route:cache` は運用していない）
+6. **php-fpm の graceful reload**（`kill -USR2 1`。失敗時は opcache_reset.php → コンテナ再起動）
+7. 主要ページのスモークテスト（200以外があれば異常終了）
+
+3と4を自動化していないのは意図的。スキーマとパッケージは無人で変更しない。
+
+### 手で行う場合の最小手順
+
+```bash
+cd /var/www/motohub
+git rev-parse HEAD                                   # 切り戻し用に控える
+git pull --ff-only
+docker compose exec app php artisan view:clear
+docker compose exec app sh -c 'kill -USR2 1'         # php-fpm を graceful reload
+sleep 3
+curl -s -o /dev/null -w '%{http_code}\n' https://motohub.jp/   # 200 を確認
+```
+
+`kill -USR2 1` は app コンテナの PID 1（= php-fpm master, `CMD ["php-fpm"]`）に
+graceful reload を指示する。処理中のリクエストを落とさずにワーカーを入れ替えられるため、
+`docker compose restart app` より安全。master の PID は次で確認できる
+（このイメージには `ps` が入っていないので `/proc` を見る）。
+
+```bash
+docker compose exec app sh -c "tr '\0' ' ' < /proc/1/cmdline; echo"
+# => php-fpm: master process (/usr/local/etc/php-fpm.conf)
+```
+
+---
+
 本番: ubuntu@160.16.62.193 / /var/www/motohub / Docker構成（app=php-fpm:9000, web=nginx:80,443）。
 APP_ENV=production / APP_URL=https://motohub.jp。ローカル開発機（WSL, APP_ENV=local, localhost:8080）と混同しないこと。
 
