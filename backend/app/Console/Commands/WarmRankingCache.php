@@ -38,12 +38,14 @@ final class WarmRankingCache extends Command
         $mode = $this->option('full') ? '全件' : 'daily';
         $this->log("キャッシュウォーマー開始（{$mode}）");
 
-        // 主要4ページ
+        // 主要4ページ + CSVダウンロード（downloadCsv も ranking_csv_*_v1_* を内部キャッシュする）
         $mainPages = [
             '/ranking',
             '/ranking/daily',
             '/ranking/weekly',
             '/ranking/monthly',
+            '/ranking/download?period=monthly',
+            '/ranking/download?period=weekly',
         ];
 
         foreach ($mainPages as $path) {

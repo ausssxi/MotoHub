@@ -20,6 +20,20 @@ use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 final class RankingController extends Controller
 {
+    /** CSVペイロードのキャッシュTTL（秒）。ページ側の ranking_*_v6_* と同じ7日。 */
+    private const CSV_CACHE_TTL = 604800;
+
+    /** CSVダウンロードで受け付ける period。これ以外は 404。 */
+    private const CSV_PERIODS = ['monthly', 'weekly'];
+
+    /**
+     * CSVダウンロードで受け付ける最古の年。
+     * 実データ（listings.updated_at）は2026年からだが、過去にさかのぼるリンクを
+     * 誤って404にしないよう余裕を持たせた下限。キャッシュキーの上限本数を
+     * 「(現在年 - 2020 + 1) × 12」に閉じ込めるのが目的。
+     */
+    private const CSV_MIN_YEAR = 2020;
+
     /**
      * メインページ（今月のランキング）
      */
@@ -191,7 +205,12 @@ final class RankingController extends Controller
      */
     public function downloadCsv(Request $request): StreamedResponse
     {
-        $period = $request->input('period', 'monthly');
+        $period = (string) $request->input('period', 'monthly');
+
+        // 未指定は従来どおり monthly。明示された値が許可外なら 404（黙って monthly を返さない）。
+        if (! in_array($period, self::CSV_PERIODS, true)) {
+            abort(404);
+        }
 
         if ($period === 'weekly') {
             $endDate = Carbon::today();
@@ -199,9 +218,23 @@ final class RankingController extends Controller
             $year = $endDate->year;
             $week = (int) $endDate->format('W');
 
-            $baseQuery = fn () => Listing::cappedSold($startDate->copy(), $endDate->copy())->excludeBulkSold();
-            $modelRanking = $this->buildModelRankingWithPrice($baseQuery(), 30);
-            $makerRanking = $this->buildMakerRanking($baseQuery());
+            // ページ側（ranking_weekly_v6_*）と同じ考え方で、CSV用の集計結果だけを7日キャッシュする。
+            // 期間は Carbon::today() 基準で日々ずれるため、キーに終端日を含める。
+            $payload = Cache::remember(
+                "ranking_csv_weekly_v1_{$endDate->toDateString()}",
+                self::CSV_CACHE_TTL,
+                function () use ($startDate, $endDate): array {
+                    $baseQuery = fn () => Listing::cappedSold($startDate->copy(), $endDate->copy())->excludeBulkSold();
+
+                    return [
+                        'modelRanking' => $this->buildModelRankingWithPrice($baseQuery(), 30),
+                        'makerRanking' => $this->buildMakerRanking($baseQuery()),
+                    ];
+                },
+            );
+
+            $modelRanking = $payload['modelRanking'];
+            $makerRanking = $payload['makerRanking'];
 
             $filename = sprintf('motohub-ranking-weekly-%d-w%02d.csv', $year, $week);
             $periodLabel = sprintf('%s〜%s（週間）', $startDate->format('Y年n月j日'), $endDate->format('n月j日'));
@@ -233,17 +266,46 @@ final class RankingController extends Controller
         }
 
         // monthly (default)
-        $year = (int) $request->input('year', Carbon::now()->year);
-        $month = (int) $request->input('month', Carbon::now()->month);
+        $now = Carbon::now();
+        $year = (int) $request->input('year', $now->year);
+        $month = (int) $request->input('month', $now->month);
+
+        // 範囲外は 404。Carbon::create は month=99 を翌年へ繰り上げて通してしまうため、
+        // 素通しにすると任意の年月でキャッシュキーを無限に生やせる（1件3秒の集計付き）。
+        if ($month < 1 || $month > 12 || $year < self::CSV_MIN_YEAR || $year > $now->year) {
+            abort(404);
+        }
+
         $start = Carbon::create($year, $month, 1);
         $end = $start->copy()->endOfMonth();
 
-        $baseQuery = fn () => Listing::cappedSold($start->copy(), $end->copy())->excludeBulkSold();
-        $modelRanking = $this->buildModelRankingWithPrice($baseQuery(), 30);
-        $makerRanking = $this->buildMakerRanking($baseQuery());
-        $displacementRanges = $this->buildDisplacementRanges($baseQuery());
-        $priceRanges = $this->buildPriceRanges($baseQuery());
-        $prefectureRanking = $this->buildPrefectureRanking($baseQuery());
+        // 未到来の月は集計対象が存在しない。キーを増やさないためここで弾く。
+        if ($start->gt($now)) {
+            abort(404);
+        }
+
+        // ページ側（ranking_monthly_v6_*）と同じ考え方で、CSV用の集計結果だけを7日キャッシュする。
+        $payload = Cache::remember(
+            "ranking_csv_monthly_v1_{$year}_{$month}",
+            self::CSV_CACHE_TTL,
+            function () use ($start, $end): array {
+                $baseQuery = fn () => Listing::cappedSold($start->copy(), $end->copy())->excludeBulkSold();
+
+                return [
+                    'modelRanking' => $this->buildModelRankingWithPrice($baseQuery(), 30),
+                    'makerRanking' => $this->buildMakerRanking($baseQuery()),
+                    'displacementRanges' => $this->buildDisplacementRanges($baseQuery()),
+                    'priceRanges' => $this->buildPriceRanges($baseQuery()),
+                    'prefectureRanking' => $this->buildPrefectureRanking($baseQuery()),
+                ];
+            },
+        );
+
+        $modelRanking = $payload['modelRanking'];
+        $makerRanking = $payload['makerRanking'];
+        $displacementRanges = $payload['displacementRanges'];
+        $priceRanges = $payload['priceRanges'];
+        $prefectureRanking = $payload['prefectureRanking'];
 
         $filename = sprintf('motohub-ranking-monthly-%d-%02d.csv', $year, $month);
         $periodLabel = sprintf('%d年%d月（月間）', $year, $month);

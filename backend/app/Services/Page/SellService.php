@@ -8,12 +8,28 @@ use App\Repositories\Bike\ManufacturerRepository;
 use App\Repositories\Bike\BikeModelRepository;
 use App\Services\BuybackPriceCalculator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * 買取査定LPのビジネスロジック
  */
 final class SellService
 {
+    /**
+     * 査定フォームのメーカー一覧キャッシュ。
+     *
+     * 元になるクエリはメーカー1件ごとの相関COUNTサブクエリで、listings に
+     * (manufacturer_id, is_sold_out) の複合インデックスが無いため1回1秒超かかる。
+     * ビューが使うのは id と name だけで、件数は並び順を決めるためだけに使う
+     * （在庫の増減で並びが分単位に変わることはない）ので、1時間の陳腐化は許容できる。
+     *
+     * キャッシュはリポジトリ側ではなくここに置く。リポジトリは汎用の入口で、
+     * 他の呼び出し元が暗黙にキャッシュ済みデータを掴むのを避けるため。
+     */
+    private const FORM_MANUFACTURERS_CACHE_KEY = 'sell_form_manufacturers_v1';
+
+    private const FORM_MANUFACTURERS_CACHE_TTL = 3600;
+
     public function __construct(
         private readonly ManufacturerRepository $manufacturerRepo,
         private readonly BikeModelRepository $modelRepo,
@@ -21,11 +37,19 @@ final class SellService
     ) {}
 
     /**
-     * フォーム用のメーカー一覧を取得（在庫あり・人気順）
+     * フォーム用のメーカー一覧を取得（在庫の多い順・在庫0のメーカーも末尾に残す）。
+     *
+     * 査定フォームは「売りたい人」が使うもので、当サイトの在庫状況とは無関係。
+     * 在庫0のメーカーを落とすと、そのメーカーのバイクを売りたい人が車種を選べない。
+     * そのため在庫0も残す getAllSortedByListingCount() を使う（検索用コンボボックスと同じ方針）。
      */
     public function getManufacturersForForm(): Collection
     {
-        return $this->manufacturerRepo->getAllWithListingCount();
+        return Cache::remember(
+            self::FORM_MANUFACTURERS_CACHE_KEY,
+            self::FORM_MANUFACTURERS_CACHE_TTL,
+            fn () => $this->manufacturerRepo->getAllSortedByListingCount(),
+        );
     }
 
     /**

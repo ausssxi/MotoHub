@@ -493,7 +493,8 @@ Route::middleware('auth')->group(function () {
 // 売れ筋ランキング
 Route::prefix('ranking')->name('ranking.')->controller(RankingController::class)->group(function () {
     Route::get('/', 'index')->name('index');
-    Route::get('/download', 'downloadCsv')->name('download');
+    // キャッシュミス時は重い集計5本が走るため、連打・列挙を抑える（同一IP 1分10回）。
+    Route::get('/download', 'downloadCsv')->name('download')->middleware('throttle:10,1');
     Route::get('/daily/{date?}', 'daily')->name('daily')->where('date', '\d{4}-\d{2}-\d{2}');
     Route::get('/weekly', 'weekly')->name('weekly');
     Route::get('/monthly/{month?}', 'monthly')->name('monthly')->where('month', '\d{4}-\d{1,2}');
