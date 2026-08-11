@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Parking;
 
+use App\Support\MunicipalityCorrections;
 use Illuminate\Support\Facades\DB;
 
 final class AddressParser
@@ -65,16 +66,7 @@ final class AddressParser
      */
     public function parse(string $address): array
     {
-        // === 前処理 ===
-        $address = trim($address);
-        // NFKC正規化（全角英数→半角、不可視文字除去等）
-        if (class_exists(\Normalizer::class)) {
-            $address = \Normalizer::normalize($address, \Normalizer::FORM_KC);
-        }
-        // 郵便番号を除去（〒XXX-XXXX）
-        $address = preg_replace('/^〒[\d０-９]{3}[-ー][\d０-９]{4}[\s　]*/u', '', $address);
-        // 括弧内テキストを除去（「中央市場通り」等の誤マッチ防止）
-        $address = preg_replace('/[（(][^）)]*[）)]/u', '', $address);
+        $address = self::preprocess($address);
 
         $pref = '';
         $rest = $address;
@@ -164,6 +156,83 @@ final class AddressParser
         }
 
         return ['prefecture' => $pref, 'city' => $city];
+    }
+
+    /**
+     * parse() に加えて、廃止・改称・再編された市区町村の補正
+     * （App\Support\MunicipalityCorrections）を適用した結果を返す。
+     *
+     * parse() 自体は変更していない（既存の呼び出し元＝ジオコーディングの A-3 判定・
+     * 各バックフィルの挙動を動かさないため）。補正が要る呼び出し元だけがこちらを使う。
+     *
+     * @return array{prefecture: string, city: string}
+     */
+    public function parseWithCorrections(string $address): array
+    {
+        $parsed = $this->parse($address);
+        if ($parsed['city'] === '') {
+            return $parsed;
+        }
+
+        // street_prefix / street_exceptions は「市区町村より後ろ」を見るので、
+        // parse() と同じ前処理をかけた住所から都道府県・市区町村を取り除いて渡す。
+        $street = self::streetAfterCity(self::preprocess($address), $parsed['prefecture'], $parsed['city']);
+
+        [$city] = MunicipalityCorrections::apply($parsed['prefecture'], $parsed['city'], $street);
+
+        // 補正表のキーは郡を含まない町村名（「愛知県|長久手町」「愛知県|七宝町」など）。
+        // parse() は住所に郡があれば「愛知郡長久手町」と郡付きで返すため直接は当たらない。
+        // 直接一致しなかったときだけ郡を落として同じ表を引き直す（表そのものは増やさない）。
+        if ($city === $parsed['city'] && preg_match('/^(.+?郡)(.+[町村])$/u', $parsed['city'], $m)) {
+            [$withoutCounty] = MunicipalityCorrections::apply($parsed['prefecture'], $m[2], $street);
+            if ($withoutCounty !== $m[2]) {
+                $city = $withoutCounty;
+            }
+        }
+
+        return ['prefecture' => $parsed['prefecture'], 'city' => $city];
+    }
+
+    /**
+     * parse() の前処理（trim / NFKC / 郵便番号除去 / 括弧内除去）。
+     *
+     * 正規化に失敗した場合（不正なUTF-8等で Normalizer が false、preg_replace が null を
+     * 返す場合）は空文字になる。切り出し前の parse() も同じ入力で最終的に
+     * prefecture/city ともに空を返していたため、結果は変わらない。
+     */
+    private static function preprocess(string $address): string
+    {
+        $address = trim($address);
+        // NFKC正規化（全角英数→半角、不可視文字除去等）
+        if (class_exists(\Normalizer::class)) {
+            $address = \Normalizer::normalize($address, \Normalizer::FORM_KC);
+        }
+        // 郵便番号を除去（〒XXX-XXXX）
+        $address = preg_replace('/^〒[\d０-９]{3}[-ー][\d０-９]{4}[\s　]*/u', '', (string) $address);
+        // 括弧内テキストを除去（「中央市場通り」等の誤マッチ防止）
+        $address = preg_replace('/[（(][^）)]*[）)]/u', '', (string) $address);
+
+        return (string) $address;
+    }
+
+    /**
+     * 前処理済み住所から、先頭の都道府県と市区町村を取り除いた残り（街区以下）を返す。
+     * parse() は政令市マップで prefecture を矯正することがあり、住所の先頭と一致しない
+     * 場合があるため、いずれも先頭一致したときだけ取り除く。
+     */
+    private static function streetAfterCity(string $address, string $prefecture, string $city): string
+    {
+        $rest = $address;
+        if ($prefecture !== '' && str_starts_with($rest, $prefecture)) {
+            $rest = mb_substr($rest, mb_strlen($prefecture));
+        }
+        $rest = preg_replace('/^[\s　]+/u', '', $rest) ?? $rest;
+
+        if ($city !== '' && str_starts_with($rest, $city)) {
+            $rest = mb_substr($rest, mb_strlen($city));
+        }
+
+        return preg_replace('/^[\s　]+/u', '', $rest) ?? $rest;
     }
 
     /**
