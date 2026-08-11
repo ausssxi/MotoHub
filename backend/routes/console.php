@@ -110,21 +110,22 @@ Schedule::command('x:post-ranking-image --type=bargains')->weeklyOn(3, '12:00');
 // Schedule::command('x:post-ranking-image --type=displacement')->weeklyOn(0, '10:00');
 
 // POIデータ取得（毎日3:30 — Overpass APIからGS・コンビニ・道の駅）
-Schedule::command('poi:fetch')->dailyAt('03:30');
+// 標準出力を捨てると、どの地方が 504 で失敗したのか事後に追えないため poi.log へ残す。
+Schedule::command('poi:fetch')->dailyAt('03:30')->appendOutputTo(storage_path('logs/poi.log'));
 
 // POI市区町村割り当て（毎日4:10 — poi:fetch(3:30)で増えたPOIに座標→N03ポリゴンから市区町村を付与）。
 // 未割当(municipality_code=NULL)のままだと市区町村まとめページにもサイトマップにも出ない。poi:geocode(4:30)より前に実行すること。
-Schedule::command('pois:assign-municipality --execute')->dailyAt('04:10');
+Schedule::command('pois:assign-municipality --execute')->dailyAt('04:10')->appendOutputTo(storage_path('logs/poi.log'));
 
 // POI住所逆ジオコーディング（毎日4:30 — 5000件ずつ段階処理）
-Schedule::command('poi:geocode')->dailyAt('04:30');
+Schedule::command('poi:geocode')->dailyAt('04:30')->appendOutputTo(storage_path('logs/poi.log'));
 
 // OGP画像キャッシュの掃除（毎日4:40 — 30日より古い ogp/ 配下のキャッシュを削除）。
 // 遅延生成キャッシュなので消えても次アクセスで再生成される。掃除が無く月2GB増だった対策。
 // 保持日数を30日にする理由: 本番実測で ogp は月2.4万件・約2GBのペースで増える。90日保持だと
 // 定常状態が約7万件・5.6GBになるため、上限を約2GBに抑える30日とする（コマンド既定の90日は据え置き）。
 // 直前の poi:geocode(4:30) と重ならないよう 4:40 に配置（他ジョブとも非衝突の空き枠）。
-Schedule::command('ogp:prune --execute --days=30')->dailyAt('04:40');
+Schedule::command('ogp:prune --execute --days=30')->dailyAt('04:40')->appendOutputTo(storage_path('logs/poi.log'));
 
 // ディスク使用率チェック（毎日7:00 — backup:monitor 08:00 の前）
 // ディスク100%→全ページ500の再発防止。しきい値超過時のみメール通知。

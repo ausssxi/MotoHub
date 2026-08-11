@@ -8,12 +8,15 @@ use App\Models\Poi;
 use Illuminate\Console\Command;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 final class FetchPois extends Command
 {
     protected $signature = 'poi:fetch
         {--type= : gas_station, convenience_store, or car_wash}
-        {--region= : 特定の地方のみ実行（例: 中部）。未指定は全地方}';
+        {--region= : 特定の地方のみ実行（例: 中部）。未指定は全地方}
+        {--regions= : 複数の地方をカンマ区切りで指定（例: 関東,中部,近畿）。未指定は全地方}
+        {--retries=4 : 1地方あたりのリトライ回数（待機は 5/15/45/120秒。上限120秒）}';
 
     protected $description = 'Overpass APIからPOIデータ（ガソリンスタンド・コンビニ・道の駅・洗車場）を取得';
 
@@ -23,9 +26,18 @@ final class FetchPois extends Command
         'https://overpass-api.de/api/interpreter',
     ];
 
-    // 地方リクエストの最大リトライ回数と指数バックオフ（秒）。リトライ1/2/3回目の待機に対応。
-    private const MAX_RETRIES = 3;
-    private const RETRY_BACKOFF = [5, 15, 45];
+    // 地方リクエストの既定リトライ回数と指数バックオフ（秒）。リトライ1/2/3/4回目の待機に対応。
+    // 相手は公共の共有APIなので、間隔を短縮する方向へは変更しないこと。
+    // 5回目以降を指定された場合も待機は MAX_BACKOFF_SECONDS で頭打ちにする。
+    private const DEFAULT_RETRIES = 4;
+    private const RETRY_BACKOFF = [5, 15, 45, 120];
+    private const MAX_BACKOFF_SECONDS = 120;
+
+    // 実行時に --retries から決まるリトライ回数。
+    private int $maxRetries = self::DEFAULT_RETRIES;
+
+    // 直近の fetchRegion が null を返した理由（ログ・サマリ用）。
+    private ?string $lastError = null;
 
     // リトライ対象の HTTP ステータス（429 レート制限 / 5xx サーバー過負荷）。
     private const RETRYABLE_STATUSES = [429, 502, 503, 504];
@@ -97,17 +109,13 @@ final class FetchPois extends Command
             }
         }
 
-        // --region: 指定があれば単一地方のみ。不正値は有効な地方名を提示して終了。
-        $regionOption = $this->option('region');
-        if ($regionOption !== null && $regionOption !== '') {
-            if (! isset(self::REGIONS[$regionOption])) {
-                $this->error("不明な地方: {$regionOption}");
-                $this->line('有効な地方名: ' . implode(' / ', array_keys(self::REGIONS)));
-                return self::FAILURE;
-            }
-            $regionsToProcess = [$regionOption => self::REGIONS[$regionOption]];
-        } else {
-            $regionsToProcess = self::REGIONS;
+        $this->maxRetries = max(0, (int) $this->option('retries'));
+
+        // --region（単一） / --regions（カンマ区切り）。どちらも REGIONS のキーと完全一致で照合。
+        // 未指定なら全地方。不正値は有効な地方名を提示して終了。
+        $regionsToProcess = $this->resolveRegions();
+        if ($regionsToProcess === null) {
+            return self::FAILURE;
         }
 
         $totalInserted = 0;
@@ -138,7 +146,16 @@ final class FetchPois extends Command
 
                 if ($elements === null) {
                     // リトライ尽き or リトライ不可エラー（詳細は fetchRegion 内で出力済み）。
-                    $failed[] = ['type' => $type, 'region' => $regionName];
+                    $error = $this->lastError ?? '不明なエラー';
+                    $failed[] = ['type' => $type, 'region' => $regionName, 'error' => $error];
+
+                    // 標準出力は捨てられることがあるので、失敗は必ずログにも残す。
+                    Log::warning('poi:fetch 地方の取得に失敗', [
+                        'region' => $regionName,
+                        'type' => $type,
+                        'error' => $error,
+                        'retries' => $this->maxRetries,
+                    ]);
                 } else {
                     $count = 0;
                     foreach ($elements as $element) {
@@ -185,24 +202,89 @@ final class FetchPois extends Command
             }
         }
 
-        $this->info("完了: 合計 {$totalInserted} 件処理");
         if ($skippedDisinfection > 0) {
             $this->info("除外（車両消毒槽）: {$skippedDisinfection} 件スキップ");
         }
 
-        $this->printSummary($succeeded, $failed);
+        $this->printSummary($succeeded, $failed, $totalInserted);
 
-        return empty($failed) ? self::SUCCESS : self::FAILURE;
+        // Overpass は公共の共有APIで、一部地方の 504 は通常運転の範囲。
+        // 1つでも成功していれば正常終了とし、全滅したときだけ異常終了する
+        // （毎回 exit 1 だと「本当に全滅した回」と区別がつかない）。
+        if (empty($succeeded)) {
+            $this->error('全地方で取得に失敗しました。');
+
+            return self::FAILURE;
+        }
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * --region / --regions を解決する。未指定なら全地方。
+     * 不正な地方名が含まれる場合は有効な名前一覧を表示して null を返す。
+     *
+     * @return array<string, array<int, float|int>>|null
+     */
+    private function resolveRegions(): ?array
+    {
+        /** @var list<string> $names */
+        $names = [];
+
+        $single = (string) ($this->option('region') ?? '');
+        if ($single !== '') {
+            $names[] = $single;
+        }
+
+        $multiple = (string) ($this->option('regions') ?? '');
+        if ($multiple !== '') {
+            foreach (explode(',', $multiple) as $name) {
+                $name = trim($name);
+                if ($name !== '') {
+                    $names[] = $name;
+                }
+            }
+        }
+
+        if ($names === []) {
+            return self::REGIONS;
+        }
+
+        // REGIONS のキーと完全一致で照合する（部分一致・表記ゆれは受け付けない）。
+        $unknown = array_values(array_filter(
+            array_unique($names),
+            static fn (string $name): bool => ! isset(self::REGIONS[$name])
+        ));
+
+        if ($unknown !== []) {
+            $this->error('不明な地方: ' . implode(' / ', $unknown));
+            $this->line('有効な地方名: ' . implode(' / ', array_keys(self::REGIONS)));
+
+            return null;
+        }
+
+        // 指定順ではなく REGIONS の定義順で処理する（従来の全地方実行と同じ順序に揃える）。
+        $selected = [];
+        foreach (self::REGIONS as $name => $bbox) {
+            if (in_array($name, $names, true)) {
+                $selected[$name] = $bbox;
+            }
+        }
+
+        return $selected;
     }
 
     /**
      * Overpass へリクエストし、成功時は elements 配列を返す。
-     * 429 / 5xx / 接続タイムアウトは最大 MAX_RETRIES 回、指数バックオフ＋ミラー切替でリトライ。
+     * 429 / 5xx / 接続タイムアウトは最大 $this->maxRetries 回、指数バックオフ＋ミラー切替でリトライ。
      * 429 以外の 4xx（クエリ構文エラー等）は即失敗（null）。失敗時は null。
+     * 失敗理由は $this->lastError に残し、呼び出し側のログ・サマリで使う。
      */
     private function fetchRegion(string $query, string $regionName): ?array
     {
-        for ($attempt = 0; $attempt <= self::MAX_RETRIES; $attempt++) {
+        $this->lastError = null;
+
+        for ($attempt = 0; $attempt <= $this->maxRetries; $attempt++) {
             $endpoint = $this->nextEndpoint();
 
             try {
@@ -221,40 +303,56 @@ final class FetchPois extends Command
 
                 // 429 以外の 4xx はリトライしない（クエリ構文エラー等はリトライしても無駄）。
                 if ($status >= 400 && $status < 500 && $status !== 429) {
+                    $this->lastError = "HTTP {$status}（リトライ不可）";
                     $this->error("  [{$regionName}] HTTP {$status}（リトライ不可・即失敗）");
                     return null;
                 }
 
                 // リトライ対象外のステータス（想定外の 5xx 等）も失敗扱い。
                 if (! in_array($status, self::RETRYABLE_STATUSES, true)) {
+                    $this->lastError = "HTTP {$status}（想定外のステータス）";
                     $this->error("  [{$regionName}] HTTP {$status}（想定外・失敗）");
                     return null;
                 }
 
-                if ($attempt >= self::MAX_RETRIES) {
-                    $this->error("  [{$regionName}] HTTP {$status}（" . self::MAX_RETRIES . '回リトライ後も失敗）');
+                if ($attempt >= $this->maxRetries) {
+                    $this->lastError = "HTTP {$status}（{$this->maxRetries}回リトライ後も失敗）";
+                    $this->error("  [{$regionName}] HTTP {$status}（{$this->maxRetries}回リトライ後も失敗）");
                     return null;
                 }
 
-                $wait = self::RETRY_BACKOFF[$attempt];
+                $wait = $this->backoffSeconds($attempt);
                 $retryNo = $attempt + 1;
-                $this->warn("  [{$regionName}] {$status} のため{$wait}秒後に再試行（{$retryNo}/" . self::MAX_RETRIES . '）');
+                $this->warn("  [{$regionName}] {$status} のため{$wait}秒後に再試行（{$retryNo}/{$this->maxRetries}）");
                 sleep($wait);
             } catch (ConnectionException $e) {
                 // 接続タイムアウト等 → リトライ対象。
-                if ($attempt >= self::MAX_RETRIES) {
-                    $this->error("  [{$regionName}] 接続失敗（" . self::MAX_RETRIES . "回リトライ後も失敗）: {$e->getMessage()}");
+                if ($attempt >= $this->maxRetries) {
+                    $this->lastError = "接続失敗（{$this->maxRetries}回リトライ後も失敗）: {$e->getMessage()}";
+                    $this->error("  [{$regionName}] 接続失敗（{$this->maxRetries}回リトライ後も失敗）: {$e->getMessage()}");
                     return null;
                 }
 
-                $wait = self::RETRY_BACKOFF[$attempt];
+                $wait = $this->backoffSeconds($attempt);
                 $retryNo = $attempt + 1;
-                $this->warn("  [{$regionName}] 接続タイムアウトのため{$wait}秒後に再試行（{$retryNo}/" . self::MAX_RETRIES . '）');
+                $this->warn("  [{$regionName}] 接続タイムアウトのため{$wait}秒後に再試行（{$retryNo}/{$this->maxRetries}）");
                 sleep($wait);
             }
         }
 
+        $this->lastError ??= 'リトライ上限に到達';
+
         return null;
+    }
+
+    /**
+     * $attempt 回目（0始まり）の失敗後に待つ秒数。5 → 15 → 45 → 120 秒。
+     * 表を超える回数を --retries で指定された場合も 120 秒で頭打ちにする
+     * （公共APIなので、これ以上短くも長くもしない）。
+     */
+    private function backoffSeconds(int $attempt): int
+    {
+        return self::RETRY_BACKOFF[$attempt] ?? self::MAX_BACKOFF_SECONDS;
     }
 
     /**
@@ -271,17 +369,23 @@ final class FetchPois extends Command
     }
 
     /**
-     * 実行サマリ（成功／失敗の地方一覧）を出力。失敗があれば再実行コマンド例も提示。
+     * 実行サマリ（成功／失敗の地方一覧・登録更新件数）を出力。失敗があれば再実行コマンド例も提示。
+     * 件数は「種別×地方」の組で数える（1種別だけ失敗した地方も見落とさないため）。
      *
      * @param  array<int, array{type: string, region: string}>  $succeeded
-     * @param  array<int, array{type: string, region: string}>  $failed
+     * @param  array<int, array{type: string, region: string, error: string}>  $failed
      */
-    private function printSummary(array $succeeded, array $failed): void
+    private function printSummary(array $succeeded, array $failed, int $totalInserted): void
     {
         $this->newLine();
         $this->info('===== 実行サマリ =====');
+        $this->info(sprintf(
+            '成功: %d / 失敗: %d（種別×地方） / 登録更新: %d 件',
+            count($succeeded),
+            count($failed),
+            $totalInserted
+        ));
 
-        $this->info('成功: ' . count($succeeded) . ' 地方');
         foreach ($succeeded as $s) {
             $this->line("  ✓ [{$s['type']}] {$s['region']}");
         }
@@ -290,15 +394,26 @@ final class FetchPois extends Command
             return;
         }
 
-        $this->warn('失敗: ' . count($failed) . ' 地方');
+        $this->newLine();
+        $this->warn('失敗した地方: ' . implode(' / ', array_values(array_unique(
+            array_column($failed, 'region')
+        ))));
+
         foreach ($failed as $f) {
-            $this->line("  ✗ [{$f['type']}] {$f['region']}");
+            $this->line("  ✗ [{$f['type']}] {$f['region']}: {$f['error']}");
+        }
+
+        // 種別ごとに失敗地方をまとめて --regions で再実行できる形にする。
+        $byType = [];
+        foreach ($failed as $f) {
+            $byType[$f['type']][] = $f['region'];
         }
 
         $this->newLine();
         $this->warn('失敗分の再実行コマンド例:');
-        foreach ($failed as $f) {
-            $this->line("  php artisan poi:fetch --type={$f['type']} --region={$f['region']}");
+        foreach ($byType as $type => $regions) {
+            $list = implode(',', array_values(array_unique($regions)));
+            $this->line("  php artisan poi:fetch --type={$type} --regions={$list}");
         }
     }
 
