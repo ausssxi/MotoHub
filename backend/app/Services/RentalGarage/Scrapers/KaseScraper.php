@@ -38,6 +38,14 @@ final class KaseScraper extends AbstractRentalGarageScraper
     /** 市区・駅ページの1ページ表示上限。 */
     private const PAGE_SIZE = 20;
 
+    /**
+     * 詳細ページの「本物件」スペック表にある広さブロックだけに一致する正規表現。
+     * 数値が div.text-base.font-bold に入るのが本物件、strong に入るのが関連物件カード。
+     * 詳細は extractSizeText() のコメント参照。
+     */
+    private const SIZE_PATTERN = '#広さ</div>\s*<div[^>]*>\s*<div class="text-base font-bold">\s*([0-9]+(?:\.[0-9]+)?)\s*</div>\s*<div>帖</div>'
+        .'(?:\s*<div>\s*[〜～~-]\s*</div>\s*<div class="text-base font-bold">\s*([0-9]+(?:\.[0-9]+)?)\s*</div>\s*<div>帖</div>)?#u';
+
     public function key(): string
     {
         return 'kase';
@@ -200,6 +208,9 @@ final class KaseScraper extends AbstractRentalGarageScraper
         $detailUrlList = array_keys($allDetailUrls);
         $emitted = 0;
         $excluded = ['fetch_failed' => 0, 'parse_failed' => 0];
+        // 広さ（size_text）を特定できた件数／できなかった件数。特定できなくても例外にはしない。
+        $sizeFound = 0;
+        $sizeMissing = 0;
 
         $totalExpected = 0;
         foreach ($cityStats as $info) {
@@ -223,6 +234,12 @@ final class KaseScraper extends AbstractRentalGarageScraper
                     $excluded['parse_failed']++;
 
                     continue;
+                }
+
+                if (($row['size_text'] ?? null) !== null) {
+                    $sizeFound++;
+                } else {
+                    $sizeMissing++;
                 }
 
                 yield $row;
@@ -250,6 +267,8 @@ final class KaseScraper extends AbstractRentalGarageScraper
                 'difference' => $totalExpected - count($detailUrlList),
                 'excluded' => array_sum($excluded),
                 'exclusion_reasons' => $excluded,
+                'size_text_found' => $sizeFound,
+                'size_text_missing' => $sizeMissing,
             ]);
         }
     }
@@ -385,12 +404,9 @@ final class KaseScraper extends AbstractRentalGarageScraper
         $feeMin = $this->toIntOrNull($offers['lowPrice'] ?? null);
         $feeMax = $this->toIntOrNull($offers['highPrice'] ?? null);
 
-        // size_text は当面 null。
-        // 実HTML検査の結果、1ページ内に帖の範囲が複数存在し（例 0.7帖～57.6帖 / 1.6帖～8帖 /
-        // 6.5帖～8帖 / 2帖～8帖）、どれが物件固有の値かを現時点で特定できないため。
-        // extractSizeText() は消さず残し、本番の dry-run で実データの並びを確認してから
-        // どの帖範囲を採るか決めて有効化する。
-        $sizeText = null;
+        // size_text は本物件のスペック表からのみ取る（関連物件カードとはマークアップが違う）。
+        // 特定できなければ null のまま。誤った値を入れるより空のほうがよい。
+        $sizeText = $this->extractSizeText($html);
 
         // garage_type は 'container' 固定。
         // 本文からの屋内判定は削除した。理由: 「屋内」は全物件共通の定型文
@@ -448,20 +464,48 @@ final class KaseScraper extends AbstractRentalGarageScraper
     }
 
     /**
-     * 本文から広さ（帖の範囲／単一）を取り出す。例「2帖～8帖」「2.0帖」。取れなければ null。
+     * 詳細ページHTMLから「本物件の」広さを取り出す。例「1.4帖～2.5帖」「2帖」。取れなければ null。
+     *
+     * ■ なぜ本物件だけを取れるのか（2026-08-11 に実HTMLを取得して確認）
+     * 詳細ページには「広さ」ブロックが12箇所ある。内訳は
+     *   1) 本物件のスペック表    … 1箇所
+     *   2) 注意書き（注3「同じ広さで…」）… 1箇所（ラベルではなく地の文）
+     *   3) 同ページ下部の関連物件カード … 8箇所
+     *   4) スクリプト内のデータ  … 2箇所
+     * このうち 1) と 3) はマークアップが明確に異なる。
+     *
+     *   本物件:   広さ</div><div ...><div class="text-base font-bold">1.4</div><div>帖</div>
+     *             <div>～</div><div class="text-base font-bold">2.5</div><div>帖</div>
+     *   関連物件: 広さ</div><div ...><strong>2</strong><span>帖</span>
+     *             <span>～</span><strong>8</strong><span>帖</span>
+     *
+     * 数値が div.text-base.font-bold に入るのは本物件のスペック表だけで、関連物件カードは
+     * strong/span を使う。この違いだけを条件にするため、関連物件の値を誤って拾うことはない。
+     * 実測4ページすべてで、このパターンの一致は「ちょうど1件」だった。
+     *
+     * さらに同じブロックの「料金」行が JSON-LD（SelfStorage.offers の lowPrice/highPrice）と
+     * 一致することも4ページで確認済みで、このブロックがページの主題＝本物件であることを裏づける。
+     *   例) 400438: JSON-LD 7700〜25300円 / 本文の同ブロック 7,700〜25,300円
+     *
+     * 一致が0件（マークアップ変更等）でも2件以上（前提崩れ）でも null を返す。
+     * 関連物件のサイズを本物件の値として保存すると後から誰も気づけないため、
+     * 疑わしいときは必ず空にする。
      */
-    private function extractSizeText(string $bodyText): ?string
+    private function extractSizeText(string $html): ?string
     {
-        // 範囲（「2帖～8帖」。～は U+FF5E/U+301C/U+007E、ハイフンにも対応）を優先。
-        if (preg_match('/[0-9][0-9.]*\s*帖\s*[〜～~\-]\s*[0-9][0-9.]*\s*帖/u', $bodyText, $m)) {
-            return $m[0];
-        }
-        // 単一（「2.0帖」）。
-        if (preg_match('/[0-9][0-9.]*\s*帖/u', $bodyText, $m)) {
-            return $m[0];
+        $count = preg_match_all(self::SIZE_PATTERN, $html, $matches, PREG_SET_ORDER);
+
+        // 0件・複数件・失敗(false)はいずれも「特定できず」。
+        if ($count !== 1) {
+            return null;
         }
 
-        return null;
+        $min = $matches[0][1];
+        $max = $matches[0][2] ?? '';
+
+        // 「1.4帖～2.5帖」形式。～は U+FF5E（RentalGarage::normalizeSizeText の正規形）。
+        // 帖→畳 の変換は RentalGarage::setSizeTextAttribute が保存時に行う。
+        return $max !== '' ? "{$min}帖～{$max}帖" : "{$min}帖";
     }
 
     /**
