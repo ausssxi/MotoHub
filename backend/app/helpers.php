@@ -52,6 +52,40 @@ if (! function_exists('listing_image_url')) {
     }
 }
 
+if (! function_exists('model_image_url')) {
+    /**
+     * 車種画像（models/{shard}/{id}/{index}.{ext}）の相対パスから公開URLを組み立てる
+     * 単一の切替口。listing_image_url() の車種画像版で、作りは意図的に同一。
+     *
+     * DB の bike_models.local_image_path（JSON配列）には "models/..." の相対パスが入る。
+     * 表示側はこの関数だけを通すことで、保存先をローカル(public)⇔R2(r2_images)で
+     * 切り替えられる。切替は config('filesystems.model_image_disk') の1箇所で行う。
+     *
+     *   'public'    → asset('storage/'.$path)（＝従来と完全に同一のURL・既定）
+     *   'r2_images' → https://img.motohub.jp/{path}（R2 Custom Domain）
+     *
+     * 既定は 'public'。未設定なら必ず現状と同一のURL文字列を返す。
+     *
+     * ※ フォールバックは持たない。R2側にファイルが無ければ404になる（listing_image_url と同じ）。
+     *   存在確認を入れると画像1枚ごとにR2へ HEAD が飛び、描画のたびに往復が発生するため。
+     *   切替前にアップロードを完了させ、件数を確認してから .env を変更すること。
+     *
+     * @param  string  $path  "models/..." の相対パス
+     */
+    function model_image_url(string $path): string
+    {
+        $path = ltrim($path, '/');
+
+        if (config('filesystems.model_image_disk', 'public') === 'r2_images') {
+            $base = rtrim((string) config('filesystems.disks.r2_images.url'), '/');
+
+            return $base.'/'.$path;
+        }
+
+        return asset('storage/'.$path);
+    }
+}
+
 if (! function_exists('bike_license_class')) {
     /**
      * 排気量(cc)から、運転に最低限必要な免許区分を1つ返す。

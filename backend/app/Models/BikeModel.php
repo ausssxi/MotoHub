@@ -104,11 +104,9 @@ final class BikeModel extends Model
 
                 // 2. BikeModel自身のローカル画像
                 if (is_array($this->local_image_path) && ! empty($this->local_image_path)) {
-                    $path = ltrim($this->local_image_path[0], '/');
-
-                    // ここは models/ 配下（bike_models.local_image_path）。R2へ移行したのは listings/ 配下だけなので、
-                    // listing_image_url() を通すと r2_images 時に models/ が404になる。据え置きで storage/ 直参照のまま。
-                    return asset('storage/'.$path);
+                    // models/ 配下は model_image_url() が唯一の切替口
+                    // （config('filesystems.model_image_disk') で public / r2_images を切り替える）。
+                    return model_image_url(ltrim($this->local_image_path[0], '/'));
                 }
 
                 // 3. ローカル画像を持つ別のListingを探す

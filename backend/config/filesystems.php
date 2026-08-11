@@ -20,6 +20,11 @@ return [
     // config:cache 済み環境で .env を読まず常に既定値になるため）。
     'listing_image_disk' => env('LISTING_IMAGE_DISK', 'public'),
 
+    // 車種画像（models/...）の参照先ディスク。listing_image_disk と同じ考え方。
+    // 既定は 'public'（現状維持）。R2へアップロードし件数を確認したうえで
+    // .env の MODEL_IMAGE_DISK=r2_images に切り替える。
+    'model_image_disk' => env('MODEL_IMAGE_DISK', 'public'),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks

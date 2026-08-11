@@ -216,7 +216,8 @@
                             $img = is_string($listing->local_image_paths) ? json_decode($listing->local_image_paths, true) : $listing->local_image_paths;
                         @endphp
                         @if(!empty($img) && is_array($img))
-                            <img src="{{ asset('storage/' . ltrim($img[0], '/')) }}" alt="" class="w-full h-full object-cover" loading="lazy">
+                            {{-- 在庫画像はR2へ移行済み。listings:prune-local-images が売却済みのローカル画像を削除するため、storage/ 直参照だと404になる --}}
+                            <img src="{{ listing_image_url(ltrim($img[0], '/')) }}" alt="" class="w-full h-full object-cover" loading="lazy">
                         @endif
                     </div>
                     <div class="p-2">

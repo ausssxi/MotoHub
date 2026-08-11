@@ -306,7 +306,8 @@ final class GenerateRankingNews extends Command
 
         // 1. BikeModel.local_image_path
         if (is_array($model->local_image_path) && !empty($model->local_image_path)) {
-            return asset('storage/' . ltrim($model->local_image_path[0], '/'));
+            // models/ は model_image_url() を通す（public / r2_images の切替口）
+            return model_image_url(ltrim($model->local_image_path[0], '/'));
         }
 
         // 2. BikeModel.image_url アクセサ

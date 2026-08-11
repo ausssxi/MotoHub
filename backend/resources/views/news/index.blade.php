@@ -47,13 +47,14 @@
             </a>
             @foreach($modelTabs as $mt)
             @php
+                // models/ は model_image_url() を通す（public / r2_images の切替口）
                 $mtImg = null;
                 if (is_array($mt->local_image_path) && !empty($mt->local_image_path)) {
-                    $mtImg = asset('storage/' . ltrim($mt->local_image_path[0], '/'));
+                    $mtImg = model_image_url(ltrim($mt->local_image_path[0], '/'));
                 } elseif (is_string($mt->local_image_path)) {
                     $decoded = json_decode($mt->local_image_path, true);
                     if (!empty($decoded) && is_array($decoded)) {
-                        $mtImg = asset('storage/' . ltrim($decoded[0], '/'));
+                        $mtImg = model_image_url(ltrim($decoded[0], '/'));
                     }
                 }
             @endphp
