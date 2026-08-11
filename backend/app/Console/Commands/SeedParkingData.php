@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\BikeParking;
+use App\Services\GsiGeocodingService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
 
 class SeedParkingData extends Command
 {
     protected $signature = 'parking:seed {--dry-run : 実際には保存しない}';
     protected $description = '主要都市のバイク駐車場の初期データを投入します';
 
-    public function handle(): void
+    // forward ジオコーディングは国土地理院(GSI)のみを使う（Nominatim/OSM/Google は規約違反のため禁止）。
+    public function handle(GsiGeocodingService $geocoder): void
     {
         $dryRun = $this->option('dry-run');
 
@@ -31,8 +32,12 @@ class SeedParkingData extends Command
         $failCount = 0;
 
         foreach ($parkings as $data) {
-            // 住所から座標を取得
-            $coords = $this->geocode($data['address']);
+            // 住所から座標を取得（国土地理院・GsiGeocodingService 経由。prefecture/city/address はデータに同梱）。
+            $coords = $geocoder->geocode(
+                (string) ($data['prefecture'] ?? ''),
+                (string) ($data['city'] ?? ''),
+                (string) $data['address']
+            );
             if (!$coords) {
                 $this->newLine();
                 $this->warn("座標取得失敗: {$data['name']} ({$data['address']})");
@@ -42,7 +47,7 @@ class SeedParkingData extends Command
             }
 
             $data['latitude'] = $coords['lat'];
-            $data['longitude'] = $coords['lon'];
+            $data['longitude'] = $coords['lng'];
 
             if (!$dryRun) {
                 BikeParking::updateOrCreate(
@@ -52,38 +57,13 @@ class SeedParkingData extends Command
             }
 
             $successCount++;
-            usleep(1100000); // Nominatim利用規約: 1秒1リクエスト
+            usleep(1000000); // GSIは公共API: 1件ごとに1秒待機
             $bar->advance();
         }
 
         $bar->finish();
         $this->newLine();
         $this->info("完了！ (成功: {$successCount}件 / 失敗: {$failCount}件)");
-    }
-
-    private function geocode(string $address): ?array
-    {
-        try {
-            $response = Http::withHeaders(['User-Agent' => 'MotoHub/1.0'])
-                ->get('https://nominatim.openstreetmap.org/search', [
-                    'format' => 'json',
-                    'q' => $address,
-                    'countrycodes' => 'jp',
-                    'limit' => 1,
-                ]);
-
-            if ($response->successful() && !empty($response->json())) {
-                $result = $response->json()[0];
-                return [
-                    'lat' => (float) $result['lat'],
-                    'lon' => (float) $result['lon'],
-                ];
-            }
-        } catch (\Exception $e) {
-            $this->error("Geocode API error: {$e->getMessage()}");
-        }
-
-        return null;
     }
 
     private function getParkingData(): array

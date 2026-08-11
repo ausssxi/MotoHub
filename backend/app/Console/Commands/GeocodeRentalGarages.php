@@ -20,6 +20,15 @@ use Illuminate\Support\Facades\Http;
  *   → 本コマンドでは GSI エンドポイントを直接叩き、フル住所をそのまま渡す。加えて title を見て
  *     「市区町村どまりの代表点」を弾く。GsiGeocodingService は他機能が使うため変更しない。
  *
+ * ★なぜ GsiGeocodingService を経由しないか（将来「統一」しないための注意・2026-08-11 追記）:
+ *   1. forward は GSI のみという要件は充足済み。本コマンドは GsiGeocodingService と同一の GSI
+ *      エンドポイント（msearch.gsi.go.jp/AddressSearch）を叩いており、Nominatim/OSM/Google は不使用。
+ *   2. サービスへ委譲すると isRepresentativeTitle 相当の代表点棄却が失われる。GsiGeocodingService の
+ *      ガードは「title が県名のみ」しか弾かず、「愛知県名古屋市」等の市区中心 title（city名を含む）は
+ *      通すため、番地未解決時に市区中心座標が ok として保存される（＝もっともらしく間違った座標）。
+ *   3. 段2の 'approximate'（pref+city で市区中心を意図的に取得）は、city レベルのクエリを棄却する
+ *      GsiGeocodingService の設計と非互換。
+ *
  * ★Nominatim(OpenStreetMap)フォールバックは 2026-08-10 に完全撤去した。理由:
  *   1. 利用ポリシー違反: Nominatim は「大量データの一括ジオコーディング」を明確に禁止している。
  *      加瀬倉庫の取り込みで701件が座標未設定になっており、このまま流すと違反になる。

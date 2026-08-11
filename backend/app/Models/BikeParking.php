@@ -49,6 +49,7 @@ final class BikeParking extends Model
         'is_verified',
         'is_active',
         'station_id',
+        'geocode_failed_at',
     ];
 
     protected $casts = [
@@ -69,6 +70,7 @@ final class BikeParking extends Model
         'used_count' => 'integer',
         'is_verified' => 'boolean',
         'is_active' => 'boolean',
+        'geocode_failed_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

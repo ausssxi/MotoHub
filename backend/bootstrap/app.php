@@ -77,7 +77,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('parking:import-jmpsa')->weeklyOn(2, '01:30')->withoutOverlapping()->appendOutputTo($parkingLog);
         $schedule->command('parking:enrich-bikepark')->weeklyOn(2, '02:00')->withoutOverlapping()->appendOutputTo($parkingLog);
         $schedule->command('parking:enrich-jmpsa')->weeklyOn(2, '02:30')->withoutOverlapping()->appendOutputTo($parkingLog);
-        $schedule->command('parking:geocode')->weeklyOn(2, '03:00')->withoutOverlapping()->appendOutputTo($parkingLog);
+        // parking:geocode の既定 --limit=5000 は手動実行用。週次では 03:30 の shops:geocode と
+        // 重ならないよう --limit=1000 を明示（1秒間隔で最大約17分・03:30 前に完了）。
+        $schedule->command('parking:geocode --limit=1000')->weeklyOn(2, '03:00')->withoutOverlapping()->appendOutputTo($parkingLog);
         $schedule->command('shops:geocode')->weeklyOn(2, '03:30')->withoutOverlapping()->appendOutputTo($parkingLog);
 
         /**
