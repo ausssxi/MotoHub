@@ -11,30 +11,20 @@ use Symfony\Component\DomCrawler\Crawler;
 /**
  * 加瀬倉庫「レンタルボックス」（kase3535.com）スクレイパー。
  *
+ * ■ 設計方針（2026-08 実測に基づく）
+ * - /type/bike/ カテゴリページ起点でバイク収納可の絞り込みを維持する。
+ * - 市区ページのページ送りは機能しないため（1ページ20件で頭打ち）、
+ *   不足がある都道府県は sitemap 上の駅ページで補完する。
+ *
  * robots.txt は Allow: /（禁止は /favorite/ /history/ /search/ *.pdf /api/ のみ、2026-08 確認）。
- * よって /search/ は使わず、/type/bike/ 配下（バイク収納）だけを辿る。
  *
- * ■ sitemap を起点にする理由（2026-08 実測）
- *   都道府県ページ /type/bike/{県}/ の2ページ目以降（?page 相当）は、件数表示（「全146件」
- *   「21-40」）は正しく出るのに物件カードが描画されず「物件が見つかりませんでした」になる
- *   （加瀬側サイトの不具合でこちらでは回避不可）。そのため都道府県ページのページ送りでは
- *   各県20件で頭打ちになり取りこぼす。一方、市区町村ページ /type/bike/{県}/{市区町村}/ は
- *   正常に描画され、それらは sitemap.xml に173件すべて載っている。よって都道府県ページ＋
- *   ページ送りをやめ、sitemap から市区町村ページを列挙して辿る方式に変更した。
- *
- * 導線（2026-08 時点で本番確認）:
- *   - サイトマップ: https://www.kase3535.com/sitemap.xml
- *       バイク収納の市区町村ページ ^https://www\.kase3535\.com/type/bike/[a-z]+/[a-z]+/$
- *       （173件想定）だけを抽出する。sitemap にはバイク収納以外の物件URL(約1,916件)も
- *       含まれるが、それらは使わない（「バイク収納可」の絞り込みが失われるため）。
- *   - 市区町村ページ: /type/bike/{県}/{市区町村}/（正常描画・ページ送り無し）
- *       物件詳細URLは href のパスが正規表現 ^/[a-z]+/[a-z]+/[0-9]+/$ に一致するものとして現れる。
- *   - 物件詳細: /{都道府県スラッグ}/{市区町村スラッグ}/{数字ID}/
- *       JSON-LD（SelfStorage / Product）が埋め込まれている:
- *         SelfStorage: name / url / address(addressRegion, addressLocality)
- *                      / offers(AggregateOffer: lowPrice, highPrice)
- *         Product:     name / description（「{住所}の収納スペース。料金: …」）/ image
- *       広さは本文に「2帖～8帖」の形（帖の範囲）で入る。
+ * 導線:
+ *   - sitemap: https://www.kase3535.com/sitemap.xml
+ *       市区町村ページ /type/bike/{県}/{市区}/ と
+ *       駅ページ /type/bike/{県}/{駅}-station/ を抽出する。
+ *   - 市区町村ページ: 物件カード最大20件。総件数は HTML 内「全<!---->N<!---->件」で判定。
+ *   - 駅ページ: 不足のある都道府県でのみ取得。同じく最大20件。
+ *   - 物件詳細: /{県スラッグ}/{市区スラッグ}/{数字ID}/ — JSON-LD（SelfStorage / Product）。
  *
  * 取得HTMLはすべて Http でメモリ上に取り込むだけで、リポジトリにはファイルを書き出さない
  * （デバッグ用のHTMLダンプが要る場合も /tmp に置き、リポジトリへはコミットしないこと）。
@@ -45,10 +35,7 @@ final class KaseScraper extends AbstractRentalGarageScraper
     private const SITEMAP_URL = self::BASE.'/sitemap.xml';
     private const OPERATOR = '加瀬倉庫';
 
-    /**
-     * 市区町村ページの1ページ表示上限。ちょうどこの件数が取れた場合は、機能していない
-     * ページ送りで残りを取りこぼしている可能性があるため警告ログを出す（後追い用）。
-     */
+    /** 市区・駅ページの1ページ表示上限。 */
     private const PAGE_SIZE = 20;
 
     public function key(): string
@@ -73,65 +60,203 @@ final class KaseScraper extends AbstractRentalGarageScraper
     {
         $sitemap = $this->get(self::SITEMAP_URL);
         if ($sitemap === null) {
-            return; // sitemap が取れなければ何も出さない
+            Log::warning('KaseScraper: sitemap の取得に失敗');
+
+            return;
         }
 
         $cityUrls = $this->extractCityUrlsFromSitemap($sitemap);
         if ($cityUrls === []) {
+            Log::warning('KaseScraper: sitemap に市区町村ページが0件');
+
             return;
         }
 
-        $emitted = 0;
-        $seenDetail = []; // 詳細URLの重複取得を防ぐ（市区町村をまたいだ重複も含む）
+        // ── Phase 1: 市区ページから物件詳細URLを収集 ──
+        Log::info('KaseScraper: 市区ページ取得開始', ['count' => count($cityUrls)]);
+
+        $allDetailUrls = [];     // url => true（重複排除用）
+        $shortageByPref = [];    // prefSlug => true
+        $cityStats = [];         // "pref/city" => [total, fetched, shortage]
+        $cityPageCount = 0;
 
         foreach ($cityUrls as $cityUrl) {
-            $this->throttle(); // 市区町村ページ取得前に3秒
+            $this->throttle();
             $html = $this->get($cityUrl);
             if ($html === null) {
-                continue; // この市区町村は飛ばす（他は続行）
+                continue;
             }
+            $cityPageCount++;
+
+            if (! preg_match('#/type/bike/([a-z]+)/([a-z]+)/$#', $cityUrl, $m)) {
+                continue;
+            }
+            $prefSlug = $m[1];
+            $citySlug = $m[2];
 
             $detailUrls = $this->extractDetailUrls($html);
+            $totalCount = $this->extractTotalCount($html);
 
-            // 20件ちょうど＝機能していないページ送りで残りを取りこぼしている可能性。
-            // 後から手当てできるよう、市区町村URLと件数を残す。
-            if (count($detailUrls) === self::PAGE_SIZE) {
-                Log::warning('KaseScraper: 市区町村ページが20件ちょうど。ページ送り取りこぼしの可能性', [
-                    'city_url' => $cityUrl,
-                    'count' => count($detailUrls),
-                ]);
+            foreach ($detailUrls as $url) {
+                $allDetailUrls[$url] = true;
             }
 
-            foreach ($detailUrls as $detailUrl) {
-                if (isset($seenDetail[$detailUrl])) {
-                    continue;
-                }
-                $seenDetail[$detailUrl] = true;
+            $fetched = count($detailUrls);
+            $shortage = ($totalCount !== null && $totalCount > $fetched)
+                ? $totalCount - $fetched
+                : 0;
 
-                $this->throttle(); // 詳細ページ取得前に3秒
+            $cityStats["{$prefSlug}/{$citySlug}"] = [
+                'total' => $totalCount,
+                'fetched' => $fetched,
+                'shortage' => $shortage,
+            ];
+
+            if ($shortage > 0) {
+                $shortageByPref[$prefSlug] = true;
+                Log::info('KaseScraper: 不足検知', [
+                    'city_url' => $cityUrl,
+                    'total' => $totalCount,
+                    'fetched' => $fetched,
+                    'shortage' => $shortage,
+                ]);
+            }
+        }
+
+        Log::info('KaseScraper: 市区ページ取得完了', [
+            'city_pages' => $cityPageCount,
+            'detail_urls_so_far' => count($allDetailUrls),
+            'prefs_with_shortage' => array_keys($shortageByPref),
+        ]);
+
+        // ── Phase 2: 不足のある都道府県の駅ページで補完 ──
+        $stationPageCount = 0;
+
+        if ($shortageByPref !== []) {
+            $stationUrlsByPref = $this->extractStationUrlsFromSitemap($sitemap);
+
+            foreach (array_keys($shortageByPref) as $prefSlug) {
+                $stationUrls = $stationUrlsByPref[$prefSlug] ?? [];
+                Log::info("KaseScraper: 駅ページ補完開始 [{$prefSlug}]", [
+                    'station_pages' => count($stationUrls),
+                ]);
+
+                foreach ($stationUrls as $stationUrl) {
+                    $this->throttle();
+                    $html = $this->get($stationUrl);
+                    if ($html === null) {
+                        continue;
+                    }
+                    $stationPageCount++;
+
+                    $stationTotal = $this->extractTotalCount($html);
+                    if ($stationTotal !== null && $stationTotal > self::PAGE_SIZE) {
+                        Log::warning('KaseScraper: 駅ページが20件超。取りこぼしの可能性', [
+                            'station_url' => $stationUrl,
+                            'total' => $stationTotal,
+                        ]);
+                    }
+
+                    $stationDetailUrls = $this->extractDetailUrls($html);
+                    foreach ($stationDetailUrls as $url) {
+                        $allDetailUrls[$url] = true;
+                    }
+                }
+            }
+
+            Log::info('KaseScraper: 駅ページ補完完了', [
+                'station_pages' => $stationPageCount,
+                'detail_urls_total' => count($allDetailUrls),
+            ]);
+        }
+
+        // ── 補完後の不足チェック ──
+        $fetchedByCity = [];
+        foreach (array_keys($allDetailUrls) as $url) {
+            $path = parse_url($url, PHP_URL_PATH);
+            if ($path !== null && preg_match('#^/([a-z]+)/([a-z]+)/[0-9]+/$#', $path, $pm)) {
+                $key = "{$pm[1]}/{$pm[2]}";
+                $fetchedByCity[$key] = ($fetchedByCity[$key] ?? 0) + 1;
+            }
+        }
+
+        foreach ($cityStats as $key => $info) {
+            if ($info['shortage'] <= 0) {
+                continue;
+            }
+            $newFetched = $fetchedByCity[$key] ?? $info['fetched'];
+            $remaining = ($info['total'] !== null) ? max(0, $info['total'] - $newFetched) : 0;
+            if ($remaining > 0) {
+                Log::warning('KaseScraper: 駅ページ補完後もなお不足', [
+                    'city' => $key,
+                    'total' => $info['total'],
+                    'fetched' => $newFetched,
+                    'shortage' => $remaining,
+                ]);
+            }
+        }
+
+        // ── Phase 3: 物件詳細ページを取得し yield ──
+        $detailUrlList = array_keys($allDetailUrls);
+        $emitted = 0;
+        $excluded = ['fetch_failed' => 0, 'parse_failed' => 0];
+
+        $totalExpected = 0;
+        foreach ($cityStats as $info) {
+            $totalExpected += $info['total'] ?? $info['fetched'];
+        }
+
+        Log::info('KaseScraper: 詳細ページ取得開始', ['unique_urls' => count($detailUrlList)]);
+
+        try {
+            foreach ($detailUrlList as $i => $detailUrl) {
+                $this->throttle();
                 $detailHtml = $this->get($detailUrl);
                 if ($detailHtml === null) {
+                    $excluded['fetch_failed']++;
+
                     continue;
                 }
 
                 $row = $this->parseDetail($detailHtml, $detailUrl);
                 if ($row === null) {
+                    $excluded['parse_failed']++;
+
                     continue;
                 }
 
                 yield $row;
                 $emitted++;
+
+                if ($emitted % 100 === 0) {
+                    Log::info('KaseScraper: 進捗', [
+                        'emitted' => $emitted,
+                        'processed' => $i + 1,
+                        'total' => count($detailUrlList),
+                    ]);
+                }
+
                 if ($limit !== null && $emitted >= $limit) {
                     return;
                 }
             }
+        } finally {
+            Log::info('KaseScraper: 取得完了', [
+                'city_pages' => $cityPageCount,
+                'station_pages' => $stationPageCount,
+                'unique_detail_urls' => count($detailUrlList),
+                'total_expected' => $totalExpected,
+                'emitted' => $emitted,
+                'difference' => $totalExpected - count($detailUrlList),
+                'excluded' => array_sum($excluded),
+                'exclusion_reasons' => $excluded,
+            ]);
         }
     }
 
     /**
-     * sitemap.xml から「バイク収納の市区町村ページ」URL のみを重複なく抽出する。
-     * ^https://www\.kase3535\.com/type/bike/[a-z]+/[a-z]+/$ に一致する <loc> だけを採る
-     * （バイク収納以外の物件URLは対象外＝バイク可の絞り込みを維持）。
+     * sitemap.xml から「バイク収納の市区町村ページ」URL を重複なく抽出する。
+     * ^https://www\.kase3535\.com/type/bike/[a-z]+/[a-z]+/$ に一致する <loc> だけを採る。
      *
      * @return array<int, string>
      */
@@ -152,7 +277,29 @@ final class KaseScraper extends AbstractRentalGarageScraper
     }
 
     /**
-     * 一覧ページから物件詳細URL（^/[a-z]+/[a-z]+/[0-9]+/$）を絶対URLで重複なく抽出する。
+     * sitemap.xml から駅ページ URL を都道府県スラッグ別に抽出する。
+     * /type/bike/{県}/{slug}-station/ の形。
+     *
+     * @return array<string, array<int, string>>  prefSlug => [url, ...]
+     */
+    private function extractStationUrlsFromSitemap(string $sitemap): array
+    {
+        if (! preg_match_all('#<loc>\s*([^<]+?)\s*</loc>#u', $sitemap, $m)) {
+            return [];
+        }
+
+        $byPref = [];
+        foreach ($m[1] as $loc) {
+            if (preg_match('#^https://www\.kase3535\.com/type/bike/([a-z]+)/[a-z0-9-]+-station/$#', $loc, $pm)) {
+                $byPref[$pm[1]][] = $loc;
+            }
+        }
+
+        return $byPref;
+    }
+
+    /**
+     * 一覧ページ（市区／駅）から物件詳細URL（^/[a-z]+/[a-z]+/[0-9]+/$）を絶対URLで重複なく抽出する。
      *
      * @return array<int, string>
      */
@@ -184,6 +331,19 @@ final class KaseScraper extends AbstractRentalGarageScraper
         $path = parse_url($href, PHP_URL_PATH);
 
         return is_string($path) && $path !== '' ? $path : null;
+    }
+
+    /**
+     * 一覧ページ HTML から総件数（「全N件」）を読み取る。
+     * 加瀬サイトでは 全<!-- -->20<!-- -->件 の形で出力される。取れなければ null。
+     */
+    private function extractTotalCount(string $html): ?int
+    {
+        if (preg_match('/全<!--\s*-->(\d+)<!--\s*-->件/u', $html, $m)) {
+            return (int) $m[1];
+        }
+
+        return null;
     }
 
     /**
