@@ -16,52 +16,67 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+// ── ログ出力先について ──────────────────────────────────
+// スケジュール実行の標準出力は appendOutputTo で用途ごとのファイルへ残す。
+// 付けないと失敗しても中身が分からず、laravel.log にも出ない（poi:fetch の504がまさにそれだった）。
+// ファイルを用途ごとに分けるのは、追う時に無関係な出力を読まずに済ませるため。
+//
+// ログ肥大の心配は不要: ホスト側 logrotate が
+//   /var/www/motohub/backend/storage/logs/*.log を daily・7世代・圧縮・copytruncate
+// で回しており、ここで新規に作るファイルもワイルドカードで自動的に対象になる。
+// ※ ただし「付けない」と明記されている登録（system:check-disk）はその判断を尊重して触らない。
+
 // Shop市区町村バックフィル（毎日4:00 — 新規shop対応）
-Schedule::command('shops:backfill-city')->dailyAt('04:00');
+Schedule::command('shops:backfill-city')->dailyAt('04:00')->appendOutputTo(storage_path('logs/shops.log'));
 
 // 店名正規化バックフィル（毎日4:20 — スクレイパー投入分の name_normalized を埋める。
 // backfill-city(04:00) の後・bulk-sold(04:50)/classify(月05:00) と非衝突）
-Schedule::command('shops:normalize-names')->dailyAt('04:20');
+Schedule::command('shops:normalize-names')->dailyAt('04:20')->appendOutputTo(storage_path('logs/shops.log'));
 
 // Shop種別分類（毎週月曜5:00 — Webike店舗クロール後にservice_tagsからshop_typeを導出）
-Schedule::command('shops:classify')->weeklyOn(1, '05:00');
+Schedule::command('shops:classify')->weeklyOn(1, '05:00')->appendOutputTo(storage_path('logs/shops.log'));
 
 // 症状診断ファネルの計測イベントを180日で削除（毎日1:10 — 早朝の空き枠・他ジョブと非衝突）
-Schedule::command('trouble:prune')->dailyAt('01:10');
+Schedule::command('trouble:prune')->dailyAt('01:10')->appendOutputTo(storage_path('logs/trouble.log'));
 
 // 本番バックアップ（spatie/laravel-backup → Cloudflare R2 / 非本番は local）。
 // 03:10実行 → 03:50世代クリーンアップ → 08:00健全性チェック（失敗時のみメール通知）。
 // 他ジョブと非衝突: 01:10 prune / 04:00 backfill-city / 04:20 normalize-names / 05:10 warmer の前の空き枠。
-Schedule::command('backup:run')->dailyAt('03:10')->withoutOverlapping();
-Schedule::command('backup:clean')->dailyAt('03:50');
-Schedule::command('backup:monitor')->dailyAt('08:00');
+Schedule::command('backup:run')->dailyAt('03:10')->withoutOverlapping()->appendOutputTo(storage_path('logs/backup.log'));
+Schedule::command('backup:clean')->dailyAt('03:50')->appendOutputTo(storage_path('logs/backup.log'));
+Schedule::command('backup:monitor')->dailyAt('08:00')->appendOutputTo(storage_path('logs/backup.log'));
 
 // ブログ予約投稿チェック（毎分）
-Schedule::command('blog:publish-scheduled')->everyMinute();
+// 毎分実行だが、公開対象が無い回は何も出力しないため追記量はほぼゼロ
+// （出力は「N件の記事を公開しました。」の1行だけ）。
+Schedule::command('blog:publish-scheduled')->everyMinute()->appendOutputTo(storage_path('logs/blog.log'));
 
 // ブログサイトマップ生成（毎日3:00）
-Schedule::command('blog:generate-sitemap')->dailyAt('03:00');
+Schedule::command('blog:generate-sitemap')->dailyAt('03:00')->appendOutputTo(storage_path('logs/blog.log'));
 
 // YouTube動画取得（毎日3:00・render pathから分離）
 // DB動画が無い在庫車種を人気順に最大80件/日 = 8,000 units でquota厳守。
 // 旧 youtube:fetch-videos --chunk=50 を置換（render pathがAPIを叩かなくなったため一本化）。
-$youtubeRefresh = Schedule::command('youtube:refresh')->dailyAt('03:00')->withoutOverlapping()->runInBackground();
+$youtubeRefresh = Schedule::command('youtube:refresh')->dailyAt('03:00')->withoutOverlapping()->runInBackground()
+    ->appendOutputTo(storage_path('logs/youtube.log'));
 $youtubeRefresh->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($youtubeRefresh));
 
 // YouTube動画リフレッシュ（毎週月曜3:30）
-Schedule::command('youtube:refresh-videos --days=30')->weeklyOn(1, '03:30');
+Schedule::command('youtube:refresh-videos --days=30')->weeklyOn(1, '03:30')->appendOutputTo(storage_path('logs/youtube.log'));
 
 // バイクニュース取得（毎時）
-Schedule::command('news:fetch')->hourly();
+Schedule::command('news:fetch')->hourly()->appendOutputTo(storage_path('logs/news.log'));
 
 // 楽天パーツ事前取得（在庫車種を日次ローテーション・render pathから分離）
 // 失効分のみ約800件/日 → 7日TTLで全在庫車種(~4300)をカバー。A案のためwarmとの順序不問。
-$partsRefresh = Schedule::command('parts:refresh')->dailyAt('02:00')->withoutOverlapping()->runInBackground();
+$partsRefresh = Schedule::command('parts:refresh')->dailyAt('02:00')->withoutOverlapping()->runInBackground()
+    ->appendOutputTo(storage_path('logs/parts.log'));
 $partsRefresh->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($partsRefresh));
 
 // 車種別ニュース事前取得（Google News RSS・render pathから分離）
 // RSSは1コール~2sと軽いので上限大きめ。7日TTLで在庫全車種を日次カバー。
-$newsRefresh = Schedule::command('news:refresh')->dailyAt('02:30')->withoutOverlapping()->runInBackground();
+$newsRefresh = Schedule::command('news:refresh')->dailyAt('02:30')->withoutOverlapping()->runInBackground()
+    ->appendOutputTo(storage_path('logs/news.log'));
 $newsRefresh->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($newsRefresh));
 
 // 一括sold_out除外IDの事前計算は bootstrap/app.php の 04:50 に一本化（cache:warm-ranking 05:10 の前）
@@ -71,12 +86,12 @@ $newsRefresh->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($newsRefre
 // R2へ転送し終えてから走る必要があるため、その30分後の6:30に配置する。R2未確認は削除しない
 // ガードも併存するが、転送完了後に回すことで取りこぼしを防ぐ。対象は売却済み在庫のみ（稼働在庫は
 // 消すと次回クロールで再取得が走るため絶対に対象にしない — 2026-08-07 の実測に基づく設計）。
-Schedule::command('listings:prune-local-images --execute')->dailyAt('06:30');
+Schedule::command('listings:prune-local-images --execute')->dailyAt('06:30')->appendOutputTo(storage_path('logs/listings.log'));
 
 // ランキングニュース自動生成
-Schedule::command('news:generate-ranking --type=daily')->dailyAt('06:00');
-Schedule::command('news:generate-ranking --type=weekly')->weeklyOn(1, '06:30');
-Schedule::command('news:generate-ranking --type=monthly')->monthlyOn(1, '07:00');
+Schedule::command('news:generate-ranking --type=daily')->dailyAt('06:00')->appendOutputTo(storage_path('logs/news.log'));
+Schedule::command('news:generate-ranking --type=weekly')->weeklyOn(1, '06:30')->appendOutputTo(storage_path('logs/news.log'));
+Schedule::command('news:generate-ranking --type=monthly')->monthlyOn(1, '07:00')->appendOutputTo(storage_path('logs/news.log'));
 
 // ランキングニュース X(Twitter)自動投稿 → 停止（Xシェアボタンに移行）
 // Schedule::command('twitter:post-ranking --type=daily')->dailyAt('06:05');
@@ -84,25 +99,25 @@ Schedule::command('news:generate-ranking --type=monthly')->monthlyOn(1, '07:00')
 // Schedule::command('twitter:post-ranking --type=monthly')->monthlyOn(1, '07:05');
 
 // 週間相場速報生成（X投稿は停止）
-Schedule::command('news:generate-weekly-report --publish')->weeklyOn(1, '08:30');
+Schedule::command('news:generate-weekly-report --publish')->weeklyOn(1, '08:30')->appendOutputTo(storage_path('logs/news.log'));
 
 // 新車発表→中古影響分析記事（X投稿は停止）
-Schedule::command('news:generate-new-model-impact --publish')->dailyAt('09:00');
+Schedule::command('news:generate-new-model-impact --publish')->dailyAt('09:00')->appendOutputTo(storage_path('logs/news.log'));
 
 // 月次市場レポート生成（X投稿は停止）
-Schedule::command('news:generate-monthly-report --publish')->monthlyOn(1, '08:00');
+Schedule::command('news:generate-monthly-report --publish')->monthlyOn(1, '08:00')->appendOutputTo(storage_path('logs/news.log'));
 
 // お買い得BOT（1日1回のみ残す）
 // Schedule::command('bikes:tweet-bargains')->dailyAt('12:00');
 
 // ランキング画像付きX投稿
 // 月曜8:00 - 売れ筋ランキング
-Schedule::command('x:generate-ranking-image --type=weekly-sales')->weeklyOn(1, '07:55');
-Schedule::command('x:post-ranking-image --type=weekly-sales')->weeklyOn(1, '08:00');
+Schedule::command('x:generate-ranking-image --type=weekly-sales')->weeklyOn(1, '07:55')->appendOutputTo(storage_path('logs/x_post.log'));
+Schedule::command('x:post-ranking-image --type=weekly-sales')->weeklyOn(1, '08:00')->appendOutputTo(storage_path('logs/x_post.log'));
 
 // 水曜12:00 - お買い得ランキング
-Schedule::command('x:generate-ranking-image --type=bargains')->weeklyOn(3, '11:55');
-Schedule::command('x:post-ranking-image --type=bargains')->weeklyOn(3, '12:00');
+Schedule::command('x:generate-ranking-image --type=bargains')->weeklyOn(3, '11:55')->appendOutputTo(storage_path('logs/x_post.log'));
+Schedule::command('x:post-ranking-image --type=bargains')->weeklyOn(3, '12:00')->appendOutputTo(storage_path('logs/x_post.log'));
 
 // 以下は週2本（月曜・水曜）に削減のため停止
 // 金曜18:00 - 都道府県ランキング

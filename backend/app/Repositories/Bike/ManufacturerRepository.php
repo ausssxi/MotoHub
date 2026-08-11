@@ -38,17 +38,6 @@ final class ManufacturerRepository
     }
     
     /**
-     * 在庫数付きメーカー一覧（在庫0除外、人気順）
-     */
-    public function getAllWithListingCount(): Collection
-    {
-        return Manufacturer::withCount(['listings' => fn ($q) => $q->where('is_sold_out', false)])
-            ->having('listings_count', '>', 0)
-            ->orderByDesc('listings_count')
-            ->get();
-    }
-
-    /**
      * 全メーカーを掲載台数（active）の多い順で取得（コンボボックス用）
      * 0台メーカーも検索で選べるよう残し、台数→名前の順で並べる。
      */
