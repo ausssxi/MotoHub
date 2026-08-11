@@ -52,11 +52,34 @@ final class RentalGarageController extends Controller
         // source=user かつ未確認は noindex。
         $noindex = $garage->source === 'user' && ! $garage->is_verified;
 
+        // 1本目を同一エリアの一覧へ向ける（詳細ページからエリア階層へ戻れる導線）。
+        // prefecture/city が無い行は上位（都道府県 or 全国）へフォールバックする。
+        $areaLink = match (true) {
+            filled($garage->prefecture) && filled($garage->city) => [
+                'label' => $garage->city.'のレンタルガレージ',
+                'url' => route('rental-garage.area.city', [$garage->prefecture, $garage->city]),
+                'icon' => 'map-pin',
+                'description' => $garage->prefecture.$garage->city.'の一覧',
+            ],
+            filled($garage->prefecture) => [
+                'label' => $garage->prefecture.'のレンタルガレージ',
+                'url' => route('rental-garage.area.prefecture', $garage->prefecture),
+                'icon' => 'map-pin',
+                'description' => $garage->prefecture.'の一覧',
+            ],
+            default => [
+                'label' => 'レンタルガレージ一覧',
+                'url' => route('rental-garage.area.index'),
+                'icon' => 'map-pin',
+                'description' => '全国のガレージを探す',
+            ],
+        };
+
         $crossLinks = [
+            $areaLink,
             ['label' => 'ライダーズマップ', 'url' => route('riders.map'), 'icon' => 'map', 'description' => 'ガレージ・洗車場・GSを地図で'],
             ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => 'バイク駐車場を探す'],
             ['label' => '中古バイク検索', 'url' => route('bikes.search'), 'icon' => 'search', 'description' => '全国の在庫を検索'],
-            ['label' => 'バイク盗難データ', 'url' => route('theft'), 'icon' => 'shield-alert', 'description' => '盗難対策に安全な保管を'],
         ];
 
         return view('rental_garage.show', compact(

@@ -52,6 +52,17 @@ final class RoadsideStationController extends Controller
     }
 
     /**
+     * 8地方区分 → 所属都道府県の対応表。地方区分リストの単一の出所。
+     * 同じ割り当て・表示順を使うエリアページ（RentalGarageAreaController 等）から参照する。
+     *
+     * @return array<string, array<int, string>>
+     */
+    public static function regions(): array
+    {
+        return self::REGIONS;
+    }
+
+    /**
      * 道の駅 一覧ページ（全国・地方区分別の都道府県リンク）。
      * 都道府県ごとの駅数を1クエリで集計し、地方区分でグルーピングしてビューへ渡す。
      */

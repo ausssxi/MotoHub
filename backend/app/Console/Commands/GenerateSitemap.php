@@ -944,6 +944,84 @@ class GenerateSitemap extends Command
         $this->info(" -> {$rentalGarageCount} URL (Rental Garage)");
 
         // =========================================================
+        // 4.5b-2. レンタルガレージ エリアページ (sitemap-rental-garage-area.xml)
+        //   一覧 + 都道府県別(実在のみ) + 市区町村別(実在のみ)。
+        //   掲載条件は 4.5b（詳細）と同一。0件の地名を載せて 404 をサイトマップに入れない。
+        //   都道府県はコントローラの正準ホワイトリストで絞る（道の駅・GS と同作法）。
+        // =========================================================
+        $this->info('レンタルガレージ エリアサイトマップを生成中...');
+        $rgAreaFileName = 'sitemap-rental-garage-area.xml';
+        $handle = $this->openSitemap($rgAreaFileName);
+        $sitemapFiles[] = $rgAreaFileName;
+        $rgAreaCount = 0;
+
+        $rgPublic = fn () => \App\Models\RentalGarage::query()
+            ->where('is_active', true)
+            ->where(fn ($q) => $q->where('source', '!=', 'user')->orWhere('is_verified', true));
+
+        // 一覧トップ（lastmod は掲載対象全体の MAX(updated_at)。集計値は文字列で返るため明示変換）
+        $rgMaxUpdated = $rgPublic()->max('updated_at');
+        $rgIndexLastmod = $rgMaxUpdated
+            ? \Carbon\Carbon::parse($rgMaxUpdated)->format('Y-m-d')
+            : date('Y-m-d');
+        $this->writeUrl($handle, route('rental-garage.area.index'), $rgIndexLastmod, 'weekly', '0.8');
+        $rgAreaCount++;
+
+        $rgWhitelist = \App\Http\Controllers\RoadsideStation\RoadsideStationController::prefectures();
+
+        // 都道府県別（prefecture ごとの MAX(updated_at) を1クエリ集計）
+        $rgPrefMax = $rgPublic()
+            ->whereNotNull('prefecture')
+            ->where('prefecture', '!=', '')
+            ->selectRaw('prefecture, MAX(updated_at) as last_updated')
+            ->groupBy('prefecture')
+            ->orderBy('prefecture')
+            ->pluck('last_updated', 'prefecture');
+
+        $rgExcludedPrefs = [];
+        foreach ($rgPrefMax as $pref => $lastUpdated) {
+            if (! in_array($pref, $rgWhitelist, true)) {
+                $rgExcludedPrefs[] = $pref;
+
+                continue;
+            }
+            $prefLastmod = $lastUpdated
+                ? \Carbon\Carbon::parse($lastUpdated)->format('Y-m-d')
+                : date('Y-m-d');
+            $this->writeUrl($handle, route('rental-garage.area.prefecture', $pref), $prefLastmod, 'weekly', '0.7');
+            $rgAreaCount++;
+        }
+        if ($rgExcludedPrefs !== []) {
+            $this->warn('レンタルガレージ: ホワイトリスト外の都道府県を'.count($rgExcludedPrefs).'件除外: '.implode(', ', $rgExcludedPrefs));
+        }
+
+        // 市区町村別（(prefecture, city) ごとの MAX(updated_at) を1クエリ集計）
+        $rgCityMax = $rgPublic()
+            ->whereNotNull('prefecture')
+            ->where('prefecture', '!=', '')
+            ->whereNotNull('city')
+            ->where('city', '!=', '')
+            ->selectRaw('prefecture, city, MAX(updated_at) as last_updated')
+            ->groupBy('prefecture', 'city')
+            ->orderBy('prefecture')
+            ->orderBy('city')
+            ->get();
+
+        foreach ($rgCityMax as $row) {
+            if (! in_array($row->prefecture, $rgWhitelist, true)) {
+                continue;
+            }
+            $cityLastmod = $row->last_updated
+                ? \Carbon\Carbon::parse($row->last_updated)->format('Y-m-d')
+                : date('Y-m-d');
+            $this->writeUrl($handle, route('rental-garage.area.city', [$row->prefecture, $row->city]), $cityLastmod, 'weekly', '0.6');
+            $rgAreaCount++;
+        }
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$rgAreaCount} URL (Rental Garage Area)");
+
+        // =========================================================
         // 4.5c. 道の駅 (sitemap-roadside.xml)
         //   一覧 + 都道府県別(実在prefectureのみ) + 各駅詳細(全件)。
         //   station_code は先頭ゼロを含む5桁文字列なので int にキャストしない。
