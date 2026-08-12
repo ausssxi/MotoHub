@@ -39,9 +39,14 @@ final class ProductSearchService
      * キーワードで楽天 + Yahoo を検索し、正規化した商品候補を返す。
      * どのモールが落ちても例外は投げず、取れた分だけ返す（最悪は空配列）。
      *
-     * @return array<int, array{mall:string, product_id:string, name:string, image:string, price:int, url:string, shop:string}>
+     * $withDescription=true のときだけ、楽天の商品説明文（itemCaption）を 'description' として
+     * 追加で返す。既定 false の場合の戻り値は従来と完全に同一（キーの数・順序も変えていない）。
+     * 適合データ抽出の歩留まり測定（fitment:probe）専用のフラグで、通常の商品検索
+     * （愛車ガレージのカスタム記録）では使わない。説明文は数KBあり、通常用途には不要なため。
+     *
+     * @return array<int, array{mall:string, product_id:string, name:string, image:string, price:int, url:string, shop:string, description?:string}>
      */
-    public function searchProducts(string $keyword, int $hits = 20): array
+    public function searchProducts(string $keyword, int $hits = 20, bool $withDescription = false): array
     {
         $keyword = trim($keyword);
         if ($keyword === '') {
@@ -49,16 +54,18 @@ final class ProductSearchService
         }
         $hits = max(1, min($hits, 30));
 
-        $cacheKey = 'garage_product_search_'.md5($keyword.'_'.$hits);
+        // 説明文つきは payload の形が違うため、キャッシュキーを分けて混ざらないようにする。
+        // ($withDescription=false のときのキーは従来と同一文字列＝既存のキャッシュがそのまま効く)
+        $cacheKey = 'garage_product_search_'.md5($keyword.'_'.$hits.($withDescription ? '_desc' : ''));
 
-        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($keyword, $hits) {
+        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($keyword, $hits, $withDescription) {
             // 各モールAPIの関連度順を尊重してマージ（楽天→Yahoo）。
             // ★価格昇順ソートは廃止する：Yahoo はジャンル絞りが無く、最安の無関係品
             //   （チェーンクリップ¥5・ドレンパッキン¥15 等）が上位に浮上し、楽天の良質な該当商品を
             //   押しのけて「おすすめ商品」枠を汚染していた（本番のオイル/バッテリー枠で誤表示が発生）。
             //   関連度順なら各モールが該当商品を上位に返すため、先頭 slice がそのまま良質候補になる。
             return array_merge(
-                $this->searchRakuten($keyword, $hits),
+                $this->searchRakuten($keyword, $hits, $withDescription),
                 $this->searchYahoo($keyword, $hits),
             );
         });
@@ -67,9 +74,11 @@ final class ProductSearchService
     /**
      * 楽天検索（失敗時は []）。affiliateId を渡すと itemUrl がアフィリエイトURLになる。
      *
+     * $withDescription=true のときだけ itemCaption を 'description' として付与する。
+     *
      * @return array<int, array<string, mixed>>
      */
-    private function searchRakuten(string $keyword, int $hits): array
+    private function searchRakuten(string $keyword, int $hits, bool $withDescription = false): array
     {
         $appId = config('services.rakuten.app_id');
         $accessKey = config('services.rakuten.access_key');
@@ -101,7 +110,7 @@ final class ProductSearchService
                 return [];
             }
 
-            return collect($response->json('Items') ?? [])->map(function ($wrapper) {
+            return collect($response->json('Items') ?? [])->map(function ($wrapper) use ($withDescription) {
                 $item = $wrapper['Item'] ?? $wrapper;
 
                 return [
@@ -112,6 +121,9 @@ final class ProductSearchService
                     'price' => (int) ($item['itemPrice'] ?? 0),
                     'url' => (string) ($item['itemUrl'] ?? ''),
                     'shop' => (string) ($item['shopName'] ?? ''),
+                    // 適合抽出の測定用。既定では含めない（キャプションは数KBあり通常用途では不要）。
+                    // PartsController::formatRakutenItems と同じく strip_tags のみ通す。
+                    ...($withDescription ? ['description' => strip_tags((string) ($item['itemCaption'] ?? ''))] : []),
                 ];
             })->filter(fn ($i) => $i['name'] !== '' && $i['url'] !== '')->values()->all();
         } catch (\Throwable $e) {
