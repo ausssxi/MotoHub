@@ -48,6 +48,7 @@ final class FitmentProbe extends Command
         {--task= : oil-filter|battery|plug|chain（未指定は全部）}
         {--limit=20 : 1タスクあたりの取得商品数}
         {--sleep=2 : タスク間の待機秒数（楽天APIのレート制限を避けるため）}
+        {--chain-survey : chain タスクで、車種名一致・サイズ・リンク数の内訳を測る（抽出はしない）}
         {--dump : 取得した商品名と説明文の先頭を生で出力する}';
 
     protected $description = '商品説明文から品番・適合型式を抽出できるかの歩留まりを測る（読み取り専用・DB書き込みなし）';
@@ -102,7 +103,13 @@ final class FitmentProbe extends Command
         // 例: NGKのプラグ品番 CR8E は4文字で、PartsCodeExtractor の最小6文字に満たず落ちる。
         $adoptedWithoutPart = 0;
         $apiFailures = [];   // タスク名 => エラー内容（0件と取得失敗を区別するため）
-        $reject = ['no_label' => 0, 'name_mismatch' => 0, 'undecidable' => 0];
+        $reject = [
+            'no_label' => 0,
+            'name_mismatch' => 0,
+            'undecidable' => 0,
+            'fitment_table' => 0,     // 適合表の埋め込みと判断して書式Bを見送った
+            'title_unconfirmed' => 0, // 説明文では取れたがタイトルで裏が取れなかった
+        ];
 
         /** @var array<string, int> "型式\t品番" => 何商品が同じことを書いているか */
         $pairs = [];
@@ -154,6 +161,13 @@ final class FitmentProbe extends Command
                 continue;
             }
 
+            // チェーンの実態測定モード。抽出（採用）は行わず、内訳を数えて表示するだけ。
+            if ($task === 'chain' && $this->option('chain-survey')) {
+                $this->chainSurvey($rakuten, $modelName);
+
+                continue;
+            }
+
             $taskAdopted = 0;
             $taskWithLabel = 0;
 
@@ -187,10 +201,28 @@ final class FitmentProbe extends Command
                     $withLabel++;
                 }
 
-                // 書式B は商品名と説明文の両方を対象にする（NGKは両方に同じ並びで書いている）
-                $formatBCodes = $formatAOk
-                    ? []
-                    : FitmentTextExtractor::frameCodesAfterModelName($name.' '.$description, $modelName);
+                // ── 書式B の判定 ──
+                // 書式Bの根拠は「NGKの商品はタイトルにも説明文にも同じ形で車種名＋型式が出る」
+                // という観測だった。それを条件として明示する。
+                //   (a) 説明文が適合表の埋め込みでないこと（無関係な車種の行を拾わないため）
+                //   (b) 説明文とタイトルの両方から同じ型式が取れること
+                // 片方だけで採ると、別車種向け商品に貼られた適合表の1行を拾って
+                // 「DS12E → MR7E-9」のような誤った組を作る（2026-08-12 に実際に発生）。
+                $isFitmentTable = false;
+                $rawDescCodes = [];
+                $titleCodes = [];
+                $formatBCodes = [];
+
+                if (! $formatAOk) {
+                    $isFitmentTable = FitmentTextExtractor::looksLikeFitmentTable($description);
+                    $rawDescCodes = FitmentTextExtractor::frameCodesAfterModelName($description, $modelName);
+                    $titleCodes = FitmentTextExtractor::frameCodesAfterModelName($name, $modelName);
+
+                    if (! $isFitmentTable) {
+                        // タイトルと説明文の両方に現れた型式だけを採る
+                        $formatBCodes = $this->intersectFrameCodes($rawDescCodes, $titleCodes);
+                    }
+                }
 
                 if ($formatAOk) {
                     $nameMatched++;
@@ -198,7 +230,7 @@ final class FitmentProbe extends Command
                     $adoptedA++;
                     $taskAdopted++;
                     $verdict = '採用（書式A: 【適合型式】ラベル）';
-                    $this->countPairs($pairs, $oemPairs, $frameCodes, $partNumber, $oemNumbers);
+                    $this->countPairs($pairs, $oemPairs, $frameCodes, $partNumber, $oemNumbers, $name);
                     if ($partNumber === null) {
                         $adoptedWithoutPart++;
                     }
@@ -207,12 +239,20 @@ final class FitmentProbe extends Command
                     $adopted++;
                     $adoptedB++;
                     $taskAdopted++;
-                    $verdict = '採用（書式B: 車種名の直後が型式）';
+                    $verdict = '採用（書式B: タイトルと説明文の両方で一致）';
                     // 書式Bには純正品番ラベルが無いのが実データの傾向。あれば拾うが、無くても採用する。
-                    $this->countPairs($pairs, $oemPairs, $formatBCodes, $partNumber, $oemNumbers);
+                    $this->countPairs($pairs, $oemPairs, $formatBCodes, $partNumber, $oemNumbers, $name);
                     if ($partNumber === null) {
                         $adoptedWithoutPart++;
                     }
+                } elseif ($isFitmentTable && $rawDescCodes !== []) {
+                    // 適合表を貼った商品。型式自体は取れるが、それは商品の適合ではなく表の1行。
+                    $reject['fitment_table']++;
+                    $verdict = '不採用（適合表の埋め込みと判断: 型式が'
+                        .count(FitmentTextExtractor::distinctFrameCodeTokens($description)).'種）';
+                } elseif ($rawDescCodes !== [] && $titleCodes === []) {
+                    $reject['title_unconfirmed']++;
+                    $verdict = '不採用（タイトルで裏が取れず）';
                 } elseif (! $hasLabel) {
                     // 型式ラベルも無く、車種名の直後も型式ではない＝汎用品の可能性が高い
                     $reject['no_label']++;
@@ -238,12 +278,20 @@ final class FitmentProbe extends Command
                     $this->line('      品番: '.($partNumber ?? '(取れず)')
                         .($codes['jan'] !== null ? " / JAN: {$codes['jan']}" : ''));
                     $this->line('      適合車種: '.($fitNames === null ? '(ラベルなし)' : implode(' / ', $fitNames)));
-                    $this->line('      適合型式: '.($frameCodes === []
+                    $this->line('      適合型式(書式A): '.($frameCodes === []
                         ? '(なし)'
                         : implode(' / ', array_map(
                             fn (array $c): string => $c['raw'].'[規制'.($c['regulation'] ?? '-').'/型式'.$c['code'].']',
                             $frameCodes
                         ))));
+                    // 書式Bは「説明文側 / タイトル側 / 両方一致」を分けて出す（裏取りの成否が見えるように）
+                    if (! $formatAOk) {
+                        $this->line('      適合型式(書式B): 説明文='.$this->codeList($rawDescCodes)
+                            .' / タイトル='.$this->codeList($titleCodes)
+                            .' / 両方一致='.$this->codeList($formatBCodes)
+                            .($isFitmentTable ? '  ※適合表と判断（型式'
+                                .count(FitmentTextExtractor::distinctFrameCodeTokens($description)).'種）' : ''));
+                    }
                     $this->line('      純正品番: '.($oemNumbers === [] ? '(なし)' : implode(', ', $oemNumbers)));
                     $this->line('      説明文: '.(trim($description) !== ''
                         ? $this->flatten(mb_substr($description, 0, self::DUMP_CHARS))
@@ -294,6 +342,8 @@ final class FitmentProbe extends Command
         $this->line('---- 不採用の理由 ----');
         $this->line("  型式ラベルなし（汎用品の可能性）: {$reject['no_label']}");
         $this->line("  車種名が不一致                  : {$reject['name_mismatch']}");
+        $this->line("  適合表の埋め込みと判断          : {$reject['fitment_table']}");
+        $this->line("  タイトルで裏が取れず            : {$reject['title_unconfirmed']}");
         $this->line("  判定不能                        : {$reject['undecidable']}");
 
         $this->printPairs('---- 型式 → 品番（メーカー品番）と一致数 ----', $pairs);
@@ -315,31 +365,175 @@ final class FitmentProbe extends Command
     }
 
     /**
+     * チェーンの実態測定（--chain-survey）。
+     *
+     * チェーンは商品データに型式が一切なく採用0件だった。一方でタイトルには
+     * 「520 116L」のようなサイズとリンク数が出る。スペック型として保存する価値があるかを
+     * 判断するため、まず「車種名の厳密一致を通る商品がそもそも何件あるか」を測る。
+     *
+     * ここでは抽出（採用）は一切行わない。数えて表示するだけ。
+     *
+     * @param  array<int, array<string, mixed>>  $items
+     */
+    private function chainSurvey(array $items, string $modelName): void
+    {
+        $this->newLine();
+        $this->line('  ---- チェーン実態測定（--chain-survey・採用はしません）----');
+
+        $nameHit = 0;
+        $sizeHit = 0;
+        $linkHit = 0;
+        $allHit = 0;
+
+        /** @var array<string, array{count: int, title: string}> $combos "サイズ\tリンク数" => 件数 */
+        $combos = [];
+
+        foreach ($items as $item) {
+            $name = (string) ($item['name'] ?? '');
+            $description = (string) ($item['description'] ?? '');
+            $haystack = $name.' '.$description;
+
+            // 車種名は書式Bと同じ「語として含まれるか」で判定する（250SX を250として数えない）
+            $hasName = FitmentTextExtractor::containsModelName($haystack, $modelName);
+            $size = $this->chainSize($haystack);
+            $links = $this->chainLinks($haystack);
+
+            if ($hasName) {
+                $nameHit++;
+            }
+            if ($size !== null) {
+                $sizeHit++;
+            }
+            if ($links !== null) {
+                $linkHit++;
+            }
+
+            if ($hasName && $size !== null && $links !== null) {
+                $allHit++;
+                $key = $size."\t".$links;
+                if (! isset($combos[$key])) {
+                    $combos[$key] = ['count' => 0, 'title' => $this->flatten(mb_substr($name, 0, 60))];
+                }
+                $combos[$key]['count']++;
+            }
+        }
+
+        $total = count($items);
+        $this->line("    車種名が厳密一致    : {$nameHit}/{$total}（".$this->percent($nameHit, $total).'）');
+        $this->line("    サイズが取れた      : {$sizeHit}/{$total}（".$this->percent($sizeHit, $total).'）');
+        $this->line("    リンク数が取れた    : {$linkHit}/{$total}（".$this->percent($linkHit, $total).'）');
+        $this->line("    3つすべて揃った     : {$allHit}/{$total}（".$this->percent($allHit, $total).'）');
+
+        if ($combos === []) {
+            $this->line('    → 3つ揃った商品はありませんでした。');
+
+            return;
+        }
+
+        $this->newLine();
+        $this->line('    ---- サイズ・リンク数・一致数 ----');
+        uasort($combos, fn (array $x, array $y): int => $y['count'] <=> $x['count']);
+        foreach ($combos as $key => $row) {
+            [$size, $links] = explode("\t", $key, 2);
+            $this->line(sprintf('    サイズ %-5s / %-6s  %d商品が一致', $size, $links.'L', $row['count']));
+            $this->line('        根拠: '.$row['title']);
+        }
+    }
+
+    /**
+     * チェーンサイズらしき3桁（測定用。採用ロジックには使わない）。
+     * 任意の3桁ではなく実在する規格だけを見る（年式・価格を拾わないため）。
+     */
+    private function chainSize(string $text): ?string
+    {
+        $sizes = ['415', '420', '425', '428', '520', '525', '530', '532', '630'];
+        $normalized = FitmentTextExtractor::normalize($text);
+
+        foreach ($sizes as $size) {
+            if (preg_match('/(?<!\d)'.$size.'(?!\d)/u', $normalized) === 1) {
+                return $size;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * リンク数らしき値（測定用）。「116L」「116リンク」の形。
+     */
+    private function chainLinks(string $text): ?string
+    {
+        $normalized = FitmentTextExtractor::normalize($text);
+
+        if (preg_match('/(?<!\d)(\d{2,3})(?:L|リンク)(?![A-Z0-9])/u', $normalized, $m) === 1) {
+            return $m[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * 型式リストを表示用の短い文字列にする。
+     *
+     * @param  array<int, array{raw: string, regulation: string|null, code: string}>  $codes
+     */
+    private function codeList(array $codes): string
+    {
+        return $codes === [] ? '(なし)' : implode(',', array_column($codes, 'code'));
+    }
+
+    /**
+     * タイトル側と説明文側の型式のうち、両方に現れたものだけを返す。
+     *
+     * @param  array<int, array{raw: string, regulation: string|null, code: string}>  $a
+     * @param  array<int, array{raw: string, regulation: string|null, code: string}>  $b
+     * @return array<int, array{raw: string, regulation: string|null, code: string}>
+     */
+    private function intersectFrameCodes(array $a, array $b): array
+    {
+        $bCodes = array_column($b, 'code');
+
+        return array_values(array_filter($a, fn (array $c): bool => in_array($c['code'], $bCodes, true)));
+    }
+
+    /**
      * 「型式 → 品番」「型式 → 純正品番」の組を数える（同じことを何商品が書いているか）。
      *
-     * @param  array<string, int>  $pairs
-     * @param  array<string, int>  $oemPairs
+     * 併せて、最初に根拠となった商品タイトルを1つだけ保持する（--dump 無しでも目視検証できるように）。
+     *
+     * @param  array<string, array{count: int, title: string}>  $pairs
+     * @param  array<string, array{count: int, title: string}>  $oemPairs
      * @param  array<int, array{raw: string, regulation: string|null, code: string}>  $frameCodes
      * @param  array<int, string>  $oemNumbers
      */
-    private function countPairs(array &$pairs, array &$oemPairs, array $frameCodes, ?string $partNumber, array $oemNumbers): void
+    private function countPairs(array &$pairs, array &$oemPairs, array $frameCodes, ?string $partNumber, array $oemNumbers, string $sourceTitle): void
     {
         foreach ($frameCodes as $fc) {
             if ($partNumber !== null) {
-                $key = $fc['code']."\t".$partNumber;
-                $pairs[$key] = ($pairs[$key] ?? 0) + 1;
+                $this->addPair($pairs, $fc['code']."\t".$partNumber, $sourceTitle);
             }
             foreach ($oemNumbers as $oem) {
-                $key = $fc['code']."\t".$oem;
-                $oemPairs[$key] = ($oemPairs[$key] ?? 0) + 1;
+                $this->addPair($oemPairs, $fc['code']."\t".$oem, $sourceTitle);
             }
         }
     }
 
     /**
-     * 「型式 → 品番」の組を一致数の多い順に出す。
+     * @param  array<string, array{count: int, title: string}>  $table
+     */
+    private function addPair(array &$table, string $key, string $sourceTitle): void
+    {
+        if (! isset($table[$key])) {
+            // 根拠は先頭の1件だけを残す（一覧が縦に伸びないように）
+            $table[$key] = ['count' => 0, 'title' => $this->flatten(mb_substr($sourceTitle, 0, 60))];
+        }
+        $table[$key]['count']++;
+    }
+
+    /**
+     * 「型式 → 品番」の組を一致数の多い順に出す。根拠となった商品タイトルを1件併記する。
      *
-     * @param  array<string, int>  $pairs
+     * @param  array<string, array{count: int, title: string}>  $pairs
      */
     private function printPairs(string $title, array $pairs): void
     {
@@ -352,10 +546,11 @@ final class FitmentProbe extends Command
             return;
         }
 
-        arsort($pairs);
-        foreach ($pairs as $key => $count) {
+        uasort($pairs, fn (array $x, array $y): int => $y['count'] <=> $x['count']);
+        foreach ($pairs as $key => $row) {
             [$code, $part] = explode("\t", $key, 2);
-            $this->line(sprintf('  %-10s → %-20s  %d商品が一致', $code, $part, $count));
+            $this->line(sprintf('  %-10s → %-20s  %d商品が一致', $code, $part, $row['count']));
+            $this->line('      根拠: '.$row['title']);
         }
     }
 

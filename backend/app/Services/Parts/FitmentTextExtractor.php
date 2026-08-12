@@ -52,6 +52,22 @@ final class FitmentTextExtractor
     private const REGULATION = '[0-9A-Z]{2,3}';
 
     /**
+     * 「適合表の埋め込み」と判断する、説明文中の distinct な型式トークン数のしきい値。
+     *
+     * 1商品が正当に持つ型式は、年式違い・グレード違いを含めても数個までという想定に基づく
+     * （実データの最大は「DS11A/DS12E」の2個、下見した例でも「AA07/AA08/AA09」の3個）。
+     * これに対し、メーカーの適合表（「NGK プラグ 適合表 スズキ」など）を説明文に丸ごと
+     * 貼っている商品は、無関係な車種の型式が何十個も並ぶ。
+     *
+     * 実害: 2026-08-12 の測定で「DS12E → MR7E-9」が2商品一致で採用された。MR7E-9 は
+     * アドレス125／アヴェニス125（8BJ-EA12J）用で Vストローム250 には適合しない。
+     * 適合表の中の1行「Vストローム250 DS12E」を書式Bが拾い、商品自体の品番（別車種向け）と
+     * 結びつけたのが原因。同じ表を貼る店舗が複数あるため、一致数による多数決も効かない。
+     * よって「型式が多すぎる説明文は、そもそも1車種向けの説明ではない」として書式Bから除外する。
+     */
+    private const FITMENT_TABLE_FRAME_CODE_THRESHOLD = 5;
+
+    /**
      * 【適合型式】ラベルが存在するか。
      * これが false の商品からは、型式も純正品番も採らない（汎用品の可能性が高いため）。
      */
@@ -142,6 +158,68 @@ final class FitmentTextExtractor
 
         foreach ($names as $name) {
             if (strtoupper(self::normalize($name)) === $needle) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 説明文が「1車種向けの商品説明」ではなく「メーカーの適合表の埋め込み」に見えるか。
+     *
+     * 判定は単純に、テキスト中に現れる distinct な型式トークン数がしきい値以上かどうか。
+     * しきい値の根拠は FITMENT_TABLE_FRAME_CODE_THRESHOLD のコメントを参照。
+     *
+     * ※ 書式B（車種名の直後の語を型式とみなす）にだけ使う。書式Aの【適合型式】ラベルは
+     *   値が単数〜数個に限られるため、この判定は適用しない。
+     */
+    public static function looksLikeFitmentTable(string $text): bool
+    {
+        return count(self::distinctFrameCodeTokens($text)) >= self::FITMENT_TABLE_FRAME_CODE_THRESHOLD;
+    }
+
+    /**
+     * テキスト中に語として現れる型式トークンを重複なく返す（適合表の判定に使う）。
+     *
+     * 前後が英数字・ハイフンでないことを要求する。そうしないと車台番号
+     * 「LC6DS12EZ01100001」の中の「DS12E」まで数えてしまう。
+     *
+     * @return array<int, string>
+     */
+    public static function distinctFrameCodeTokens(string $text): array
+    {
+        $normalized = strtoupper(self::widthNormalize($text));
+
+        $re = '/(?<![A-Z0-9\-])('.self::FRAME_CODE.')(?![A-Z0-9\-])/u';
+        if (preg_match_all($re, $normalized, $m) !== false && ! empty($m[1])) {
+            return array_values(array_unique($m[1]));
+        }
+
+        return [];
+    }
+
+    /**
+     * テキストに対象車種名が「語として」含まれるか（前方一致では通さない）。
+     *
+     * 「Vストローム250SX」の中の「Vストローム250」は含まれているとみなさない。
+     * frameCodesAfterModelName の条件1と同じ境界規則を使う。
+     */
+    public static function containsModelName(string $text, string $target): bool
+    {
+        $haystack = self::widthNormalize($text);
+        $needle = self::widthNormalize($target);
+
+        if ($needle === '' || $haystack === '') {
+            return false;
+        }
+
+        $offset = 0;
+        while (($pos = mb_stripos($haystack, $needle, $offset)) !== false) {
+            $offset = $pos + mb_strlen($needle);
+            $rest = mb_substr($haystack, $offset);
+
+            if ($rest === '' || preg_match('/^[\s\x{3000}]/u', $rest) === 1) {
                 return true;
             }
         }
