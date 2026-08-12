@@ -75,7 +75,7 @@ final class ProductSearchService
      *
      * @return array<int, array{mall:string, product_id:string, name:string, image:string, price:int, url:string, shop:string, description?:string}>
      */
-    public function searchProducts(string $keyword, int $hits = 20, bool $withDescription = false): array
+    public function searchProducts(string $keyword, int $hits = 20, bool $withDescription = false, bool $rakutenOnly = false): array
     {
         $keyword = trim($keyword);
         if ($keyword === '') {
@@ -83,9 +83,11 @@ final class ProductSearchService
         }
         $hits = max(1, min($hits, 30));
 
-        // 説明文つきは payload の形が違うため、キャッシュキーを分けて混ざらないようにする。
-        // ($withDescription=false のときのキーは従来と同一文字列＝既存のキャッシュがそのまま効く)
-        $cacheKey = 'garage_product_search_'.md5($keyword.'_'.$hits.($withDescription ? '_desc' : ''));
+        // 説明文つき／楽天のみは payload の形・中身が違うため、キャッシュキーを分ける。
+        // (どちらも false のときのキーは従来と同一文字列＝既存のキャッシュがそのまま効く)
+        $cacheKey = 'garage_product_search_'.md5(
+            $keyword.'_'.$hits.($withDescription ? '_desc' : '').($rakutenOnly ? '_rkt' : '')
+        );
 
         $this->lastErrors = [];
 
@@ -102,16 +104,22 @@ final class ProductSearchService
         //   関連度順なら各モールが該当商品を上位に返すため、先頭 slice がそのまま良質候補になる。
         $results = array_merge(
             $this->searchRakuten($keyword, $hits, $withDescription),
-            $this->searchYahoo($keyword, $hits),
+            // $rakutenOnly=true のときは Yahoo を叩かない。適合抽出の測定は楽天だけを集計するため、
+            // 呼ぶだけ無駄なリクエストになり、楽天のレート制限に当たりやすくなる。
+            $rakutenOnly ? [] : $this->searchYahoo($keyword, $hits),
         );
 
-        // 失敗を含む回は短いTTLで焼く。通常TTLだと、429で空になった結果が10分間
-        // 「0件」として返り続けてしまう（実際に fitment:probe のバッテリーで発生した）。
-        Cache::put(
-            $cacheKey,
-            $results,
-            $this->lastErrors === [] ? self::CACHE_TTL : self::CACHE_TTL_ON_ERROR
-        );
+        // キャッシュの焼き方は3通りに分ける。
+        //  1) エラー無し          → 通常TTL
+        //  2) エラーあるが結果あり → 短いTTL（片方のモールだけ失敗。使えるデータはある）
+        //  3) エラーありで結果空   → 焼かない
+        //     焼くと「取得失敗」を「0件」として配り続けるうえ、呼び出し側の再試行が
+        //     キャッシュに阻まれて必ず空を返すようになる（再試行が無意味になる）。
+        if ($this->lastErrors === []) {
+            Cache::put($cacheKey, $results, self::CACHE_TTL);
+        } elseif ($results !== []) {
+            Cache::put($cacheKey, $results, self::CACHE_TTL_ON_ERROR);
+        }
 
         return $results;
     }

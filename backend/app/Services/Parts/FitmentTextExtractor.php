@@ -234,6 +234,70 @@ final class FitmentTextExtractor
     }
 
     /**
+     * 【診断専用】空白・記号・大小文字・全半角を無視した部分一致で車種名を含むか。
+     *
+     * ★ 採用判定には絶対に使わないこと。
+     *   この判定は「Vストローム250」と「Vストローム250SX」を区別できない（部分一致のため）。
+     *   採用に使うのは containsModelName() / matchesModel()（語境界つき・完全一致）の方。
+     *
+     * 用途は取りこぼしの原因切り分けのみ。「商品は取れているのに車種名を認識できていない」のか
+     * 「そもそも商品が無い」のかを、bike_models.name の表記（例「ninja 250」）と
+     * 商品側の表記（例「Ninja250」）の差として可視化する。
+     */
+    public static function containsModelNameLoose(string $text, string $target): bool
+    {
+        $needle = self::looseNormalize($target);
+
+        return $needle !== '' && str_contains(self::looseNormalize($text), $needle);
+    }
+
+    /**
+     * 【診断専用】緩い一致でヒットした箇所を、元テキストの表記のまま返す。
+     *
+     * 「DB上は ninja 250 だが、商品タイトルでは Ninja250 と書かれている」を目で見るためのもの。
+     * 最も早い位置の、最も短い一致部分を返す。見つからなければ null。
+     */
+    public static function findLooseOccurrence(string $text, string $target): ?string
+    {
+        $needle = self::looseNormalize($target);
+        if ($needle === '' || $text === '') {
+            return null;
+        }
+
+        $length = mb_strlen($text);
+        for ($start = 0; $start < $length; $start++) {
+            $buffer = '';
+            for ($end = $start; $end < $length; $end++) {
+                $buffer .= mb_substr($text, $end, 1);
+                $normalized = self::looseNormalize($buffer);
+
+                if ($normalized === $needle) {
+                    // 記号を無視して照合するため、前後に空白を巻き込むことがある。表示用に落とす。
+                    return trim($buffer);
+                }
+                // 途中まで一致しなくなったら、この開始位置は見込みなし
+                if ($normalized !== '' && ! str_starts_with($needle, $normalized)) {
+                    break;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 【診断専用】緩い比較用の正規化: 全角→半角、英字は大文字、英数字とかな・漢字以外を除去。
+     * 「ninja 250」「Ninja250」「NINJA-250」がすべて "NINJA250" になる。
+     */
+    public static function looseNormalize(string $text): string
+    {
+        $text = strtoupper(self::widthNormalize($text));
+
+        // 記号・空白を落とす（英数字・ひらがな・カタカナ・漢字・長音記号は残す）
+        return preg_replace('/[^0-9A-Z\p{Hiragana}\p{Katakana}\p{Han}ー]+/u', '', $text) ?? '';
+    }
+
+    /**
      * 書式B（NGK形式）: 「メーカー名 車種名 型式 排気量cc 年式」の並びから型式を取り出す。
      *
      * 実データ（2026-08-12）:

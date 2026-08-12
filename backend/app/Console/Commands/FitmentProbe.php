@@ -48,7 +48,7 @@ final class FitmentProbe extends Command
         {--model= : 対象車種名（既定: Vストローム250）}
         {--task= : oil-filter|battery|plug|chain（未指定は全部）}
         {--limit=20 : 1タスクあたりの取得商品数}
-        {--sleep=2 : タスク間の待機秒数（楽天APIのレート制限を避けるため）}
+        {--sleep=2 : 楽天へのリクエスト1回ごとの待機秒数（--verify の既定は5秒）}
         {--chain-survey : chain タスクで、車種名一致・サイズ・リンク数の内訳を測る（抽出はしない）}
         {--verify : model_fitments の既存データと突き合わせて精度を測る（SELECTのみ・書き込みなし）}
         {--models=10 : --verify で照合する車種数}
@@ -64,6 +64,34 @@ final class FitmentProbe extends Command
 
     /** 不一致だった車種名の実例を出す上限。 */
     private const MISMATCH_SAMPLES = 10;
+
+    /**
+     * 429（レート制限）を受けたときの再試行の待機秒。指数バックオフで最大3回。
+     * 即打ち切りにすると4車種目で測定が終わってしまい（2026-08-12 の実測）、
+     * 全体像が分からないため、粘ってから諦める。
+     */
+    private const RETRY_BACKOFF = [10, 30, 60];
+
+    /** --sleep の既定値（signature と一致させること）。 */
+    private const DEFAULT_SLEEP = 2;
+
+    /** --verify のリクエスト間の既定待機秒（通常モードより長め）。車種数×タスク数だけ投げるため。 */
+    private const VERIFY_DEFAULT_SLEEP = 5;
+
+    /**
+     * --verify の判定。
+     *
+     * ※ 「不一致」ではなく「食い違い（要確認）」としているのは、既存データを正解と見なせないため。
+     *   2026-08-12 の実測で、ジョルノ AF70 は既存 CPR6EA-9 が誤りで抽出 CR7HSA-9 が正しかった。
+     *   このモードは精度の測定ではなく、人が確認すべき差分の洗い出しに使う。
+     */
+    private const VERDICT_MATCH = '一致';
+
+    private const VERDICT_CONFLICT = '食い違い（要確認）';
+
+    private const VERDICT_MISSED = '取りこぼし';
+
+    private const VERDICT_NEW = '新規';
 
     /**
      * 採用の信頼度。除外条件ではなく、後段（書き込み）で優先度を判断するための印。
@@ -100,7 +128,12 @@ final class FitmentProbe extends Command
         $sleep = max(0, (int) $this->option('sleep'));
 
         if ($this->option('verify')) {
-            return $this->verifyMode($service, $tasks, $limit, $sleep);
+            // --verify は車種数×タスク数だけリクエストが出るため、既定の待機を長くする。
+            // --sleep が明示されていればその値を尊重する（既定値と同じ数字を明示した場合も尊重されるよう、
+            // 値の比較ではなくコマンドラインに現れたかどうかで判定する）。
+            $sleepGiven = $this->input->hasParameterOption('--sleep');
+
+            return $this->verifyMode($service, $tasks, $limit, $sleepGiven ? $sleep : self::VERIFY_DEFAULT_SLEEP);
         }
 
         $requested = trim((string) ($this->option('model') ?: self::DEFAULT_MODEL));
@@ -139,16 +172,7 @@ final class FitmentProbe extends Command
         /** @var array<int, string> 不一致だった車種名の実例 */
         $mismatchSamples = [];
 
-        $firstTask = true;
-
         foreach ($tasks as $task => $partName) {
-            // 自分からレート制限に当たりに行かない。タスクごとに楽天+Yahooへ1回ずつ投げるため、
-            // その間隔を空ける（2026-08-12 の実測でバッテリーが429を受けて0件になった）。
-            if (! $firstTask && $sleep > 0) {
-                sleep($sleep);
-            }
-            $firstTask = false;
-
             $query = "{$modelName} {$partName}";
 
             $this->newLine();
@@ -156,25 +180,29 @@ final class FitmentProbe extends Command
             $this->line("[{$task}]");
             $this->line("  検索クエリ: 「{$query}」");
 
-            $results = $service->searchProducts($query, $limit, true);
-            $errors = $service->lastErrors();
-            $rakuten = array_values(array_filter($results, fn (array $i): bool => ($i['mall'] ?? '') === 'rakuten'));
-            $yahooCount = count($results) - count($rakuten);
+            // 待機とリトライは searchWithRetry に集約（リクエスト単位で $sleep を挟む）
+            $fetched = $this->searchWithRetry($service, $query, $limit, $sleep, false);
 
             // 「0件」と「取得失敗」を必ず区別する。楽天が429を返した回を「0件」と読むと、
             // 検索語が悪いのだと誤解して無駄な調整をすることになる。
-            if (isset($errors['rakuten'])) {
-                $apiFailures[$task] = $errors['rakuten'];
-                $this->error("  楽天APIの取得に失敗しました（{$errors['rakuten']}）。");
+            if ($fetched['error'] !== null) {
+                $apiFailures[$task] = $fetched['error'];
+                $this->error("  楽天APIの取得に失敗しました（{$fetched['error']}）。");
                 $this->error('  これは「該当0件」ではありません。検索語ではなくAPI側（レート制限・障害）を疑ってください。');
-                $this->line('  --sleep を増やして時間をおいて再実行してください。');
 
                 continue;
             }
 
-            $this->line('  取得商品数（楽天）: '.count($rakuten)
-                .($yahooCount > 0 ? "（Yahoo {$yahooCount}件は集計対象外）" : '')
-                .(isset($errors['yahoo']) ? "（Yahooは取得失敗: {$errors['yahoo']}）" : ''));
+            $results = $fetched['items'];
+            $rakuten = array_values(array_filter($results, fn (array $i): bool => ($i['mall'] ?? '') === 'rakuten'));
+
+            // 取りこぼしの原因を切り分けるための内訳
+            $this->printDiagnosis($this->diagnose($rakuten, $modelName));
+
+            $spelling = $this->dominantTitleSpelling($rakuten, $modelName);
+            if ($spelling !== null) {
+                $this->line("    商品側の表記(最多)   : {$spelling}  ／ DB上の名前: {$modelName}");
+            }
 
             if ($rakuten === []) {
                 $this->warn('  該当0件でした（APIは正常応答）。検索語を見直す余地があります。');
@@ -441,7 +469,7 @@ final class FitmentProbe extends Command
             return self::SUCCESS;
         }
 
-        $result = ['一致' => 0, '不一致' => 0, '取りこぼし' => 0, '新規' => 0];
+        $result = [self::VERDICT_MATCH => 0, self::VERDICT_CONFLICT => 0, self::VERDICT_MISSED => 0, self::VERDICT_NEW => 0];
         $processedModels = 0;
         $rateLimited = false;
 
@@ -479,20 +507,23 @@ final class FitmentProbe extends Command
             $this->line("[{$modelName}] (bike_model_id={$modelId}) 照合タスク: ".implode(', ', array_keys($targetTasks)));
 
             foreach ($targetTasks as $task => $partName) {
-                if ($processedModels > 0 || $task !== array_key_first($targetTasks)) {
-                    if ($sleep > 0) {
-                        sleep($sleep);
-                    }
-                }
-
                 $query = "{$modelName} {$partName}";
-                $results = $service->searchProducts($query, $limit, true);
+                // --verify は楽天のみ取得（Yahoo は集計対象外なのでリクエストが無駄になる）
+                $fetched = $this->searchWithRetry($service, $query, $limit, $sleep, true);
 
-                if (isset($service->lastErrors()['rakuten'])) {
-                    $this->error("  楽天APIの取得に失敗（{$service->lastErrors()['rakuten']}）。ここで打ち切ります。");
+                if ($fetched['error'] !== null) {
+                    $this->error("  楽天APIの取得に失敗（{$fetched['error']}）。再試行しても回復しないため、ここで打ち切ります。");
                     $rateLimited = true;
                     break;
                 }
+
+                $results = $fetched['items'];
+
+                // 取りこぼしの原因を切り分ける（データ無し / 名前を認識できない / 型式が無い）
+                $this->line("  [{$task}] 検索クエリ: 「{$query}」");
+                $this->printDiagnosis($this->diagnose($results, $modelName));
+                $spelling = $this->dominantTitleSpelling($results, $modelName);
+                $this->line('    商品側の表記(最多)   : '.($spelling ?? '(該当なし)')."  ／ DB上の名前: {$modelName}");
 
                 $extracted = $this->extractForVerify($results, $modelName);
 
@@ -521,15 +552,15 @@ final class FitmentProbe extends Command
         }
 
         foreach ($result as $verdict => $count) {
-            $this->line(sprintf('  %-10s : %d', $verdict, $count));
+            $this->line(sprintf('  %-20s : %d', $verdict, $count));
         }
 
-        $denominator = $result['一致'] + $result['不一致'];
         $this->newLine();
-        $this->line('  一致率（一致 ÷（一致＋不一致））: '.$this->percent($result['一致'], $denominator));
-        if ($denominator === 0) {
-            $this->comment('  ※ 一致・不一致がどちらも0のため、一致率は評価できません。');
-        }
+        $this->warn('  既存と抽出が食い違った件数: '.$result[self::VERDICT_CONFLICT]);
+        $this->newLine();
+        $this->comment('※ 食い違いは、既存データが誤っている場合と抽出が誤っている場合の');
+        $this->comment('  両方があります。実例: ジョルノ AF70 は既存 CPR6EA-9 が誤りで、');
+        $this->comment('  抽出した CR7HSA-9 が正しい値でした。人が確認する対象として扱ってください。');
 
         return self::SUCCESS;
     }
@@ -633,9 +664,9 @@ final class FitmentProbe extends Command
             $mine = $code === '' ? $allExtracted : ($extracted[$code] ?? []);
 
             $verdict = match (true) {
-                $mine === [] => '取りこぼし',
-                array_intersect($parts, $mine) !== [] => '一致',
-                default => '不一致',
+                $mine === [] => self::VERDICT_MISSED,
+                array_intersect($parts, $mine) !== [] => self::VERDICT_MATCH,
+                default => self::VERDICT_CONFLICT,
             };
 
             $out[] = [
@@ -653,7 +684,7 @@ final class FitmentProbe extends Command
                     'code' => $code,
                     'existing' => '',
                     'extracted' => implode(', ', $parts),
-                    'verdict' => '新規',
+                    'verdict' => self::VERDICT_NEW,
                 ];
             }
         }
@@ -767,6 +798,105 @@ final class FitmentProbe extends Command
         }
 
         return null;
+    }
+
+    /**
+     * 楽天へ1リクエスト投げる。429 のときは指数バックオフで最大3回まで再試行する。
+     *
+     * 呼び出しのたびに $sleep 秒空ける（タスク間ではなくリクエスト単位）。
+     * 429 で即打ち切ると測定が完走しないため粘るが、それでも駄目なら諦めて呼び出し側へ返す。
+     *
+     * @return array{items: array<int, array<string, mixed>>, error: string|null}
+     */
+    private function searchWithRetry(ProductSearchService $service, string $query, int $limit, int $sleep, bool $rakutenOnly): array
+    {
+        $attempt = 0;
+
+        while (true) {
+            if ($sleep > 0) {
+                sleep($sleep);
+            }
+
+            $results = $service->searchProducts($query, $limit, true, $rakutenOnly);
+            $error = $service->lastErrors()['rakuten'] ?? null;
+
+            if ($error === null) {
+                return ['items' => $results, 'error' => null];
+            }
+
+            // 429 以外（500 等）は待っても直らないことが多いので再試行しない
+            if (! str_contains($error, '429') || $attempt >= count(self::RETRY_BACKOFF)) {
+                return ['items' => [], 'error' => $error];
+            }
+
+            $wait = self::RETRY_BACKOFF[$attempt];
+            $attempt++;
+            // 沈黙して止まっているように見えないよう、待機のたびに1行出す
+            $this->warn("    レート制限のため {$wait}秒待機して再試行します（{$attempt}回目）");
+            sleep($wait);
+        }
+    }
+
+    /**
+     * 検索結果の内訳を出して、取りこぼしの原因を「データが無い/名前を認識できない/型式が無い」に分解する。
+     *
+     * @param  array<int, array<string, mixed>>  $items
+     * @return array{total: int, loose: int, strict: int}
+     */
+    private function diagnose(array $items, string $modelName): array
+    {
+        $loose = 0;
+        $strict = 0;
+
+        foreach ($items as $item) {
+            $haystack = ((string) ($item['name'] ?? '')).' '.((string) ($item['description'] ?? ''));
+
+            if (FitmentTextExtractor::containsModelNameLoose($haystack, $modelName)) {
+                $loose++;
+            }
+            if (FitmentTextExtractor::containsModelName($haystack, $modelName)) {
+                $strict++;
+            }
+        }
+
+        return ['total' => count($items), 'loose' => $loose, 'strict' => $strict];
+    }
+
+    /**
+     * @param  array{total: int, loose: int, strict: int}  $d
+     */
+    private function printDiagnosis(array $d): void
+    {
+        $this->line("    取得商品数           : {$d['total']}");
+        $this->line("    車種名を含む(緩い)   : {$d['loose']}  ※空白・記号・大小文字・全半角を無視した部分一致（診断専用）");
+        $this->line("    車種名が厳密一致     : {$d['strict']}  ※採用判定に使うのはこちら");
+    }
+
+    /**
+     * 商品タイトル側で最も多く現れた車種名の表記を返す（表記ゆれの診断用）。
+     *
+     * @param  array<int, array<string, mixed>>  $items
+     */
+    private function dominantTitleSpelling(array $items, string $modelName): ?string
+    {
+        $tally = [];
+
+        foreach ($items as $item) {
+            $found = FitmentTextExtractor::findLooseOccurrence((string) ($item['name'] ?? ''), $modelName);
+            if ($found !== null && trim($found) !== '') {
+                $key = trim($found);
+                $tally[$key] = ($tally[$key] ?? 0) + 1;
+            }
+        }
+
+        if ($tally === []) {
+            return null;
+        }
+
+        arsort($tally);
+        $top = array_key_first($tally);
+
+        return $top.'（'.$tally[$top].'件）';
     }
 
     /**
