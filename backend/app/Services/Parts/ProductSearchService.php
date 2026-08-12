@@ -33,7 +33,36 @@ final class ProductSearchService
 
     private const CACHE_TTL = 600; // 10分
 
+    /**
+     * どちらかのモールが失敗した回のキャッシュTTL（秒）。
+     * 通常TTLで焼くと、一時的な429やタイムアウトの「空配列」が10分間そのまま返り続け、
+     * 「0件だった」のか「取れなかった」のか誰にも分からなくなる。かといってキャッシュしないと
+     * 相手APIが不調なときにアクセスのたび叩いて追い打ちをかけるため、短めに焼く。
+     */
+    private const CACHE_TTL_ON_ERROR = 60;
+
     private const TIMEOUT = 8;
+
+    /**
+     * 直近の searchProducts() で発生したモール別のエラー。['rakuten' => 'HTTP 429', ...]。
+     * 空配列なら「エラー無し」。キャッシュヒット時も空配列（今回HTTPしていないため）。
+     *
+     * グレースフルに空配列を返す設計は維持しつつ、呼び出し側が
+     * 「0件」と「取得失敗」を区別できるようにするための出口。
+     *
+     * @var array<string, string>
+     */
+    private array $lastErrors = [];
+
+    /**
+     * 直近の searchProducts() のモール別エラー。空配列ならエラー無し。
+     *
+     * @return array<string, string>
+     */
+    public function lastErrors(): array
+    {
+        return $this->lastErrors;
+    }
 
     /**
      * キーワードで楽天 + Yahoo を検索し、正規化した商品候補を返す。
@@ -58,17 +87,33 @@ final class ProductSearchService
         // ($withDescription=false のときのキーは従来と同一文字列＝既存のキャッシュがそのまま効く)
         $cacheKey = 'garage_product_search_'.md5($keyword.'_'.$hits.($withDescription ? '_desc' : ''));
 
-        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($keyword, $hits, $withDescription) {
-            // 各モールAPIの関連度順を尊重してマージ（楽天→Yahoo）。
-            // ★価格昇順ソートは廃止する：Yahoo はジャンル絞りが無く、最安の無関係品
-            //   （チェーンクリップ¥5・ドレンパッキン¥15 等）が上位に浮上し、楽天の良質な該当商品を
-            //   押しのけて「おすすめ商品」枠を汚染していた（本番のオイル/バッテリー枠で誤表示が発生）。
-            //   関連度順なら各モールが該当商品を上位に返すため、先頭 slice がそのまま良質候補になる。
-            return array_merge(
-                $this->searchRakuten($keyword, $hits, $withDescription),
-                $this->searchYahoo($keyword, $hits),
-            );
-        });
+        $this->lastErrors = [];
+
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            // キャッシュヒット＝今回はHTTPしていないので lastErrors は空のまま
+            return $cached;
+        }
+
+        // 各モールAPIの関連度順を尊重してマージ（楽天→Yahoo）。
+        // ★価格昇順ソートは廃止する：Yahoo はジャンル絞りが無く、最安の無関係品
+        //   （チェーンクリップ¥5・ドレンパッキン¥15 等）が上位に浮上し、楽天の良質な該当商品を
+        //   押しのけて「おすすめ商品」枠を汚染していた（本番のオイル/バッテリー枠で誤表示が発生）。
+        //   関連度順なら各モールが該当商品を上位に返すため、先頭 slice がそのまま良質候補になる。
+        $results = array_merge(
+            $this->searchRakuten($keyword, $hits, $withDescription),
+            $this->searchYahoo($keyword, $hits),
+        );
+
+        // 失敗を含む回は短いTTLで焼く。通常TTLだと、429で空になった結果が10分間
+        // 「0件」として返り続けてしまう（実際に fitment:probe のバッテリーで発生した）。
+        Cache::put(
+            $cacheKey,
+            $results,
+            $this->lastErrors === [] ? self::CACHE_TTL : self::CACHE_TTL_ON_ERROR
+        );
+
+        return $results;
     }
 
     /**
@@ -107,6 +152,14 @@ final class ProductSearchService
             ])->timeout(self::TIMEOUT)->get(self::RAKUTEN_URL, $params);
 
             if (! $response->successful()) {
+                // 握りつぶさない。429（レート制限）を「0件」と誤読すると、
+                // 検索語が悪いのかAPIが断ったのかが区別できなくなる。
+                $this->lastErrors['rakuten'] = 'HTTP '.$response->status();
+                Log::warning('ProductSearchService rakuten がエラー応答', [
+                    'status' => $response->status(),
+                    'keyword' => $keyword,
+                ]);
+
                 return [];
             }
 
@@ -127,7 +180,8 @@ final class ProductSearchService
                 ];
             })->filter(fn ($i) => $i['name'] !== '' && $i['url'] !== '')->values()->all();
         } catch (\Throwable $e) {
-            Log::warning('ProductSearchService rakuten failed: '.$e->getMessage());
+            $this->lastErrors['rakuten'] = '例外: '.$e->getMessage();
+            Log::warning('ProductSearchService rakuten failed: '.$e->getMessage(), ['keyword' => $keyword]);
 
             return [];
         }
@@ -155,6 +209,13 @@ final class ProductSearchService
             ]);
 
             if (! $response->successful()) {
+                // 楽天と同じ理由で握りつぶさない（0件と取得失敗を区別できるようにする）。
+                $this->lastErrors['yahoo'] = 'HTTP '.$response->status();
+                Log::warning('ProductSearchService yahoo がエラー応答', [
+                    'status' => $response->status(),
+                    'keyword' => $keyword,
+                ]);
+
                 return [];
             }
 
@@ -180,7 +241,8 @@ final class ProductSearchService
                 ];
             })->filter(fn ($i) => $i['name'] !== '' && $i['url'] !== '')->values()->all();
         } catch (\Throwable $e) {
-            Log::warning('ProductSearchService yahoo failed: '.$e->getMessage());
+            $this->lastErrors['yahoo'] = '例外: '.$e->getMessage();
+            Log::warning('ProductSearchService yahoo failed: '.$e->getMessage(), ['keyword' => $keyword]);
 
             return [];
         }

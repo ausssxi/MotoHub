@@ -150,6 +150,66 @@ final class FitmentTextExtractor
     }
 
     /**
+     * 書式B（NGK形式）: 「メーカー名 車種名 型式 排気量cc 年式」の並びから型式を取り出す。
+     *
+     * 実データ（2026-08-12）:
+     *   商品名: NGK スパークプラグ スズキ Vストローム250 DS11A 250cc 2017年07月〜2023年03月 入数：1本
+     *   説明文: ■適合車種スズキVストローム250 DS11A 2017年07月〜2023年03月
+     *   別車種: NGK MotoDX スパークプラグ スズキ Vストローム250SX EL11L 250cc 2023年08月〜
+     *
+     * 書式Aと違ってラベルで値が囲まれていないため、構造を推測して切り出すのではなく
+     * 「対象車種名を見つけ、その直後の語が型式の形をしているか」だけを見る。
+     * 車種名が起点なので、SX のような別車種を取り違えない。
+     *
+     * 採用条件（どれか1つでも欠けたら採らない）:
+     *   1. 対象車種名が完全な語として現れること
+     *      （直後が空白か文末。「Vストローム250SX」の中の「Vストローム250」は語として認めない）
+     *   2. その直後の語が FRAME_CODE（DS11A / EL11L / AA07 等）の形をしていること
+     *
+     * @return array<int, array{raw: string, regulation: string|null, code: string}>
+     */
+    public static function frameCodesAfterModelName(string $text, string $target): array
+    {
+        // 全角英数を半角へ寄せる。空白は語の境界として使うので、ここでは消さない。
+        $haystack = self::widthNormalize($text);
+        $needle = self::widthNormalize($target);
+
+        if ($needle === '' || $haystack === '') {
+            return [];
+        }
+
+        $out = [];
+        $offset = 0;
+
+        while (($pos = mb_stripos($haystack, $needle, $offset)) !== false) {
+            $offset = $pos + mb_strlen($needle);
+            $rest = mb_substr($haystack, $offset);
+
+            // 条件1: 車種名の直後は空白か文末でなければならない。
+            //        「Vストローム250SX」で「Vストローム250」に一致しても、直後が 'S' なので弾かれる。
+            if ($rest !== '' && preg_match('/^[\s\x{3000}]/u', $rest) !== 1) {
+                continue;
+            }
+
+            // 条件2: 直後の語が型式の形をしているか（1語だけ見る。離れた位置の語は見ない）
+            // ※ trim() は全角スペース(U+3000)を落とさない。先頭の空白は正規表現で落とすこと
+            //   （そうしないと split の先頭要素が空文字になり、全角区切りの商品を取りこぼす）
+            $rest = preg_replace('/^[\s\x{3000}]+/u', '', $rest) ?? $rest;
+            $nextToken = preg_split('/[\s\x{3000}]+/u', $rest, 2)[0] ?? '';
+            $nextToken = strtoupper(self::normalize(self::stripParentheses($nextToken)));
+
+            if (preg_match('/^('.self::REGULATION.')-('.self::FRAME_CODE.')$/u', $nextToken, $m) === 1) {
+                $out[] = ['raw' => $nextToken, 'regulation' => $m[1], 'code' => $m[2]];
+            } elseif (preg_match('/^('.self::FRAME_CODE.')$/u', $nextToken, $m) === 1) {
+                $out[] = ['raw' => $nextToken, 'regulation' => null, 'code' => $m[1]];
+            }
+            // 型式の形でなければ何も採らない（排気量や年式を型式と誤認しないため）
+        }
+
+        return self::uniqueByRaw($out);
+    }
+
+    /**
      * 「純正品番」「該当純正品番」ラベルの直後にある品番群。
      * 呼び出し側は、型式ラベルを持つ商品に限って使うこと（汎用品の品番を拾わないため）。
      *
@@ -243,10 +303,19 @@ final class FitmentTextExtractor
      */
     public static function normalize(string $text): string
     {
-        $text = mb_convert_kana($text, 'a');
+        $text = self::widthNormalize($text);
         $text = preg_replace('/[\s\x{3000}]+/u', '', $text) ?? $text;
 
         return trim($text);
+    }
+
+    /**
+     * 全角英数記号→半角のみを行い、空白は残す。
+     * 書式B は空白を語の境界として使うため、空白を消してはいけない。
+     */
+    private static function widthNormalize(string $text): string
+    {
+        return mb_convert_kana($text, 'a');
     }
 
     /**

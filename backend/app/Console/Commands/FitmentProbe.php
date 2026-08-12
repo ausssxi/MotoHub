@@ -47,6 +47,7 @@ final class FitmentProbe extends Command
         {--model= : 対象車種名（既定: Vストローム250）}
         {--task= : oil-filter|battery|plug|chain（未指定は全部）}
         {--limit=20 : 1タスクあたりの取得商品数}
+        {--sleep=2 : タスク間の待機秒数（楽天APIのレート制限を避けるため）}
         {--dump : 取得した商品名と説明文の先頭を生で出力する}';
 
     protected $description = '商品説明文から品番・適合型式を抽出できるかの歩留まりを測る（読み取り専用・DB書き込みなし）';
@@ -80,6 +81,7 @@ final class FitmentProbe extends Command
         }
 
         $limit = max(1, (int) $this->option('limit'));
+        $sleep = max(0, (int) $this->option('sleep'));
         $requested = trim((string) ($this->option('model') ?: self::DEFAULT_MODEL));
         $modelName = $this->resolveModelName($requested);
 
@@ -87,13 +89,19 @@ final class FitmentProbe extends Command
         $this->line('==== fitment:probe（読み取り専用・DBへは書き込みません）====');
         $this->line("対象車種: {$modelName}");
         $this->line('対象タスク: '.implode(', ', array_keys($tasks)));
-        $this->line("1タスクあたりの取得数: {$limit}（楽天のみを集計）");
+        $this->line("1タスクあたりの取得数: {$limit}（楽天のみを集計） / タスク間の待機: {$sleep}秒");
 
         // 全タスク通算の集計
         $items = 0;
-        $withLabel = 0;      // 【適合型式】ラベルがあった
+        $withLabel = 0;      // 【適合型式】ラベルがあった（書式A）
         $nameMatched = 0;    // 車種名が厳密一致した
         $adopted = 0;        // 最終的に採用した
+        $adoptedA = 0;       // 書式A（【適合型式】ラベル）で採用
+        $adoptedB = 0;       // 書式B（NGK形式・車種名の直後が型式）で採用
+        // 採用できたのに品番が取れなかった数。下の「型式→品番」表に出てこない採用がこれ。
+        // 例: NGKのプラグ品番 CR8E は4文字で、PartsCodeExtractor の最小6文字に満たず落ちる。
+        $adoptedWithoutPart = 0;
+        $apiFailures = [];   // タスク名 => エラー内容（0件と取得失敗を区別するため）
         $reject = ['no_label' => 0, 'name_mismatch' => 0, 'undecidable' => 0];
 
         /** @var array<string, int> "型式\t品番" => 何商品が同じことを書いているか */
@@ -103,7 +111,16 @@ final class FitmentProbe extends Command
         /** @var array<int, string> 不一致だった車種名の実例 */
         $mismatchSamples = [];
 
+        $firstTask = true;
+
         foreach ($tasks as $task => $partName) {
+            // 自分からレート制限に当たりに行かない。タスクごとに楽天+Yahooへ1回ずつ投げるため、
+            // その間隔を空ける（2026-08-12 の実測でバッテリーが429を受けて0件になった）。
+            if (! $firstTask && $sleep > 0) {
+                sleep($sleep);
+            }
+            $firstTask = false;
+
             $query = "{$modelName} {$partName}";
 
             $this->newLine();
@@ -112,14 +129,27 @@ final class FitmentProbe extends Command
             $this->line("  検索クエリ: 「{$query}」");
 
             $results = $service->searchProducts($query, $limit, true);
+            $errors = $service->lastErrors();
             $rakuten = array_values(array_filter($results, fn (array $i): bool => ($i['mall'] ?? '') === 'rakuten'));
             $yahooCount = count($results) - count($rakuten);
 
+            // 「0件」と「取得失敗」を必ず区別する。楽天が429を返した回を「0件」と読むと、
+            // 検索語が悪いのだと誤解して無駄な調整をすることになる。
+            if (isset($errors['rakuten'])) {
+                $apiFailures[$task] = $errors['rakuten'];
+                $this->error("  楽天APIの取得に失敗しました（{$errors['rakuten']}）。");
+                $this->error('  これは「該当0件」ではありません。検索語ではなくAPI側（レート制限・障害）を疑ってください。');
+                $this->line('  --sleep を増やして時間をおいて再実行してください。');
+
+                continue;
+            }
+
             $this->line('  取得商品数（楽天）: '.count($rakuten)
-                .($yahooCount > 0 ? "（Yahoo {$yahooCount}件は集計対象外）" : ''));
+                .($yahooCount > 0 ? "（Yahoo {$yahooCount}件は集計対象外）" : '')
+                .(isset($errors['yahoo']) ? "（Yahooは取得失敗: {$errors['yahoo']}）" : ''));
 
             if ($rakuten === []) {
-                $this->warn('  0件でした。検索語かAPIの状態を確認してください。');
+                $this->warn('  該当0件でした（APIは正常応答）。検索語を見直す余地があります。');
 
                 continue;
             }
@@ -143,45 +173,62 @@ final class FitmentProbe extends Command
                 $oemNumbers = FitmentTextExtractor::oemPartNumbers($description);
 
                 // ── 採否の判定 ──
+                // 書式A（【適合型式】ラベル）を先に見て、満たさなければ書式B（NGK形式）を試す。
+                // 書式Bは「対象車種名の直後の語が型式の形か」しか見ないため、
+                // 一致した時点で車種名の完全一致も成立している（SXは語境界で弾かれる）。
                 $verdict = null;
-                if (! $hasLabel) {
-                    // 型式ラベルなし＝汎用品の可能性が高い。純正品番も採らない。
-                    $reject['no_label']++;
-                    $verdict = '不採用（型式ラベルなし）';
-                } else {
+                $formatAOk = $hasLabel
+                    && $fitNames !== null && $fitNames !== []
+                    && FitmentTextExtractor::matchesModel($fitNames, $modelName)
+                    && $frameCodes !== [];
+
+                if ($hasLabel) {
                     $taskWithLabel++;
                     $withLabel++;
+                }
 
-                    if ($fitNames === null || $fitNames === []) {
-                        $reject['undecidable']++;
-                        $verdict = '不採用（適合車種ラベルなし＝判定不能）';
-                    } elseif (! FitmentTextExtractor::matchesModel($fitNames, $modelName)) {
-                        $reject['name_mismatch']++;
-                        $verdict = '不採用（車種名が不一致）';
-                        if (count($mismatchSamples) < self::MISMATCH_SAMPLES) {
-                            $mismatchSamples[] = '「'.implode(' / ', $fitNames).'」 ← '.$this->flatten(mb_substr($name, 0, 60));
-                        }
-                    } elseif ($frameCodes === []) {
-                        $reject['undecidable']++;
-                        $verdict = '不採用（型式の書式が解釈できない＝判定不能）';
-                    } else {
-                        $nameMatched++;
-                        $adopted++;
-                        $taskAdopted++;
-                        $verdict = '採用';
+                // 書式B は商品名と説明文の両方を対象にする（NGKは両方に同じ並びで書いている）
+                $formatBCodes = $formatAOk
+                    ? []
+                    : FitmentTextExtractor::frameCodesAfterModelName($name.' '.$description, $modelName);
 
-                        // 「型式 → 品番」の組を数える（同じことを何商品が書いているか）
-                        foreach ($frameCodes as $fc) {
-                            if ($partNumber !== null) {
-                                $key = $fc['code']."\t".$partNumber;
-                                $pairs[$key] = ($pairs[$key] ?? 0) + 1;
-                            }
-                            foreach ($oemNumbers as $oem) {
-                                $key = $fc['code']."\t".$oem;
-                                $oemPairs[$key] = ($oemPairs[$key] ?? 0) + 1;
-                            }
-                        }
+                if ($formatAOk) {
+                    $nameMatched++;
+                    $adopted++;
+                    $adoptedA++;
+                    $taskAdopted++;
+                    $verdict = '採用（書式A: 【適合型式】ラベル）';
+                    $this->countPairs($pairs, $oemPairs, $frameCodes, $partNumber, $oemNumbers);
+                    if ($partNumber === null) {
+                        $adoptedWithoutPart++;
                     }
+                } elseif ($formatBCodes !== []) {
+                    $nameMatched++;
+                    $adopted++;
+                    $adoptedB++;
+                    $taskAdopted++;
+                    $verdict = '採用（書式B: 車種名の直後が型式）';
+                    // 書式Bには純正品番ラベルが無いのが実データの傾向。あれば拾うが、無くても採用する。
+                    $this->countPairs($pairs, $oemPairs, $formatBCodes, $partNumber, $oemNumbers);
+                    if ($partNumber === null) {
+                        $adoptedWithoutPart++;
+                    }
+                } elseif (! $hasLabel) {
+                    // 型式ラベルも無く、車種名の直後も型式ではない＝汎用品の可能性が高い
+                    $reject['no_label']++;
+                    $verdict = '不採用（型式ラベルなし・書式Bにも該当せず）';
+                } elseif ($fitNames === null || $fitNames === []) {
+                    $reject['undecidable']++;
+                    $verdict = '不採用（適合車種ラベルなし＝判定不能）';
+                } elseif (! FitmentTextExtractor::matchesModel($fitNames, $modelName)) {
+                    $reject['name_mismatch']++;
+                    $verdict = '不採用（車種名が不一致）';
+                    if (count($mismatchSamples) < self::MISMATCH_SAMPLES) {
+                        $mismatchSamples[] = '「'.implode(' / ', $fitNames).'」 ← '.$this->flatten(mb_substr($name, 0, 60));
+                    }
+                } else {
+                    $reject['undecidable']++;
+                    $verdict = '不採用（型式の書式が解釈できない＝判定不能）';
                 }
 
                 if ($this->option('dump')) {
@@ -218,16 +265,30 @@ final class FitmentProbe extends Command
         $this->newLine();
         $this->line('==== 合計 ====');
 
+        if ($apiFailures !== []) {
+            $this->error('APIの取得に失敗したタスクがあります（下の集計にはこれらは含まれていません）:');
+            foreach ($apiFailures as $task => $reason) {
+                $this->error("  {$task}: {$reason}");
+            }
+            $this->line('  → 該当0件ではありません。時間をおくか --sleep を増やして再実行してください。');
+            $this->newLine();
+        }
+
         if ($items === 0) {
-            $this->warn('1件も取得できませんでした。');
+            $this->warn('1件も評価できませんでした。');
 
             return self::SUCCESS;
         }
 
         $this->line("評価商品数              : {$items}");
-        $this->line("型式ラベルがあった      : {$withLabel}（".$this->percent($withLabel, $items).'）');
+        $this->line("型式ラベルがあった(書式A): {$withLabel}（".$this->percent($withLabel, $items).'）');
         $this->line("車種名が厳密一致した    : {$nameMatched}（".$this->percent($nameMatched, $items).'）');
         $this->line("最終的に採用した        : {$adopted}（".$this->percent($adopted, $items).'）');
+        $this->line("  うち書式A（ラベル）   : {$adoptedA}（".$this->percent($adoptedA, $items).'）');
+        $this->line("  うち書式B（NGK形式）  : {$adoptedB}（".$this->percent($adoptedB, $items).'）');
+        if ($adoptedWithoutPart > 0) {
+            $this->line("  うち品番が取れず      : {$adoptedWithoutPart}（型式は取れたが下の「型式→品番」表には出ない）");
+        }
 
         $this->newLine();
         $this->line('---- 不採用の理由 ----');
@@ -247,9 +308,32 @@ final class FitmentProbe extends Command
         }
 
         $this->newLine();
+        $this->comment('※ 書式C（該当純正品番＋参考適合車種が年式のみ）は未対応です。型式が書かれておらず推測になるため。');
         $this->comment('※ DBには一切書き込んでいません。採用した組をどう保存するかは次段の判断です。');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * 「型式 → 品番」「型式 → 純正品番」の組を数える（同じことを何商品が書いているか）。
+     *
+     * @param  array<string, int>  $pairs
+     * @param  array<string, int>  $oemPairs
+     * @param  array<int, array{raw: string, regulation: string|null, code: string}>  $frameCodes
+     * @param  array<int, string>  $oemNumbers
+     */
+    private function countPairs(array &$pairs, array &$oemPairs, array $frameCodes, ?string $partNumber, array $oemNumbers): void
+    {
+        foreach ($frameCodes as $fc) {
+            if ($partNumber !== null) {
+                $key = $fc['code']."\t".$partNumber;
+                $pairs[$key] = ($pairs[$key] ?? 0) + 1;
+            }
+            foreach ($oemNumbers as $oem) {
+                $key = $fc['code']."\t".$oem;
+                $oemPairs[$key] = ($oemPairs[$key] ?? 0) + 1;
+            }
+        }
     }
 
     /**
