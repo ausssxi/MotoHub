@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\BikeModel;
+use App\Models\ModelFitment;
 use App\Services\Parts\FitmentTextExtractor;
 use App\Services\Parts\PartsCodeExtractor;
 use App\Services\Parts\ProductSearchService;
@@ -49,6 +50,8 @@ final class FitmentProbe extends Command
         {--limit=20 : 1タスクあたりの取得商品数}
         {--sleep=2 : タスク間の待機秒数（楽天APIのレート制限を避けるため）}
         {--chain-survey : chain タスクで、車種名一致・サイズ・リンク数の内訳を測る（抽出はしない）}
+        {--verify : model_fitments の既存データと突き合わせて精度を測る（SELECTのみ・書き込みなし）}
+        {--models=10 : --verify で照合する車種数}
         {--dump : 取得した商品名と説明文の先頭を生で出力する}';
 
     protected $description = '商品説明文から品番・適合型式を抽出できるかの歩留まりを測る（読み取り専用・DB書き込みなし）';
@@ -61,6 +64,18 @@ final class FitmentProbe extends Command
 
     /** 不一致だった車種名の実例を出す上限。 */
     private const MISMATCH_SAMPLES = 10;
+
+    /**
+     * 採用の信頼度。除外条件ではなく、後段（書き込み）で優先度を判断するための印。
+     *   高(書式A) … 【適合型式】ラベルで明示されている
+     *   高(書式B) … タイトルと説明文の両方で同じ型式が取れた
+     *   中(書式B) … 説明文だけで取れた
+     */
+    private const CONFIDENCE_LABEL = '高(書式A:ラベル)';
+
+    private const CONFIDENCE_HIGH = '高(書式B:タイトル+説明文)';
+
+    private const CONFIDENCE_MEDIUM = '中(書式B:説明文のみ)';
 
     /**
      * タスク → 検索語に足す部品名。検索クエリは「車種名 + 部品名」で組み立てる。
@@ -83,6 +98,11 @@ final class FitmentProbe extends Command
 
         $limit = max(1, (int) $this->option('limit'));
         $sleep = max(0, (int) $this->option('sleep'));
+
+        if ($this->option('verify')) {
+            return $this->verifyMode($service, $tasks, $limit, $sleep);
+        }
+
         $requested = trim((string) ($this->option('model') ?: self::DEFAULT_MODEL));
         $modelName = $this->resolveModelName($requested);
 
@@ -107,9 +127,10 @@ final class FitmentProbe extends Command
             'no_label' => 0,
             'name_mismatch' => 0,
             'undecidable' => 0,
-            'fitment_table' => 0,     // 適合表の埋め込みと判断して書式Bを見送った
-            'title_unconfirmed' => 0, // 説明文では取れたがタイトルで裏が取れなかった
+            'fitment_table' => 0, // 適合表の埋め込みと判断して書式Bを見送った
         ];
+        /** @var array<string, array<string, array<int, string>>> $byCode タスク → 型式 → 品番群（矛盾検出用） */
+        $byCode = [];
 
         /** @var array<string, int> "型式\t品番" => 何商品が同じことを書いているか */
         $pairs = [];
@@ -202,16 +223,20 @@ final class FitmentProbe extends Command
                 }
 
                 // ── 書式B の判定 ──
-                // 書式Bの根拠は「NGKの商品はタイトルにも説明文にも同じ形で車種名＋型式が出る」
-                // という観測だった。それを条件として明示する。
-                //   (a) 説明文が適合表の埋め込みでないこと（無関係な車種の行を拾わないため）
-                //   (b) 説明文とタイトルの両方から同じ型式が取れること
-                // 片方だけで採ると、別車種向け商品に貼られた適合表の1行を拾って
-                // 「DS12E → MR7E-9」のような誤った組を作る（2026-08-12 に実際に発生）。
+                // 採用条件は「説明文で車種名の直後に型式が現れること」。
+                //
+                // ※ 第4版で「タイトルでも裏が取れること」を採用条件にしたが、2026-08-12 の実測で
+                //   誤りは1件も落とせず（DS12E → MR7E-9 は残存）、正しい採用を4件落とした
+                //   （プラグ 8→4）ため撤回した。原因は適合表の埋め込みではなく、単品商品の
+                //   タイトル自体が誤っていたこと（「…Vストローム250 DS12E…」と書かれた商品の
+                //   実際の品番が別車種用）。出品者は同じフィードから生成するため誤りは相関し、
+                //   タイトルと説明文の一致でも一致数の多数決でも検出できない。
+                //   よってタイトル一致は「除外条件」ではなく「信頼度の印」として保持する。
                 $isFitmentTable = false;
                 $rawDescCodes = [];
                 $titleCodes = [];
                 $formatBCodes = [];
+                $titleConfirmed = false;
 
                 if (! $formatAOk) {
                     $isFitmentTable = FitmentTextExtractor::looksLikeFitmentTable($description);
@@ -219,8 +244,8 @@ final class FitmentProbe extends Command
                     $titleCodes = FitmentTextExtractor::frameCodesAfterModelName($name, $modelName);
 
                     if (! $isFitmentTable) {
-                        // タイトルと説明文の両方に現れた型式だけを採る
-                        $formatBCodes = $this->intersectFrameCodes($rawDescCodes, $titleCodes);
+                        $formatBCodes = $rawDescCodes;
+                        $titleConfirmed = $this->intersectFrameCodes($rawDescCodes, $titleCodes) !== [];
                     }
                 }
 
@@ -230,7 +255,8 @@ final class FitmentProbe extends Command
                     $adoptedA++;
                     $taskAdopted++;
                     $verdict = '採用（書式A: 【適合型式】ラベル）';
-                    $this->countPairs($pairs, $oemPairs, $frameCodes, $partNumber, $oemNumbers, $name);
+                    $this->countPairs($pairs, $oemPairs, $frameCodes, $partNumber, $oemNumbers, $name, self::CONFIDENCE_LABEL);
+                    $this->recordByCode($byCode, $task, $frameCodes, $partNumber);
                     if ($partNumber === null) {
                         $adoptedWithoutPart++;
                     }
@@ -239,9 +265,11 @@ final class FitmentProbe extends Command
                     $adopted++;
                     $adoptedB++;
                     $taskAdopted++;
-                    $verdict = '採用（書式B: タイトルと説明文の両方で一致）';
+                    $confidence = $titleConfirmed ? self::CONFIDENCE_HIGH : self::CONFIDENCE_MEDIUM;
+                    $verdict = '採用（書式B / 信頼度 '.$confidence.'）';
                     // 書式Bには純正品番ラベルが無いのが実データの傾向。あれば拾うが、無くても採用する。
-                    $this->countPairs($pairs, $oemPairs, $formatBCodes, $partNumber, $oemNumbers, $name);
+                    $this->countPairs($pairs, $oemPairs, $formatBCodes, $partNumber, $oemNumbers, $name, $confidence);
+                    $this->recordByCode($byCode, $task, $formatBCodes, $partNumber);
                     if ($partNumber === null) {
                         $adoptedWithoutPart++;
                     }
@@ -250,9 +278,6 @@ final class FitmentProbe extends Command
                     $reject['fitment_table']++;
                     $verdict = '不採用（適合表の埋め込みと判断: 型式が'
                         .count(FitmentTextExtractor::distinctFrameCodeTokens($description)).'種）';
-                } elseif ($rawDescCodes !== [] && $titleCodes === []) {
-                    $reject['title_unconfirmed']++;
-                    $verdict = '不採用（タイトルで裏が取れず）';
                 } elseif (! $hasLabel) {
                     // 型式ラベルも無く、車種名の直後も型式ではない＝汎用品の可能性が高い
                     $reject['no_label']++;
@@ -343,11 +368,21 @@ final class FitmentProbe extends Command
         $this->line("  型式ラベルなし（汎用品の可能性）: {$reject['no_label']}");
         $this->line("  車種名が不一致                  : {$reject['name_mismatch']}");
         $this->line("  適合表の埋め込みと判断          : {$reject['fitment_table']}");
-        $this->line("  タイトルで裏が取れず            : {$reject['title_unconfirmed']}");
         $this->line("  判定不能                        : {$reject['undecidable']}");
 
         $this->printPairs('---- 型式 → 品番（メーカー品番）と一致数 ----', $pairs);
         $this->printPairs('---- 型式 → 純正品番 と一致数 ----', $oemPairs);
+
+        $contradictions = $this->detectContradictions($byCode);
+        if ($contradictions !== []) {
+            $this->newLine();
+            $this->line('---- 要確認（型式間で品番が食い違う）----');
+            foreach ($contradictions as $c) {
+                $this->warn('  '.$c);
+            }
+            $this->line('  ※ 互換品番（先頭1文字違い等）は同一系列として除外済み。');
+            $this->line('  ※ ここに出る組は、どちらかの商品データが誤っている可能性があります。');
+        }
 
         if ($mismatchSamples !== []) {
             $this->newLine();
@@ -362,6 +397,268 @@ final class FitmentProbe extends Command
         $this->comment('※ DBには一切書き込んでいません。採用した組をどう保存するかは次段の判断です。');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * 照合モード（--verify）: model_fitments の既存データを正解として抽出精度を測る。
+     *
+     * DBは SELECT のみ。書き込みは一切しない。
+     *
+     * 対象車種の並び順: 車種ごとの MAX(verified_at) の降順 → bike_model_id の昇順。
+     * verified_at が入った行は人手で検証済み＝答え合わせの正解として最も信頼できるため先に見る。
+     * 日付は同値が多く並びが不定になり得るので、bike_model_id で必ずタイエブレークして
+     * 再実行しても同じ順序になるようにする（測定の再現性のため）。
+     *
+     * 対象タスクは「その車種の model_fitments に実在するタスク」だけに絞る（--task 指定時はさらに絞る）。
+     * 存在しないタスクを叩いても照合相手が無く、車種数×タスク数ぶんのリクエストを
+     * 無駄に増やしてレート制限に当たりに行くことになるため。
+     *
+     * @param  array<string, string>  $tasks
+     */
+    private function verifyMode(ProductSearchService $service, array $tasks, int $limit, int $sleep): int
+    {
+        $modelLimit = max(1, (int) $this->option('models'));
+
+        $this->newLine();
+        $this->line('==== fitment:probe --verify（読み取り専用・DBへは書き込みません）====');
+        $this->line("照合車種数の上限: {$modelLimit} / 1タスクあたり {$limit}件 / 待機 {$sleep}秒");
+
+        // 車種ごとの最新 verified_at を取り、順序を固定して取得（SELECTのみ）
+        $targets = ModelFitment::query()
+            ->join('bike_models', 'bike_models.id', '=', 'model_fitments.bike_model_id')
+            ->groupBy('model_fitments.bike_model_id', 'bike_models.name')
+            ->orderByRaw('MAX(model_fitments.verified_at) DESC')
+            ->orderBy('model_fitments.bike_model_id')
+            ->limit($modelLimit)
+            ->get([
+                'model_fitments.bike_model_id',
+                'bike_models.name as model_name',
+            ]);
+
+        if ($targets->isEmpty()) {
+            $this->warn('model_fitments にデータがありません。');
+
+            return self::SUCCESS;
+        }
+
+        $result = ['一致' => 0, '不一致' => 0, '取りこぼし' => 0, '新規' => 0];
+        $processedModels = 0;
+        $rateLimited = false;
+
+        foreach ($targets as $target) {
+            if ($rateLimited) {
+                break;
+            }
+
+            $modelId = (int) $target->bike_model_id;
+            $modelName = (string) $target->model_name;
+
+            // この車種の既存行（SELECTのみ）。task → frame_code → 品番集合 に畳む。
+            $existingRows = ModelFitment::query()
+                ->where('bike_model_id', $modelId)
+                ->get(['task', 'frame_code', 'oem_part_no', 'recommended_part_no', 'compatible_part_nos']);
+
+            /** @var array<string, array<string, array<int, string>>> $existing */
+            $existing = [];
+            foreach ($existingRows as $row) {
+                $task = (string) $row->task;
+                $code = strtoupper(trim((string) $row->frame_code));
+                foreach ($this->existingPartNumbers($row) as $part) {
+                    $existing[$task][$code][] = $part;
+                }
+            }
+
+            // 照合するタスク＝既存データにあるタスク（--task 指定があればその積集合）
+            $targetTasks = array_intersect_key($tasks, $existing);
+            if ($targetTasks === []) {
+                continue;
+            }
+
+            $this->newLine();
+            $this->line('────────────────────────────────');
+            $this->line("[{$modelName}] (bike_model_id={$modelId}) 照合タスク: ".implode(', ', array_keys($targetTasks)));
+
+            foreach ($targetTasks as $task => $partName) {
+                if ($processedModels > 0 || $task !== array_key_first($targetTasks)) {
+                    if ($sleep > 0) {
+                        sleep($sleep);
+                    }
+                }
+
+                $query = "{$modelName} {$partName}";
+                $results = $service->searchProducts($query, $limit, true);
+
+                if (isset($service->lastErrors()['rakuten'])) {
+                    $this->error("  楽天APIの取得に失敗（{$service->lastErrors()['rakuten']}）。ここで打ち切ります。");
+                    $rateLimited = true;
+                    break;
+                }
+
+                $extracted = $this->extractForVerify($results, $modelName);
+
+                foreach ($this->compareWithExisting($existing[$task] ?? [], $extracted) as $line) {
+                    $result[$line['verdict']]++;
+                    $this->line(sprintf(
+                        '    %-10s %-8s 既存: %-22s 抽出: %s',
+                        $task,
+                        $line['code'] === '' ? '(型式なし)' : $line['code'],
+                        $line['existing'] === '' ? '(なし)' : $line['existing'],
+                        $line['extracted'] === '' ? '(なし)' : $line['extracted']
+                    ));
+                    $this->line('      → '.$line['verdict']);
+                }
+            }
+
+            $processedModels++;
+        }
+
+        $this->newLine();
+        $this->line('==== 照合結果 ====');
+        if ($rateLimited) {
+            $this->warn("{$processedModels}車種まで測定して中断（レート制限）");
+        } else {
+            $this->line("照合した車種数: {$processedModels}");
+        }
+
+        foreach ($result as $verdict => $count) {
+            $this->line(sprintf('  %-10s : %d', $verdict, $count));
+        }
+
+        $denominator = $result['一致'] + $result['不一致'];
+        $this->newLine();
+        $this->line('  一致率（一致 ÷（一致＋不一致））: '.$this->percent($result['一致'], $denominator));
+        if ($denominator === 0) {
+            $this->comment('  ※ 一致・不一致がどちらも0のため、一致率は評価できません。');
+        }
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * 既存行が持つ品番（推奨・純正・互換）をまとめて返す。
+     * compatible_part_nos は [{"brand":"…","part_no":"…"}] 形式（モデルで array キャスト済み）。
+     *
+     * @return array<int, string>
+     */
+    private function existingPartNumbers(ModelFitment $row): array
+    {
+        $out = [];
+
+        foreach ([$row->recommended_part_no, $row->oem_part_no] as $value) {
+            $value = strtoupper(trim((string) ($value ?? '')));
+            if ($value !== '') {
+                $out[] = $value;
+            }
+        }
+
+        $compatible = $row->compatible_part_nos;
+        if (is_array($compatible)) {
+            foreach ($compatible as $entry) {
+                $partNo = is_array($entry) ? ($entry['part_no'] ?? null) : $entry;
+                $partNo = strtoupper(trim((string) ($partNo ?? '')));
+                if ($partNo !== '') {
+                    $out[] = $partNo;
+                }
+            }
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * 照合用に「型式 → 抽出した品番群」を作る（通常モードと同じ採用条件）。
+     *
+     * @param  array<int, array<string, mixed>>  $results
+     * @return array<string, array<int, string>>
+     */
+    private function extractForVerify(array $results, string $modelName): array
+    {
+        $out = [];
+
+        foreach ($results as $item) {
+            if (($item['mall'] ?? '') !== 'rakuten') {
+                continue;
+            }
+
+            $name = (string) ($item['name'] ?? '');
+            $description = (string) ($item['description'] ?? '');
+            $partNumber = PartsCodeExtractor::extract($name, $description)['partNumber'];
+            if ($partNumber === null) {
+                continue;
+            }
+
+            $fitNames = FitmentTextExtractor::fitmentModelNames($description);
+            $frameCodes = FitmentTextExtractor::frameCodes($description);
+
+            $codes = [];
+            if (FitmentTextExtractor::hasFrameCodeLabel($description)
+                && $fitNames !== null && $fitNames !== []
+                && FitmentTextExtractor::matchesModel($fitNames, $modelName)
+                && $frameCodes !== []
+            ) {
+                $codes = $frameCodes;
+            } elseif (! FitmentTextExtractor::looksLikeFitmentTable($description)) {
+                $codes = FitmentTextExtractor::frameCodesAfterModelName($description, $modelName);
+            }
+
+            foreach ($codes as $fc) {
+                $out[$fc['code']][] = strtoupper($partNumber);
+            }
+        }
+
+        foreach ($out as $code => $parts) {
+            $out[$code] = array_values(array_unique($parts));
+        }
+
+        return $out;
+    }
+
+    /**
+     * 既存データと抽出結果を型式ごとに突き合わせる。
+     *
+     * 既存の frame_code が空文字（型式区別なし）の行は、抽出したどの型式とも照合できるよう
+     * 「抽出結果の全品番」を相手にする（スキーマ上 '' は「型式を区別しない」の意味のため）。
+     *
+     * @param  array<string, array<int, string>>  $existing  型式 → 品番群
+     * @param  array<string, array<int, string>>  $extracted 型式 → 品番群
+     * @return array<int, array{code: string, existing: string, extracted: string, verdict: string}>
+     */
+    private function compareWithExisting(array $existing, array $extracted): array
+    {
+        $out = [];
+        $allExtracted = array_values(array_unique(array_merge(...array_values($extracted) ?: [[]])));
+
+        foreach ($existing as $code => $parts) {
+            // 型式区別なしの行は、抽出できた全品番を相手にする
+            $mine = $code === '' ? $allExtracted : ($extracted[$code] ?? []);
+
+            $verdict = match (true) {
+                $mine === [] => '取りこぼし',
+                array_intersect($parts, $mine) !== [] => '一致',
+                default => '不一致',
+            };
+
+            $out[] = [
+                'code' => $code,
+                'existing' => implode(', ', $parts),
+                'extracted' => implode(', ', $mine),
+                'verdict' => $verdict,
+            ];
+        }
+
+        // 既存に無い型式で抽出できたもの＝新規（誤りとは限らない）
+        foreach ($extracted as $code => $parts) {
+            if (! isset($existing[$code]) && ! isset($existing[''])) {
+                $out[] = [
+                    'code' => $code,
+                    'existing' => '',
+                    'extracted' => implode(', ', $parts),
+                    'verdict' => '新規',
+                ];
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -506,34 +803,69 @@ final class FitmentProbe extends Command
      * @param  array<int, array{raw: string, regulation: string|null, code: string}>  $frameCodes
      * @param  array<int, string>  $oemNumbers
      */
-    private function countPairs(array &$pairs, array &$oemPairs, array $frameCodes, ?string $partNumber, array $oemNumbers, string $sourceTitle): void
+    private function countPairs(array &$pairs, array &$oemPairs, array $frameCodes, ?string $partNumber, array $oemNumbers, string $sourceTitle, string $confidence): void
     {
         foreach ($frameCodes as $fc) {
             if ($partNumber !== null) {
-                $this->addPair($pairs, $fc['code']."\t".$partNumber, $sourceTitle);
+                $this->addPair($pairs, $fc['code']."\t".$partNumber, $sourceTitle, $confidence);
             }
             foreach ($oemNumbers as $oem) {
-                $this->addPair($oemPairs, $fc['code']."\t".$oem, $sourceTitle);
+                $this->addPair($oemPairs, $fc['code']."\t".$oem, $sourceTitle, $confidence);
             }
         }
     }
 
     /**
-     * @param  array<string, array{count: int, title: string}>  $table
+     * @param  array<string, array{count: int, title: string, confidence: string}>  $table
      */
-    private function addPair(array &$table, string $key, string $sourceTitle): void
+    private function addPair(array &$table, string $key, string $sourceTitle, string $confidence): void
     {
         if (! isset($table[$key])) {
             // 根拠は先頭の1件だけを残す（一覧が縦に伸びないように）
-            $table[$key] = ['count' => 0, 'title' => $this->flatten(mb_substr($sourceTitle, 0, 60))];
+            $table[$key] = [
+                'count' => 0,
+                'title' => $this->flatten(mb_substr($sourceTitle, 0, 60)),
+                'confidence' => $confidence,
+            ];
         }
         $table[$key]['count']++;
+
+        // 同じ組を複数商品が支持する場合は、最も高い信頼度を残す
+        if ($this->confidenceRank($confidence) > $this->confidenceRank($table[$key]['confidence'])) {
+            $table[$key]['confidence'] = $confidence;
+        }
+    }
+
+    private function confidenceRank(string $confidence): int
+    {
+        return match ($confidence) {
+            self::CONFIDENCE_LABEL => 3,
+            self::CONFIDENCE_HIGH => 2,
+            default => 1,
+        };
     }
 
     /**
-     * 「型式 → 品番」の組を一致数の多い順に出す。根拠となった商品タイトルを1件併記する。
+     * 矛盾検出用に「タスク → 型式 → 品番の集合」を記録する。
      *
-     * @param  array<string, array{count: int, title: string}>  $pairs
+     * @param  array<string, array<string, array<int, string>>>  $byCode
+     * @param  array<int, array{raw: string, regulation: string|null, code: string}>  $frameCodes
+     */
+    private function recordByCode(array &$byCode, string $task, array $frameCodes, ?string $partNumber): void
+    {
+        if ($partNumber === null) {
+            return;
+        }
+
+        foreach ($frameCodes as $fc) {
+            $byCode[$task][$fc['code']][] = $partNumber;
+        }
+    }
+
+    /**
+     * 「型式 → 品番」の組を一致数の多い順に出す。根拠となった商品タイトルと信頼度を併記する。
+     *
+     * @param  array<string, array{count: int, title: string, confidence: string}>  $pairs
      */
     private function printPairs(string $title, array $pairs): void
     {
@@ -549,9 +881,93 @@ final class FitmentProbe extends Command
         uasort($pairs, fn (array $x, array $y): int => $y['count'] <=> $x['count']);
         foreach ($pairs as $key => $row) {
             [$code, $part] = explode("\t", $key, 2);
-            $this->line(sprintf('  %-10s → %-20s  %d商品が一致', $code, $part, $row['count']));
+            $this->line(sprintf('  %-10s → %-20s  %d商品が一致  信頼度: %s', $code, $part, $row['count'], $row['confidence']));
             $this->line('      根拠: '.$row['title']);
         }
+    }
+
+    /**
+     * 同一車種・同一タスクの中で、型式ごとに別系列の品番が採用されている箇所を洗い出す。
+     *
+     * 例（2026-08-12 の実データ）: plug で DS11A → CPR7EA-9 / DS12E → MR7E-9。
+     * DS11A と DS12E は同じ248cc並列2気筒（2023年の規制で型式が変わっただけ）なので、
+     * プラグが変わるのは不自然＝どちらかの商品データが誤っている疑いがある。
+     *
+     * ただしバッテリーは正常に複数出る（YTX9-BS に対する ATX9-BS / BTX9-BS / DYTX9-BS 等は
+     * 他社の互換品番）。これを矛盾と誤判定しないよう、同一系列は除外する。
+     *
+     * @param  array<string, array<string, array<int, string>>>  $byCode  タスク → 型式 → 品番群
+     * @return array<int, string>
+     */
+    private function detectContradictions(array $byCode): array
+    {
+        $out = [];
+
+        foreach ($byCode as $task => $codes) {
+            $codeNames = array_keys($codes);
+            $count = count($codeNames);
+
+            for ($i = 0; $i < $count; $i++) {
+                for ($j = $i + 1; $j < $count; $j++) {
+                    $a = $codeNames[$i];
+                    $b = $codeNames[$j];
+                    $partsA = array_values(array_unique($codes[$a]));
+                    $partsB = array_values(array_unique($codes[$b]));
+
+                    // どれか1組でも同一系列なら、型式間で品番が食い違っているとは言えない
+                    $related = false;
+                    foreach ($partsA as $pa) {
+                        foreach ($partsB as $pb) {
+                            if ($this->isSameSeries($pa, $pb)) {
+                                $related = true;
+                                break 2;
+                            }
+                        }
+                    }
+
+                    if (! $related) {
+                        $out[] = sprintf(
+                            '%s: %s → %s / %s → %s',
+                            $task,
+                            $a,
+                            implode(', ', $partsA),
+                            $b,
+                            implode(', ', $partsB)
+                        );
+                    }
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * 2つの品番が「同一系列（互換品番）」か。
+     *
+     * 判定規則: それぞれについて「そのもの」と「先頭1文字を落としたもの」を候補に取り、
+     * 候補どうしが4文字以上で一致すれば同一系列とみなす。
+     *   YTX9-BS  → {YTX9-BS, TX9-BS}
+     *   ATX9-BS  → {ATX9-BS, TX9-BS}   … TX9-BS で一致 → 同一系列（先頭1文字違い）
+     *   DYTX9-BS → {DYTX9-BS, YTX9-BS} … YTX9-BS で一致 → 同一系列（先頭1文字の付加）
+     *   CPR7EA-9 → {CPR7EA-9, PR7EA-9}
+     *   MR7E-9   → {MR7E-9, R7E-9}     … 一致なし → 別系列（＝矛盾として報告する）
+     * バッテリーの互換品番は「メーカー記号 + 共通型番」という命名なので、この規則で拾える。
+     * 4文字の下限は、短い断片の偶然一致を避けるため。
+     */
+    private function isSameSeries(string $a, string $b): bool
+    {
+        $keys = static function (string $code): array {
+            $code = strtoupper($code);
+            $out = [$code];
+            if (mb_strlen($code) > 1) {
+                $out[] = mb_substr($code, 1);
+            }
+
+            return array_values(array_filter($out, fn (string $k): bool => mb_strlen($k) >= 4));
+        };
+
+        return array_intersect($keys($a), $keys($b)) !== [];
     }
 
     /**
