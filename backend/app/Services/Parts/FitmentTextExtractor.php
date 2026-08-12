@@ -234,6 +234,50 @@ final class FitmentTextExtractor
     }
 
     /**
+     * 【照合専用】型式文字列を突き合わせ可能な形に正規化する。
+     *
+     * model_fitments.frame_code は「2BK-DN11A/8BK-DN12B」のように
+     * 規制記号つき・スラッシュ連結で入っている。一方、商品テキストから抽出されるのは
+     * 裸の型式（DN11A）なので、そのまま比較すると一致しているのに食い違いとして数えられる
+     * （2026-08-12 の実測: 既存 2BK-DN11A/8BK-DN12B と抽出 DN11A が「取りこぼし＋新規」になった）。
+     *
+     * 手順:
+     *   a) スラッシュ・読点・中黒で分割
+     *   b) 規制記号のプレフィックス（英数2〜3文字＋ハイフン）を除去。
+     *      ただしハイフンより後ろが FRAME_CODE の形のときだけ。合致しなければ元の値を保つ
+     *      （型式そのものにハイフンが含まれる場合を壊さないため）
+     *   c) 空白除去・大文字化
+     *
+     * 実データにある規制記号: 2BK- 8BK- 8BJ- JBK- JBH- 2BH- 2BL- EBJ-
+     *
+     * ★ 突き合わせにのみ使う。表示は元の値のままにすること（どちらの表記だったかを失わないため）。
+     *
+     * @return array<int, string>
+     */
+    public static function normalizeFrameCodesForMatching(string $raw): array
+    {
+        $out = [];
+
+        foreach (preg_split(self::SEPARATORS, $raw) ?: [] as $token) {
+            $token = strtoupper(self::normalize($token));
+            if ($token === '') {
+                continue;
+            }
+
+            // 規制記号を落とせるのは、残りが型式の形をしているときだけ
+            if (preg_match('/^'.self::REGULATION.'-('.self::FRAME_CODE.')$/u', $token, $m) === 1) {
+                $out[] = $m[1];
+
+                continue;
+            }
+
+            $out[] = $token;
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
      * 【診断専用】空白・記号・大小文字・全半角を無視した部分一致で車種名を含むか。
      *
      * ★ 採用判定には絶対に使わないこと。

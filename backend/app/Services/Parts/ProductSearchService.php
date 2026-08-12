@@ -166,6 +166,9 @@ final class ProductSearchService
                 Log::warning('ProductSearchService rakuten がエラー応答', [
                     'status' => $response->status(),
                     'keyword' => $keyword,
+                    // 400 の原因（不正な検索語・パラメータ等）は本文にしか出ないため残す。
+                    // 画面には出さない（測定の出力を汚さないため）。
+                    'body' => mb_substr($response->body(), 0, 200),
                 ]);
 
                 return [];

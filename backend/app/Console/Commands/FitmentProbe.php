@@ -89,9 +89,17 @@ final class FitmentProbe extends Command
 
     private const VERDICT_CONFLICT = '食い違い（要確認）';
 
-    private const VERDICT_MISSED = '取りこぼし';
-
     private const VERDICT_NEW = '新規';
+
+    /**
+     * 取りこぼしは原因別に3つへ分ける。各検索の診断値（取得商品数・厳密一致件数）から機械的に決める。
+     * 「データが無い」「名前を認識できない」「型式が書かれていない」は打ち手が違うため。
+     */
+    private const VERDICT_MISSED_NO_ITEMS = '取りこぼし（商品が0件）';
+
+    private const VERDICT_MISSED_NO_NAME = '取りこぼし（車種名を認識できず）';
+
+    private const VERDICT_MISSED_NO_CODE = '取りこぼし（型式が抽出できず）';
 
     /**
      * 採用の信頼度。除外条件ではなく、後段（書き込み）で優先度を判断するための印。
@@ -137,7 +145,7 @@ final class FitmentProbe extends Command
         }
 
         $requested = trim((string) ($this->option('model') ?: self::DEFAULT_MODEL));
-        $modelName = $this->resolveModelName($requested);
+        [$modelName, $displayName] = $this->resolveModelName($requested);
 
         $this->newLine();
         $this->line('==== fitment:probe（読み取り専用・DBへは書き込みません）====');
@@ -197,11 +205,12 @@ final class FitmentProbe extends Command
             $rakuten = array_values(array_filter($results, fn (array $i): bool => ($i['mall'] ?? '') === 'rakuten'));
 
             // 取りこぼしの原因を切り分けるための内訳
-            $this->printDiagnosis($this->diagnose($rakuten, $modelName));
+            $this->printDiagnosis($this->diagnose($rakuten, $modelName, $displayName));
 
             $spelling = $this->dominantTitleSpelling($rakuten, $modelName);
             if ($spelling !== null) {
-                $this->line("    商品側の表記(最多)   : {$spelling}  ／ DB上の名前: {$modelName}");
+                $this->line("    商品側の表記(最多)   : {$spelling}  ／ DB上の名前: {$modelName}"
+                    .($displayName !== null && $displayName !== '' ? " / display_name: {$displayName}" : ''));
             }
 
             if ($rakuten === []) {
@@ -454,13 +463,14 @@ final class FitmentProbe extends Command
         // 車種ごとの最新 verified_at を取り、順序を固定して取得（SELECTのみ）
         $targets = ModelFitment::query()
             ->join('bike_models', 'bike_models.id', '=', 'model_fitments.bike_model_id')
-            ->groupBy('model_fitments.bike_model_id', 'bike_models.name')
+            ->groupBy('model_fitments.bike_model_id', 'bike_models.name', 'bike_models.display_name')
             ->orderByRaw('MAX(model_fitments.verified_at) DESC')
             ->orderBy('model_fitments.bike_model_id')
             ->limit($modelLimit)
             ->get([
                 'model_fitments.bike_model_id',
                 'bike_models.name as model_name',
+                'bike_models.display_name',
             ]);
 
         if ($targets->isEmpty()) {
@@ -469,17 +479,26 @@ final class FitmentProbe extends Command
             return self::SUCCESS;
         }
 
-        $result = [self::VERDICT_MATCH => 0, self::VERDICT_CONFLICT => 0, self::VERDICT_MISSED => 0, self::VERDICT_NEW => 0];
+        $result = [
+            self::VERDICT_MATCH => 0,
+            self::VERDICT_CONFLICT => 0,
+            self::VERDICT_MISSED_NO_ITEMS => 0,
+            self::VERDICT_MISSED_NO_NAME => 0,
+            self::VERDICT_MISSED_NO_CODE => 0,
+            self::VERDICT_NEW => 0,
+        ];
         $processedModels = 0;
-        $rateLimited = false;
+        $abortReason = null;   // 全体を打ち切った理由（レート制限に限らない）
+        $skipped = [];         // 400 等でこの車種だけ飛ばしたもの
 
         foreach ($targets as $target) {
-            if ($rateLimited) {
+            if ($abortReason !== null) {
                 break;
             }
 
             $modelId = (int) $target->bike_model_id;
             $modelName = (string) $target->model_name;
+            $displayName = isset($target->display_name) ? (string) $target->display_name : null;
 
             // この車種の既存行（SELECTのみ）。task → frame_code → 品番集合 に畳む。
             $existingRows = ModelFitment::query()
@@ -512,25 +531,36 @@ final class FitmentProbe extends Command
                 $fetched = $this->searchWithRetry($service, $query, $limit, $sleep, true);
 
                 if ($fetched['error'] !== null) {
-                    $this->error("  楽天APIの取得に失敗（{$fetched['error']}）。再試行しても回復しないため、ここで打ち切ります。");
-                    $rateLimited = true;
-                    break;
+                    // 429 は searchWithRetry が粘ったうえで返してくるので、来たら全体を打ち切る。
+                    // それ以外（400 等）は待っても直らないが、その車種だけ飛ばせば測定は続けられる。
+                    if (str_contains($fetched['error'], '429')) {
+                        $this->error("  楽天APIがレート制限を返し続けています（{$fetched['error']}）。ここで打ち切ります。");
+                        $abortReason = $fetched['error'].'（レート制限・再試行しても回復せず）';
+                        break;
+                    }
+
+                    $this->warn("  楽天APIの取得に失敗（{$fetched['error']}）。この車種をスキップして次へ進みます。");
+                    $skipped[] = "{$modelName}（{$fetched['error']}）";
+
+                    continue 2; // 次の車種へ
                 }
 
                 $results = $fetched['items'];
 
                 // 取りこぼしの原因を切り分ける（データ無し / 名前を認識できない / 型式が無い）
+                $diag = $this->diagnose($results, $modelName, $displayName);
                 $this->line("  [{$task}] 検索クエリ: 「{$query}」");
-                $this->printDiagnosis($this->diagnose($results, $modelName));
+                $this->printDiagnosis($diag);
                 $spelling = $this->dominantTitleSpelling($results, $modelName);
-                $this->line('    商品側の表記(最多)   : '.($spelling ?? '(該当なし)')."  ／ DB上の名前: {$modelName}");
+                $this->line('    商品側の表記(最多)   : '.($spelling ?? '(該当なし)')."  ／ DB上の名前: {$modelName}"
+                    .($displayName !== null && $displayName !== '' ? " / display_name: {$displayName}" : ''));
 
                 $extracted = $this->extractForVerify($results, $modelName);
 
-                foreach ($this->compareWithExisting($existing[$task] ?? [], $extracted) as $line) {
+                foreach ($this->compareWithExisting($existing[$task] ?? [], $extracted, $diag) as $line) {
                     $result[$line['verdict']]++;
                     $this->line(sprintf(
-                        '    %-10s %-8s 既存: %-22s 抽出: %s',
+                        '    %-10s %-28s 既存: %-22s 抽出: %s',
                         $task,
                         $line['code'] === '' ? '(型式なし)' : $line['code'],
                         $line['existing'] === '' ? '(なし)' : $line['existing'],
@@ -545,14 +575,20 @@ final class FitmentProbe extends Command
 
         $this->newLine();
         $this->line('==== 照合結果 ====');
-        if ($rateLimited) {
-            $this->warn("{$processedModels}車種まで測定して中断（レート制限）");
+        if ($abortReason !== null) {
+            // 中断理由は実際のエラーに合わせる（何でも「レート制限」と書かない）
+            $this->warn("{$processedModels}車種まで測定して中断: {$abortReason}");
         } else {
             $this->line("照合した車種数: {$processedModels}");
         }
 
+        if ($skipped !== []) {
+            $this->newLine();
+            $this->warn('スキップした車種: '.implode(' / ', $skipped));
+        }
+
         foreach ($result as $verdict => $count) {
-            $this->line(sprintf('  %-20s : %d', $verdict, $count));
+            $this->line(sprintf('  %-28s : %d', $verdict, $count));
         }
 
         $this->newLine();
@@ -654,34 +690,56 @@ final class FitmentProbe extends Command
      * @param  array<string, array<int, string>>  $extracted 型式 → 品番群
      * @return array<int, array{code: string, existing: string, extracted: string, verdict: string}>
      */
-    private function compareWithExisting(array $existing, array $extracted): array
+    private function compareWithExisting(array $existing, array $extracted, array $diag): array
     {
         $out = [];
         $allExtracted = array_values(array_unique(array_merge(...array_values($extracted) ?: [[]])));
+        $covered = [];
 
-        foreach ($existing as $code => $parts) {
-            // 型式区別なしの行は、抽出できた全品番を相手にする
-            $mine = $code === '' ? $allExtracted : ($extracted[$code] ?? []);
+        foreach ($existing as $rawCode => $parts) {
+            // 既存の frame_code を照合可能な形へ（"2BK-DN11A/8BK-DN12B" → [DN11A, DN12B]）
+            $normalized = FitmentTextExtractor::normalizeFrameCodesForMatching((string) $rawCode);
+
+            if ((string) $rawCode === '') {
+                // 型式区別なしの行は、抽出できた全品番を相手にする
+                $mine = $allExtracted;
+                $covered = array_merge($covered, array_keys($extracted));
+            } else {
+                $mine = [];
+                foreach ($normalized as $code) {
+                    if (isset($extracted[$code])) {
+                        $mine = array_merge($mine, $extracted[$code]);
+                        $covered[] = $code;
+                    }
+                }
+                $mine = array_values(array_unique($mine));
+            }
 
             $verdict = match (true) {
-                $mine === [] => self::VERDICT_MISSED,
+                $mine === [] => $this->classifyMissed($diag),
                 array_intersect($parts, $mine) !== [] => self::VERDICT_MATCH,
                 default => self::VERDICT_CONFLICT,
             };
 
+            // 表示は元の値のまま。正規化結果は括弧で併記する（どちらの表記だったか分かるように）
+            $codeLabel = (string) $rawCode;
+            if ($codeLabel !== '' && $normalized !== [] && $normalized !== [$codeLabel]) {
+                $codeLabel .= '（→ '.implode(', ', $normalized).'）';
+            }
+
             $out[] = [
-                'code' => $code,
+                'code' => $codeLabel,
                 'existing' => implode(', ', $parts),
                 'extracted' => implode(', ', $mine),
                 'verdict' => $verdict,
             ];
         }
 
-        // 既存に無い型式で抽出できたもの＝新規（誤りとは限らない）
+        // 既存のどの型式にも紐づかなかった抽出＝新規（誤りとは限らない）
         foreach ($extracted as $code => $parts) {
-            if (! isset($existing[$code]) && ! isset($existing[''])) {
+            if (! in_array($code, $covered, true)) {
                 $out[] = [
-                    'code' => $code,
+                    'code' => (string) $code,
                     'existing' => '',
                     'extracted' => implode(', ', $parts),
                     'verdict' => self::VERDICT_NEW,
@@ -690,6 +748,20 @@ final class FitmentProbe extends Command
         }
 
         return $out;
+    }
+
+    /**
+     * 取りこぼしの原因を診断値から機械的に決める。
+     *
+     * @param  array{total: int, strict: int}  $diag
+     */
+    private function classifyMissed(array $diag): string
+    {
+        return match (true) {
+            $diag['total'] === 0 => self::VERDICT_MISSED_NO_ITEMS,
+            $diag['strict'] === 0 => self::VERDICT_MISSED_NO_NAME,
+            default => self::VERDICT_MISSED_NO_CODE,
+        };
     }
 
     /**
@@ -843,10 +915,16 @@ final class FitmentProbe extends Command
      * @param  array<int, array<string, mixed>>  $items
      * @return array{total: int, loose: int, strict: int}
      */
-    private function diagnose(array $items, string $modelName): array
+    private function diagnose(array $items, string $modelName, ?string $displayName = null): array
     {
         $loose = 0;
         $strict = 0;
+        $strictNoSpace = 0;
+        $strictDisplay = 0;
+
+        // 照合候補を増やしたときの増分を測るための派生表記。
+        // ★ 採用判定は今も name のみ。ここは効果測定だけで、採否には一切使わない。
+        $noSpace = preg_replace('/[\s\x{3000}]+/u', '', $modelName) ?? $modelName;
 
         foreach ($items as $item) {
             $haystack = ((string) ($item['name'] ?? '')).' '.((string) ($item['description'] ?? ''));
@@ -854,22 +932,48 @@ final class FitmentProbe extends Command
             if (FitmentTextExtractor::containsModelNameLoose($haystack, $modelName)) {
                 $loose++;
             }
-            if (FitmentTextExtractor::containsModelName($haystack, $modelName)) {
+
+            $hitName = FitmentTextExtractor::containsModelName($haystack, $modelName);
+            $hitNoSpace = $hitName
+                || ($noSpace !== $modelName && FitmentTextExtractor::containsModelName($haystack, $noSpace));
+            $hitDisplay = $hitNoSpace
+                || ($displayName !== null && $displayName !== ''
+                    && FitmentTextExtractor::containsModelName($haystack, $displayName));
+
+            if ($hitName) {
                 $strict++;
+            }
+            if ($hitNoSpace) {
+                $strictNoSpace++;
+            }
+            if ($hitDisplay) {
+                $strictDisplay++;
             }
         }
 
-        return ['total' => count($items), 'loose' => $loose, 'strict' => $strict];
+        return [
+            'total' => count($items),
+            'loose' => $loose,
+            'strict' => $strict,
+            'strictNoSpace' => $strictNoSpace,
+            'strictDisplay' => $strictDisplay,
+        ];
     }
 
     /**
-     * @param  array{total: int, loose: int, strict: int}  $d
+     * @param  array{total: int, loose: int, strict: int, strictNoSpace: int, strictDisplay: int}  $d
      */
     private function printDiagnosis(array $d): void
     {
         $this->line("    取得商品数           : {$d['total']}");
         $this->line("    車種名を含む(緩い)   : {$d['loose']}  ※空白・記号・大小文字・全半角を無視した部分一致（診断専用）");
         $this->line("    車種名が厳密一致     : {$d['strict']}  ※採用判定に使うのはこちら");
+        $this->line(sprintf(
+            '    照合候補の効果測定   : name のみ: %d件 / +空白除去: %d件 / +display_name: %d件  ※採用には未反映',
+            $d['strict'],
+            $d['strictNoSpace'],
+            $d['strictDisplay']
+        ));
     }
 
     /**
@@ -1129,29 +1233,29 @@ final class FitmentProbe extends Command
      * 完全一致 → 部分一致（在庫の多い順）の順で探す。SeoCompareSeeder::findModel と同じ考え方。
      * 見つからなければ引数をそのまま使い、警告する（検索自体は続行できる）。
      */
-    private function resolveModelName(string $requested): string
+    private function resolveModelName(string $requested): array
     {
-        $exact = BikeModel::where('name', $requested)->first(['id', 'name']);
+        $exact = BikeModel::where('name', $requested)->first(['id', 'name', 'display_name']);
         if ($exact !== null) {
             $this->line("車種名の解決: 「{$requested}」= bike_models.name に完全一致（id={$exact->id}）");
 
-            return (string) $exact->name;
+            return [(string) $exact->name, $exact->display_name !== null ? (string) $exact->display_name : null];
         }
 
         $partial = BikeModel::where('name', 'like', "%{$requested}%")
             ->withCount(['listings' => fn ($q) => $q->where('is_sold_out', false)])
             ->orderByDesc('listings_count')
-            ->first(['id', 'name']);
+            ->first(['id', 'name', 'display_name']);
 
         if ($partial !== null) {
             $this->warn("車種名の解決: 「{$requested}」は完全一致せず。部分一致で「{$partial->name}」(id={$partial->id}) を採用します。");
 
-            return (string) $partial->name;
+            return [(string) $partial->name, $partial->display_name !== null ? (string) $partial->display_name : null];
         }
 
         $this->warn("車種名の解決: 「{$requested}」は bike_models に見つかりませんでした。文字列のまま検索します。");
 
-        return $requested;
+        return [$requested, null];
     }
 
     /**
