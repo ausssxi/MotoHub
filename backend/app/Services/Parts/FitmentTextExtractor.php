@@ -206,6 +206,30 @@ final class FitmentTextExtractor
     }
 
     /**
+     * 【診断専用】数字を2〜3桁まで許した拡張パターンで型式トークンを重複なく返す。
+     *
+     * ★採用判定には一切使わないこと。distinctFrameCodeTokens() の数字2桁固定（FRAME_CODE）を
+     *   2〜3桁に広げただけの、効果測定用の別実装。カワサキの EX250K / ZR900C のような数字3桁の
+     *   型式を現行パターンがどれだけ取りこぼしているかを、fitment:probe --verify --frame-widen で
+     *   数えるために使う。境界規則（前後が英数字・ハイフンでない）は本体と揃える。
+     *
+     * @return array<int, string>
+     */
+    public static function distinctFrameCodeTokensWidened(string $text): array
+    {
+        $normalized = strtoupper(self::widthNormalize($text));
+
+        // 数字2桁→2〜3桁。3桁を許すと CB250R / GB350S のような車種名の形も拾ってしまうため、
+        // これはあくまで「増分と実例を見る」ための診断であり、採用には落とさない。
+        $re = '/(?<![A-Z0-9\-])([A-Z]{2}\d{2,3}[A-Z]?)(?![A-Z0-9\-])/u';
+        if (preg_match_all($re, $normalized, $m) !== false && ! empty($m[1])) {
+            return array_values(array_unique($m[1]));
+        }
+
+        return [];
+    }
+
+    /**
      * テキストに対象車種名が「語として」含まれるか（前方一致では通さない）。
      *
      * 「Vストローム250SX」の中の「Vストローム250」は含まれているとみなさない。

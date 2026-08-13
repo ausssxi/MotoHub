@@ -52,6 +52,7 @@ final class FitmentProbe extends Command
         {--chain-survey : chain タスクで、車種名一致・サイズ・リンク数の内訳を測る（抽出はしない）}
         {--verify : model_fitments の既存データと突き合わせて精度を測る（SELECTのみ・書き込みなし）}
         {--models=10 : --verify で照合する車種数}
+        {--frame-widen : 型式パターンを数字3桁まで広げた場合の増分と実例を測る（--verify 併用・診断のみ・採用ロジックは不変）}
         {--dump : 取得した商品名と説明文の先頭を生で出力する}';
 
     protected $description = '商品説明文から品番・適合型式を抽出できるかの歩留まりを測る（読み取り専用・DB書き込みなし）';
@@ -491,6 +492,12 @@ final class FitmentProbe extends Command
         $abortReason = null;   // 全体を打ち切った理由（レート制限に限らない）
         $skipped = [];         // 400 等でこの車種だけ飛ばしたもの
 
+        // 型式パターン拡張の効果測定（--frame-widen）。トークン => 出現商品数 を run 全体で集計する。
+        // ★診断専用。採用判定には一切使わない（下の compareWithExisting は現行パターンのまま）。
+        $widen = (bool) $this->option('frame-widen');
+        $widenCurrent = [];    // 現行パターン（数字2桁）で拾える distinct トークン
+        $widenAll = [];        // 拡張パターン（数字2〜3桁）で拾える distinct トークン
+
         foreach ($targets as $target) {
             if ($abortReason !== null) {
                 break;
@@ -547,6 +554,11 @@ final class FitmentProbe extends Command
 
                 $results = $fetched['items'];
 
+                // 型式パターン拡張の効果測定（採用には反映しない・数えるだけ）
+                if ($widen) {
+                    $this->accumulateFrameCodeWiden($results, $widenCurrent, $widenAll);
+                }
+
                 // 取りこぼしの原因を切り分ける（データ無し / 名前を認識できない / 型式が無い）
                 $diag = $this->diagnose($results, $modelName, $displayName);
                 $this->line("  [{$task}] 検索クエリ: 「{$query}」");
@@ -598,7 +610,83 @@ final class FitmentProbe extends Command
         $this->comment('  両方があります。実例: ジョルノ AF70 は既存 CPR6EA-9 が誤りで、');
         $this->comment('  抽出した CR7HSA-9 が正しい値でした。人が確認する対象として扱ってください。');
 
+        if ($widen) {
+            $this->printFrameCodeWiden($widenCurrent, $widenAll);
+        }
+
         return self::SUCCESS;
+    }
+
+    /**
+     * 【診断専用】取得商品の「タイトル＋説明文」を走査し、型式トークンを現行/拡張パターンで数える。
+     * $current / $widened は「トークン => 出現商品数」で run 全体にわたって加算する。
+     *
+     * ★採用判定には一切関与しない。増分と実例を見るために数えるだけ。
+     * 走査は楽天商品のみ（--verify は楽天限定・Yahoo には説明文が無い）。
+     *
+     * @param  array<int, array<string, mixed>>  $results
+     * @param  array<string, int>  $current
+     * @param  array<string, int>  $widened
+     */
+    private function accumulateFrameCodeWiden(array $results, array &$current, array &$widened): void
+    {
+        foreach ($results as $item) {
+            if (($item['mall'] ?? '') !== 'rakuten') {
+                continue;
+            }
+
+            $text = ((string) ($item['name'] ?? '')).' '.((string) ($item['description'] ?? ''));
+
+            foreach (FitmentTextExtractor::distinctFrameCodeTokens($text) as $tok) {
+                $current[$tok] = ($current[$tok] ?? 0) + 1;
+            }
+            foreach (FitmentTextExtractor::distinctFrameCodeTokensWidened($text) as $tok) {
+                $widened[$tok] = ($widened[$tok] ?? 0) + 1;
+            }
+        }
+    }
+
+    /**
+     * 【診断専用】型式パターンを数字3桁まで広げた場合の増分と実例を出す。
+     *
+     * 採用判定は現行パターン（数字2桁）のまま。ここは「広げたら何が追加で拾えるか」を
+     * 目で確認するための出力で、車種名らしき語（CB250R / GB350S 等）が混ざらないかを見極める。
+     *
+     * @param  array<string, int>  $current 現行パターンで拾えた型式 => 出現商品数
+     * @param  array<string, int>  $widened 拡張パターンで拾えた型式 => 出現商品数
+     */
+    private function printFrameCodeWiden(array $current, array $widened): void
+    {
+        $this->newLine();
+        $this->line('==== 型式パターン拡張の影響（診断のみ・採用ロジックは未変更）====');
+        $this->line('  走査対象           : 取得商品のタイトル＋説明文の全体（採用経路より広い上限値）');
+        $this->line('  現行パターン(英字2+数字2+任意英字)で拾えた型式    : '.count($current).'個');
+
+        // 拡張でのみ拾えるトークン（＝広げたときの追加分）を、出現商品数の降順で並べる。
+        $extra = [];
+        foreach ($widened as $tok => $cnt) {
+            if (! array_key_exists($tok, $current)) {
+                $extra[] = [$tok, $cnt];
+            }
+        }
+        // 頻度降順 → トークン昇順（再実行しても並びが一定になるよう決定的に）
+        usort($extra, fn (array $a, array $b): int => [$b[1], $a[0]] <=> [$a[1], $b[0]]);
+
+        $this->line('  拡張パターン(英字2+数字2〜3+任意英字)で追加される型式: '.count($extra).'個');
+
+        if ($extra === []) {
+            $this->line('  追加される型式はありませんでした。');
+
+            return;
+        }
+
+        $samples = array_slice($extra, 0, 20);
+        $this->line('  追加される型式の実例（最大20件・出現商品数の降順）:');
+        $this->line('    '.implode('  ', array_map(fn (array $r): string => $r[0].'('.$r[1].'商品)', $samples)));
+
+        $this->newLine();
+        $this->comment('  ※実例に車種名らしき語（例 CB250R / GB350S / YZF250）が混ざっていないか目視で確認してください。');
+        $this->comment('  ※このブロックは測定のみ。採用は現行パターン（数字2桁）のままです。');
     }
 
     /**
