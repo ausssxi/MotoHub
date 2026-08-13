@@ -604,8 +604,9 @@ final class FitmentProbe extends Command
                 $knownCodes = array_keys($knownCodes);
 
                 // 既知の型式だけを商品テキストから拾う（パターン発見はしない）。
-                // 品番として明らかにおかしい抽出値は $excludedNonParts に退避してから照合する。
-                $extracted = $this->extractForVerifyByKnownCodes($results, $knownCodes, $excludedNonParts);
+                // 品番として明らかにおかしい抽出値（車種名混じり／店舗SKU／タスク別の規格形不一致）は
+                // $excludedNonParts に退避してから照合する。$task はタスク別の形状判定に使う。
+                $extracted = $this->extractForVerifyByKnownCodes($task, $results, $knownCodes, $excludedNonParts);
 
                 foreach ($this->compareWithExisting($existing[$task] ?? [], $extracted, $diag) as $line) {
                     $result[$line['verdict']]++;
@@ -642,17 +643,18 @@ final class FitmentProbe extends Command
         }
         $this->comment('  ※「新規」は既知型式だけを探すこの方式では構造上 0 のままです（未知型式の発見は通常モードの担当）。');
 
-        // 品番でないと判断して除外した抽出値（distinct）。実例を必ず出し、過剰除外を目視確認できるようにする。
+        // 品番でないと判断して除外した抽出値（distinct・抽出側のみ）。車種名混じり／店舗SKU／
+        // タスク別の規格形不一致をまとめて計上する。実例は最大30件まで出し、過剰除外を目視確認できるようにする。
         $this->newLine();
         if ($excludedNonParts === []) {
             $this->line('  品番でないと判断して除外: 0件');
         } else {
             $samples = [];
             foreach ($excludedNonParts as $part => $reason) {
-                $samples[] = "{$part}（{$reason}）";
+                $samples[] = (string) $part."（{$reason}）";
             }
             $this->line('  品番でないと判断して除外: '.count($excludedNonParts).'件');
-            $this->line('    実例: '.implode(' / ', array_slice($samples, 0, 20)));
+            $this->line('    実例（最大30件）: '.implode(' / ', array_slice($samples, 0, 30)));
         }
 
         // 品番の一致率（行単位の集計とは別に、既存・抽出の両方に値がある行だけを分母にする）。
@@ -856,12 +858,13 @@ final class FitmentProbe extends Command
      * 走査対象はタイトル＋説明文。語境界は findKnownFrameCodes が distinctFrameCodeTokens と
      * 同じ規則で判定し、車台番号 LC6DS12EZ01100001 の中の DS12E は拾わない。
      *
+     * @param  string  $task タスク名（battery/plug のときだけ規格形の判定を追加で行う）
      * @param  array<int, array<string, mixed>>  $results
      * @param  array<int, string>  $knownCodes 正規化済みの探すべき型式（DN11A 等）
      * @param  array<string, string>  $excluded 品番でないと判断して弾いた値（品番 => 理由）を run 全体で蓄積する
      * @return array<string, array<int, string>> 型式 => 品番群
      */
-    private function extractForVerifyByKnownCodes(array $results, array $knownCodes, array &$excluded): array
+    private function extractForVerifyByKnownCodes(string $task, array $results, array $knownCodes, array &$excluded): array
     {
         $out = [];
 
@@ -883,8 +886,10 @@ final class FitmentProbe extends Command
 
             $partNumber = strtoupper($partNumber);
 
-            // 品番として明らかにおかしい抽出値は照合に入れない（照合モード内だけの措置）。
-            $reason = $this->nonPartNumberReason($partNumber);
+            // 品番として明らかにおかしい抽出値は照合に入れない（照合モード内・抽出側だけの措置）。
+            // まず汎用の判定（車種名混じり／店舗SKU）、次にタスク別の規格形の判定。
+            $reason = $this->nonPartNumberReason($partNumber)
+                ?? $this->partShapeMismatchReason($task, $partNumber);
             if ($reason !== null) {
                 $excluded[$partNumber] = $reason; // distinct（同じSKUが複数店舗で出ても1件として数える）
 
@@ -940,6 +945,45 @@ final class FitmentProbe extends Command
         }
 
         return null;
+    }
+
+    /**
+     * 【--verify 専用・抽出側のみ】タスク別に「品番の形」に合わない抽出値の除外理由を返す。
+     *
+     * battery/plug は品番の形が決まっている（下記の実データに基づく）。数字で始まる商品コードや
+     * ヤマハ純正の番号（070Y57 / 05-11-0023 / 90793-26125 等）は形に合わず、ここで落とす。
+     * これらは前段の「5桁連番＋英字始まり」規則が数字始まりのため素通りさせていた分。
+     *
+     * ★対象は battery/plug だけ。oil-filter 等は形が違う（OEM品番が答え）ため判定しない。
+     * ★抽出側にのみ適用する。既存側（existingPartNumbers）は変更せず oem_part_no も残す。
+     *   純正品番（16510-06B00 等）は battery/plug の形に合わず抽出側では落ちるが、照合の相手は
+     *   recommended_part_no / compatible_part_nos なので実害はない（純正はそちらに入っていない）。
+     *
+     * 形の定義（実データから）:
+     *   battery: 先頭1〜4英字 + 数字 + 英数・ハイフン（YTX9-BS, GTZ8V, YT4L-BS, GT7B-4,
+     *            YTR4A-BS, FTZ6V, MTX7A-BS, YTZ10S, ML9-BS-FP, GT6B-3）
+     *   plug   : 先頭1〜6英字 + 数字 + 英数・ハイフン（CPR6EA-9, CR7HSA, LMAR8ADX-9S,
+     *            SILMAR8C9, MR7E-9, BPR6ES, DR7EA, SIMR8A9, ER8EH-N, U24ESR-N）
+     * どちらも「英字で始まり、直後に数字が来る」のが要点。数字始まりは商品コード/純正番号として落とす。
+     *
+     * @return string|null 除外理由。null は「そのタスクの規格形に合致（除外しない）」
+     */
+    private function partShapeMismatchReason(string $task, string $part): ?string
+    {
+        $shapes = [
+            'battery' => '/^[A-Z]{1,4}[0-9]{1,2}[A-Z0-9\-]*$/',
+            'plug' => '/^[A-Z]{1,6}[0-9]{1,2}[A-Z0-9\-]*$/',
+        ];
+
+        if (! isset($shapes[$task])) {
+            return null; // battery/plug 以外は形状フィルタの対象外
+        }
+
+        $norm = strtoupper(FitmentTextExtractor::normalize($part));
+
+        return preg_match($shapes[$task], $norm) === 1
+            ? null
+            : "{$task}の規格品番の形に不一致";
     }
 
     /**
@@ -1445,19 +1489,6 @@ final class FitmentProbe extends Command
     }
 
     /**
-     * 2つの品番が「同一系列（互換品番）」か。
-     *
-     * 判定規則: それぞれについて「そのもの」と「先頭1文字を落としたもの」を候補に取り、
-     * 候補どうしが4文字以上で一致すれば同一系列とみなす。
-     *   YTX9-BS  → {YTX9-BS, TX9-BS}
-     *   ATX9-BS  → {ATX9-BS, TX9-BS}   … TX9-BS で一致 → 同一系列（先頭1文字違い）
-     *   DYTX9-BS → {DYTX9-BS, YTX9-BS} … YTX9-BS で一致 → 同一系列（先頭1文字の付加）
-     *   CPR7EA-9 → {CPR7EA-9, PR7EA-9}
-     *   MR7E-9   → {MR7E-9, R7E-9}     … 一致なし → 別系列（＝矛盾として報告する）
-     * バッテリーの互換品番は「メーカー記号 + 共通型番」という命名なので、この規則で拾える。
-     * 4文字の下限は、短い断片の偶然一致を避けるため。
-     */
-    /**
      * 既存品番群と抽出品番群のあいだに、同一系列（互換品番）の組が1つでもあるか。
      *
      * @param  array<int, string>  $existing
@@ -1476,19 +1507,83 @@ final class FitmentProbe extends Command
         return false;
     }
 
+    /**
+     * 2つの品番が「同一系列（互換品番）」か。
+     *
+     * 中核の判定規則: それぞれ「そのもの」と「先頭1文字を落としたもの」を候補に取り、
+     * 候補どうしが4文字以上で一致すれば同一系列とみなす（seriesKeys）。
+     *   YTX9-BS  → {YTX9-BS, TX9-BS}
+     *   ATX9-BS  → {ATX9-BS, TX9-BS}   … TX9-BS で一致 → 同一系列（先頭1文字違い）
+     *   MR7E-9   → {MR7E-9, R7E-9}     … 一致なし → 別系列（＝矛盾として報告する）
+     *
+     * これに加えて、比較の前に「ブランド接尾辞」「店舗コード接頭辞」を取り除いた形でも照合する
+     * （seriesComparisonForms）。これらが付くだけで中核規則から外れていた取りこぼしを拾う。
+     *   GTZ8V    vs ZTZ8V-GEL … -GEL を落として ZTZ8V にすれば TZ8V で一致
+     *   YTZ7S    vs Z17-ZTZ7S … 先頭 Z17- を落として ZTZ7S にすれば TZ7S で一致
+     * 除去は比較のときだけ。表示・保持は元の値のまま（呼び出し側で加工しない）。
+     */
     private function isSameSeries(string $a, string $b): bool
     {
-        $keys = static function (string $code): array {
-            $code = strtoupper($code);
-            $out = [$code];
-            if (mb_strlen($code) > 1) {
-                $out[] = mb_substr($code, 1);
+        foreach ($this->seriesComparisonForms($a) as $fa) {
+            foreach ($this->seriesComparisonForms($b) as $fb) {
+                if (array_intersect($this->seriesKeys($fa), $this->seriesKeys($fb)) !== []) {
+                    return true;
+                }
             }
+        }
 
-            return array_values(array_filter($out, fn (string $k): bool => mb_strlen($k) >= 4));
-        };
+        return false;
+    }
 
-        return array_intersect($keys($a), $keys($b)) !== [];
+    /**
+     * 同一系列判定の中核キー: 「そのもの」と「先頭1文字を落としたもの」のうち4文字以上のもの。
+     * 4文字の下限は、短い断片の偶然一致を避けるため。
+     *
+     * @return array<int, string>
+     */
+    private function seriesKeys(string $code): array
+    {
+        $code = strtoupper($code);
+        $out = [$code];
+        if (mb_strlen($code) > 1) {
+            $out[] = mb_substr($code, 1);
+        }
+
+        return array_values(array_filter($out, fn (string $k): bool => mb_strlen($k) >= 4));
+    }
+
+    /**
+     * 比較用に、品番から「店舗コード接頭辞」「ブランド接尾辞」を取り除いた候補形を返す（元も含む）。
+     *
+     * ★突き合わせにだけ使う。表示・保持は元の値のまま。
+     *
+     * 除去規則（過剰にならないよう限定する）:
+     *  - 先頭の店舗コード: 英字1〜3 + 数字1〜3 + ハイフン（Z17- 等）。ただし残りが4文字以上のときだけ。
+     *    この下限で ML9-BS の "ML9-" を剥がして "BS" にする事故を防ぐ（店舗コードの後ろには
+     *    Z17-ZTZ7S のように完全な品番が続くため、残りは十分な長さになる）。
+     *  - 末尾のブランド接尾辞: ハイフン以降が英字のみ2〜3文字（-GEL / -FP / -GY 等）。
+     *    ★ハイフン以降に数字を含むもの（-9S / -9 / -N 等）は品番の一部なので剥がさない
+     *    （CR8EDX-9S の -9S を落とさない）。
+     *
+     * @return array<int, string>
+     */
+    private function seriesComparisonForms(string $code): array
+    {
+        $code = strtoupper($code);
+        $forms = [$code];
+
+        if (preg_match('/^[A-Z]{1,3}[0-9]{1,3}-(.+)$/', $code, $m) === 1 && mb_strlen($m[1]) >= 4) {
+            $forms[] = $m[1];
+        }
+
+        // 接頭辞を剥がした形にも接尾辞除去を適用する（両方付いた品番に対応）。
+        foreach ($forms as $form) {
+            if (preg_match('/^(.+)-[A-Z]{2,3}$/', $form, $m) === 1) {
+                $forms[] = $m[1];
+            }
+        }
+
+        return array_values(array_unique($forms));
     }
 
     /**
