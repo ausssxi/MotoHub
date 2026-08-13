@@ -119,7 +119,9 @@ final class BatteryMaintenance
             foreach ([[$r->source_1_name, $r->source_1_url], [$r->source_2_name, $r->source_2_url]] as [$name, $url]) {
                 $name = trim((string) $name);
                 if ($name !== '' && ! isset($out[$name])) {
-                    $out[$name] = ['name' => $name, 'url' => $url ?: null];
+                    // http(s) で始まらない出典URL（打ち間違い等）はここで null にし、ビュー側で
+                    // リンクにせず出典名テキストのみ表示させる。判定は SourceUrl に集約。
+                    $out[$name] = ['name' => $name, 'url' => SourceUrl::externalHref($url)];
                 }
             }
         }

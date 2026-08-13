@@ -39,9 +39,19 @@ SMOKE_BASE="${SMOKE_BASE:-https://motohub.jp}"
 
 # スモークテスト対象。2026-08-11 に一時的に404が見えた /rental-garages/area を必ず含める
 # （ルート追加が Web に反映されたかを、当時と同じ経路で確かめる）。
+#
+# 車種詳細ページ（/bikes/{maker}/{slug}）を追加する。サイトの中核ページであり、
+# かつ 2026-08-13 に maintenance-{battery,plug,oil} partial の Blade 崩れで全滅した経路を
+# スモークが1つも通っていなかったため今回の500を検出できなかった。
+# ★あえて「適合表(model_fitments)のある車種」を選ぶ: 適合データが無い車種は
+#   maintenance partial が mode=none で描画されず、出典表示や適合表まわりの Blade を
+#   通らない＝空振りになる。適合表のある zoomer / super-cub-110 なら、その描画経路
+#   （partial・出典URL表示）を実際にレンダリングして構文崩れを検出できる。
 SMOKE_PATHS=(
     "/"
     "/bikes/search"
+    "/bikes/honda/zoomer"
+    "/bikes/honda/super-cub-110"
     "/rental-garages/area"
     "/parking/area"
     "/gs"

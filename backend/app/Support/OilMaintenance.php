@@ -68,9 +68,11 @@ final class OilMaintenance
             'jaso' => $spec['jaso'] ?? null,
             'interval' => $spec['interval'] ?? null,
             'verified_at' => $row->verified_at,
+            // http(s) で始まらない出典URL（打ち間違い等）は SourceUrl で null にし、ビュー側で
+            // リンクにせず出典名テキストのみ表示させる。判定は SourceUrl に集約。
             'sources' => array_values(array_filter([
-                $row->source_1_name ? ['name' => (string) $row->source_1_name, 'url' => $row->source_1_url] : null,
-                $row->source_2_name ? ['name' => (string) $row->source_2_name, 'url' => $row->source_2_url] : null,
+                $row->source_1_name ? ['name' => (string) $row->source_1_name, 'url' => SourceUrl::externalHref($row->source_1_url)] : null,
+                $row->source_2_name ? ['name' => (string) $row->source_2_name, 'url' => SourceUrl::externalHref($row->source_2_url)] : null,
             ])),
         ];
     }
