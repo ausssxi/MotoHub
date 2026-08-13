@@ -88,6 +88,13 @@ final class FitmentProbe extends Command
      */
     private const VERDICT_MATCH = '一致';
 
+    /**
+     * 既存の推奨品番そのものではないが、isSameSeries() で同一系列（他社互換品）と判定できた一致。
+     * 実用上は正しい情報を取れているため、食い違いには数えず「一致」の一種として別建てで集計する。
+     * 例: 既存 YTX7L-BS に対し抽出 MTX7L-BS/PTX7L-BS（TX7L-BS で一致）。
+     */
+    private const VERDICT_MATCH_COMPAT = '一致（互換品番）';
+
     private const VERDICT_CONFLICT = '食い違い（要確認）';
 
     private const VERDICT_NEW = '新規';
@@ -492,6 +499,7 @@ final class FitmentProbe extends Command
 
         $result = [
             self::VERDICT_MATCH => 0,
+            self::VERDICT_MATCH_COMPAT => 0,
             self::VERDICT_CONFLICT => 0,
             self::VERDICT_MISSED_NO_ITEMS => 0,
             self::VERDICT_MISSED_NO_NAME => 0,
@@ -501,6 +509,10 @@ final class FitmentProbe extends Command
         $processedModels = 0;
         $abortReason = null;   // 全体を打ち切った理由（レート制限に限らない）
         $skipped = [];         // 400 等でこの車種だけ飛ばしたもの
+
+        // 照合モード内でのみ「品番でない」と判断して除外した抽出値（品番 => 除外理由）。
+        // PartsCodeExtractor 本体は変更せず、ここ（測定側）だけで弾く。run 全体で distinct 集計。
+        $excludedNonParts = [];
 
         // 型式パターン拡張の効果測定（--frame-widen）。トークン => 出現商品数 を run 全体で集計する。
         // ★診断専用。採用判定には一切使わない（下の compareWithExisting は現行パターンのまま）。
@@ -588,7 +600,8 @@ final class FitmentProbe extends Command
                 $knownCodes = array_keys($knownCodes);
 
                 // 既知の型式だけを商品テキストから拾う（パターン発見はしない）。
-                $extracted = $this->extractForVerifyByKnownCodes($results, $knownCodes);
+                // 品番として明らかにおかしい抽出値は $excludedNonParts に退避してから照合する。
+                $extracted = $this->extractForVerifyByKnownCodes($results, $knownCodes, $excludedNonParts);
 
                 foreach ($this->compareWithExisting($existing[$task] ?? [], $extracted, $diag) as $line) {
                     $result[$line['verdict']]++;
@@ -624,6 +637,35 @@ final class FitmentProbe extends Command
             $this->line(sprintf('  %-28s : %d', $verdict, $count));
         }
         $this->comment('  ※「新規」は既知型式だけを探すこの方式では構造上 0 のままです（未知型式の発見は通常モードの担当）。');
+
+        // 品番でないと判断して除外した抽出値（distinct）。実例を必ず出し、過剰除外を目視確認できるようにする。
+        $this->newLine();
+        if ($excludedNonParts === []) {
+            $this->line('  品番でないと判断して除外: 0件');
+        } else {
+            $samples = [];
+            foreach ($excludedNonParts as $part => $reason) {
+                $samples[] = "{$part}（{$reason}）";
+            }
+            $this->line('  品番でないと判断して除外: '.count($excludedNonParts).'件');
+            $this->line('    実例: '.implode(' / ', array_slice($samples, 0, 20)));
+        }
+
+        // 品番の一致率（行単位の集計とは別に、既存・抽出の両方に値がある行だけを分母にする）。
+        // 取りこぼし（抽出が無い）と新規（既存が無い）は分母に入れない。精度ではなくデータ有無の問題のため。
+        $matched = $result[self::VERDICT_MATCH];
+        $matchedCompat = $result[self::VERDICT_MATCH_COMPAT];
+        $conflict = $result[self::VERDICT_CONFLICT];
+        $comparable = $matched + $matchedCompat + $conflict;
+
+        $this->newLine();
+        $this->line('==== 品番の一致率（既存・抽出の両方に値がある行のみ）====');
+        $this->line(sprintf('  照合できた行（既存・抽出の両方に値あり）: %d行', $comparable));
+        $this->line(sprintf('  うち一致                                  : %d行', $matched));
+        $this->line(sprintf('  うち一致（互換品番）                      : %d行', $matchedCompat));
+        $this->line(sprintf('  うち食い違い                              : %d行', $conflict));
+        $this->line(sprintf('  一致率                                    : %s', $this->percent($matched + $matchedCompat, $comparable)));
+        $this->comment('  ※一致率の分子は「一致」＋「一致（互換品番）」。互換品番は実用上正しい情報が取れているため一致に含める。');
 
         $this->newLine();
         $this->warn('  既存と抽出が食い違った件数: '.$result[self::VERDICT_CONFLICT]);
@@ -804,9 +846,10 @@ final class FitmentProbe extends Command
      *
      * @param  array<int, array<string, mixed>>  $results
      * @param  array<int, string>  $knownCodes 正規化済みの探すべき型式（DN11A 等）
+     * @param  array<string, string>  $excluded 品番でないと判断して弾いた値（品番 => 理由）を run 全体で蓄積する
      * @return array<string, array<int, string>> 型式 => 品番群
      */
-    private function extractForVerifyByKnownCodes(array $results, array $knownCodes): array
+    private function extractForVerifyByKnownCodes(array $results, array $knownCodes, array &$excluded): array
     {
         $out = [];
 
@@ -826,8 +869,18 @@ final class FitmentProbe extends Command
                 continue;
             }
 
+            $partNumber = strtoupper($partNumber);
+
+            // 品番として明らかにおかしい抽出値は照合に入れない（照合モード内だけの措置）。
+            $reason = $this->nonPartNumberReason($partNumber);
+            if ($reason !== null) {
+                $excluded[$partNumber] = $reason; // distinct（同じSKUが複数店舗で出ても1件として数える）
+
+                continue;
+            }
+
             foreach (FitmentTextExtractor::findKnownFrameCodes($name.' '.$description, $knownCodes) as $code) {
-                $out[$code][] = strtoupper($partNumber);
+                $out[$code][] = $partNumber;
             }
         }
 
@@ -836,6 +889,42 @@ final class FitmentProbe extends Command
         }
 
         return $out;
+    }
+
+    /**
+     * 【--verify 専用】抽出値が「品番ではない」と判断できる理由を返す（該当しなければ null）。
+     *
+     * PartsCodeExtractor 本体は変更せず、照合モードの中だけで明らかなノイズを弾くためのもの。
+     * 実データ（2026-08-12）で食い違いに紛れ込んでいた次の2種を落とす:
+     *   a) 車種名混じり: AF78ZOOMER-X（車種名 ZOOMER-X を含む）
+     *   b) 店舗SKU: D2-98308（5桁以上の連番を含む）
+     *
+     * @return string|null 除外理由。null は「品番として妥当（除外しない）」
+     */
+    private function nonPartNumberReason(string $part): ?string
+    {
+        $norm = strtoupper(FitmentTextExtractor::normalize($part));
+
+        // b) 5桁以上の連番を含み、かつ先頭が数字でないもの（D2-98308 のような店舗SKU）。
+        //    「先頭が数字でない」を条件に足すのは過剰除外を避けるため。純正(OEM)品番は
+        //    数字グループで始まる（スズキ 16510-06B00、ヤマハ 4FM-14613-00、ホンダ 15410-KYJ-901 等）
+        //    ため、これらは5桁連番を含んでも先頭が数字なので除外しない。一方、店舗SKUは
+        //    D2-/BC- のように英字接頭辞から始まることが多い。桁数だけで切ると OEM 品番まで
+        //    落として一致率をかえって下げてしまうため、この2条件のANDにする。
+        if (preg_match('/[0-9]{5,}/', $norm) === 1 && preg_match('/^[0-9]/', $norm) !== 1) {
+            return '5桁以上の連番＋英字始まり（店舗SKUと判断）';
+        }
+
+        // a) 車種名（name/display_name）を部分文字列として含むもの（AF78ZOOMER-X 等）。
+        //    ただし短い車種名（GB/Z/CT 等）は正規の品番の一部に偶然含まれて過剰除外を招くため、
+        //    正規化後4文字以上の車種名に限る。4文字未満は判定材料にしない。
+        foreach ($this->modelNameSet() as $name => $_) {
+            if (mb_strlen($name) >= 4 && str_contains($norm, $name)) {
+                return "車種名『{$name}』を含む";
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -873,9 +962,12 @@ final class FitmentProbe extends Command
                 $mine = array_values(array_unique($mine));
             }
 
+            // 完全一致が最優先。無ければ同一系列（他社互換品）の一致を見る。
+            // どちらも無ければ食い違い。互換一致を食い違いに数えると精度が実態より低く見えるため分ける。
             $verdict = match (true) {
                 $mine === [] => $this->classifyMissed($diag),
                 array_intersect($parts, $mine) !== [] => self::VERDICT_MATCH,
+                $this->hasSameSeriesMatch($parts, $mine) => self::VERDICT_MATCH_COMPAT,
                 default => self::VERDICT_CONFLICT,
             };
 
@@ -1350,6 +1442,25 @@ final class FitmentProbe extends Command
      * バッテリーの互換品番は「メーカー記号 + 共通型番」という命名なので、この規則で拾える。
      * 4文字の下限は、短い断片の偶然一致を避けるため。
      */
+    /**
+     * 既存品番群と抽出品番群のあいだに、同一系列（互換品番）の組が1つでもあるか。
+     *
+     * @param  array<int, string>  $existing
+     * @param  array<int, string>  $extracted
+     */
+    private function hasSameSeriesMatch(array $existing, array $extracted): bool
+    {
+        foreach ($existing as $a) {
+            foreach ($extracted as $b) {
+                if ($this->isSameSeries($a, $b)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private function isSameSeries(string $a, string $b): bool
     {
         $keys = static function (string $code): array {
