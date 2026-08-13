@@ -230,6 +230,45 @@ final class FitmentTextExtractor
     }
 
     /**
+     * 【照合専用】与えられた既知の型式のうち、テキストに「語として」現れるものを返す。
+     *
+     * パターンで型式らしきものを発見するのではなく、model_fitments に既に入っている正解の型式
+     * （EX250L / ZR900C など）だけを探す用途。だから CB250R のような車種名の形を型式と
+     * 誤認することが原理的に起きない。
+     *
+     * 語境界は distinctFrameCodeTokens と同じ規則（前後が英数字・ハイフンでない）を使うため、
+     * 車台番号 LC6DS12EZ01100001 の中の DS12E は拾わない。
+     * $knownCodes は正規化済み（大文字・裸の型式）を渡すこと（normalizeFrameCodesForMatching の出力）。
+     *
+     * @param  array<int, string>  $knownCodes
+     * @return array<int, string> テキストに現れた既知型式（重複なし・入力順を保持）
+     */
+    public static function findKnownFrameCodes(string $text, array $knownCodes): array
+    {
+        if ($knownCodes === []) {
+            return [];
+        }
+
+        $normalized = strtoupper(self::widthNormalize($text));
+
+        $out = [];
+        foreach ($knownCodes as $code) {
+            $code = strtoupper(trim($code));
+            if ($code === '' || in_array($code, $out, true)) {
+                continue;
+            }
+
+            // 境界つきで探す。preg_quote で型式内の記号（万一のハイフン等）を安全に扱う。
+            $re = '/(?<![A-Z0-9\-])'.preg_quote($code, '/').'(?![A-Z0-9\-])/u';
+            if (preg_match($re, $normalized) === 1) {
+                $out[] = $code;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * テキストに対象車種名が「語として」含まれるか（前方一致では通さない）。
      *
      * 「Vストローム250SX」の中の「Vストローム250」は含まれているとみなさない。

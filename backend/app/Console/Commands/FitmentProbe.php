@@ -126,6 +126,14 @@ final class FitmentProbe extends Command
         'chain' => 'チェーン',
     ];
 
+    /**
+     * bike_models.name / display_name を正規化した集合のキャッシュ（--frame-widen の車種名判定用）。
+     * null は「未読込」。1回だけ SELECT して使い回す。
+     *
+     * @var array<string, bool>|null
+     */
+    private ?array $modelNameSet = null;
+
     public function handle(ProductSearchService $service): int
     {
         $tasks = $this->resolveTasks();
@@ -460,6 +468,8 @@ final class FitmentProbe extends Command
         $this->newLine();
         $this->line('==== fitment:probe --verify（読み取り専用・DBへは書き込みません）====');
         $this->line("照合車種数の上限: {$modelLimit} / 1タスクあたり {$limit}件 / 待機 {$sleep}秒");
+        $this->line('照合方式: model_fitments の既知型式だけを商品テキストから探す（FRAME_CODEパターンでの発見はしない）');
+        $this->comment('  ※既知の値しか探さないため誤検出は起きず、その代わり「新規」型式の発見も行いません（発見は通常モードの担当）。');
 
         // 車種ごとの最新 verified_at を取り、順序を固定して取得（SELECTのみ）
         $targets = ModelFitment::query()
@@ -567,7 +577,18 @@ final class FitmentProbe extends Command
                 $this->line('    商品側の表記(最多)   : '.($spelling ?? '(該当なし)')."  ／ DB上の名前: {$modelName}"
                     .($displayName !== null && $displayName !== '' ? " / display_name: {$displayName}" : ''));
 
-                $extracted = $this->extractForVerify($results, $modelName);
+                // 探すべき型式の一覧＝この車種・このタスクの既存 frame_code を正規化したもの
+                // （"2BK-DN11A/8BK-DN12B" → [DN11A, DN12B]）。空文字キー（型式区別なし）は何も生まない。
+                $knownCodes = [];
+                foreach (array_keys($existing[$task] ?? []) as $rawCode) {
+                    foreach (FitmentTextExtractor::normalizeFrameCodesForMatching((string) $rawCode) as $code) {
+                        $knownCodes[$code] = true;
+                    }
+                }
+                $knownCodes = array_keys($knownCodes);
+
+                // 既知の型式だけを商品テキストから拾う（パターン発見はしない）。
+                $extracted = $this->extractForVerifyByKnownCodes($results, $knownCodes);
 
                 foreach ($this->compareWithExisting($existing[$task] ?? [], $extracted, $diag) as $line) {
                     $result[$line['verdict']]++;
@@ -602,6 +623,7 @@ final class FitmentProbe extends Command
         foreach ($result as $verdict => $count) {
             $this->line(sprintf('  %-28s : %d', $verdict, $count));
         }
+        $this->comment('  ※「新規」は既知型式だけを探すこの方式では構造上 0 のままです（未知型式の発見は通常モードの担当）。');
 
         $this->newLine();
         $this->warn('  既存と抽出が食い違った件数: '.$result[self::VERDICT_CONFLICT]);
@@ -680,13 +702,61 @@ final class FitmentProbe extends Command
             return;
         }
 
+        // 追加分のうち、bike_models.name / display_name と（正規化して）一致するもの＝車種名の混入。
+        // 接頭辞リストの妥当性を検証するときの対照になる。
+        $modelNames = $this->modelNameSet();
+        $nameMatch = static fn (string $tok): bool => isset($modelNames[$tok]);
+
+        $mixed = 0;
+        foreach ($extra as [$tok, $cnt]) {
+            if ($nameMatch($tok)) {
+                $mixed++;
+            }
+        }
+        $this->line(sprintf(
+            '  うち車種名（name/display_name）と一致: %d個（%s）',
+            $mixed,
+            $this->percent($mixed, count($extra))
+        ));
+
         $samples = array_slice($extra, 0, 20);
-        $this->line('  追加される型式の実例（最大20件・出現商品数の降順）:');
-        $this->line('    '.implode('  ', array_map(fn (array $r): string => $r[0].'('.$r[1].'商品)', $samples)));
+        $this->line('  追加される型式の実例（最大20件・出現商品数の降順、★＝車種名と一致）:');
+        $this->line('    '.implode('  ', array_map(
+            fn (array $r): string => $r[0].'('.$r[1].'商品)'.($nameMatch($r[0]) ? ' ★車種名と一致' : ''),
+            $samples
+        )));
 
         $this->newLine();
-        $this->comment('  ※実例に車種名らしき語（例 CB250R / GB350S / YZF250）が混ざっていないか目視で確認してください。');
+        $this->comment('  ※★（車種名と一致）が多いほど、単純な数字3桁拡張の誤検出が多いことを意味します。');
         $this->comment('  ※このブロックは測定のみ。採用は現行パターン（数字2桁）のままです。');
+    }
+
+    /**
+     * 【診断専用】bike_models.name と display_name を正規化した集合（キー => true）。
+     *
+     * --frame-widen で「追加される型式が車種名か」を判定するための対照表。
+     * トークン（大文字・空白なしの型式形）と突き合わせるため、normalize してから大文字化する。
+     * DB は SELECT のみ。1回だけ読み、以後は使い回す。
+     *
+     * @return array<string, bool>
+     */
+    private function modelNameSet(): array
+    {
+        if ($this->modelNameSet !== null) {
+            return $this->modelNameSet;
+        }
+
+        $set = [];
+        foreach (BikeModel::query()->get(['name', 'display_name']) as $model) {
+            foreach ([$model->name, $model->display_name] as $value) {
+                $key = strtoupper(FitmentTextExtractor::normalize((string) ($value ?? '')));
+                if ($key !== '') {
+                    $set[$key] = true;
+                }
+            }
+        }
+
+        return $this->modelNameSet = $set;
     }
 
     /**
@@ -721,14 +791,28 @@ final class FitmentProbe extends Command
     }
 
     /**
-     * 照合用に「型式 → 抽出した品番群」を作る（通常モードと同じ採用条件）。
+     * 【--verify 専用】既知の型式一覧に含まれる型式だけを商品テキストから拾い、品番と紐づける。
+     *
+     * パターンで「型式らしきもの」を発見する方式ではなく、model_fitments に既に入っている
+     * 正解の型式（EX250L / ZR900C など）だけを探す。だから CB250R のような車種名の形を
+     * 型式と誤認することが原理的に起きない。また ninja 250 のように商品側の表記（Ninja250）と
+     * DB名（ninja 250）の空白が食い違って書式Bが空振りする車種でも、型式そのものは本文にあるので
+     * 回収できる（照合の起点を車種名ではなく既知型式にするため）。
+     *
+     * 走査対象はタイトル＋説明文。語境界は findKnownFrameCodes が distinctFrameCodeTokens と
+     * 同じ規則で判定し、車台番号 LC6DS12EZ01100001 の中の DS12E は拾わない。
      *
      * @param  array<int, array<string, mixed>>  $results
-     * @return array<string, array<int, string>>
+     * @param  array<int, string>  $knownCodes 正規化済みの探すべき型式（DN11A 等）
+     * @return array<string, array<int, string>> 型式 => 品番群
      */
-    private function extractForVerify(array $results, string $modelName): array
+    private function extractForVerifyByKnownCodes(array $results, array $knownCodes): array
     {
         $out = [];
+
+        if ($knownCodes === []) {
+            return $out;
+        }
 
         foreach ($results as $item) {
             if (($item['mall'] ?? '') !== 'rakuten') {
@@ -742,22 +826,8 @@ final class FitmentProbe extends Command
                 continue;
             }
 
-            $fitNames = FitmentTextExtractor::fitmentModelNames($description);
-            $frameCodes = FitmentTextExtractor::frameCodes($description);
-
-            $codes = [];
-            if (FitmentTextExtractor::hasFrameCodeLabel($description)
-                && $fitNames !== null && $fitNames !== []
-                && FitmentTextExtractor::matchesModel($fitNames, $modelName)
-                && $frameCodes !== []
-            ) {
-                $codes = $frameCodes;
-            } elseif (! FitmentTextExtractor::looksLikeFitmentTable($description)) {
-                $codes = FitmentTextExtractor::frameCodesAfterModelName($description, $modelName);
-            }
-
-            foreach ($codes as $fc) {
-                $out[$fc['code']][] = strtoupper($partNumber);
+            foreach (FitmentTextExtractor::findKnownFrameCodes($name.' '.$description, $knownCodes) as $code) {
+                $out[$code][] = strtoupper($partNumber);
             }
         }
 
