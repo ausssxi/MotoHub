@@ -134,12 +134,16 @@ final class FitmentProbe extends Command
     ];
 
     /**
-     * bike_models.name / display_name を正規化した集合のキャッシュ（--frame-widen の車種名判定用）。
+     * bike_models.name / display_name を正規化した「名前のリスト（値の配列）」のキャッシュ。
      * null は「未読込」。1回だけ SELECT して使い回す。
      *
-     * @var array<string, bool>|null
+     * ★キーではなく値として持つ。連想配列のキーにすると、PHP が「250」のような数字だけの
+     *   文字列キーを自動的に int へ変換し、後段で mb_strlen(int) 等が TypeError になるため
+     *   （本番で発生）。値の配列なら数字だけの名前でも string のまま保たれる。
+     *
+     * @var array<int, string>|null
      */
-    private ?array $modelNameSet = null;
+    private ?array $modelNames = null;
 
     public function handle(ProductSearchService $service): int
     {
@@ -746,8 +750,9 @@ final class FitmentProbe extends Command
 
         // 追加分のうち、bike_models.name / display_name と（正規化して）一致するもの＝車種名の混入。
         // 接頭辞リストの妥当性を検証するときの対照になる。
-        $modelNames = $this->modelNameSet();
-        $nameMatch = static fn (string $tok): bool => isset($modelNames[$tok]);
+        // 型式トークン（英字を含む）で isset 参照するだけなので、数字だけの名前が int キーになっても無害。
+        $modelSet = array_fill_keys($this->modelNames(), true);
+        $nameMatch = static fn (string $tok): bool => isset($modelSet[$tok]);
 
         $mixed = 0;
         foreach ($extra as [$tok, $cnt]) {
@@ -774,31 +779,38 @@ final class FitmentProbe extends Command
     }
 
     /**
-     * 【診断専用】bike_models.name と display_name を正規化した集合（キー => true）。
+     * bike_models.name と display_name を正規化した「重複なしのリスト（値の配列）」を返す。
      *
-     * --frame-widen で「追加される型式が車種名か」を判定するための対照表。
-     * トークン（大文字・空白なしの型式形）と突き合わせるため、normalize してから大文字化する。
+     * 用途は2つ:
+     *   - 抽出品番が車種名混じりか（nonPartNumberReason の規則a）… 値を回して部分一致を見る
+     *   - --frame-widen で追加型式が車種名か … 呼び出し側で array_fill_keys して isset 判定
+     * トークン（大文字・空白なしの型式形）と突き合わせるため normalize → 大文字化して持つ。
      * DB は SELECT のみ。1回だけ読み、以後は使い回す。
      *
-     * @return array<string, bool>
+     * ★戻り値は「値の配列」。重複排除は連想配列のキーで行うが、返す前に array_map('strval', …) で
+     *   必ず string の値へ戻す。こうしないと「250」のような数字だけの名前がキーの段階で int 化し、
+     *   呼び出し側の mb_strlen()/str_contains() へ int が渡って TypeError になる（本番で発生した罠）。
+     *
+     * @return array<int, string>
      */
-    private function modelNameSet(): array
+    private function modelNames(): array
     {
-        if ($this->modelNameSet !== null) {
-            return $this->modelNameSet;
+        if ($this->modelNames !== null) {
+            return $this->modelNames;
         }
 
-        $set = [];
+        $seen = [];
         foreach (BikeModel::query()->get(['name', 'display_name']) as $model) {
             foreach ([$model->name, $model->display_name] as $value) {
                 $key = strtoupper(FitmentTextExtractor::normalize((string) ($value ?? '')));
                 if ($key !== '') {
-                    $set[$key] = true;
+                    $seen[$key] = true; // 重複排除用。数字だけの名前はここで int キーになり得る
                 }
             }
         }
 
-        return $this->modelNameSet = $set;
+        // array_keys だと数字だけの名前が int で返るため、strval で string の値配列に戻す。
+        return $this->modelNames = array_map('strval', array_keys($seen));
     }
 
     /**
@@ -917,8 +929,11 @@ final class FitmentProbe extends Command
 
         // a) 車種名（name/display_name）を部分文字列として含むもの（AF78ZOOMER-X 等）。
         //    ただし短い車種名（GB/Z/CT 等）は正規の品番の一部に偶然含まれて過剰除外を招くため、
-        //    正規化後4文字以上の車種名に限る。4文字未満は判定材料にしない。
-        foreach ($this->modelNameSet() as $name => $_) {
+        //    正規化後4文字以上の車種名に限る。4文字未満（「250」等）は判定材料にしない。
+        //    modelNames() は値の配列だが、念のため明示的に string へキャストしてから使う
+        //    （数字だけの名前が int で紛れ込んでも mb_strlen()/str_contains() を壊さないため）。
+        foreach ($this->modelNames() as $name) {
+            $name = (string) $name;
             if (mb_strlen($name) >= 4 && str_contains($norm, $name)) {
                 return "車種名『{$name}』を含む";
             }
