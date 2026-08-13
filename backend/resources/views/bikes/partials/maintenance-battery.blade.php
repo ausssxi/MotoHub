@@ -21,7 +21,7 @@
     </div>
     <p class="text-[10px] text-gray-400 mb-4">
         @if(!empty($battery['sources']))出典:
-            @foreach($battery['sources'] as $s)@if($s['url'])<a href="{{ $s['url'] }}" target="_blank" rel="nofollow noopener" class="underline hover:text-gray-600">{{ $s['name'] }}</a>@else{{ $s['name'] }}@endif@if(!$loop->last)、@endif @endforeach ・
+            @foreach($battery['sources'] as $s)@php($srcHref = \App\Support\SourceUrl::externalHref($s['url'] ?? null))@if($srcHref)<a href="{{ $srcHref }}" target="_blank" rel="nofollow noopener" class="underline hover:text-gray-600">{{ $s['name'] }}</a>@else{{ $s['name'] }}@endif@if(!$loop->last)、@endif @endforeach ・
         @endif
         確認: {{ optional($battery['verified_at'])->format('Y-m') }}（{{ $battery['frame_count'] }}型式に対応）
     </p>
