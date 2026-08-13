@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Parts;
 use App\Http\Controllers\Controller;
 use App\Models\BikeModel;
 use App\Services\Parts\PartsCodeExtractor;
+use App\Support\RakutenRateGate;
 use Illuminate\Http\Client\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -48,6 +49,28 @@ class PartsController extends Controller
 
         $cacheKey = 'rakuten_parts_' . md5($searchQuery . '_page_' . $page . '_hits_' . $hits . '_genre_' . ($genreId ?? 0));
         return Cache::remember($cacheKey, 600, function () use ($appId, $accessKey, $searchQuery, $page, $hits, $genreId) {
+            $gate = app(RakutenRateGate::class);
+
+            // 楽天のレート枠は全経路の共有。休止中はここでも叩かない（迂回はしない）。
+            if ($gate->isPaused()) {
+                Log::warning('PartsController rakuten がエラー応答', [
+                    'status'  => 0,
+                    'keyword' => $searchQuery,
+                    'body'    => $gate->pausedReason(),
+                ]);
+                return null;
+            }
+
+            // 間隔制御の枠を取れなければ叩かずに null を返す（CLI=5秒/Web=0.5秒はゲートが判定）。
+            if (! $gate->acquireSlot()) {
+                Log::warning('PartsController rakuten がエラー応答', [
+                    'status'  => 0,
+                    'keyword' => $searchQuery,
+                    'body'    => $gate->waitExceededReason(),
+                ]);
+                return null;
+            }
+
             $params = [
                 'applicationId' => $appId,
                 'accessKey'     => $accessKey,
@@ -66,7 +89,19 @@ class PartsController extends Controller
                 'User-Agent' => 'MotoHub',
             ])->timeout(10)->get('https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20220601', $params);
 
-            return $response->successful() ? $response->json() : null;
+            if (! $response->successful()) {
+                // かつては失敗を無言で null にしていた。429を「取得できず」と混同すると障害が見えないため、
+                // ProductSearchService と同じ書式（status/keyword/本文先頭200文字）でログに残す。
+                $gate->logErrorResponse('PartsController', $response->status(), $searchQuery, $response->body());
+
+                if ($response->status() === 429) {
+                    $gate->pause($searchQuery, 'PartsController');
+                }
+
+                return null;
+            }
+
+            return $response->json();
         });
     }
 

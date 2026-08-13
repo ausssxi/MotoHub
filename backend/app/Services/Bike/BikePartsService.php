@@ -6,8 +6,10 @@ namespace App\Services\Bike;
 
 use App\Models\BikeModel;
 use App\Services\Parts\PartsCodeExtractor;
+use App\Support\RakutenRateGate;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class BikePartsService
 {
@@ -88,8 +90,10 @@ class BikePartsService
                 ];
             }
 
-            // レート制限対策
-            sleep(1);
+            // かつては sleep(1) でカテゴリ間隔を空けていたが削除した。
+            // 楽天呼び出しは共有ゲート（RakutenRateGate）を通り、ゲートが全経路で
+            // 1.1秒以上の間隔を保証する。sleep(1) はそれより短く、ゲート導入後は
+            // 律速にならないうえ、ゲートの待機と二重に効いて無駄に遅くなるだけのため。
         }
 
         // 空結果（取得失敗/在庫無し）は24時間で再試行。取得できた分は7日保持。
@@ -119,7 +123,10 @@ class BikePartsService
 
                 return $this->searchRakuten($appId, $accessKey, $affiliateId, 'バイク '.$model->name, $limit);
             });
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // キャッシュ層など searchRakuten の外側で落ちた場合の保険。無言にはしない。
+            Log::warning('BikePartsService fetchFlat failed: '.$e->getMessage(), ['bike_model_id' => $model->id]);
+
             return [];
         }
     }
@@ -129,6 +136,30 @@ class BikePartsService
      */
     private function searchRakuten(string $appId, string $accessKey, ?string $affiliateId, string $keyword, int $hits): array
     {
+        $gate = app(RakutenRateGate::class);
+
+        // 楽天のレート枠は全経路の共有。休止中はここでも叩かない（迂回はしない）。
+        if ($gate->isPaused()) {
+            Log::warning('BikePartsService rakuten がエラー応答', [
+                'status' => 0,
+                'keyword' => $keyword,
+                'body' => $gate->pausedReason(),
+            ]);
+
+            return [];
+        }
+
+        // 間隔制御の枠を取れなければ叩かずに空を返す（CLI=5秒/Web=0.5秒はゲートが判定）。
+        if (! $gate->acquireSlot()) {
+            Log::warning('BikePartsService rakuten がエラー応答', [
+                'status' => 0,
+                'keyword' => $keyword,
+                'body' => $gate->waitExceededReason(),
+            ]);
+
+            return [];
+        }
+
         $params = [
             'applicationId' => $appId,
             'accessKey' => $accessKey,
@@ -149,7 +180,15 @@ class BikePartsService
                 'User-Agent' => 'MotoHub',
             ])->timeout(5)->get(self::API_URL, $params);
 
-            if ($response->failed()) {
+            if (! $response->successful()) {
+                // かつては失敗を無言で [] にしていた。429を「0件」と誤読すると障害が見えないため、
+                // ProductSearchService と同じ書式（status/keyword/本文先頭200文字）でログに残す。
+                $gate->logErrorResponse('BikePartsService', $response->status(), $keyword, $response->body());
+
+                if ($response->status() === 429) {
+                    $gate->pause($keyword, 'BikePartsService');
+                }
+
                 return [];
             }
 
@@ -176,7 +215,9 @@ class BikePartsService
                     'pointRate' => $item['pointRate'] ?? 1,
                 ];
             })->all();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            Log::warning('BikePartsService rakuten failed: '.$e->getMessage(), ['keyword' => $keyword]);
+
             return [];
         }
     }

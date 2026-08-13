@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Parts;
 
+use App\Support\RakutenRateGate;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -44,34 +45,21 @@ final class ProductSearchService
     private const TIMEOUT = 8;
 
     /**
-     * 楽天への最小リクエスト間隔（秒）。
+     * Yahoo を 429 後に休止させる時間（秒）。
      *
-     * 本番の429の本文は {"statusCode":429,"message":"Rate limit is exceeded. Try again in 1 seconds."}
-     * ＝日次クォータではなく秒単位の制限。1.0ちょうどだと境界で弾かれるため少し余裕を持たせる。
-     */
-    private const RAKUTEN_MIN_INTERVAL = 1.1;
-
-    /**
-     * 順番待ちの上限（秒）。これを超えるならAPIを叩かずに空を返す。
-     * 車種ページのタイヤ枠は render の中で同期的に呼ばれるため、待ち行列が伸びると
-     * ページの応答時間がそのまま伸びる。商品枠が消えるほうが、ページが詰まるよりましと判断した。
-     */
-    private const RAKUTEN_GATE_MAX_WAIT = 3.0;
-
-    /** 「次に楽天を叩いてよい時刻」（UNIX秒・float）を置く共有キー。 */
-    private const GATE_NEXT_KEY = 'parts:rakuten:next_call_at';
-
-    /** 上のキーを read-modify-write するあいだだけ持つ短命ミューテックス。 */
-    private const GATE_MUTEX_KEY = 'parts:rakuten:gate_mutex';
-
-    /**
-     * 429 を受けたあとにモール単位で呼び出しを止める時間（秒）。
-     *
-     * 楽天の指示は「1秒後に再試行」だが、429が出ている時点で他ワーカーも詰まっているので、
-     * 1秒では足りない。かといって長すぎると商品枠が消えたままになるため30秒とした。
-     * 間隔制御（上）が効いていれば本来ここには来ない。来たら「制御しきれていない」印。
+     * 楽天の間隔制御・ブレーカーは共有の {@see RakutenRateGate} へ移したが、
+     * Yahoo は間隔制御の対象外（実測で429が出ているのは楽天のみ）で、
+     * ブレーカーだけをモール単位でここに残す。値は楽天側と揃えている。
      */
     private const BREAKER_TTL = 30;
+
+    /** 楽天のレート保護（間隔制御・ブレーカー）を担う共有ゲート。 */
+    private RakutenRateGate $gate;
+
+    public function __construct(?RakutenRateGate $gate = null)
+    {
+        $this->gate = $gate ?? app(RakutenRateGate::class);
+    }
 
     /**
      * 直近の searchProducts() で発生したモール別のエラー。['rakuten' => 'HTTP 429', ...]。
@@ -200,67 +188,15 @@ final class ProductSearchService
     }
 
     /**
-     * 楽天を叩く「枠」を1つ取る。取れたら true、待ち時間の上限を超えたら false。
-     *
-     * ■ 方式: 共有キャッシュに「次に叩いてよい時刻」を持ち、Cache::add() の原子性で更新を直列化する。
-     *
-     * ■ なぜ Cache::lock() ではなくこの方式か:
-     *   Cache::lock() の TTL は整数秒しか指定できず、必要な 1.1 秒を表現できない。
-     *   TTL=2 に丸めるとスループットが半分（0.5 req/s）になり、TTL=1 だと楽天の秒境界に張り付いて
-     *   429 が残る。時刻を持てば秒未満の間隔をそのまま表現できる。
-     *
-     * ■ なぜ Cache::lock() ではなく Cache::add() をミューテックスに使うか:
-     *   Cache::lock() は LockProvider を実装していないストアで BadMethodCallException を投げる。
-     *   Repository::add() は全ストアで使え、file ストアでは LockableFile の flock で排他されるため
-     *   （FileStore::add）、php-fpm ワーカー間で原子的に効く。本番は CACHE_STORE=file。
-     *   ミューテックスは TTL 1秒。プロセスが握ったまま死んでも1秒で自動的に解放される。
+     * Yahoo のブレーカーキー。楽天は共有の {@see RakutenRateGate} が持つため、ここは Yahoo 専用。
      */
-    private function acquireRakutenSlot(): bool
-    {
-        $deadline = microtime(true) + self::RAKUTEN_GATE_MAX_WAIT;
-
-        while (true) {
-            $waitUntil = null;
-
-            if (Cache::add(self::GATE_MUTEX_KEY, 1, 1)) {
-                try {
-                    $now = microtime(true);
-                    $nextAt = (float) Cache::get(self::GATE_NEXT_KEY, 0.0);
-
-                    if ($nextAt <= $now) {
-                        // いまの枠は空いている。取ったうえで次の枠を予約しておく。
-                        Cache::put(self::GATE_NEXT_KEY, $now + self::RAKUTEN_MIN_INTERVAL, 60);
-
-                        return true;
-                    }
-
-                    $waitUntil = $nextAt;
-                } finally {
-                    Cache::forget(self::GATE_MUTEX_KEY);
-                }
-            }
-
-            // ミューテックスを取れなかった＝他ワーカーが更新中。少しだけ空けて取り直す。
-            $waitUntil ??= microtime(true) + 0.02;
-
-            if ($waitUntil >= $deadline) {
-                return false;
-            }
-
-            $sleepMicros = (int) (($waitUntil - microtime(true)) * 1_000_000);
-            if ($sleepMicros > 0) {
-                usleep($sleepMicros);
-            }
-        }
-    }
-
     private function breakerKey(string $mall): string
     {
         return 'parts:breaker:'.$mall;
     }
 
     /**
-     * 429 を受けたモールを BREAKER_TTL 秒だけ休止させる。
+     * 429 を受けた Yahoo を BREAKER_TTL 秒だけ休止させる。
      * 立てるときだけログに残す（休止中のスキップまでログすると、抑えたはずの行数が戻ってしまう）。
      */
     private function tripBreaker(string $mall, string $keyword): void
@@ -287,16 +223,17 @@ final class ProductSearchService
         }
 
         // 休止中はAPIを叩かず空を返す。結果はキャッシュしない（休止が明けたら普通に取り直す）。
-        if ($respectBreaker && Cache::get($this->breakerKey('rakuten'), false)) {
-            $this->lastErrors['rakuten'] = '休止中（429を受けたため'.self::BREAKER_TTL.'秒間の休止）';
+        // 迂回できるのは fitment:probe の明示的な再試行（$respectBreaker=false）だけ。
+        if ($respectBreaker && $this->gate->isPaused()) {
+            $this->lastErrors['rakuten'] = $this->gate->pausedReason();
 
             return [];
         }
 
         // 間隔制御はブレーカーを迂回する呼び出しにも効かせる。429を出さないための本体はこちらで、
         // ブレーカーは「それでも出てしまったとき」の後始末にすぎないため。
-        if (! $this->acquireRakutenSlot()) {
-            $this->lastErrors['rakuten'] = '間隔制御の順番待ちが'.self::RAKUTEN_GATE_MAX_WAIT.'秒を超えたため中止';
+        if (! $this->gate->acquireSlot()) {
+            $this->lastErrors['rakuten'] = $this->gate->waitExceededReason();
 
             return [];
         }
@@ -325,18 +262,12 @@ final class ProductSearchService
                 // 握りつぶさない。429（レート制限）を「0件」と誤読すると、
                 // 検索語が悪いのかAPIが断ったのかが区別できなくなる。
                 $this->lastErrors['rakuten'] = 'HTTP '.$response->status();
-                Log::warning('ProductSearchService rakuten がエラー応答', [
-                    'status' => $response->status(),
-                    'keyword' => $keyword,
-                    // 400 の原因（不正な検索語・パラメータ等）は本文にしか出ないため残す。
-                    // 画面には出さない（測定の出力を汚さないため）。
-                    'body' => mb_substr($response->body(), 0, 200),
-                ]);
+                $this->gate->logErrorResponse('ProductSearchService', $response->status(), $keyword, $response->body());
 
                 // 休止させるのは429だけ。400（検索語が不正）は休んでも直らないし、
                 // 検索語ごとの問題なので他の検索まで止めてしまうと害のほうが大きい。
                 if ($response->status() === 429) {
-                    $this->tripBreaker('rakuten', $keyword);
+                    $this->gate->pause($keyword, 'ProductSearchService');
                 }
 
                 return [];
