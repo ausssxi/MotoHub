@@ -44,6 +44,36 @@ final class ProductSearchService
     private const TIMEOUT = 8;
 
     /**
+     * 楽天への最小リクエスト間隔（秒）。
+     *
+     * 本番の429の本文は {"statusCode":429,"message":"Rate limit is exceeded. Try again in 1 seconds."}
+     * ＝日次クォータではなく秒単位の制限。1.0ちょうどだと境界で弾かれるため少し余裕を持たせる。
+     */
+    private const RAKUTEN_MIN_INTERVAL = 1.1;
+
+    /**
+     * 順番待ちの上限（秒）。これを超えるならAPIを叩かずに空を返す。
+     * 車種ページのタイヤ枠は render の中で同期的に呼ばれるため、待ち行列が伸びると
+     * ページの応答時間がそのまま伸びる。商品枠が消えるほうが、ページが詰まるよりましと判断した。
+     */
+    private const RAKUTEN_GATE_MAX_WAIT = 3.0;
+
+    /** 「次に楽天を叩いてよい時刻」（UNIX秒・float）を置く共有キー。 */
+    private const GATE_NEXT_KEY = 'parts:rakuten:next_call_at';
+
+    /** 上のキーを read-modify-write するあいだだけ持つ短命ミューテックス。 */
+    private const GATE_MUTEX_KEY = 'parts:rakuten:gate_mutex';
+
+    /**
+     * 429 を受けたあとにモール単位で呼び出しを止める時間（秒）。
+     *
+     * 楽天の指示は「1秒後に再試行」だが、429が出ている時点で他ワーカーも詰まっているので、
+     * 1秒では足りない。かといって長すぎると商品枠が消えたままになるため30秒とした。
+     * 間隔制御（上）が効いていれば本来ここには来ない。来たら「制御しきれていない」印。
+     */
+    private const BREAKER_TTL = 30;
+
+    /**
      * 直近の searchProducts() で発生したモール別のエラー。['rakuten' => 'HTTP 429', ...]。
      * 空配列なら「エラー無し」。キャッシュヒット時も空配列（今回HTTPしていないため）。
      *
@@ -73,12 +103,18 @@ final class ProductSearchService
      * 適合データ抽出の歩留まり測定（fitment:probe）専用のフラグで、通常の商品検索
      * （愛車ガレージのカスタム記録）では使わない。説明文は数KBあり、通常用途には不要なため。
      *
+     * $respectBreaker=false のときだけ、429後の休止（ブレーカー）を無視して叩きにいく。
+     * 明示的な再試行（fitment:probe のバックオフ）専用。画面からの呼び出しは既定の true のまま。
+     *
      * @return array<int, array{mall:string, product_id:string, name:string, image:string, price:int, url:string, shop:string, description?:string}>
      */
-    public function searchProducts(string $keyword, int $hits = 20, bool $withDescription = false, bool $rakutenOnly = false): array
+    public function searchProducts(string $keyword, int $hits = 20, bool $withDescription = false, bool $rakutenOnly = false, bool $respectBreaker = true): array
     {
-        $keyword = trim($keyword);
-        if ($keyword === '') {
+        // 1文字トークンの結合はここ（サービスの入口）で行う。全呼び出し元に効かせるため、
+        // かつキャッシュキーも正規化後の文字列で引くため（"axis z" と "axisz" を同じ枠にする）。
+        $keyword = $this->sanitizeKeyword($keyword);
+        if (mb_strlen($keyword) < 2) {
+            // 楽天は1文字の検索語を受け付けない（400 keyword is not valid）。叩かずに空を返す。
             return [];
         }
         $hits = max(1, min($hits, 30));
@@ -103,10 +139,10 @@ final class ProductSearchService
         //   押しのけて「おすすめ商品」枠を汚染していた（本番のオイル/バッテリー枠で誤表示が発生）。
         //   関連度順なら各モールが該当商品を上位に返すため、先頭 slice がそのまま良質候補になる。
         $results = array_merge(
-            $this->searchRakuten($keyword, $hits, $withDescription),
+            $this->searchRakuten($keyword, $hits, $withDescription, $respectBreaker),
             // $rakutenOnly=true のときは Yahoo を叩かない。適合抽出の測定は楽天だけを集計するため、
             // 呼ぶだけ無駄なリクエストになり、楽天のレート制限に当たりやすくなる。
-            $rakutenOnly ? [] : $this->searchYahoo($keyword, $hits),
+            $rakutenOnly ? [] : $this->searchYahoo($keyword, $hits, $respectBreaker),
         );
 
         // キャッシュの焼き方は3通りに分ける。
@@ -115,6 +151,8 @@ final class ProductSearchService
         //  3) エラーありで結果空   → 焼かない
         //     焼くと「取得失敗」を「0件」として配り続けるうえ、呼び出し側の再試行が
         //     キャッシュに阻まれて必ず空を返すようになる（再試行が無意味になる）。
+        //     ★ここで焼かないぶんの歯止めは「空配列を焼く」ではなくブレーカー（休止フラグ）が持つ。
+        //       結果をキャッシュするやり方は「取得失敗」を「0件」として配ってしまうため使わない。
         if ($this->lastErrors === []) {
             Cache::put($cacheKey, $results, self::CACHE_TTL);
         } elseif ($results !== []) {
@@ -125,17 +163,141 @@ final class ProductSearchService
     }
 
     /**
+     * 検索語を楽天が受け付ける形に整える。
+     *
+     * 楽天は1文字のトークンを含む検索語を 400 で弾く
+     * （本番実測: keyword="axis z バッテリー" → {"error":"wrong_parameter","error_description":"keyword is not valid"}）。
+     *
+     * 1文字トークンは「除去」ではなく「隣へ結合」する。"axis z" の "z" は車種名の一部であり、
+     * 落とすと AXIS（別車種）の商品が返ってしまうため。結合すれば "axisz" となり、
+     * 楽天の全文検索は表記ゆれを吸収するので該当商品に届く。
+     *
+     * 結合先は原則ひとつ前のトークン。先頭が1文字のときだけ次のトークンへ寄せる（"z axis" → "zaxis"）。
+     * 判定は文字種を問わない（"PCX 用 オイル" → "PCX用 オイル"）。日本語1文字だけ別扱いにする根拠が
+     * 実測に無いため、規則を分けずに揃えている。
+     */
+    private function sanitizeKeyword(string $keyword): string
+    {
+        $tokens = preg_split('/[\s\x{3000}]+/u', trim($keyword), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        $out = [];
+        foreach ($tokens as $token) {
+            if (mb_strlen($token) === 1 && $out !== []) {
+                $out[count($out) - 1] .= $token;
+
+                continue;
+            }
+            $out[] = $token;
+        }
+
+        // 先頭が1文字のまま残った場合は次のトークンへ結合する。
+        if (count($out) >= 2 && mb_strlen($out[0]) === 1) {
+            $out[1] = $out[0].$out[1];
+            array_shift($out);
+        }
+
+        return implode(' ', $out);
+    }
+
+    /**
+     * 楽天を叩く「枠」を1つ取る。取れたら true、待ち時間の上限を超えたら false。
+     *
+     * ■ 方式: 共有キャッシュに「次に叩いてよい時刻」を持ち、Cache::add() の原子性で更新を直列化する。
+     *
+     * ■ なぜ Cache::lock() ではなくこの方式か:
+     *   Cache::lock() の TTL は整数秒しか指定できず、必要な 1.1 秒を表現できない。
+     *   TTL=2 に丸めるとスループットが半分（0.5 req/s）になり、TTL=1 だと楽天の秒境界に張り付いて
+     *   429 が残る。時刻を持てば秒未満の間隔をそのまま表現できる。
+     *
+     * ■ なぜ Cache::lock() ではなく Cache::add() をミューテックスに使うか:
+     *   Cache::lock() は LockProvider を実装していないストアで BadMethodCallException を投げる。
+     *   Repository::add() は全ストアで使え、file ストアでは LockableFile の flock で排他されるため
+     *   （FileStore::add）、php-fpm ワーカー間で原子的に効く。本番は CACHE_STORE=file。
+     *   ミューテックスは TTL 1秒。プロセスが握ったまま死んでも1秒で自動的に解放される。
+     */
+    private function acquireRakutenSlot(): bool
+    {
+        $deadline = microtime(true) + self::RAKUTEN_GATE_MAX_WAIT;
+
+        while (true) {
+            $waitUntil = null;
+
+            if (Cache::add(self::GATE_MUTEX_KEY, 1, 1)) {
+                try {
+                    $now = microtime(true);
+                    $nextAt = (float) Cache::get(self::GATE_NEXT_KEY, 0.0);
+
+                    if ($nextAt <= $now) {
+                        // いまの枠は空いている。取ったうえで次の枠を予約しておく。
+                        Cache::put(self::GATE_NEXT_KEY, $now + self::RAKUTEN_MIN_INTERVAL, 60);
+
+                        return true;
+                    }
+
+                    $waitUntil = $nextAt;
+                } finally {
+                    Cache::forget(self::GATE_MUTEX_KEY);
+                }
+            }
+
+            // ミューテックスを取れなかった＝他ワーカーが更新中。少しだけ空けて取り直す。
+            $waitUntil ??= microtime(true) + 0.02;
+
+            if ($waitUntil >= $deadline) {
+                return false;
+            }
+
+            $sleepMicros = (int) (($waitUntil - microtime(true)) * 1_000_000);
+            if ($sleepMicros > 0) {
+                usleep($sleepMicros);
+            }
+        }
+    }
+
+    private function breakerKey(string $mall): string
+    {
+        return 'parts:breaker:'.$mall;
+    }
+
+    /**
+     * 429 を受けたモールを BREAKER_TTL 秒だけ休止させる。
+     * 立てるときだけログに残す（休止中のスキップまでログすると、抑えたはずの行数が戻ってしまう）。
+     */
+    private function tripBreaker(string $mall, string $keyword): void
+    {
+        Cache::put($this->breakerKey($mall), true, self::BREAKER_TTL);
+        Log::warning("ProductSearchService {$mall} を".self::BREAKER_TTL.'秒休止します（レート制限）', [
+            'keyword' => $keyword,
+        ]);
+    }
+
+    /**
      * 楽天検索（失敗時は []）。affiliateId を渡すと itemUrl がアフィリエイトURLになる。
      *
      * $withDescription=true のときだけ itemCaption を 'description' として付与する。
      *
      * @return array<int, array<string, mixed>>
      */
-    private function searchRakuten(string $keyword, int $hits, bool $withDescription = false): array
+    private function searchRakuten(string $keyword, int $hits, bool $withDescription = false, bool $respectBreaker = true): array
     {
         $appId = config('services.rakuten.app_id');
         $accessKey = config('services.rakuten.access_key');
         if (! $appId || ! $accessKey) {
+            return [];
+        }
+
+        // 休止中はAPIを叩かず空を返す。結果はキャッシュしない（休止が明けたら普通に取り直す）。
+        if ($respectBreaker && Cache::get($this->breakerKey('rakuten'), false)) {
+            $this->lastErrors['rakuten'] = '休止中（429を受けたため'.self::BREAKER_TTL.'秒間の休止）';
+
+            return [];
+        }
+
+        // 間隔制御はブレーカーを迂回する呼び出しにも効かせる。429を出さないための本体はこちらで、
+        // ブレーカーは「それでも出てしまったとき」の後始末にすぎないため。
+        if (! $this->acquireRakutenSlot()) {
+            $this->lastErrors['rakuten'] = '間隔制御の順番待ちが'.self::RAKUTEN_GATE_MAX_WAIT.'秒を超えたため中止';
+
             return [];
         }
 
@@ -171,6 +333,12 @@ final class ProductSearchService
                     'body' => mb_substr($response->body(), 0, 200),
                 ]);
 
+                // 休止させるのは429だけ。400（検索語が不正）は休んでも直らないし、
+                // 検索語ごとの問題なので他の検索まで止めてしまうと害のほうが大きい。
+                if ($response->status() === 429) {
+                    $this->tripBreaker('rakuten', $keyword);
+                }
+
                 return [];
             }
 
@@ -203,10 +371,18 @@ final class ProductSearchService
      *
      * @return array<int, array<string, mixed>>
      */
-    private function searchYahoo(string $keyword, int $hits): array
+    private function searchYahoo(string $keyword, int $hits, bool $respectBreaker = true): array
     {
         $clientId = config('services.yahoo_shopping.client_id');
         if (! $clientId) {
+            return [];
+        }
+
+        // ブレーカーはモール単位。楽天が休止していても Yahoo は叩く（逆も同じ）。
+        // なお間隔制御は楽天だけに入れている。実測で429が出ているのが楽天のみのため。
+        if ($respectBreaker && Cache::get($this->breakerKey('yahoo'), false)) {
+            $this->lastErrors['yahoo'] = '休止中（429を受けたため'.self::BREAKER_TTL.'秒間の休止）';
+
             return [];
         }
 
@@ -226,6 +402,10 @@ final class ProductSearchService
                     'status' => $response->status(),
                     'keyword' => $keyword,
                 ]);
+
+                if ($response->status() === 429) {
+                    $this->tripBreaker('yahoo', $keyword);
+                }
 
                 return [];
             }

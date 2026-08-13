@@ -889,7 +889,10 @@ final class FitmentProbe extends Command
                 sleep($sleep);
             }
 
-            $results = $service->searchProducts($query, $limit, true, $rakutenOnly);
+            // 第5引数 false ＝ 429後の休止（ブレーカー）を迂回する。
+            // ブレーカーはサイト側の render を守るためのもので、明示的な再試行まで止めると
+            // 測定が「休止中」だらけで完走しなくなる。間隔制御のほうは迂回しない（叩く量は守る）。
+            $results = $service->searchProducts($query, $limit, true, $rakutenOnly, respectBreaker: false);
             $error = $service->lastErrors()['rakuten'] ?? null;
 
             if ($error === null) {
