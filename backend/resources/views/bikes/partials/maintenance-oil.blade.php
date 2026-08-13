@@ -21,7 +21,7 @@
     </div>
     <p class="text-[10px] text-gray-400 mb-4">
         @if(!empty($r['sources']))出典:
-            @foreach($r['sources'] as $s)@php($srcHref = \App\Support\SourceUrl::externalHref($s['url'] ?? null))@if($srcHref)<a href="{{ $srcHref }}" target="_blank" rel="nofollow noopener" class="underline hover:text-gray-600">{{ $s['name'] }}</a>@else{{ $s['name'] }}@endif@if(!$loop->last)、@endif @endforeach ・
+            @foreach($r['sources'] as $s)@if($s['url'])<a href="{{ $s['url'] }}" target="_blank" rel="nofollow noopener" class="underline hover:text-gray-600">{{ $s['name'] }}</a>@else{{ $s['name'] }}@endif@if(!$loop->last)、@endif @endforeach ・
         @endif
         確認: {{ optional($r['verified_at'])->format('Y-m') ?? $oil['checked_at'] }}
     </p>

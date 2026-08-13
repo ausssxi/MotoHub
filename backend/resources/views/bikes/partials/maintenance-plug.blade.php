@@ -23,7 +23,7 @@
     </div>
     <p class="text-[10px] text-gray-400 mb-4">
         @if(!empty($plug['sources']))出典:
-            @foreach($plug['sources'] as $s)@php($srcHref = \App\Support\SourceUrl::externalHref($s['url'] ?? null))@if($srcHref)<a href="{{ $srcHref }}" target="_blank" rel="nofollow noopener" class="underline hover:text-gray-600">{{ $s['name'] }}</a>@else{{ $s['name'] }}@endif@if(!$loop->last)、@endif @endforeach ・
+            @foreach($plug['sources'] as $s)@if($s['url'])<a href="{{ $s['url'] }}" target="_blank" rel="nofollow noopener" class="underline hover:text-gray-600">{{ $s['name'] }}</a>@else{{ $s['name'] }}@endif@if(!$loop->last)、@endif @endforeach ・
         @endif
         確認: {{ optional($plug['verified_at'])->format('Y-m') }}（{{ $plug['frame_count'] }}型式に対応）
     </p>
