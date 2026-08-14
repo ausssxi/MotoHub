@@ -20,8 +20,9 @@ use Illuminate\Support\Facades\Log;
  *   - `--execute` には `--i-have-a-backup`（DBバックアップ取得済みの明示確認）が必須。
  *   - さらに**グループ単位の手動承認**（y/スキップ/以降すべて/中止）。--limit/--group で範囲制限。
  *
- * 検出: 名前の表記ゆれ（全角/半角・空白）を畳んだ正規化キー × manufacturer_id でグルーピング。
- *   key = mb_strtolower( 全空白除去( mb_convert_kana(name,'as') ) )
+ * 検出: 名前の表記ゆれ（全角/半角・空白・ダッシュ類/中黒の有無）を畳んだ正規化キー × manufacturer_id でグルーピング。
+ *   key = mb_strtolower( ダッシュ類/中黒除去( 全空白除去( mb_convert_kana(name,'as') ) ) )
+ *   ※長音符 U+30FC(ー) は除去しない（「モンキー」≠「モンキ」を保つため）。
  * これ以上は正規化しない（語/サフィックスは削らない＝CB400 と CB400SF は別キーのまま）。
  * FPガード: 非null の displacement が割れたら別車種疑い＝manual（auto対象外）。
  *           category_id 不一致はデータ不安定なため auto可・統合時に canonical のカテゴリへ寄せる。
@@ -191,17 +192,40 @@ final class DedupBikeModels extends Command
             // model_id に unique 無 → blind UPDATE。listings は再インデックスフラグも立てる
             DB::table('listings')->whereIn('bike_model_id', $dupeIds)
                 ->update(['bike_model_id' => $canonical->id, 'needs_reindex' => true]);
-            foreach (['reviews', 'my_bikes', 'bike_news', 'bike_model_identifiers'] as $table) {
+            // 複合unique無し（PRIMARYのみ）の参照テーブルは blind UPDATE で付け替え。
+            // discussion_threads / model_questions もここ（付け替え漏れだった。放置すると
+            // bike_models の行は削除されず merged_into_id が付くだけなので、FK違反は起きず
+            // クチコミ・質問が静かに画面から消える）。
+            foreach (['reviews', 'my_bikes', 'bike_news', 'bike_model_identifiers', 'discussion_threads', 'model_questions'] as $table) {
                 DB::table($table)->whereIn('bike_model_id', $dupeIds)->update(['bike_model_id' => $canonical->id]);
             }
 
             // bike_model_market_stats: UNIQUE(bike_model_id) → dupe行は削除（後で再計算）
             DB::table('bike_model_market_stats')->whereIn('bike_model_id', $dupeIds)->delete();
 
+            // model_region_price_stats: UNIQUE(bike_model_id, region_block) の集計 → dupe行は削除（後で再計算）。
+            // bike_model_market_stats と同じ扱い。破棄する行は黙って消さず件数と対象IDをログに残す。
+            $regionStatIds = DB::table('model_region_price_stats')->whereIn('bike_model_id', $dupeIds)->pluck('id')->all();
+            if ($regionStatIds !== []) {
+                Log::info('model:dedup drop model_region_price_stats', [
+                    'canonical' => $canonical->id,
+                    'count' => count($regionStatIds),
+                    'ids' => $regionStatIds,
+                ]);
+                DB::table('model_region_price_stats')->whereIn('id', $regionStatIds)->delete();
+            }
+
             // 複合uniqueのある関係: canonicalに既存ならスキップ削除、無ければ付け替え
             $this->repointWithUnique('market_price_logs', ['recorded_at'], $dupeIds, $canonical->id);
             $this->repointWithUnique('bike_model_videos', ['video_id'], $dupeIds, $canonical->id);
             $this->repointWithUnique('push_subscriptions', ['endpoint_hash'], $dupeIds, $canonical->id);
+            // model_fitments: UNIQUE(bike_model_id, task, frame_code, year_range)。適合表（バッテリー/プラグ/オイル）で影響大。
+            // frame_code / year_range は migration 上 NOT NULL DEFAULT ''（「型式区別なし」は空文字・NULL不使用）なので、
+            // 実データは '' 同士が正常に衝突し、既定の repointWithUnique でも正しく重複排除できる。
+            // それでも coalesceNull: true を付けるのは保険。もし raw insert 等で NULL が紛れても、既定パスは
+            // NULL 行を衝突対象外に隔離して canonical に重複を残す（MySQL の UNIQUE が NULL を衝突扱いしないため）
+            // ので、NULL='' とみなして1行へ正規化する。実データ（''）に対しては挙動不変（no-op）。
+            $this->repointWithUnique('model_fitments', ['task', 'frame_code', 'year_range'], $dupeIds, $canonical->id, coalesceNull: true);
 
             // seo_compares: dupe参照ペアは無効化（§9 で comparison:generate-pairs が再生成）
             DB::table('seo_compares')
@@ -235,17 +259,25 @@ final class DedupBikeModels extends Command
      * （旧実装は canonical との衝突しか潰さず、canonical+複数dupeが同一ユニーク値を共有する群で
      *   (bike_model_id,$keyCols) 違反を投げていた。例: ホークIICB400Tの 562+3537+4848 が同一 video_id 共有）。
      */
-    private function repointWithUnique(string $table, array $keyCols, array $dupeIds, int $canonicalId): void
+    private function repointWithUnique(string $table, array $keyCols, array $dupeIds, int $canonicalId, bool $coalesceNull = false): void
     {
         $rows = DB::table($table)
             ->whereIn('bike_model_id', array_merge([$canonicalId], $dupeIds))
             ->get(array_merge(['id', 'bike_model_id'], $keyCols));
 
         $deleteIds = $rows
-            ->groupBy(function ($r) use ($keyCols) {
+            ->groupBy(function ($r) use ($keyCols, $coalesceNull) {
                 $vals = array_map(fn ($c) => $r->{$c}, $keyCols);
 
-                // null を含むタプルは MySQL のユニーク制約上どの行とも衝突しない → 行単位で一意化し正規化対象外に
+                // coalesceNull: NULL を空文字に畳んで比較する。MySQL の UNIQUE は NULL 同士を
+                // 衝突扱いしないため、既定パスだと NULL を含むキー行が canonical に重複して残りうる。
+                // NULL='' とみなして重複を1行へ正規化する（呼び出し側が明示したときだけ）。
+                // 値が非NULLのときは既定パスと同じ文字列キーになるため挙動は変わらない。
+                if ($coalesceNull) {
+                    return implode("\0", array_map(fn ($v) => (string) ($v ?? ''), $vals));
+                }
+
+                // 既定: null を含むタプルは MySQL のユニーク制約上どの行とも衝突しない → 行単位で一意化し正規化対象外に
                 return in_array(null, $vals, true) ? 'null:' . $r->id : implode("\0", $vals);
             })
             ->flatMap(function ($group) use ($canonicalId) {
@@ -259,6 +291,13 @@ final class DedupBikeModels extends Command
             ->all();
 
         if ($deleteIds !== []) {
+            // 衝突により破棄する行は黙って消さず、テーブル・件数・対象IDをログに残す（気づけるように）。
+            Log::info('model:dedup repoint drop', [
+                'table' => $table,
+                'canonical' => $canonicalId,
+                'count' => count($deleteIds),
+                'ids' => $deleteIds,
+            ]);
             DB::table($table)->whereIn('id', $deleteIds)->delete();
         }
         DB::table($table)->whereIn('bike_model_id', $dupeIds)->update(['bike_model_id' => $canonicalId]);
@@ -389,6 +428,10 @@ final class DedupBikeModels extends Command
     {
         $s = mb_convert_kana($name, 'as');
         $s = preg_replace('/[\s　]+/u', '', $s) ?? $s;
+        // 区切り記号の有無で別グループにならないよう、ダッシュ類（ハイフン/マイナス/全角ハイフン/各種ダッシュ）と
+        // 中黒（・/半角･）を除去する。例:「タクト・ベーシック」＝「タクトベーシック」、「v−ストローム250」＝「vストローム250」。
+        // ★ U+30FC（長音符「ー」）は絶対に含めない。含めると「モンキー」が「モンキ」になり無関係な車種が統合される。
+        $s = preg_replace('/[\x{002D}\x{2010}-\x{2015}\x{2212}\x{FF0D}\x{30FB}\x{FF65}]/u', '', $s) ?? $s;
 
         return mb_strtolower($s);
     }
