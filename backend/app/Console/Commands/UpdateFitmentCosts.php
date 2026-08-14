@@ -72,6 +72,8 @@ final class UpdateFitmentCosts extends Command
 
         $updated = 0;
         $skipped = 0;
+        $totalFetched = 0; // 有効価格つきで取得できた総数（絞り込み前）
+        $totalMatched = 0; // うちタイトルに品番が含まれた総数（採用サンプル）
 
         foreach ($rows as $row) {
             $partNo = trim((string) $row->recommended_part_no);
@@ -79,26 +81,40 @@ final class UpdateFitmentCosts extends Command
             // 楽天+Yahoo を ProductSearchService（→RakutenRateGate）経由で検索。
             $result = $service->searchProducts($partNo, $hits);
 
-            // 有効価格（>0）だけを昇順に集める。0（価格欠落）や誤ヒットの極端値は四分位で吸収する。
-            $prices = collect($result)
-                ->map(fn ($item) => (int) ($item['price'] ?? 0))
-                ->filter(fn (int $p): bool => $p > 0)
+            // まず有効価格（>0）の商品を集める。これが「取得n件」。
+            $withPrice = collect($result)
+                ->filter(fn ($item): bool => (int) ($item['price'] ?? 0) > 0)
+                ->values();
+            $fetched = $withPrice->count();
+
+            // タイトルに品番が含まれる商品だけを価格サンプルに採用する（大小文字・ハイフン有無を無視）。
+            // 説明文に適合表として品番が羅列された別商品（充電器セット・複数個セット・別サイズ等）を
+            // 落とすため。これが無いと Q3 が別商品の価格で汚れる（GTZ4V の上限12,005円等）。
+            $needle = $this->normalizeCode($partNo);
+            $prices = $withPrice
+                ->filter(fn ($item): bool => str_contains($this->normalizeCode((string) ($item['name'] ?? '')), $needle))
+                ->map(fn ($item) => (int) $item['price'])
                 ->sort()
                 ->values()
                 ->all();
+            $matched = count($prices);
 
-            if (count($prices) < self::MIN_SAMPLES) {
+            $totalFetched += $fetched;
+            $totalMatched += $matched;
+
+            if ($matched < self::MIN_SAMPLES) {
                 $skipped++;
                 $errors = $service->lastErrors();
-                $reason = count($prices).'件（最小'.self::MIN_SAMPLES.'件未満）'
+                $reason = "取得{$fetched}件 → タイトル一致{$matched}件（最小".self::MIN_SAMPLES.'件未満）'
                     .($errors !== [] ? ' / API: '.json_encode($errors, JSON_UNESCAPED_UNICODE) : '');
                 $this->warn(sprintf('  skip  id=%d %-7s 品番=%s : %s', $row->id, $row->task, $partNo, $reason));
-                // 黙って飛ばさない。品番と理由を残す。
+                // 黙って飛ばさない。品番・理由・件数を残す。
                 Log::info('fitment:update-costs skip', [
                     'id' => $row->id,
                     'task' => $row->task,
                     'part_no' => $partNo,
-                    'samples' => count($prices),
+                    'fetched' => $fetched,
+                    'matched' => $matched,
                     'errors' => $errors,
                 ]);
 
@@ -109,11 +125,12 @@ final class UpdateFitmentCosts extends Command
             $max = $this->quartile($prices, 0.75); // 第3四分位 = 上限
 
             $this->line(sprintf(
-                '  ok    id=%d %-7s 品番=%s : n=%d  min(Q1)=%d円  max(Q3)=%d円',
+                '  ok    id=%d %-7s 品番=%s : 取得%d件 → タイトル一致%d件  min(Q1)=%d円  max(Q3)=%d円',
                 $row->id,
                 $row->task,
                 $partNo,
-                count($prices),
+                $fetched,
+                $matched,
                 $min,
                 $max
             ));
@@ -131,11 +148,29 @@ final class UpdateFitmentCosts extends Command
         $this->newLine();
         $this->line('==== 集計 ====');
         $this->line(sprintf('  対象: %d件 / 更新%s: %d件 / スキップ: %d件', $rows->count(), $write ? '' : '（予定）', $updated, $skipped));
+        $this->line(sprintf(
+            '  価格サンプル: 取得 計%d件 → タイトル一致 計%d件（%d件を別商品として除外）',
+            $totalFetched,
+            $totalMatched,
+            $totalFetched - $totalMatched
+        ));
         if (! $write) {
             $this->comment('  ※ dry-run のため DB は変更していません。書き込むには --execute を付けてください。');
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * 品番／タイトルを照合用に正規化する。大小文字を無視し、ハイフン類（全角/各種ダッシュ含む）を除去する。
+     * これで「YTX4L-BS」「ytx4lbs」「ＹＴＸ４Ｌ－ＢＳ」を同一視でき、タイトルに品番が含まれるかを頑健に判定できる。
+     */
+    private function normalizeCode(string $s): string
+    {
+        $s = mb_convert_kana($s, 'a'); // 全角英数 → 半角
+        $s = preg_replace('/[-\x{2010}-\x{2015}\x{2212}\x{FF0D}]/u', '', $s) ?? $s; // ハイフン類を除去
+        // 半角化した英字を大文字へ（品番は英数字のみなので mb 不要）。
+        return strtoupper($s);
     }
 
     /**
