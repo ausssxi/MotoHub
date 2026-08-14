@@ -29,7 +29,8 @@ final class UpdateFitmentCosts extends Command
         {--execute : 実際に DB へ書き込む（既定は書き込まない＝ドライラン）}
         {--dry-run : 明示的にドライラン（--execute より優先。既定でも書き込まない）}
         {--hits=30 : 1品番あたりの取得件数（四分位のサンプル数。ProductSearchService 側で最大30に丸められる）}
-        {--limit=0 : 処理する行数の上限（0=無制限。動作確認用）}';
+        {--limit=0 : 処理する行数の上限（0=無制限。動作確認用）}
+        {--show-prices : 採用した価格リスト（昇順・Q1/Q3の位置つき）を各行に表示する（分布の目視用・出力が長くなる）}';
 
     protected $description = '適合表(battery/plug)の recommended_part_no で商品検索し、価格の四分位で cost_part_min/max を埋める（ProductSearchService経由・既定dry-run）';
 
@@ -53,6 +54,7 @@ final class UpdateFitmentCosts extends Command
         $write = (bool) $this->option('execute') && ! $this->option('dry-run');
         $hits = max(1, (int) $this->option('hits'));
         $limit = max(0, (int) $this->option('limit'));
+        $showPrices = (bool) $this->option('show-prices'); // 採用価格リストの目視表示（既定オフ）
         $stamp = now()->format('Y-m'); // 既存 cost_updated_at と同じ '2026-08' 書式に合わせる
 
         $query = ModelFitment::query()
@@ -135,6 +137,12 @@ final class UpdateFitmentCosts extends Command
                 $max
             ));
 
+            // --show-prices 指定時のみ、採用した価格リストを昇順で1行表示（分布の目視用）。
+            // Q1/Q3 が落ちる位置に ‹Q1›/‹Q3› を付け、山が2つ（純正/互換の二極化）か谷かを目で見えるようにする。
+            if ($showPrices) {
+                $this->line('      '.$this->formatPriceList($prices));
+            }
+
             if ($write) {
                 DB::table('model_fitments')->where('id', $row->id)->update([
                     'cost_part_min' => $min,
@@ -171,6 +179,28 @@ final class UpdateFitmentCosts extends Command
         $s = preg_replace('/[-\x{2010}-\x{2015}\x{2212}\x{FF0D}]/u', '', $s) ?? $s; // ハイフン類を除去
         // 半角化した英字を大文字へ（品番は英数字のみなので mb 不要）。
         return strtoupper($s);
+    }
+
+    /**
+     * 【--show-prices 用・表示のみ】昇順の価格リストを1行文字列にし、Q1/Q3 が落ちる位置に ‹Q1›/‹Q3› を付ける。
+     * 位置は補間位置 q*(n-1) を四捨五入した添字。純正/互換で山が2つに割れているか（谷に代表値が落ちるか）を
+     * 目視するためのもの。採用ロジック（quartile の値）には影響しない。
+     *
+     * @param  array<int, int>  $sorted 昇順ソート済みの価格
+     */
+    private function formatPriceList(array $sorted): string
+    {
+        $n = count($sorted);
+        $i1 = (int) round(0.25 * ($n - 1)); // Q1 近傍の添字
+        $i3 = (int) round(0.75 * ($n - 1)); // Q3 近傍の添字
+
+        $parts = [];
+        foreach ($sorted as $idx => $price) {
+            $mark = ($idx === $i1 ? '‹Q1›' : '').($idx === $i3 ? '‹Q3›' : '');
+            $parts[] = $mark.$price;
+        }
+
+        return implode(', ', $parts);
     }
 
     /**
