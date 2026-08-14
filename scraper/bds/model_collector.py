@@ -20,7 +20,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from dotenv import load_dotenv
 
 # 共通ユーティリティをインポート
-from utils import normalize_name, extract_displacement
+from utils import normalize_name, extract_displacement, model_match_key
 from common.base_spider import MOTOHUB_USER_AGENT
 
 # ==========================================
@@ -67,6 +67,8 @@ class BikeModel(Base):
     displacement = Column(Integer, nullable=True)
     image_url = Column(String(255), nullable=True)
     local_image_path = Column(String(255), nullable=True) # パイプライン用
+    # 照合で canonical のみを対象にするため参照（統合済みの重複行を再利用しない）。
+    merged_into_id = Column(BigInteger, nullable=True)
 
 class BikeModelIdentifier(Base):
     __tablename__ = "bike_model_identifiers"
@@ -126,7 +128,25 @@ class DatabasePipeline:
         m_id = spider.manufacturer_cache.get(normalize_name(item['maker_name']))
         if not m_id: return
 
+        # 1) 正規化名で完全一致（indexあり・高速）。
         model_record = self.session.query(BikeModel).filter(BikeModel.name == model_name).first()
+        # 2) 外れたら表記ゆれ（ダッシュ/中黒/区切り違い）対策として、メーカー内の
+        #    canonical 車種を照合キーで走査し、一致すれば再利用（重複作成を防ぐ）。
+        if not model_record:
+            match_key = model_match_key(model_name)
+            for cand in self.session.query(BikeModel).filter(
+                BikeModel.manufacturer_id == m_id,
+                BikeModel.merged_into_id.is_(None),
+            ).all():
+                if model_match_key(cand.name) == match_key:
+                    model_record = cand
+                    # 2段目（キー照合）での再利用は、別車種を誤って統合する可能性があるため必ずログに残す。
+                    spider.logger.info(
+                        f"[dedup] キー照合で既存車種を再利用: maker_id={m_id} "
+                        f"入力='{model_name}' -> 既存 id={cand.id} name='{cand.name}' key='{match_key}'"
+                    )
+                    break
+
         if not model_record:
             model_record = BikeModel(
                 name=model_name,

@@ -1,11 +1,36 @@
 import unicodedata
 import re
 
+# ダッシュ類（ハイフン/マイナス/各種ダッシュ/全角ハイフン）。ASCIIハイフンへ統一する対象。
+# ★ U+30FC（長音符「ー」）は絶対に含めない。含めると「モンキー」が「モンキ-」になる。
+_DASH_RE = re.compile('[‐‑‒–—―−－-]')
+
+# 照合キー用に落とす区切り: 空白・中黒（U+30FB）・半角中黒（U+FF65）・ASCIIハイフン。
+# ここにも U+30FC（長音符）は含めない。
+_SEP_RE = re.compile('[\\s・･-]')
+
 def normalize_name(name: str) -> str:
-    """バイク車種名などの文字列を正規化する"""
-    if not name: return ""
-    normalized = unicodedata.normalize('NFKC', name)
-    return normalized.strip().lower()
+    """表示・保存用。NFKC 正規化に加え、ダッシュ類を ASCII ハイフンへ統一する。
+
+    NFKC は U+FF0D(全角ハイフン)は ASCII 化するが U+2212(MINUS SIGN) や
+    U+2010〜U+2015 は変換しないため、車種名に別コードのダッシュが残って重複の原因になる。
+    _DASH_RE で ASCII ハイフンへ寄せる。長音符 U+30FC は対象外（車種名を壊さない）。
+    """
+    if not name:
+        return ""
+    s = unicodedata.normalize('NFKC', name)
+    s = _DASH_RE.sub('-', s)
+    s = re.sub(r'\s+', ' ', s)
+    return s.strip().lower()
+
+def model_match_key(name: str) -> str:
+    """照合用。空白・中黒・ハイフンを落とした比較キー。
+
+    表示名の区切り差（「タクト・ベーシック」/「タクトベーシック」、
+    「v−ストローム250」/「vストローム250」）を無視して同一車種を突き合わせるためのもの。
+    表示・保存には使わず、既存 bike_models との照合にのみ使う。
+    """
+    return _SEP_RE.sub('', normalize_name(name))
 
 def normalize_shop_name(name: str) -> str:
     """
