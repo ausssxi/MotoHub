@@ -44,10 +44,22 @@ class Listing extends Model
     /**
      * この在庫が「画像掲載停止」対象サイト（Webike 等）のものか。
      * これが true のとき images / image_urls / local_image_paths は表示上すべて空になる。
+     *
+     * ★フェイルクローズド: site_id を select していない（＝判定不能）クエリでは、安全側に倒して
+     *   「停止」とみなす（true）。こうしないと site_id 未ロード時に (int)null=0 で「停止でない」と
+     *   誤判定し、削除済みのローカルパスがそのまま出力されてリンク切れ画像になる（本番で発生）。
+     *   array_key_exists で「未ロード（キー無し）」と「値が null（ロード済みだが site_id が NULL）」を
+     *   区別する。後者はロード済みなので判定可能＝通常判定（NULL は停止対象外）に回す。
      */
     public function imagesAreSuppressed(): bool
     {
-        return in_array((int) $this->site_id, self::IMAGE_SUPPRESSED_SITE_IDS, true);
+        $attributes = $this->getAttributes();
+
+        if (! array_key_exists('site_id', $attributes)) {
+            return true; // 判定不能 → 安全側（画像を出さない）
+        }
+
+        return in_array((int) $attributes['site_id'], self::IMAGE_SUPPRESSED_SITE_IDS, true);
     }
 
     /**

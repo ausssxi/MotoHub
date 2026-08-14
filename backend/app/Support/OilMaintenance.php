@@ -18,7 +18,7 @@ use App\Models\ModelFitment;
 final class OilMaintenance
 {
     /**
-     * @return array{mode:string, rich:?array, general:?array, oil_keyword:string, filter_search_url:string, article_url:string, checked_at:string}
+     * @return array{mode:string, rich:?array, general:?array, oil_keyword:string, fitment_url:?string, filter_search_url:string, article_url:string, checked_at:string}
      */
     public static function forModel(BikeModel $model): array
     {
@@ -35,6 +35,9 @@ final class OilMaintenance
             'rich' => $rich,
             'general' => $general,
             'oil_keyword' => $oilKeyword,
+            // 適合表ページ /maintenance/{slug}/oil への導線（バッテリー/プラグと同じ route）。
+            // verified な oil 適合がある車種（rich）だけ URL を持たせ、無い車種ではリンクを出さない。
+            'fitment_url' => $rich ? route('fitments.show', ['bikeModel' => $model->slug, 'task' => 'oil']) : null,
             // parts.search は JSON API（生JSONが表示される）。人間が見る HTML の価格比較ページ parts.compare へ送る。
             'filter_search_url' => route('parts.compare', ['keyword' => $model->name.' オイルフィルター']),
             'article_url' => (string) config('fitments.tasks.oil.article_url', ''),

@@ -26,6 +26,14 @@
         確認: {{ optional($r['verified_at'])->format('Y-m') ?? $oil['checked_at'] }}
     </p>
 
+    {{-- オイル量・粘度・型式別の詳細は適合表ページへ一本化（勝負ワードの集約＝カニバリ回避）。バッテリー/プラグと同型。 --}}
+    <div class="mb-4">
+        <a href="{{ $oil['fitment_url'] }}" class="inline-flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-700 hover:underline">
+            {{ $model->name }}のオイル量・粘度を型式別に見る
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </a>
+    </div>
+
     @else
     @php $g = $oil['general']; @endphp
     <p class="text-[11px] font-bold text-gray-400 mb-3">※一般的な目安（{{ $g['label'] ?? '' }}）</p>
