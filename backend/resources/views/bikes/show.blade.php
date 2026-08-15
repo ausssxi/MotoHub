@@ -701,8 +701,10 @@
                     @php
                         $cc = (int) $bikeModelForUrl->displacement;
 
-                        // 軽自動車税・自賠責は config/insurance.php（出典＝損害保険料率算出機構2024年1月届出・
-                        // 2026/11改定に追従）から取得する。排気量帯の判定も InsuranceClassifier に統一
+                        // 軽自動車税・自賠責は config/insurance.php（出典＝損害保険料率算出機構2024年1月届出）から取得する。
+                        // config が保持しているのは2026年10月31日までの現行料率で、2026年11月1日に改定予定＝改定後の額は
+                        // 確定後に反映する方針（config/insurance.php:19,41）。改定注記（config/insurance.php:41）は表示側に必ず出すこと。
+                        // 排気量帯の判定も InsuranceClassifier に統一
                         // （新基準原付を車種名で別区分に振る処理を含む＝単純な cc 判定より正確）。
                         $bracket = \App\Support\InsuranceClassifier::bracketForModel($bikeModelForUrl);
                         $tax = (int) (is_array($bracket) ? ($bracket['tax'] ?? 0) : 0);
@@ -764,6 +766,9 @@
                             </div>
                             @endforeach
                         </div>
+
+                        {{-- 自賠責の改定予定注記（config/insurance.php:41）。maintenance-cost.blade.php:61 と同一マークアップ。 --}}
+                        <p class="text-[11px] text-amber-600 font-bold mt-2 leading-relaxed"><i data-lucide="alert-triangle" class="w-3 h-3 inline"></i> {{ config('insurance.jibaiseki_revision_note') }}</p>
 
                         <div class="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 flex items-center justify-between">
                             <span class="text-sm font-black text-emerald-800">年間合計（税込目安）</span>
