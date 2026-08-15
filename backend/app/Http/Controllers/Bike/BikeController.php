@@ -90,9 +90,17 @@ final class BikeController extends Controller
         $totalListings = $this->listingSearchService->getActiveCount();
         $todayStart = today();
         $todayEnd = today()->addDay();
+        // 値下げ件数は通知と同じしきい値で数える（config/price_alerts.php・ベタ書きしない）。
+        // 値下げのみ(old>new・従来は方向フィルタ無しで値上げも混入)／変動額>=min_drop_amount／変動率<=max_drop_ratio(桁違い誤読除外)。
+        // min_drop_ratio(1%)は通知専用のためここでは使わない。
+        $dropMinAmount = (int) config('price_alerts.min_drop_amount', 5000);
+        $dropMaxRatio = (float) config('price_alerts.max_drop_ratio', 0.5);
         $priceDropCount = Cache::remember('top_price_drop_count', 1800, fn () => DB::table('price_histories')
             ->where('created_at', '>=', $todayStart)
             ->where('created_at', '<', $todayEnd)
+            ->whereColumn('old_price', '>', 'new_price')
+            ->whereRaw('(old_price - new_price) >= ?', [$dropMinAmount])
+            ->whereRaw('(old_price - new_price) <= old_price * ?', [$dropMaxRatio])
             ->distinct('listing_id')
             ->count('listing_id')
         );
