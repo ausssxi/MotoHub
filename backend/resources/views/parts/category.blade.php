@@ -294,13 +294,8 @@
                 </div>
             </section>
 
-            {{-- ブランドからパーツを探す --}}
+            {{-- ブランドからパーツを探す（config/parts-categories.php の brands のみ。カテゴリと無関係な汎用チップは削除） --}}
             <section class="mb-8">
-                @php
-                    $categoryBrandNames = array_column($category['brands'], 'name');
-                    $genericBrands = ['ヨシムラ', 'デイトナ', 'キタコ', 'モリワキ', 'コミネ', 'RSタイチ', 'ショウエイ', 'アライ'];
-                    $allBrandNames = array_values(array_unique(array_merge($categoryBrandNames, $genericBrands)));
-                @endphp
                 <h3 class="text-lg font-black text-gray-800 mb-4">ブランドから{{ $category['name'] }}を探す</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     @foreach($category['brands'] as $brand)
@@ -311,19 +306,6 @@
                     </a>
                     @endforeach
                 </div>
-                @php
-                    $extraBrands = array_diff($allBrandNames, $categoryBrandNames);
-                @endphp
-                @if(count($extraBrands) > 0)
-                <div class="flex flex-wrap gap-2 mt-3">
-                    @foreach($extraBrands as $brand)
-                    <a href="{{ route('parts.index', ['keyword' => $brand . ' ' . $category['name']]) }}"
-                       class="inline-flex items-center px-3 py-1.5 bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-blue-600 text-xs font-bold rounded-full border border-gray-200 hover:border-blue-200 transition-colors">
-                        {{ $brand }}
-                    </a>
-                    @endforeach
-                </div>
-                @endif
             </section>
 
             {{-- ポイント還元のコツ --}}
