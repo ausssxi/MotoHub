@@ -15,10 +15,15 @@
                 ],
             ];
 
+            // 相場FAQ: 統計があれば実データ由来の事実ベース文言、無ければ従来の config ベース文言。
+            $priceFaqAnswer = !empty($priceStats)
+                ? ($priceBand['date_ym'] . '時点、楽天・Yahooの検索結果' . number_format($priceStats->product_count) . '件では、中央値が約' . number_format($priceStats->price_median) . '円、半数が' . number_format($priceStats->price_q1) . '円〜' . number_format($priceStats->price_q3) . '円に収まっています。関連商品を含むため、実際の製品相場とは異なる場合があります。')
+                : ('バイク用' . $category['name'] . 'の価格帯は' . number_format($category['price_range']['min']) . '円〜' . number_format($category['price_range']['max']) . '円で、平均は約' . number_format($category['price_range']['average']) . '円です。MotoHubでは楽天・Yahoo・Amazonの価格を一括比較して最安値を見つけることができます。');
+
             $faqEntries = [
                 [
                     'q' => 'バイク用' . $category['name'] . 'の相場はいくら？',
-                    'a' => 'バイク用' . $category['name'] . 'の価格帯は' . number_format($category['price_range']['min']) . '円〜' . number_format($category['price_range']['max']) . '円で、平均は約' . number_format($category['price_range']['average']) . '円です。MotoHubでは楽天・Yahoo・Amazonの価格を一括比較して最安値を見つけることができます。',
+                    'a' => $priceFaqAnswer,
                 ],
                 [
                     'q' => $category['name'] . 'はどこで買うのが安い？',
@@ -67,6 +72,11 @@
             <div class="max-w-5xl mx-auto px-4 text-center">
                 <h1 class="text-2xl sm:text-3xl font-black mb-2">バイク用{{ $category['name'] }}の価格比較</h1>
                 <p class="text-gray-300 text-sm">楽天・Yahoo!・Amazonから最安値を検索</p>
+                @if(!empty($priceStats))
+                <p class="text-gray-300 text-xs mt-2">
+                    楽天・Yahooの検索結果{{ number_format($priceStats->product_count) }}件 ／ 中央値 約{{ number_format($priceStats->price_median) }}円 ／ 半数が{{ number_format($priceStats->price_q1) }}円〜{{ number_format($priceStats->price_q3) }}円
+                </p>
+                @endif
             </div>
         </section>
 
@@ -127,6 +137,38 @@
             {{-- 価格帯 --}}
             <section class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
                 <h2 class="text-lg font-black text-gray-800 mb-4">{{ $category['name'] }}の価格帯</h2>
+                @if(!empty($priceStats))
+                {{-- 実データによる価格分布（Q1/中央値/Q3・関連商品を含む検索結果ベース） --}}
+                <div class="flex items-center justify-between text-center gap-4">
+                    <div class="flex-1">
+                        <p class="text-xs text-gray-500 mb-1">安いほう25%（Q1）</p>
+                        <p class="text-lg font-black text-blue-600">&yen;{{ number_format($priceStats->price_q1) }}</p>
+                    </div>
+                    <div class="flex-1 bg-blue-50 rounded-xl py-3">
+                        <p class="text-xs text-gray-500 mb-1">中央値</p>
+                        <p class="text-xl font-black text-blue-700">&yen;{{ number_format($priceStats->price_median) }}</p>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-xs text-gray-500 mb-1">高いほう25%（Q3）</p>
+                        <p class="text-lg font-black text-gray-600">&yen;{{ number_format($priceStats->price_q3) }}</p>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    {{-- 最安〜最高を全幅とし、Q1〜Q3 を濃く塗り、中央値位置にマーカーを置く分布図 --}}
+                    <div class="relative h-3 bg-gray-100 rounded-full overflow-hidden">
+                        <div class="absolute top-0 bottom-0 bg-blue-500" style="left: {{ $priceBand['q1_pct'] }}%; width: {{ max(1, $priceBand['q3_pct'] - $priceBand['q1_pct']) }}%"></div>
+                        <div class="absolute top-0 bottom-0 w-1 bg-gray-900" style="left: {{ $priceBand['median_pct'] }}%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-400 mt-1">
+                        <span>&yen;{{ number_format($priceStats->price_min) }}</span>
+                        <span>&yen;{{ number_format($priceStats->price_max) }}</span>
+                    </div>
+                </div>
+                <p class="text-[11px] text-gray-400 mt-3 leading-relaxed">
+                    {{ $priceBand['date_full'] }}時点、楽天・Yahooの検索結果{{ number_format($priceStats->product_count) }}件に基づく価格分布です。関連商品を含むため、実際の製品相場とは異なる場合があります。
+                </p>
+                @else
+                {{-- 統計未保存カテゴリ: 従来どおり config の price_range（フォールバック） --}}
                 <div class="flex items-center justify-between text-center gap-4">
                     <div class="flex-1">
                         <p class="text-xs text-gray-500 mb-1">最安値帯</p>
@@ -150,6 +192,7 @@
                         <span>&yen;{{ number_format($category['price_range']['max']) }}</span>
                     </div>
                 </div>
+                @endif
             </section>
 
             {{-- 人気商品（サイドバー付き） --}}

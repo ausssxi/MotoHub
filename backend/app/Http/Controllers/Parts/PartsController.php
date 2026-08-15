@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\BikeModel;
 use App\Services\Parts\PartsCodeExtractor;
 use App\Support\RakutenRateGate;
+use Carbon\Carbon;
 use Illuminate\Http\Client\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class PartsController extends Controller
@@ -303,10 +305,36 @@ class PartsController extends Controller
 
         $otherCategories = collect($categories)->where('slug', '!=', $slug)->values();
 
+        // 実勢価格統計（parts_category_price_stats）。無ければ config の price_range にフォールバック。
+        // テーブル未作成でもページを落とさないよう try/catch。
+        $priceStats = null;
+        try {
+            $priceStats = DB::table('parts_category_price_stats')->where('category_slug', $slug)->first();
+        } catch (\Throwable) {
+            $priceStats = null;
+        }
+
+        // 分布バーの幾何（最安〜最高を全幅とした Q1/中央値/Q3 の位置％）と日付ラベルをここで用意する。
+        // ※blade 側にインライン @php を足さないため、計算はコントローラに寄せる。
+        $priceBand = null;
+        if ($priceStats) {
+            $span = max(1, (int) $priceStats->price_max - (int) $priceStats->price_min);
+            $pct = fn ($v) => round(((int) $v - (int) $priceStats->price_min) / $span * 100, 1);
+            $priceBand = [
+                'q1_pct' => $pct($priceStats->price_q1),
+                'q3_pct' => $pct($priceStats->price_q3),
+                'median_pct' => $pct($priceStats->price_median),
+                'date_full' => Carbon::parse($priceStats->computed_at)->format('Y年n月j日'),
+                'date_ym' => Carbon::parse($priceStats->computed_at)->format('Y年n月'),
+            ];
+        }
+
         return view('parts.category', [
             'category' => $category,
             'items' => $items,
             'otherCategories' => $otherCategories,
+            'priceStats' => $priceStats,
+            'priceBand' => $priceBand,
         ]);
     }
 
