@@ -938,13 +938,20 @@
                             if (!empty($listing->specs['fuel_consumption'])) {
                                 $faqItems[] = ['q' => "{$faqBikeName}の燃費は？", 'a' => "カタログ値で{$listing->specs['fuel_consumption']}km/Lです。実燃費は走行環境により異なります。"];
                             }
-                            if ($faqCc) {
-                                if ($faqCc <= 50) { $faqMaint = 23325; }
-                                elseif ($faqCc <= 90) { $faqMaint = 26325; }
-                                elseif ($faqCc <= 125) { $faqMaint = 31725; }
-                                elseif ($faqCc <= 250) { $faqMaint = 39710; }
-                                else { $faqMaint = 70635; }
-                                $faqItems[] = ['q' => "{$faqBikeName}の維持費はいくら？", 'a' => "年間約" . number_format($faqMaint) . "円が目安です（軽自動車税・自賠責保険・車検・任意保険含む）。駐車場代やガソリン代は別途かかります。"];
+                            // 維持費: 可視の年間維持費ブロック（show.blade.php:701-732 付近）と同じ config 算出に一本化する
+                            // （固定値の二重管理を廃止＝書き写しの誤りを防ぐ）。★車検費用20,000円・251cc超のみ加算・任意保険は
+                            //   含めない、の各条件は可視ブロックと必ず一致させること（片方だけ直さないよう相互参照）。
+                            // 区分を確定できない（bikeModel/排気量なし）ときは維持費FAQ項目を出さない（誤った構造化データを載せない）。
+                            $faqBracket = $bikeModelForUrl ? \App\Support\InsuranceClassifier::bracketForModel($bikeModelForUrl) : null;
+                            if (is_array($faqBracket)) {
+                                $faqTax = (int) ($faqBracket['tax'] ?? 0);
+                                $faqJibaiseki = isset($faqBracket['jibaiseki_table']['terms'][24])
+                                    ? intdiv((int) $faqBracket['jibaiseki_table']['terms'][24], 2)
+                                    : 0;
+                                $faqShaken = ($faqCc && $faqCc > 250) ? 20000 : 0; // 可視ブロックと同条件（251cc超のみ車検費用を加算）
+                                $faqMaint = $faqTax + $faqJibaiseki + $faqShaken;
+                                // 自賠責の現行料率を含むため、config/insurance.php:40 に従い改定注記（config取得・自作しない）を末尾へ連結。
+                                $faqItems[] = ['q' => "{$faqBikeName}の維持費はいくら？", 'a' => "年間約" . number_format($faqMaint) . "円が目安です（軽自動車税・自賠責保険・車検費用〈251cc以上〉）。任意保険料・駐車場代・ガソリン代は別途かかります。" . config('insurance.jibaiseki_revision_note')];
                             }
                             if ($faqCc) {
                                 if ($faqCc <= 125) { $beginnerAnswer = "軽量・コンパクトで取り回しやすく、初心者にもおすすめの排気量帯です。車検も不要で維持費を抑えられます。"; }
