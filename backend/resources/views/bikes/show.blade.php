@@ -701,7 +701,7 @@
                     @php
                         $cc = (int) $bikeModelForUrl->displacement;
 
-                        // 軽自動車税・自賠責は config/insurance.php（出典＝損害保険料率算出機構2024年1月届出）から取得する。
+                        // 軽自動車税（根拠＝地方税法）と自賠責（出典＝損害保険料率算出機構2024年1月届出）を config/insurance.php から取得する。
                         // config が保持しているのは2026年10月31日までの現行料率で、2026年11月1日に改定予定＝改定後の額は
                         // 確定後に反映する方針（config/insurance.php:19,41）。改定注記（config/insurance.php:41）は表示側に必ず出すこと。
                         // 排気量帯の判定も InsuranceClassifier に統一
@@ -713,28 +713,30 @@
                             ? intdiv((int) $bracket['jibaiseki_table']['terms'][24], 2)
                             : 0;
 
-                        // ★ 車検費用($shaken)と任意保険($insurance)は config/insurance.php に金額が無いため暫定でここに直値を残している。
-                        //   ・任意保険は年齢・等級で数倍変わるため、config 側は意図的に金額を持たない方針
-                        //     （config/insurance.php:9-10）。合計に含めるかは要判断。
-                        //   ・車検費用20,000円/年は出典不明。自賠責を二重計上している可能性と、
-                        //     重量税が計上されていない可能性があり、内訳の確認が必要。
+                        // 任意保険は年齢・等級・補償内容で数倍変わるため、config/insurance.php:9-10 が「金額は出さず
+                        // 一括見積もりCTAへ誘導する」方針を明示している。show 側でも金額を出さず合計にも含めず、
+                        // 一括見積もり（hoken）へ誘導する（従来は出典のない目安額を出して合計に加算していた）。
+                        // ★ 車検費用($shaken)は config/insurance.php に金額が無いため暫定で直値を残す（内訳は下の note を参照）。
+                        //   $shaken の値・算出（≤250cc=0 / 251cc超=20,000円）は今回変更しない。
                         if ($cc <= 50) {
-                            $shaken = 0; $insurance = 15000; $shakenLabel = 'なし';
+                            $shaken = 0; $shakenLabel = 'なし';
                         } elseif ($cc <= 90) {
-                            $shaken = 0; $insurance = 20000; $shakenLabel = 'なし';
+                            $shaken = 0; $shakenLabel = 'なし';
                         } elseif ($cc <= 125) {
-                            $shaken = 0; $insurance = 25000; $shakenLabel = 'なし';
+                            $shaken = 0; $shakenLabel = 'なし';
                         } elseif ($cc <= 250) {
-                            $shaken = 0; $insurance = 30000; $shakenLabel = 'なし';
+                            $shaken = 0; $shakenLabel = 'なし';
                         } else {
-                            $shaken = 20000; $insurance = 40000; $shakenLabel = '約' . number_format($shaken) . '円/年';
+                            $shaken = 20000; $shakenLabel = '約' . number_format($shaken) . '円/年';
                         }
-                        $maintenanceTotal = $tax + $jibaiseki + $shaken + $insurance;
+                        // 任意保険は合計に含めない（config/insurance.php:9-10 の方針に合わせる）。
+                        $maintenanceTotal = $tax + $jibaiseki + $shaken;
                         $costItems = [
                             ['label' => '軽自動車税', 'amount' => $tax, 'icon' => 'receipt-japanese-yen'],
                             ['label' => '自賠責保険', 'amount' => $jibaiseki, 'icon' => 'shield-check', 'note' => '2年契約÷2'],
-                            ['label' => '車検費用', 'amount' => $shaken, 'icon' => 'clipboard-check', 'note' => $cc > 250 ? '2年ごと÷2' : null, 'display' => $shakenLabel],
-                            ['label' => '任意保険(目安)', 'amount' => $insurance, 'icon' => 'umbrella'],
+                            ['label' => '車検費用', 'amount' => $shaken, 'icon' => 'clipboard-check', 'note' => $cc > 250 ? '2年ごとの車検費用を年額換算した目安です。自動車重量税3,800円＋印紙代1,800円（審査1,300円・検査手数料500円）に、整備・代行費用の相場を加えた2年分から算出しています。自賠責保険料は上の行で別途計上しているため、ここには含みません。重量税は初度登録から13年超で4,600円、18年超で5,000円に上がります。' : null, 'display' => $shakenLabel],
+                            // 任意保険は金額を出さず、一括見積もり（hoken）へ誘導する（config/insurance.php:9-10）。
+                            ['label' => '任意保険', 'amount' => 0, 'display' => '一括見積もりで確認', 'url' => route('hoken'), 'icon' => 'umbrella'],
                         ];
                     @endphp
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
@@ -757,7 +759,9 @@
                                     @endif
                                 </span>
                                 <span class="text-sm font-black text-gray-800">
-                                    @if(isset($item['display']) && $item['amount'] === 0)
+                                    @if(!empty($item['url']))
+                                        <a href="{{ $item['url'] }}" class="text-blue-600 hover:underline">{{ $item['display'] ?? '確認する' }}</a>
+                                    @elseif(isset($item['display']) && $item['amount'] === 0)
                                         {{ $item['display'] }}
                                     @else
                                         {{ number_format($item['amount']) }}<span class="text-[10px] text-gray-500 ml-0.5">円</span>
@@ -778,7 +782,7 @@
                         </div>
 
                         <p class="text-[10px] text-gray-400 mt-3 leading-relaxed">
-                            ※概算です。任意保険は年齢・等級により異なります。駐車場代・ガソリン代・消耗品は含みません。
+                            年間合計は軽自動車税・自賠責保険・車検費用（251cc以上）の目安です。任意保険料・駐車場代・ガソリン代は別途かかります。
                         </p>
                     </div>
                     @endif
