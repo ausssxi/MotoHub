@@ -43,15 +43,66 @@ final class ConsumableCost
     }
 
     /**
+     * 複数の走行距離ぶんの消耗品年額を、1回のデータ取得（DB問い合わせは battery/plug 各1回＝計2回）で返す。
+     * forModel を距離ごとに呼ぶとDB問い合わせが距離数ぶん倍増するため、表示側で複数距離を扱うときはこちらを使う。
+     * 代表行を1度だけ引き、バッテリー（距離非依存）は1回・プラグ（距離依存）は距離ごとに計算する。
+     * ★forModel/battery/plug の挙動は変えない（共通実体 batteryFromRow/plugFromRow を再利用するだけ）。
+     *
+     * @param  array<int, int>  $annualKms
+     * @return array{uncounted:array<int,string>, items:array<int,array<string,mixed>>, per_km:array<int,array{costs:array<string,?int>, subtotal:int}>, has_consumables:bool}
+     */
+    public static function forModelMultiKm(BikeModel $model, array $annualKms): array
+    {
+        $batteryRow = self::representativeRow($model, 'battery'); // DB 1回
+        $plugRow = self::representativeRow($model, 'plug');       // DB 1回
+
+        $batteryItem = self::batteryFromRow($batteryRow); // 距離非依存＝1回だけ計算
+
+        $perKm = [];
+        foreach ($annualKms as $km) {
+            $km = (int) $km;
+            $plugItem = self::plugFromRow($plugRow, $km);
+            $bCost = $batteryItem['available'] ? (int) $batteryItem['annual_cost'] : null;
+            $pCost = $plugItem['available'] ? (int) $plugItem['annual_cost'] : null;
+            $perKm[$km] = [
+                'costs' => ['battery' => $bCost, 'plug' => $pCost],
+                'subtotal' => (int) ($bCost ?? 0) + (int) ($pCost ?? 0),
+            ];
+        }
+
+        // 表示用の item メタ（label/part_no/available/reason 等）は距離非依存。プラグは代表として先頭距離で作る。
+        $metaKm = $annualKms !== [] ? (int) $annualKms[0] : (int) config('consumables.default_annual_km');
+        $plugMeta = self::plugFromRow($plugRow, $metaKm);
+
+        return [
+            'uncounted' => ['エンジンオイル', 'タイヤ'],
+            'items' => [$batteryItem, $plugMeta],
+            'per_km' => $perKm,
+            // 消耗品適合が1件でもあるか（verified 行があれば part_no が入る）。無ければ表示側は第2段を出さない。
+            'has_consumables' => ($batteryItem['part_no'] !== null) || ($plugMeta['part_no'] !== null),
+        ];
+    }
+
+    /**
      * バッテリー年額 = cost_part_min ÷ 寿命年数。走行距離には依存しない。
      *
      * @return array<string, mixed>
      */
     private static function battery(BikeModel $model): array
     {
+        return self::batteryFromRow(self::representativeRow($model, 'battery'));
+    }
+
+    /**
+     * バッテリーを、取得済みの代表行から計算する（DB問い合わせをしない）。走行距離に依存しない。
+     * battery() と forModelMultiKm() の共通実体。挙動は従来の battery() と同一。
+     *
+     * @return array<string, mixed>
+     */
+    private static function batteryFromRow(?ModelFitment $row): array
+    {
         $item = self::baseItem('battery', 'バッテリー');
 
-        $row = self::representativeRow($model, 'battery');
         if ($row === null) {
             $item['reason'] = 'verified な適合データなし';
 
@@ -84,9 +135,19 @@ final class ConsumableCost
      */
     private static function plug(BikeModel $model, int $annualKm): array
     {
+        return self::plugFromRow(self::representativeRow($model, 'plug'), $annualKm);
+    }
+
+    /**
+     * プラグを、取得済みの代表行と走行距離から計算する（DB問い合わせをしない）。
+     * plug() と forModelMultiKm() の共通実体。挙動は従来の plug() と同一。
+     *
+     * @return array<string, mixed>
+     */
+    private static function plugFromRow(?ModelFitment $row, int $annualKm): array
+    {
         $item = self::baseItem('plug', 'プラグ');
 
-        $row = self::representativeRow($model, 'plug');
         if ($row === null) {
             $item['reason'] = 'verified な適合データなし';
 

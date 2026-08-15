@@ -71,6 +71,7 @@
         <script src="{{ asset('js/compare/manager.js') }}?v={{ asset_buster(public_path('js/compare/manager.js')) }}"></script>
         <script src="{{ asset('js/compare/ui.js') }}?v={{ asset_buster(public_path('js/compare/ui.js')) }}"></script>
         <script src="{{ asset('js/bikes/loan-simulator.js') }}?v={{ asset_buster(public_path('js/bikes/loan-simulator.js')) }}"></script>
+        <script src="{{ asset('js/bikes/consumable-simulator.js') }}?v={{ asset_buster(public_path('js/bikes/consumable-simulator.js')) }}"></script>
 
         {{-- JSにBladeの変数を渡す --}}
         <script>
@@ -734,13 +735,40 @@
                         // 車検費用の内訳（長文）は行内 note に入れるとラベル「車検費用」が縦組みで潰れるため、
                         // note は短い一言に戻し、内訳は一覧の外に独立段落（下の <p>）として出す。251cc超のときだけ。
                         $shakenBreakdown = $cc > 250 ? '2年ごとの車検費用を年額換算した目安です。自動車重量税3,800円＋印紙代1,800円（審査1,300円・検査手数料500円）に、整備・代行費用の相場を加えた2年分から算出しています。自賠責保険料は上の行で別途計上しているため、ここには含みません。重量税は初度登録から13年超で4,600円、18年超で5,000円に上がります。' : null;
-                        $costItems = [
+                        // 第1段（固定費）の行。任意保険は金額を出さないため配列に入れず、別行で扱う。
+                        $fixedCostItems = [
                             ['label' => '軽自動車税', 'amount' => $tax, 'icon' => 'receipt-japanese-yen'],
                             ['label' => '自賠責保険', 'amount' => $jibaiseki, 'icon' => 'shield-check', 'note' => '2年契約÷2'],
                             ['label' => '車検費用', 'amount' => $shaken, 'icon' => 'clipboard-check', 'note' => $cc > 250 ? '2年ごと÷2' : null, 'display' => $shakenLabel],
-                            // 任意保険は金額を出さず、一括見積もり（hoken）へ誘導する（config/insurance.php:9-10）。
-                            ['label' => '任意保険', 'amount' => 0, 'display' => '一括見積もりで確認', 'url' => route('hoken'), 'icon' => 'umbrella'],
                         ];
+                        $fixedSubtotal = $maintenanceTotal; // = 軽自動車税＋自賠責＋車検（固定費小計・走行距離非依存）
+                        $hokenUrl = route('hoken');
+
+                        // ── 第2段（消耗品・走行距離による）の算出 ──
+                        // ConsumableCost::forModelMultiKm は DB を2回だけ引き、4距離ぶんを返す（forModel を4回呼ばない＝DB増やさない）。
+                        $kmOptions = (array) config('consumables.annual_km_options');
+                        $defaultKm = (int) config('consumables.default_annual_km');
+                        $consumable = \App\Support\ConsumableCost::forModelMultiKm($bikeModelForUrl, $kmOptions);
+                        $hasConsumables = $consumable['has_consumables'];
+                        $consumableItems = $consumable['items']; // 距離非依存メタ（label/part_no/available/reason/key）
+                        $uncounted = $consumable['uncounted'];
+
+                        // JSへ渡す per-km データ。★カンマ整形はここ（サーバー側）で確定し、JSは差し替えるだけ（数値整形をやり直さない）。
+                        $kmData = [];
+                        foreach ($kmOptions as $km) {
+                            $km = (int) $km;
+                            $sub = $consumable['per_km'][$km]['subtotal'] ?? 0;
+                            $costs = $consumable['per_km'][$km]['costs'] ?? [];
+                            $kmData[(string) $km] = [
+                                'items' => collect($costs)->filter(fn ($v) => $v !== null)->map(fn ($v) => number_format((int) $v))->all(),
+                                'subtotal' => number_format($sub),
+                                'grand' => number_format($fixedSubtotal + $sub),
+                            ];
+                        }
+                        $kmDataJson = json_encode($kmData, JSON_UNESCAPED_UNICODE);
+                        // 初期表示（既定距離）の値。
+                        $initSub = $consumable['per_km'][$defaultKm]['subtotal'] ?? 0;
+                        $initGrand = $fixedSubtotal + $initSub;
                     @endphp
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
                         <div class="flex items-center gap-2 mb-6">
@@ -751,8 +779,10 @@
                             <span class="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full ml-auto">{{ $cc }}cc</span>
                         </div>
 
-                        <div class="space-y-3 mb-5">
-                            @foreach($costItems as $item)
+                        {{-- 第1段: 固定費（走行距離に依存しない）＝軽自動車税・自賠責・車検 --}}
+                        <p class="text-xs font-black text-gray-400 mb-2">固定費（税金・保険・車検）</p>
+                        <div class="space-y-3 mb-2">
+                            @foreach($fixedCostItems as $item)
                             <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                                 <span class="text-xs font-bold text-gray-500 flex items-center gap-1.5">
                                     <i data-lucide="{{ $item['icon'] }}" class="w-3.5 h-3.5 text-gray-300"></i>
@@ -762,9 +792,7 @@
                                     @endif
                                 </span>
                                 <span class="text-sm font-black text-gray-800">
-                                    @if(!empty($item['url']))
-                                        <a href="{{ $item['url'] }}" class="text-blue-600 hover:underline">{{ $item['display'] ?? '確認する' }}</a>
-                                    @elseif(isset($item['display']) && $item['amount'] === 0)
+                                    @if(isset($item['display']) && $item['amount'] === 0)
                                         {{ $item['display'] }}
                                     @else
                                         {{ number_format($item['amount']) }}<span class="text-[10px] text-gray-500 ml-0.5">円</span>
@@ -772,6 +800,20 @@
                                 </span>
                             </div>
                             @endforeach
+                            {{-- 任意保険: 金額を出さず一括見積もりへ。固定費小計にも年間合計にも含めない。 --}}
+                            <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                                <span class="text-xs font-bold text-gray-500 flex items-center gap-1.5">
+                                    <i data-lucide="umbrella" class="w-3.5 h-3.5 text-gray-300"></i>
+                                    任意保険
+                                </span>
+                                <span class="text-sm font-black text-gray-800">
+                                    <a href="{{ $hokenUrl }}" class="text-blue-600 hover:underline">一括見積もりで確認</a>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between py-1 mb-2">
+                            <span class="text-xs font-black text-gray-500">固定費 小計</span>
+                            <span class="text-sm font-black text-gray-800">{{ number_format($fixedSubtotal) }}<span class="text-[10px] text-gray-500 ml-0.5">円/年</span></span>
                         </div>
 
                         {{-- 自賠責の改定予定注記（config/insurance.php:41）。maintenance-cost.blade.php:61 と同一マークアップ。 --}}
@@ -782,15 +824,64 @@
                         <p class="text-[10px] text-gray-400 mt-2 leading-relaxed">{{ $shakenBreakdown }}</p>
                         @endif
 
-                        <div class="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 flex items-center justify-between">
+                        {{-- 第2段: 消耗品（走行距離による）。消耗品適合が1件も無い車種では段ごと出さない。 --}}
+                        @if($hasConsumables)
+                        <div id="consumable-sim" data-default-km="{{ $defaultKm }}" data-km-data='{{ $kmDataJson }}' class="mt-6 pt-5 border-t border-gray-100">
+                            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                <p class="text-xs font-black text-gray-500">消耗品（走行距離による）</p>
+                                <label class="flex items-center gap-1.5 text-[11px] font-bold text-gray-400">
+                                    年間走行距離
+                                    <select id="consumable-km" class="bg-gray-50 border border-gray-200 text-gray-800 text-xs font-bold rounded-lg py-1 pl-2 pr-6 focus:ring-emerald-500 focus:border-emerald-500">
+                                        @foreach($kmOptions as $km)
+                                        <option value="{{ (int) $km }}" @if((int) $km === $defaultKm) selected @endif>{{ number_format((int) $km) }}km</option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                            </div>
+                            <div class="space-y-3 mb-2">
+                                @foreach($consumableItems as $item)
+                                <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                                    <span class="text-xs font-bold text-gray-500 flex items-center gap-1.5">
+                                        <i data-lucide="{{ $item['key'] === 'battery' ? 'battery-charging' : 'zap' }}" class="w-3.5 h-3.5 text-gray-300"></i>
+                                        {{ $item['label'] }}
+                                        @if(!empty($item['part_no']))<span class="text-[10px] text-gray-400">({{ $item['part_no'] }})</span>@endif
+                                    </span>
+                                    <span class="text-sm font-black text-gray-800 text-right">
+                                        @if($item['available'])
+                                            <span id="consumable-cost-{{ $item['key'] }}">{{ $kmData[(string) $defaultKm]['items'][$item['key']] ?? '0' }}</span><span class="text-[10px] text-gray-500 ml-0.5">円/年</span>
+                                        @else
+                                            <span class="text-gray-400">算定不可</span>
+                                            @if(!empty($item['reason']))<span class="block text-[10px] text-gray-400 font-bold">{{ $item['reason'] }}</span>@endif
+                                        @endif
+                                    </span>
+                                </div>
+                                @endforeach
+                            </div>
+                            <div class="flex items-center justify-between py-1">
+                                <span class="text-xs font-black text-gray-500">消耗品 小計</span>
+                                <span class="text-sm font-black text-gray-800"><span id="consumable-subtotal">{{ number_format($initSub) }}</span><span class="text-[10px] text-gray-500 ml-0.5">円/年</span></span>
+                            </div>
+                            {{-- 未算入（oil/tire）注記。項目名は uncounted から組み立てる（ハードコードしない）。 --}}
+                            <p class="text-[10px] text-gray-400 mt-1 leading-relaxed">{{ implode('と', $uncounted) }}は価格データが未整備のため、消耗品の合計に含まれていません。</p>
+                            {{-- 既定走行距離の根拠。3,000 は config から。 --}}
+                            <p class="text-[10px] text-gray-400 mt-1 leading-relaxed">既定の{{ number_format($defaultKm) }}kmは日本自動車工業会2025年度調査の月間走行距離229kmに基づく目安です。</p>
+                        </div>
+                        @endif
+
+                        {{-- 第3段: 年間合計（固定費小計＋消耗品小計）。走行距離を変えると JS が更新する。 --}}
+                        <div class="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 flex items-center justify-between mt-6">
                             <span class="text-sm font-black text-emerald-800">年間合計（税込目安）</span>
                             <span class="text-xl font-black text-emerald-700">
-                                約{{ number_format($maintenanceTotal) }}<span class="text-xs text-emerald-500 ml-0.5">円/年</span>
+                                約<span id="maintenance-grand-total">{{ number_format($initGrand) }}</span><span class="text-xs text-emerald-500 ml-0.5">円/年</span>
                             </span>
                         </div>
 
                         <p class="text-[10px] text-gray-400 mt-3 leading-relaxed">
+                            @if($hasConsumables)
+                            年間合計は軽自動車税・自賠責保険・車検費用（251cc以上）・消耗品の目安です。任意保険料・駐車場代・ガソリン代は別途かかります。
+                            @else
                             年間合計は軽自動車税・自賠責保険・車検費用（251cc以上）の目安です。任意保険料・駐車場代・ガソリン代は別途かかります。
+                            @endif
                         </p>
                     </div>
                     @endif
