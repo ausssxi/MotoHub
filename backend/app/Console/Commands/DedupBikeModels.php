@@ -173,6 +173,32 @@ final class DedupBikeModels extends Command
     }
 
     /**
+     * 外部コマンド（model:merge-pairs 等）から、人が目視確認済みの canonical/dupes を渡して統合する公開入口。
+     * canonical はここで選び直さない（pickCanonical は使わない）＝呼び出し側が指定した survivor を必ず残す。
+     * 実績ある mergeGroup をそのまま再利用し、既存の統合挙動は一切変えない（本メソッドは追加のみ）。
+     * ★型は mergeGroup が期待する Collection<int, BikeModel> に合わせる（型変換のため mergeGroup を変えない）。
+     *
+     * 本メソッド固有の追加規則（slug）:
+     *   canonical と dupe が同一 slug の場合（メーカーが違うため unique(mfr_id,slug) をすり抜けている）、
+     *   dupe 側の slug を NULL にする。canonical が同一URLを提供するので301は不要で、後でメーカーを統合した際の
+     *   (manufacturer_id, slug) 衝突を未然に防ぐ。slug が異なる場合は dupe の slug を従来どおり残す（301用）。
+     * ※この付け替えは呼び出し側の1組トランザクション内で実行される前提（mergeGroup も内部で transaction を張る）。
+     *
+     * @param  Collection<int, BikeModel>  $dupes
+     */
+    public function mergePair(BikeModel $canonical, Collection $dupes): void
+    {
+        foreach ($dupes as $dupe) {
+            if (! empty($canonical->slug) && $dupe->slug === $canonical->slug) {
+                DB::table('bike_models')->where('id', $dupe->id)->update(['slug' => null]);
+                $dupe->slug = null; // 後続処理・キャッシュキー算出へ反映（同一slugのため canonical 側は不変）
+            }
+        }
+
+        $this->mergeGroup($canonical, $dupes);
+    }
+
+    /**
      * 1グループの統合を1トランザクションで実行（all-or-nothing）。
      */
     private function mergeGroup(BikeModel $canonical, Collection $dupes): void
