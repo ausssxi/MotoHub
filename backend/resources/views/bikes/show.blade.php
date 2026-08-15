@@ -731,10 +731,13 @@
                         }
                         // 任意保険は合計に含めない（config/insurance.php:9-10 の方針に合わせる）。
                         $maintenanceTotal = $tax + $jibaiseki + $shaken;
+                        // 車検費用の内訳（長文）は行内 note に入れるとラベル「車検費用」が縦組みで潰れるため、
+                        // note は短い一言に戻し、内訳は一覧の外に独立段落（下の <p>）として出す。251cc超のときだけ。
+                        $shakenBreakdown = $cc > 250 ? '2年ごとの車検費用を年額換算した目安です。自動車重量税3,800円＋印紙代1,800円（審査1,300円・検査手数料500円）に、整備・代行費用の相場を加えた2年分から算出しています。自賠責保険料は上の行で別途計上しているため、ここには含みません。重量税は初度登録から13年超で4,600円、18年超で5,000円に上がります。' : null;
                         $costItems = [
                             ['label' => '軽自動車税', 'amount' => $tax, 'icon' => 'receipt-japanese-yen'],
                             ['label' => '自賠責保険', 'amount' => $jibaiseki, 'icon' => 'shield-check', 'note' => '2年契約÷2'],
-                            ['label' => '車検費用', 'amount' => $shaken, 'icon' => 'clipboard-check', 'note' => $cc > 250 ? '2年ごとの車検費用を年額換算した目安です。自動車重量税3,800円＋印紙代1,800円（審査1,300円・検査手数料500円）に、整備・代行費用の相場を加えた2年分から算出しています。自賠責保険料は上の行で別途計上しているため、ここには含みません。重量税は初度登録から13年超で4,600円、18年超で5,000円に上がります。' : null, 'display' => $shakenLabel],
+                            ['label' => '車検費用', 'amount' => $shaken, 'icon' => 'clipboard-check', 'note' => $cc > 250 ? '2年ごと÷2' : null, 'display' => $shakenLabel],
                             // 任意保険は金額を出さず、一括見積もり（hoken）へ誘導する（config/insurance.php:9-10）。
                             ['label' => '任意保険', 'amount' => 0, 'display' => '一括見積もりで確認', 'url' => route('hoken'), 'icon' => 'umbrella'],
                         ];
@@ -773,6 +776,11 @@
 
                         {{-- 自賠責の改定予定注記（config/insurance.php:41）。maintenance-cost.blade.php:61 と同一マークアップ。 --}}
                         <p class="text-[11px] text-amber-600 font-bold mt-2 leading-relaxed"><i data-lucide="alert-triangle" class="w-3 h-3 inline"></i> {{ config('insurance.jibaiseki_revision_note') }}</p>
+
+                        {{-- 車検費用の内訳（251cc超のみ）。行内 note だとラベルが縦組みで潰れるため独立段落に出す。スタイルは合計下の説明文に合わせる（改定注記の amber は使わない）。 --}}
+                        @if($cc > 250)
+                        <p class="text-[10px] text-gray-400 mt-2 leading-relaxed">{{ $shakenBreakdown }}</p>
+                        @endif
 
                         <div class="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 flex items-center justify-between">
                             <span class="text-sm font-black text-emerald-800">年間合計（税込目安）</span>
