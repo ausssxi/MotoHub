@@ -700,16 +700,32 @@
                     @if($bikeModelForUrl && $bikeModelForUrl->displacement)
                     @php
                         $cc = (int) $bikeModelForUrl->displacement;
+
+                        // 軽自動車税・自賠責は config/insurance.php（出典＝損害保険料率算出機構2024年1月届出・
+                        // 2026/11改定に追従）から取得する。排気量帯の判定も InsuranceClassifier に統一
+                        // （新基準原付を車種名で別区分に振る処理を含む＝単純な cc 判定より正確）。
+                        $bracket = \App\Support\InsuranceClassifier::bracketForModel($bikeModelForUrl);
+                        $tax = (int) (is_array($bracket) ? ($bracket['tax'] ?? 0) : 0);
+                        // 自賠責は既存の「2年契約÷2」表示方式を維持（jibaiseki の 24ヶ月基準料率 ÷ 2）。
+                        $jibaiseki = is_array($bracket) && isset($bracket['jibaiseki_table']['terms'][24])
+                            ? intdiv((int) $bracket['jibaiseki_table']['terms'][24], 2)
+                            : 0;
+
+                        // ★ 車検費用($shaken)と任意保険($insurance)は config/insurance.php に金額が無いため暫定でここに直値を残している。
+                        //   ・任意保険は年齢・等級で数倍変わるため、config 側は意図的に金額を持たない方針
+                        //     （config/insurance.php:9-10）。合計に含めるかは要判断。
+                        //   ・車検費用20,000円/年は出典不明。自賠責を二重計上している可能性と、
+                        //     重量税が計上されていない可能性があり、内訳の確認が必要。
                         if ($cc <= 50) {
-                            $tax = 2000; $jibaiseki = 4325; $shaken = 0; $insurance = 15000; $shakenLabel = 'なし';
+                            $shaken = 0; $insurance = 15000; $shakenLabel = 'なし';
                         } elseif ($cc <= 90) {
-                            $tax = 2000; $jibaiseki = 4325; $shaken = 0; $insurance = 20000; $shakenLabel = 'なし';
+                            $shaken = 0; $insurance = 20000; $shakenLabel = 'なし';
                         } elseif ($cc <= 125) {
-                            $tax = 2400; $jibaiseki = 4325; $shaken = 0; $insurance = 25000; $shakenLabel = 'なし';
+                            $shaken = 0; $insurance = 25000; $shakenLabel = 'なし';
                         } elseif ($cc <= 250) {
-                            $tax = 3600; $jibaiseki = 6110; $shaken = 0; $insurance = 30000; $shakenLabel = 'なし';
+                            $shaken = 0; $insurance = 30000; $shakenLabel = 'なし';
                         } else {
-                            $tax = 6000; $jibaiseki = 4635; $shaken = 20000; $insurance = 40000; $shakenLabel = '約' . number_format($shaken) . '円/年';
+                            $shaken = 20000; $insurance = 40000; $shakenLabel = '約' . number_format($shaken) . '円/年';
                         }
                         $maintenanceTotal = $tax + $jibaiseki + $shaken + $insurance;
                         $costItems = [
