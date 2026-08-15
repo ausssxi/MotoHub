@@ -18,12 +18,18 @@ class TweetPriceDrop extends Command
     {
         $this->info('値下げ速報の探索を開始します...');
 
+        // 上限しきい値のみ適用（config/price_alerts.php）。桁違い誤読が正常値へ戻る際の巨額“値下げ”を除外する。
+        // 最大値下げ1件を選ぶ性質上、小変動は実質選ばれないため下限（金額/割合）は不要。
+        $maxRatio = (float) config('price_alerts.max_drop_ratio', 0.5);
+
         $priceHistory = PriceHistory::with(['listing.bikeModel.manufacturer'])
             ->where('is_notified', false)
             ->where('created_at', '>=', now()->subDay())
             ->whereHas('listing', function ($q) {
                 $q->where('is_sold_out', false);
             })
+            // 値下げ率が高すぎる変動は異常値（桁違い誤読の戻り）として除外し、投稿対象から外す
+            ->whereRaw('(old_price - new_price) <= old_price * ?', [$maxRatio])
             ->orderByRaw('(old_price - new_price) DESC')
             ->first();
 
