@@ -40,11 +40,16 @@ final class ComputePartsCategoryPrices extends Command
             ? max(1, (int) $this->option('hits'))
             : (int) config('parts-price-stats.hits', 30);
         $write = (bool) $this->option('execute');
+        // 除外語（商品名にこれを含めば統計・商品カード両方から除外）。大小/全半角無視で比較する。
+        $excludeTerms = array_values(array_filter(
+            array_map('strval', (array) config('parts-price-stats.exclude_title_contains', [])),
+            fn ($t) => trim($t) !== ''
+        ));
 
         $this->newLine();
         $this->line('==== parts:compute-category-prices '.($write ? '（本書き込み）' : '（dry-run・DBへは書き込みません）').' ====');
-        $this->line('カテゴリ数: '.count($categories).' / 1キーワード取得: '.$hits.'件 / 最小保存件数: '.$minProducts.'件');
-        $this->comment('※ 取得は ProductSearchService(→RakutenRateGate) 経由・順次。keywords[] 全件で検索し (商品名+価格) で重複除去。');
+        $this->line('カテゴリ数: '.count($categories).' / 1キーワード取得: '.$hits.'件 / 最小保存件数: '.$minProducts.'件 / 除外語: '.count($excludeTerms).'語');
+        $this->comment('※ 取得は ProductSearchService(→RakutenRateGate) 経由・順次。search_keywords 全件で検索し (商品名+価格) で重複除去。');
 
         $computedAt = now();
         $toSave = [];
@@ -55,26 +60,37 @@ final class ComputePartsCategoryPrices extends Command
             $slug = (string) ($category['slug'] ?? '');
             $name = (string) ($category['name'] ?? $slug);
 
-            // 検索語は keywords[]。空ならカテゴリ名にフォールバック（その旨表示）。
+            // 検索語は search_keywords[]（バイク限定）。無ければ keywords[]、それも無ければカテゴリ名にフォールバック。
+            $searchKeywords = array_values(array_filter(
+                array_map('strval', (array) ($category['search_keywords'] ?? [])),
+                fn ($k) => trim($k) !== ''
+            ));
             $keywords = array_values(array_filter(
                 array_map('strval', (array) ($category['keywords'] ?? [])),
                 fn ($k) => trim($k) !== ''
             ));
-            $usedFallback = false;
-            if ($keywords === []) {
-                $keywords = [$name];
-                $usedFallback = true;
+            $fallbackNote = '';
+            if ($searchKeywords !== []) {
+                $searchTerms = $searchKeywords;
+            } elseif ($keywords !== []) {
+                $searchTerms = $keywords;
+                $fallbackNote = '  ※search_keywords無→keywordsで検索';
+            } else {
+                $searchTerms = [$name];
+                $fallbackNote = '  ※search_keywords/keywords無→カテゴリ名で検索';
             }
 
             $this->newLine();
-            $this->line("■ {$name}（{$slug}）".($usedFallback ? '  ※keywords無→カテゴリ名で検索' : ''));
+            $this->line("■ {$name}（{$slug}）".$fallbackNote);
 
             // keyword ごとに検索（各回 RakutenRateGate を通過）。商品名+価格で重複除去して統合。
             // ★stats と商品カードで同じ配列を使う（同じ除外条件＝価格>0 と (名前+価格) 重複除去を共有）。
             $seen = [];         // "name\0price" => true
             $products = [];     // 重複除去後の商品（API関連度順を維持）
-            $perKeyword = [];   // 表示用: keyword => 取得件数（価格>0）
-            foreach ($keywords as $kw) {
+            $perKeyword = [];   // 表示用: keyword => 取得件数（価格>0・除外語適用後）
+            $excludedCount = 0; // 除外語で落とした件数（重複除去より前）
+            $population = 0;     // 価格>0の総数（除外前・重複除去前）＝母集団
+            foreach ($searchTerms as $kw) {
                 $result = $service->searchProducts($kw, $hits);
                 $kwCount = 0;
                 foreach ($result as $item) {
@@ -82,8 +98,15 @@ final class ComputePartsCategoryPrices extends Command
                     if ($price <= 0) {
                         continue;
                     }
-                    $kwCount++;
+                    $population++;
                     $title = trim((string) ($item['name'] ?? ''));
+                    // 除外語（大小/全半角無視）。重複除去より前に適用し件数を数える。
+                    if ($this->titleExcluded($title, $excludeTerms)) {
+                        $excludedCount++;
+
+                        continue;
+                    }
+                    $kwCount++;
                     $key = $title."\0".$price;
                     if (isset($seen[$key])) {
                         continue; // 同一商品（名前+価格）の重複
@@ -113,7 +136,27 @@ final class ComputePartsCategoryPrices extends Command
 
             $count = count($prices);
             $fetchedTotal = array_sum($perKeyword);
-            $this->line(sprintf('    → 統合 取得計%d件 / 重複除去後 %d件（重複 %d件を除外）', $fetchedTotal, $count, $fetchedTotal - $count));
+
+            // 楽天/Yahoo 内訳（重複除去後の母集団）。どちらのモールがノイズ源かを出力だけで判断できるように。
+            $rakutenN = 0;
+            $yahooN = 0;
+            $otherN = 0;
+            foreach ($products as $p) {
+                if ($p['source'] === 'rakuten') {
+                    $rakutenN++;
+                } elseif ($p['source'] === 'yahoo') {
+                    $yahooN++;
+                } else {
+                    $otherN++;
+                }
+            }
+            $mallStr = sprintf('楽天 %d件 / Yahoo %d件', $rakutenN, $yahooN).($otherN > 0 ? sprintf(' / その他 %d件', $otherN) : '');
+            $this->line(sprintf('    → 統合 取得計%d件 / 重複除去後 %d件（%s）（重複 %d件を除外）', $fetchedTotal, $count, $mallStr, $fetchedTotal - $count));
+
+            // 除外語で落とした件数（母集団＝価格>0の総数に対する割合が2割超なら要確認マーク）。
+            $exclPct = $population > 0 ? $excludedCount / $population * 100 : 0.0;
+            $exclMark = $exclPct > 20 ? '  ⚠️除外過多（母集団の2割超・除外語が効きすぎの可能性・要確認）' : '';
+            $this->line(sprintf('    除外語で %d件を除外（母集団%d件の%.1f%%）%s', $excludedCount, $population, $exclPct, $exclMark));
 
             // 現行 config のベタ書き値（乖離の目視用）。
             $cfg = (array) ($category['price_range'] ?? []);
@@ -220,6 +263,29 @@ final class ComputePartsCategoryPrices extends Command
         $this->info('保存しました: '.$productRowCount.'件を parts_category_products へ（'.count($productsToSave).'カテゴリ）。');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * 商品名が除外語のいずれかを含むか（大小文字・全半角を無視）。
+     * mb_convert_kana 'aKV'（英数記号を半角化＋半角カナを全角化＋濁点合成）＋ mb_strtolower で正規化して部分一致。
+     * 除外語はカタカナ主体（ストール等）のため、半角カナ（ｽﾄｰﾙ）も拾えるようカナ幅も正規化する。
+     *
+     * @param  array<int, string>  $terms
+     */
+    private function titleExcluded(string $title, array $terms): bool
+    {
+        if ($terms === []) {
+            return false;
+        }
+        $haystack = mb_strtolower(mb_convert_kana($title, 'aKV'));
+        foreach ($terms as $term) {
+            $needle = mb_strtolower(mb_convert_kana($term, 'aKV'));
+            if ($needle !== '' && mb_strpos($haystack, $needle) !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
