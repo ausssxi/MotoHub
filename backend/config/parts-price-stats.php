@@ -15,4 +15,7 @@ return [
     // 1キーワードあたりの取得件数。ProductSearchService 側で最大30に丸められる。
     // keywords[] の全要素で検索して統合するため、実際のサンプルはこれ×キーワード数（重複除去前）。
     'hits' => 30,
+
+    // パーツカテゴリページに表示する商品カードの保存件数（parts_category_products）。
+    'top_products' => 12,
 ];

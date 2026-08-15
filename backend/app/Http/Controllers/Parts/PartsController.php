@@ -295,17 +295,11 @@ class PartsController extends Controller
             abort(404);
         }
 
-        $searchQuery = 'バイク ' . $category['name'];
-        $cacheKey = 'parts_category_' . $slug;
-
-        $items = Cache::remember($cacheKey, 86400, function () use ($searchQuery, $category) {
-            $data = $this->fetchRakuten($searchQuery, 1, 10, genreId: $category['rakuten_genre_id']);
-            return $data ? $this->formatRakutenItems($data) : [];
-        });
-
         $otherCategories = collect($categories)->where('slug', '!=', $slug)->values();
 
-        // 実勢価格統計（parts_category_price_stats）。無ければ config の price_range にフォールバック。
+        // 実勢価格統計（parts_category_price_stats）と保存済み商品（parts_category_products）を読む。
+        // ★どちらも DB から十数行を引くだけ。24時間キャッシュには入れない（parts:compute-category-prices --execute
+        //   の更新がページへ最大24h反映されない事故を防ぐ。既存の $items 用 Cache::remember は撤去済み）。
         // テーブル未作成でもページを落とさないよう try/catch。
         $priceStats = null;
         try {
@@ -313,6 +307,21 @@ class PartsController extends Controller
         } catch (\Throwable) {
             $priceStats = null;
         }
+
+        // 商品カード（1カテゴリ1クエリ・rank順）。ライブAPIは叩かない。
+        $categoryProducts = collect();
+        try {
+            $categoryProducts = DB::table('parts_category_products')
+                ->where('category_slug', $slug)
+                ->orderBy('rank')
+                ->get();
+        } catch (\Throwable) {
+            $categoryProducts = collect();
+        }
+        // 注記用の日付（全商品が同一 fetched_at＝価格統計の computed_at と同時刻）。価格分布注記と同じ Y年n月j日。
+        $categoryProductsDate = $categoryProducts->isNotEmpty()
+            ? Carbon::parse($categoryProducts->first()->fetched_at)->format('Y年n月j日')
+            : null;
 
         // 分布バーの幾何（最安〜最高を全幅とした Q1/中央値/Q3 の位置％）と日付ラベルをここで用意する。
         // ※blade 側にインライン @php を足さないため、計算はコントローラに寄せる。
@@ -331,10 +340,11 @@ class PartsController extends Controller
 
         return view('parts.category', [
             'category' => $category,
-            'items' => $items,
             'otherCategories' => $otherCategories,
             'priceStats' => $priceStats,
             'priceBand' => $priceBand,
+            'categoryProducts' => $categoryProducts,
+            'categoryProductsDate' => $categoryProductsDate,
         ]);
     }
 
