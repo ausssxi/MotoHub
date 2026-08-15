@@ -1,5 +1,5 @@
 <x-layout>
-    <x-slot:title>バイク用{{ $category['name'] }}の価格比較 | 楽天・Yahoo・Amazon最安値 - MotoHub</x-slot:title>
+    <x-slot:title>バイク用{{ $category['name'] }}の価格比較 | 楽天・Yahoo! - MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $category['description'] }}</x-slot:metaDescription>
     <x-slot:canonical>{{ route('parts.category', $category['slug']) }}</x-slot:canonical>
 
@@ -18,7 +18,7 @@
             // 相場FAQ: 統計があれば実データ由来の事実ベース文言、無ければ従来の config ベース文言。
             $priceFaqAnswer = !empty($priceStats)
                 ? ($priceBand['date_ym'] . '時点、楽天・Yahooの検索結果' . number_format($priceStats->product_count) . '件では、中央値が約' . number_format($priceStats->price_median) . '円、半数が' . number_format($priceStats->price_q1) . '円〜' . number_format($priceStats->price_q3) . '円に収まっています。関連商品を含むため、実際の製品相場とは異なる場合があります。')
-                : ('バイク用' . $category['name'] . 'の価格帯は' . number_format($category['price_range']['min']) . '円〜' . number_format($category['price_range']['max']) . '円で、平均は約' . number_format($category['price_range']['average']) . '円です。MotoHubでは楽天・Yahoo・Amazonの価格を一括比較して最安値を見つけることができます。');
+                : ('バイク用' . $category['name'] . 'の価格帯は' . number_format($category['price_range']['min']) . '円〜' . number_format($category['price_range']['max']) . '円で、平均は約' . number_format($category['price_range']['average']) . '円です。MotoHubでは楽天・Yahoo!の価格を比較できます。');
 
             $faqEntries = [
                 [
@@ -27,7 +27,7 @@
                 ],
                 [
                     'q' => $category['name'] . 'はどこで買うのが安い？',
-                    'a' => '楽天市場・Yahoo!ショッピング・Amazonの3サイトで価格が異なります。MotoHubのパーツ検索で横断比較すれば、最安値のショップを簡単に見つけられます。ポイント還元率も含めて検討するのがおすすめです。',
+                    'a' => '楽天市場・Yahoo!ショッピングで価格が異なります。MotoHubのパーツ検索で横断比較すれば、価格を比較して選びやすくなります。ポイント還元率も含めて検討するのがおすすめです。',
                 ],
                 [
                     'q' => $category['name'] . 'の交換時期・寿命は？',
@@ -71,7 +71,7 @@
         <section class="bg-gradient-to-r from-gray-900 to-gray-800 text-white py-10">
             <div class="max-w-5xl mx-auto px-4 text-center">
                 <h1 class="text-2xl sm:text-3xl font-black mb-2">バイク用{{ $category['name'] }}の価格比較</h1>
-                <p class="text-gray-300 text-sm">楽天・Yahoo!・Amazonから最安値を検索</p>
+                <p class="text-gray-300 text-sm">楽天・Yahoo!から価格を比較</p>
                 @if(!empty($priceStats))
                 <p class="text-gray-300 text-xs mt-2">
                     楽天・Yahooの検索結果{{ number_format($priceStats->product_count) }}件 ／ 中央値 約{{ number_format($priceStats->price_median) }}円 ／ 半数が{{ number_format($priceStats->price_q1) }}円〜{{ number_format($priceStats->price_q3) }}円
@@ -159,10 +159,7 @@
                         <div class="absolute top-0 bottom-0 bg-blue-500" style="left: {{ $priceBand['q1_pct'] }}%; width: {{ max(1, $priceBand['q3_pct'] - $priceBand['q1_pct']) }}%"></div>
                         <div class="absolute top-0 bottom-0 w-1 bg-gray-900" style="left: {{ $priceBand['median_pct'] }}%"></div>
                     </div>
-                    <div class="flex justify-between text-xs text-gray-400 mt-1">
-                        <span>&yen;{{ number_format($priceStats->price_min) }}</span>
-                        <span>&yen;{{ number_format($priceStats->price_max) }}</span>
-                    </div>
+                    <p class="text-[11px] text-gray-400 mt-1">取得した全{{ number_format($priceStats->product_count) }}件の価格範囲：&yen;{{ number_format($priceStats->price_min) }} 〜 &yen;{{ number_format($priceStats->price_max) }}</p>
                 </div>
                 <p class="text-[11px] text-gray-400 mt-3 leading-relaxed">
                     {{ $priceBand['date_full'] }}時点、楽天・Yahooの検索結果{{ number_format($priceStats->product_count) }}件に基づく価格分布です。関連商品を含むため、実際の製品相場とは異なる場合があります。
@@ -293,22 +290,18 @@
                         <tbody>
                             <tr class="border-b border-gray-100">
                                 <td class="px-4 py-2.5 font-bold text-red-600">楽天市場</td>
-                                <td class="px-4 py-2.5 text-gray-600">最大16.5倍（SPU）</td>
+                                <td class="px-4 py-2.5 text-gray-600"><a href="https://event.rakuten.co.jp/campaign/point-up/everyday/point/" target="_blank" rel="nofollow noopener sponsored" class="text-blue-600 hover:text-blue-800 underline">SPU（スーパーポイントアッププログラム）</a></td>
                                 <td class="px-4 py-2.5 text-gray-600">お買い物マラソン・スーパーSALE</td>
                             </tr>
-                            <tr class="border-b border-gray-100 bg-gray-50/50">
+                            <tr class="bg-gray-50/50">
                                 <td class="px-4 py-2.5 font-bold text-red-500">Yahoo!</td>
-                                <td class="px-4 py-2.5 text-gray-600">最大5%（PayPay）</td>
+                                <td class="px-4 py-2.5 text-gray-600"><a href="https://paypay.yahoo.co.jp/point" target="_blank" rel="nofollow noopener sponsored" class="text-blue-600 hover:text-blue-800 underline">PayPayポイント</a></td>
                                 <td class="px-4 py-2.5 text-gray-600">5のつく日・日曜日</td>
-                            </tr>
-                            <tr>
-                                <td class="px-4 py-2.5 font-bold text-yellow-600">Amazon</td>
-                                <td class="px-4 py-2.5 text-gray-600">1%〜（ポイント対象品）</td>
-                                <td class="px-4 py-2.5 text-gray-600">プライムデー・タイムセール祭り</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
+                <p class="text-[11px] text-gray-400 mt-3">ポイント還元の条件と倍率は各モールの改定で変わります。最新の条件は各公式ページでご確認ください。</p>
             </section>
 
             {{-- 交換時期ガイド --}}
