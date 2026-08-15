@@ -191,12 +191,28 @@ final class RankingController extends Controller
 
         $relatedParts = app(BikePartsService::class)->fetchFlat($bikeModel);
 
+        // 車種の値下げ統計（stats:model-price-drops が保存。サンプル不足の車種は行が無い）。
+        // マイグレーション未実行でもページを落とさないよう try/catch で null フォールバック。
+        $priceDropStats = null;
+        try {
+            $priceDropStats = DB::table('bike_model_price_drop_stats')
+                ->where('bike_model_id', $bikeModelId)
+                ->first();
+        } catch (\Throwable) {
+            $priceDropStats = null;
+        }
+        // 集計基準ラベル（注記「2026年3月からの集計」用）。
+        $priceDropSince = Carbon::parse((string) config('price_alerts.model_stats.since_date', '2026-03-07'))
+            ->format('Y年n月');
+
         return view('ranking.model', [
             'bikeModel' => $bikeModel,
             'stats' => $stats,
             'activeCount' => $activeCount,
             'relatedListings' => $relatedListings,
             'relatedParts' => $relatedParts,
+            'priceDropStats' => $priceDropStats,
+            'priceDropSince' => $priceDropSince,
         ]);
     }
 

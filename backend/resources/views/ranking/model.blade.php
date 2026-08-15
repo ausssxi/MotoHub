@@ -74,6 +74,32 @@
             </div>
         </div>
 
+        {{-- 値下げデータ（bike_model_price_drop_stats。サンプル不足＝統計未保存の車種はセクションごと非表示） --}}
+        @if(!empty($priceDropStats))
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+            <h2 class="text-sm font-black text-gray-500 uppercase tracking-widest mb-1">値下げデータ</h2>
+            <p class="text-[11px] text-gray-400 mb-4">「待てば下がるのか」の目安（{{ $priceDropSince }}からの集計）</p>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div class="bg-gray-50 rounded-xl p-4 text-center">
+                    <p class="text-[10px] font-bold text-gray-400 mb-1">値下げされた割合</p>
+                    <p class="text-2xl font-black text-gray-900">{{ $priceDropStats->listing_count > 0 ? round($priceDropStats->dropped_listing_count / $priceDropStats->listing_count * 100) : 0 }}<span class="text-xs text-gray-400">%</span></p>
+                    <p class="text-[10px] text-gray-400 mt-1">{{ number_format($priceDropStats->dropped_listing_count) }}/{{ number_format($priceDropStats->listing_count) }}台</p>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-4 text-center">
+                    <p class="text-[10px] font-bold text-gray-400 mb-1">初回値下げまで平均</p>
+                    <p class="text-2xl font-black text-gray-900">{{ $priceDropStats->avg_first_drop_days !== null ? number_format($priceDropStats->avg_first_drop_days) : '-' }}<span class="text-xs text-gray-400">日</span></p>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-4 text-center">
+                    <p class="text-[10px] font-bold text-gray-400 mb-1">平均値下げ額</p>
+                    <p class="text-2xl font-black text-gray-900">{{ $priceDropStats->avg_drop_amount !== null ? number_format($priceDropStats->avg_drop_amount) : '-' }}<span class="text-xs text-gray-400">円</span></p>
+                </div>
+            </div>
+            <p class="text-[10px] text-gray-400 mt-3 leading-relaxed">
+                ※ 掲載開始からの日数は、販売店の掲載日ではなくMotoHubが最初に確認した日を起点にしています（{{ $priceDropSince }}以降に確認した掲載が対象）。実際より控えめに出る場合があります。
+            </p>
+        </div>
+        @endif
+
         {{-- 解説テキスト（自動生成） --}}
         @php
             $topPrice = $stats['priceRanges']->first();

@@ -21,4 +21,14 @@ return [
     //   記録される（例: 63,680,000円 → 636,900円）。TweetPriceDrop は最大値下げ1件を選ぶため、これを弾かないと
     //   「6,300万円値下げ」のような異常投稿が出る。率が高すぎる変動は実勢の値下げではないとみなす。
     'max_drop_ratio' => 0.5,    // 50%。(old_price - new_price) / old_price がこの率を超える変動は除外
+
+    // 車種ごとの値下げ統計（stats:model-price-drops → bike_model_price_drop_stats）の集計パラメータ。
+    'model_stats' => [
+        // price_histories の蓄積開始日。これ以前から掲載されていた車両は、初回値下げまでの日数を
+        // listings.created_at（=MotoHubの初回取得日）起点で正しく測れないため集計対象から除外する。
+        'since_date' => '2026-03-07',
+        // サンプル数が少ない車種は割合・平均が不安定で統計的に無意味なため、集計対象の掲載数が
+        // これ未満の車種はテーブルに保存しない。
+        'min_listing_count' => 5,
+    ],
 ];
