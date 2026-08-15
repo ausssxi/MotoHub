@@ -24,7 +24,9 @@ use Transliterator;
  */
 final class DetectNameSystemDupes extends Command
 {
-    protected $signature = 'models:detect-name-dupes';
+    protected $signature = 'models:detect-name-dupes
+        {--csv : 統合用CSV(canonical_id,dupe_id)だけを標準出力へ出す（人向け一覧は出さない）}
+        {--min-listings=0 : 組の在庫合計がこの値未満の組をCSV出力から除外（既定0=全部出す）}';
 
     protected $description = '同一メーカー内でカタカナ表記とローマ字表記に分かれた同一車種の重複候補を洗い出す（読み取り専用・出力のみ）';
 
@@ -86,6 +88,14 @@ final class DetectNameSystemDupes extends Command
         // 在庫合計の多い組から順に。
         usort($pairs, fn ($a, $b) => $b['stock'] <=> $a['stock']);
 
+        // --csv: model:merge-pairs 用の canonical_id,dupe_id だけを標準出力へ出して終了。
+        // 人向け一覧（既存の出力形式）は変更せず、--csv 指定時のみ挙動を差し替える。読み取り専用のまま。
+        if ($this->option('csv')) {
+            $this->emitMergeCsv($pairs, $fitmentCounts);
+
+            return self::SUCCESS;
+        }
+
         // 集計（今回いちばん知りたい3つの数字）は全候補の組を対象にする。
         $totalPairs = count($pairs);
         $totalRecords = array_sum(array_map(fn ($p) => count($p['rows']), $pairs));
@@ -127,5 +137,49 @@ final class DetectNameSystemDupes extends Command
         $this->line(sprintf('  （うち在庫が全レコード0で一覧から省いた組: %d）', $zeroStockOmitted));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * model:merge-pairs が読む canonical_id,dupe_id を標準出力へ出す（1組=1canonical + 残り全dupe）。
+     * 在庫合計が --min-listings 未満の組は除外。ヘッダ等は出さず、データ行のみ（merge-pairs へそのまま流せる）。
+     *
+     * canonical の選定は model:dedup の pickCanonical と同じ考え方の3段:
+     *   (1) active 在庫件数が多いほう → (2) 同数なら model_fitments 行数が多いほう → (3) それも同数なら id が小さいほう。
+     *   ※pickCanonical の第2段は spec 充実度だが、本コマンドは指示により model_fitments 行数を用いる。
+     *
+     * @param  array<int, array{key:string, rows:array<int, \App\Models\BikeModel>, stock:int}>  $pairs
+     * @param  \Illuminate\Support\Collection<int, int>  $fitmentCounts
+     */
+    private function emitMergeCsv(array $pairs, $fitmentCounts): void
+    {
+        $minListings = (int) $this->option('min-listings');
+
+        foreach ($pairs as $pair) {
+            if ($pair['stock'] < $minListings) {
+                continue; // 組の在庫合計がしきい値未満は出力しない
+            }
+
+            $rows = $pair['rows'];
+            usort($rows, function ($a, $b) use ($fitmentCounts) {
+                // (1) active 在庫件数 desc
+                if ((int) $a->active_listings_count !== (int) $b->active_listings_count) {
+                    return (int) $b->active_listings_count <=> (int) $a->active_listings_count;
+                }
+                // (2) model_fitments 行数 desc
+                $fa = (int) ($fitmentCounts[$a->id] ?? 0);
+                $fb = (int) ($fitmentCounts[$b->id] ?? 0);
+                if ($fa !== $fb) {
+                    return $fb <=> $fa;
+                }
+                // (3) id asc
+                return (int) $a->id <=> (int) $b->id;
+            });
+
+            $canonical = $rows[0];
+            foreach (array_slice($rows, 1) as $dupe) {
+                // 3件以上が同キーに集まる組でも、選ばれた canonical に対し残り全てを dupe として出す。
+                $this->line($canonical->id.','.$dupe->id);
+            }
+        }
     }
 }
