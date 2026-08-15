@@ -1694,6 +1694,25 @@
                             </div>
                             @endif
 
+                            {{-- MotoHub掲載日数＋値下げ実績（この車両ベース・全在庫に表示。$rankingStatsカードの外） --}}
+                            @if(!empty($daysOnSite))
+                            <div class="mb-6 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                                <p class="text-[11px] text-gray-500 font-bold flex items-center gap-1.5">
+                                    <i data-lucide="calendar-clock" class="w-3 h-3 text-gray-400"></i>
+                                    MotoHub掲載 <span class="text-gray-900 font-black">{{ number_format($daysOnSite) }}</span>日目
+                                </p>
+                                @if(!empty($priceDropSummary) && $priceDropSummary['count'] > 0)
+                                <p class="text-[11px] text-gray-500 font-bold flex items-center gap-1.5 mt-1.5">
+                                    <i data-lucide="trending-down" class="w-3 h-3 text-red-400"></i>
+                                    これまでに<span class="text-gray-900 font-black">{{ number_format($priceDropSummary['count']) }}</span>回、計<span class="text-red-600 font-black">{{ number_format($priceDropSummary['total']) }}</span>円値下げされています
+                                </p>
+                                @endif
+                                <p class="text-[10px] text-gray-400 mt-1.5 leading-relaxed">
+                                    ※ 販売店の掲載日ではなく、MotoHubが最初に確認した日からの日数です（実際の掲載期間より短く出る場合があります）。
+                                </p>
+                            </div>
+                            @endif
+
                             @if(!$listing->is_sold_out)
                             <div class="mb-6">
                                 <div class="bg-gray-50 hover:bg-red-50 rounded-2xl p-4 border border-gray-200 hover:border-red-200 flex items-center justify-between group cursor-pointer transition-colors shadow-sm" onclick="if(window.WishlistManager) window.WishlistManager.toggle('{{ $listing->id }}')">

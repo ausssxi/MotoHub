@@ -723,6 +723,28 @@ final class BikeController extends Controller
             // Resource変換前の $listing を渡す（総額 ?? 本体・min_price判定はヘルパーに集約）。ライブ/売り切れ共通。
             $loanEstimate = \App\Support\LoanEstimate::forListing($listing);
 
+            // MotoHub掲載日数（この車両ベース）。created_at=MotoHubが最初に確認した日（販売店の掲載日ではない）。
+            // diffInDays は環境により float を返すため int にキャスト（表示が 62.0 にならないように）。初取得日=1日目。
+            $daysOnSite = $listing->created_at
+                ? (int) $listing->created_at->startOfDay()->diffInDays(now()->startOfDay()) + 1
+                : null;
+
+            // 値下げ実績（この車両ベース・1クエリ）。しきい値は config/price_alerts.php（ベタ書きしない）。
+            // 値下げのみ(old>new)／変動額 >= min_drop_amount／変動率 <= max_drop_ratio（桁違い誤読を除外）。
+            $dropMinAmount = (int) config('price_alerts.min_drop_amount', 5000);
+            $dropMaxRatio = (float) config('price_alerts.max_drop_ratio', 0.5);
+            $dropAgg = DB::table('price_histories')
+                ->where('listing_id', $listing->id)
+                ->whereColumn('old_price', '>', 'new_price')
+                ->whereRaw('(old_price - new_price) >= ?', [$dropMinAmount])
+                ->whereRaw('(old_price - new_price) <= old_price * ?', [$dropMaxRatio])
+                ->selectRaw('COUNT(*) as cnt, COALESCE(SUM(old_price - new_price), 0) as total')
+                ->first();
+            $priceDropSummary = [
+                'count' => (int) ($dropAgg->cnt ?? 0),
+                'total' => (int) ($dropAgg->total ?? 0),
+            ];
+
             return view('bikes.show', [
                 'listing' => $data,
                 'loanEstimate' => $loanEstimate,
@@ -759,6 +781,8 @@ final class BikeController extends Controller
                 'soldOutData' => $soldOutData,
                 'activeSameModel' => $activeSameModel,
                 'reviewDetailedStats' => $reviewDetailedStats,
+                'daysOnSite' => $daysOnSite,
+                'priceDropSummary' => $priceDropSummary,
             ]);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Listing show failed', [
