@@ -25,7 +25,7 @@ final class BikeModel extends Model
      *    を実行して全車種を新キーで再温めすること（バンプ直後は全ページがコールド＝TTFB悪化、
      *    日次ウォーマーは07:30まで走らない）。cache:clear は使わない（上書きウォームのみ）。
      */
-    public const MODEL_DETAIL_CACHE_VERSION = 'v8'; // v8: 抑止導入前に焼かれた stale cache を破棄し、掲載停止サイト(Webike)画像の抑止を全モデルに反映（要 warm）
+    public const MODEL_DETAIL_CACHE_VERSION = 'v9'; // v9: 車種統合24組・メーカー統合10組で canonical 側の在庫件数/車種名/メーカーが変わった stale cache を破棄（要 warm）
 
     /**
      * model_detail ページのキャッシュキーを生成する（生成側とパージ側で必ず一致させるための単一の正本）。
