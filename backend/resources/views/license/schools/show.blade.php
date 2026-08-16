@@ -114,7 +114,7 @@
             @if(!empty($schoolCtaUrl) && !empty($schoolAffiliate['label']))
                 <section>
                     <div class="bg-white rounded-2xl border border-slate-200 p-6 text-center">
-                        <p class="text-[10px] font-black tracking-widest uppercase text-slate-400 mb-2">PR・広告</p>
+                        <p class="text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">PR・広告</p>
                         <h2 class="text-lg font-black text-slate-900 mb-1">短期間でまとめて取りたいなら合宿という方法もあります</h2>
                         <p class="text-[13px] text-slate-600 leading-relaxed mb-4">通いの教習所のほかに、合宿で免許を取る方法もあります。二輪の合宿を扱っているか、料金や日程は申込先のサイトでご確認ください。</p>
                         @if(!empty($schoolAffiliate['label']))

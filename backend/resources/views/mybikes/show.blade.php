@@ -881,7 +881,7 @@
                                             </template>
                                         </div>
                                         {{-- PR表記（景表法・ステマ規制対応・候補表示時） --}}
-                                        <p x-show="productOpen" x-cloak class="text-[10px] text-gray-400 mt-1">PR・アフィリエイトリンクを含みます。価格・在庫は各モールでご確認ください。</p>
+                                        <p x-show="productOpen" x-cloak class="text-[10px] text-gray-500 mt-1">PR・アフィリエイトリンクを含みます。価格・在庫は各モールでご確認ください。</p>
                                     </div>
                                 </template>
 

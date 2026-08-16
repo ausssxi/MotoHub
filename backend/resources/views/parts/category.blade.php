@@ -195,7 +195,10 @@
             {{-- 商品カード（保存済み parts_category_products。追加APIなし。0件はブロックごと非表示） --}}
             @if($categoryProducts->isNotEmpty())
             <section class="mb-8">
-                <h2 class="text-lg font-black text-gray-800 mb-4">{{ $category['name'] }}の商品{{ $priceStats ? '（'.number_format($priceStats->product_count).'件から'.number_format($categoryProducts->count()).'件を表示）' : '' }}</h2>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-black text-gray-800">{{ $category['name'] }}の商品{{ $priceStats ? '（'.number_format($priceStats->product_count).'件から'.number_format($categoryProducts->count()).'件を表示）' : '' }}</h2>
+                    <span class="text-[10px] font-black tracking-widest text-gray-500 uppercase">PR・広告</span>
+                </div>
                 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     @foreach($categoryProducts as $product)
                     <a href="{{ $product->product_url }}" target="_blank" rel="nofollow noopener sponsored"

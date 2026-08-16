@@ -42,7 +42,7 @@
     <div class="border-t border-gray-100 pt-4">
         <div class="flex items-center justify-between mb-2">
             <p class="text-xs font-black text-gray-700">おすすめプラグ</p>
-            <span class="text-[9px] font-black tracking-widest text-gray-300 uppercase">PR・広告</span>
+            <span class="text-[10px] font-black tracking-widest text-gray-500 uppercase">PR・広告</span>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             @foreach(array_slice($plugProducts, 0, 4) as $prod)

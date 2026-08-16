@@ -151,7 +151,7 @@
             @if(!empty($licAff['url']) && !empty($licAff['banner_url']) && request()->route('class') !== 'gentsuki')
                 <section>
                     <div class="bg-white rounded-2xl border border-slate-200 p-6 text-center">
-                        <p class="text-[10px] font-black tracking-widest uppercase text-slate-400 mb-2">PR・広告</p>
+                        <p class="text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">PR・広告</p>
                         <p class="text-[13px] text-slate-600 leading-relaxed mb-4">まとまった休みが取れるなら、短期集中の合宿という選択肢もあります。二輪の取り扱いや料金・日程は申込先のサイトでご確認ください。</p>
                         <a href="{{ $licAff['url'] }}" target="_blank" rel="nofollow sponsored noopener" class="inline-block">
                             <img src="{{ $licAff['banner_url'] }}" width="{{ $licAff['width'] ?? 300 }}" height="{{ $licAff['height'] ?? 250 }}" alt="{{ $licAff['alt'] ?? '' }}" class="max-w-full h-auto mx-auto" style="border:0;">

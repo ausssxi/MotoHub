@@ -7,7 +7,7 @@
 @php $akippaCta = \App\Support\AkippaLink::ctaFor($parking->management_company ?? null, $parking->notes ?? null, $parking->description ?? null); @endphp
 @if($akippaCta)
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
-    <p class="text-[10px] font-black tracking-widest text-gray-300 uppercase mb-1">PR・広告</p>
+    <p class="text-[10px] font-black tracking-widest text-gray-500 uppercase mb-1">PR・広告</p>
     <div class="flex items-start gap-3">
         <span class="bg-green-50 text-green-600 p-2 rounded-lg shrink-0"><i data-lucide="calendar-check" class="w-5 h-5"></i></span>
         <div class="min-w-0">

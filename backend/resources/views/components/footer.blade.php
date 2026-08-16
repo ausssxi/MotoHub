@@ -228,6 +228,11 @@
                 <p class="text-[10px] text-gray-400 leading-relaxed">駅データ: 国土数値情報（鉄道データ）国土交通省</p>
             </div>
 
+            <!-- アフィリエイト開示 -->
+            <div class="pt-4 w-full">
+                <p class="text-[10px] text-gray-500 leading-relaxed">当サイトは楽天アフィリエイト、Amazonアソシエイト、バリューコマース等のアフィリエイトプログラムに参加しています。Amazonのアソシエイトとして、MotoHubは適格販売により収入を得ています。</p>
+            </div>
+
             <!-- コピーライト -->
             <div class="pt-4 w-full">
                 <p class="text-[10px] text-gray-300 font-bold tracking-widest uppercase">

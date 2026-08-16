@@ -44,6 +44,19 @@
                 </section>
 
                 <section>
+                    <h2 class="text-lg font-black text-black mb-4">アフィリエイトプログラムについて</h2>
+                    <p class="text-sm sm:text-base leading-relaxed mb-4">
+                        当サイトは、楽天アフィリエイト、Amazonアソシエイト・プログラム、バリューコマースなどのアフィリエイトプログラムに参加しています。当サイトに掲載している商品リンクを経由して商品が購入された場合、当サイトは各プログラムから紹介料を受け取ることがあります。
+                    </p>
+                    <p class="text-sm sm:text-base leading-relaxed mb-4">
+                        紹介料の有無によって、掲載する商品や、表示する価格・並び順を変えることはありません。商品の選定と並び順は各モールの検索結果に基づいています。
+                    </p>
+                    <p class="text-sm sm:text-base leading-relaxed">
+                        Amazonのアソシエイトとして、MotoHubは適格販売により収入を得ています。
+                    </p>
+                </section>
+
+                <section>
                     <h2 class="text-lg font-black text-black mb-4">アクセス解析ツールについて</h2>
                     <p class="text-sm sm:text-base leading-relaxed">
                         当サイトでは、Googleによるアクセス解析ツール「Googleアナリティクス」を利用しています。このGoogleアナリティクスはトラフィックデータの収集のためにクッキー（Cookie）を使用しています。このトラフィックデータは匿名で収集されており、個人を特定するものではありません。

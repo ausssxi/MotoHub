@@ -266,7 +266,10 @@
 
             {{-- 結果ヘッダー --}}
             <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <h2 class="text-lg font-bold text-gray-800">検索結果 <span id="result-count" class="text-blue-600 text-sm font-normal"></span></h2>
+                <div class="flex items-center gap-2">
+                    <h2 class="text-lg font-bold text-gray-800">検索結果 <span id="result-count" class="text-blue-600 text-sm font-normal"></span></h2>
+                    <span class="text-[10px] font-black tracking-widest text-gray-500 uppercase">PR・広告</span>
+                </div>
                 <div class="flex items-center gap-3">
                     <button id="filter-toggle-btn" type="button"
                         class="lg:hidden inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">

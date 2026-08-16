@@ -88,6 +88,10 @@
             </div>
             @endif
 
+            <div class="flex justify-end mb-2">
+                <span class="text-[10px] font-black tracking-widest text-gray-500 uppercase">PR・広告</span>
+            </div>
+
             {{-- 3列比較 --}}
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {{-- 楽天 最安1件 --}}
