@@ -839,32 +839,6 @@
                 </div>
             </section>
 
-            {{-- 🔍探す: タイプから探す --}}
-            <section class="mb-20">
-                <div class="bg-gray-900 rounded-3xl p-8 sm:p-12 text-center relative overflow-hidden">
-                    <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 pointer-events-none"></div>
-                    <div class="absolute -top-24 -left-24 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
-                    <div class="absolute -bottom-24 -right-24 w-64 h-64 bg-red-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-                    <div class="relative z-10">
-                        <h2 class="text-2xl font-black text-white mb-2 tracking-tighter">タイプから探す</h2>
-                        <p class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-8">Search by Body Type</p>
-
-                        <div class="flex flex-wrap justify-center gap-3">
-                            <a href="{{ route('bikes.category_type', 'naked') }}" class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">ネイキッド</a>
-                            <a href="{{ route('bikes.category_type', 'scooter') }}" class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">スクーター</a>
-                            <a href="{{ route('bikes.category_type', 'sport') }}" class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">スポーツ/レプリカ</a>
-                            <a href="{{ route('bikes.category_type', 'american') }}" class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">アメリカン</a>
-                            <a href="{{ route('bikes.category_type', 'offroad') }}" class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">オフロード</a>
-                            <a href="{{ route('bikes.category_type', 'tourer') }}" class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">ツアラー</a>
-                            <a href="{{ route('bikes.category_type', 'mini') }}" class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">ミニバイク</a>
-                            <a href="{{ route('bikes.category_type', 'classic') }}" class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">クラシック</a>
-                            <a href="{{ route('bikes.category_type', 'adventure') }}" class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">アドベンチャー</a>
-                            <a href="{{ route('bikes.category_type', 'street-fighter') }}" class="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-black font-bold text-xs transition-all border border-white/20">ストリートファイター</a>
-                        </div>
-                    </div>
-                </div>
-            </section>
 
             {{-- 🌍 海外バイクバナー --}}
             @php
