@@ -298,21 +298,14 @@ class Listing extends Model
     }
 
     /**
-     * 一括sold_out除外: 事前計算済みIDリスト（Redis）で除外
-     * cappedSold の後にチェーンして使う
+     * 一括sold_out除外: 事前計算フラグ listings.is_bulk_sold で除外（ranking:compute-bulk-exclusions が更新）。
+     * cappedSold の後にチェーンして使う。
+     * ※旧実装は Redis の除外IDリストを whereNotIn に展開していたが、件数増でSQLが肥大し破綻したため
+     *   cappedSold(is_capped_sold) と同じフラグ列方式へ移行（件数無関係で一定サイズのSQL）。
      */
     public function scopeExcludeBulkSold(Builder $query): Builder
     {
-        $ids = \Illuminate\Support\Facades\Redis::connection()
-            ->smembers(\App\Console\Commands\ComputeBulkExclusions::REDIS_KEY);
-
-        if (empty($ids)) {
-            return $query;
-        }
-
-        $ids = array_map('intval', $ids);
-
-        return $query->whereNotIn('listings.id', $ids);
+        return $query->where('listings.is_bulk_sold', false);
     }
 
     public function scopeActive(Builder $query): Builder
