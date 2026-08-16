@@ -102,7 +102,7 @@
                 </section>
 
                 <div class="pt-10 border-t border-gray-100 text-[10px] text-gray-400 font-bold uppercase tracking-widest text-right">
-                    策定日：2024年4月1日
+                    策定日：2024年4月1日　最終改定日：2026年8月16日
                 </div>
 
             </div>
