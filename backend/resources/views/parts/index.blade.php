@@ -1,7 +1,7 @@
 <x-layout>
     <x-slot:title>バイクパーツ検索 | MotoHub</x-slot:title>
 
-    <x-slot:metaDescription>バイクパーツの価格を楽天・Yahoo・Amazonで一括比較。マフラー・タイヤ・ブレーキパッドなど10カテゴリの選び方ガイド付き。車種別・ブランド別でも検索可能。</x-slot:metaDescription>
+    <x-slot:metaDescription>バイクパーツを楽天市場から検索。マフラー・タイヤ・ブレーキパッドなど10カテゴリの選び方ガイド付き。同じ条件でYahoo!ショッピング・Amazonにも移動できます。</x-slot:metaDescription>
 
     <x-slot:navigation>
         <x-navigation :showSearch="true" />
@@ -12,7 +12,7 @@
         <section class="bg-gradient-to-r from-gray-900 to-gray-800 text-white py-10">
             <div class="max-w-5xl mx-auto px-4 text-center">
                 <h1 class="text-2xl sm:text-3xl font-black mb-2">バイクパーツ検索</h1>
-                <p class="text-gray-300 text-sm">楽天・Yahoo!・Amazonの価格を一括比較。最安値のパーツを見つけよう。</p>
+                <p class="text-gray-300 text-sm">楽天市場のバイクパーツを検索。同じ条件でYahoo!ショッピング・Amazonにも移動できます。</p>
             </div>
         </section>
 
@@ -204,14 +204,14 @@
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div class="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
                         <div class="text-2xl mb-2">&#128230;</div>
-                        <h3 class="text-sm font-black text-gray-800 mb-2">楽天 vs Yahoo vs Amazon どこが安い？</h3>
-                        <p class="text-xs text-gray-600 leading-relaxed mb-3">同じ商品でもサイトごとに価格が異なります。楽天はポイント還元、Yahooは5のつく日、Amazonは即日配送が強み。</p>
+                        <h3 class="text-sm font-black text-gray-800 mb-2">同じ商品でもサイトによって価格が違う</h3>
+                        <p class="text-xs text-gray-600 leading-relaxed mb-3">MotoHubの検索結果は楽天市場のものです。気になる商品が見つかったら、同じ条件でYahoo!ショッピング・Amazonにも移動して、価格を見比べてください。</p>
                         <a href="{{ route('parts.category', 'muffler') }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">カテゴリページで詳しく &rarr;</a>
                     </div>
                     <div class="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
                         <div class="text-2xl mb-2">&#128176;</div>
                         <h3 class="text-sm font-black text-gray-800 mb-2">ポイント還元を活用しよう</h3>
-                        <p class="text-xs text-gray-600 leading-relaxed mb-3">楽天SPUで最大16.5倍、Yahoo!は5のつく日にポイント4倍、Amazonプライムデーで大幅値引き。タイミングを狙ってお得に購入。</p>
+                        <p class="text-xs text-gray-600 leading-relaxed mb-3">各モールにポイントプログラムがあります（楽天のSPU、Yahoo!のPayPayポイントなど）。条件と還元率は改定で変わるため、購入前に各モールの公式ページで確認してください。</p>
                         <a href="{{ route('parts.category', 'tire') }}" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">各カテゴリのポイント情報 &rarr;</a>
                     </div>
                     <div class="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
@@ -228,10 +228,10 @@
                 <h2 class="text-lg font-black text-gray-800 mb-4">MotoHubのバイクパーツ検索とは</h2>
                 <div class="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
                     <p class="text-sm text-gray-600 leading-relaxed">
-                        MotoHubでは楽天市場・Yahoo!ショッピング・Amazonからバイクパーツを横断検索できます。同じ商品でもショップによって価格が異なるため、一括比較することで最安値を見つけられます。
+                        MotoHubのパーツ検索は、楽天市場のバイク用品を対象にしています。検索結果から商品を選ぶと、その品番や商品名を引き継いだままYahoo!ショッピング・Amazonの検索ページへ移動できます。同じ商品でもモールによって価格が違うため、見比べてから買うことをおすすめします。
                     </p>
                     <p class="text-sm text-gray-600 leading-relaxed">
-                        JAN（バーコード番号）・品番マッチングにより、同一商品を高精度で比較。送料やポイント還元も考慮して、本当にお得なショップを探せます。
+                        商品名から品番を取り出して、それをキーに他モールを検索できます。品番が取れない場合は商品名の先頭を使います。送料やポイント還元はモールごとに異なるので、表示価格だけでなく合計で比べてください。
                     </p>
                     <p class="text-sm text-gray-600 leading-relaxed">
                         マフラー、タイヤ、ブレーキパッドなど10カテゴリの選び方ガイドも充実。初めてのパーツ交換でも安心して選べます。
@@ -257,7 +257,7 @@
             {{-- Amazon検索バー --}}
             <div id="amazon-bar" class="hidden mb-4 bg-[#FFF8EE] border border-[#FFD89E] rounded-xl p-3 flex items-center justify-between gap-3">
                 <span class="text-xs font-bold text-gray-700">Amazonでも検索する</span>
-                <a id="amazon-search-link" href="#" target="_blank" rel="noopener noreferrer"
+                <a id="amazon-search-link" href="#" target="_blank" rel="nofollow noopener noreferrer sponsored"
                     class="shrink-0 inline-flex items-center gap-1.5 bg-[#FF9900] hover:bg-[#e88b00] text-white font-bold text-xs px-4 py-2 rounded-lg transition-colors">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                     Amazonで見る
@@ -565,11 +565,11 @@
                             class="block text-center bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-2 rounded-lg transition-colors">
                             楽天市場で見る
                         </a>
-                        <a href="${yahooUrl}" target="_blank" rel="noopener noreferrer"
+                        <a href="${yahooUrl}" target="_blank" rel="nofollow noopener noreferrer sponsored"
                             class="block text-center bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-2 rounded-lg transition-colors">
                             Yahoo!で探す
                         </a>
-                        <a href="${amazonFallbackUrl}" target="_blank" rel="noopener noreferrer"
+                        <a href="${amazonFallbackUrl}" target="_blank" rel="nofollow noopener noreferrer sponsored"
                             class="block text-center bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-2 rounded-lg transition-colors">
                             Amazonで探す
                         </a>
