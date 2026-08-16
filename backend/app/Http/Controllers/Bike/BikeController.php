@@ -532,7 +532,7 @@ final class BikeController extends Controller
                         })
                         ->whereNotNull('total_price')
                         ->where('total_price', '>', 0)
-                        ->inRandomOrder()
+                        ->latest('id')
                         ->limit(6)
                         ->get();
                 });

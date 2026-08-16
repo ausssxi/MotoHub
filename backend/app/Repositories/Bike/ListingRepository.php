@@ -279,7 +279,7 @@ final class ListingRepository
             ->where('manufacturer_id', $manufacturerId)
             ->where('bike_model_id', '!=', $excludeModelId)
             ->where('is_sold_out', false)
-            ->inRandomOrder()
+            ->latest('id')
             ->take($limit)
             ->get();
     }
