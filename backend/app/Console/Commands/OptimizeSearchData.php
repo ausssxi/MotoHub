@@ -24,7 +24,10 @@ class OptimizeSearchData extends Command
 
         // メモリ不足対策のためChunkで処理
         // BikeModelのリレーションを使ってデータを取得し、listingsにコピー
-        $query = Listing::with('bikeModel')->whereNull('manufacturer_id');
+        // 掲載中(is_sold_out=0)を先に処理し、利用者に見える不具合を早く解消する（→ id昇順で決定的）。
+        $query = Listing::with('bikeModel')->whereNull('manufacturer_id')
+            ->orderBy('is_sold_out')
+            ->orderBy('id');
 
         $count = $query->count();
         $bar = $this->output->createProgressBar(min($count, $limit));
