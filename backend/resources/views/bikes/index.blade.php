@@ -618,8 +618,9 @@
                 // category_id → カテゴリLPスラッグのマッピング
                 $categoryTypeSlugMap = [
                     1 => 'mini',
-                    2 => 'scooter',
-                    3 => 'scooter',
+                    3 => 'scooter-50',
+                    19 => 'scooter-125',
+                    18 => 'scooter-126',
                     4 => 'naked',
                     6 => 'tourer',
                     8 => 'sport',
@@ -642,6 +643,8 @@
 
                 <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
                     @foreach($categories as $category)
+                        {{-- カテゴリ22「その他」は車体タイプではないため、タイプから探すの一覧から除外する --}}
+                        @continue($category->id === 22)
                         @if($category->display_icon_url)
                         @php
                             $typeSlug = $categoryTypeSlugMap[$category->id] ?? null;
