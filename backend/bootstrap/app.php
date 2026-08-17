@@ -161,13 +161,16 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->dailyAt('05:20')
                  ->withoutOverlapping();
 
-        // Meilisearch差分同期 (05:30)
+        // Meilisearch差分同期 (01:30 / 02:30 / 03:30 / 04:30 / 05:30 の5回・各回 --limit=10000)
+        // 1回の負荷を最大1万件に抑え、滞留（needs_reindex）を深夜帯に分散消化する。
         // PythonスクレイパーがセットしたFlaggedレコードのみ同期（フルインポート不要）
         // 手動フルインポート: php artisan scout:import 'App\Models\Listing'
-        $schedule->command('scout:sync-flagged')
-                 ->dailyAt('05:30')
-                 ->withoutOverlapping()
-                 ->appendOutputTo($meiliLog);
+        foreach (['01:30', '02:30', '03:30', '04:30', '05:30'] as $meiliSyncTime) {
+            $schedule->command('scout:sync-flagged --limit=10000')
+                     ->dailyAt($meiliSyncTime)
+                     ->withoutOverlapping()
+                     ->appendOutputTo($meiliLog);
+        }
 
         // 市場価格の再計算・グラフキャッシュ更新 (06:00)
         // タグ抽出まで完了したデータをもとに統計を生成

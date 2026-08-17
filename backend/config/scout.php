@@ -73,6 +73,12 @@ return [
         'unsearchable' => 500,
     ],
 
+    // scout:sync-flagged の1回あたり処理上限（needs_reindex の滞留を深夜帯に分散消化するため）。
+    'sync_flagged_limit' => env('SCOUT_SYNC_FLAGGED_LIMIT', 20000),
+
+    // scout:sync-flagged の chunk 間 sleep（ミリ秒）。Meilisearch の非同期インデックス構築を詰まらせない。0で無効。
+    'sync_flagged_sleep_ms' => env('SCOUT_SYNC_FLAGGED_SLEEP_MS', 200),
+
     /*
     |--------------------------------------------------------------------------
     | Soft Deletes
