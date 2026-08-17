@@ -78,10 +78,15 @@ class BaseBikeSpider(scrapy.Spider):
         )
         self.db.add(new_listing)
 
+    # source_url（spread ID）が別車両に使い回されたとき、車両の同一性に関わる列を上書きする対象。
+    # manufacturer_id / category_id / displacement は含めない（スクレイパーが持たず、Laravel が bike_model から導出）。
+    UPDATABLE_ON_REUSE = ['title', 'bike_model_id', 'model_year', 'mileage',
+                          'condition', 'has_repair_history']
+
     def update_listing(self, url, data):
         """既存の出品情報を更新（価格変動があれば履歴も記録）"""
-        # 価格変動の検知: 更新前の価格を取得
-        existing = self.db.query(Listing.id, Listing.total_price).filter(
+        # 価格変動の検知＋bike_model_id変化判定のため、更新前の値を取得
+        existing = self.db.query(Listing.id, Listing.total_price, Listing.bike_model_id).filter(
             Listing.source_url == url
         ).first()
 
@@ -105,6 +110,22 @@ class BaseBikeSpider(scrapy.Spider):
             "needs_reindex": True,
             "updated_at": datetime.datetime.now()
         }
+
+        # 車両入れ替え（source_url 使い回し）対策: 同一性に関わる列を、キーが存在し値が None でないものだけ上書き。
+        # 真偽判定は不可（has_repair_history=False / mileage=0 は正当な値）。必ず is not None で判定する。
+        for key in self.UPDATABLE_ON_REUSE:
+            if key in data and data[key] is not None:
+                update_values[key] = data[key]
+
+        # bike_model_id が実際に変わった場合のみ、導出列（manufacturer_id/category_id/displacement）が
+        # 古くなるため manufacturer_id を NULL に戻し、OptimizeSearchData（whereNull で拾う）に再導出させる。
+        if (
+            'bike_model_id' in update_values
+            and existing is not None
+            and update_values['bike_model_id'] != existing.bike_model_id
+        ):
+            update_values['manufacturer_id'] = None
+
         self.db.query(Listing).filter(Listing.source_url == url).update(update_values)
 
     def handle_sold_out(self):
