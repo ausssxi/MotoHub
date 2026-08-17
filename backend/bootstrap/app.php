@@ -161,6 +161,16 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->dailyAt('05:20')
                  ->withoutOverlapping();
 
+        // 検索denormカラムの最適化 (01:00 / 02:00 / 03:00 の3回・各回 --limit=10000)
+        // manufacturer_id/category_id/displacement を bike_model から再導出（NULL行のみ処理）。
+        // 各回の直後に走る scout:sync-flagged (01:30/02:30/03:30…) が、直したデータをMeilisearchへ差分同期する。
+        foreach (['01:00', '02:00', '03:00'] as $optimizeSearchTime) {
+            $schedule->command('bikes:optimize-search-data --limit=10000')
+                     ->dailyAt($optimizeSearchTime)
+                     ->withoutOverlapping()
+                     ->appendOutputTo($meiliLog);
+        }
+
         // Meilisearch差分同期 (01:30 / 02:30 / 03:30 / 04:30 / 05:30 の5回・各回 --limit=10000)
         // 1回の負荷を最大1万件に抑え、滞留（needs_reindex）を深夜帯に分散消化する。
         // PythonスクレイパーがセットしたFlaggedレコードのみ同期（フルインポート不要）
