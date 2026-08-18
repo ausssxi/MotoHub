@@ -187,15 +187,19 @@ final class RoadsideStationController extends Controller
 
         // 周辺情報（座標があるときのみ）。素の配列に落として24時間キャッシュ。
         $nearby = $hasCoords
-            ? Cache::remember("roadside_nearby:{$stationCode}", 86400, fn () => $this->buildNearby($station))
+            ? Cache::remember("roadside_nearby_v2:{$stationCode}", 86400, fn () => $this->buildNearby($station))
             : $this->emptyNearby();
 
         // 回遊リンク（道の駅向け）。route() 名は実在するもののみ。
+        // 中古バイク検索は、都道府県があれば県別の一覧（bikes.area_index = /bikes/area/{pref}）へ。件数は出さない（新クエリ不可）。
+        $bikeSearchLink = filled($station->prefecture)
+            ? ['label' => $station->prefecture.'の中古バイクを探す', 'url' => route('bikes.area_index', ['prefecture' => $station->prefecture]), 'icon' => 'search', 'description' => 'この都道府県の在庫を検索']
+            : ['label' => '中古バイク検索', 'url' => route('bikes.search'), 'icon' => 'search', 'description' => '全国の在庫を検索'];
         $crossLinks = [
             ['label' => 'ライダーズマップ', 'url' => route('riders.map'), 'icon' => 'map', 'description' => '道の駅・GS・洗車場を地図で'],
             ['label' => 'ツーリングプランナー', 'url' => route('touring.planner'), 'icon' => 'route', 'description' => 'ルートを引いて計画する'],
             ['label' => '駐車場マップ', 'url' => route('parking.index'), 'icon' => 'square-parking', 'description' => 'バイク駐車場を探す'],
-            ['label' => '中古バイク検索', 'url' => route('bikes.search'), 'icon' => 'search', 'description' => '全国の在庫を検索'],
+            $bikeSearchLink,
         ];
 
         return view('roadside_station.show', compact(
@@ -258,6 +262,37 @@ final class RoadsideStationController extends Controller
             'distance_km' => (float) $r->dist_km,
         ];
 
+        // 同じ路線沿いの道の駅: route_list の各要素から全角「（」以降を除いた路線名で route を LIKE 検索（OR）。
+        // 「国道29号」で「国道298号」を誤検知しないよう、末尾の「号」を含めたまま '%…%' 照合する。
+        $routeNames = collect($station->route_list)
+            ->map(static fn (string $r): string => trim((string) preg_replace('/（.*$/su', '', $r)))
+            ->filter(static fn (string $n): bool => $n !== '')
+            ->unique()
+            ->values();
+
+        $sameRouteStations = [];
+        if ($routeNames->isNotEmpty()) {
+            $sameRouteQuery = RoadsideStation::query()
+                ->where('id', '!=', $station->id)
+                ->where(function ($sub) use ($routeNames) {
+                    foreach ($routeNames as $n) {
+                        $sub->orWhere('route', 'like', '%'.$n.'%');
+                    }
+                });
+            // 距離の近い順に最大5件。route LIKE で行が絞られるため、矩形を全国相当に広げても軽い。
+            $sameRouteStations = $this->nearby($sameRouteQuery, $lat, $lng, 2000.0, 5)
+                ->map(fn ($r) => [
+                    'label' => (string) $r->name,
+                    'url' => route('michinoeki.show', $r->station_code),
+                    'distance_km' => (float) $r->dist_km,
+                ])->all();
+        }
+
+        // 半径50km以内の道の駅数（自駅を除く）。矩形で粗取りし、haversine 実距離 50km 以内を数える。
+        $stationsWithin50km = $this->nearby(RoadsideStation::query()->where('id', '!=', $station->id), $lat, $lng, 50.0, 1000)
+            ->filter(static fn ($r): bool => (float) $r->dist_km <= 50.0)
+            ->count();
+
         return [
             // 近くのガソリンスタンド 10km / 5件
             'gas_stations' => $this->nearby(Poi::query()->where('type', 'gas_station'), $lat, $lng, 10.0, 5)
@@ -296,6 +331,9 @@ final class RoadsideStationController extends Controller
                     'url' => route('michinoeki.show', $r->station_code),
                     'distance_km' => (float) $r->dist_km,
                 ])->all(),
+            // 同じ路線沿いの道の駅（距離順・最大5件）と、半径50km以内の道の駅数（同一キャッシュ内で算出）
+            'same_route_stations' => $sameRouteStations,
+            'stations_within_50km' => $stationsWithin50km,
         ];
     }
 
@@ -310,6 +348,8 @@ final class RoadsideStationController extends Controller
             'parkings' => [],
             'rental_garages' => [],
             'roadside_stations' => [],
+            'same_route_stations' => [],
+            'stations_within_50km' => 0,
         ];
     }
 

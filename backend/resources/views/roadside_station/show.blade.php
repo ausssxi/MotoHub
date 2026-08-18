@@ -27,6 +27,7 @@
             ['key' => 'parkings', 'title' => '近くのバイク駐車場', 'color' => 'text-green-600'],
             ['key' => 'rental_garages', 'title' => '近くのレンタルガレージ', 'color' => 'text-violet-600'],
             ['key' => 'roadside_stations', 'title' => '近くの道の駅', 'color' => 'text-purple-600'],
+            ['key' => 'same_route_stations', 'title' => '同じ路線沿いの道の駅', 'color' => 'text-teal-600'],
         ];
         $hasAnyNearby = collect($nearby)->contains(fn ($items) => ! empty($items));
 
@@ -68,6 +69,19 @@
         // 7) バイクショップ件数
         if (! empty($nearby['shops'])) {
             $autoSentences[] = '周辺にはバイクショップが'.count($nearby['shops']).'軒あります。';
+        }
+        // 8) 半径50km以内の道の駅数（$nearby から・新クエリなし）
+        if (($nearby['stations_within_50km'] ?? 0) >= 1) {
+            $autoSentences[] = '半径50km以内に道の駅が'.$nearby['stations_within_50km'].'駅あります。';
+        }
+        // 9) 同じ路線沿い（路線名は先頭1件を全角「（」以降除去して使う）
+        if (! empty($nearby['same_route_stations'])) {
+            $firstRoute = count($station->route_list) > 0
+                ? trim((string) preg_replace('/（.*$/su', '', $station->route_list[0]))
+                : '';
+            if ($firstRoute !== '') {
+                $autoSentences[] = $firstRoute.'沿いには、ほかに'.count($nearby['same_route_stations']).'駅の道の駅があります。';
+            }
         }
         $autoDescription = implode('', $autoSentences);
     @endphp
@@ -233,6 +247,11 @@
                 @if($officialUrl)
                 <a href="{{ $officialUrl }}" target="_blank" rel="noopener" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition mb-2">
                     <i data-lucide="external-link" class="w-3.5 h-3.5"></i> {{ $officialLabel }}
+                </a>
+                @endif
+                @if($station->wikipedia_url)
+                <a href="{{ $station->wikipedia_url }}" target="_blank" rel="noopener" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-200 transition mb-2">
+                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Wikipedia（外部サイト）
                 </a>
                 @endif
             </div>
