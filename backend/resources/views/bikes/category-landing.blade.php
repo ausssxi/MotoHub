@@ -89,6 +89,21 @@
                     </p>
                 </div>
 
+                {{-- 関連するタイプ（TYPE_MAP の related）。related が空、またはキー自体が無いページでは見出しごと描画しない --}}
+                @if(!empty($related))
+                <div class="mt-4 max-w-4xl">
+                    <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">関連するタイプから探す</h2>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach($related as $relSlug => $relLabel)
+                        <a href="{{ route('bikes.category_type', ['slug' => $relSlug]) }}"
+                           class="inline-flex items-center px-3 py-1.5 rounded-full border border-gray-200 bg-white text-xs font-bold text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors">
+                            {{ $relLabel }}
+                        </a>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
                 {{-- 新基準原付ハブへの誘導（原付・125ccの読者は意図がドンピシャ） --}}
                 @if($mode === 'cc' && in_array($slug, ['50', '125'], true))
                     <a href="{{ route('shinkijun_gentsuki') }}"
