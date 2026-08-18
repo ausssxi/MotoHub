@@ -174,12 +174,13 @@ final class RoadsideStationController extends Controller
 
         $hasCoords = $station->latitude !== null && $station->longitude !== null;
 
-        // 施設情報の出し分け:
-        // summary が空の108件は施設フラグ(has_*)が全項目 false のまま入っており、
-        // 「なし」と表示すると事実と異なる（未収集であって「無い」わけではない）。
-        // そのため施設情報セクションごと出力しない。代替テキストも出さない
-        // （108ページに同一文言が並ぶのを避けるため）。
-        $hasFacilityData = filled($station->summary);
+        // 施設情報の出し分け: 10個の施設フラグのうち1つ以上 true のときだけ表示する。
+        // 全フラグ false は「無い」ではなく「未収集」なので、施設情報セクションごと出さない。
+        // （旧実装は summary 有無で判定していたが、summary はあるが施設未収集の駅で「なし」が10個並ぶ問題があった）
+        $hasFacilityData = $station->has_atm || $station->has_restaurant || $station->has_onsen
+            || $station->has_ev_charging || $station->has_wifi || $station->has_shower
+            || $station->has_camp || $station->has_gas_station || $station->has_observatory
+            || $station->has_shop;
 
         // 公式サイトの出し分け（まとめサイト除外＋紹介元でラベルを変える）。
         [$officialUrl, $officialLabel] = $this->resolveOfficial($station->website_url);

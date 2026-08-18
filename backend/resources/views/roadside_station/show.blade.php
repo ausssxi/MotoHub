@@ -29,11 +29,52 @@
             ['key' => 'roadside_stations', 'title' => '近くの道の駅', 'color' => 'text-purple-600'],
         ];
         $hasAnyNearby = collect($nearby)->contains(fn ($items) => ! empty($items));
+
+        // 自動生成の説明文（DBの summary は書き換えない・評価語は入れない）。条件に合う文だけ、この順で連結する。
+        $autoSentences = [];
+        // 1) route の有無（route_list は「・」連結済みの文字列を使う）
+        $routeText = count($station->route_list) > 0 ? implode('・', $station->route_list) : '';
+        $autoSentences[] = $routeText !== ''
+            ? "{$station->name}は、{$pref}{$city}の{$routeText}沿いにある道の駅です。"
+            : "{$station->name}は、{$pref}{$city}にある道の駅です。";
+        // 2) designated_year
+        if ($station->designated_year) {
+            $autoSentences[] = "{$station->designated_year}年に登録されました。";
+        }
+        // 3) 施設フラグ（true のものだけ・画面表示と同じ語）
+        $trueFacilities = [];
+        foreach ($facilities as $facField => $facLabel) {
+            if ($station->$facField) {
+                $trueFacilities[] = $facLabel;
+            }
+        }
+        if (count($trueFacilities) > 0) {
+            $autoSentences[] = implode('、', $trueFacilities).'があります。';
+        }
+        // meta description は 1)+2)+3) までを 120 文字で打ち切る
+        $autoMeta = mb_substr(implode('', $autoSentences), 0, 120);
+        // 4) 最寄りガソリンスタンド（既存の $nearby を再利用・新クエリなし。先頭が最寄り）
+        if (! empty($nearby['gas_stations'])) {
+            $autoSentences[] = '最寄りのガソリンスタンドまで約'.number_format($nearby['gas_stations'][0]['distance_km'], 1).'km。';
+        }
+        // 5) 最寄りコンビニ
+        if (! empty($nearby['convenience_stores'])) {
+            $autoSentences[] = '最寄りのコンビニまで約'.number_format($nearby['convenience_stores'][0]['distance_km'], 1).'km。';
+        }
+        // 6) 近くの道の駅（最も近い1件）
+        if (! empty($nearby['roadside_stations'])) {
+            $autoSentences[] = '近くの道の駅は'.$nearby['roadside_stations'][0]['label'].'（約'.number_format($nearby['roadside_stations'][0]['distance_km'], 1).'km）です。';
+        }
+        // 7) バイクショップ件数
+        if (! empty($nearby['shops'])) {
+            $autoSentences[] = '周辺にはバイクショップが'.count($nearby['shops']).'軒あります。';
+        }
+        $autoDescription = implode('', $autoSentences);
     @endphp
 
     {{-- name には既に「道の駅」が含まれるので二重に付けない --}}
-    <x-slot:title>{{ $station->name }}｜{{ $areaName }}の道の駅 - MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $areaName }}の道の駅「{{ $station->name }}」の情報。地図・アクセス・周辺のガソリンスタンド・コンビニ・洗車場、近くの道の駅を掲載。</x-slot:metaDescription>
+    <x-slot:title>{{ count($station->route_list) > 0 ? $station->name.'｜'.$areaName.'・'.$station->route_list[0].'の道の駅 - MotoHub' : $station->name.'｜'.$areaName.'の道の駅 - MotoHub' }}</x-slot:title>
+    <x-slot:metaDescription>{{ $autoMeta }}</x-slot:metaDescription>
 
     @if($station->image_url)
         <x-slot:ogImage>{{ $station->image_url }}</x-slot:ogImage>
@@ -120,8 +161,12 @@
                 @endif
 
                 {{-- 概要 --}}
-                @if($station->summary)
+                {{-- summary は40文字以上のときだけ生成文の前に表示（40文字未満は県名＋路線名だけの自動生成文が入っているため出さない）。DBは書き換えない --}}
+                @if($station->summary && mb_strlen($station->summary) >= 40)
                 <div class="text-sm text-gray-700 whitespace-pre-line bg-gray-50 rounded-lg p-4 mb-4">{{ $station->summary }}</div>
+                @endif
+                @if($autoDescription !== '')
+                <div class="text-sm text-gray-700 leading-relaxed bg-gray-50 rounded-lg p-4 mb-4">{{ $autoDescription }}</div>
                 @endif
 
                 {{-- 写真＋クレジット（法的義務） --}}
@@ -231,9 +276,9 @@
             'name' => $station->name,
             'url' => route('michinoeki.show', $station->station_code),
         ];
-        if (filled($station->summary)) {
-            // 構造化データ用に改行・連続空白を1個の空白へ畳む。
-            $ld['description'] = trim(preg_replace('/\s+/u', ' ', $station->summary));
+        if ($autoDescription !== '') {
+            // 構造化データの description は作業2で組み立てた自動生成文全体（DBの summary ではない）。
+            $ld['description'] = $autoDescription;
         }
         if (filled($station->image_url)) {
             $ld['image'] = $station->image_url;
