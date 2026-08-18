@@ -56,6 +56,8 @@ SMOKE_PATHS=(
     "/parking/area"
     "/gs"
     "/blog"
+    "/michinoeki/19008"
+    "/michinoeki/12029"
 )
 
 ASSUME_YES=0

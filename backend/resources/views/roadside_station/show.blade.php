@@ -74,20 +74,19 @@
         if (($nearby['stations_within_50km'] ?? 0) >= 1) {
             $autoSentences[] = '半径50km以内に道の駅が'.$nearby['stations_within_50km'].'駅あります。';
         }
-        // 9) 同じ路線沿い（路線名は先頭1件を全角「（」以降除去して使う）
-        if (! empty($nearby['same_route_stations'])) {
-            $firstRoute = count($station->route_list) > 0
-                ? trim((string) preg_replace('/（.*$/su', '', $station->route_list[0]))
-                : '';
-            if ($firstRoute !== '') {
-                $autoSentences[] = $firstRoute.'沿いには、ほかに'.count($nearby['same_route_stations']).'駅の道の駅があります。';
-            }
+        // 路線名（先頭1件）を全角「（」以降除去で正規化。title と本文9で共用。
+        $routeShortName = count($station->route_list) > 0
+            ? trim((string) preg_replace('/（.*$/su', '', $station->route_list[0]))
+            : '';
+        // 9) 同じ路線沿い
+        if (! empty($nearby['same_route_stations']) && $routeShortName !== '') {
+            $autoSentences[] = $routeShortName.'沿いには、ほかに'.count($nearby['same_route_stations']).'駅の道の駅があります。';
         }
         $autoDescription = implode('', $autoSentences);
     @endphp
 
-    {{-- name には既に「道の駅」が含まれるので二重に付けない --}}
-    <x-slot:title>{{ count($station->route_list) > 0 ? $station->name.'｜'.$areaName.'・'.$station->route_list[0].'の道の駅 - MotoHub' : $station->name.'｜'.$areaName.'の道の駅 - MotoHub' }}</x-slot:title>
+    {{-- name には既に「道の駅」が含まれるので二重に付けない。路線名は全角「（」以降を除いた $routeShortName を使う（検索結果での見切れ防止） --}}
+    <x-slot:title>{{ $routeShortName !== '' ? $station->name.'｜'.$areaName.'・'.$routeShortName.'の道の駅 - MotoHub' : $station->name.'｜'.$areaName.'の道の駅 - MotoHub' }}</x-slot:title>
     <x-slot:metaDescription>{{ $autoMeta }}</x-slot:metaDescription>
 
     @if($station->image_url)
