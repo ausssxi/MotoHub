@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 
 class BikePartsService
 {
-    private const API_URL = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20220601';
+    // 楽天商品検索APIのURLは config('services.rakuten.item_search_url') に一本化（バージョン廃止時に1箇所で切替）。
 
     private const CACHE_TTL = 86400; // 24時間（fetchFlat用）
 
@@ -178,7 +178,7 @@ class BikePartsService
                 'Origin' => 'https://motohub.jp',
                 'Referer' => 'https://motohub.jp',
                 'User-Agent' => 'MotoHub',
-            ])->timeout(5)->get(self::API_URL, $params);
+            ])->timeout(5)->get(config('services.rakuten.item_search_url'), $params);
 
             if (! $response->successful()) {
                 // かつては失敗を無言で [] にしていた。429を「0件」と誤読すると障害が見えないため、

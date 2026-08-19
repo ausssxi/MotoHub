@@ -89,7 +89,7 @@ class PartsController extends Controller
                 'Origin'     => 'https://motohub.jp',
                 'Referer'    => 'https://motohub.jp',
                 'User-Agent' => 'MotoHub',
-            ])->timeout(10)->get('https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20220601', $params);
+            ])->timeout(10)->get(config('services.rakuten.item_search_url'), $params);
 
             if (! $response->successful()) {
                 // かつては失敗を無言で null にしていた。429を「取得できず」と混同すると障害が見えないため、
@@ -429,7 +429,7 @@ class PartsController extends Controller
             $responses = Http::pool(fn ($pool) => [
                 $pool->as('rakuten')->withHeaders([
                     'Origin' => 'https://motohub.jp', 'Referer' => 'https://motohub.jp', 'User-Agent' => 'MotoHub',
-                ])->timeout(10)->get('https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20220601', array_filter([
+                ])->timeout(10)->get(config('services.rakuten.item_search_url'), array_filter([
                     'applicationId' => config('services.rakuten.app_id'),
                     'accessKey'     => config('services.rakuten.access_key'),
                     'keyword'       => $searchQuery,

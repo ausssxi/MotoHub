@@ -76,6 +76,10 @@ return [
         'app_id' => env('RAKUTEN_APP_ID'),
         'access_key' => env('RAKUTEN_ACCESS_KEY'),
         'affiliate_id' => env('RAKUTEN_AFFILIATE_ID'),
+        // 楽天市場商品検索APIのエンドポイント。URL末尾の日付＝APIバージョンで、廃止されると全リクエストが
+        // 400 (API Configuration not found) になる（2026-08-17 に旧バージョンが廃止され実際に発生）。
+        // 次の廃止時に4箇所を探し回らず1箇所で切り替えられるよう、ここに一本化して env で上書き可能にする。
+        'item_search_url' => env('RAKUTEN_ITEM_SEARCH_URL', 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701'),
     ],
 
     'youtube' => [

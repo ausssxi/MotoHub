@@ -26,8 +26,7 @@ use Illuminate\Support\Facades\Log;
  */
 final class ProductSearchService
 {
-    private const RAKUTEN_URL = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20220601';
-
+    // 楽天商品検索APIのURLは config('services.rakuten.item_search_url') に一本化（バージョン廃止時に1箇所で切替）。
     private const YAHOO_URL = 'https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch';
 
     private const RAKUTEN_BIKE_GENRE = 200305; // バイク用品
@@ -256,7 +255,7 @@ final class ProductSearchService
                 'Origin' => 'https://motohub.jp',
                 'Referer' => 'https://motohub.jp',
                 'User-Agent' => 'MotoHub',
-            ])->timeout(self::TIMEOUT)->get(self::RAKUTEN_URL, $params);
+            ])->timeout(self::TIMEOUT)->get(config('services.rakuten.item_search_url'), $params);
 
             if (! $response->successful()) {
                 // 握りつぶさない。429（レート制限）を「0件」と誤読すると、
