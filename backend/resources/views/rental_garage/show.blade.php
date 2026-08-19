@@ -12,9 +12,87 @@
         // 設備 3値表示: null=情報なし / true=あり / false=なし
         $eq = fn ($v) => is_null($v) ? '情報なし' : ($v ? 'あり' : 'なし');
         $eqClass = fn ($v) => is_null($v) ? 'text-gray-400' : ($v ? 'text-emerald-600' : 'text-gray-500');
+
+        // title 用エリア表記（都道府県＋市区町村を連結。空なら「の」ごと出さない＝$areaName と同じ空扱い）。
+        $titleArea = ($garage->prefecture ?? '').($garage->city ?? '');
+
+        // 自動生成の説明文。DBカラムは書き換えず、既にビューへ渡された変数のみ使用（新クエリなし）。
+        // 評価語（安心・便利・おすすめ等）は入れない。条件に合う文だけを順に連結する。
+        $autoSentences = [];
+        $pc = ($garage->prefecture ?? '').($garage->city ?? '');
+        // 1) 概要（operator の有無で分岐。name / garage_type_label は常に存在）
+        if ($garage->operator) {
+            $autoSentences[] = $garage->name.'は、'.$pc.'にある'.$garage->operator.'の'.$garage->garage_type_label.'のレンタルガレージです。';
+        } else {
+            $autoSentences[] = $garage->name.'は、'.$pc.'にある'.$garage->garage_type_label.'のレンタルガレージです。';
+        }
+        // 2) 月額（3桁区切り・下限が必須。下限が無ければ出さない）
+        if ($garage->monthly_fee_min && $garage->monthly_fee_max) {
+            $autoSentences[] = '月額は'.number_format($garage->monthly_fee_min).'円から'.number_format($garage->monthly_fee_max).'円です。';
+        } elseif ($garage->monthly_fee_min) {
+            $autoSentences[] = '月額は'.number_format($garage->monthly_fee_min).'円です。';
+        }
+        // 3) 区画サイズ
+        if ($garage->size_text) {
+            $autoSentences[] = '区画サイズは'.$garage->size_text.'です。';
+        }
+        // 4) 収容台数
+        if ($garage->capacity) {
+            $autoSentences[] = '収容台数は'.$garage->capacity.'台です。';
+        }
+        // 5) 設備（true のものだけ列挙。null＝情報なし／false は列挙にも否定にも使わない）
+        $eqOn = [];
+        foreach (['is_24h' => '24時間出入り', 'has_power' => '電源', 'has_security' => '防犯設備', 'has_shutter' => 'シャッター'] as $field => $label) {
+            // is_null で情報なしを除外し、その上で真のものだけ採用（false/0 は入らない）。
+            if (! is_null($garage->$field) && $garage->$field) {
+                $eqOn[] = $label;
+            }
+        }
+        if (! empty($eqOn)) {
+            $autoSentences[] = implode('、', $eqOn).'があります。';
+        }
+        // 6) 最寄りの洗車場（既存 $nearbyCarWashes を再利用。dist_m=メートル、近い順ソート済み→ first が最寄り）
+        if ($nearbyCarWashes->isNotEmpty()) {
+            $autoSentences[] = '最寄りの洗車場まで約'.round($nearbyCarWashes->first()->dist_m / 1000, 1).'km。';
+        }
+        // 7) 最寄りのバイク駐車場（既存 $nearbyParkings を再利用）
+        if ($nearbyParkings->isNotEmpty()) {
+            $autoSentences[] = '最寄りのバイク駐車場まで約'.round($nearbyParkings->first()->dist_m / 1000, 1).'km。';
+        }
+        // 8) 周辺のレンタルガレージ件数（既存 $nearbyGarages を再利用）
+        if ($nearbyGarages->isNotEmpty()) {
+            $autoSentences[] = '周辺にレンタルガレージが'.$nearbyGarages->count().'件あります。';
+        }
+        $autoBody = implode('', $autoSentences);
+
+        // パンくずの JSON-LD（画面パンくずと同じ階層・position を詰め直す）。URL は全て route() 生成。
+        $crumbs = [
+            ['name' => 'HOME', 'item' => url('/')],
+            ['name' => 'レンタルガレージ', 'item' => route('rental-garage.area.index')],
+        ];
+        if (filled($garage->prefecture)) {
+            $crumbs[] = ['name' => $garage->prefecture, 'item' => route('rental-garage.area.prefecture', $garage->prefecture)];
+        }
+        if (filled($garage->city)) {
+            $crumbs[] = ['name' => $garage->city, 'item' => route('rental-garage.area.city', [$garage->prefecture, $garage->city])];
+        }
+        $crumbs[] = ['name' => $garage->name, 'item' => route('rental-garage.show', $garage->id)];
+        $breadcrumbLd = [
+            '@context' => 'https://schema.org',
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [],
+        ];
+        foreach ($crumbs as $i => $c) {
+            $breadcrumbLd['itemListElement'][] = [
+                '@type' => 'ListItem',
+                'position' => $i + 1,
+                'name' => $c['name'],
+                'item' => $c['item'],
+            ];
+        }
     @endphp
 
-    <x-slot:title>{{ $garage->name }}｜{{ $feeText ? $feeText.' ' : '' }}レンタルガレージ・バイク保管{{ $areaName ? ' '.$areaName : '' }} - MotoHub</x-slot:title>
+    <x-slot:title>{{ $garage->name }}｜{{ $titleArea !== '' ? $titleArea.'の' : '' }}レンタルガレージ・バイク保管 - MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ ($garage->prefecture ?? '').($garage->city ?? '') }}のレンタルガレージ・バイク保管場所「{{ $garage->name }}」の詳細。{{ $garage->garage_type_label }}{{ $feeText ? '／月額'.$feeText : '' }}。住所・地図・設備情報を掲載。</x-slot:metaDescription>
 
     @if($noindex)
@@ -59,7 +137,15 @@
                 <ol class="flex items-center space-x-2">
                     <li><a href="/" class="hover:text-gray-600 transition-colors">HOME</a></li>
                     <li><span class="text-gray-300">＞</span></li>
-                    <li><a href="{{ route('riders.map') }}" class="hover:text-gray-600 transition-colors">ライダーズマップ</a></li>
+                    <li><a href="{{ route('rental-garage.area.index') }}" class="hover:text-gray-600 transition-colors">レンタルガレージ</a></li>
+                    @if(filled($garage->prefecture))
+                    <li><span class="text-gray-300">＞</span></li>
+                    <li><a href="{{ route('rental-garage.area.prefecture', $garage->prefecture) }}" class="hover:text-gray-600 transition-colors">{{ $garage->prefecture }}</a></li>
+                    @endif
+                    @if(filled($garage->city))
+                    <li><span class="text-gray-300">＞</span></li>
+                    <li><a href="{{ route('rental-garage.area.city', [$garage->prefecture, $garage->city]) }}" class="hover:text-gray-600 transition-colors">{{ $garage->city }}</a></li>
+                    @endif
                     <li><span class="text-gray-300">＞</span></li>
                     <li><span class="text-gray-800">{{ $garage->name }}</span></li>
                 </ol>
@@ -131,6 +217,11 @@
                     </div>
                     @endforeach
                 </div>
+
+                {{-- 自動生成の説明文（施設データから組み立て・DBは書き換えていない）。相場比較の直前に置く --}}
+                @if($autoBody !== '')
+                <p class="text-sm text-gray-700 leading-relaxed mb-4">{{ $autoBody }}</p>
+                @endif
 
                 {{-- 相場比較の一文 --}}
                 @if($prefMedian && $garage->monthly_fee_min)
@@ -226,15 +317,8 @@
     }
     </script>
     @endunless
+    {{-- 画面パンくずと同じ階層（HOME＞レンタルガレージ＞都道府県＞市区町村＞施設名）。position は $breadcrumbLd で詰め直し済み --}}
     <script type="application/ld+json">
-    {
-        "@@context": "https://schema.org",
-        "@@type": "BreadcrumbList",
-        "itemListElement": [
-            {"@@type": "ListItem", "position": 1, "name": "HOME", "item": "{{ url('/') }}"},
-            {"@@type": "ListItem", "position": 2, "name": "ライダーズマップ", "item": "{{ route('riders.map') }}"},
-            {"@@type": "ListItem", "position": 3, "name": "{{ e($garage->name) }}", "item": "{{ route('rental-garage.show', $garage->id) }}"}
-        ]
-    }
+    {!! json_encode($breadcrumbLd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}
     </script>
 </x-layout>
