@@ -13,6 +13,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 final class RentalGarageController extends Controller
 {
@@ -35,16 +36,26 @@ final class RentalGarageController extends Controller
         $lng = (float) $garage->longitude;
         $hasCoords = $garage->latitude !== null && $garage->longitude !== null;
 
-        // 半径3km以内の関連（薄いページ対策の内部リンク）。
-        $nearbyGarages = $hasCoords ? $this->nearby(
-            RentalGarage::query()->where('is_active', true)->where('id', '!=', $garage->id), $lat, $lng
-        ) : new Collection();
-        $nearbyCarWashes = $hasCoords ? $this->nearby(
-            Poi::query()->where('type', 'car_wash'), $lat, $lng
-        ) : new Collection();
-        $nearbyParkings = $hasCoords ? $this->nearby(
-            BikeParking::query()->where('is_active', true), $lat, $lng
-        ) : new Collection();
+        // 半径3km以内の関連（薄いページ対策の内部リンク）。周辺検索3種を1つのキャッシュにまとめる（24時間）。
+        // 各値は従来どおり Collection のまま保持（ビューの isNotEmpty() 前提を変えない）。
+        // 座標が無いガレージはキャッシュを引かず、従来と同じ空 Collection を返す。
+        $nearby = $hasCoords
+            ? Cache::remember("rental_garage_nearby_v1:{$garage->id}", 86400, fn (): array => [
+                'garages' => $this->nearby(
+                    RentalGarage::query()->where('is_active', true)->where('id', '!=', $garage->id), $lat, $lng
+                ),
+                'car_washes' => $this->nearby(
+                    Poi::query()->where('type', 'car_wash'), $lat, $lng
+                ),
+                'parkings' => $this->nearby(
+                    BikeParking::query()->where('is_active', true), $lat, $lng
+                ),
+            ])
+            : ['garages' => new Collection(), 'car_washes' => new Collection(), 'parkings' => new Collection()];
+
+        $nearbyGarages = $nearby['garages'];
+        $nearbyCarWashes = $nearby['car_washes'];
+        $nearbyParkings = $nearby['parkings'];
 
         // 同一都道府県の月額中央値（比較の一文用）。
         $prefMedian = $garage->prefecture ? $this->prefectureMonthlyMedian($garage->prefecture) : null;
@@ -117,22 +128,32 @@ final class RentalGarageController extends Controller
      */
     private function prefectureMonthlyMedian(string $prefecture): ?int
     {
-        $vals = RentalGarage::query()
-            ->where('is_active', true)
-            ->where('prefecture', $prefecture)
-            ->whereNotNull('monthly_fee_min')
-            ->pluck('monthly_fee_min')
-            ->map(fn ($v) => (int) $v)
-            ->sort()
-            ->values();
+        // 都道府県単位でキャッシュ（1,026施設が47都道府県を共有するため、ガレージ単位より効率的）。
+        // remember は null を「未キャッシュ」とみなし毎回再計算するため、サンプル不足は -1 センチネルで保存する
+        // （monthly_fee_min は unsignedInteger のため負値は現れず衝突しない）。
+        $cached = Cache::remember("rental_garage_pref_median_v1:{$prefecture}", 86400, function () use ($prefecture): int {
+            $vals = RentalGarage::query()
+                ->where('is_active', true)
+                ->where('prefecture', $prefecture)
+                ->whereNotNull('monthly_fee_min')
+                ->pluck('monthly_fee_min')
+                ->map(fn ($v) => (int) $v)
+                ->sort()
+                ->values();
 
-        $n = $vals->count();
-        if ($n < self::MEDIAN_MIN_SAMPLE) {
-            return null; // 1件の県で「中央値＝自身」になる無意味な比較を防ぐ
-        }
-        $mid = intdiv($n, 2);
+            $n = $vals->count();
+            if ($n < self::MEDIAN_MIN_SAMPLE) {
+                return -1; // サンプル不足（1件の県で「中央値＝自身」になる無意味な比較を防ぐ）
+            }
+            $mid = intdiv($n, 2);
 
-        return $n % 2 === 1 ? $vals[$mid] : (int) (($vals[$mid - 1] + $vals[$mid]) / 2);
+            return $n % 2 === 1 ? $vals[$mid] : (int) (($vals[$mid - 1] + $vals[$mid]) / 2);
+        });
+
+        // DBキャッシュドライバは数値を文字列("-1"/"18700")で返すため、比較・返却の前に必ず int へキャストする。
+        $median = (int) $cached;
+
+        return $median < 0 ? null : $median; // センチネル -1 → null（呼び出し側の契約 ?int は不変）
     }
 
     /**
