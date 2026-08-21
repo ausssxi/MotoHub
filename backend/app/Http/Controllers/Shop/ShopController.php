@@ -131,21 +131,13 @@ class ShopController extends Controller
 
     /**
      * チェーン設定（pattern または patterns）から、別名を OR like でまとめた店舗クエリを返す。
-     * pattern(文字列) / patterns(配列) の混在を吸収し、支店名・英字別名も拾う。
+     * 判定条件は Shop::scopeOfChain に一本化（ブログ用ショートコードと共有・ロジック二重化を回避）。
      *
      * @param  array<string, mixed>  $chain
      */
     private function chainShopsQuery(array $chain): \Illuminate\Database\Eloquent\Builder
     {
-        $patterns = $chain['patterns'] ?? (isset($chain['pattern']) ? [$chain['pattern']] : []);
-
-        return Shop::where(function ($q) use ($patterns) {
-            foreach ($patterns as $p) {
-                if ($p !== '') {
-                    $q->orWhere('name', 'like', '%'.$p.'%');
-                }
-            }
-        });
+        return Shop::ofChain($chain);
     }
 
     /**

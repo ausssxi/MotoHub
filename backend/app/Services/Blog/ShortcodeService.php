@@ -6,7 +6,9 @@ namespace App\Services\Blog;
 
 use App\Models\BikeModel;
 use App\Models\Manufacturer;
+use App\Models\Shop;
 use App\Services\Bike\PriceStatsService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
 
 final class ShortcodeService
@@ -65,7 +67,100 @@ final class ShortcodeService
             return $this->renderBikesBlock($matches[1]);
         }, $html) ?? $html;
 
+        // [chain-shops slug="red-baron"] → チェーン店舗の都道府県別リンク一覧
+        $chainShopsPattern = '/(?:<p>\s*)?\[chain-shops\s+([^\]]+)\](?:\s*<\/p>)?/u';
+        $html = preg_replace_callback($chainShopsPattern, function (array $matches): string {
+            return $this->renderChainShopsBlock($matches[1]);
+        }, $html) ?? $html;
+
         return ['html' => $html, 'hasMap' => $hasMap];
+    }
+
+    /**
+     * [chain-shops slug="..."] を、config('bike.chains') の対象チェーン店舗の
+     * 都道府県別リンク一覧（/shops/{id} への導線）に展開する。
+     * 未知slug・該当0件は空文字（エラーを投げない）。レッドバロン専用にせず任意チェーンで動作。
+     */
+    private function renderChainShopsBlock(string $rawParams): string
+    {
+        $params = $this->parseParams($rawParams);
+        $slug = $params['slug'] ?? '';
+        if ($slug === '') {
+            return '';
+        }
+
+        $chain = config("bike.chains.{$slug}");
+        if (! is_array($chain)) {
+            return ''; // 未知slug
+        }
+
+        // 描画に必要な素の配列だけをキャッシュ（Eloquentモデルは入れない・HTMLもキャッシュしない）。
+        $shops = Cache::remember("chain_shop_links_v1:{$slug}", 3600, function () use ($chain): array {
+            return Shop::ofChain($chain)
+                ->select('id', 'name', 'prefecture', 'city')
+                ->get()
+                ->map(fn (Shop $s): array => [
+                    'id' => (int) $s->id,
+                    'name' => (string) $s->name,
+                    'prefecture' => trim((string) ($s->prefecture ?? '')),
+                    'city' => (string) ($s->city ?? ''),
+                ])
+                ->all();
+        });
+
+        if (empty($shops)) {
+            return ''; // 0件
+        }
+
+        // 都道府県ごとにグルーピング。prefecture 空は「その他」で最後にまとめる。
+        $order = $this->prefectureOrder();
+        $groups = [];
+        foreach ($shops as $row) {
+            $key = $row['prefecture'] !== '' ? $row['prefecture'] : '__other__';
+            $groups[$key][] = $row;
+        }
+
+        // 全国標準順（北海道→沖縄）。未知都道府県は「その他」の直前、空は最後。
+        uksort($groups, function (string $a, string $b) use ($order): int {
+            $ra = $a === '__other__' ? PHP_INT_MAX : ($order[$a] ?? PHP_INT_MAX - 1);
+            $rb = $b === '__other__' ? PHP_INT_MAX : ($order[$b] ?? PHP_INT_MAX - 1);
+
+            return $ra <=> $rb;
+        });
+
+        $displayGroups = [];
+        foreach ($groups as $key => $rows) {
+            // 同一都道府県内は city → name の昇順。
+            usort($rows, static fn (array $x, array $y): int => [$x['city'], $x['name']] <=> [$y['city'], $y['name']]);
+            $displayGroups[] = [
+                'label' => $key === '__other__' ? 'その他' : $key,
+                'count' => count($rows),
+                'shops' => array_map(static fn (array $r): array => ['id' => (int) $r['id'], 'name' => $r['name']], $rows),
+            ];
+        }
+
+        return View::make('blog.partials.chain-shops', [
+            'groups' => $displayGroups,
+            'total' => count($shops),
+        ])->render();
+    }
+
+    /**
+     * 全国標準の都道府県並び（北海道→沖縄）を「フルネーム => 順位」で返す。
+     * 既存の config('parking.regions')（フルネーム・地方別・標準順）を単一の出所として再利用。
+     *
+     * @return array<string, int>
+     */
+    private function prefectureOrder(): array
+    {
+        $order = [];
+        foreach (config('parking.regions', []) as $prefs) {
+            foreach (array_keys((array) $prefs) as $pref) {
+                $order[(string) $pref] = count($order);
+            }
+        }
+
+        return $order;
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Support\ShopNameNormalizer;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -92,6 +93,25 @@ final class Shop extends Model
         }
 
         return null;
+    }
+
+    /**
+     * 指定チェーン設定（config/bike.php の1エントリ）の pattern/patterns による店名の LIKE 部分一致で絞り込む。
+     * チェーン横断ページ（ShopController::chainShow）とブログ用ショートコードで判定条件を共有するためのスコープ。
+     *
+     * @param  array<string, mixed>  $chain
+     */
+    public function scopeOfChain(Builder $query, array $chain): Builder
+    {
+        $patterns = $chain['patterns'] ?? (isset($chain['pattern']) ? [$chain['pattern']] : []);
+
+        return $query->where(function ($q) use ($patterns) {
+            foreach ($patterns as $p) {
+                if ($p !== '') {
+                    $q->orWhere('name', 'like', '%'.$p.'%');
+                }
+            }
+        });
     }
 
     /**
