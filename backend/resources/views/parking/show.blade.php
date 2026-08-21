@@ -1,6 +1,26 @@
 <x-layout>
+    @php
+        // meta description 末尾の事実文。name_tag（先頭札）→24h→屋根 の順で、条件に合うものだけ連結。
+        // 評価語は入れない。false/null の項目は否定文を書かず、単に出さない。
+        $metaTail = '';
+        if ($parking->name_tag) {
+            if (mb_strpos($parking->name_tag, '：') !== false) {
+                // 「予約制：akippa」→ 事業者名（コロン後）＋の＋種別（コロン前）＋です。
+                [$tagLabel, $tagOperator] = explode('：', $parking->name_tag, 2);
+                $metaTail .= $tagOperator.'の'.$tagLabel.'です。';
+            } else {
+                $metaTail .= $parking->name_tag.'です。';
+            }
+        }
+        if ($parking->available_24h) {
+            $metaTail .= '24時間利用可。';
+        }
+        if ($parking->is_covered) {
+            $metaTail .= '屋根あり。';
+        }
+    @endphp
     <x-slot:title>{{ $parking->clean_name }}｜{{ $parking->price_per_month ? '月極' . number_format($parking->price_per_month) . '円' : ($parking->price_per_hour ? number_format($parking->price_per_hour) . '円/時間' : '') }}{{ ($parking->price_per_month || $parking->price_per_hour) ? ' ' : '' }}バイク駐車場{{ $parking->city ? ' ' . $parking->city : '' }} - MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $parking->prefecture || $parking->city ? ($parking->prefecture ?? '') . ($parking->city ?? '') . 'のバイク駐車場' : 'バイク駐車場' }}「{{ $parking->clean_name }}」の詳細。{{ $parking->getPriceDisplay() ? $parking->getPriceDisplay() . '。' : '' }}ユーザーレビューも掲載。</x-slot:metaDescription>
+    <x-slot:metaDescription>{{ $parking->prefecture || $parking->city ? ($parking->prefecture ?? '') . ($parking->city ?? '') . 'のバイク駐車場' : 'バイク駐車場' }}「{{ $parking->clean_name }}」の詳細。{{ $parking->getPriceDisplay() ? $parking->getPriceDisplay() . '。' : '' }}{{ $metaTail }}</x-slot:metaDescription>
 
     @if(in_array($parking->management_company, ['akippa株式会社', '株式会社アース・カー'], true))
         <x-slot:robotsMeta>noindex, follow</x-slot:robotsMeta>
@@ -86,7 +106,13 @@
                 <div class="flex items-start justify-between mb-4">
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-3 mb-2 flex-wrap">
-                            <h1 class="text-xl sm:text-2xl font-black text-gray-900">{{ $parking->name }}</h1>
+                            {{-- 施設名先頭の札（予約制：akippa 等）。h1 から外した情報を既存バッジと同様式で残す。null なら非表示 --}}
+                            @if($parking->name_tag)
+                            <span class="inline-flex items-center gap-1 bg-amber-100 text-amber-700 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                                <i data-lucide="ticket" class="w-3 h-3"></i> {{ $parking->name_tag }}
+                            </span>
+                            @endif
+                            <h1 class="text-xl sm:text-2xl font-black text-gray-900">{{ $parking->clean_name }}</h1>
                             @auth
                             @if(auth()->user()->is_admin || $parking->user_id === auth()->id())
                             <a href="{{ route('parking.edit', $parking) }}"

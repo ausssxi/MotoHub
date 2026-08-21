@@ -159,6 +159,9 @@ final class BikeParking extends Model
     public function getCleanNameAttribute(): string
     {
         $name = $this->name;
+        // 先頭にある全角角括弧ブロックを1つだけ除去（中身不問。例:「【予約制：akippa】」）。
+        // ^ アンカーで文字列先頭のみを対象にするため、先頭以外の【...】はこの処理では消えない。
+        $name = preg_replace('/^【[^】]*】/u', '', $name);
         // [英数字] 形式の内部コード除去（例: [176b2]）
         $name = preg_replace('/\[[a-zA-Z0-9]+\]/', '', $name);
         // 【数字】 形式の内部コード除去（例: 【1246】）
@@ -169,6 +172,19 @@ final class BikeParking extends Model
         $name = preg_replace('/\s+/', ' ', trim($name));
 
         return $name;
+    }
+
+    /**
+     * 名前の先頭にある全角角括弧【...】の中身（括弧を除いた文字列）。先頭に無ければ null。
+     * 例:「【予約制：akippa】阿古屋パーキング」→「予約制：akippa」。
+     */
+    public function getNameTagAttribute(): ?string
+    {
+        if (preg_match('/^【([^】]*)】/u', (string) $this->name, $m) === 1) {
+            return $m[1];
+        }
+
+        return null;
     }
 
     public function getParkingTypeLabel(): string
