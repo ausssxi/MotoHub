@@ -9,6 +9,7 @@ use App\Models\Manufacturer;
 use App\Models\Shop;
 use App\Services\Bike\PriceStatsService;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
 
 final class ShortcodeService
@@ -86,11 +87,15 @@ final class ShortcodeService
         $params = $this->parseParams($rawParams);
         $slug = $params['slug'] ?? '';
         if ($slug === '') {
+            Log::warning('[chain-shops] slug 未指定のため空出力', ['slug' => '']);
+
             return '';
         }
 
         $chain = config("bike.chains.{$slug}");
         if (! is_array($chain)) {
+            Log::warning('[chain-shops] 未知の slug のため空出力: '.$slug, ['slug' => $slug]);
+
             return ''; // 未知slug
         }
 
@@ -109,6 +114,8 @@ final class ShortcodeService
         });
 
         if (empty($shops)) {
+            Log::warning('[chain-shops] 該当店舗0件のため空出力: '.$slug, ['slug' => $slug]);
+
             return ''; // 0件
         }
 
@@ -170,6 +177,8 @@ final class ShortcodeService
      */
     private function renderBikesBlock(string $rawTokens): string
     {
+        // parseParams と同じく、CommonMark がエスケープした実体参照を先に戻す（引用符なし用法では無変更）。
+        $rawTokens = html_entity_decode($rawTokens, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $tokens = preg_split('/[\s　]+/u', trim($rawTokens), -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
         $bikes = [];
@@ -247,12 +256,25 @@ final class ShortcodeService
      */
     private function parseParams(string $raw): array
     {
+        // CommonMark はテキストノードの " を &quot; にエスケープする（League\CommonMark\Util\Xml::escape）。
+        // そのため processShortcodes に届く時点で slug=&quot;red-baron&quot; になり得る。
+        // 捕捉したショートコード文字列「だけ」をデコードしてから解析する（HTML全体はデコードしない）。
+        $raw = html_entity_decode($raw, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
         $params = [];
-        // key=value（値はクォート有無どちらも対応）
-        preg_match_all('/(\w+)=["\']?([^"\'\s]+)["\']?/', $raw, $matches, PREG_SET_ORDER);
+        // key="value" / key='value' / 引用符なし key=value のいずれも受け付ける。
+        preg_match_all('/(\w+)=(?:"([^"]*)"|\'([^\']*)\'|([^\s"\']+))/', $raw, $matches, PREG_SET_ORDER);
 
         foreach ($matches as $match) {
-            $params[$match[1]] = $match[2];
+            // マッチした値グループ（2=ダブルクォート内/3=シングルクォート内/4=クォートなし）のうち非空を採用。
+            $value = '';
+            foreach ([$match[2] ?? '', $match[3] ?? '', $match[4] ?? ''] as $candidate) {
+                if ($candidate !== '') {
+                    $value = $candidate;
+                    break;
+                }
+            }
+            $params[$match[1]] = $value;
         }
 
         return $params;
