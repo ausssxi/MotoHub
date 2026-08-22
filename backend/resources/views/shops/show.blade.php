@@ -5,15 +5,21 @@
         // 全分岐はこの単一フラグだけを参照する（店舗別型・非チェーン・全国在庫0は false＝一切変更なし）。
         $isNationalEntry = ($isNationalStockEntry ?? false) && ! empty($chainInfo);
 
+        // 地名（県＋市区町村）。city が null/空なら県のみ（連結に区切りを入れず、余計な空白や記号を残さない）。
+        $area = $shop->prefecture . ($shop->city ?? '');
+
         if ($isRepair) {
             $pageTitle = $shop->name . '（バイク整備・修理）｜' . $shop->prefecture . ($shop->city ?? '') . ' - MotoHub';
             $pageDescription = $description;
         } elseif ($isNationalEntry) {
-            // 在庫ゼロの実態＋その店で取り寄せできる価値を表す（誇大回避）。
-            $pageTitle = $shop->name . '｜' . $chainInfo['name'] . '全国在庫' . number_format($chainInfo['stock']) . '台から取り寄せ可能｜MotoHub';
-            $pageDescription = $shop->name . 'は' . $shop->prefecture . 'の' . $chainInfo['name'] . '店舗です。' . $chainInfo['name'] . 'は在庫を全国で一括管理しており、現在' . number_format($chainInfo['stock']) . '台の在庫から' . $shop->prefecture . 'へ取り寄せできます。所在地・営業時間・アクセスはこちら。';
+            // 在庫ゼロの実態＋その店で取り寄せできる価値を表す（誇大回避）。チェーン名の重複を避け地名を前面に。
+            $pageTitle = $shop->name . 'の在庫状況｜' . $area . '｜全国' . number_format($chainInfo['stock']) . '台 - MotoHub';
+            $pageDescription = $shop->name . 'は' . $area . 'の' . $chainInfo['name'] . '店舗です。' . $chainInfo['name'] . 'は在庫を全国で一括管理しており、現在' . number_format($chainInfo['stock']) . '台の在庫から取り寄せできます。所在地・営業時間・アクセスを掲載。';
         } else {
-            $pageTitle = $shop->name . 'の在庫・取扱車両一覧' . ($stockCount > 0 ? '【' . number_format($stockCount) . '台】' : '') . '｜中古バイク検索 - MotoHub';
+            // 「取扱車両一覧」「検索」の重複語を削り、地名を付与。在庫0では「在庫」の語を使わない。
+            $pageTitle = $stockCount > 0
+                ? $shop->name . 'の中古バイク在庫【' . number_format($stockCount) . '台】｜' . $area . ' - MotoHub'
+                : $shop->name . '｜' . $area . 'のバイクショップ - MotoHub';
             $pageDescription = $description;
         }
     @endphp

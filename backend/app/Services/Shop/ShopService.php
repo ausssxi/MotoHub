@@ -80,14 +80,11 @@ final class ShopService
         if ($stockCount > 0) {
             $description = '現在' . number_format($stockCount) . '台の中古バイクを掲載中。';
         }
-        $description .= $shop->name . 'は' . $shop->prefecture . 'にあるバイクショップです。';
-        if ($shop->chain) {
-            $description .= $shop->chain->name . 'は全国に展開する大手バイク販売チェーンで、新車・中古車の販売、買取、車検、整備に対応しています。';
-        }
+        $description .= $shop->name . 'は' . $shop->prefecture . ($shop->city ?? '') . 'のバイクショップです。';
         if ($shop->business_hours && $shop->business_hours !== '-') {
             $description .= '営業時間は' . $shop->business_hours . '。';
         }
-        $description .= 'お気軽にお問い合わせください。';
+        $description .= '在庫・営業時間・アクセスを掲載しています。';
 
         return [
             'shop' => $shop,
