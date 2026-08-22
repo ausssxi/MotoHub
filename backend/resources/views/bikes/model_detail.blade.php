@@ -516,6 +516,9 @@
                     {{-- メンテナンス情報：タイヤサイズの目安（面②・データ有時のみ表示・正規化サイズ＋商品アフィリ） --}}
                     @include('bikes.partials.maintenance-tire', ['model' => $model])
 
+                    {{-- 同じタイヤサイズの車種（タイヤサイズセクションの直後・自社車種データの内部リンク） --}}
+                    @include('bikes.partials.tire-same-size', ['model' => $model])
+
                     {{-- 車種紹介テキスト（SEOの要） --}}
                     <div id="overview" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
                         <h2 class="text-xl font-black text-gray-900 mb-4 flex items-center gap-2">
