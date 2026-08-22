@@ -61,10 +61,25 @@ class ShopController extends Controller
         $chainSlug = Shop::chainSlug($shop->name);
         if ($chainSlug !== null) {
             $chain = config("bike.chains.{$chainSlug}");
-            $mainShop = $this->chainShopsQuery($chain)
-                ->withCount(['listings' => fn ($q) => $q->where('is_sold_out', 0)])
-                ->orderByDesc('listings_count')
-                ->first();
+
+            // チェーン親店（最大在庫店）の ID をチェーン単位でキャッシュ。結果は同一チェーン全店で同一のため、
+            // 72,675行を走査する相関COUNTの重クエリ（約1秒）を毎リクエスト走らせない。
+            // database ドライバは数値を文字列で返すため必ず (int) 化。見つからない場合は -1 センチネル
+            // （null を返すと Cache::remember がミス扱いで毎回再計算＝キャッシュの意味が無くなるため）。
+            $mainShopId = (int) Cache::remember("chain_main_shop_id_v1:{$chainSlug}", 1800, function () use ($chain) {
+                $top = $this->chainShopsQuery($chain)
+                    ->withCount(['listings' => fn ($q) => $q->where('is_sold_out', 0)])
+                    ->orderByDesc('listings_count')
+                    ->first();
+
+                return $top?->id ?? -1;
+            });
+
+            // -1（親店なし）のときは Shop::find を呼ばない。ID から主キー検索で引き直し（ミリ秒）、
+            // chainInfo['stock'] 用に非在庫数だけ withCount（対象1店・shop_id索引で軽い）。
+            $mainShop = $mainShopId > 0
+                ? Shop::withCount(['listings' => fn ($q) => $q->where('is_sold_out', 0)])->find($mainShopId)
+                : null;
             if ($mainShop && $mainShop->id !== $shop->id && $mainShop->listings_count > 0) {
                 $data['chainInfo'] = [
                     'name' => $chain['name'],
