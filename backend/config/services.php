@@ -80,6 +80,10 @@ return [
         // 400 (API Configuration not found) になる（2026-08-17 に旧バージョンが廃止され実際に発生）。
         // 次の廃止時に4箇所を探し回らず1箇所で切り替えられるよう、ここに一本化して env で上書き可能にする。
         'item_search_url' => env('RAKUTEN_ITEM_SEARCH_URL', 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701'),
+        // RakutenRateGate の順番待ち上限（秒）。Web はユーザー応答を待たせないため短く（現状維持）、
+        // CLI（parts:refresh 等のバッチ）は取りこぼし・429後の再開を優先して長く。
+        'gate_max_wait_web' => env('RAKUTEN_GATE_MAX_WAIT_WEB', 0.5),
+        'gate_max_wait_cli' => env('RAKUTEN_GATE_MAX_WAIT_CLI', 60),
     ],
 
     'youtube' => [

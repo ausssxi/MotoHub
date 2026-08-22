@@ -47,13 +47,17 @@ final class RakutenRateGate
      *   埋まりサイト全体が詰まる恐れがある。商品枠が消えるほうが、ページが詰まるよりましと判断し、
      *   3秒から0.5秒へ大幅に短くした。
      *
-     * ■ CLI = 5.0秒:
+     * ■ CLI = 60秒（既定）:
      *   parts:refresh 等のバッチや fitment:probe はワーカーを占有せず、応答時間の制約も無い。
-     *   取りこぼしを減らすため、待ってでも枠を取りに行けるよう長めにする。
+     *   取りこぼしを減らすため、待ってでも枠を取りに行けるよう長めにする。特に 429 後の 30 秒休止
+     *   （BREAKER_TTL）が明けた直後、次の枠まで最大 MIN_INTERVAL 待つ必要があるが、上限が短いと
+     *   その待ちで片っ端から中止され、1回のレート制限が大量の status 0 中止へ増幅する。60秒あれば待って再開できる。
+     *
+     * どちらも config('services.rakuten.gate_max_wait_web' / 'gate_max_wait_cli') で上書き可能（既定はこの定数）。
      */
     private const MAX_WAIT_WEB = 0.5;
 
-    private const MAX_WAIT_CLI = 5.0;
+    private const MAX_WAIT_CLI = 60.0;
 
     /** 「次に楽天を叩いてよい時刻」（UNIX秒・float）を置く共有キー。 */
     private const GATE_NEXT_KEY = 'parts:rakuten:next_call_at';
@@ -82,7 +86,9 @@ final class RakutenRateGate
      */
     public function maxWaitSeconds(): float
     {
-        return app()->runningInConsole() ? self::MAX_WAIT_CLI : self::MAX_WAIT_WEB;
+        return app()->runningInConsole()
+            ? (float) config('services.rakuten.gate_max_wait_cli', self::MAX_WAIT_CLI)
+            : (float) config('services.rakuten.gate_max_wait_web', self::MAX_WAIT_WEB);
     }
 
     /**

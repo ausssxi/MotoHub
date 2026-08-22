@@ -6,6 +6,7 @@ namespace App\Services\Bike;
 
 use App\Models\BikeModel;
 use App\Services\Parts\PartsCodeExtractor;
+use App\Support\RakutenKeyword;
 use App\Support\RakutenRateGate;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -136,6 +137,14 @@ class BikePartsService
      */
     private function searchRakuten(string $appId, string $accessKey, ?string $affiliateId, string $keyword, int $hits): array
     {
+        // 楽天に渡す直前でキーワードを正規化。半角英数1文字の語（"r"/"s" 等）は
+        // keyword is not valid（400）の原因になるため除去し、有効語が残らなければ叩かずスキップ。
+        $normalized = RakutenKeyword::normalize($keyword);
+        if ($normalized === null) {
+            return []; // 2文字以上の有効語なし → 無駄な400を出さず、レート枠も消費しない
+        }
+        $keyword = $normalized;
+
         $gate = app(RakutenRateGate::class);
 
         // 楽天のレート枠は全経路の共有。休止中はここでも叩かない（迂回はしない）。
