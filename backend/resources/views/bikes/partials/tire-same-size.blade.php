@@ -22,5 +22,18 @@
         </a>
         @endforeach
     </div>
+
+    {{-- そのサイズの一覧ページへの導線（ページ化条件=5件以上のときだけ）。$same!==null なら前サイズは正規化可能。 --}}
+    @php
+        $selfFront = \App\Support\TireSize::normalize($model->tire_size_front);
+    @endphp
+    @if($selfFront !== null && \App\Support\TireSize::isPageable($selfFront))
+    <div class="border-t border-gray-100 pt-4 mt-4">
+        <a href="{{ route('bikes.tire_size.show', ['sizeSlug' => \App\Support\TireSize::sizeSlug($selfFront)]) }}"
+           class="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline">
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>{{ $selfFront }}を装着する車種をすべて見る
+        </a>
+    </div>
+    @endif
 </div>
 @endif

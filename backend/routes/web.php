@@ -307,6 +307,14 @@ Route::post('/bikes/threads/{threadId}/replies', [\App\Http\Controllers\Bike\Dis
 Route::post('/bikes/replies/{replyId}/vote', [\App\Http\Controllers\Bike\DiscussionThreadController::class, 'vote'])
     ->where('replyId', '[0-9]+')->name('bikes.thread.reply.vote')->middleware('throttle:20,1');
 
+// タイヤサイズ別ページ。/bikes/{mfrSlug}/{modelSlug} の「前」に置き、2セグ目のsizeSlugが車種詳細に飲み込まれないようにする。
+// 1セグの /bikes/tire-size は数値限定の /{id} 等とは衝突しない。sizeSlug は where で [a-z0-9-]+ に限定。
+Route::get('/bikes/tire-size', [\App\Http\Controllers\Bike\TireSizeController::class, 'index'])
+    ->name('bikes.tire_size.index');
+Route::get('/bikes/tire-size/{sizeSlug}', [\App\Http\Controllers\Bike\TireSizeController::class, 'show'])
+    ->where('sizeSlug', '[a-z0-9\-]+')
+    ->name('bikes.tire_size.show');
+
 Route::get('/bikes/{mfrSlug}/{modelSlug}', [BikeController::class, 'modelDetailBySlug'])
     ->where('mfrSlug', '[a-z][a-z0-9\-]*')
     ->name('bikes.model_detail');
