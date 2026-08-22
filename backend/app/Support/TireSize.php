@@ -8,6 +8,7 @@ use App\Models\BikeModel;
 use App\Models\Listing;
 use App\Models\Manufacturer;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 /**
  * タイヤサイズの表記ゆれを吸収する正規化と、「同じタイヤサイズの車種」抽出。
@@ -165,27 +166,94 @@ final class TireSize
     }
 
     /**
+     * 車種1件の代表画像URLを列だけから解決（クエリ非発行）。無ければ null。
+     *
+     * 既存の BikeModel::imageUrl アクセサは Listing を都度引くためループでN+1になる。
+     * ここではそのクエリ非依存部分を再利用: 既存ヘルパ model_image_url()（models/配下の唯一の切替口）で
+     * local_image_path を解決し、無ければアクセサに隠れる生の image_url 列（models 一覧ビューと同じ http/asset 判定）。
+     * 呼び出し側で local_image_path / image_url を select 済みであること。
+     */
+    private static function resolveModelImage(BikeModel $m): ?string
+    {
+        $local = $m->local_image_path; // 'array' キャスト
+        if (is_array($local) && ! empty($local)) {
+            return model_image_url(ltrim((string) $local[0], '/'));
+        }
+
+        $raw = trim((string) ($m->getRawOriginal('image_url') ?? '')); // アクセサを迂回して生の列値
+        if ($raw !== '') {
+            return Str::startsWith($raw, ['http://', 'https://']) ? $raw : asset($raw);
+        }
+
+        return null;
+    }
+
+    /**
      * ページ化対象（前輪サイズごとの該当車種が5件以上）のサイズ索引。多い順。
-     * 返り値: array<array{size:string, size_slug:string, count:int}>
+     * 各サイズに代表画像（在庫多い順→名前昇順・画像有りのみ・最大3枚）を添える。
+     * 返り値: array<array{size:string, size_slug:string, count:int, images:array<array{url:string,name:string}>}>
      */
     public static function pageableIndex(): array
     {
-        return Cache::remember('tire_size_index_v1', 86400, function (): array {
-            $counts = []; // 正規化サイズ => 該当車種数
-            BikeModel::query()->select('id', 'tire_size_front')->get()
-                ->each(function ($m) use (&$counts): void {
-                    $nf = self::normalize($m->tire_size_front);
-                    if ($nf !== null) {
-                        $counts[$nf] = ($counts[$nf] ?? 0) + 1;
-                    }
-                });
+        // 画像列を含むので v2（旧 v1 の配列を読んで壊れるのを防ぐ）。
+        return Cache::remember('tire_size_index_v2', 86400, function (): array {
+            // 画像解決に必要な列（image_url / local_image_path）を最初の1クエリで取得。
+            $all = BikeModel::query()
+                ->select('id', 'name', 'manufacturer_id', 'tire_size_front', 'image_url', 'local_image_path')
+                ->get();
+
+            $groups = []; // 正規化サイズ => メンバー車種
+            foreach ($all as $m) {
+                $nf = self::normalize($m->tire_size_front);
+                if ($nf !== null) {
+                    $groups[$nf][] = $m;
+                }
+            }
+            $pageable = array_filter($groups, static fn (array $members): bool => count($members) >= 5);
+
+            // ページ化対象メンバー全部の在庫を1クエリで（車種ごとのループでは引かない）。
+            $allIds = [];
+            foreach ($pageable as $members) {
+                foreach ($members as $m) {
+                    $allIds[] = (int) $m->id;
+                }
+            }
+            $stock = empty($allIds)
+                ? collect()
+                : Listing::query()->whereIn('bike_model_id', $allIds)->where('is_sold_out', 0)
+                    ->selectRaw('bike_model_id, COUNT(*) as cnt')->groupBy('bike_model_id')->pluck('cnt', 'bike_model_id');
 
             $index = [];
-            foreach ($counts as $size => $count) {
-                if ($count < 5) {
-                    continue; // 薄いページを量産しない
+            foreach ($pageable as $size => $members) {
+                // 在庫多い順 → 車種名昇順。
+                usort($members, static function ($a, $b) use ($stock): int {
+                    $sa = (int) ($stock[$a->id] ?? 0);
+                    $sb = (int) ($stock[$b->id] ?? 0);
+                    if ($sa !== $sb) {
+                        return $sb <=> $sa;
+                    }
+
+                    return strcmp((string) $a->name, (string) $b->name);
+                });
+
+                // 画像有りの車種から最大3枚（無い車種は飛ばす）。
+                $images = [];
+                foreach ($members as $m) {
+                    $url = self::resolveModelImage($m);
+                    if ($url !== null) {
+                        $images[] = ['url' => $url, 'name' => (string) $m->name];
+                    }
+                    if (count($images) >= 3) {
+                        break;
+                    }
                 }
-                $index[] = ['size' => (string) $size, 'size_slug' => self::sizeSlug((string) $size), 'count' => (int) $count];
+
+                $index[] = [
+                    'size' => (string) $size,
+                    'size_slug' => self::sizeSlug((string) $size),
+                    'count' => count($members),
+                    'images' => $images, // 0〜3枚
+                ];
             }
             usort($index, static fn (array $a, array $b): int => $b['count'] <=> $a['count']);
 
@@ -228,9 +296,10 @@ final class TireSize
             return null;
         }
 
-        return Cache::remember("tire_size_page_v1:{$sizeSlug}", 86400, function () use ($size, $sizeSlug): array {
+        // 画像列を含むので v2（旧 v1 の配列を読んで壊れるのを防ぐ）。
+        return Cache::remember("tire_size_page_v2:{$sizeSlug}", 86400, function () use ($size, $sizeSlug): array {
             $all = BikeModel::query()
-                ->select('id', 'name', 'slug', 'manufacturer_id', 'tire_size_front', 'tire_size_rear')
+                ->select('id', 'name', 'slug', 'manufacturer_id', 'tire_size_front', 'tire_size_rear', 'image_url', 'local_image_path')
                 ->get();
 
             $matched = [];
@@ -304,6 +373,7 @@ final class TireSize
                     'mfr_slug' => $mfrSlug,
                     'model_slug' => $modelSlug,
                     'stock' => (int) ($stock[$m->id] ?? 0),
+                    'image' => self::resolveModelImage($m), // 列のみ・クエリ非発行。null は placeholder 表示。
                 ];
                 if (count($items) >= 60) {
                     break;

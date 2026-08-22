@@ -88,8 +88,17 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     @foreach($data['items'] as $item)
                     <a href="{{ route('bikes.model_detail', ['mfrSlug' => $item['mfr_slug'], 'modelSlug' => $item['model_slug']]) }}"
-                       class="flex items-center justify-between rounded-xl bg-white border border-gray-100 p-3 hover:shadow-md transition-shadow">
-                        <span class="min-w-0">
+                       class="flex items-center gap-3 rounded-xl bg-white border border-gray-100 p-3 hover:shadow-md transition-shadow">
+                        {{-- 画像は列のみで解決。無い車種は既存の車種一覧(models.blade)と同じ lucide プレースホルダ。 --}}
+                        <span class="shrink-0 w-16 h-12 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
+                            @if(! empty($item['image']))
+                            <img src="{{ $item['image'] }}" alt="{{ $item['name'] }}" width="64" height="48"
+                                 class="w-full h-full object-cover" loading="lazy" decoding="async">
+                            @else
+                            <i data-lucide="bike" class="w-5 h-5 text-gray-300"></i>
+                            @endif
+                        </span>
+                        <span class="min-w-0 flex-1">
                             @if($item['manufacturer'] !== '')<span class="block text-[10px] font-bold text-gray-400">{{ $item['manufacturer'] }}</span>@endif
                             <span class="block text-sm font-black text-gray-900 truncate">{{ $item['name'] }}</span>
                         </span>

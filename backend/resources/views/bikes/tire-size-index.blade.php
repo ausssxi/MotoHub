@@ -46,9 +46,22 @@
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 @foreach($sizes as $s)
                 <a href="{{ route('bikes.tire_size.show', ['sizeSlug' => $s['size_slug']]) }}"
-                   class="flex items-center justify-between rounded-xl bg-white border border-gray-100 p-4 hover:shadow-md transition-shadow">
-                    <span class="text-sm font-black text-gray-900">{{ $s['size'] }}</span>
-                    <span class="text-[11px] font-bold text-gray-400">{{ number_format((int) $s['count']) }}車種</span>
+                   class="block rounded-xl bg-white border border-gray-100 p-4 hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-black text-gray-900">{{ $s['size'] }}</span>
+                        <span class="text-[11px] font-bold text-gray-400">{{ number_format((int) $s['count']) }}車種</span>
+                    </div>
+                    {{-- 代表画像（在庫多い順・画像有りのみ最大3枚）。1枚も無ければ領域自体を出さない。 --}}
+                    @if(! empty($s['images']))
+                    <div class="mt-3 grid grid-cols-3 gap-1.5">
+                        @foreach($s['images'] as $img)
+                        <div class="aspect-[4/3] rounded-lg overflow-hidden bg-gray-50">
+                            <img src="{{ $img['url'] }}" alt="{{ $img['name'] }}" width="120" height="90"
+                                 class="w-full h-full object-cover" loading="lazy" decoding="async">
+                        </div>
+                        @endforeach
+                    </div>
+                    @endif
                 </a>
                 @endforeach
             </div>
