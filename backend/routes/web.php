@@ -244,6 +244,14 @@ Route::prefix('bikes')->name('bikes.')->controller(BikeController::class)->group
     Route::get('/{listing}/ogp.png', [DealOgpController::class, 'show'])->name('deal_ogp')->where('listing', '[0-9]+');
 });
 
+// タイヤサイズ別ページ。1セグ /bikes/tire-size が下の /bikes/{makerSlug} に、2セグ /bikes/tire-size/{sizeSlug} が
+// /bikes/{mfrSlug}/{ccSlug} や /bikes/{mfrSlug}/{modelSlug} に飲み込まれないよう、これら可変ルート群より前に置く。
+Route::get('/bikes/tire-size', [\App\Http\Controllers\Bike\TireSizeController::class, 'index'])
+    ->name('bikes.tire_size.index');
+Route::get('/bikes/tire-size/{sizeSlug}', [\App\Http\Controllers\Bike\TireSizeController::class, 'show'])
+    ->where('sizeSlug', '[a-z0-9\-]+')
+    ->name('bikes.tire_size.show');
+
 // メーカー×排気量カテゴリページ (例: /bikes/honda/250cc)
 Route::get('/bikes/{mfrSlug}/{ccSlug}', [BikeController::class, 'categoryByDisplacement'])
     ->where('mfrSlug', '[a-z][a-z0-9\-]*')
@@ -306,14 +314,6 @@ Route::post('/bikes/threads/{threadId}/replies', [\App\Http\Controllers\Bike\Dis
     ->where('threadId', '[0-9]+')->name('bikes.thread.reply')->middleware('throttle:3,1');
 Route::post('/bikes/replies/{replyId}/vote', [\App\Http\Controllers\Bike\DiscussionThreadController::class, 'vote'])
     ->where('replyId', '[0-9]+')->name('bikes.thread.reply.vote')->middleware('throttle:20,1');
-
-// タイヤサイズ別ページ。/bikes/{mfrSlug}/{modelSlug} の「前」に置き、2セグ目のsizeSlugが車種詳細に飲み込まれないようにする。
-// 1セグの /bikes/tire-size は数値限定の /{id} 等とは衝突しない。sizeSlug は where で [a-z0-9-]+ に限定。
-Route::get('/bikes/tire-size', [\App\Http\Controllers\Bike\TireSizeController::class, 'index'])
-    ->name('bikes.tire_size.index');
-Route::get('/bikes/tire-size/{sizeSlug}', [\App\Http\Controllers\Bike\TireSizeController::class, 'show'])
-    ->where('sizeSlug', '[a-z0-9\-]+')
-    ->name('bikes.tire_size.show');
 
 Route::get('/bikes/{mfrSlug}/{modelSlug}', [BikeController::class, 'modelDetailBySlug'])
     ->where('mfrSlug', '[a-z][a-z0-9\-]*')
