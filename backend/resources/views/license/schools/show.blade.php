@@ -1,6 +1,6 @@
 <x-layout>
-    <x-slot:title>{{ $prefecture }}で二輪免許が取れる指定自動車教習所一覧｜MotoHub</x-slot:title>
-    <x-slot:metaDescription>{{ $prefecture }}で普通二輪・大型二輪の教習を行っている指定自動車教習所の一覧です。市区町村・対応免許区分・公式サイトへのリンクをまとめています。</x-slot:metaDescription>
+    <x-slot:title>{{ $prefecture }}で二輪免許が取れる指定自動車教習所一覧【{{ number_format($schoolTotal) }}校】｜MotoHub</x-slot:title>
+    <x-slot:metaDescription>{{ $prefecture }}で普通二輪・大型二輪の教習を行っている指定自動車教習所{{ number_format($schoolTotal) }}校（うち大型二輪対応{{ number_format($schoolOogata) }}校）の一覧。市区町村・対応免許区分・公式サイトへのリンクに加え、県内の中古バイク相場やバイク環境もまとめています。</x-slot:metaDescription>
     <x-slot:canonical>https://motohub.jp/license/schools/{{ $pref }}</x-slot:canonical>
     <x-slot:navigation>
         <x-navigation :showSearch="true" />
@@ -146,6 +146,74 @@
                     </a>
                 </div>
             </section>
+
+            {{-- 説明文（実データから組み立て・県ごとに数値が変わる） --}}
+            <section>
+                <p class="text-[13px] text-slate-600 leading-relaxed">
+                    {{ $prefecture }}には二輪教習を行う指定自動車教習所が{{ number_format($schoolTotal) }}校あります。うち大型二輪に対応しているのは{{ number_format($schoolOogata) }}校です。免許を取ったあとに乗る中古バイクの相場や、県内のバイク環境もまとめました。
+                </p>
+            </section>
+
+            {{-- 免許取得後に買える中古バイク（在庫0台ならセクションごと非表示）。価格は total_price。 --}}
+            @if((int) ($prefStats['bike_total'] ?? 0) > 0)
+            <section>
+                <h2 class="text-lg font-black text-slate-900 mb-3">{{ $prefecture }}で免許を取ったあとに買える中古バイク</h2>
+                <div class="bg-white rounded-2xl border border-slate-200 p-5">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                        <div class="bg-slate-50 rounded-xl p-3"><p class="text-[10px] font-bold text-slate-400">掲載台数</p><p class="text-sm font-black text-slate-900">{{ number_format((int) $prefStats['bike_total']) }}台</p></div>
+                        @if((int) ($prefStats['bike_priced'] ?? 0) > 0)
+                        <div class="bg-slate-50 rounded-xl p-3"><p class="text-[10px] font-bold text-slate-400">最低価格</p><p class="text-sm font-black text-slate-900">{{ number_format((int) $prefStats['bike_min']) }}円</p></div>
+                        <div class="bg-slate-50 rounded-xl p-3"><p class="text-[10px] font-bold text-slate-400">最高価格</p><p class="text-sm font-black text-slate-900">{{ number_format((int) $prefStats['bike_max']) }}円</p></div>
+                        <div class="bg-slate-50 rounded-xl p-3"><p class="text-[10px] font-bold text-slate-400">平均価格</p><p class="text-sm font-black text-slate-900">{{ number_format((int) $prefStats['bike_avg']) }}円</p></div>
+                        @endif
+                    </div>
+                    <p class="text-[11px] text-slate-400 mb-1">※価格は支払総額（車両本体価格＋諸費用込み）の目安です。</p>
+                    <p class="text-[11px] font-bold text-slate-400 mb-2 mt-3">免許区分（排気量帯）で探す</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <a href="{{ route('bikes.search', ['prefecture' => $prefecture, 'max_displacement' => 50]) }}" class="block rounded-xl border border-slate-200 p-3 hover:border-blue-400 transition">
+                            <p class="text-sm font-black text-slate-900">〜50cc</p>
+                            <p class="text-[11px] text-slate-500">原付免許 / {{ number_format((int) $prefStats['disp']['d50']) }}台</p>
+                        </a>
+                        <a href="{{ route('bikes.search', ['prefecture' => $prefecture, 'min_displacement' => 51, 'max_displacement' => 125]) }}" class="block rounded-xl border border-slate-200 p-3 hover:border-blue-400 transition">
+                            <p class="text-sm font-black text-slate-900">51〜125cc</p>
+                            <p class="text-[11px] text-slate-500">小型限定普通二輪 / {{ number_format((int) $prefStats['disp']['d125']) }}台</p>
+                        </a>
+                        <a href="{{ route('bikes.search', ['prefecture' => $prefecture, 'min_displacement' => 126, 'max_displacement' => 400]) }}" class="block rounded-xl border border-slate-200 p-3 hover:border-blue-400 transition">
+                            <p class="text-sm font-black text-slate-900">126〜400cc</p>
+                            <p class="text-[11px] text-slate-500">普通二輪 / {{ number_format((int) $prefStats['disp']['d400']) }}台</p>
+                        </a>
+                        <a href="{{ route('bikes.search', ['prefecture' => $prefecture, 'min_displacement' => 401]) }}" class="block rounded-xl border border-slate-200 p-3 hover:border-blue-400 transition">
+                            <p class="text-sm font-black text-slate-900">401cc〜</p>
+                            <p class="text-[11px] text-slate-500">大型二輪 / {{ number_format((int) $prefStats['disp']['d401']) }}台</p>
+                        </a>
+                    </div>
+                </div>
+            </section>
+            @endif
+
+            {{-- 県のバイク環境（件数0の行は出さない・全て0ならセクションごと非表示） --}}
+            @if((int) ($prefStats['shops'] ?? 0) > 0 || (int) ($prefStats['garages'] ?? 0) > 0 || (int) ($prefStats['parkings'] ?? 0) > 0)
+            <section>
+                <h2 class="text-lg font-black text-slate-900 mb-3">{{ $prefecture }}のバイク環境</h2>
+                <div class="grid sm:grid-cols-3 gap-3">
+                    @if((int) ($prefStats['shops'] ?? 0) > 0)
+                    <a href="{{ route('shops.area.prefecture', $prefecture) }}" class="block bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-400 transition">
+                        <p class="text-sm font-black text-slate-900">🏪 バイク販売店 {{ number_format((int) $prefStats['shops']) }}店</p>
+                    </a>
+                    @endif
+                    @if((int) ($prefStats['garages'] ?? 0) > 0)
+                    <a href="{{ route('rental-garage.area.prefecture', $prefecture) }}" class="block bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-400 transition">
+                        <p class="text-sm font-black text-slate-900">🔧 レンタルガレージ {{ number_format((int) $prefStats['garages']) }}件</p>
+                    </a>
+                    @endif
+                    @if((int) ($prefStats['parkings'] ?? 0) > 0)
+                    <a href="{{ route('parking.area.prefecture', $prefecture) }}" class="block bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-400 transition">
+                        <p class="text-sm font-black text-slate-900">🅿️ バイク駐車場 {{ number_format((int) $prefStats['parkings']) }}件</p>
+                    </a>
+                    @endif
+                </div>
+            </section>
+            @endif
 
             {{-- 同じ県の関連ページ（在庫/販売店/駐車場） --}}
             @if($areaLinks['shops'] || $areaLinks['parking'] || $areaLinks['bikes'])
