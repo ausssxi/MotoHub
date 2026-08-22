@@ -81,11 +81,12 @@ cat <<'EOS'
 このスクリプトが行うこと:
   1. 現在のコミットを記録（切り戻し用に表示）
   2. git pull --ff-only
-  3. composer.lock の差分を確認（install はしない・必要なら表示のみ）
-  4. 未実行マイグレーションの有無を確認（migrate はしない・表示のみ）
-  5. ビューキャッシュの削除
-  6. php-fpm の graceful reload（OPcache の2秒の再検証窓を閉じてから確認するため）
-  7. 主要ページのスモークテスト
+  3. フロントエンドアセットのビルド（npm run build・失敗時は退避したビルドへ即切り戻し）
+  4. composer.lock の差分を確認（install はしない・必要なら表示のみ）
+  5. 未実行マイグレーションの有無を確認（migrate はしない・表示のみ）
+  6. ビューキャッシュの削除
+  7. php-fpm の graceful reload（OPcache の2秒の再検証窓を閉じてから確認するため）
+  8. 主要ページのスモークテスト
 
 破壊的な操作（migrate / composer install）は自動実行しません。
 EOS
@@ -99,7 +100,7 @@ if [ "$ASSUME_YES" -ne 1 ]; then
 fi
 
 # ── 1. 現在のコミットを記録（切り戻し用） ────────────────
-step "[1/7] 現在のコミットを記録"
+step "[1/8] 現在のコミットを記録"
 BEFORE_SHA="$(git rev-parse HEAD)"
 echo "  デプロイ前: $BEFORE_SHA"
 echo "  $(git log -1 --format='%h %s' "$BEFORE_SHA")"
@@ -116,7 +117,7 @@ fi
 ok "作業ツリーはクリーン"
 
 # ── 2. git pull ─────────────────────────────────────────
-step "[2/7] git pull --ff-only"
+step "[2/8] git pull --ff-only"
 git pull --ff-only
 AFTER_SHA="$(git rev-parse HEAD)"
 
@@ -133,19 +134,86 @@ git diff --stat "$BEFORE_SHA" "$AFTER_SHA" | sed 's/^/    /'
 # 以降の判定で使う差分ファイル一覧
 CHANGED_FILES="$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA")"
 
-# ── 3. composer.lock の差分確認（自動実行はしない） ──────
-step "[3/7] composer.lock の差分確認"
+# ── 3. フロントエンドアセットのビルド（自動実行するが、失敗時は退避へ即切り戻し） ──────
+# 2026-08-22 発覚: deploy.sh に npm run build が無く、本番 public/build/assets/app-*.css の
+# ビルド日時が 2026-07-23 22:29 のまま約1か月固定されていた。7/23 以降に追加された Tailwind クラスが
+# CSS に一切含まれず、/license/schools/aichi の合宿ボタン（bg-slate-900 text-white）が白背景に白文字で
+# 判読不能に。bg-slate-50（14箇所使用）/ bg-slate-800 も未定義で、対象ビュー20箇所中19箇所の背景色が無効だった。
+# 本番で手動ビルド（app コンテナ内 npm run build・約12秒・CSS 138KB→141KB）で解消済み。再発防止のため組み込む。
+# ★Blade 等の差分有無で判定しない: Tailwind の purge は全ソースを走査するため、今回のような
+#   「Blade 以外の要因でクラスが変わる」ケースを差分判定は取りこぼす。だから毎回ビルドする。
+# ★設計思想（migrate / composer install は無人実行しない）の中間: スキーマ変更ほど危険ではないが、
+#   失敗すると全ページの見た目が壊れる。よって「失敗しても即座に戻せる状態（旧 public/build の退避）を
+#   作ってから」実行し、失敗したら退避へ切り戻して exit 1 する。
+step "[3/8] フロントエンドアセットのビルド（npm run build）"
+
+BUILD_DIR="backend/public/build"
+
+# a. 現在の public/build を「最終更新日時」つきで退避（上書きせず・同名があれば連番）。
+#    退避名の日時で「いつのビルドだったか」を後から追える（今回の 7/23 固定のような事故の検知に効く）。
+if [ -d "$BUILD_DIR" ]; then
+    BUILD_MTIME="$(date -r "$BUILD_DIR" '+%Y%m%d-%H%M%S' 2>/dev/null || date '+%Y%m%d-%H%M%S')"
+    BACKUP_DIR="${BUILD_DIR}.bak-${BUILD_MTIME}"
+    bak_n=1
+    while [ -e "$BACKUP_DIR" ]; do
+        BACKUP_DIR="${BUILD_DIR}.bak-${BUILD_MTIME}-${bak_n}"
+        bak_n=$((bak_n + 1))
+    done
+    mv "$BUILD_DIR" "$BACKUP_DIR"
+    echo "  退避: $BUILD_DIR → $BACKUP_DIR"
+else
+    BACKUP_DIR=""
+    warn "$BUILD_DIR が無いため退避なし（初回ビルド扱いで続行）"
+fi
+
+# b/c. app コンテナ内でビルド。set -e 下でも if 条件のコマンド失敗はスクリプトを打ち切らないため、
+#      失敗を捕まえて退避を書き戻し、切り戻しコマンドを表示してから exit 1 する。
+BUILD_START="$(date +%s)"
+if docker compose exec -T app npm run build; then
+    BUILD_ELAPSED=$(( $(date +%s) - BUILD_START ))
+    # d. 生成 CSS のファイル名・サイズ・所要時間を表示。
+    ok "npm run build 成功（${BUILD_ELAPSED}秒）"
+    if ls "$BUILD_DIR"/assets/app-*.css >/dev/null 2>&1; then
+        for css in "$BUILD_DIR"/assets/app-*.css; do
+            echo "  生成CSS: $(basename "$css")（$(du -h "$css" | cut -f1)）"
+        done
+    else
+        warn "app-*.css が見つかりません。ビルド出力を手動で確認してください。"
+    fi
+else
+    warn "npm run build が失敗しました。退避したビルドへ切り戻します。"
+    if [ -n "$BACKUP_DIR" ] && [ -d "$BACKUP_DIR" ]; then
+        echo "  ▼ 切り戻しコマンド（これを実行します）:"
+        echo "      rm -rf $BUILD_DIR && mv $BACKUP_DIR $BUILD_DIR"
+        rm -rf "$BUILD_DIR"
+        mv "$BACKUP_DIR" "$BUILD_DIR"
+        ok "退避したビルドへ切り戻しました（$BUILD_DIR）"
+    else
+        warn "退避がありません（初回ビルド）。public/build を手動で確認してください。"
+    fi
+    exit 1
+fi
+
+# e. 退避が溜まりすぎたら警告（自動削除はしない・人が判断して消す）。
+BAK_COUNT="$(ls -1d ${BUILD_DIR}.bak-* 2>/dev/null | wc -l | tr -d ' ' || true)"
+if [ "${BAK_COUNT:-0}" -ge 5 ]; then
+    warn "public/build の退避が ${BAK_COUNT} 個あります。古いものは手動で削除してよいです（自動削除はしません）:"
+    echo "      ls -1dt ${BUILD_DIR}.bak-*   # 新しい順に確認し、不要分を rm -rf"
+fi
+
+# ── 4. composer.lock の差分確認（自動実行はしない） ──────
+step "[4/8] composer.lock の差分確認"
 if echo "$CHANGED_FILES" | grep -q '^backend/composer\.lock$'; then
     warn "composer.lock に差分があります。依存パッケージの更新が必要です:"
     echo "      docker compose exec app composer install --no-dev --optimize-autoloader"
-    echo "    （このスクリプトでは自動実行しません。実行後、手順6の再読み込みを"
+    echo "    （このスクリプトでは自動実行しません。実行後、手順7の再読み込みを"
     echo "      もう一度行ってください）"
 else
     ok "composer.lock に差分なし（composer install は不要）"
 fi
 
-# ── 4. マイグレーションの要否（自動実行はしない） ────────
-step "[4/7] 未実行マイグレーションの確認"
+# ── 5. マイグレーションの要否（自動実行はしない） ────────
+step "[5/8] 未実行マイグレーションの確認"
 # migrate:status は読み取りのみ。状態を見るだけで適用はしない。
 MIGRATION_STATUS="$(docker compose exec -T app php artisan migrate:status 2>&1 || true)"
 if echo "$MIGRATION_STATUS" | grep -qi 'pending'; then
@@ -159,8 +227,8 @@ else
     ok "未実行のマイグレーションなし"
 fi
 
-# ── 5. アプリケーションキャッシュの整理 ──────────────────
-step "[5/7] アプリケーションキャッシュの整理"
+# ── 6. アプリケーションキャッシュの整理 ──────────────────
+step "[6/8] アプリケーションキャッシュの整理"
 # このプロジェクトが実際に使っているのはビューキャッシュだけ。
 # bootstrap/cache に routes.php / config.php は無く、config:cache / route:cache は
 # 運用していない。使っていないキャッシュのクリアは足さない。
@@ -177,8 +245,8 @@ for cache_file in bootstrap/cache/routes-v7.php bootstrap/cache/config.php; do
     fi
 done
 
-# ── 6. php-fpm の再読み込み（偽陰性の防止） ─────────────
-step "[6/7] php-fpm を graceful reload（OPcache の再検証窓を閉じる）"
+# ── 7. php-fpm の再読み込み（偽陰性の防止） ─────────────
+step "[7/8] php-fpm を graceful reload（OPcache の再検証窓を閉じる）"
 # ここが本スクリプトの主目的。
 # 本番は validate_timestamps=On / revalidate_freq=2 なので放置でも最大2秒で反映されるが、
 # その窓の中で次のスモークテストを走らせると古いコードに当たって偽陰性になる。
@@ -211,8 +279,8 @@ else
     fi
 fi
 
-# ── 7. スモークテスト ───────────────────────────────────
-step "[7/7] スモークテスト（${SMOKE_BASE}）"
+# ── 8. スモークテスト ───────────────────────────────────
+step "[8/8] スモークテスト（${SMOKE_BASE}）"
 smoke_failed=0
 for path in "${SMOKE_PATHS[@]}"; do
     code="$(curl -s --max-time 20 -o /dev/null -w '%{http_code}' "${SMOKE_BASE}${path}" || true)"
