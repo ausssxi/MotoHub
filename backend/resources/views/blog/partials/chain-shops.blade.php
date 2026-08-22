@@ -14,13 +14,12 @@
         @foreach($groups as $group)
         <div>
             <h3 class="mb-2 text-sm font-black text-gray-700">{!! e($group['label']) !!}（{{ number_format($group['count']) }}店舗）</h3>
-            <ul class="flex flex-wrap gap-x-4 gap-y-1.5">
+            {{-- ul/li は .blog-content ul li{list-style:disc} で行頭記号が付くため使わない。div＋直下 a を flex 折り返し＋gap のみで配置（区切り文字なし）。 --}}
+            <div class="flex flex-wrap gap-x-4 gap-y-1.5">
                 @foreach($group['shops'] as $shop)
-                <li>
-                    <a href="{{ route('shops.show', ['id' => (int) $shop['id']]) }}" class="text-sm text-blue-600 hover:underline">{!! e($shop['name']) !!}</a>
-                </li>
+                <a href="{{ route('shops.show', ['id' => (int) $shop['id']]) }}" class="text-sm text-blue-600 hover:underline">{!! e($shop['name']) !!}</a>
                 @endforeach
-            </ul>
+            </div>
         </div>
         @endforeach
     </div>
