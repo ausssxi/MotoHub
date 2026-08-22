@@ -29,6 +29,10 @@ final class TireSize
             return null;
         }
 
+        // カンマ（半角/全角）区切りは「サイズ本体, ロードインデックス(53H), ホワイトウォール表記(BW)」等。
+        // 先頭要素だけをサイズ本体として採用し、それ以降は捨てる（以降の既存処理は先頭要素に適用）。
+        $s = preg_split('/[,，、]/u', $s, 2)[0];
+
         // 全角英数字・全角記号・全角空白を半角へ寄せる（（）／－ 等も半角化される）。
         $s = mb_convert_kana($s, 'as', 'UTF-8');
 
@@ -74,8 +78,8 @@ final class TireSize
         $selfRear = self::normalize($model->tire_size_rear);
         $selfId = (int) $model->id;
 
-        // 配列の形が変わったのでキー版を v2 に上げる（旧 v1 の配列を新コードが読んで壊れるのを防ぐ）。
-        return Cache::remember("tire_same_size_v2:{$selfId}", 86400, function () use ($selfId, $selfFront, $selfRear) {
+        // normalize 変更（カンマ分割）で結果が変わるためキー版を v3 に上げる（旧 v1/v2 を読んで壊れるのを防ぐ）。
+        return Cache::remember("tire_same_size_v3:{$selfId}", 86400, function () use ($selfId, $selfFront, $selfRear) {
             // 全件取得は1回のみ（キャッシュミス時だけ実行）。列を明示。
             $all = BikeModel::query()
                 ->select('id', 'name', 'slug', 'manufacturer_id', 'tire_size_front', 'tire_size_rear')
@@ -156,13 +160,20 @@ final class TireSize
     /**
      * 正規化済みサイズ → URL用 sizeSlug。
      *
-     * normalize() の出力は A-Z0-9 と '/' '.' '-' のみ（空白・括弧・M/C・全角は除去済み・英字は大文字）。
-     * 小文字化し、'/' と '.' をハイフンへ置換する。'/' '.' 以外の記号が混じっても素通しするが、
-     * ルートの where 制約 [a-z0-9-]+ から外れる値は 404 になる（sizeSlug→サイズの往復変換はしない方針）。
+     * normalize() の出力は基本 A-Z0-9 と '/' '.' '-'。小文字化し '/' '.' をハイフンへ置換する。
+     * それ以外の想定外記号（カンマ等）が万一残った場合は素通しするが、その slug は
+     * ルート制約 [a-z0-9-]+ から外れる。ページ化可否は pageableIndex() が isValidSizeSlug() で判定し、
+     * リンク不能な slug を持つサイズは索引から除外する（sizeSlug→サイズの往復変換はしない方針）。
      */
     public static function sizeSlug(string $normalized): string
     {
         return str_replace(['/', '.'], '-', strtolower($normalized));
+    }
+
+    /** sizeSlug がルート制約 [a-z0-9-]+ に収まる（リンク可能）か。 */
+    public static function isValidSizeSlug(string $sizeSlug): bool
+    {
+        return $sizeSlug !== '' && preg_match('/^[a-z0-9\-]+$/', $sizeSlug) === 1;
     }
 
     /**
@@ -195,8 +206,8 @@ final class TireSize
      */
     public static function pageableIndex(): array
     {
-        // 画像列を含むので v2（旧 v1 の配列を読んで壊れるのを防ぐ）。
-        return Cache::remember('tire_size_index_v2', 86400, function (): array {
+        // normalize 変更（カンマ分割）と画像列を含むので v3（旧 v1/v2 の配列を読んで壊れるのを防ぐ）。
+        return Cache::remember('tire_size_index_v3', 86400, function (): array {
             // 画像解決に必要な列（image_url / local_image_path）を最初の1クエリで取得。
             $all = BikeModel::query()
                 ->select('id', 'name', 'manufacturer_id', 'tire_size_front', 'image_url', 'local_image_path')
@@ -225,6 +236,12 @@ final class TireSize
 
             $index = [];
             foreach ($pageable as $size => $members) {
+                // ルート制約 [a-z0-9-]+ に収まらない slug（カンマ等の想定外記号残り）はリンク不能なので索引に入れない。
+                $slug = self::sizeSlug((string) $size);
+                if (! self::isValidSizeSlug($slug)) {
+                    continue;
+                }
+
                 // 在庫多い順 → 車種名昇順。
                 usort($members, static function ($a, $b) use ($stock): int {
                     $sa = (int) ($stock[$a->id] ?? 0);
@@ -250,7 +267,7 @@ final class TireSize
 
                 $index[] = [
                     'size' => (string) $size,
-                    'size_slug' => self::sizeSlug((string) $size),
+                    'size_slug' => $slug,
                     'count' => count($members),
                     'images' => $images, // 0〜3枚
                 ];
@@ -296,8 +313,8 @@ final class TireSize
             return null;
         }
 
-        // 画像列を含むので v2（旧 v1 の配列を読んで壊れるのを防ぐ）。
-        return Cache::remember("tire_size_page_v2:{$sizeSlug}", 86400, function () use ($size, $sizeSlug): array {
+        // normalize 変更（カンマ分割）と画像列を含むので v3（旧 v1/v2 を読んで壊れるのを防ぐ）。
+        return Cache::remember("tire_size_page_v3:{$sizeSlug}", 86400, function () use ($size, $sizeSlug): array {
             $all = BikeModel::query()
                 ->select('id', 'name', 'slug', 'manufacturer_id', 'tire_size_front', 'tire_size_rear', 'image_url', 'local_image_path')
                 ->get();
