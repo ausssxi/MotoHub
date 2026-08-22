@@ -1979,17 +1979,33 @@ final class BikeController extends Controller
             abort(404);
         }
 
-        $model = is_numeric($modelSlug)
-            ? \App\Models\BikeModel::where('id', $modelSlug)->where('manufacturer_id', $manufacturer->id)->firstOrFail()
-            : \App\Models\BikeModel::where('slug', $modelSlug)->where('manufacturer_id', $manufacturer->id)->firstOrFail();
+        // まず slug で検索する。数字だけの slug（ドゥカティ1098・ベスパ125 等）を is_numeric で
+        // 先に ID 扱いすると slug 検索が一度も走らず404になるため、slug を優先する。
+        $model = \App\Models\BikeModel::where('slug', $modelSlug)
+            ->where('manufacturer_id', $manufacturer->id)
+            ->first();
+
+        // slug で見つからず、かつ数字のみのときに限り ID として解釈する（それ以外は存在しない＝404）。
+        $resolvedById = false;
+        if (! $model) {
+            if (is_numeric($modelSlug)) {
+                $model = \App\Models\BikeModel::where('id', $modelSlug)
+                    ->where('manufacturer_id', $manufacturer->id)
+                    ->firstOrFail(); // ID でも見つからなければ 404
+                $resolvedById = true;
+            } else {
+                abort(404); // slug 不一致・非数字＝該当なし
+            }
+        }
 
         // 統合済み(merged_into_id)なら canonical のURLへ301（id/slug どちらのアクセスもまとめて寄せる）
         if ($model->merged_into_id) {
             return redirect($model->canonicalModel()->seo_url, 301);
         }
 
-        // IDアクセスでslugがある場合は正規URLへ301リダイレクト
-        if (is_numeric($modelSlug) && $model->slug) {
+        // ID として解決できた場合のみ、正規の slug URL へ301。
+        // slug 一致で解決したときは 301 しない（自分自身への301＝無限リダイレクトを防ぐ）。
+        if ($resolvedById && $model->slug) {
             return redirect("/bikes/{$mfrSlug}/{$model->slug}", 301);
         }
 
