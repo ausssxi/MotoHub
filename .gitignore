@@ -43,6 +43,11 @@ backend/node_modules/puppeteer/
 
 # Viteビルド成果物は derived（deploy時 npm run build で生成）＝コミットしない
 backend/public/build/
+# deploy.sh ステップ3（2026-08-22 追加）が毎回 build を退避する build.bak-<日時>（同名時は連番付き）。
+# これらは git 管理外のため、deploy ステップ1の未コミット変更チェックに引っかかり次回デプロイが中止する
+# （2026-08-22、手動退避 build.bak-20260822 で実際に中止が発生）。よって無視する。
+# パターンは接頭辞 build.bak- を要求するので、本体 backend/public/build（配信に必要・上で別途 ignore 済み）には一致しない。
+backend/public/build.bak-*
 *:Zone.Identifier
 
 # 調査用スクリプト・一時ファイル（コミットしない）
