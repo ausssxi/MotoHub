@@ -219,6 +219,17 @@
                             <li><a href="{{ route('bikes.search', ['category_id' => 4]) }}" class="text-sm font-bold text-gray-600 hover:text-blue-600 hover:underline flex items-center gap-1.5"><i data-lucide="chevron-right" class="w-3 h-3 text-gray-300"></i> オフロード・モタード</a></li>
                         </ul>
                     </div>
+                    {{-- タイヤサイズから探す（既存の「排気量別」等と同形式・上位12サイズはキャッシュ済み pageableIndex から取得＝追加クエリなし） --}}
+                    <div>
+                        <h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 border-b border-gray-50 pb-2">タイヤサイズから探す</h4>
+                        @php $tireSizes = array_slice(\App\Support\TireSize::pageableIndex(), 0, 12); @endphp
+                        <ul class="space-y-3">
+                            @foreach($tireSizes as $ts)
+                            <li><a href="{{ route('bikes.tire_size.show', ['sizeSlug' => $ts['size_slug']]) }}" class="text-sm font-bold text-gray-600 hover:text-blue-600 hover:underline flex items-center gap-1.5"><i data-lucide="chevron-right" class="w-3 h-3 text-gray-300"></i> {{ $ts['size'] }}（{{ number_format((int) $ts['count']) }}車種）</a></li>
+                            @endforeach
+                            <li><a href="{{ route('bikes.tire_size.index') }}" class="text-sm font-black text-blue-600 hover:underline flex items-center gap-1.5"><i data-lucide="chevron-right" class="w-3 h-3 text-blue-300"></i> すべてのタイヤサイズを見る</a></li>
+                        </ul>
+                    </div>
                 </div>
                 
                 <div class="mt-8 pt-6 border-t border-gray-50 flex justify-center">

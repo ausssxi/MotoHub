@@ -66,6 +66,18 @@
                 @endforeach
             </div>
             @endif
+
+            {{-- 出口導線（行き止まり回避）。models.blade と同種の「〜から探す」リンク。 --}}
+            <div class="mt-10 pt-6 border-t border-gray-100">
+                <h2 class="text-sm font-black text-gray-700 mb-4">ほかの探し方</h2>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('bikes.models') }}" class="px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors">車種カタログ</a>
+                    <a href="{{ route('bikes.search', ['min_displacement' => 51, 'max_displacement' => 125]) }}" class="px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors">排気量から探す</a>
+                    <a href="{{ route('bikes.category_type', ['slug' => 'naked']) }}" class="px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors">タイプから探す</a>
+                    <a href="{{ route('bikes.prefectures') }}" class="px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors">地域から探す</a>
+                    <a href="{{ route('bikes.search') }}" class="px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors">中古バイクを検索</a>
+                </div>
+            </div>
         </div>
     </div>
 </x-layout>

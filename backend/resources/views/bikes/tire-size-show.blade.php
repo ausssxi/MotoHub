@@ -122,6 +122,15 @@
                 </div>
             </div>
             @endif
+
+            {{-- 出口導線。パンくずは最上部のみなので、長い一覧の末尾からも一覧へ戻れるようにする（行き止まり回避）。 --}}
+            <div class="pt-6 border-t border-gray-100 flex flex-wrap gap-2">
+                <a href="{{ route('bikes.tire_size.index') }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:underline">
+                    <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>タイヤサイズ一覧に戻る
+                </a>
+                <span class="text-gray-200">|</span>
+                <a href="{{ route('bikes.models') }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-blue-600 hover:underline">車種カタログを見る</a>
+            </div>
         </div>
     </div>
 </x-layout>

@@ -163,6 +163,9 @@
                         <a href="{{ route('parts.index') }}" class="footer-link">バイクパーツ検索</a>
                     </li>
                     <li>
+                        <a href="{{ route('bikes.tire_size.index') }}" class="footer-link">タイヤサイズから探す</a>
+                    </li>
+                    <li>
                         <a href="{{ route('trouble.index') }}" class="footer-link">バイクトラブル診断</a>
                     </li>
                     <li>
