@@ -103,4 +103,15 @@ return [
             '他車種',
         ],
     ],
+
+    // 車種詳細「相場・価格」タブの買取CTA（株式会社パッション・個人情報不要の相場シミュレーター）。
+    // url 未設定なら枠を出さない（theft/school affiliate と同型）。本番は config:cache 前提のため blade からは config() 経由で参照する。
+    'passion_affiliate' => [
+        'url'      => env('PASSION_AFFILIATE_URL', ''),
+        // 任意: インプレッション計測URL。設定時のみ 1x1 img を出す。
+        'imp_url'  => env('PASSION_AFFILIATE_IMP_URL', ''),
+        'provider' => env('PASSION_AFFILIATE_PROVIDER', '株式会社パッション'),
+        // CTAボタンのアンカーテキスト。
+        'label'    => env('PASSION_AFFILIATE_LABEL', '無料で買取相場を見る'),
+    ],
 ];

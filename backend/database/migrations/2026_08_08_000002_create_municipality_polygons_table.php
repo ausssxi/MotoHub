@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -20,6 +21,18 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // SQLite は GEOMETRY 型・SPATIAL INDEX・SRID 指定に非対応。テスト等でテーブルが
+        // 存在するよう geom を binary で持つ最小同等テーブルを作る（空間クエリは MySQL 専用）。
+        if (DB::connection()->getDriverName() !== 'mysql') {
+            Schema::create('municipality_polygons', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->char('code', 5)->index();
+                $table->binary('geom');
+            });
+
+            return;
+        }
+
         DB::statement(<<<'SQL'
             CREATE TABLE `municipality_polygons` (
                 `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

@@ -1,7 +1,9 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * rental_garages.prefecture を nullable にする。
@@ -15,12 +17,27 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement('ALTER TABLE `rental_garages` MODIFY `prefecture` VARCHAR(10) NULL');
+        // SQLite は生の MODIFY 構文が使えないため Schema の change() で同等の null 許容化を行う。
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE `rental_garages` MODIFY `prefecture` VARCHAR(10) NULL');
+
+            return;
+        }
+        Schema::table('rental_garages', function (Blueprint $table) {
+            $table->string('prefecture', 10)->nullable()->change();
+        });
     }
 
     public function down(): void
     {
         // 元は NOT NULL。戻す前に null 行が残っていると失敗するため、必要なら先に補完すること。
-        DB::statement('ALTER TABLE `rental_garages` MODIFY `prefecture` VARCHAR(10) NOT NULL');
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE `rental_garages` MODIFY `prefecture` VARCHAR(10) NOT NULL');
+
+            return;
+        }
+        Schema::table('rental_garages', function (Blueprint $table) {
+            $table->string('prefecture', 10)->nullable(false)->change();
+        });
     }
 };

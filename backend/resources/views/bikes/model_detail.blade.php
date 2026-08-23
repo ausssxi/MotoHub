@@ -968,39 +968,31 @@
                                 </div>
                                 @endif
                             </div>
-
-                            <div class="space-y-4">
-                                <p class="text-xs font-black text-gray-800 text-center mb-2">＼ 複数の業者で比較して高く売ろう ／</p>
-                                
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div class="flex flex-col">
-                                        <div class="text-[10px] font-bold text-center text-blue-600 bg-blue-50 py-1 rounded-t-lg border-x border-t border-blue-100">
-                                            カスタム車・改造車もOK！
-                                        </div>
-                                        <a href="https://px.a8.net/svt/ejp?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" target="_blank" rel="nofollow" class="block w-full bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white font-black text-center py-4 rounded-b-xl shadow-md transition transform hover:-translate-y-1 flex items-center justify-center gap-2">
-                                            <span>バイクワンで査定</span>
-                                            <i data-lucide="external-link" class="w-4 h-4"></i>
-                                        </a>
-                                        <img border="0" width="1" height="1" src="https://www18.a8.net/0.gif?a8mat=4AX6CG+5PEKHE+1BFI+61RIA" alt="" class="hidden">
-                                    </div>
-                                    <div class="flex flex-col">
-                                        <div class="text-[10px] font-bold text-center text-red-600 bg-red-50 py-1 rounded-t-lg border-x border-t border-red-100">
-                                            旧車・ハーレー・大型車に強い！
-                                        </div>
-                                        <a href="https://px.a8.net/svt/ejp?a8mat=4AX6CG+5QLFOY+1T3W+62ENM" target="_blank" rel="nofollow" class="block w-full bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white font-black text-center py-4 rounded-b-xl shadow-md transition transform hover:-translate-y-1 flex items-center justify-center gap-2">
-                                            <span>バイクBOONで査定</span>
-                                            <i data-lucide="external-link" class="w-4 h-4"></i>
-                                        </a>
-                                        <img border="0" width="1" height="1" src="https://www18.a8.net/0.gif?a8mat=4AX6CG+5QLFOY+1T3W+62ENM" alt="" class="hidden">
-                                    </div>
-                                </div>
-                                <p class="text-[10px] text-gray-400 text-center font-bold mt-2">提携: バイクワン / バイクBOON</p>
-                            </div>
                         @else
                             <div class="text-center py-8 bg-gray-50 rounded-2xl border border-gray-100">
                                 <i data-lucide="bar-chart-2" class="w-8 h-8 text-gray-300 mx-auto mb-2"></i>
                                 <p class="text-sm text-gray-500 font-bold">データ不足のため、現在買取相場を算出できません。</p>
                             </div>
+                        @endif
+
+                        {{-- 買取CTA（株式会社パッション・個人情報不要の相場シミュレーター）。相場データの有無に関わらず表示。url 未設定なら枠を出さない --}}
+                        @if(!empty(config('bike.passion_affiliate.url')))
+                        <div class="mt-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-emerald-100 text-center">
+                            <p class="text-emerald-700 text-[10px] font-black tracking-widest uppercase mb-2">PR・広告</p>
+                            <h3 class="text-base sm:text-lg font-black text-gray-900 mb-1">個人情報なしで相場をチェック</h3>
+                            <p class="text-xs font-bold text-gray-500 mb-4">個人情報不要・3クリックで愛車のお見積もり</p>
+                            <a href="{{ config('bike.passion_affiliate.url') }}" target="_blank" rel="nofollow sponsored noopener"
+                               class="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-black text-sm px-8 py-4 rounded-full shadow-md transition transform hover:-translate-y-1">
+                                <i data-lucide="coins" class="w-4 h-4"></i>
+                                <span>{{ config('bike.passion_affiliate.label') ?: '無料で買取相場を見る' }}</span>
+                            </a>
+                            @if(!empty(config('bike.passion_affiliate.provider')))
+                            <p class="text-[10px] text-gray-400 text-center font-bold mt-3">提供: {{ config('bike.passion_affiliate.provider') }}・PR</p>
+                            @endif
+                            @if(!empty(config('bike.passion_affiliate.imp_url')))
+                            <img src="{{ config('bike.passion_affiliate.imp_url') }}" width="1" height="1" alt="" style="border:0;position:absolute;left:-9999px;" aria-hidden="true">
+                            @endif
+                        </div>
                         @endif
                     </div>
 

@@ -1,7 +1,9 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * roadside_stations.latitude / longitude を nullable にする。
@@ -18,7 +20,16 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement('ALTER TABLE `roadside_stations` MODIFY `latitude` DECIMAL(10,7) NULL, MODIFY `longitude` DECIMAL(10,7) NULL');
+        // SQLite は生の MODIFY 構文が使えないため Schema の change() で同等の null 許容化を行う。
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE `roadside_stations` MODIFY `latitude` DECIMAL(10,7) NULL, MODIFY `longitude` DECIMAL(10,7) NULL');
+
+            return;
+        }
+        Schema::table('roadside_stations', function (Blueprint $table) {
+            $table->decimal('latitude', 10, 7)->nullable()->change();
+            $table->decimal('longitude', 10, 7)->nullable()->change();
+        });
     }
 
     public function down(): void
@@ -26,6 +37,14 @@ return new class extends Migration
         // 座標 NULL の行は本マイグレーション適用後にしか存在しえない（適用前は NOT NULL だったため）。
         // よって NOT NULL へ戻す前に NULL 行を削除するのが正しい巻き戻し（元状態＝座標必須へ復元）。
         DB::statement('DELETE FROM `roadside_stations` WHERE `latitude` IS NULL OR `longitude` IS NULL');
-        DB::statement('ALTER TABLE `roadside_stations` MODIFY `latitude` DECIMAL(10,7) NOT NULL, MODIFY `longitude` DECIMAL(10,7) NOT NULL');
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE `roadside_stations` MODIFY `latitude` DECIMAL(10,7) NOT NULL, MODIFY `longitude` DECIMAL(10,7) NOT NULL');
+
+            return;
+        }
+        Schema::table('roadside_stations', function (Blueprint $table) {
+            $table->decimal('latitude', 10, 7)->nullable(false)->change();
+            $table->decimal('longitude', 10, 7)->nullable(false)->change();
+        });
     }
 };
