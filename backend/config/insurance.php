@@ -45,9 +45,11 @@ return [
     'affiliate' => [
         'url' => env('INSURANCE_AFFILIATE_URL', ''),
         'provider' => env('INSURANCE_AFFILIATE_PROVIDER', ''), // 例: 保険スクエアbang! 等（承認後に表記）
-        // 事実ベースの文言のみ（誇大表現・保険募集にあたる比較/推奨はしない）
-        'headline' => 'バイク保険（任意保険）を一括見積もり',
-        'sub' => '複数社の見積もりをまとめて比較（無料）。実際の保険料は条件で変わるため、見積もりで確認できます。',
+        // 事実ベースの文言のみ（誇大表現・保険募集にあたる比較/推奨はしない）。
+        // ★相場表の直後に置き、直前の表が生む「自分はいくら？」をそのまま拾う文言にする。
+        'headline' => '自分の条件だといくら？',
+        'sub' => '上の相場はあくまで平均です。年齢・等級・補償内容を入れると、実際の金額が複数社まとめて出ます。',
+        'cta_label' => '条件を入れて比較する（無料）',
     ],
 
     // 自賠責の料金（本土・現行）。排気量3カテゴリ×契約期間（円）。
@@ -96,5 +98,78 @@ return [
             'tax' => 2000, 'jibaiseki' => 'gentsuki', 'family_tokuyaku' => true, 'shaken' => false,
             'note' => '2025年の新基準原付。総排気量は125cc以下ですが最高出力を4kW以下に制御し、原付一種として扱われます（税・ファミリーバイク特約は原付一種と同じ）。',
         ],
+    ],
+
+    // 任意保険料の相場（年間・円）。★固定額ではなく「一括見積もり利用者データの平均」＝出典と平均であることを必ず明示。
+    // 出典: インズウェブのバイク保険一括見積もり利用者データ（2025年4月〜2026年3月／2026年8月確認）。
+    // ★注意: 数値は出典からの転記のみ（補完・推定・再計算はしない）。
+    // ★§4-1: 20等級（rank20）は統計が成立する30代以上のみ掲載。若年（20歳以下・21〜25歳・26〜29歳）の20等級は
+    //   サンプル極小で逆転が起きるため null（掲載しない）。6等級（rank6）は全年齢だが、20歳以下・21〜25歳は
+    //   low_sample=true（サンプル少の注記を添える）。
+    'voluntary_market' => [
+        'source' => [
+            'name' => 'インズウェブ「バイク任意保険料の相場」',
+            'url' => 'https://bike.insweb.co.jp/hokenryo-ikura.html',
+            'period' => '2025年4月〜2026年3月の一括見積もり利用者データ',
+            'verified' => '2026-08',
+        ],
+        // 表の下に置く1行（相場の幅を体感させる）。
+        'spread_note' => '同じ250cc超でも、30代・20等級なら年間約1.5万円、20代後半・新規6等級なら約4万円。条件次第で3倍近い差が出ます。',
+        'categories' => [
+            [
+                'label' => '125cc以下',
+                'rows' => [
+                    ['age' => '20歳以下', 'rank6' => 81092, 'rank20' => null, 'low_sample' => true],
+                    ['age' => '21〜25歳', 'rank6' => 41869, 'rank20' => null, 'low_sample' => true],
+                    ['age' => '26〜29歳', 'rank6' => 34303, 'rank20' => null, 'low_sample' => false],
+                    ['age' => '30代', 'rank6' => 33473, 'rank20' => 11656, 'low_sample' => false],
+                    ['age' => '40代', 'rank6' => 32564, 'rank20' => 11583, 'low_sample' => false],
+                    ['age' => '50代', 'rank6' => 33269, 'rank20' => 12412, 'low_sample' => false],
+                    ['age' => '60代', 'rank6' => 31746, 'rank20' => 11566, 'low_sample' => false],
+                    ['age' => '70歳以上', 'rank6' => 30544, 'rank20' => 10563, 'low_sample' => false],
+                ],
+            ],
+            [
+                'label' => '125cc超〜250cc以下',
+                'rows' => [
+                    ['age' => '20歳以下', 'rank6' => 131103, 'rank20' => null, 'low_sample' => true],
+                    ['age' => '21〜25歳', 'rank6' => 59039, 'rank20' => null, 'low_sample' => true],
+                    ['age' => '26〜29歳', 'rank6' => 40854, 'rank20' => null, 'low_sample' => false],
+                    ['age' => '30代', 'rank6' => 33236, 'rank20' => 19893, 'low_sample' => false],
+                    ['age' => '40代', 'rank6' => 30113, 'rank20' => 16577, 'low_sample' => false],
+                    ['age' => '50代', 'rank6' => 29678, 'rank20' => 15891, 'low_sample' => false],
+                    ['age' => '60代', 'rank6' => 30542, 'rank20' => 16986, 'low_sample' => false],
+                    ['age' => '70歳以上', 'rank6' => 35415, 'rank20' => 16451, 'low_sample' => false],
+                ],
+            ],
+            [
+                'label' => '250cc超',
+                'rows' => [
+                    ['age' => '20歳以下', 'rank6' => 140629, 'rank20' => null, 'low_sample' => true],
+                    ['age' => '21〜25歳', 'rank6' => 62366, 'rank20' => null, 'low_sample' => true],
+                    ['age' => '26〜29歳', 'rank6' => 40718, 'rank20' => null, 'low_sample' => false],
+                    ['age' => '30代', 'rank6' => 33441, 'rank20' => 14680, 'low_sample' => false],
+                    ['age' => '40代', 'rank6' => 30059, 'rank20' => 15993, 'low_sample' => false],
+                    ['age' => '50代', 'rank6' => 32361, 'rank20' => 15249, 'low_sample' => false],
+                    ['age' => '60代', 'rank6' => 31788, 'rank20' => 17941, 'low_sample' => false],
+                    ['age' => '70歳以上', 'rank6' => 34158, 'rank20' => 22589, 'low_sample' => false],
+                ],
+            ],
+        ],
+    ],
+
+    // ファミリーバイク特約の金額目安（125cc以下）。出典: インズウェブ「ファミリーバイク特約の保険料は？」。
+    // ★平均/目安であることを明示。金額は転記のみ。
+    'family_tokuyaku_cost' => [
+        'source' => [
+            'name' => 'インズウェブ「ファミリーバイク特約の保険料は？」',
+            'url' => 'https://bike.insweb.co.jp/family-bike.html',
+        ],
+        'rows' => [
+            ['label' => 'ファミリーバイク特約・自損事故型', 'amount' => '約10,000円'],
+            ['label' => 'ファミリーバイク特約・人身傷害型', 'amount' => '約30,000円'],
+            ['label' => 'バイク保険単体（20代）', 'amount' => '約40,000円'],
+        ],
+        'note' => '対象は125cc以下（原付一種・原付二種・2025年の新基準原付を含む）。等級に影響せず、複数台でも定額。車両保険は対象外。',
     ],
 ];

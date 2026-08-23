@@ -37,6 +37,8 @@ final class HokenController extends Controller
             'lastVerified' => config('insurance.last_verified'),
             'revisionNote' => config('insurance.jibaiseki_revision_note'),
             'affiliate' => config('insurance.affiliate'),
+            'voluntaryMarket' => config('insurance.voluntary_market'),
+            'familyCost' => config('insurance.family_tokuyaku_cost'),
             'faqs' => $this->faqs(),
         ]);
     }
