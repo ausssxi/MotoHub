@@ -7,7 +7,7 @@
         相場データで探す
     </h2>
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <a href="{{ route('market') }}"
            class="group flex items-center gap-3 bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
             <span class="shrink-0 bg-white text-blue-600 p-2.5 rounded-lg border border-gray-100">
@@ -38,6 +38,17 @@
             <span class="min-w-0">
                 <span class="block text-sm font-black text-gray-800 group-hover:text-blue-600 transition-colors">地域で価格差が大きい車種</span>
                 <span class="block text-[11px] font-bold text-gray-400 mt-0.5">買う地域で差が出る</span>
+            </span>
+        </a>
+
+        <a href="{{ route('sell.index') }}"
+           class="group flex items-center gap-3 bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
+            <span class="shrink-0 bg-white text-emerald-600 p-2.5 rounded-lg border border-gray-100">
+                <i data-lucide="coins" class="w-5 h-5"></i>
+            </span>
+            <span class="min-w-0">
+                <span class="block text-sm font-black text-gray-800 group-hover:text-blue-600 transition-colors">今のバイクの買取相場</span>
+                <span class="block text-[11px] font-bold text-gray-400 mt-0.5">乗り換え前にチェック</span>
             </span>
         </a>
     </div>
