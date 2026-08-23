@@ -13,11 +13,18 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // SQLite には ENUM 制約が無く geocode_status は自由な文字列を許すため MODIFY 不要（no-op）。
+        if (DB::connection()->getDriverName() !== 'mysql') {
+            return;
+        }
         DB::statement("ALTER TABLE `rental_garages` MODIFY `geocode_status` ENUM('pending', 'ok', 'failed', 'out_of_range', 'approximate') NOT NULL DEFAULT 'pending'");
     }
 
     public function down(): void
     {
+        if (DB::connection()->getDriverName() !== 'mysql') {
+            return;
+        }
         // 'approximate' の行が残っていると失敗するため、必要なら先に 'failed' 等へ移すこと。
         DB::statement("ALTER TABLE `rental_garages` MODIFY `geocode_status` ENUM('pending', 'ok', 'failed', 'out_of_range') NOT NULL DEFAULT 'pending'");
     }
