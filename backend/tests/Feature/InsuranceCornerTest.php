@@ -100,10 +100,52 @@ it('hides the affiliate CTA when no url is configured, and shows it with PR + sp
     // 設定時のみ表示・PR表記＋rel="nofollow sponsored"
     config(['insurance.affiliate.url' => 'https://example.com/hoken-mitsumori']);
     $html2 = $this->get(route('hoken'))->assertOk()->getContent();
-    expect($html2)->toContain('無料で一括見積もり')
+    expect($html2)->toContain('条件を入れて比較する（無料）')  // CTAラベル（相場表の直後・指示書の新文言）
         ->toContain('https://example.com/hoken-mitsumori')
         ->toContain('rel="nofollow sponsored noopener"')
         ->toContain('PR');
+});
+
+it('renders the voluntary-insurance market table: 3 displacement categories, 20等級 only for 30代+, sample-size notes for young riders', function () {
+    $html = $this->get(route('hoken'))->assertOk()->getContent();
+
+    // 相場表が3排気量区分すべて描画されること
+    expect($html)->toContain('任意保険の相場（年齢・等級別）')
+        ->toContain('125cc以下')
+        ->toContain('125cc超〜250cc以下')
+        ->toContain('250cc超');
+
+    // 6等級は全年齢帯に値がある（若年含む）
+    expect($html)->toContain('81,092')   // 125cc以下・20歳以下・新規6等級
+        ->toContain('140,629');          // 250cc超・20歳以下・新規6等級
+
+    // 20等級は30代以上にしか値を持たない → 30代の値は描画される
+    expect($html)->toContain('11,656')   // 125cc以下・30代・20等級
+        ->toContain('14,680');           // 250cc超・30代・20等級
+
+    // 個数カウントは相場表セクションだけに限定する。ページ全体を数えると、早見表など他ブロックの
+    // 「—」（例: PR2で追加予定の自賠責改定・小型二輪48/60ヶ月セル）を巻き込んで壊れるため、
+    // 見出し「任意保険の相場」〜次セクション「任意保険の選び方の要点」の範囲を切り出して数える。
+    $start = mb_strpos($html, '任意保険の相場（年齢・等級別）');
+    $end = mb_strpos($html, '任意保険の選び方の要点');
+    expect($start)->not->toBeFalse()
+        ->and($end)->not->toBeFalse();
+    $marketSection = mb_substr($html, $start, $end - $start);
+
+    // 若年（20歳以下・21〜25歳・26〜29歳）の20等級セルは「—」。3区分×3行＝ちょうど9個。
+    // （若年20等級に数値が混じったり、30代以上が「—」になれば個数が変わり検知できる）
+    expect(substr_count($marketSection, '—'))->toBe(9);
+
+    // 「※サンプル少」は 20歳以下・21〜25歳のみ。3区分×2行＝ちょうど6個。
+    expect(substr_count($marketSection, '※サンプル少'))->toBe(6);
+});
+
+it('renders the family-bike-tokuyaku cost comparison amounts', function () {
+    $html = $this->get(route('hoken'))->assertOk()->getContent();
+
+    expect($html)->toContain('約10,000円')   // ファミリーバイク特約・自損事故型
+        ->toContain('約30,000円')            // ファミリーバイク特約・人身傷害型
+        ->toContain('約40,000円');           // バイク保険単体（20代）
 });
 
 it('links from the shinkijun hub to the insurance hub (bidirectional)', function () {

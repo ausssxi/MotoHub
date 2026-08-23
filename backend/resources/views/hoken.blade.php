@@ -100,10 +100,89 @@
                 <p class="text-[13px] text-gray-600 leading-relaxed mb-3">
                     125cc以下（原付一種・原付二種、<strong>2025年の新基準原付を含む</strong>）は、家族の自動車保険に付ける「ファミリーバイク特約」の対象です。等級に影響せず、複数台でも定額なのが特徴で、単独の任意保険より割安になる場合があります。
                 </p>
+                <div class="overflow-x-auto scrollbar-hide mb-3">
+                    <table class="w-full text-sm border-collapse min-w-[520px]">
+                        <thead>
+                            <tr class="text-gray-400 text-[11px] border-b border-gray-200">
+                                <th class="font-bold px-3 py-2 text-left">区分</th>
+                                <th class="font-bold px-3 py-2 text-right">年間の目安</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($familyCost['rows'] as $r)
+                            <tr class="border-b border-gray-50">
+                                <td class="px-3 py-2.5 font-black text-gray-800">{{ $r['label'] }}</td>
+                                <td class="px-3 py-2.5 text-right font-bold text-gray-700">{{ $r['amount'] }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-[11px] text-gray-500 font-bold mb-3 leading-relaxed">{{ $familyCost['note'] }}</p>
+                <p class="text-[10px] text-gray-400 font-bold mb-3 leading-relaxed">
+                    ※金額は平均の目安です。出典: <a href="{{ $familyCost['source']['url'] }}" target="_blank" rel="nofollow noopener" class="underline hover:text-gray-600">{{ $familyCost['source']['name'] }}</a>
+                </p>
                 <a href="{{ route('shinkijun_gentsuki') }}" class="inline-flex items-center gap-1 text-[13px] font-black text-blue-600 hover:text-blue-700 transition-colors">
                     新基準原付とは？対象モデル・税金・維持費 <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
                 </a>
             </section>
+
+            {{-- 任意保険の相場（年齢・等級別）★一括見積もり利用者データの平均。§4-1: 20等級は30代以上のみ・若年6等級はサンプル少注記 --}}
+            <section class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-8">
+                <h2 class="text-xl font-black text-gray-800 mb-2 flex items-center gap-3"><span class="w-1.5 h-6 bg-blue-500 rounded-full"></span>任意保険の相場（年齢・等級別）</h2>
+                <p class="text-[13px] text-gray-600 leading-relaxed mb-5">
+                    任意保険は自賠責と違って全国一律ではなく、年齢・等級・排気量・補償内容で決まります。実際にどのくらいの幅があるのかを、一括見積もりサービスの利用者データから見てみます。
+                </p>
+
+                @foreach($voluntaryMarket['categories'] as $cat)
+                <div class="mb-5">
+                    <p class="text-sm font-black text-gray-800 mb-2">{{ $cat['label'] }}</p>
+                    <div class="overflow-x-auto scrollbar-hide">
+                        <table class="w-full text-sm border-collapse min-w-[520px]">
+                            <thead>
+                                <tr class="text-gray-400 text-[11px] border-b border-gray-200">
+                                    <th class="font-bold px-3 py-2 text-left">年齢</th>
+                                    <th class="font-bold px-3 py-2 text-right">新規6等級/年</th>
+                                    <th class="font-bold px-3 py-2 text-right">20等級/年</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($cat['rows'] as $r)
+                                <tr class="border-b border-gray-50">
+                                    <td class="px-3 py-2.5 font-black text-gray-800">{{ $r['age'] }}@if($r['low_sample'])<span class="text-[10px] text-amber-600 font-bold ml-1">※サンプル少</span>@endif</td>
+                                    <td class="px-3 py-2.5 text-right font-bold text-gray-700">{{ number_format($r['rank6']) }}円</td>
+                                    <td class="px-3 py-2.5 text-right font-bold text-gray-700">@if(!is_null($r['rank20'])){{ number_format($r['rank20']) }}円@else<span class="text-gray-300">—</span>@endif</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                @endforeach
+
+                <p class="text-[13px] text-gray-700 font-bold bg-blue-50 border border-blue-100 rounded-2xl p-4 mt-2 leading-relaxed">{{ $voluntaryMarket['spread_note'] }}</p>
+
+                <p class="text-[10px] text-gray-400 font-bold mt-3 leading-relaxed">
+                    ※金額は平均の目安です（20等級は統計が安定する30代以上のみ掲載。20歳以下・21〜25歳はサンプルが少なめです）。<br>
+                    出典: <a href="{{ $voluntaryMarket['source']['url'] }}" target="_blank" rel="nofollow noopener" class="underline hover:text-gray-600">{{ $voluntaryMarket['source']['name'] }}</a>（{{ $voluntaryMarket['source']['period'] }}／{{ $voluntaryMarket['source']['verified'] }}確認）。補償内容・保険会社・運転者条件により実際の保険料は異なります。
+                </p>
+            </section>
+
+            {{-- 一括見積もりCTA（★相場表の直後に配置・affiliate.url 設定時のみ表示・PR表記付き。未設定なら偽ボタンを出さない） --}}
+            @if($ctaUrl !== '')
+            <section class="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-3xl shadow-lg p-6 sm:p-8 mb-8 text-center">
+                <p class="text-white/70 text-[10px] font-black tracking-widest uppercase mb-2">PR</p>
+                <h2 class="text-xl sm:text-2xl font-black text-white mb-2">{{ $affiliate['headline'] }}</h2>
+                <p class="text-white/80 text-[13px] font-bold mb-5 max-w-xl mx-auto">{{ $affiliate['sub'] }}</p>
+                <a href="{{ $ctaUrl }}" target="_blank" rel="nofollow sponsored noopener"
+                   class="inline-flex items-center gap-2 bg-white text-blue-700 font-black px-8 py-3.5 rounded-xl shadow hover:bg-blue-50 transition-colors">
+                    {{ $affiliate['cta_label'] ?? '無料で一括見積もり' }} <i data-lucide="external-link" class="w-4 h-4"></i>
+                </a>
+                @if(!empty($affiliate['provider']))
+                <p class="text-white/50 text-[10px] font-bold mt-3">提供: {{ $affiliate['provider'] }}・PR</p>
+                @endif
+            </section>
+            @endif
 
             {{-- 任意保険の選び方（一般論のみ・商品推奨はしない） --}}
             <section class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-8">
@@ -115,22 +194,6 @@
                     <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-500 shrink-0 mt-0.5"></i><span>保険料は<strong>年齢条件・等級・排気量</strong>で大きく変わります。同じ補償でも会社差があるため、複数社の見積もり比較が有効です。</span></li>
                 </ul>
             </section>
-
-            {{-- 一括見積もりCTA（★affiliate.url 設定時のみ表示・PR表記付き。未設定なら偽ボタンを出さない） --}}
-            @if($ctaUrl !== '')
-            <section class="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-3xl shadow-lg p-6 sm:p-8 mb-8 text-center">
-                <p class="text-white/70 text-[10px] font-black tracking-widest uppercase mb-2">PR</p>
-                <h2 class="text-xl sm:text-2xl font-black text-white mb-2">{{ $affiliate['headline'] }}</h2>
-                <p class="text-white/80 text-[13px] font-bold mb-5 max-w-xl mx-auto">{{ $affiliate['sub'] }}</p>
-                <a href="{{ $ctaUrl }}" target="_blank" rel="nofollow sponsored noopener"
-                   class="inline-flex items-center gap-2 bg-white text-blue-700 font-black px-8 py-3.5 rounded-xl shadow hover:bg-blue-50 transition-colors">
-                    無料で一括見積もり <i data-lucide="external-link" class="w-4 h-4"></i>
-                </a>
-                @if(!empty($affiliate['provider']))
-                <p class="text-white/50 text-[10px] font-bold mt-3">提供: {{ $affiliate['provider'] }}・PR</p>
-                @endif
-            </section>
-            @endif
 
             {{-- 内部リンク（排気量別ページへ） --}}
             <section class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-8">
