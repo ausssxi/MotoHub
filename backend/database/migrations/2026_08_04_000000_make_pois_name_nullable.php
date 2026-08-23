@@ -1,7 +1,9 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * pois.name を nullable にする。
@@ -17,13 +19,28 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement('ALTER TABLE `pois` MODIFY `name` VARCHAR(255) NULL');
+        // SQLite は生の MODIFY 構文が使えないため Schema の change() で同等の null 許容化を行う。
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE `pois` MODIFY `name` VARCHAR(255) NULL');
+
+            return;
+        }
+        Schema::table('pois', function (Blueprint $table) {
+            $table->string('name')->nullable()->change();
+        });
     }
 
     public function down(): void
     {
         // NULL が残ったまま NOT NULL に戻すと失敗するため、先に空文字へ移す（順序必須）。
         DB::statement("UPDATE `pois` SET `name` = '' WHERE `name` IS NULL");
-        DB::statement('ALTER TABLE `pois` MODIFY `name` VARCHAR(255) NOT NULL');
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE `pois` MODIFY `name` VARCHAR(255) NOT NULL');
+
+            return;
+        }
+        Schema::table('pois', function (Blueprint $table) {
+            $table->string('name')->nullable(false)->change();
+        });
     }
 };
