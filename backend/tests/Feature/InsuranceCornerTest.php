@@ -123,12 +123,21 @@ it('renders the voluntary-insurance market table: 3 displacement categories, 20�
     expect($html)->toContain('11,656')   // 125cc以下・30代・20等級
         ->toContain('14,680');           // 250cc超・30代・20等級
 
+    // 個数カウントは相場表セクションだけに限定する。ページ全体を数えると、早見表など他ブロックの
+    // 「—」（例: PR2で追加予定の自賠責改定・小型二輪48/60ヶ月セル）を巻き込んで壊れるため、
+    // 見出し「任意保険の相場」〜次セクション「任意保険の選び方の要点」の範囲を切り出して数える。
+    $start = mb_strpos($html, '任意保険の相場（年齢・等級別）');
+    $end = mb_strpos($html, '任意保険の選び方の要点');
+    expect($start)->not->toBeFalse()
+        ->and($end)->not->toBeFalse();
+    $marketSection = mb_substr($html, $start, $end - $start);
+
     // 若年（20歳以下・21〜25歳・26〜29歳）の20等級セルは「—」。3区分×3行＝ちょうど9個。
     // （若年20等級に数値が混じったり、30代以上が「—」になれば個数が変わり検知できる）
-    expect(substr_count($html, '—'))->toBe(9);
+    expect(substr_count($marketSection, '—'))->toBe(9);
 
     // 「※サンプル少」は 20歳以下・21〜25歳のみ。3区分×2行＝ちょうど6個。
-    expect(substr_count($html, '※サンプル少'))->toBe(6);
+    expect(substr_count($marketSection, '※サンプル少'))->toBe(6);
 });
 
 it('renders the family-bike-tokuyaku cost comparison amounts', function () {
