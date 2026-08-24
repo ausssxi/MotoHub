@@ -25,28 +25,37 @@ it('strips the akippa url from text but keeps the surrounding wording', function
         ->toContain('ご予約ください');                           // 文言は残る
 });
 
-it('generates a per-parking A8 deeplink from notes when A8MAT is set', function () {
-    config(['parking.affiliate.akippa.a8mat' => 'ABC123', 'parking.affiliate.akippa.url' => 'https://generic.example/akippa']);
+it('generates a per-parking A8 deeplink (affiliate) from notes when A8MAT is set', function () {
+    config(['parking.affiliate.akippa.a8mat' => 'ABC123']);
 
     $cta = AkippaLink::ctaFor('akippa株式会社', AKIPPA_NOTES, null);
 
     expect($cta['deeplink'])->toBeTrue()
+        ->and($cta['affiliate'])->toBeTrue()
         ->and($cta['url'])->toBe('https://px.a8.net/svt/ejp?a8mat=ABC123&a8ejpredirect='.rawurlencode(AKIPPA_URL));
 });
 
-it('falls back to the generic link for an akippa parking with no url in notes/description', function () {
-    config(['parking.affiliate.akippa.a8mat' => 'ABC123', 'parking.affiliate.akippa.url' => 'https://generic.example/akippa']);
+it('returns a raw non-affiliate direct link to the parking page when A8MAT is unset (akippa deaffiliated)', function () {
+    config(['parking.affiliate.akippa.a8mat' => '']);
 
-    $cta = AkippaLink::ctaFor('akippa株式会社', 'URL無しの備考', 'これも無し');
+    $cta = AkippaLink::ctaFor('akippa株式会社', AKIPPA_NOTES, null);
 
-    expect($cta['deeplink'])->toBeFalse()
-        ->and($cta['url'])->toBe('https://generic.example/akippa');
+    // 素の個別ページURL（A8トラッキング無し）。affiliate=false。
+    expect($cta['affiliate'])->toBeFalse()
+        ->and($cta['url'])->toBe(AKIPPA_URL)
+        ->and($cta['url'])->not->toContain('px.a8.net');
 });
 
-it('returns null for non-akippa parkings and when nothing is configured', function () {
-    config(['parking.affiliate.akippa.a8mat' => 'ABC123', 'parking.affiliate.akippa.url' => 'https://generic.example/akippa']);
-    expect(AkippaLink::ctaFor('パラカ株式会社', AKIPPA_NOTES, null))->toBeNull();
+it('returns null for an akippa parking with no url in notes/description (no top-page fallback)', function () {
+    // A8MAT 設定有無にかかわらず、個別URLが無ければ null（akippaトップへは送客しない）。
+    config(['parking.affiliate.akippa.a8mat' => 'ABC123']);
+    expect(AkippaLink::ctaFor('akippa株式会社', 'URL無しの備考', 'これも無し'))->toBeNull();
 
-    config(['parking.affiliate.akippa.a8mat' => '', 'parking.affiliate.akippa.url' => '']);
-    expect(AkippaLink::ctaFor('akippa株式会社', AKIPPA_NOTES, null))->toBeNull();
+    config(['parking.affiliate.akippa.a8mat' => '']);
+    expect(AkippaLink::ctaFor('akippa株式会社', 'URL無しの備考', 'これも無し'))->toBeNull();
+});
+
+it('returns null for non-akippa parkings even with an akippa url present', function () {
+    config(['parking.affiliate.akippa.a8mat' => 'ABC123']);
+    expect(AkippaLink::ctaFor('パラカ株式会社', AKIPPA_NOTES, null))->toBeNull();
 });
