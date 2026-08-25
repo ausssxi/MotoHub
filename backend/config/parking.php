@@ -105,10 +105,14 @@ return [
     */
     'affiliate' => [
         'akippa' => [
-            // 汎用リンク（akippaトップ・フォールバック用）。A8MAT未設定 or 飛び先がakippa.com外のとき使う。
+            // 【廃止・未使用】旧: akippaトップへの汎用A8フォールバックリンク。
+            //   akippaはEPCが低く成果条件（広告主新規のみ/30日以内利用）もMotoHubの使われ方に合わないため、
+            //   トップ送客をやめた。A8MAT未設定時は各駐車場のakippaページへ素のリンク（非アフィリ）で飛ぶ
+            //   （App\Support\AkippaLink::ctaFor 参照）。env は残置（設定されていても参照しない）。
             'url' => env('AKIPPA_AFFILIATE_URL', ''),
             // ★駐車場別ディープリンクのベース識別子（A8商品リンクの a8mat= の値）。
-            //   設定時は各駐車場のakippa URL(source_url)を飛び先にした px.a8.net リダイレクトを動的生成。
+            //   設定時のみ各駐車場のakippa URLを飛び先にした px.a8.net リダイレクトを動的生成（アフィリ点灯）。
+            //   ★akippaアフィリを止めるにはこの env（AKIPPA_A8MAT）を空にする＝個別ページへ素リンクに戻る。
             'a8mat' => env('AKIPPA_A8MAT', ''),
             'provider' => 'akippa',
             // 任意: 計測img（A8の imp があれば）。設定時のみ 1x1 img を出す口（初手は未使用）。

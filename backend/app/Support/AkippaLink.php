@@ -9,9 +9,11 @@ namespace App\Support;
  *
  * ・akippa物件（management_company==='akippa株式会社'）でのみ CTA を出す（非akippaは null＝非表示）。
  * ・akippaの予約URLは notes（無ければ description）に文章として埋め込まれているため正規表現で抽出する。
- * ・A8MAT設定 かつ 抽出URLあり → 駐車場別ディープリンク（成果がユーザーに入る）。
+ * ・A8MAT設定 かつ 抽出URLあり → 駐車場別ディープリンク（アフィリ・成果がユーザーに入る／affiliate=true）。
+ * ・A8MAT未設定 かつ 抽出URLあり → その駐車場のakippaページへ素のリンク（非アフィリ・成果なし／affiliate=false）。
+ *   ★akippaのアフィリは EPC が低く成果条件も合わないため、A8MAT を外せば「読者に有用な個別リンク」だけが残る。
  * ・A8規約厳守：飛び先は必ず https://www.akippa.com/ 内のみ（抽出パターン自体がドメインを固定）。
- * ・抽出不可 → 汎用リンク（akippaトップ）へフォールバック。汎用も無ければ null（偽リンクを置かない）。
+ * ・抽出不可 → null（偽リンクもakippaトップへの送客も置かない）。
  */
 final class AkippaLink
 {
@@ -26,9 +28,9 @@ final class AkippaLink
     private const AKIPPA_URL_PATTERN = '#https://www\.akippa\.com/[^\s　「」『』【】（）]+#u';
 
     /**
-     * CTA用のリンク解決。表示不可（非akippa物件・リンク無し）は null。
+     * CTA用のリンク解決。表示不可（非akippa物件・個別URL抽出不可）は null。
      *
-     * @return array{url:string, deeplink:bool}|null
+     * @return array{url:string, deeplink:bool, affiliate:bool}|null
      */
     public static function ctaFor(?string $managementCompany, ?string $notes, ?string $description = null): ?array
     {
@@ -37,24 +39,31 @@ final class AkippaLink
             return null;
         }
 
-        $a8mat = (string) config('parking.affiliate.akippa.a8mat', '');
-        $generic = (string) config('parking.affiliate.akippa.url', '');
+        // 個別ページURL（notes/description 内の akippa.com URL）が無ければリンクを出さない。
+        // akippaトップへの汎用送客はしない（アフィリを外した以上、価値の薄いトップ送客は置かない）。
         $akippaUrl = self::extractAkippaUrl($notes, $description);
+        if ($akippaUrl === null) {
+            return null;
+        }
 
-        // ディープリンク：A8MAT設定 かつ notes/description から akippa.com URL を抽出できた。
-        if ($a8mat !== '' && $akippaUrl !== null) {
+        $a8mat = (string) config('parking.affiliate.akippa.a8mat', '');
+
+        // A8MAT設定時：その駐車場への A8 ディープリンク（アフィリ・成果がユーザーに入る）。
+        if ($a8mat !== '') {
             return [
                 'url' => 'https://px.a8.net/svt/ejp?a8mat='.$a8mat.'&a8ejpredirect='.rawurlencode($akippaUrl),
                 'deeplink' => true,
+                'affiliate' => true,
             ];
         }
 
-        // フォールバック：汎用リンク（akippaトップ）。
-        if ($generic !== '') {
-            return ['url' => $generic, 'deeplink' => false];
-        }
-
-        return null;
+        // A8MAT未設定時：アフィリを介さず、その駐車場の akippa ページへ素のリンクで飛ばす。
+        // 読者に有用・成果は発生しない（表示側は rel="nofollow noopener"／PR表記なし）。
+        return [
+            'url' => $akippaUrl,
+            'deeplink' => true,
+            'affiliate' => false,
+        ];
     }
 
     /** notes（無ければ description）から akippa.com のURLを1つ抽出。無ければ null。 */

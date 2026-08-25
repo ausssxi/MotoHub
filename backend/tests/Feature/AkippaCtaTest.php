@@ -34,15 +34,19 @@ it('shows a per-parking deeplink CTA from notes and removes the raw akippa url f
         ->not->toContain('www.akippa.com/parking/hash8306');       // notes内の生URL文字列が消えている（成果漏れ防止）
 });
 
-it('shows the generic fallback CTA on an akippa parking when A8MAT is unset', function () {
-    config(['parking.affiliate.akippa.a8mat' => '', 'parking.affiliate.akippa.url' => 'https://generic.example/akippa']);
+it('shows a raw non-affiliate direct link to the parking page when A8MAT is unset (akippa deaffiliated)', function () {
+    config(['parking.affiliate.akippa.a8mat' => '']);
     $p = akippaParking();
 
     $html = $this->get(route('parking.show', $p))->assertOk()->getContent();
 
-    expect($html)->toContain('https://generic.example/akippa')
-        ->toContain('予約できる駐車場を探す')                      // 汎用フォールバック時コピー
-        ->toContain('rel="nofollow sponsored noopener"');
+    // その駐車場のakippaページへ素で飛ぶ（A8トラッキング無し・PR表記無し・rel は nofollow noopener）。
+    expect($html)->toContain('href="https://www.akippa.com/parking/hash8306')  // 個別ページへの直リンク
+        ->toContain('この駐車場を予約')                              // 個別ページ導線のコピー
+        ->toContain('rel="nofollow noopener"')                       // sponsored は付かない
+        ->not->toContain('px.a8.net')                                // アフィリリダイレクト無し
+        ->not->toContain('rel="nofollow sponsored noopener"')        // sponsored 無し
+        ->not->toContain('PR・広告');                                // PR表記無し
 });
 
 it('hides the CTA on a non-akippa parking (context mismatch) and keeps the source 出典 link', function () {
