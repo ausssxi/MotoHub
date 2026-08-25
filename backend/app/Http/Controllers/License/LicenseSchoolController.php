@@ -45,7 +45,11 @@ final class LicenseSchoolController extends Controller
         // 個別掲載していない県は、県協会（一次ソース）の公式サイトへ外部リンクするだけ。
         // 個別県ページ・sitemap は生やさない（config/driving_schools.php の association_links）。
         // 県名は正準マップ（TouringSpot::PREFECTURE_SLUG_MAP）から補い、リンク文言に使う。
+        // 個別掲載のある県は除外する（カードと「掲載していません」の二重表示を防ぐ）
+        $publishedSlugs = $prefectures->pluck('prefecture_slug')->all();
+
         $associationLinks = collect(config('driving_schools.association_links', []))
+            ->reject(fn ($link, $slug) => in_array($slug, $publishedSlugs, true))
             ->map(fn ($link, $slug) => (object) [
                 'prefecture' => TouringSpot::prefectureNameFromSlug($slug) ?? $slug,
                 'name' => $link['name'],
