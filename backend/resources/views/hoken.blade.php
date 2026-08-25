@@ -215,6 +215,11 @@
                     <div class="border-b border-gray-50 pb-4 last:border-b-0 last:pb-0">
                         <p class="text-sm font-black text-gray-800 mb-1.5">Q. {{ $f['q'] }}</p>
                         <p class="text-[13px] text-gray-600 leading-relaxed">{{ $f['a'] }}</p>
+                        @if(!empty($f['link']))
+                        <a href="{{ $f['link']['url'] }}" class="inline-flex items-center gap-1 text-[13px] font-black text-blue-600 hover:text-blue-700 transition-colors mt-2">
+                            {{ $f['link']['label'] }} <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                        </a>
+                        @endif
                     </div>
                     @endforeach
                 </div>
