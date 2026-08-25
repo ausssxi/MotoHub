@@ -45,8 +45,9 @@ final class HokenController extends Controller
 
     /**
      * FAQPage schema 兼 本文用。一般論のみ（特定商品の推奨・比較はしない）。
+     * link は表示側のみの補助リンク（FAQPageスキーマは q/a のみ使用）。
      *
-     * @return array<int, array{q: string, a: string}>
+     * @return array<int, array{q: string, a: string, link?: array{url: string, label: string}}>
      */
     private function faqs(): array
     {
@@ -66,6 +67,7 @@ final class HokenController extends Controller
             [
                 'q' => '自賠責保険料はいつ変わりますか？',
                 'a' => '自賠責保険料は損害保険料率算出機構の基準料率に基づき、全国一律です。2026年11月1日に改定（全車種平均で約6.2%引き上げ）が予定されています。契約期間が長いほど1年あたりは割安になります。',
+                'link' => ['url' => route('blog.show', 'jibaiseki-neage-2026-11'), 'label' => '2026年11月の改定料金（排気量別）を詳しく見る'],
             ],
         ];
     }
