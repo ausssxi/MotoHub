@@ -24,7 +24,8 @@ final class SeedJibaisekiNeageArticle extends Command
 {
     protected $signature = 'blog:seed-jibaiseki-neage
         {--author= : 著者ユーザーの id または email（未指定なら is_admin の最若番）}
-        {--date= : 公開日 YYYY-MM-DD（未指定なら現在時刻。新規作成時のみ有効）}';
+        {--date= : 公開日 YYYY-MM-DD（未指定なら現在時刻。新規作成時のみ有効）}
+        {--unpublish : 記事を下書きに戻して即座に非公開化する（DBには残す＝復元可能。再実行で再公開）}';
 
     protected $description = '「2026年11月 自賠責値上げ」記事を published で投入する（slug冪等・数値は一次資料確定・既存タグのみ）';
 
@@ -39,6 +40,10 @@ final class SeedJibaisekiNeageArticle extends Command
 
     public function handle(): int
     {
+        if ($this->option('unpublish')) {
+            return $this->unpublish();
+        }
+
         $author = $this->resolveAuthor();
         if ($author === null) {
             $this->error('著者ユーザーを解決できませんでした。--author=<id|email> を指定してください。');
@@ -80,6 +85,32 @@ final class SeedJibaisekiNeageArticle extends Command
         $this->line('次の手順:');
         $this->line('  1. https://motohub.jp/blog/'.self::SLUG.' を確認');
         $this->line('  2. ./deploy-blog.sh（ビルド＋Cloudflare purge）で本番エッジへ反映');
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * 記事を下書きに戻して即時非公開化する（ソフト削除ではなくDBに残す＝再実行で復元）。
+     * 表崩れ等が出たときに素早く引っ込めるための緊急手順。
+     */
+    private function unpublish(): int
+    {
+        $post = BlogPost::where('slug', self::SLUG)->first();
+        if ($post === null) {
+            $this->warn('対象記事が見つかりません（未投入）。何もしていません。');
+
+            return self::SUCCESS;
+        }
+
+        $post->status = 'draft';
+        $post->published_at = null;
+        $post->save();
+
+        $this->info("非公開化しました（下書きに戻しました）: id={$post->id} slug={$post->slug} status={$post->status}");
+        $this->line('公開URLは即座に404になります（本文・タグはDBに残るため、再実行で再公開できます）。');
+        $this->newLine();
+        $this->line('エッジキャッシュも消すには:');
+        $this->line('  php artisan blog:purge-cache --url='.url('/blog/'.self::SLUG).' --url='.url('/blog'));
 
         return self::SUCCESS;
     }
