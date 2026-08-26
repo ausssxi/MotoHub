@@ -19,23 +19,27 @@ class PurgeBlogCache extends Command
             $this->info('ゾーン全体のキャッシュをパージしています...');
             if ($cache->purgeByPrefix('/blog')) {
                 $this->info('キャッシュをパージしました。');
+
                 return self::SUCCESS;
             }
-            $this->error('キャッシュパージに失敗しました。Cloudflare設定を確認してください。');
+            $this->reportFailure($cache);
+
             return self::FAILURE;
         }
 
         $urls = $this->option('url');
-        if (!empty($urls)) {
-            $this->info(count($urls) . '件のURLをパージしています...');
+        if (! empty($urls)) {
+            $this->info(count($urls).'件のURLをパージしています...');
             foreach ($urls as $url) {
                 $this->line("  {$url}");
             }
             if ($cache->purgeUrls($urls)) {
                 $this->info('キャッシュをパージしました。');
+
                 return self::SUCCESS;
             }
-            $this->error('キャッシュパージに失敗しました。Cloudflare設定を確認してください。');
+            $this->reportFailure($cache);
+
             return self::FAILURE;
         }
 
@@ -44,5 +48,19 @@ class PurgeBlogCache extends Command
         $this->line('  --url=<URL>        特定URLをパージ（複数指定可）');
 
         return self::SUCCESS;
+    }
+
+    private function reportFailure(CloudflareCacheService $cache): void
+    {
+        $reason = $cache->getLastError() ?? '不明なエラー';
+        $this->error('キャッシュパージに失敗しました: '.$reason);
+
+        if (! $cache->isConfigured()) {
+            $this->newLine();
+            $this->line('backend/.env に以下を設定してください:');
+            $this->line('  CLOUDFLARE_ZONE_ID=<対象ドメインのゾーンID>');
+            $this->line('  CLOUDFLARE_API_TOKEN=<Zone.Cache Purge権限のAPIトークン>');
+            $this->line('設定後: php artisan config:clear');
+        }
     }
 }
