@@ -1,16 +1,16 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\BlogController;
-use App\Http\Controllers\BlogSeriesController;
-use App\Http\Controllers\BlogFeedController;
+use App\Http\Controllers\Admin\BlogImageController;
 use App\Http\Controllers\Admin\BlogPostController as AdminBlogPostController;
 use App\Http\Controllers\Admin\BlogSeriesController as AdminBlogSeriesController;
 use App\Http\Controllers\Admin\BlogTagController as AdminBlogTagController;
-use App\Http\Controllers\Admin\BlogImageController;
-use App\Http\Controllers\Api\BlogTagController as ApiBlogTagController;
-use App\Http\Controllers\BlogOgpController;
 use App\Http\Controllers\Api\BlogPreviewController;
+use App\Http\Controllers\Api\BlogTagController as ApiBlogTagController;
+use App\Http\Controllers\BlogController;
+use App\Http\Controllers\BlogFeedController;
+use App\Http\Controllers\BlogOgpController;
+use App\Http\Controllers\BlogSeriesController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,6 +24,12 @@ use App\Http\Controllers\Api\BlogPreviewController;
 
 // --- OGP画像（キャッシュミドルウェア不要・独自ヘッダーで制御） ---
 Route::get('/blog/{post:slug}/ogp.png', [BlogOgpController::class, 'show'])->name('blog.ogp');
+
+// --- 統合による恒久リダイレクト（301） ---
+// 自賠責2026年11月値上げの記事を1本に統合。重複カニバリ解消のため、後発の -2026-11 を
+// SEO評価のある -2026-bike へ 301 で寄せる。DB側では -2026-11 を draft に戻して一覧・サイトマップから
+// 除外する（blog:seed-jibaiseki-neage --unpublish）。下の catch-all `/blog/{slug}` より前に登録すること。
+Route::redirect('/blog/jibaiseki-neage-2026-11', '/blog/jibaiseki-neage-2026-bike', 301);
 
 // --- 公開画面（認証不要） ---
 Route::prefix('blog')->name('blog.')->middleware('blog.cache')->group(function () {
