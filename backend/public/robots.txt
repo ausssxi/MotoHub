@@ -12,6 +12,7 @@ Disallow: /bikes/compare?*
 Disallow: /wishlist
 # Parts search - external API, expensive, no SEO value (top 502 cause)
 Disallow: /parts/search
+Disallow: /parts/compare
 # Date-archive pagination - infinite junk-date crawl, base pages stay crawlable
 Disallow: /bikes/new-arrivals/
 Disallow: /bikes/price-drops/
@@ -42,6 +43,7 @@ Disallow: /bikes?
 Disallow: /bikes/compare?*
 Disallow: /wishlist
 Disallow: /parts/search
+Disallow: /parts/compare
 Disallow: /bikes/new-arrivals/
 Disallow: /bikes/price-drops/
 Disallow: /pages/widget

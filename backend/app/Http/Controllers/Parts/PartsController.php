@@ -391,6 +391,47 @@ class PartsController extends Controller
     }
 
     /**
+     * pool の rakuten レスポンスを取り出しつつ、ゲートを更新する。
+     *
+     * 楽天が 429 を返したら fetchRakuten() の 96〜101 行と同じく logErrorResponse＋pause() で
+     * ブレーカーを立てる。compare() の pool 経路はこれを行っておらず、429 を受けても
+     * ブレーカーが作動しないまま楽天を叩き続ける迂回になっていた（本番ログで発生）。
+     *
+     * poolJson() と同じく、pool は接続失敗時に Response ではなく ConnectionException を
+     * **返す**（投げない）ため、型を確かめて Response 以外は「取得できず」として扱う。
+     *
+     * 戻り値: 取得できた JSON（配列）。叩けなかった／エラー応答／接続失敗のときは null。
+     */
+    private function poolRakutenJson(array $responses, RakutenRateGate $gate, string $keyword): ?array
+    {
+        $result = $responses['rakuten'] ?? null;
+
+        if ($result instanceof Response) {
+            if (! $result->successful()) {
+                $gate->logErrorResponse('PartsController', $result->status(), $keyword, $result->body());
+
+                if ($result->status() === 429) {
+                    $gate->pause($keyword, 'PartsController');
+                }
+
+                return null;
+            }
+
+            $json = $result->json();
+
+            return is_array($json) ? $json : null;
+        }
+
+        if ($result instanceof \Throwable) {
+            Log::warning('parts:compare rakuten へ接続できませんでした', [
+                'error' => $result->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
      * 価格比較ページ（JAN/品番/キーワードで楽天・Yahoo並列取得）
      */
     public function compare(Request $request)
@@ -426,37 +467,80 @@ class PartsController extends Controller
         $cached = Cache::get($cacheKey);
 
         if ($cached === null) {
-            $responses = Http::pool(fn ($pool) => [
-                $pool->as('rakuten')->withHeaders([
-                    'Origin' => 'https://motohub.jp', 'Referer' => 'https://motohub.jp', 'User-Agent' => 'MotoHub',
-                ])->timeout(10)->get(config('services.rakuten.item_search_url'), array_filter([
-                    'applicationId' => config('services.rakuten.app_id'),
-                    'accessKey'     => config('services.rakuten.access_key'),
-                    'keyword'       => $searchQuery,
-                    'hits'          => 10,
-                    'page'          => 1,
-                    'format'        => 'json',
-                    'affiliateId'   => config('services.rakuten.affiliate_id'),
-                ])),
-                $pool->as('yahoo')->timeout(10)->get('https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch', [
+            $gate = app(RakutenRateGate::class);
+
+            // ★この pool 経路だけ楽天を直叩きしてゲートを迂回していた。そのため429を招き、
+            //   ルールを守っている BikePartsService 側がブレーカーで巻き添えを受けていた（本番で発生）。
+            //   休止中・枠取得失敗のときは楽天を叩かず、Yahoo だけ取得する（迂回はしない）。
+            //   ログは fetchRakuten() と同じ書式（status/keyword/body）に揃える。
+            $rakutenAllowed = true;
+            if ($gate->isPaused()) {
+                Log::warning('PartsController rakuten がエラー応答', [
+                    'status'  => 0,
+                    'keyword' => $searchQuery,
+                    'body'    => $gate->pausedReason(),
+                ]);
+                $rakutenAllowed = false;
+            } elseif (! $gate->acquireSlot()) {
+                Log::warning('PartsController rakuten がエラー応答', [
+                    'status'  => 0,
+                    'keyword' => $searchQuery,
+                    'body'    => $gate->waitExceededReason(),
+                ]);
+                $rakutenAllowed = false;
+            }
+
+            $responses = Http::pool(function ($pool) use ($rakutenAllowed, $searchQuery) {
+                $requests = [];
+
+                // 楽天はゲートを通過したときだけ叩く。
+                if ($rakutenAllowed) {
+                    $requests[] = $pool->as('rakuten')->withHeaders([
+                        'Origin' => 'https://motohub.jp', 'Referer' => 'https://motohub.jp', 'User-Agent' => 'MotoHub',
+                    ])->timeout(10)->get(config('services.rakuten.item_search_url'), array_filter([
+                        'applicationId' => config('services.rakuten.app_id'),
+                        'accessKey'     => config('services.rakuten.access_key'),
+                        'keyword'       => $searchQuery,
+                        'hits'          => 10,
+                        'page'          => 1,
+                        'format'        => 'json',
+                        'affiliateId'   => config('services.rakuten.affiliate_id'),
+                    ]));
+                }
+
+                // Yahoo はゲート対象外（楽天の枠と無関係）。常に並列で叩く。
+                $requests[] = $pool->as('yahoo')->timeout(10)->get('https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch', [
                     'appid'   => config('services.yahoo_shopping.client_id'),
                     'query'   => $searchQuery,
                     'results' => 10,
                     'start'   => 1,
                     'sort'    => '+price',
-                ]),
-            ]);
+                ]);
+
+                return $requests;
+            });
+
+            // 楽天は poolRakutenJson が 429 のとき pause() でブレーカーを立てる（迂回を解消）。
+            $rakutenJson = $rakutenAllowed ? $this->poolRakutenJson($responses, $gate, $searchQuery) : null;
+            $yahooJson   = $this->poolJson($responses, 'yahoo');
 
             $cached = [
-                'rakuten' => $this->poolJson($responses, 'rakuten'),
-                'yahoo'   => $this->poolJson($responses, 'yahoo'),
+                'rakuten' => $rakutenJson,
+                'yahoo'   => $yahooJson,
             ];
 
-            // 片方でも取れていれば通常TTL。両方だめなら短いTTLで焼いて早めに再試行する。
+            // 「取得を試みて0件」と「取得していない」を区別する（BikePartsService と同じ考え方）。
+            //   ・楽天をゲートでスキップ／エラー／接続失敗  = 取得していない
+            //   ・Yahoo が取得失敗                          = 取得していない
+            // 不完全な結果を通常TTLで焼くと「楽天に商品なし」等が長時間居座る。両モールとも
+            // 取得できたとき（0件でも“取得済み”）だけ通常TTL、それ以外は短いTTLで取り直す。
+            $rakutenObtained = $rakutenAllowed && $rakutenJson !== null;
+            $yahooObtained   = $yahooJson !== null;
+
             Cache::put(
                 $cacheKey,
                 $cached,
-                ($cached['rakuten'] !== null || $cached['yahoo'] !== null)
+                ($rakutenObtained && $yahooObtained)
                     ? self::COMPARE_CACHE_TTL
                     : self::COMPARE_CACHE_TTL_ON_FAILURE
             );
