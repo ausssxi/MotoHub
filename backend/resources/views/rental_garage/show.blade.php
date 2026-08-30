@@ -286,6 +286,7 @@
 
             {{-- 回遊リンク --}}
             <div class="mt-6">
+                <x-theft-insurance-cta />
                 <x-cross-links :crossLinks="$crossLinks" />
             </div>
         </div>
