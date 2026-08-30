@@ -22,6 +22,16 @@ class BikePartsService
     // カバーしきる間キャッシュが生き続けるよう長め。空結果は別途24時間で再試行。
     private const PARTS_CACHE_TTL = 604800; // 7日
 
+    // refreshForModel の取得結果を3状態で区別する（呼び出し側＝parts:refresh が判断に使う）。
+    // 「商品あり」「確定的に商品なし」「未取得（休止中・枠取得失敗＝聞きに行けなかった）」。
+    // ★未取得を「商品なし」と混同して空をキャッシュすると、429ブレーカー中に全車種の空を
+    //   24時間固める事故になる（本バグの原因）。未取得はキャッシュしない。
+    public const RESULT_HAS_ITEMS = 'has_items';
+
+    public const RESULT_EMPTY = 'empty';
+
+    public const RESULT_UNFETCHED = 'unfetched';
+
     private const CATEGORIES = [
         'バッテリー' => 'battery',
         'タイヤ' => 'tire',
@@ -57,9 +67,14 @@ class BikePartsService
     /**
      * 楽天APIからカテゴリ別パーツを取得しキャッシュへ書き込む（ジョブ用）
      *
-     * 8カテゴリ直列fetch＋sleep。render pathからは呼ばない（parts:refresh専用）。
+     * 8カテゴリ直列fetch。render pathからは呼ばない（parts:refresh専用）。
      *
-     * @return array<string, array{name: string, items: array}>
+     * ★戻り値は「取得を試みた結果」を3状態で返す（RESULT_HAS_ITEMS/RESULT_EMPTY/RESULT_UNFETCHED）。
+     *   1カテゴリでも「未取得（休止中・枠取得失敗・エラー応答＝聞きに行けなかった）」があれば、
+     *   部分結果を全件として固めず、モデル全体を未取得扱いにしてキャッシュへ書かない。
+     *   → 次アクセス/次バッチで取り直せる。確定的に全カテゴリ空のときだけ空をキャッシュ（24時間）。
+     *
+     * @return array{status: string, parts: array<string, array{name: string, items: array}>}
      */
     public function refreshForModel(BikeModel $model): array
     {
@@ -67,11 +82,13 @@ class BikePartsService
         $accessKey = config('services.rakuten.access_key');
 
         if (! $appId || ! $accessKey) {
-            return [];
+            // 認証情報が無い＝そもそも取得を試みていない。空をキャッシュしない。
+            return ['status' => self::RESULT_UNFETCHED, 'parts' => []];
         }
 
         $affiliateId = config('services.rakuten.affiliate_id');
         $result = [];
+        $unfetched = false;
 
         foreach (self::CATEGORIES as $categoryName => $categoryKey) {
             if ($categoryKey === 'other') {
@@ -82,26 +99,38 @@ class BikePartsService
                 $hits = 4;
             }
 
-            $items = $this->searchRakuten($appId, $accessKey, $affiliateId, $keyword, $hits);
+            $outcome = $this->searchRakuten($appId, $accessKey, $affiliateId, $keyword, $hits);
 
-            if (! empty($items)) {
+            if (! $outcome['ok']) {
+                // 「聞きに行けなかった」カテゴリが1つでもあれば、この時点で打ち切る。
+                // 残りを叩いても休止中なら同じ結果で、部分結果を全件と誤認する危険もあるため。
+                $unfetched = true;
+                break;
+            }
+
+            if (! empty($outcome['items'])) {
                 $result[$categoryKey] = [
                     'name' => $categoryName,
-                    'items' => $items,
+                    'items' => $outcome['items'],
                 ];
             }
 
-            // かつては sleep(1) でカテゴリ間隔を空けていたが削除した。
-            // 楽天呼び出しは共有ゲート（RakutenRateGate）を通り、ゲートが全経路で
-            // 1.1秒以上の間隔を保証する。sleep(1) はそれより短く、ゲート導入後は
-            // 律速にならないうえ、ゲートの待機と二重に効いて無駄に遅くなるだけのため。
+            // カテゴリ間隔は共有ゲート（RakutenRateGate）が全経路で1.1秒以上を保証するため sleep 不要。
         }
 
-        // 空結果（取得失敗/在庫無し）は24時間で再試行。取得できた分は7日保持。
+        if ($unfetched) {
+            // ★未取得はキャッシュに書かない（429ブレーカー中の空を24時間固める事故を防ぐ）。
+            return ['status' => self::RESULT_UNFETCHED, 'parts' => $result];
+        }
+
+        // 全カテゴリを取得できた。商品ありは7日、確定した空は24時間で再試行。
         $ttl = empty($result) ? self::CACHE_TTL : self::PARTS_CACHE_TTL;
         Cache::put(self::cacheKey($model), $result, $ttl);
 
-        return $result;
+        return [
+            'status' => empty($result) ? self::RESULT_EMPTY : self::RESULT_HAS_ITEMS,
+            'parts' => $result,
+        ];
     }
 
     /**
@@ -118,12 +147,26 @@ class BikePartsService
             return [];
         }
 
-        try {
-            return Cache::remember("parts:bike_model:{$model->id}:flat", self::CACHE_TTL, function () use ($model, $appId, $accessKey, $limit) {
-                $affiliateId = config('services.rakuten.affiliate_id');
+        $cacheKey = "parts:bike_model:{$model->id}:flat";
 
-                return $this->searchRakuten($appId, $accessKey, $affiliateId, 'バイク '.$model->name, $limit);
-            });
+        try {
+            $cached = Cache::get($cacheKey);
+            if (is_array($cached)) {
+                return $cached;
+            }
+
+            $affiliateId = config('services.rakuten.affiliate_id');
+            $outcome = $this->searchRakuten($appId, $accessKey, $affiliateId, 'バイク '.$model->name, $limit);
+
+            // 未取得（休止中・枠取得失敗・エラー応答）はキャッシュしない。次回取り直す。
+            // ★以前は Cache::remember が「聞きに行けなかった空」も24時間固めていた（本バグと同根）。
+            if (! $outcome['ok']) {
+                return [];
+            }
+
+            Cache::put($cacheKey, $outcome['items'], self::CACHE_TTL);
+
+            return $outcome['items'];
         } catch (\Throwable $e) {
             // キャッシュ層など searchRakuten の外側で落ちた場合の保険。無言にはしない。
             Log::warning('BikePartsService fetchFlat failed: '.$e->getMessage(), ['bike_model_id' => $model->id]);
@@ -134,6 +177,13 @@ class BikePartsService
 
     /**
      * 楽天API呼び出し共通処理
+     *
+     * ★戻り値で「聞きに行けたか」を区別する:
+     *   ['ok' => true,  'items' => [...]] … 取得成功（items は空＝確定的に商品なしを含む）
+     *   ['ok' => false, 'items' => []]    … 未取得（休止中・枠取得失敗・エラー応答・例外）
+     *   呼び出し側はこの ok を見て、未取得を「商品なし」として固めないようにする。
+     *
+     * @return array{ok: bool, items: array}
      */
     private function searchRakuten(string $appId, string $accessKey, ?string $affiliateId, string $keyword, int $hits): array
     {
@@ -141,13 +191,14 @@ class BikePartsService
         // keyword is not valid（400）の原因になるため除去し、有効語が残らなければ叩かずスキップ。
         $normalized = RakutenKeyword::normalize($keyword);
         if ($normalized === null) {
-            return []; // 2文字以上の有効語なし → 無駄な400を出さず、レート枠も消費しない
+            // 有効語なし＝叩いても必ず空になる確定結果。ok=true の空として扱ってよい（再試行しても同じ）。
+            return ['ok' => true, 'items' => []];
         }
         $keyword = $normalized;
 
         $gate = app(RakutenRateGate::class);
 
-        // 楽天のレート枠は全経路の共有。休止中はここでも叩かない（迂回はしない）。
+        // 楽天のレート枠は全経路の共有。休止中はここでも叩かない（迂回はしない）＝未取得。
         if ($gate->isPaused()) {
             Log::warning('BikePartsService rakuten がエラー応答', [
                 'status' => 0,
@@ -155,10 +206,10 @@ class BikePartsService
                 'body' => $gate->pausedReason(),
             ]);
 
-            return [];
+            return ['ok' => false, 'items' => []];
         }
 
-        // 間隔制御の枠を取れなければ叩かずに空を返す（CLI=5秒/Web=0.5秒はゲートが判定）。
+        // 間隔制御の枠を取れなければ叩かずに未取得を返す（CLI=60秒/Web=0.5秒はゲートが判定）。
         if (! $gate->acquireSlot()) {
             Log::warning('BikePartsService rakuten がエラー応答', [
                 'status' => 0,
@@ -166,7 +217,7 @@ class BikePartsService
                 'body' => $gate->waitExceededReason(),
             ]);
 
-            return [];
+            return ['ok' => false, 'items' => []];
         }
 
         $params = [
@@ -198,12 +249,12 @@ class BikePartsService
                     $gate->pause($keyword, 'BikePartsService');
                 }
 
-                return [];
+                return ['ok' => false, 'items' => []]; // エラー応答＝未取得（空として固めない）
             }
 
             $data = $response->json();
 
-            return collect($data['Items'] ?? [])->map(function ($wrapper) {
+            $items = collect($data['Items'] ?? [])->map(function ($wrapper) {
                 $item = $wrapper['Item'] ?? $wrapper;
                 $codes = PartsCodeExtractor::extract(
                     $item['itemName'] ?? '',
@@ -224,10 +275,13 @@ class BikePartsService
                     'pointRate' => $item['pointRate'] ?? 1,
                 ];
             })->all();
+
+            // 200応答＝聞きに行けた。items が空なら「確定的に商品なし」（ok=true の空）。
+            return ['ok' => true, 'items' => $items];
         } catch (\Throwable $e) {
             Log::warning('BikePartsService rakuten failed: '.$e->getMessage(), ['keyword' => $keyword]);
 
-            return [];
+            return ['ok' => false, 'items' => []]; // 例外＝未取得
         }
     }
 }
