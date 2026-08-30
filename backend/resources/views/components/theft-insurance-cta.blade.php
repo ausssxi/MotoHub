@@ -13,6 +13,8 @@
 @endphp
 @if($ctaUrl !== '')
 <aside class="bg-gray-900 rounded-xl p-5 mb-4 text-center">
+    {{-- theft.blade.php と同じ上部の広告開示（PR・広告）。開示表記を両ページで揃える。 --}}
+    <p class="text-white/70 text-[10px] font-black tracking-widest uppercase mb-2">PR・広告</p>
     <h2 class="text-white text-base font-black mb-1">{{ $aff['headline'] ?? 'バイク盗難保険を無料で見積もり' }}</h2>
     <p class="text-white/60 text-xs mb-4 leading-relaxed">{{ $aff['sub'] ?? '' }}</p>
     <a href="{{ $ctaUrl }}" target="_blank" rel="nofollow sponsored noopener"

@@ -44,7 +44,9 @@ final class TheftController extends Controller
         return [
             [
                 'q' => 'バイクの盗難（オートバイ盗）は増えていますか？',
-                'a' => '警察庁の犯罪統計によると、オートバイ盗の全国の認知件数は長期的には減少傾向が続いています。ただし年により増減があり、依然として一定数の被害が発生しています。本ページで最新年の件数と推移を確認できます。',
+                // ★回答文はグラフと同じ theft_stats.json（national）から導出し、本文とデータの食い違いを防ぐ。
+                //   数値・トレンドを直書きしない（年次更新で再び矛盾するため）。theftTrendAnswer() を参照。
+                'a' => $this->theftTrendAnswer(),
             ],
             [
                 'q' => 'バイクの盗難対策で効果的なものは？',
@@ -59,5 +61,75 @@ final class TheftController extends Controller
                 'a' => '警察庁『犯罪統計』（e-Stat）のオートバイ盗（全国）の認知・検挙件数です。検挙率は検挙件数÷認知件数、前年比は前年の認知件数との比較として算出しています。',
             ],
         ];
+    }
+
+    /**
+     * 「盗難は増えている？」の回答文を、ページのグラフと同一の theft_stats.json（national）から導出する。
+     *
+     * ★グラフと同じ出所から導出し、本文とデータの食い違いを防ぐ。数値やトレンドを本文に直書きすると
+     *   年次データ更新で再び食い違うため、必ず TheftStats::series() から組み立てる。
+     * ・言及するのは「本ページに掲載している期間」だけ。ページに載っていない長期トレンドには触れない。
+     * ・増減の向きは端点（最初の年↔最後の年）の比較で決め、単調増減でなくても事実として破綻しないようにする。
+     *   期間内に増減が混在する場合は「増減を伴いながら」と言い添える。
+     * ・この文言は $faqs 経由で本文（theft.blade.php）と FAQPage の JSON-LD の両方に使われる＝両者は常に一致する。
+     */
+    private function theftTrendAnswer(): string
+    {
+        $series = TheftStats::series();
+
+        // データ未投入時は数値に依存しない安全な一般文（ハブ側は hasData()=false で「準備中」表示）。
+        if ($series === []) {
+            return '本ページで最新のオートバイ盗（全国）の認知件数と推移を確認できます。';
+        }
+
+        $first = $series[0];
+        $last = end($series);
+
+        // 単一年のみの場合は推移を語らない（起点・終点が同じで「増加/減少」と言えないため）。
+        if (count($series) === 1) {
+            return sprintf(
+                '本ページに掲載している%d年のオートバイ盗（全国）の認知件数は%s件です。',
+                $first['year'],
+                number_format($first['recognized']),
+            );
+        }
+
+        // 端点比較で増減の向きを決める（単調でなくても net の符号で一意に定まる）。
+        $net = $last['recognized'] - $first['recognized'];
+        $direction = $net > 0 ? '増加' : ($net < 0 ? '減少' : '横ばい');
+
+        // 期間内で増減が混在するか（連続差分が net と逆符号を含むか）。混在時は言い回しを和らげる。
+        $mixed = false;
+        for ($i = 1, $n = count($series); $i < $n; $i++) {
+            $step = $series[$i]['recognized'] - $series[$i - 1]['recognized'];
+            if (($net > 0 && $step < 0) || ($net < 0 && $step > 0)) {
+                $mixed = true;
+                break;
+            }
+        }
+
+        if ($direction === '横ばい') {
+            $trend = sprintf(
+                '本ページに掲載している%d年〜%d年では、オートバイ盗（全国）の認知件数は%s件から%s件でほぼ横ばいに推移しています。',
+                $first['year'], $last['year'],
+                number_format($first['recognized']), number_format($last['recognized']),
+            );
+        } else {
+            $trend = sprintf(
+                '本ページに掲載している%d年〜%d年では、オートバイ盗（全国）の認知件数は%s件から%s件へ%s%sしています。',
+                $first['year'], $last['year'],
+                number_format($first['recognized']), number_format($last['recognized']),
+                $mixed ? '増減を伴いながら' : '', $direction,
+            );
+        }
+
+        // 最新年の前年比（TheftStats::latest と同一算出・ページ表示と同じ符号/桁）。
+        $latest = TheftStats::latest();
+        $yoy = $latest['yoy_pct'] ?? null;
+        $yoyText = $yoy !== null
+            ? sprintf('最新年の%d年は前年比%s%%でした。', $last['year'], ($yoy > 0 ? '+' : '').number_format($yoy, 1))
+            : '';
+
+        return $trend.$yoyText;
     }
 }
