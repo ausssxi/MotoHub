@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Support\RakutenRateGate;
+use App\Support\YahooRateGate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -53,4 +54,36 @@ it('pool 経路で楽天が429を返したらブレーカーを立てる', funct
 
     // fetchRakuten() と同じく 429 で pause() が呼ばれ、ブレーカーが作動していること。
     expect(app(RakutenRateGate::class)->isPaused())->toBeTrue();
+});
+
+it('Yahoo のブレーカー休止中は Yahoo を叩かず 楽天だけ取得する', function () {
+    Http::fake([
+        '*rakuten*' => Http::response(['Items' => []], 200),
+        '*yahooapis*' => Http::response(['hits' => []], 200),
+    ]);
+
+    // Yahoo のブレーカーを立てる（ProductSearchService が Yahoo を休止させた状態を再現）。
+    app(YahooRateGate::class)->pause('foo', 'test');
+    expect(app(YahooRateGate::class)->isPaused())->toBeTrue();
+
+    $this->get('/parts/compare?keyword='.urlencode('バイク テスト'))->assertOk();
+
+    // 迂回せず、休止中は Yahoo を叩かない。楽天は休止していないので叩く。
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'yahooapis'));
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'rakuten'));
+});
+
+it('pool 経路で Yahoo が429を返したらブレーカーを立てる', function () {
+    Http::fake([
+        '*rakuten*' => Http::response(['Items' => []], 200),
+        '*yahooapis*' => Http::response('Rate limit is exceeded.', 429),
+    ]);
+
+    expect(app(YahooRateGate::class)->isPaused())->toBeFalse();
+
+    $this->get('/parts/compare?keyword='.urlencode('バイク テスト'))->assertOk();
+
+    // 429 で pause() が呼ばれ、YahooRateGate のブレーカーが作動していること
+    // （ProductSearchService と休止状態を共有する）。
+    expect(app(YahooRateGate::class)->isPaused())->toBeTrue();
 });

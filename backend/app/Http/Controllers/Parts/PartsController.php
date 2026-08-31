@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BikeModel;
 use App\Services\Parts\PartsCodeExtractor;
 use App\Support\RakutenRateGate;
+use App\Support\YahooRateGate;
 use Carbon\Carbon;
 use Illuminate\Http\Client\Response;
 use Illuminate\Http\Request;
@@ -391,6 +392,45 @@ class PartsController extends Controller
     }
 
     /**
+     * pool の yahoo レスポンスを取り出しつつ、ゲート（ブレーカー）を更新する。
+     *
+     * poolRakutenJson() の Yahoo 版。Yahoo が 429 を返したら共有の YahooRateGate へ pause() し、
+     * ProductSearchService と休止状態を共有する（この pool 経路だけが迂回していたのを塞ぐ）。
+     * poolJson() 同様、pool は接続失敗時に Response ではなく ConnectionException を **返す** ため
+     * 型を確かめ、Response 以外は「取得できず」として扱う。
+     *
+     * 戻り値: 取得できた JSON（配列）。叩けなかった／エラー応答／接続失敗のときは null。
+     */
+    private function poolYahooJson(array $responses, YahooRateGate $gate, string $keyword): ?array
+    {
+        $result = $responses['yahoo'] ?? null;
+
+        if ($result instanceof Response) {
+            if (! $result->successful()) {
+                $gate->logErrorResponse('PartsController', $result->status(), $keyword, $result->body());
+
+                if ($result->status() === 429) {
+                    $gate->pause($keyword, 'PartsController');
+                }
+
+                return null;
+            }
+
+            $json = $result->json();
+
+            return is_array($json) ? $json : null;
+        }
+
+        if ($result instanceof \Throwable) {
+            Log::warning('parts:compare yahoo へ接続できませんでした', [
+                'error' => $result->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
      * pool の rakuten レスポンスを取り出しつつ、ゲートを更新する。
      *
      * 楽天が 429 を返したら fetchRakuten() の 96〜101 行と同じく logErrorResponse＋pause() で
@@ -468,10 +508,12 @@ class PartsController extends Controller
 
         if ($cached === null) {
             $gate = app(RakutenRateGate::class);
+            $yahooGate = app(YahooRateGate::class);
 
-            // ★この pool 経路だけ楽天を直叩きしてゲートを迂回していた。そのため429を招き、
-            //   ルールを守っている BikePartsService 側がブレーカーで巻き添えを受けていた（本番で発生）。
-            //   休止中・枠取得失敗のときは楽天を叩かず、Yahoo だけ取得する（迂回はしない）。
+            // ★この pool 経路だけ楽天・Yahoo を直叩きしてゲートを迂回していた。そのため429を招き、
+            //   ルールを守っている BikePartsService / ProductSearchService 側がブレーカーで
+            //   巻き添えを受けていた（本番で発生）。両モールともゲートを通し、迂回はしない。
+            //   休止中・枠取得失敗のモールは pool に入れず、取れる側だけ取得する。
             //   ログは fetchRakuten() と同じ書式（status/keyword/body）に揃える。
             $rakutenAllowed = true;
             if ($gate->isPaused()) {
@@ -490,10 +532,22 @@ class PartsController extends Controller
                 $rakutenAllowed = false;
             }
 
-            $responses = Http::pool(function ($pool) use ($rakutenAllowed, $searchQuery) {
+            // Yahoo はブレーカーのみ（間隔制御 acquireSlot は無い＝間隔制御を持つのは楽天だけ）。
+            // 休止中は Yahoo を pool に入れない。ProductSearchService と休止状態を共有し迂回を解消する。
+            $yahooAllowed = true;
+            if ($yahooGate->isPaused()) {
+                Log::warning('PartsController yahoo がエラー応答', [
+                    'status'  => 0,
+                    'keyword' => $searchQuery,
+                    'body'    => $yahooGate->pausedReason(),
+                ]);
+                $yahooAllowed = false;
+            }
+
+            $responses = Http::pool(function ($pool) use ($rakutenAllowed, $yahooAllowed, $searchQuery) {
                 $requests = [];
 
-                // 楽天はゲートを通過したときだけ叩く。
+                // 楽天はゲート（間隔制御＋ブレーカー）を通過したときだけ叩く。
                 if ($rakutenAllowed) {
                     $requests[] = $pool->as('rakuten')->withHeaders([
                         'Origin' => 'https://motohub.jp', 'Referer' => 'https://motohub.jp', 'User-Agent' => 'MotoHub',
@@ -508,21 +562,23 @@ class PartsController extends Controller
                     ]));
                 }
 
-                // Yahoo はゲート対象外（楽天の枠と無関係）。常に並列で叩く。
-                $requests[] = $pool->as('yahoo')->timeout(10)->get('https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch', [
-                    'appid'   => config('services.yahoo_shopping.client_id'),
-                    'query'   => $searchQuery,
-                    'results' => 10,
-                    'start'   => 1,
-                    'sort'    => '+price',
-                ]);
+                // Yahoo はブレーカーを通過したときだけ叩く（間隔制御は無い）。
+                if ($yahooAllowed) {
+                    $requests[] = $pool->as('yahoo')->timeout(10)->get('https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch', [
+                        'appid'   => config('services.yahoo_shopping.client_id'),
+                        'query'   => $searchQuery,
+                        'results' => 10,
+                        'start'   => 1,
+                        'sort'    => '+price',
+                    ]);
+                }
 
                 return $requests;
             });
 
-            // 楽天は poolRakutenJson が 429 のとき pause() でブレーカーを立てる（迂回を解消）。
+            // 各モール 429 のとき poolRakutenJson / poolYahooJson が pause() でブレーカーを立てる（迂回を解消）。
             $rakutenJson = $rakutenAllowed ? $this->poolRakutenJson($responses, $gate, $searchQuery) : null;
-            $yahooJson   = $this->poolJson($responses, 'yahoo');
+            $yahooJson   = $yahooAllowed ? $this->poolYahooJson($responses, $yahooGate, $searchQuery) : null;
 
             $cached = [
                 'rakuten' => $rakutenJson,
@@ -530,12 +586,11 @@ class PartsController extends Controller
             ];
 
             // 「取得を試みて0件」と「取得していない」を区別する（BikePartsService と同じ考え方）。
-            //   ・楽天をゲートでスキップ／エラー／接続失敗  = 取得していない
-            //   ・Yahoo が取得失敗                          = 取得していない
-            // 不完全な結果を通常TTLで焼くと「楽天に商品なし」等が長時間居座る。両モールとも
+            //   ・ゲートでスキップ／エラー応答／接続失敗 = 取得していない（楽天・Yahoo とも）
+            // 不完全な結果を通常TTLで焼くと「商品なし」等が長時間居座る。両モールとも
             // 取得できたとき（0件でも“取得済み”）だけ通常TTL、それ以外は短いTTLで取り直す。
             $rakutenObtained = $rakutenAllowed && $rakutenJson !== null;
-            $yahooObtained   = $yahooJson !== null;
+            $yahooObtained   = $yahooAllowed && $yahooJson !== null;
 
             Cache::put(
                 $cacheKey,

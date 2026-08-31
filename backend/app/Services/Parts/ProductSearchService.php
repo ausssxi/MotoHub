@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Parts;
 
 use App\Support\RakutenRateGate;
+use App\Support\YahooRateGate;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -43,21 +44,16 @@ final class ProductSearchService
 
     private const TIMEOUT = 8;
 
-    /**
-     * Yahoo を 429 後に休止させる時間（秒）。
-     *
-     * 楽天の間隔制御・ブレーカーは共有の {@see RakutenRateGate} へ移したが、
-     * Yahoo は間隔制御の対象外（実測で429が出ているのは楽天のみ）で、
-     * ブレーカーだけをモール単位でここに残す。値は楽天側と揃えている。
-     */
-    private const BREAKER_TTL = 30;
-
     /** 楽天のレート保護（間隔制御・ブレーカー）を担う共有ゲート。 */
     private RakutenRateGate $gate;
 
-    public function __construct(?RakutenRateGate $gate = null)
+    /** Yahoo のレート保護（ブレーカーのみ）を担う共有ゲート。間隔制御は持たない。 */
+    private YahooRateGate $yahooGate;
+
+    public function __construct(?RakutenRateGate $gate = null, ?YahooRateGate $yahooGate = null)
     {
         $this->gate = $gate ?? app(RakutenRateGate::class);
+        $this->yahooGate = $yahooGate ?? app(YahooRateGate::class);
     }
 
     /**
@@ -187,26 +183,6 @@ final class ProductSearchService
     }
 
     /**
-     * Yahoo のブレーカーキー。楽天は共有の {@see RakutenRateGate} が持つため、ここは Yahoo 専用。
-     */
-    private function breakerKey(string $mall): string
-    {
-        return 'parts:breaker:'.$mall;
-    }
-
-    /**
-     * 429 を受けた Yahoo を BREAKER_TTL 秒だけ休止させる。
-     * 立てるときだけログに残す（休止中のスキップまでログすると、抑えたはずの行数が戻ってしまう）。
-     */
-    private function tripBreaker(string $mall, string $keyword): void
-    {
-        Cache::put($this->breakerKey($mall), true, self::BREAKER_TTL);
-        Log::warning("ProductSearchService {$mall} を".self::BREAKER_TTL.'秒休止します（レート制限）', [
-            'keyword' => $keyword,
-        ]);
-    }
-
-    /**
      * 楽天検索（失敗時は []）。affiliateId を渡すと itemUrl がアフィリエイトURLになる。
      *
      * $withDescription=true のときだけ itemCaption を 'description' として付与する。
@@ -309,9 +285,11 @@ final class ProductSearchService
         }
 
         // ブレーカーはモール単位。楽天が休止していても Yahoo は叩く（逆も同じ）。
-        // なお間隔制御は楽天だけに入れている。実測で429が出ているのが楽天のみのため。
-        if ($respectBreaker && Cache::get($this->breakerKey('yahoo'), false)) {
-            $this->lastErrors['yahoo'] = '休止中（429を受けたため'.self::BREAKER_TTL.'秒間の休止）';
+        // Yahoo も 429 を返すため、ブレーカーは共有の {@see YahooRateGate} へ切り出した
+        // （PartsController::compare() 経路と休止状態を共有し、迂回を解消する）。
+        // 間隔制御（acquireSlot）は Yahoo には入れていない＝間隔制御を持つのは楽天のみ。
+        if ($respectBreaker && $this->yahooGate->isPaused()) {
+            $this->lastErrors['yahoo'] = $this->yahooGate->pausedReason();
 
             return [];
         }
@@ -334,7 +312,7 @@ final class ProductSearchService
                 ]);
 
                 if ($response->status() === 429) {
-                    $this->tripBreaker('yahoo', $keyword);
+                    $this->yahooGate->pause($keyword, 'ProductSearchService');
                 }
 
                 return [];
