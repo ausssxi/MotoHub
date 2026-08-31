@@ -111,4 +111,83 @@ final class RentalGarage extends Model
     {
         $this->attributes['size_text'] = self::normalizeSizeText($value);
     }
+
+    /** 加瀬倉庫の運営会社名（分類・注記の判定に使う唯一の定数）。 */
+    private const KASE_OPERATOR = '加瀬倉庫';
+
+    /** バイク収納可能とされる最小サイズ（畳）。加瀬IT戦略推進部の確認: 原則「下段・1.6畳以上」。 */
+    private const KASE_BIKE_MIN_JO = 1.6;
+
+    /**
+     * 加瀬倉庫の「バイクヤード」（バイク専用施設）か。1.6畳ルールの対象外。
+     *
+     * ★加瀬物件の2分類（バイクヤード / レンタルボックス）の判定はここ1か所に集約する。
+     *   name に「バイクヤード」を含むかで確実に分類できる（該当0件のグレーは無い）。
+     */
+    public function isKaseBikeYard(): bool
+    {
+        return $this->operator === self::KASE_OPERATOR
+            && mb_strpos((string) $this->name, 'バイクヤード') !== false;
+    }
+
+    /** 加瀬倉庫の「レンタルボックス」（バイクヤード以外）。1.6畳ルールの注記対象。 */
+    public function isKaseRentalBox(): bool
+    {
+        return $this->operator === self::KASE_OPERATOR && ! $this->isKaseBikeYard();
+    }
+
+    /**
+     * size_text から下限・上限（畳）を取り出す。畳/帖・各種チルダ対応。取れなければ [null, null]。
+     *
+     * @return array{0: ?float, 1: ?float}
+     */
+    public function sizeJoBounds(): array
+    {
+        $s = $this->size_text;
+        if ($s === null || $s === '') {
+            return [null, null];
+        }
+        $t = str_replace(["\u{301C}", "\u{007E}", "\u{FF5E}"], '~', $s);
+        if (! preg_match_all('/([0-9]+(?:\.[0-9]+)?)\s*(?:畳|帖)/u', $t, $m)) {
+            return [null, null];
+        }
+        $nums = array_map('floatval', $m[1]);
+
+        return [min($nums), max($nums)];
+    }
+
+    /**
+     * 加瀬レンタルボックスで、size_text の下限がバイク不可（1.6畳未満）か。
+     * true のとき下限サイズ・monthly_fee_min はバイク不可区画のものなので、表示側で断り書きが要る。
+     */
+    public function kaseLowerBelowBikeMin(): bool
+    {
+        if (! $this->isKaseRentalBox()) {
+            return false;
+        }
+        [$lo] = $this->sizeJoBounds();
+
+        return $lo !== null && $lo < self::KASE_BIKE_MIN_JO;
+    }
+
+    /**
+     * 表示用サイズ文字列。加瀬レンタルボックスで下限がバイク不可なら「1.6畳以上〜{上限}畳」に置換する。
+     * それ以外（バイクヤード・他社・下限が1.6畳以上）は size_text をそのまま返す。
+     *
+     * ※全レンタルボックスで上限≥1.6畳（最大<1.6は0件）＝「1.6畳以上の区画が存在する」は断定可。
+     *   一方、ちょうど1.6畳区画の存在はデータから不明なので「1.6畳〜」とは書かない。
+     */
+    public function displaySizeText(): ?string
+    {
+        if (! $this->kaseLowerBelowBikeMin()) {
+            return $this->size_text;
+        }
+        [, $hi] = $this->sizeJoBounds();
+        if ($hi === null) {
+            return '1.6畳以上';
+        }
+        $upper = rtrim(rtrim(number_format($hi, 1), '0'), '.'); // 8.0→"8" / 10.1→"10.1"
+
+        return '1.6畳以上〜'.$upper.'畳';
+    }
 }

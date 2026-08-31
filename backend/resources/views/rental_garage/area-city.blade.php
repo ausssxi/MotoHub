@@ -41,7 +41,7 @@
                         {{-- 月額・区画サイズ。どちらも未取得の行があるため、ある項目だけ出す --}}
                         <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                             @if($it['feeText'])
-                            <span class="text-[11px] text-gray-700 font-bold"><i data-lucide="japanese-yen" class="inline w-3 h-3 text-gray-400"></i> 月額{{ $it['feeText'] }}</span>
+                            <span class="text-[11px] text-gray-700 font-bold"><i data-lucide="japanese-yen" class="inline w-3 h-3 text-gray-400"></i> 月額{{ $it['feeText'] }}{{ $it['kaseMaskLower'] ? '（全区画）' : '' }}</span>
                             @endif
                             @if($it['sizeText'])
                             <span class="text-[11px] text-gray-500"><i data-lucide="ruler" class="inline w-3 h-3"></i> {{ $it['sizeText'] }}</span>

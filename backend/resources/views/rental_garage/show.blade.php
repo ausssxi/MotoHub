@@ -9,6 +9,14 @@
             $feeText = '〜'.number_format($garage->monthly_fee_max).'円';
         }
         $areaName = $garage->city ?: $garage->prefecture;
+
+        // 加瀬倉庫の物件分類（判定はモデルに集約）。バイクヤード=バイク専用（1.6畳ルール対象外）、
+        // レンタルボックス=注記対象。$kaseMaskLower は下限がバイク不可(1.6畳未満)のレンタルボックス。
+        $isKaseBikeYard  = $garage->isKaseBikeYard();
+        $isKaseRentalBox = $garage->isKaseRentalBox();
+        $kaseMaskLower   = $garage->kaseLowerBelowBikeMin();
+        $displaySize     = $garage->displaySizeText();
+
         // 設備 3値表示: null=情報なし / true=あり / false=なし
         $eq = fn ($v) => is_null($v) ? '情報なし' : ($v ? 'あり' : 'なし');
         $eqClass = fn ($v) => is_null($v) ? 'text-gray-400' : ($v ? 'text-emerald-600' : 'text-gray-500');
@@ -27,14 +35,16 @@
             $autoSentences[] = $garage->name.'は、'.$pc.'にある'.$garage->garage_type_label.'のレンタルガレージです。';
         }
         // 2) 月額（3桁区切り・下限が必須。下限が無ければ出さない）
+        //    加瀬レンタルボックスで下限がバイク不可のときは「全区画で」と明示し、下限を最安に見せない。
+        $feePrefix = $kaseMaskLower ? '月額は全区画で' : '月額は';
         if ($garage->monthly_fee_min && $garage->monthly_fee_max) {
-            $autoSentences[] = '月額は'.number_format($garage->monthly_fee_min).'円から'.number_format($garage->monthly_fee_max).'円です。';
+            $autoSentences[] = $feePrefix.number_format($garage->monthly_fee_min).'円から'.number_format($garage->monthly_fee_max).'円です。';
         } elseif ($garage->monthly_fee_min) {
-            $autoSentences[] = '月額は'.number_format($garage->monthly_fee_min).'円です。';
+            $autoSentences[] = $feePrefix.number_format($garage->monthly_fee_min).'円です。';
         }
-        // 3) 区画サイズ
-        if ($garage->size_text) {
-            $autoSentences[] = '区画サイズは'.$garage->size_text.'です。';
+        // 3) 区画サイズ（加瀬レンタルボックスで下限がバイク不可なら displaySize が「1.6畳以上〜…」に置換済み）
+        if ($displaySize) {
+            $autoSentences[] = '区画サイズは'.$displaySize.'です。';
         }
         // 4) 収容台数
         if ($garage->capacity) {
@@ -166,6 +176,9 @@
                 @endif
                 <div class="flex flex-wrap items-center gap-2 mb-4">
                     <span class="inline-block px-2.5 py-1 bg-violet-50 text-violet-700 text-[11px] font-bold rounded-md">{{ $garage->garage_type_label }}</span>
+                    @if($isKaseBikeYard)
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-black rounded-md"><i data-lucide="bike" class="w-3.5 h-3.5"></i>バイク専用</span>
+                    @endif
                     @if($garage->operator)
                     <span class="inline-block px-2.5 py-1 bg-gray-100 text-gray-600 text-[11px] font-bold rounded-md">{{ $garage->operator }}</span>
                     @endif
@@ -194,11 +207,11 @@
                 <div class="bg-gray-50 rounded-lg p-4 mb-4 space-y-2">
                     <div class="flex items-start gap-2">
                         <span class="text-[11px] font-bold text-gray-400 w-24 shrink-0 pt-0.5">月額</span>
-                        <span class="text-sm text-gray-800 font-bold">{{ $feeText ?? '情報なし' }}<span class="text-[10px] font-normal text-gray-400 ml-1">（区画により変動）</span></span>
+                        <span class="text-sm text-gray-800 font-bold">{{ $feeText ?? '情報なし' }}<span class="text-[10px] font-normal text-gray-400 ml-1">{{ $kaseMaskLower ? '（全区画）' : '（区画により変動）' }}</span></span>
                     </div>
                     <div class="flex items-start gap-2">
                         <span class="text-[11px] font-bold text-gray-400 w-24 shrink-0 pt-0.5">区画サイズ</span>
-                        <span class="text-sm text-gray-700">{{ $garage->size_text ?: '情報なし' }}</span>
+                        <span class="text-sm text-gray-700">{{ $displaySize ?: '情報なし' }}</span>
                     </div>
                     @if($garage->capacity)
                     <div class="flex items-start gap-2">
@@ -207,6 +220,21 @@
                     </div>
                     @endif
                 </div>
+
+                {{-- 加瀬レンタルボックス：下限がバイク不可(1.6畳未満)のとき、料金帯が何の料金かを明示する。
+                     （下限を隠さず「全区画の料金」と正しく言い、バイク可区画はそれより高いと断る） --}}
+                @if($kaseMaskLower)
+                <p class="text-[11px] text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mb-4 leading-relaxed">
+                    ※上の月額は全区画の料金帯です。バイクを収納できる区画（1.6畳以上）の料金は、上記の下限より高くなります。
+                </p>
+                @endif
+
+                {{-- 加瀬レンタルボックス：1.6畳ルールの注記（全レンタルボックスに表示。バイクヤード・他社には出さない） --}}
+                @if($isKaseRentalBox)
+                <p class="text-xs text-gray-600 bg-violet-50 rounded-lg px-3 py-2 mb-4 leading-relaxed">
+                    バイクを収納できる区画は、原則として下段・1.6畳以上です（加瀬倉庫）。区画の段・扉の幅・前面の通路幅などにより収納できない場合があります。空室状況と区画の詳細は公式ページでご確認ください。
+                </p>
+                @endif
 
                 {{-- 設備（あり／なし／情報なし。null を「なし」と表示しない） --}}
                 <div class="grid grid-cols-2 gap-2 mb-4">
@@ -223,8 +251,9 @@
                 <p class="text-sm text-gray-700 leading-relaxed mb-4">{{ $autoBody }}</p>
                 @endif
 
-                {{-- 相場比較の一文 --}}
-                @if($prefMedian && $garage->monthly_fee_min)
+                {{-- 相場比較の一文。加瀬レンタルボックスで下限がバイク不可の物件は、その monthly_fee_min が
+                     バイク不可区画の料金なので「相場より安め」等は誤り→非表示にする。 --}}
+                @if($prefMedian && $garage->monthly_fee_min && ! $kaseMaskLower)
                 <p class="text-xs text-gray-600 mb-4 bg-violet-50 rounded-lg px-3 py-2">
                     {{ $garage->prefecture }}のレンタルガレージ月額中央値は約{{ number_format($prefMedian) }}円です。この施設（下限{{ number_format($garage->monthly_fee_min) }}円）は
                     @if($garage->monthly_fee_min < $prefMedian)<strong class="text-emerald-600">相場より安め</strong>

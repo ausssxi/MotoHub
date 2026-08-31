@@ -125,19 +125,27 @@ final class RentalGarageController extends Controller
     /**
      * 同一都道府県・公開中のレンタルガレージの月額下限の中央値（円）。
      * monthly_fee_min が null の行は必ず除外。サンプルが MEDIAN_MIN_SAMPLE 未満なら null（＝比較文非表示）。
+     *
+     * ★プールは「バイクを置ける区画の最低料金」で定義を揃える：加瀬レンタルボックスで下限がバイク不可
+     *   (1.6畳未満)＝最小区画がバイク不可の物件は除外する（帳尻合わせではなく統計の定義合わせ。
+     *   加瀬IT戦略推進部の確認: バイク可区画は原則 下段・1.6畳以上）。判定はビュー側と共通の Model
+     *   メソッド {@see RentalGarage::kaseLowerBelowBikeMin()} を再利用し、クエリ側と二重定義しない。
      */
     private function prefectureMonthlyMedian(string $prefecture): ?int
     {
         // 都道府県単位でキャッシュ（1,026施設が47都道府県を共有するため、ガレージ単位より効率的）。
         // remember は null を「未キャッシュ」とみなし毎回再計算するため、サンプル不足は -1 センチネルで保存する
         // （monthly_fee_min は unsignedInteger のため負値は現れず衝突しない）。
-        $cached = Cache::remember("rental_garage_pref_median_v1:{$prefecture}", 86400, function () use ($prefecture): int {
+        // ★キー v1→v2: 除外ロジック導入で中央値の定義が変わったため、旧（下振れ）値を残さないよう更新する。
+        $cached = Cache::remember("rental_garage_pref_median_v2:{$prefecture}", 86400, function () use ($prefecture): int {
             $vals = RentalGarage::query()
                 ->where('is_active', true)
                 ->where('prefecture', $prefecture)
                 ->whereNotNull('monthly_fee_min')
-                ->pluck('monthly_fee_min')
-                ->map(fn ($v) => (int) $v)
+                ->get(['operator', 'name', 'size_text', 'monthly_fee_min'])
+                // 最小区画がバイク不可の加瀬レンタルボックスを除外（判定は Model に集約）。
+                ->reject(fn (RentalGarage $g): bool => $g->kaseLowerBelowBikeMin())
+                ->map(fn (RentalGarage $g): int => (int) $g->monthly_fee_min)
                 ->sort()
                 ->values();
 
