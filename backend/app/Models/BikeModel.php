@@ -89,6 +89,8 @@ final class BikeModel extends Model
         return Attribute::make(
             get: function () {
                 // 1. 代表Listingのローカル画像を優先（確実に表示できる）
+                //    representativeListing は掲載停止サイト（Listing::IMAGE_SUPPRESSED_SITE_IDS）を
+                //    既にクエリで除外しているため、ここで引ける画像は必ず許諾済みサイトのもの。
                 $listing = $this->relationLoaded('representativeListing')
                     ? $this->representativeListing
                     : $this->representativeListing()->first();
@@ -110,8 +112,12 @@ final class BikeModel extends Model
                 }
 
                 // 3. ローカル画像を持つ別のListingを探す
+                //    掲載停止サイト（Listing::IMAGE_SUPPRESSED_SITE_IDS）はクエリ段階で除外する。
+                //    除外しないと、抑止サイトの在庫が最新（max id）だった場合にそれを引き当て、
+                //    アクセサで空になって“許諾済みの別在庫”に一度も辿り着けない（本番でジョルノに発生）。
                 $altListing = $this->listings()
                     ->where('is_sold_out', false)
+                    ->whereNotIn('site_id', Listing::IMAGE_SUPPRESSED_SITE_IDS)
                     ->whereNotNull('local_image_paths')
                     ->where('local_image_paths', '!=', '[]')
                     ->orderByDesc('id')
@@ -145,12 +151,20 @@ final class BikeModel extends Model
     /**
      * 代表となる1件のアクティブなListingを取得（画像フォールバック用）
      * ofMany で効率的なサブクエリJOINを生成（全Listingをロードしない）
+     *
+     * ★掲載停止サイト（Listing::IMAGE_SUPPRESSED_SITE_IDS）はここで除外する。
+     *   このリレーションは image_url アクセサの画像フォールバック専用であり
+     *   （価格・スペック等の他用途では参照されない。参照箇所は eager-load のみ）、
+     *   抑止サイトの在庫が最新（max id）だと代表に選ばれてアクセサで空になり、
+     *   許諾済みサイトの画像が一度も参照されない不具合を防ぐ。
+     *   ※「抑止画像を表示する」変更ではなく「抑止対象を避けて許諾画像を選ぶ」ための除外。
      */
     public function representativeListing(): HasOne
     {
         return $this->hasOne(Listing::class)->ofMany(
             ['id' => 'max'],
             fn (Builder $q) => $q->where('is_sold_out', false)
+                ->whereNotIn('site_id', Listing::IMAGE_SUPPRESSED_SITE_IDS)
         );
     }
 
