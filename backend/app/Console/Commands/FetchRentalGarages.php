@@ -150,6 +150,14 @@ final class FetchRentalGarages extends Command
                             if (! isset($row['geocode_status']) && $existing->address !== ($row['address'] ?? null)) {
                                 $data['geocode_status'] = 'pending';
                             }
+                            // is_active は「非公開方向」だけ自動化する（全社共通）。
+                            // スクレイプが開店前(OPEN予定→is_active=false)を検出したときのみ false へ上書きし、
+                            // 通常営業扱い(true)なら更新データから外して既存の is_active を維持する。
+                            // 狙い: 手動で非公開にした運用判断を、定期実行が黙って再公開しないため
+                            // （誤検知による非公開は復旧できるが、出すべきでないものの公開は取り返しがつかない）。
+                            if ($rowActive) {
+                                unset($data['is_active']);
+                            }
                             if ($existing->trashed()) {
                                 $existing->restore();
                             }

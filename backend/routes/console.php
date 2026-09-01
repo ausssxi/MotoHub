@@ -162,3 +162,32 @@ Schedule::command('ops:daily-report')->dailyAt('08:00')->appendOutputTo(storage_
 // ディスク100%→全ページ500の再発防止。しきい値超過時のみメール通知。
 // appendOutputTo は付けない（無制限ログ増加を新規に増やさないため）。
 Schedule::command('system:check-disk')->dailyAt('07:00');
+
+// ── レンタルガレージ事業者スクレイパー（週1回・深夜帯） ──────────────
+// ★現状は「登録の準備」だけ。有効化（＝コメント解除）は運用側の判断で行う。
+//
+// 時間帯の根拠: 00:00〜01:00 は既存スケジュールが1件も無い唯一の連続空き帯
+//   （最も近い隣接ジョブは 01:10 trouble:prune、次は 02:00 parts:refresh）。
+//   事業者と合意済みの「週1回・深夜帯」を満たしつつ、02:00 parts:refresh /
+//   03:10-03:50 backup / 03:30-05:00 の POI・shops 系 / 04:50・05:10 warmer と非衝突。
+//   3社を別々の曜日の 00:30 に置くことで、スクレイパー同士の同時実行も起きない
+//   （各社はスロットリング 1req/1s で数分かかりうるため、曜日分散で確実に分離する）。
+// withoutOverlapping: 前週の実行が長引いても翌週分と多重起動しないため。
+// runInBackground: ネットワークI/O中心でスケジューラループを塞がないため。
+// onFailure: runInBackground の失敗は通常リスナーで捕捉できず日次サマリの死角になるため、
+//   既存の parts/news/youtube と同じく明示的に記録する（ファイル冒頭の注記参照）。
+//
+// $kaseFetch = Schedule::command('rental_garage:fetch --operator=kase')
+//     ->weeklyOn(2, '00:30')->withoutOverlapping()->runInBackground()
+//     ->appendOutputTo(storage_path('logs/rental_garages.log'));
+// $kaseFetch->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($kaseFetch));
+//
+// $storageohFetch = Schedule::command('rental_garage:fetch --operator=storageoh')
+//     ->weeklyOn(4, '00:30')->withoutOverlapping()->runInBackground()
+//     ->appendOutputTo(storage_path('logs/rental_garages.log'));
+// $storageohFetch->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($storageohFetch));
+//
+// $inabaFetch = Schedule::command('rental_garage:fetch --operator=inaba')
+//     ->weeklyOn(6, '00:30')->withoutOverlapping()->runInBackground()
+//     ->appendOutputTo(storage_path('logs/rental_garages.log'));
+// $inabaFetch->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($inabaFetch));

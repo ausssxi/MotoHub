@@ -9,32 +9,47 @@ use Symfony\Component\DomCrawler\Crawler;
 /**
  * ストレージ王（storageoh.jp）スクレイパー。
  *
- * robots.txt は Allow: / （全許可）＋ Sitemap 行あり。店舗一覧は server-sitemap に
- * /search/detail/{id} として列挙されるため、サイトマップを正規導線として全店舗を辿る
- * （ページネーションの推測は不要）。
+ * robots.txt は Allow: / （全許可）。バイク設備のある店舗は店舗一覧
+ * （/search/tenpo・242店舗・ページネーションなし）の各店舗カードのアイコンで判別する。
+ * カード内の alt="屋内型バイク駐車場" / "屋外型バイク駐車場" が、その店舗のバイク設備を示す。
  *
- * 実HTML構造（2026-08 時点で確認・Next.js SSR / クラス名はハッシュ化）:
- *   - <script type="application/ld+json"> の SelfStorage に構造化データ:
+ * ★経緯（重要）: 当初は「一覧の屋内/屋外バイクのアイコンは全店舗共通の静的ナビで、その店舗が
+ *   バイク区画を持つ根拠にならない」と判断していたが、これは誤りだった。事業者（ストレージ王
+ *   経営企画室 坂上様）への確認により、一覧の各店舗アイコンがその店舗のバイク設備を示すと
+ *   判明した（2026-08-31）。よって一覧アイコンをバイク設備判定の正本とする。
+ *   （凡例のアイコンは alt="" なので filter に掛からず自然に除外される。バイク設備あり＝108店舗：
+ *    屋内のみ89 / 屋外のみ12 / 屋内屋外両方7。）
+ *
+ * garage_type は一覧アイコンで決める:
+ *   屋内バイクのみ → indoor ／ 屋外バイクを含む（屋外のみ・屋内屋外両方）→ container
+ *
+ * 各店舗の残りの属性は詳細 /search/detail/{id} の JSON-LD(SelfStorage) + 本文から補完する
+ * （2026-08 時点で確認・Next.js SSR / クラス名はハッシュ化）:
+ *   - <script type="application/ld+json"> の SelfStorage:
  *       name / url / telephone / address(streetAddress,addressLocality,addressRegion,postalCode)
  *       / priceRange("8250 - 30800") / geo(lat,lng) / description(アクセス説明)
- *   - garage_type: 本文「屋外型」→container /「屋内型」→indoor / 不明→other
+ *   - size_text/料金: 本文のバイク区画寸法（幅×奥行×高さ・月額賃料）を優先、無ければ施設の priceRange /「サイズ …帖」
  *   - is_24h: 本文「24時間利用 可能/不可」/ 記載なし→null
  *   - has_security: 本文「防犯カメラ 設置/なし」/ 記載なし→null
- *   - size_text: 本文「サイズ 1.6〜8.0帖」
  *   - is_active: 本文に「OPEN予定/オープン予定」があれば false
  *
- * ※ バイク専用の絞り込み導線は無い（屋内/屋外バイクのタブは全店舗共通の静的ナビで、
- *    その店舗がバイク区画を持つ根拠にならない）。よって全店舗を取得し garage_type で分類する。
+ * upsert キーは source_url（= JSON-LD の url = https://www.storageoh.jp/search/detail/{id}）。既存レコードと一致する。
  */
 final class StorageOhScraper extends AbstractRentalGarageScraper
 {
-    private const SITEMAP_URL = 'https://www.storageoh.jp/server-sitemap/index.xml';
+    private const BASE_URL = 'https://www.storageoh.jp';
+
+    private const LIST_URL = 'https://www.storageoh.jp/search/tenpo';
+
     private const OPERATOR = 'ストレージ王';
 
     // JSON-LD geo 採用時の妥当性チェック（日本のおおよその緯度経度範囲）。
     private const JP_LAT_MIN = 20.0;
+
     private const JP_LAT_MAX = 46.0;
+
     private const JP_LNG_MIN = 122.0;
+
     private const JP_LNG_MAX = 154.0;
 
     public function key(): string
@@ -49,24 +64,24 @@ final class StorageOhScraper extends AbstractRentalGarageScraper
 
     public function fetch(?int $limit = null): iterable
     {
-        $sitemap = $this->get(self::SITEMAP_URL);
-        if ($sitemap === null) {
-            return; // サイトマップが取れなければ何も出さない
+        $listHtml = $this->get(self::LIST_URL);
+        if ($listHtml === null) {
+            return; // 一覧が取れなければ何も出さない
         }
 
-        // サイトマップから店舗詳細URL（/search/detail/{id}）のみ抽出。
-        preg_match_all('#<loc>(https://www\.storageoh\.jp/search/detail/[^<]+)</loc>#', $sitemap, $m);
-        $urls = array_values(array_unique($m[1]));
+        // 一覧のアイコンで「バイク設備あり」の店舗だけを抽出し、garage_type も一覧で確定させる。
+        $targets = $this->parseList($listHtml);
 
         $emitted = 0;
-        foreach ($urls as $url) {
+        foreach ($targets as $target) {
             $this->throttle(); // 1リクエスト1秒以上
-            $html = $this->get($url);
+            $html = $this->get($target['url']);
             if ($html === null) {
                 continue; // この店舗は飛ばす（他は続行）
             }
 
-            $row = $this->parseDetail($html, $url);
+            // garage_type は一覧アイコンが正本。詳細は住所・座標・料金等の補完にのみ使う。
+            $row = $this->parseDetail($html, $target['url'], $target['garage_type']);
             if ($row === null) {
                 continue;
             }
@@ -80,11 +95,64 @@ final class StorageOhScraper extends AbstractRentalGarageScraper
     }
 
     /**
+     * 店舗一覧（/search/tenpo）から「バイク設備あり」の店舗だけを抽出する。
+     *
+     * 各店舗カード（ul.ShopContents_prefectureList__ > li）内のアイコン alt でバイク設備を判定する。
+     * 事業者確認により、この各店舗アイコンがその店舗のバイク設備を示す（2026-08-31）。
+     * 凡例のアイコンは alt="" のため img[alt="屋内型バイク駐車場"] 等に一致せず自然に除外される。
+     *
+     * @return list<array{url: string, garage_type: string}>
+     */
+    private function parseList(string $html): array
+    {
+        $crawler = new Crawler($html);
+        $targets = [];
+        $seen = [];
+
+        $crawler->filter('ul[class*="ShopContents_prefectureList__"] > li')->each(
+            function (Crawler $li) use (&$targets, &$seen): void {
+                $hasIndoorBike = $li->filter('img[alt="屋内型バイク駐車場"]')->count() > 0;
+                $hasOutdoorBike = $li->filter('img[alt="屋外型バイク駐車場"]')->count() > 0;
+                if (! $hasIndoorBike && ! $hasOutdoorBike) {
+                    return; // バイク設備なし＝対象外
+                }
+
+                $link = $li->filter('a[class*="ShopContents_shopName__"]');
+                if ($link->count() === 0) {
+                    return;
+                }
+                $href = (string) $link->attr('href');
+                if (! preg_match('#^/search/detail/\d+#', $href)) {
+                    return;
+                }
+
+                $url = $this->normalizeUrl(self::BASE_URL.$href);
+                if (isset($seen[$url])) {
+                    return; // 同一店舗の重複カードは1回だけ
+                }
+                $seen[$url] = true;
+
+                $targets[] = [
+                    'url' => $url,
+                    // 屋外バイクを含む（屋外のみ・屋内屋外両方）→ container ／ 屋内のみ → indoor。
+                    'garage_type' => $hasOutdoorBike ? 'container' : 'indoor',
+                ];
+            }
+        );
+
+        return $targets;
+    }
+
+    /**
      * 店舗詳細ページ（JSON-LD + 本文）を1件の配列にする。取れなければ null。
      *
+     * バイク設備の有無と garage_type は一覧アイコンで確定済み（$garageType）。ここでは
+     * 住所・座標・料金・サイズ等の属性を補完するだけで、バイク区画の有無で足切りはしない。
+     *
+     * @param  string  $garageType  一覧アイコンから確定した 'indoor'|'container'
      * @return array<string, mixed>|null
      */
-    private function parseDetail(string $html, string $url): ?array
+    private function parseDetail(string $html, string $url, string $garageType): ?array
     {
         $crawler = new Crawler($html);
 
@@ -111,32 +179,9 @@ final class StorageOhScraper extends AbstractRentalGarageScraper
             ? $this->normalizeText($crawler->filter('body')->text(''))
             : '';
 
-        // === バイク区画の抽出（このスクレイパーはバイク区画のある店舗のみ対象） ===
-        // 料金表の区画タイプラベル（ShopDetailContents_size__*）に「バイク」を含めばバイク区画あり。
-        // 施設全体の型ではなく「バイク区画の型」を採る（施設が屋外でもバイク区画が屋内なら indoor）。
-        $hasIndoorBike = false;
-        $hasOutdoorBike = false;
-        $hasUnspecBike = false; // 「バイクBOX」等、屋内/屋外の明記が無いラベル
-        $crawler->filter('[class*="ShopDetailContents_size__"]')->each(function (Crawler $n) use (&$hasIndoorBike, &$hasOutdoorBike, &$hasUnspecBike): void {
-            $t = $n->text('');
-            if (mb_strpos($t, 'バイク') === false) {
-                return;
-            }
-            if (mb_strpos($t, '屋外') !== false) {
-                $hasOutdoorBike = true;
-            } elseif (mb_strpos($t, '屋内') !== false) {
-                $hasIndoorBike = true;
-            } else {
-                // 屋内/屋外を明記しないバイクラベル（バイクBOX 等）。型は施設プロースで後判定。
-                $hasUnspecBike = true;
-            }
-        });
-        if (! $hasIndoorBike && ! $hasOutdoorBike && ! $hasUnspecBike) {
-            return null; // バイク区画なし＝対象外（yield しない）
-        }
-
-        // バイク区画の寸法・料金を、空白を除いた圧縮テキストから行単位で抽出。
+        // バイク区画の寸法・料金を、空白を除いた圧縮テキストから行単位で抽出（size_text/料金の補完用）。
         // 例:「屋内バイク１B1階幅1.22m×奥行2.40m×高さ1.88m月額賃料（税込）11,000円」
+        // ※ バイク設備の有無・型は一覧アイコンで確定済み（$garageType）。ここは属性補完のみ。
         $compact = preg_replace('/\s+/u', '', $bodyText) ?? $bodyText;
         preg_match_all(
             '/屋(?:内|外)バイク[^幅]{0,40}幅([0-9.]+)m×奥行([0-9.]+)m×高さ([0-9.]+)m月額賃料（税込）([0-9,]+)円/u',
@@ -144,17 +189,6 @@ final class StorageOhScraper extends AbstractRentalGarageScraper
             $units,
             PREG_SET_ORDER
         );
-
-        // garage_type: バイク区画ラベルの型を優先（屋外＞屋内）。
-        // ラベルに型が無い（バイクBOX 等）場合は施設の店舗情報プロースの型で判定し、
-        // それも読めなければ other（＝不明。indoor と断定しない）。
-        if ($hasOutdoorBike) {
-            $garageType = 'container';
-        } elseif ($hasIndoorBike) {
-            $garageType = 'indoor';
-        } else {
-            $garageType = $this->facilityProseType($bodyText) ?? 'other';
-        }
 
         // size_text: バイク区画の寸法を優先。無ければ施設のサイズ表記「サイズ …帖」。
         $sizeText = null;
@@ -265,21 +299,6 @@ final class StorageOhScraper extends AbstractRentalGarageScraper
         });
 
         return $found;
-    }
-
-    /**
-     * 店舗情報プロースの「○型トランクルーム」から施設型を返す。屋外→container / 屋内→indoor / 無し→null。
-     *
-     * ※ ナビ/フッターの「屋内型トランクルーム 屋外型トランクルーム …」という列挙（両型が全頁に出る）は
-     *   直後がさらに「屋」「・」「紹介」なので否定先読みで除外し、店舗説明文の型のみ拾う。
-     */
-    private function facilityProseType(string $bodyText): ?string
-    {
-        if (preg_match('/(屋外|屋内)型トランクルーム(?![\s　]*屋)(?!・)(?!\s*紹介)/u', $bodyText, $m)) {
-            return $m[1] === '屋外' ? 'container' : 'indoor';
-        }
-
-        return null;
     }
 
     /**
