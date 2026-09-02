@@ -177,17 +177,17 @@ Schedule::command('system:check-disk')->dailyAt('07:00');
 // onFailure: runInBackground の失敗は通常リスナーで捕捉できず日次サマリの死角になるため、
 //   既存の parts/news/youtube と同じく明示的に記録する（ファイル冒頭の注記参照）。
 //
-// $kaseFetch = Schedule::command('rental_garage:fetch --operator=kase')
-//     ->weeklyOn(2, '00:30')->withoutOverlapping()->runInBackground()
-//     ->appendOutputTo(storage_path('logs/rental_garages.log'));
-// $kaseFetch->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($kaseFetch));
-//
-// $storageohFetch = Schedule::command('rental_garage:fetch --operator=storageoh')
-//     ->weeklyOn(4, '00:30')->withoutOverlapping()->runInBackground()
-//     ->appendOutputTo(storage_path('logs/rental_garages.log'));
-// $storageohFetch->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($storageohFetch));
-//
-// $inabaFetch = Schedule::command('rental_garage:fetch --operator=inaba')
-//     ->weeklyOn(6, '00:30')->withoutOverlapping()->runInBackground()
-//     ->appendOutputTo(storage_path('logs/rental_garages.log'));
-// $inabaFetch->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($inabaFetch));
+$kaseFetch = Schedule::command('rental_garage:fetch --operator=kase')
+    ->weeklyOn(2, '00:30')->withoutOverlapping()->runInBackground()
+    ->appendOutputTo(storage_path('logs/rental_garages.log'));
+$kaseFetch->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($kaseFetch));
+
+$storageohFetch = Schedule::command('rental_garage:fetch --operator=storageoh')
+    ->weeklyOn(4, '00:30')->withoutOverlapping()->runInBackground()
+    ->appendOutputTo(storage_path('logs/rental_garages.log'));
+$storageohFetch->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($storageohFetch));
+
+$inabaFetch = Schedule::command('rental_garage:fetch --operator=inaba')
+    ->weeklyOn(6, '00:30')->withoutOverlapping()->runInBackground()
+    ->appendOutputTo(storage_path('logs/rental_garages.log'));
+$inabaFetch->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($inabaFetch));
