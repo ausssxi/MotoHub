@@ -191,9 +191,12 @@ final class StorageOhScraper extends AbstractRentalGarageScraper
         );
 
         // size_text: バイク区画の寸法を優先。無ければ施設のサイズ表記「サイズ …帖」。
+        // ※ 一部店舗は高さ（まれに幅/奥行も）を 0.00m で掲載している（＝未計測/上限なし）。
+        //   0 や取得不可の寸法は size_text に載せない（「高さ0.00m」の誤表示を防ぐ）。
+        //   3辺すべてが 0/取得不可なら寸法としては空 → null（帖のフォールバックには回さない）。
         $sizeText = null;
         if ($units !== []) {
-            $sizeText = sprintf('幅%sm×奥行%sm×高さ%sm', $units[0][1], $units[0][2], $units[0][3]);
+            $sizeText = $this->formatBikeDimensions($units[0][1], $units[0][2], $units[0][3]);
         } elseif (preg_match('/サイズ\s*([0-9.〜～\-]+帖)/u', $bodyText, $mm)) {
             $sizeText = $mm[1];
         }
@@ -299,6 +302,25 @@ final class StorageOhScraper extends AbstractRentalGarageScraper
         });
 
         return $found;
+    }
+
+    /**
+     * バイク区画の寸法（幅・奥行・高さ）を「幅Xm×奥行Ym×高さZm」形式に整形する。
+     * 0 または空（取得不可）の辺は省く。全辺が省かれた場合は null を返す（空文字にはしない）。
+     *
+     * ※ 一部のストレージ王店舗は高さ（まれに幅/奥行も）を 0.00m で掲載しており、そのまま出すと
+     *   画面に「高さ0.00m」と実在しない寸法が出てしまうため、辺ごとに 0 を除外する。
+     */
+    private function formatBikeDimensions(string $width, string $depth, string $height): ?string
+    {
+        $parts = [];
+        foreach ([['幅', $width], ['奥行', $depth], ['高さ', $height]] as [$label, $value]) {
+            if ($value !== '' && (float) $value > 0) {
+                $parts[] = $label.$value.'m';
+            }
+        }
+
+        return $parts !== [] ? implode('×', $parts) : null;
     }
 
     /**
