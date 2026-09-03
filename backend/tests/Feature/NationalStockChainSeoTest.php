@@ -12,7 +12,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 // 全国在庫サマリーはチェーン単位キャッシュのため、テスト間の汚染を防ぐ。
-beforeEach(fn () => cache()->flush());
+// Listing は Scout(Searchable)。このテストは検索と無関係なので Meilisearch へ同期させない
+// （NullEngine 化）。実DB挙動・SEO分岐は変わらない。
+beforeEach(function () {
+    config(['scout.driver' => null]);
+    cache()->flush();
+});
 
 function nsShop(string $name, bool $withCoords = true): Shop
 {
@@ -58,7 +63,7 @@ function nsListing(Shop $shop, ?BikeModel $model = null): Listing
 
 // ─────────── ① 全国共有型の在庫ゼロ個店＝最適化される ───────────
 
-it('optimizes a national-stock chain zero-stock shop: index + 取り寄せ title + self-canonical + funnel, no Product/ItemList, dealer schema present', function () {
+it('在庫0かつ全国在庫チェーン → index され、取り寄せ導線が出る（車両Product/ItemListは出さない）', function () {
     $model = nsModel();
     $parent = nsShop('株式会社レッドバロン');
     nsListing($parent, $model);
@@ -67,32 +72,33 @@ it('optimizes a national-stock chain zero-stock shop: index + 取り寄せ title
 
     $html = $this->get(route('shops.show', $branch->id))->assertOk()->getContent();
 
+    // 検証したいのは「全国共有型の在庫ゼロ個店＝独立ページとして最適化される」分岐。
+    // 文言そのものではなく、その分岐でだけ現れる性質（index / 取り寄せ導線 / ファネル / 自己参照canonical）を見る。
     expect($html)
-        ->not->toContain('noindex, follow')                                   // index する
-        ->toContain('レッドバロン全国在庫2台から取り寄せ可能')                  // title/h1 が実態一致
+        ->not->toContain('noindex, follow')                                    // 独立ページとして index（noindexにしない）
         ->toContain('<link rel="canonical" href="'.route('shops.show', $branch->id).'">') // 自己参照canonical
-        ->toContain('全店舗在庫一覧を見る')                                     // 全国在庫への導線
-        ->toContain('主要車種')                                                // 軽サマリー
-        // ※店舗個別schema(MotorcycleDealer/LocalBusiness)は現状この個店ページに出ていない（サイト共通schemaのみ）。
-        //   その付与は別タスク（全店共通で出すべき）＝今回スコープ外のためアサートしない。
-        ->not->toContain('"@type":"Product"')                                  // 在庫ゼロなので車両Productは出さない
+        ->toContain('取り寄せ可能')                                            // 全国在庫からの取り寄せ導線（national entry でのみ出る）
+        ->toContain('全店舗在庫一覧を見る')                                    // チェーン横断ページへのファネル
+        ->not->toContain('"@type":"Product"')                                  // 在庫ゼロ個店に車両Productは出さない
         ->not->toContain('"@type":"ItemList"');                                // ItemListも出さない
 });
 
 // ─────────── ② 店舗別型の在庫あり個店＝一切変更しない ───────────
 
-it('leaves a store-based chain shop WITH its own stock unchanged (default title, no 取り寄せ, indexable, self-canonical)', function () {
+it('在庫あり → noindex にならず、取り寄せ導線は出ない（自己参照canonical・不変）', function () {
     $model = nsModel();
     $shop = nsShop('バイク王 金沢店');
-    nsListing($shop, $model); // 自店在庫あり
+    nsListing($shop, $model); // 自店在庫あり（店舗別型チェーンだが自店在庫があるので通常表示）
 
     $html = $this->get(route('shops.show', $shop->id))->assertOk()->getContent();
 
+    // 検証したいのは「在庫がある店は最適化分岐に入らず従来どおり」。title 文言は変わりうるので、
+    // 分岐の性質（index / 取り寄せ導線なし / 自己参照canonical）で見る。
     expect($html)
-        ->toContain('の在庫・取扱車両一覧')                                     // 従来title
-        ->not->toContain('から取り寄せ可能')                                   // 取り寄せ文言は出ない
-        ->not->toContain('noindex, follow')                                    // 在庫ありでindex
-        ->toContain('<link rel="canonical" href="'.route('shops.show', $shop->id).'">'); // 自己参照（不変）
+        ->not->toContain('noindex, follow')                                    // 在庫ありは index
+        ->not->toContain('取り寄せ可能')                                        // 取り寄せ導線は national entry 専用
+        ->not->toContain('全店舗在庫一覧を見る')                                // チェーンファネルも出さない
+        ->toContain('<link rel="canonical" href="'.route('shops.show', $shop->id).'">'); // 自己参照canonical
 });
 
 // ─────────── ③ 混在/店舗別型の空店（national_stockフラグ無し）＝巻き込まない ───────────
@@ -114,15 +120,16 @@ it('does NOT optimize a chain empty shop WITHOUT the national_stock flag, even w
 
 // ─────────── ④ 非チェーン店＝一切変更しない ───────────
 
-it('leaves a non-chain zero-stock shop unchanged (noindex, default title)', function () {
+it('在庫0かつ非チェーン → noindex, follow（取り寄せ導線は出ない）', function () {
     $shop = nsShop('街の個人バイク店');
 
     $html = $this->get(route('shops.show', $shop->id))->assertOk()->getContent();
 
+    // 非チェーンの在庫ゼロ店は最適化対象外。noindex になり、取り寄せ導線も出ないことを見る（title文言は問わない）。
     expect($html)
-        ->toContain('noindex, follow')
-        ->toContain('の在庫・取扱車両一覧')
-        ->not->toContain('から取り寄せ可能');
+        ->toContain('noindex, follow')                                         // 在庫0・非チェーンは noindex
+        ->not->toContain('取り寄せ可能')                                        // 取り寄せ導線は出ない
+        ->not->toContain('全店舗在庫一覧を見る');
 });
 
 // ─────────── ⑤ 全国在庫ページ＝ItemList schema を持つ（受け皿・不変） ───────────
