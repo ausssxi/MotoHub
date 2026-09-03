@@ -1,6 +1,13 @@
 <x-layout>
     @php
+        // ① 「この店は整備をする店か」（shop_type 由来の事実）。AutoRepair schema はこの概念で付与し、
+        //    在庫の有無に関わらず維持する（整備もやっているのは事実のため）。
         $isRepair = ($shop->shop_type ?? null) === 'repair_only';
+        // ② 「このページを整備店ページとして見せるか」＝ repair_only かつ 在庫0 のときだけ。
+        //    中古専門店（バイク王・ウエマツ等）は Webike の販売バッジを持てず repair_only に分類されるため、
+        //    在庫がある repair_only を整備店ページに固定すると台数も販売schemaも出ず取りこぼす。
+        //    そこで title の分岐はこちらを使い、在庫がある repair_only は通常の販売店と同じ扱いにする。
+        $isRepairPage = $isRepair && ($stockCount ?? 0) === 0;
         // 全国共有型（レッドバロン/ナップス）の在庫ゼロ個店だけ true。canonical/title/meta/noindex の
         // 全分岐はこの単一フラグだけを参照する（店舗別型・非チェーン・全国在庫0は false＝一切変更なし）。
         $isNationalEntry = ($isNationalStockEntry ?? false) && ! empty($chainInfo);
@@ -8,7 +15,7 @@
         // 地名（県＋市区町村）。city が null/空なら県のみ（連結に区切りを入れず、余計な空白や記号を残さない）。
         $area = $shop->prefecture . ($shop->city ?? '');
 
-        if ($isRepair) {
+        if ($isRepairPage) {
             $pageTitle = $shop->name . '（バイク整備・修理）｜' . $shop->prefecture . ($shop->city ?? '') . ' - MotoHub';
             $pageDescription = $description;
         } elseif ($isNationalEntry) {
@@ -42,9 +49,13 @@
     @endif
 
     <x-slot:styles>
+        {{-- 整備店である事実（概念①$isRepair）は在庫の有無に関わらず AutoRepair を維持する。 --}}
         @if($isRepair)
             <x-jsonld.auto-repair :shop="$shop" :description="$description" />
-        @else
+        @endif
+        {{-- 整備店ページとして見せる場合（在庫0の repair_only）以外は販売店 schema（MotorcycleDealer）を付与する。
+             ＝在庫を持つ repair_only は AutoRepair に加えて MotorcycleDealer も出し、通常の販売店と同じ扱いになる。 --}}
+        @if(! $isRepairPage)
             <x-jsonld.local-business :shop="$shop" :stockCount="$pagination['total'] ?? 0" :description="$description" />
         @endif
         <x-jsonld.breadcrumb-shop :shop="$shop" />
