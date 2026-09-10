@@ -130,6 +130,15 @@
                         <a href="{{ route('michinoeki.index') }}" class="footer-link">道の駅を探す</a>
                     </li>
                     <li>
+                        <a href="{{ route('senshajo.index') }}" class="footer-link">洗車場を探す</a>
+                    </li>
+                    <li>
+                        <a href="{{ route('gs.index') }}" class="footer-link">ガソリンスタンドを探す</a>
+                    </li>
+                    <li>
+                        <a href="{{ route('konbini.index') }}" class="footer-link">コンビニを探す</a>
+                    </li>
+                    <li>
                         <a href="{{ route('parking.index') }}" class="footer-link">バイク駐車場マップ</a>
                     </li>
                     <li>
