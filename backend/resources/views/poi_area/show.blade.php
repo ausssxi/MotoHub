@@ -220,7 +220,7 @@
                 'addressCountry' => 'JP',
                 'addressRegion' => $prefecture,
                 'addressLocality' => $city,
-                'streetAddress' => trim(str_replace([$prefecture, $city], '', (string) $poi->address)),
+                'streetAddress' => $streetAddress,
             ],
             'geo' => [
                 '@type' => 'GeoCoordinates',

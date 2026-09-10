@@ -270,7 +270,8 @@ final class PoiAreaController extends Controller
             $lng = (float) $poi->longitude;
 
             [$nearbyShops, $nearbyParkings, $nearbyGarages, $nearestStation, $carWashSummary]
-                = Cache::remember("senshajo_detail_nearby:{$poi->id}", 86400, function () use ($poi, $prefecture, $city, $lat, $lng) {
+                // v2: townPart() 導入で説明文の町名表記が変わったためキーを上げる（本番は cache:clear 不可なので世代を進める）。
+                = Cache::remember("senshajo_detail_nearby:v2:{$poi->id}", 86400, function () use ($poi, $prefecture, $city, $lat, $lng) {
                     $shops = $this->nearbyFacilities(Shop::query(), $lat, $lng);
                     // is_active=1 のみ（非公開の駐車場・ガレージは出さない）。
                     $parkings = $this->nearbyFacilities(BikeParking::query()->where('is_active', 1), $lat, $lng);
@@ -301,6 +302,8 @@ final class PoiAreaController extends Controller
             'city' => $city,
             'poi' => $poi,
             'display' => $this->resolveDisplay($poi, $type, $prefecture, $city),
+            // JSON-LD の streetAddress も townPart() を通し、郡部・政令市の二重表記を構造化データからも排除する。
+            'streetAddress' => $this->townPart($prefecture, $city, $poi->address),
             'nearbyGas' => $type === 'gas_station' ? [] : $this->nearbyByType($poi, 'gas_station'),
             'nearbyStore' => $type === 'convenience_store' ? [] : $this->nearbyByType($poi, 'convenience_store'),
             'sameCity' => $sameCity,
@@ -468,8 +471,8 @@ final class PoiAreaController extends Controller
      */
     private function carWashSummary(Poi $poi, string $prefecture, string $city, ?array $station, array $counts): string
     {
-        // 1文目: 所在地＋設備。町名は住所から都道府県・市区町村を除いて取り出す（無ければ市区町村まで）。
-        $town = trim(str_replace([$prefecture, $city], '', (string) $poi->address));
+        // 1文目: 所在地＋設備。町名は townPart() で住所から行政区分を除いて取り出す（郡部の二重表記対策込み）。
+        $town = $this->townPart($prefecture, $city, $poi->address);
         $place = $prefecture . $city . $town;
 
         // 設備は carWashLabel と同じ self_service / automated 判定に合わせる（'yes'/'only' を真とみなす）。
@@ -582,9 +585,57 @@ final class PoiAreaController extends Controller
             $label = '洗車場';
         }
 
-        $town = trim(str_replace([$prefecture, $city], '', (string) $poi->address));
+        $town = $this->townPart($prefecture, $city, $poi->address);
 
         return $town !== '' ? $label . '（' . $town . '）' : $label;
+    }
+
+    /**
+     * 住所から町名（丁目・番地の手前の地名）を取り出す。carWashLabel / carWashSummary / JSON-LD で共用し、
+     * 「山武郡横芝光町横芝光町横芝」のような二重表記を防ぐ。
+     *
+     * pois.city は municipalities.full_name（郡付き。例「山武郡横芝光町」）だが、pois.address 側は表記がずれる。
+     * 本番246件の実データでは、単純な str_replace([$prefecture,$city]) で108件が市区町村名を残していた。傾向:
+     *   - 郡部（…郡○○町/村）: address は郡を含まない → 郡以降（○○町/村）を候補に足す
+     *   - 政令市（○○市△△区）: address は区が抜けて市が残る（例 city「横浜市鶴見区」/ addr「…横浜市駒岡」）
+     *     → 「市まで」を候補に足すのが本命。念のため「区のみ」も足して安全側にする。
+     * str_replace は配列順に処理するので、短い候補が長い候補の一部を先に削らないよう長い順に並べる。
+     */
+    private function townPart(string $prefecture, string $city, ?string $address): string
+    {
+        $town = trim((string) $address);
+        if ($town === '') {
+            return '';
+        }
+
+        // (1) 先頭の行政区分（都道府県・市区町村）を除く。ずれ吸収のため候補を増やして長い順に置換。
+        $strip = [$prefecture, $city];
+        if (preg_match('/郡(.+)$/u', $city, $m)) {
+            $strip[] = $m[1]; // 郡以降（例: 山武郡横芝光町 → 横芝光町）
+        }
+        if (preg_match('/^(.+?市)/u', $city, $m)) {
+            $strip[] = $m[1]; // 市まで（例: 横浜市鶴見区 → 横浜市）
+        }
+        if (preg_match('/市(.+区)$/u', $city, $m)) {
+            $strip[] = $m[1]; // 区のみ（例: 横浜市港北区 → 港北区。address が区名始まりのケース用）
+        }
+        usort($strip, static fn (string $a, string $b): int => mb_strlen($b) <=> mb_strlen($a));
+        $town = trim(str_replace($strip, '', $town));
+
+        // (2) 先頭の「大字」「字」を落とす（北海道・東北・沖縄に多い。例: 大字津久礼 → 津久礼 / 字森川町 → 森川町）。
+        $town = (string) preg_replace('/^(?:大字|字)/u', '', $town);
+
+        // (3) 末尾の番地（数字・ハイフン類・空白）を落とす。丁目名は漢数字なので残る（例: 金岡町6 → 金岡町）。
+        //     長音記号「ー」は名前の一部なので除外し、- ‐ ‑ − －（U+2212/FF0D 等）と全角空白のみ対象にする。
+        $town = (string) preg_replace('/[\s\x{3000}0-9０-９\-\x{2010}\x{2011}\x{2212}\x{FF0D}]+$/u', '', $town);
+
+        // (4) 妥当性チェック。漢字・かな・カナが1文字も残らなければ地名として無効とみなし空を返す
+        //     （括弧付きラベルを出さずラベルだけにする）。例: 刈羽村962-1 → 962-1 → 空 / 喬木村− → − → 空。
+        if (! preg_match('/[\p{Han}\p{Hiragana}\p{Katakana}]/u', $town)) {
+            return '';
+        }
+
+        return trim($town);
     }
 
     private function displayName(Poi $poi): string
