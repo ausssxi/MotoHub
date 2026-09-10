@@ -11,6 +11,7 @@ use App\Models\RentalGarage;
 use App\Models\Shop;
 use App\Models\Station;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -351,6 +352,26 @@ final class PoiAreaController extends Controller
             'carWashSummary' => $carWashSummary,
             'crossLinks' => $this->listingCrossLinks(),
         ]);
+    }
+
+    /**
+     * 短縮URL /senshajo/{id} → 正規URLへのリダイレクト。地図ピン等、prefecture/city を持たない導線用。
+     * car_wash 以外は404。prefecture/city が両方そろえば canonical へ301。片方でも欠ける（行政区未割当）行は
+     * 正規URLを組めないので一覧へ302で逃がす（データが埋まれば正しい遷移になるため、恒久リダイレクトにしない）。
+     */
+    public function short(string $id): RedirectResponse
+    {
+        $poi = Poi::query()->where('id', (int) $id)->first();
+
+        if ($poi === null || $poi->type !== 'car_wash') {
+            abort(404);
+        }
+
+        if (blank($poi->prefecture) || blank($poi->city)) {
+            return redirect()->route('senshajo.index', [], 302);
+        }
+
+        return redirect()->route('senshajo.show', [$poi->prefecture, $poi->city, $poi->id], 301);
     }
 
     /**

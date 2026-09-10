@@ -467,6 +467,11 @@ Route::get('/konbini/{prefecture}/{city}', [\App\Http\Controllers\Poi\PoiAreaCon
     ->defaults('type', 'convenience_store')->name('konbini.city');
 Route::get('/senshajo', [\App\Http\Controllers\Poi\PoiAreaController::class, 'index'])
     ->defaults('type', 'car_wash')->name('senshajo.index');
+// 短縮URL /senshajo/{id}（prefecture/city を持たない地図ピン等の内部導線用）→ 正規URLへリダイレクト。
+// ★必ず /senshajo/{prefecture} より前に宣言する。Laravel は宣言順マッチのため、後ろに置くと
+//   /senshajo/49773 が senshajo.prefecture に吸われる。whereNumber('id') と宣言順の両方が必須。
+Route::get('/senshajo/{id}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'short'])
+    ->whereNumber('id')->name('senshajo.short');
 Route::get('/senshajo/{prefecture}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'prefecture'])
     ->defaults('type', 'car_wash')->name('senshajo.prefecture');
 Route::get('/senshajo/{prefecture}/{city}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'city'])
