@@ -691,7 +691,9 @@
                 + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
                 + (item.opening_hours ? '<div class="bg-gray-50 rounded-lg p-3 mb-3"><div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">営業時間</span><span class="text-xs text-gray-700">' + escapeHtml(item.opening_hours) + '</span></div></div>' : '')
                 // 詳細ページ導線（他4層と同じ「詳細を見る」ボタン）。短縮URL /senshajo/{id} が prefecture/city を解決して正規URLへ301。
-                + (item.id ? '<a href="/senshajo/' + item.id + '" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-sky-600 text-white text-xs font-bold rounded-lg hover:bg-sky-700 transition">詳細を見る &rarr;</a>' : '')
+                // ★色クラスの注意: public/js は Tailwind の走査対象外。ここで使う色クラスは、ビルド済みCSSに存在するものだけを選ぶこと
+                //   （sky-600 は未生成でボタンが透明になった）。bg-blue-600/700 は Blade でも使われCSSに存在するため安全。
+                + (item.id ? '<a href="/senshajo/' + item.id + '" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition">詳細を見る &rarr;</a>' : '')
                 + gmapBtn + routeBtn + osmDataCredit();
         } else if (layerKey === 'rental_garage') {
             html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(resolveName('rental_garage', item)) + '</h3>'
