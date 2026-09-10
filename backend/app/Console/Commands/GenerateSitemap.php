@@ -1157,6 +1157,41 @@ class GenerateSitemap extends Command
                 $poiAreaCount++;
             }
 
+            // 詳細ページ（*.show）。詳細ルートを持つのは car_wash だけなので、この分岐の中だけで完結させる
+            // （gs/コンビニは show ルートが無く、出力も一切変えない）。685件程度なのでファイル分割は不要。
+            if ($poiArea['type'] === 'car_wash') {
+                \App\Models\Poi::query()
+                    ->where('type', $poiArea['type'])
+                    // municipality_code の NULL 除外は市区町村ページと同条件。外すと存在しない市区町村ページ配下のURLを載せてしまう。
+                    ->whereNotNull('municipality_code')
+                    ->whereNotNull('prefecture')->where('prefecture', '!=', '')
+                    ->whereNotNull('city')->where('city', '!=', '')
+                    // 見出しが「名称不明」になる行（name/brand/address がすべて空）は中身が無いので載せない。
+                    ->where(function ($q) {
+                        foreach (['name', 'brand', 'address'] as $col) {
+                            $q->orWhere(function ($sub) use ($col) {
+                                $sub->whereNotNull($col)->where($col, '!=', '');
+                            });
+                        }
+                    })
+                    ->orderBy('id')
+                    ->chunk(500, function ($rows) use ($handle, $poiArea, &$poiAreaCount) {
+                        foreach ($rows as $poi) {
+                            $lastmod = $poi->updated_at
+                                ? \Carbon\Carbon::parse($poi->updated_at)->format('Y-m-d')
+                                : date('Y-m-d');
+                            $this->writeUrl(
+                                $handle,
+                                route($poiArea['prefix'].'.show', [$poi->prefecture, $poi->city, $poi->id]),
+                                $lastmod,
+                                'monthly',
+                                '0.5' // 市区町村ページ(0.6)より下
+                            );
+                            $poiAreaCount++;
+                        }
+                    });
+            }
+
             $this->closeSitemap($handle);
             $this->info(" -> {$poiAreaCount} URL ({$poiArea['label']})");
         }
