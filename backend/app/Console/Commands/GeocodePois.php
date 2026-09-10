@@ -28,6 +28,7 @@ final class GeocodePois extends Command
 {
     protected $signature = 'poi:geocode
         {--limit=5000 : 1回の実行で処理する最大件数}
+        {--type= : 対象を1つのtypeに絞る（gas_station|convenience_store|michi_no_eki|car_wash）}
         {--retry-failed : geocode_failed_at が記録済みの失敗行も対象に含める}
         {--sleep=1000 : 1件ごとの待機ミリ秒（GSIは公共API）}';
 
@@ -43,6 +44,14 @@ final class GeocodePois extends Command
     {
         $limit = (int) $this->option('limit');
         $sleepMs = (int) $this->option('sleep');
+        $type = $this->option('type');
+
+        $allowedTypes = ['gas_station', 'convenience_store', 'michi_no_eki', 'car_wash'];
+        if ($type !== null && ! in_array($type, $allowedTypes, true)) {
+            $this->error('--type は次のいずれかを指定してください: ' . implode(', ', $allowedTypes));
+
+            return self::FAILURE;
+        }
 
         // 市区町村コード→名称テーブルを取得
         $this->info('市区町村コードテーブルを取得中...');
@@ -61,6 +70,9 @@ final class GeocodePois extends Command
             })
             ->when(! $this->option('retry-failed'), function ($q) {
                 $q->whereNull('geocode_failed_at');
+            })
+            ->when($type !== null, function ($q) use ($type) {
+                $q->where('type', $type);
             })
             ->orderBy('id')
             ->limit($limit)

@@ -168,11 +168,18 @@ final class PoiAreaController extends Controller
             abort(404);
         }
 
-        $items = $pois->map(function (Poi $p): array {
+        $items = $pois->map(function (Poi $p) use ($type, $prefecture, $city): array {
             $display = $this->displayName($p);
+
+            // 洗車場で name も brand も無い行は、住所をそのまま見出しにせず
+            // 「設備ラベル（町名）」を組み立てる。住所行と同じ文字列が2回出るのを避ける。
+            if ($type === 'car_wash' && filled($p->address) && $display === trim((string) $p->address)) {
+                $display = $this->carWashLabel($p, $prefecture, $city);
+            }
             $brand = filled($p->brand) ? (string) $p->brand : null;
 
             return [
+                'id' => (int) $p->id,
                 'display' => $display,
                 // 表示名（name→brand→address）と同一のブランドは重複行になるので出さない。
                 'brand' => ($brand !== null && $brand !== $display) ? $brand : null,
@@ -209,6 +216,109 @@ final class PoiAreaController extends Controller
             'otherCount' => $otherCount,
             'crossLinks' => $this->listingCrossLinks(),
         ]);
+    }
+
+    /**
+     * POI詳細ページ。洗車場は単体の情報が少ないため、周辺のガソリンスタンド・コンビニと
+     * 同一市区町村の同種別を添えて、そのページだけで用が足りる形にする。
+     */
+    public function show(Request $request, string $prefecture, string $city, string $id): View
+    {
+        $type = (string) $request->route('type');
+        $meta = self::TYPES[$type] ?? abort(404);
+
+        if (! in_array($prefecture, self::prefectures(), true)) {
+            abort(404);
+        }
+
+        $poi = Poi::query()
+            ->where('type', $type)
+            ->where('prefecture', $prefecture)
+            ->where('city', $city)
+            ->where('id', (int) $id)
+            ->first();
+
+        if ($poi === null) {
+            abort(404);
+        }
+
+        $sameCity = Poi::query()
+            ->where('type', $type)
+            ->where('prefecture', $prefecture)
+            ->where('city', $city)
+            ->where('id', '<>', $poi->id)
+            ->orderByRaw("(COALESCE(NULLIF(name, ''), NULLIF(brand, '')) IS NULL)")
+            ->orderBy('id')
+            ->limit(8)
+            ->get(['id', 'name', 'brand', 'address', 'type', 'prefecture', 'city', 'self_service', 'automated'])
+            ->map(fn (Poi $p): array => [
+                'id' => (int) $p->id,
+                'display' => $this->resolveDisplay($p, $type, $prefecture, $city),
+                'address' => filled($p->address) ? (string) $p->address : null,
+            ])->all();
+
+        return view('poi_area.show', [
+            'routePrefix' => $meta['prefix'],
+            'label' => $meta['label'],
+            'prefecture' => $prefecture,
+            'city' => $city,
+            'poi' => $poi,
+            'display' => $this->resolveDisplay($poi, $type, $prefecture, $city),
+            'nearbyGas' => $type === 'gas_station' ? [] : $this->nearbyByType($poi, 'gas_station'),
+            'nearbyStore' => $type === 'convenience_store' ? [] : $this->nearbyByType($poi, 'convenience_store'),
+            'sameCity' => $sameCity,
+            'crossLinks' => $this->listingCrossLinks(),
+        ]);
+    }
+
+    /**
+     * 表示名の決定。洗車場で name も brand も無い行は、住所の代わりに設備ラベルを使う。
+     */
+    private function resolveDisplay(Poi $poi, string $type, string $prefecture, string $city): string
+    {
+        $display = $this->displayName($poi);
+
+        if ($type === 'car_wash' && filled($poi->address) && $display === trim((string) $poi->address)) {
+            return $this->carWashLabel($poi, $prefecture, $city);
+        }
+
+        return $display;
+    }
+
+    /**
+     * 起点POIの周辺にある指定種別のPOIを直線距離順に取得。約10kmの矩形で粗く絞ってから実距離で並べる。
+     *
+     * @return array<int, array{id: int, display: string, address: ?string, prefecture: string, city: string, km: float}>
+     */
+    private function nearbyByType(Poi $origin, string $type, int $limit = 5): array
+    {
+        $lat = (float) $origin->latitude;
+        $lng = (float) $origin->longitude;
+
+        return Poi::query()
+            ->where('type', $type)
+            ->where('id', '<>', $origin->id)
+            ->whereNotNull('prefecture')->where('prefecture', '<>', '')
+            ->whereNotNull('city')->where('city', '<>', '')
+            ->whereBetween('latitude', [$lat - 0.09, $lat + 0.09])
+            ->whereBetween('longitude', [$lng - 0.11, $lng + 0.11])
+            ->selectRaw(
+                'id, name, brand, address, prefecture, city, type, self_service, automated, '
+                .'ST_Distance_Sphere(POINT(longitude, latitude), POINT(?, ?)) AS dist_m',
+                [$lng, $lat]
+            )
+            ->orderBy('dist_m')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Poi $p): array => [
+                'id' => (int) $p->id,
+                'display' => $this->displayName($p),
+                'address' => filled($p->address) ? (string) $p->address : null,
+                'prefecture' => (string) $p->prefecture,
+                'city' => (string) $p->city,
+                'km' => round(((float) $p->dist_m) / 1000, 1),
+            ])
+            ->all();
     }
 
     /**
@@ -265,6 +375,31 @@ final class PoiAreaController extends Controller
      * ※ Poi::getDisplayNameAttribute は name→brand→種別ラベルで address を出さないため、
      *   address 代替（名称もブランドも無いGS 2,200件）を要件どおり満たすここで独自に組む。
      */
+    /**
+     * 名称もブランドも無い洗車場の見出し。OSM の self_service / automated から設備を、
+     * address から町名を取り出して「コイン洗車場（水角）」の形にする。
+     */
+    private function carWashLabel(Poi $poi, string $prefecture, string $city): string
+    {
+        $yes = static fn ($v): bool => in_array(strtolower(trim((string) ($v ?? ''))), ['yes', 'only'], true);
+        $self = $yes($poi->self_service);
+        $auto = $yes($poi->automated);
+
+        if ($self && $auto) {
+            $label = 'コイン洗車場';
+        } elseif ($self) {
+            $label = 'セルフ洗車場';
+        } elseif ($auto) {
+            $label = '洗車機';
+        } else {
+            $label = '洗車場';
+        }
+
+        $town = trim(str_replace([$prefecture, $city], '', (string) $poi->address));
+
+        return $town !== '' ? $label . '（' . $town . '）' : $label;
+    }
+
     private function displayName(Poi $poi): string
     {
         foreach ([$poi->name, $poi->brand, $poi->address] as $candidate) {

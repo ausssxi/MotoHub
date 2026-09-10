@@ -40,7 +40,11 @@
                 <ul class="divide-y divide-gray-50">
                     @foreach($items as $it)
                     <li class="py-2.5">
+                        @if($routePrefix === 'senshajo')
+                        <p class="text-sm font-bold"><a href="{{ route('senshajo.show', [$prefecture, $city, $it['id']]) }}" class="text-purple-700 hover:underline">{{ $it['display'] }}</a></p>
+                        @else
                         <p class="text-sm text-gray-900 font-bold">{{ $it['display'] }}</p>
+                        @endif
                         {{-- 洗車場の設備バッジ。self_service=yes/only→セルフ、automated=yes→洗車機。no/fixme/NULLは非表示（GS・コンビニは常にNULL） --}}
                         @php
                             $isSelf = in_array($it['self_service'] ?? null, ['yes', 'only'], true);

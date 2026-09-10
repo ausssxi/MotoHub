@@ -471,6 +471,9 @@ Route::get('/senshajo/{prefecture}', [\App\Http\Controllers\Poi\PoiAreaControlle
     ->defaults('type', 'car_wash')->name('senshajo.prefecture');
 Route::get('/senshajo/{prefecture}/{city}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'city'])
     ->defaults('type', 'car_wash')->name('senshajo.city');
+Route::get('/senshajo/{prefecture}/{city}/{id}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'show'])
+    ->whereNumber('id')
+    ->defaults('type', 'car_wash')->name('senshajo.show');
 
 // AR駐車場・ショップファインダー
 Route::get('/ar', [ArController::class, 'index'])->name('ar.index');

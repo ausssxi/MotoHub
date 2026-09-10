@@ -174,18 +174,28 @@ final class FetchPois extends Command
                             continue;
                         }
 
+                        $attributes = [
+                            'name' => $tags['name'] ?? $tags['brand'] ?? null,
+                            'latitude' => $lat,
+                            'longitude' => $lon,
+                            'address' => $this->buildAddress($tags),
+                            'brand' => $tags['brand'] ?? $tags['operator'] ?? null,
+                            'opening_hours' => $tags['opening_hours'] ?? null,
+                            'self_service' => $tags['self_service'] ?? null,
+                            'automated' => $tags['automated'] ?? null,
+                        ];
+
+                        // address は poi:geocode（国土地理院）で外部から補完している列。
+                        // OSM に addr タグが無いときに空で上書きすると、前夜に埋めた住所が
+                        // 翌朝 3:30 のこのバッチで毎回消える（長期間そうなっていた）。
+                        // OSM 側に値があるときだけ上書きし、空なら更新対象から外す。
+                        if (blank($attributes['address'])) {
+                            unset($attributes['address']);
+                        }
+
                         Poi::updateOrCreate(
                             ['osm_id' => $this->resolveOsmId($element, $type), 'type' => $type],
-                            [
-                                'name' => $tags['name'] ?? $tags['brand'] ?? null,
-                                'latitude' => $lat,
-                                'longitude' => $lon,
-                                'address' => $this->buildAddress($tags),
-                                'brand' => $tags['brand'] ?? $tags['operator'] ?? null,
-                                'opening_hours' => $tags['opening_hours'] ?? null,
-                                'self_service' => $tags['self_service'] ?? null,
-                                'automated' => $tags['automated'] ?? null,
-                            ]
+                            $attributes
                         );
                         $count++;
                     }
