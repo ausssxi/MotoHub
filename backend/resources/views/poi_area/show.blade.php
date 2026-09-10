@@ -1,6 +1,8 @@
 <x-layout>
     <x-slot:title>{{ $display }}｜{{ $prefecture }}{{ $city }}の{{ $label }} - MotoHub</x-slot:title>
     <x-slot:metaDescription>{{ $prefecture }}{{ $city }}の{{ $label }}「{{ $display }}」の場所・設備・営業時間。周辺のガソリンスタンドやコンビニもあわせて確認できます。</x-slot:metaDescription>
+    {{-- クエリ文字列付きURLで別ページ扱いされないよう、自己参照 canonical を明示する。 --}}
+    <x-slot:canonical>{{ route($routePrefix.'.show', [$prefecture, $city, $poi->id]) }}</x-slot:canonical>
 
     <x-slot:styles>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>

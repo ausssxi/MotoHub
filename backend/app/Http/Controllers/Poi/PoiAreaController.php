@@ -316,17 +316,26 @@ final class PoiAreaController extends Controller
             $carWashSummary = '';
         }
 
+        // 見出しを近接GSのブランドで一意化するため、$display より先に近接GSを取得する（追加クエリなし・値を使い回す）。
+        $nearbyGas = $type === 'gas_station' ? [] : $this->nearbyByType($poi, 'gas_station');
+        $nearbyStore = $type === 'convenience_store' ? [] : $this->nearbyByType($poi, 'convenience_store');
+
+        // 名前を持たない洗車場のみ、50m以内で自前の名称を持つGSのブランドを見出しに併記して同名重複を解消する。
+        // resolveDisplay 側で「設備ラベルに落ちるケース」だけに適用されるため、名前を持つ施設の見出しは変わらない。
+        $gasBrand = $type === 'car_wash' ? $this->nearbyGasBrand($nearbyGas) : null;
+
         return view('poi_area.show', [
             'routePrefix' => $meta['prefix'],
             'label' => $meta['label'],
             'prefecture' => $prefecture,
             'city' => $city,
             'poi' => $poi,
-            'display' => $this->resolveDisplay($poi, $type, $prefecture, $city),
+            // h1 / <title> / JSON-LD name はすべてこの $display を参照するので3か所が必ず一致する。
+            'display' => $this->resolveDisplay($poi, $type, $prefecture, $city, $gasBrand),
             // JSON-LD の streetAddress も townPart() を通し、郡部・政令市の二重表記を構造化データからも排除する。
             'streetAddress' => $this->townPart($prefecture, $city, $poi->address),
-            'nearbyGas' => $type === 'gas_station' ? [] : $this->nearbyByType($poi, 'gas_station'),
-            'nearbyStore' => $type === 'convenience_store' ? [] : $this->nearbyByType($poi, 'convenience_store'),
+            'nearbyGas' => $nearbyGas,
+            'nearbyStore' => $nearbyStore,
             'sameCity' => $sameCity,
             // 洗車場のみ内容を持つ（GS・コンビニは空／null）。ビュー側は senshajo でのみ表示する。
             'nearbyShops' => $nearbyShops,
@@ -340,13 +349,17 @@ final class PoiAreaController extends Controller
 
     /**
      * 表示名の決定。洗車場で name も brand も無い行は、住所の代わりに設備ラベルを使う。
+     *
+     * $gasBrand を渡すと、設備ラベルに落ちる（名前を持たない）洗車場に限り近接GSのブランドを併記する。
+     * 名前を持つ施設は displayName() をそのまま返すので、$gasBrand を渡してもラベルは一切変わらない。
+     * 一覧（city.blade）は1件ごとの空間クエリを避けるため $gasBrand を渡さず、従来どおりの文言のままにする。
      */
-    private function resolveDisplay(Poi $poi, string $type, string $prefecture, string $city): string
+    private function resolveDisplay(Poi $poi, string $type, string $prefecture, string $city, ?string $gasBrand = null): string
     {
         $display = $this->displayName($poi);
 
         if ($type === 'car_wash' && filled($poi->address) && $display === trim((string) $poi->address)) {
-            return $this->carWashLabel($poi, $prefecture, $city);
+            return $this->carWashLabel($poi, $prefecture, $city, $gasBrand);
         }
 
         return $display;
@@ -355,7 +368,10 @@ final class PoiAreaController extends Controller
     /**
      * 起点POIの周辺にある指定種別のPOIを直線距離順に取得。約10kmの矩形で粗く絞ってから実距離で並べる。
      *
-     * @return array<int, array{id: int, display: string, address: ?string, prefecture: string, city: string, km: float}>
+     * dist_m（丸めないメートル）と own_name（name→brand のみ・住所フォールバックしない）も返す。
+     * 前者は50m判定用、後者は近接GSのブランドで洗車場見出しを一意化する用途で使う（ビュー表示はしない）。
+     *
+     * @return array<int, array{id: int, display: string, address: ?string, prefecture: string, city: string, km: float, dist_m: float, own_name: ?string}>
      */
     private function nearbyByType(Poi $origin, string $type, int $limit = 5): array
     {
@@ -384,8 +400,48 @@ final class PoiAreaController extends Controller
                 'prefecture' => (string) $p->prefecture,
                 'city' => (string) $p->city,
                 'km' => round(((float) $p->dist_m) / 1000, 1),
+                // km は0.1km丸めで50m判定には粗いため、生メートルを別途持つ。own_name は住所へ落ちない自前の名称。
+                'dist_m' => (float) $p->dist_m,
+                'own_name' => $this->ownName($p),
             ])
             ->all();
+    }
+
+    /**
+     * POI が自前で持つ名称（name → brand）。どちらも空なら null。
+     * displayName() と違い住所へフォールバックしないので、「名前を持つ施設か」の判定に使える。
+     */
+    private function ownName(Poi $poi): ?string
+    {
+        foreach ([$poi->name, $poi->brand] as $candidate) {
+            $v = trim((string) ($candidate ?? ''));
+            if ($v !== '') {
+                return $v;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 洗車場見出しへ併記する近接GSのブランド名。nearbyByType の結果を使い回すので追加クエリは無い。
+     * 最寄りGSが50m以内で、かつ自前の name/brand を持つ場合だけ返す（住所フォールバックは弾く。
+     * さもないと「◯◯町一丁目併設」のような住所併記になってしまう）。条件を満たさなければ null。
+     *
+     * @param  array<int, array{dist_m?: float, own_name?: ?string}>  $nearbyGas  nearbyByType($poi, 'gas_station') の結果（距離昇順）
+     */
+    private function nearbyGasBrand(array $nearbyGas): ?string
+    {
+        $nearest = $nearbyGas[0] ?? null;
+        if ($nearest === null) {
+            return null;
+        }
+
+        if (($nearest['dist_m'] ?? INF) <= 50 && filled($nearest['own_name'] ?? null)) {
+            return (string) $nearest['own_name'];
+        }
+
+        return null;
     }
 
     /**
@@ -589,8 +645,12 @@ final class PoiAreaController extends Controller
     /**
      * 名称もブランドも無い洗車場の見出し。OSM の self_service / automated から設備を、
      * address から町名を取り出して「コイン洗車場（水角）」の形にする。
+     *
+     * $gasBrand（近接GSのブランド）を渡すと括弧内に「◯◯併設」を足して同名重複を解消する
+     * （例: 洗車場（横芝）→ 洗車場（横芝・ENEOS併設）／町名が無ければ 洗車場（ENEOS併設））。
+     * 括弧内の要素が1つのときは中黒を出さない。
      */
-    private function carWashLabel(Poi $poi, string $prefecture, string $city): string
+    private function carWashLabel(Poi $poi, string $prefecture, string $city, ?string $gasBrand = null): string
     {
         $yes = static fn ($v): bool => in_array(strtolower(trim((string) ($v ?? ''))), ['yes', 'only'], true);
         $self = $yes($poi->self_service);
@@ -608,7 +668,16 @@ final class PoiAreaController extends Controller
 
         $town = $this->townPart($prefecture, $city, $poi->address);
 
-        return $town !== '' ? $label . '（' . $town . '）' : $label;
+        // 括弧内の要素: 町名（あれば）＋近接GSブランド（あれば「◯◯併設」）。要素が2つのときだけ中黒で連結する。
+        $parts = [];
+        if ($town !== '') {
+            $parts[] = $town;
+        }
+        if (filled($gasBrand)) {
+            $parts[] = $gasBrand . '併設';
+        }
+
+        return $parts !== [] ? $label . '（' . implode('・', $parts) . '）' : $label;
     }
 
     /**
