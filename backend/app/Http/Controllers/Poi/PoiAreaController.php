@@ -323,6 +323,11 @@ final class PoiAreaController extends Controller
         // 名前を持たない洗車場のみ、50m以内で自前の名称を持つGSのブランドを見出しに併記して同名重複を解消する。
         // resolveDisplay 側で「設備ラベルに落ちるケース」だけに適用されるため、名前を持つ施設の見出しは変わらない。
         $gasBrand = $type === 'car_wash' ? $this->nearbyGasBrand($nearbyGas) : null;
+        $display = $this->resolveDisplay($poi, $type, $prefecture, $city, $gasBrand);
+
+        // ブランド併記だけでは同名ラベルが残る（本番92件・42グループ）ため、<title> にだけ最寄り駅節を足して一意化する。
+        // h1 / JSON-LD name は人が読む見出しとして簡潔さを優先し $display のまま変えない。gs/コンビニは null → ビュー側で従来 title。
+        $pageTitle = $isCarWash ? $this->carWashTitle($display, $nearestStation, $city, $meta['label']) : null;
 
         return view('poi_area.show', [
             'routePrefix' => $meta['prefix'],
@@ -330,8 +335,9 @@ final class PoiAreaController extends Controller
             'prefecture' => $prefecture,
             'city' => $city,
             'poi' => $poi,
-            // h1 / <title> / JSON-LD name はすべてこの $display を参照するので3か所が必ず一致する。
-            'display' => $this->resolveDisplay($poi, $type, $prefecture, $city, $gasBrand),
+            // h1 / JSON-LD name はこの $display を参照。<title> だけは $pageTitle（洗車場は駅節つき）を使う。
+            'display' => $display,
+            'pageTitle' => $pageTitle,
             // JSON-LD の streetAddress も townPart() を通し、郡部・政令市の二重表記を構造化データからも排除する。
             'streetAddress' => $this->townPart($prefecture, $city, $poi->address),
             'nearbyGas' => $nearbyGas,
@@ -586,6 +592,33 @@ final class PoiAreaController extends Controller
         }
 
         return $text;
+    }
+
+    /**
+     * 洗車場詳細ページの <title> 専用文字列。同名ラベルの重複を避けるため見出しに最寄り駅節を足す。
+     * ノードは「見出し｜駅と距離｜市区町村の種別」を全角｜で連結。全角35文字を目安に、溢れたら
+     * 末尾（市区町村→駅）から削り、見出しは必ず残す（優先度: 見出し > 駅と距離 > 市区町村）。
+     * 追加クエリは無し（$station は show() で既に取得済みの nearestStation() の戻りを渡す）。
+     *
+     * @param  array{name: string, km: float}|null  $station  15km以内に駅が無ければ null（駅節を省く）
+     */
+    private function carWashTitle(string $display, ?array $station, string $city, string $label): string
+    {
+        $nodes = [$display];
+        if ($station !== null) {
+            // 距離は詳細ページと同じルール: 0.1km未満は距離を出さず「すぐ」に留める。
+            $nodes[] = $station['km'] < 0.1
+                ? $station['name'] . 'すぐ'
+                : $station['name'] . 'から約' . number_format($station['km'], 1) . 'km';
+        }
+        $nodes[] = $city . 'の' . $label;
+
+        // mb_strwidth は全角=2/半角=1。全角35文字＝幅70を上限に、末尾要素から落として収める。
+        while (count($nodes) > 1 && mb_strwidth(implode('｜', $nodes)) > 70) {
+            array_pop($nodes);
+        }
+
+        return implode('｜', $nodes);
     }
 
     /**
