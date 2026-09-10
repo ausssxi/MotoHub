@@ -66,6 +66,11 @@
                 </div>
                 @endif
 
+                {{-- 施設ごとに数字が変わる自動生成の紹介文（所在地・最寄り駅・半径5km以内の件数）。洗車場のみ。 --}}
+                @if($routePrefix === 'senshajo' && filled($carWashSummary))
+                <p class="text-sm leading-relaxed text-gray-600 mb-4">{{ $carWashSummary }}</p>
+                @endif
+
                 @if($routePrefix === 'senshajo')
                 <p class="text-[13px] leading-relaxed text-gray-700 bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 mb-4">
                     @if($isSelf && $isAutomated)
@@ -100,6 +105,43 @@
                     <i data-lucide="navigation" class="w-3.5 h-3.5"></i>Googleマップで経路を見る
                 </a>
             </div>
+
+            {{-- 洗車場のみ: 周辺のバイク関連施設（半径10km・各3件）と最寄り駅。バイク乗りの回遊導線を優先し、GS・コンビニより上に出す。 --}}
+            @if($routePrefix === 'senshajo' && (!empty($nearbyShops) || !empty($nearbyParkings) || !empty($nearbyGarages) || $nearestStation))
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mt-6">
+                <h2 class="text-sm font-black text-gray-900 mb-3">周辺のバイク関連施設（直線距離）</h2>
+
+                @if($nearestStation)
+                <p class="text-xs text-gray-500 mb-4">
+                    <i data-lucide="train-front" class="inline w-3.5 h-3.5"></i>
+                    最寄り駅: <span class="font-bold text-gray-700">{{ $nearestStation['name'] }}</span>
+                    {{-- 0.1km未満は距離ではなく「同じ敷地内」（表示ルール） --}}
+                    <span class="text-gray-400">{{ $nearestStation['km'] < 0.1 ? '同じ敷地内' : '約'.number_format($nearestStation['km'], 1).'km' }}</span>
+                </p>
+                @endif
+
+                {{-- 3カテゴリを同じ体裁で描く。それぞれリンク先ルートが違うので配列で対応付けて重複を避ける。 --}}
+                @foreach([
+                    ['label' => 'バイクショップ', 'items' => $nearbyShops, 'route' => 'shops.show'],
+                    ['label' => 'バイク駐車場', 'items' => $nearbyParkings, 'route' => 'parking.show'],
+                    ['label' => 'レンタルガレージ', 'items' => $nearbyGarages, 'route' => 'rental-garage.show'],
+                ] as $group)
+                    @if(!empty($group['items']))
+                    <div class="mb-4 last:mb-0">
+                        <h3 class="text-xs font-bold text-gray-400 mb-1.5">{{ $group['label'] }}</h3>
+                        <ul class="divide-y divide-gray-50">
+                            @foreach($group['items'] as $f)
+                            <li class="py-2">
+                                <a href="{{ route($group['route'], $f['id']) }}" class="text-sm text-purple-700 font-bold hover:underline">{{ $f['name'] }}</a>
+                                <span class="text-[11px] text-gray-400 ml-1">{{ $f['km'] < 0.1 ? '同じ敷地内' : '約'.number_format($f['km'], 1).'km' }}</span>
+                            </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+            @endif
 
             @if(!empty($nearbyGas))
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mt-6">

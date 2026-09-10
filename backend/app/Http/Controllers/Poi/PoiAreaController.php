@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Poi;
 
 use App\Http\Controllers\Controller;
+use App\Models\BikeParking;
 use App\Models\Poi;
+use App\Models\RentalGarage;
+use App\Models\Shop;
+use App\Models\Station;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -257,6 +261,39 @@ final class PoiAreaController extends Controller
                 'address' => filled($p->address) ? (string) $p->address : null,
             ])->all();
 
+        // 洗車場だけ、周辺のバイク関連施設（ショップ・駐車場・レンタルガレージ）と最寄り駅、
+        // および件数入りの自動生成文を添える。GS・コンビニ詳細は従来どおりなので空で渡す。
+        // 8本前後の空間クエリになるため、変動の少ないデータとして POI 単位で24時間キャッシュする。
+        $isCarWash = $type === 'car_wash';
+        if ($isCarWash) {
+            $lat = (float) $poi->latitude;
+            $lng = (float) $poi->longitude;
+
+            [$nearbyShops, $nearbyParkings, $nearbyGarages, $nearestStation, $carWashSummary]
+                = Cache::remember("senshajo_detail_nearby:{$poi->id}", 86400, function () use ($poi, $prefecture, $city, $lat, $lng) {
+                    $shops = $this->nearbyFacilities(Shop::query(), $lat, $lng);
+                    // is_active=1 のみ（非公開の駐車場・ガレージは出さない）。
+                    $parkings = $this->nearbyFacilities(BikeParking::query()->where('is_active', 1), $lat, $lng);
+                    $garages = $this->nearbyFacilities(RentalGarage::query()->where('is_active', 1), $lat, $lng);
+                    $station = $this->nearestStation($lat, $lng);
+
+                    // 自動生成文の件数（半径5km以内）。GSは pois の gas_station を数える。
+                    // 表示順で並べ、0件カテゴリは carWashSummary 側で文から省く。
+                    $counts = [
+                        ['バイクショップ', $this->countWithinRadius(Shop::query(), $lat, $lng), '店'],
+                        ['ガソリンスタンド', $this->countWithinRadius(Poi::query()->where('type', 'gas_station'), $lat, $lng), '軒'],
+                        ['バイク駐車場', $this->countWithinRadius(BikeParking::query()->where('is_active', 1), $lat, $lng), 'か所'],
+                        ['レンタルガレージ', $this->countWithinRadius(RentalGarage::query()->where('is_active', 1), $lat, $lng), 'か所'],
+                    ];
+
+                    return [$shops, $parkings, $garages, $station, $this->carWashSummary($poi, $prefecture, $city, $station, $counts)];
+                });
+        } else {
+            $nearbyShops = $nearbyParkings = $nearbyGarages = [];
+            $nearestStation = null;
+            $carWashSummary = '';
+        }
+
         return view('poi_area.show', [
             'routePrefix' => $meta['prefix'],
             'label' => $meta['label'],
@@ -267,6 +304,12 @@ final class PoiAreaController extends Controller
             'nearbyGas' => $type === 'gas_station' ? [] : $this->nearbyByType($poi, 'gas_station'),
             'nearbyStore' => $type === 'convenience_store' ? [] : $this->nearbyByType($poi, 'convenience_store'),
             'sameCity' => $sameCity,
+            // 洗車場のみ内容を持つ（GS・コンビニは空／null）。ビュー側は senshajo でのみ表示する。
+            'nearbyShops' => $nearbyShops,
+            'nearbyParkings' => $nearbyParkings,
+            'nearbyGarages' => $nearbyGarages,
+            'nearestStation' => $nearestStation,
+            'carWashSummary' => $carWashSummary,
             'crossLinks' => $this->listingCrossLinks(),
         ]);
     }
@@ -319,6 +362,150 @@ final class PoiAreaController extends Controller
                 'km' => round(((float) $p->dist_m) / 1000, 1),
             ])
             ->all();
+    }
+
+    /**
+     * 洗車場詳細に添える「周辺のバイク関連施設」の共通クエリ。
+     * shops / bike_parkings / rental_garages は別テーブル・別リンク体系なので、is_active 等の絞り込みは
+     * 呼び出し側で基底クエリに付けてもらい、ここは距離計算だけを担う（重複を避ける）。
+     *
+     * どのテーブルも latitude / longitude / name / id を持つ前提。緯度経度の矩形で粗く絞ってから
+     * ST_Distance_Sphere（メートル）で実距離順に並べ、半径外の矩形隅を HAVING で落とす。
+     * 矩形は緯度1度≒111kmで換算し、経度は日本域で縮む分だけ取りこぼしが出ないよう同係数で広めに取る
+     * （最終的な半径判定は ST_Distance_Sphere が担保するので粗絞りは広めで良い）。SRID 0 の POINT は
+     * 「経度・緯度」の順（POINT(longitude, latitude)）。
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query  対象テーブルの基底クエリ
+     * @return array<int, array{id: int, name: string, km: float}>
+     */
+    private function nearbyFacilities($query, float $lat, float $lng, float $radiusKm = 10.0, int $limit = 3): array
+    {
+        $deg = $radiusKm / 111.0;
+
+        return $query
+            ->whereNotNull('latitude')->whereNotNull('longitude')
+            ->whereBetween('latitude', [$lat - $deg, $lat + $deg])
+            ->whereBetween('longitude', [$lng - $deg, $lng + $deg])
+            ->selectRaw(
+                'id, name, ST_Distance_Sphere(POINT(longitude, latitude), POINT(?, ?)) AS dist_m',
+                [$lng, $lat]
+            )
+            ->havingRaw('dist_m <= ?', [$radiusKm * 1000])
+            ->orderBy('dist_m')
+            ->limit($limit)
+            ->get()
+            ->map(fn ($r): array => [
+                'id' => (int) $r->id,
+                'name' => (string) $r->name,
+                'km' => round(((float) $r->dist_m) / 1000, 1),
+            ])
+            ->all();
+    }
+
+    /**
+     * 起点の半径15km以内で最も近い駅を1件返す。stations には address 列が無いため名前と距離のみ。
+     * 駅名が「駅」で終わらない場合だけ補い、表示・文言の双方でそのまま使えるようにする。
+     * 15km以内に無ければ null（駅が遠い地域では最寄り駅を出さない）。
+     *
+     * @return array{name: string, km: float}|null
+     */
+    private function nearestStation(float $lat, float $lng, float $radiusKm = 15.0): ?array
+    {
+        $deg = $radiusKm / 111.0;
+
+        $row = Station::query()
+            ->whereBetween('latitude', [$lat - $deg, $lat + $deg])
+            ->whereBetween('longitude', [$lng - $deg, $lng + $deg])
+            ->selectRaw(
+                'id, name, ST_Distance_Sphere(POINT(longitude, latitude), POINT(?, ?)) AS dist_m',
+                [$lng, $lat]
+            )
+            ->havingRaw('dist_m <= ?', [$radiusKm * 1000])
+            ->orderBy('dist_m')
+            ->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $name = (string) $row->name;
+        if (! str_ends_with($name, '駅')) {
+            $name .= '駅';
+        }
+
+        return ['name' => $name, 'km' => round(((float) $row->dist_m) / 1000, 1)];
+    }
+
+    /**
+     * 起点の半径 $radiusKm 以内にある基底クエリ対象の件数。自動生成文の「半径5km以内に…」に使う。
+     * 粗絞りの矩形だけでは隅が半径を超えるため、ST_Distance_Sphere で厳密に半径内へ絞ってから数える。
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query  対象テーブルの基底クエリ（type や is_active は付与済み）
+     */
+    private function countWithinRadius($query, float $lat, float $lng, float $radiusKm = 5.0): int
+    {
+        $deg = $radiusKm / 111.0;
+
+        return (int) $query
+            ->whereNotNull('latitude')->whereNotNull('longitude')
+            ->whereBetween('latitude', [$lat - $deg, $lat + $deg])
+            ->whereBetween('longitude', [$lng - $deg, $lng + $deg])
+            ->whereRaw(
+                'ST_Distance_Sphere(POINT(longitude, latitude), POINT(?, ?)) <= ?',
+                [$lng, $lat, $radiusKm * 1000]
+            )
+            ->count();
+    }
+
+    /**
+     * 洗車場詳細の見出し下に出す自動生成文（施設ごとに数字が変わる1〜3文）。
+     * 例:「埼玉県春日部市水角にあるセルフの洗車場です。最寄りは○○駅から約2.1km。
+     *     半径5km以内に、バイクショップ3店、ガソリンスタンド8軒、バイク駐車場12か所があります。」
+     * 最寄り駅が無ければ2文目を、5km以内が全カテゴリ0なら3文目を省く。0件のカテゴリも文から省く。
+     *
+     * @param  array{name: string, km: float}|null  $station  nearestStation() の戻り
+     * @param  array<int, array{0: string, 1: int, 2: string}>  $counts  [ラベル, 件数, 助数詞] の配列
+     */
+    private function carWashSummary(Poi $poi, string $prefecture, string $city, ?array $station, array $counts): string
+    {
+        // 1文目: 所在地＋設備。町名は住所から都道府県・市区町村を除いて取り出す（無ければ市区町村まで）。
+        $town = trim(str_replace([$prefecture, $city], '', (string) $poi->address));
+        $place = $prefecture . $city . $town;
+
+        // 設備は carWashLabel と同じ self_service / automated 判定に合わせる（'yes'/'only' を真とみなす）。
+        $yes = static fn ($v): bool => in_array(strtolower(trim((string) ($v ?? ''))), ['yes', 'only'], true);
+        $self = $yes($poi->self_service);
+        $auto = $yes($poi->automated);
+        if ($self && $auto) {
+            $kind = 'セルフ・洗車機併設の洗車場';
+        } elseif ($self) {
+            $kind = 'セルフの洗車場';
+        } elseif ($auto) {
+            $kind = '洗車機のある洗車場';
+        } else {
+            $kind = '洗車場';
+        }
+        $text = $place . 'にある' . $kind . 'です。';
+
+        // 2文目: 最寄り駅（15km以内に無ければ省く）。距離は 0.1km 未満なら「同じ敷地内」に統一。
+        if ($station !== null) {
+            $text .= $station['km'] < 0.1
+                ? '最寄りは' . $station['name'] . 'で、同じ敷地内にあります。'
+                : '最寄りは' . $station['name'] . 'から約' . number_format($station['km'], 1) . 'km。';
+        }
+
+        // 3文目: 半径5km以内の周辺件数。0件カテゴリは省き、すべて0なら文自体を出さない。
+        $parts = [];
+        foreach ($counts as [$label, $count, $unit]) {
+            if ($count > 0) {
+                $parts[] = $label . $count . $unit;
+            }
+        }
+        if ($parts !== []) {
+            $text .= '半径5km以内に、' . implode('、', $parts) . 'があります。';
+        }
+
+        return $text;
     }
 
     /**
