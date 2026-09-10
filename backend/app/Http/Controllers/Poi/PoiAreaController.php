@@ -246,15 +246,34 @@ final class PoiAreaController extends Controller
             abort(404);
         }
 
-        $sameCity = Poi::query()
+        $sameCityQuery = Poi::query()
             ->where('type', $type)
             ->where('prefecture', $prefecture)
             ->where('city', $city)
             ->where('id', '<>', $poi->id)
             ->orderByRaw("(COALESCE(NULLIF(name, ''), NULLIF(brand, '')) IS NULL)")
             ->orderBy('id')
-            ->limit(8)
-            ->get(['id', 'name', 'brand', 'address', 'type', 'prefecture', 'city', 'self_service', 'automated'])
+            ->limit(8);
+
+        if ($type === 'car_wash') {
+            // 洗車場のみ: 自分から50m以内は OSM の二重登録とみなして除外する（本番で50m以内ペアが46組）。
+            // address は町丁目までで番地が無く、同一住所に実在する複数施設もある（例: 様似町栄町に3件）ため、
+            // 住所では判定できない。座標の実距離で見る。距離を測れない座標なしの行は実在を隠さないよう残す。
+            // 母数が小さい（同一市区町村×洗車場は数件）ので nearbyFacilities のような矩形の粗絞りは入れない
+            // ——粗絞りは「近くを探す」用で、ここは逆に遠い行を残すため矩形を掛けると実在施設を落としてしまう。
+            // gs / コンビニは同一住所に別施設が普通にあるため、この分岐に入れず従来どおり除外しない。
+            $sameCityQuery
+                ->selectRaw(
+                    'id, name, brand, address, type, prefecture, city, self_service, automated, '
+                    .'ST_Distance_Sphere(POINT(longitude, latitude), POINT(?, ?)) AS dist_m',
+                    [(float) $poi->longitude, (float) $poi->latitude]
+                )
+                ->havingRaw('dist_m IS NULL OR dist_m > 50');
+        } else {
+            $sameCityQuery->select(['id', 'name', 'brand', 'address', 'type', 'prefecture', 'city', 'self_service', 'automated']);
+        }
+
+        $sameCity = $sameCityQuery->get()
             ->map(fn (Poi $p): array => [
                 'id' => (int) $p->id,
                 'display' => $this->resolveDisplay($p, $type, $prefecture, $city),
@@ -270,8 +289,10 @@ final class PoiAreaController extends Controller
             $lng = (float) $poi->longitude;
 
             [$nearbyShops, $nearbyParkings, $nearbyGarages, $nearestStation, $carWashSummary]
-                // v2: townPart() 導入で説明文の町名表記が変わったためキーを上げる（本番は cache:clear 不可なので世代を進める）。
-                = Cache::remember("senshajo_detail_nearby:v2:{$poi->id}", 86400, function () use ($poi, $prefecture, $city, $lat, $lng) {
+                // 世代付きキー。説明文(carWashSummary)はここにキャッシュされるため、文言に影響する変更ごとに必ず上げる。
+                // 本番は cache:clear 不可（別機能の6000件規模が飛ぶ）で、世代を進めるのが唯一の即時反映手段。
+                // v2: townPart() 導入で町名表記を修正 / v3: townPart() 実データ準拠に再修正＋50m重複除外に合わせて再生成。
+                = Cache::remember("senshajo_detail_nearby:v3:{$poi->id}", 86400, function () use ($poi, $prefecture, $city, $lat, $lng) {
                     $shops = $this->nearbyFacilities(Shop::query(), $lat, $lng);
                     // is_active=1 のみ（非公開の駐車場・ガレージは出さない）。
                     $parkings = $this->nearbyFacilities(BikeParking::query()->where('is_active', 1), $lat, $lng);
