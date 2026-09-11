@@ -265,7 +265,8 @@
 
                 {{-- 公式サイト・備考 --}}
                 @if($garage->website_url)
-                <a href="{{ $garage->website_url }}" target="_blank" rel="noopener" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-violet-600 text-white text-xs font-bold rounded-lg hover:bg-violet-700 transition mb-2">
+                {{-- 送客計測のため中継ルート経由（記録→302で website_url へ）。rel/target は従来どおり維持。 --}}
+                <a href="{{ route('rental-garage.go', $garage->id) }}" target="_blank" rel="noopener" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-violet-600 text-white text-xs font-bold rounded-lg hover:bg-violet-700 transition mb-2">
                     <i data-lucide="external-link" class="w-3.5 h-3.5"></i> 公式サイトで見る
                 </a>
                 @endif

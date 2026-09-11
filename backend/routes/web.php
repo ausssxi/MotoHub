@@ -440,6 +440,10 @@ Route::prefix('rental-garages/area')->name('rental-garage.area.')
 Route::get('/rental-garages/{id}', [\App\Http\Controllers\RentalGarage\RentalGarageController::class, 'show'])
     ->name('rental-garage.show')->where('id', '[0-9]+');
 
+// 事業者サイトへの送客中継（記録 → 302）。JS非依存で確実に計測し、bot はサーバー側で除外。
+Route::get('/go/rental-garage/{id}', [\App\Http\Controllers\RentalGarage\RentalGarageClickController::class, 'go'])
+    ->name('rental-garage.go')->where('id', '[0-9]+');
+
 // 道の駅 一覧・都道府県別（公開・認証なし）
 Route::get('/michinoeki', [\App\Http\Controllers\RoadsideStation\RoadsideStationController::class, 'index'])
     ->name('michinoeki.index');
