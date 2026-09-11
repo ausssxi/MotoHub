@@ -146,6 +146,13 @@ Schedule::command('pois:assign-municipality --execute')->dailyAt('04:10')->appen
 // POI住所逆ジオコーディング（毎日4:30 — 5000件ずつ段階処理）
 Schedule::command('poi:geocode')->dailyAt('04:30')->appendOutputTo(storage_path('logs/poi.log'));
 
+// POI最近傍の事前計算（週1・日曜5:30 — 「次のGS/コンビニまで◯km」を表示時ではなく夜間に1回だけ計算）。
+// GS/コンビニの場所は滅多に変わらないので日次不要。週次で未計算(nearest_computed_at IS NULL)の差分だけ処理する。
+// 時刻の根拠: その晩の poi:fetch(3:30)→assign(4:10)→geocode(4:30) と 04:40 ogp / 04:50 sold-out precompute /
+//   05:10 cache:warm-ranking の後の空き枠。既存ジョブと同一分に重ねない（06:00 news の手前）。
+// withoutOverlapping: 前週分が長引いても翌週と多重起動しないため。初回の全件バックフィルは手動実行(--limit/--force)で行う。
+Schedule::command('poi:compute-nearest')->weeklyOn(0, '05:30')->withoutOverlapping()->appendOutputTo(storage_path('logs/poi.log'));
+
 // OGP画像キャッシュの掃除（毎日4:40 — 30日より古い ogp/ 配下のキャッシュを削除）。
 // 遅延生成キャッシュなので消えても次アクセスで再生成される。掃除が無く月2GB増だった対策。
 // 保持日数を30日にする理由: 本番実測で ogp は月2.4万件・約2GBのペースで増える。90日保持だと

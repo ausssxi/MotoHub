@@ -21,6 +21,9 @@ final class Poi extends Model
         'self_service',
         'automated',
         'geocode_failed_at',
+        'nearest_same_type_id',
+        'nearest_same_type_m',
+        'nearest_computed_at',
     ];
 
     protected $casts = [
@@ -28,6 +31,9 @@ final class Poi extends Model
         'latitude' => 'float',
         'longitude' => 'float',
         'geocode_failed_at' => 'datetime',
+        'nearest_same_type_id' => 'integer',
+        'nearest_same_type_m' => 'integer',
+        'nearest_computed_at' => 'datetime',
     ];
 
     /** POI種別の日本語名（表示名フォールバックの最終段）。 */
