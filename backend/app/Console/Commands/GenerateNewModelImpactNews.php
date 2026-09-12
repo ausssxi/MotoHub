@@ -8,7 +8,9 @@ use App\Models\BikeModel;
 use App\Models\BikeNews;
 use App\Models\Listing;
 use App\Models\MarketPriceLog;
+use App\Services\News\ModelImpactTitleBuilder;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -20,13 +22,22 @@ final class GenerateNewModelImpactNews extends Command
                             {--dry-run : APIを呼ばずデータ確認のみ}
                             {--limit=3 : 1回の最大生成記事数}';
 
-    protected $description = '新車発表ニュースから中古相場への影響分析記事を自動生成';
+    protected $description = '起点ニュース（新型/パーツ発売等）から対象車種の中古相場分析記事を自動生成（事実ベースのタイトル）';
 
     private const API_ENDPOINT = 'https://api.anthropic.com/v1/messages';
 
     private const MAX_TOKENS = 2500;
 
     private const SLEEP_SECONDS = 3;
+
+    /** 同一車種の再生成を抑止する日数。旧実装は約12日おきに乱発していた。 */
+    private const RECENT_DAYS = 30;
+
+    /** 「新型が登場」タイトルを許可する、真のモデルチェンジを示す起点キーワード。 */
+    private const NEW_MODEL_KEYWORDS = [
+        'モデルチェンジ', 'フルモデルチェンジ', 'マイナーチェンジ',
+        '新型', '新モデル', 'ニューモデル', 'フルモデル',
+    ];
 
     private const KEYWORDS = [
         '新型', 'モデルチェンジ', 'フルモデルチェンジ', 'マイナーチェンジ',
@@ -113,25 +124,26 @@ final class GenerateNewModelImpactNews extends Command
 
             $this->info("  マッチ車種: {$bikeModel->name}（ID: {$bikeModel->id}）");
 
+            // 正式車種名（display_name 優先）が取れなければタイトルが作れないので生成しない。
+            $officialName = ModelImpactTitleBuilder::officialName($bikeModel);
+            if ($officialName === null) {
+                $this->warn("  → {$bikeModel->name}: 正式車種名が取れずタイトル生成不可、スキップ");
+
+                continue;
+            }
+
             // 同一cron実行内の車種重複チェック
-            if (in_array($bikeModel->name, $processedModelNames, true)) {
+            if (in_array($bikeModel->id, $processedModelNames, true)) {
                 $this->warn("  → {$bikeModel->name}: 同一実行内で処理済み、スキップ");
 
                 continue;
             }
 
-            // 過去7日以内に同車種の記事がないかチェック
-            if (! $this->option('force')) {
-                $recentExists = BikeNews::where('source', 'MotoHub')
-                    ->where('title', 'like', "%{$bikeModel->name}%")
-                    ->where('created_at', '>=', now()->subDays(7))
-                    ->exists();
+            // 直近30日以内に同一 bike_model_id の記事があれば再生成しない。
+            if (! $this->option('force') && $this->hasRecentModelArticle($bikeModel->id)) {
+                $this->warn("  → {$bikeModel->name}: 直近".self::RECENT_DAYS.'日以内に記事済み、スキップ');
 
-                if ($recentExists) {
-                    $this->warn("  → {$bikeModel->name}: 7日以内に記事済み、スキップ");
-
-                    continue;
-                }
+                continue;
             }
 
             // 中古相場データを取得
@@ -143,9 +155,14 @@ final class GenerateNewModelImpactNews extends Command
                 continue;
             }
 
+            $publishedAt = $this->option('publish') ? now() : null;
+            $titleDate = $publishedAt ?? now();
+
             if ($isDryRun) {
-                $this->printDryRun($sourceNews, $bikeModel, $marketData);
-                $processedModelNames[] = $bikeModel->name;
+                // ドライラン時は API を呼ばないためトリガー要約は無し（省略形でプレビュー）。
+                $previewTitle = $this->buildTitle($officialName, $marketData, null, false, $titleDate);
+                $this->printDryRun($sourceNews, $bikeModel, $marketData, $previewTitle);
+                $processedModelNames[] = $bikeModel->id;
                 $generated++;
 
                 continue;
@@ -153,7 +170,7 @@ final class GenerateNewModelImpactNews extends Command
 
             // Claude APIで分析記事を生成
             try {
-                $result = $this->callClaudeApi($apiKey, $sourceNews, $bikeModel, $marketData);
+                $result = $this->callClaudeApi($apiKey, $sourceNews, $bikeModel, $marketData, $officialName);
             } catch (\Throwable $e) {
                 $this->error("  API呼び出しエラー: {$e->getMessage()}");
                 Log::error('GenerateNewModelImpactNews: API呼び出し失敗', [
@@ -170,11 +187,18 @@ final class GenerateNewModelImpactNews extends Command
                 continue;
             }
 
-            // 保存
-            $publishedAt = $this->option('publish') ? now() : null;
+            // タイトルは Claude ではなく事実ベースの部品から PHP 側で確定させる。
+            $isNewModel = $result['is_new_model'] && $this->sourceLooksLikeNewModel($sourceNews->title);
+            $title = $this->buildTitle($officialName, $marketData, $result['trigger_summary'], $isNewModel, $titleDate);
+
+            if ($title === null) {
+                $this->warn('  → タイトルを組み立てられず、スキップ');
+
+                continue;
+            }
 
             $news = BikeNews::create([
-                'title' => $result['title'],
+                'title' => $title,
                 'url' => '',
                 'source' => 'MotoHub',
                 'content' => $result['body'],
@@ -188,8 +212,8 @@ final class GenerateNewModelImpactNews extends Command
             $news->update(['url' => route('news.show', $news->id)]);
 
             $status = $publishedAt ? '公開' : '下書き';
-            $this->info("  記事生成完了（{$status}）: {$result['title']}");
-            $processedModelNames[] = $bikeModel->name;
+            $this->info("  記事生成完了（{$status}）: {$title}");
+            $processedModelNames[] = $bikeModel->id;
             $generated++;
 
             if ($generated < $limit) {
@@ -200,6 +224,63 @@ final class GenerateNewModelImpactNews extends Command
         $this->info("完了: {$generated}件の記事を生成しました。");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * 直近 RECENT_DAYS 日以内に同一 bike_model_id の MotoHub 記事があるか。
+     * 公開日（draft は生成日）で判定する。
+     */
+    public function hasRecentModelArticle(int $bikeModelId, int $days = self::RECENT_DAYS): bool
+    {
+        $threshold = now()->subDays($days);
+
+        return BikeNews::where('source', BikeNews::SOURCE_ORIGINAL)
+            ->where('bike_model_id', $bikeModelId)
+            ->where(function ($q) use ($threshold) {
+                $q->where('published_at', '>=', $threshold)
+                    ->orWhere('created_at', '>=', $threshold);
+            })
+            ->exists();
+    }
+
+    /**
+     * 事実ベースの部品からタイトルを組み立てる。数字は本文と必ず一致させる。
+     */
+    private function buildTitle(
+        string $officialName,
+        array $marketData,
+        ?string $trigger,
+        bool $isNewModel,
+        Carbon $date,
+    ): ?string {
+        $avgManStr = $marketData['avg_price'] > 0
+            ? ModelImpactTitleBuilder::formatMan($marketData['avg_price'] / 10000)
+            : null;
+        $countStr = $marketData['listing_count'] > 0
+            ? (string) $marketData['listing_count']
+            : null;
+        $yearMonth = $date->format('Y年n月');
+
+        if ($isNewModel) {
+            return ModelImpactTitleBuilder::buildNewModel($officialName, $avgManStr, $countStr, $yearMonth);
+        }
+
+        return ModelImpactTitleBuilder::build($officialName, $avgManStr, $countStr, $trigger, $yearMonth);
+    }
+
+    /**
+     * 起点ニュースのタイトルが「本当のモデルチェンジ／新型」を示すか。
+     * 「新型が登場」表現の誤用（パーツ発売等）を防ぐための二重ガード。
+     */
+    private function sourceLooksLikeNewModel(string $sourceTitle): bool
+    {
+        foreach (self::NEW_MODEL_KEYWORDS as $keyword) {
+            if (mb_strpos($sourceTitle, $keyword) !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function findNewModelNews()
@@ -353,45 +434,67 @@ final class GenerateNewModelImpactNews extends Command
         ];
     }
 
+    /**
+     * Claude で本文・トリガー要約・新型判定を生成する。タイトルは本メソッドでは決めない。
+     *
+     * @return array{body: string, trigger_summary: ?string, is_new_model: bool}|null
+     */
     private function callClaudeApi(
         string $apiKey,
         BikeNews $sourceNews,
         BikeModel $bikeModel,
         array $marketData,
+        string $officialName,
     ): ?array {
-        $modelName = $bikeModel->name;
         $makerName = $bikeModel->manufacturer?->name ?? '不明';
         $modelUrl = route('bikes.model_detail.fallback', $bikeModel->id);
         $newsExcerpt = mb_substr(strip_tags($sourceNews->content ?? $sourceNews->title), 0, 200);
 
-        $avgMan = round($marketData['avg_price'] / 10000, 1);
-        $minMan = round($marketData['min_price'] / 10000, 1);
-        $maxMan = round($marketData['max_price'] / 10000, 1);
+        $avgMan = ModelImpactTitleBuilder::formatMan($marketData['avg_price'] / 10000);
+        $minMan = ModelImpactTitleBuilder::formatMan($marketData['min_price'] / 10000);
+        $maxMan = ModelImpactTitleBuilder::formatMan($marketData['max_price'] / 10000);
         $threeMonthAgoMan = $marketData['three_months_ago_price'] > 0
-            ? round($marketData['three_months_ago_price'] / 10000, 1)
+            ? ModelImpactTitleBuilder::formatMan($marketData['three_months_ago_price'] / 10000)
             : '不明';
 
         $systemPrompt = <<<'PROMPT'
 あなたはMotoHubの中古バイク市場アナリストです。
-新車発表ニュースと旧型の中古相場データを元に、中古市場への影響分析記事を書いてください。
+起点となるニュースと、対象車種の中古相場データを元に、中古市場向けの分析記事を書いてください。
+
+重要な前提：
+- 起点ニュースは「新型・モデルチェンジ」とは限りません。パーツ／カスタム用品の発売、
+  キャンペーン、イベントなど様々です。ニュースを正確に読み、事実だけを書いてください。
+- 実際にモデルチェンジ・新型が発表された場合を除き、「新型発表」「新型が発表」「モデルチェンジ」
+  という言葉を本文で使わないでください。パーツ発売を新型発表と書くのは誤りです。
+- 新型が確認できない場合、旧型がこれから下落する等の“モデルチェンジ前提の予測”を書かないこと。
+  その場合は「現在の中古相場の状況」と「買い時の判断材料」に徹してください。
 
 ルール：
 - 文体: ですます調、バイク初心者にもわかりやすく
 - HTMLタグで出力（h3, p, strong, a を使用）
 - 本文は500〜800文字程度
+- 与えられた数値（掲載台数・平均価格など）を改変しない。そのまま使う。
 - JSONで以下の形式のみ返してください。他のテキストは不要です:
-{"title": "記事タイトル", "body": "記事本文HTML", "meta_description": "120文字以内の要約"}
+{"body": "記事本文HTML", "trigger_summary": "起点ニュースの20文字程度の要約", "is_new_model": true/false, "meta_description": "120文字以内の要約"}
+
+trigger_summary の作り方：
+- 「主体（誰が）＋何を」の形。例:「OVER Racingが新マフラー発売」「カワサキが新型を発表」
+- 製品の型番は入れない。評価語（さらに進化・注目の・魅力的な等）は入れない。
+- 20文字程度。要約できないときは空文字 "" を返す。
+
+is_new_model：起点ニュースが対象車種の新型・モデルチェンジの発表なら true、
+パーツ発売やキャンペーン等なら false。
 PROMPT;
 
         $userPrompt = <<<PROMPT
-以下の新車発表ニュースと、旧型の中古相場データを元に、中古市場への影響分析記事を書いてください。
+以下の起点ニュースと、対象車種の中古相場データを元に、中古市場向けの分析記事を書いてください。
 
-## 新車ニュース
+## 起点ニュース
 タイトル: {$sourceNews->title}
 概要: {$newsExcerpt}
 
-## 旧型の中古相場データ
-車種名: {$modelName}（{$makerName}）
+## 対象車種の中古相場データ
+車種名: {$officialName}（{$makerName}）
 車種ページ: {$modelUrl}
 現在の掲載台数: {$marketData['listing_count']}台
 現在の平均価格: {$avgMan}万円
@@ -400,17 +503,13 @@ PROMPT;
 最安値: {$minMan}万円
 最高値: {$maxMan}万円
 
-## 記事の要件
-- タイトル: {$modelName}の新型発表で旧型中古相場はどう動く？｜データで予測
-- 本文構成:
-  1. 新型モデルの概要（ニュースから要約、2〜3行）
-  2. 旧型の現在の中古相場（データを元に）
-  3. 過去のモデルチェンジ時のパターン（一般論として）
-     - 発表直後: 旧型が3〜5%下落する傾向
-     - 新型発売後: さらに5〜10%下落
-     - 半年後: 下げ止まり、旧型ファンの需要で安定
-  4. 今が買い時か？（結論と推薦）
-- 車種名「{$modelName}」には <a href="{$modelUrl}">{$modelName}</a> のリンクを含める
+## 本文構成の目安
+1. 起点ニュースの概要（事実として2〜3行。新型でないなら新型と書かない）
+2. 現在の中古相場（上記データをそのまま使う。掲載台数と平均価格は本文にも明記）
+3. 相場の見方・買い時の判断材料（データに基づく。モデルチェンジ前提の断定はしない）
+4. まとめ
+
+- 車種名「{$officialName}」には <a href="{$modelUrl}">{$officialName}</a> のリンクを1回含める
 PROMPT;
 
         $response = Http::withHeaders([
@@ -444,7 +543,7 @@ PROMPT;
         $clean = preg_replace('/```json|```/', '', $text);
         $data = json_decode(trim($clean), true);
 
-        if (! $data || ! isset($data['title'])) {
+        if (! is_array($data) || empty($data['body'])) {
             $this->error('  レスポンスのJSONパースに失敗');
             $this->error('  Text: '.$text);
             Log::error('GenerateNewModelImpactNews: JSONパース失敗', ['raw' => $text]);
@@ -452,7 +551,11 @@ PROMPT;
             return null;
         }
 
-        return $data;
+        return [
+            'body' => (string) $data['body'],
+            'trigger_summary' => isset($data['trigger_summary']) ? (string) $data['trigger_summary'] : null,
+            'is_new_model' => (bool) ($data['is_new_model'] ?? false),
+        ];
     }
 
     private function resolveImageUrl(?BikeModel $model): ?string
@@ -483,11 +586,12 @@ PROMPT;
         return null;
     }
 
-    private function printDryRun(BikeNews $sourceNews, BikeModel $bikeModel, array $marketData): void
+    private function printDryRun(BikeNews $sourceNews, BikeModel $bikeModel, array $marketData, ?string $previewTitle): void
     {
         $this->info('  --- Dry Run ---');
         $this->line("  元ニュース: {$sourceNews->title}");
         $this->line("  マッチ車種: {$bikeModel->name}（{$bikeModel->manufacturer?->name}）");
+        $this->line('  想定タイトル: '.($previewTitle ?? '（生成不可）'));
         $this->line("  掲載台数: {$marketData['listing_count']}台");
         $this->line('  平均価格: '.number_format($marketData['avg_price']).'円');
         $this->line('  最安値: '.number_format($marketData['min_price']).'円');
