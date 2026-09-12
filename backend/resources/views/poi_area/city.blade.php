@@ -40,8 +40,9 @@
                 <ul class="divide-y divide-gray-50">
                     @foreach($items as $it)
                     <li class="py-2.5">
-                        @if($routePrefix === 'senshajo')
-                        <p class="text-sm font-bold"><a href="{{ route('senshajo.show', [$prefecture, $city, $it['id']]) }}" class="text-purple-700 hover:underline">{{ $it['display'] }}</a></p>
+                        {{-- 詳細ページ(gs/konbini/senshajo)へリンク。show ルートを持つ種別だけ（他種別が使う場合はプレーン表示のまま）。 --}}
+                        @if(\Illuminate\Support\Facades\Route::has($routePrefix.'.show'))
+                        <p class="text-sm font-bold"><a href="{{ route($routePrefix.'.show', [$prefecture, $city, $it['id']]) }}" class="text-purple-700 hover:underline">{{ $it['display'] }}</a></p>
                         @else
                         <p class="text-sm text-gray-900 font-bold">{{ $it['display'] }}</p>
                         @endif
