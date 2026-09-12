@@ -182,12 +182,25 @@ final class TireSize
         return $sizeSlug !== '' && preg_match('/^[a-z0-9\-]+$/', $sizeSlug) === 1;
     }
 
+    // 妥当性レンジ（推測で描かないための保険。範囲外は null）。
+    private const ASPECT_MIN = 30;
+
+    private const ASPECT_MAX = 120;
+
+    private const WIDTH_MM_MIN = 40;
+
+    private const WIDTH_MM_MAX = 300;
+
+    private const RIM_MIN = 8;
+
+    private const RIM_MAX = 23;
+
     /**
-     * タイヤ表記から寸法を算出する。解釈できない表記は null（推測で描かないため）。
+     * タイヤ表記から寸法を算出する。解釈できない・妥当でない表記は null（推測で描かないため）。
      *
-     * メトリック（120/70ZR17 等）: 幅=第1数値mm、扁平=第2数値/100、リム=第3数値インチ。
+     * メトリック（120/70ZR17 / 80/100-21 等）: 幅=第1数値mm、扁平=第2数値/100、リム=第3数値インチ。
      *   アスペクトとリムの間に英字（ZR/R/B 等）か「-」の区切りが必須。区切りが無い連結
-     *   （100/9019 等の汚れデータ）は解釈しない。
+     *   （100/9019 等の汚れデータ）は解釈しない。扁平率は 2〜3桁（オフ車の 100 表記を許可）。
      * インチ（2.75-21 等）: 幅=第1数値×25.4mm、扁平=1.0（バイアスの慣例で100%）。
      * サイドウォール=幅×扁平、外径=リム径×25.4 + サイドウォール×2。
      *
@@ -200,21 +213,13 @@ final class TireSize
             return null;
         }
 
-        // メトリック: 幅 / 扁平(2桁) [英字|-] リム。区切り必須で 100/9019 のような連結を弾く。
-        if (preg_match('/^(\d{2,3})\/(\d{2})(?:[A-Z]{1,2}|-)(\d{1,2})$/', $s, $m) === 1) {
+        // メトリック: 幅 / 扁平(2〜3桁) [英字|-] リム。区切り必須で 100/9019 のような連結を弾く。
+        if (preg_match('/^(\d{2,3})\/(\d{2,3})(?:[A-Z]{1,2}|-)(\d{1,2})$/', $s, $m) === 1) {
             $width = (float) $m[1];
-            $aspect = ((float) $m[2]) / 100;
+            $aspectPct = (float) $m[2];
             $rim = (int) $m[3];
-            $sidewall = $width * $aspect;
 
-            return [
-                'type' => 'metric',
-                'width_mm' => $width,
-                'aspect' => $aspect,
-                'rim_inch' => $rim,
-                'sidewall_mm' => round($sidewall, 1),
-                'outer_mm' => round($rim * 25.4 + $sidewall * 2, 1),
-            ];
+            return self::buildDimensions('metric', $width, $aspectPct / 100, $rim);
         }
 
         // インチ（バイアス）: 幅(×25.4) - リム。扁平は100%固定。
@@ -222,17 +227,41 @@ final class TireSize
             $width = ((float) $m[1]) * 25.4;
             $rim = (int) $m[2];
 
-            return [
-                'type' => 'inch',
-                'width_mm' => round($width, 2),
-                'aspect' => 1.0,
-                'rim_inch' => $rim,
-                'sidewall_mm' => round($width, 2),
-                'outer_mm' => round($rim * 25.4 + $width * 2, 1),
-            ];
+            return self::buildDimensions('inch', $width, 1.0, $rim);
         }
 
         return null;
+    }
+
+    /**
+     * 妥当性チェック（扁平30〜120 / 断面幅40〜300mm / リム8〜23）を通ったものだけ寸法配列にする。
+     * 範囲外は null（異常表記や汚れデータを図示しない）。
+     *
+     * @return array{type:string,width_mm:float,aspect:float,rim_inch:int,sidewall_mm:float,outer_mm:float}|null
+     */
+    private static function buildDimensions(string $type, float $widthMm, float $aspect, int $rim): ?array
+    {
+        $aspectPct = $aspect * 100;
+        if ($aspectPct < self::ASPECT_MIN || $aspectPct > self::ASPECT_MAX) {
+            return null;
+        }
+        if ($widthMm < self::WIDTH_MM_MIN || $widthMm > self::WIDTH_MM_MAX) {
+            return null;
+        }
+        if ($rim < self::RIM_MIN || $rim > self::RIM_MAX) {
+            return null;
+        }
+
+        $sidewall = $widthMm * $aspect;
+
+        return [
+            'type' => $type,
+            'width_mm' => round($widthMm, 2),
+            'aspect' => $aspect,
+            'rim_inch' => $rim,
+            'sidewall_mm' => round($sidewall, 2),
+            'outer_mm' => round($rim * 25.4 + $sidewall * 2, 1),
+        ];
     }
 
     /**
@@ -296,9 +325,10 @@ final class TireSize
             $rim === 18 => '18',
             $rim === 17 => '17',
             $rim === 16 => '16',
+            $rim === 15 => '15',
             $rim >= 12 && $rim <= 14 => '12-14',
             $rim <= 10 => '10',
-            default => 'other', // 11/15/20 等の稀なリムは索引の見出しに無いのでその他へ
+            default => 'other', // 11/20 等の稀なリムは索引の見出しに無いのでその他へ
         };
     }
 
@@ -309,6 +339,7 @@ final class TireSize
         ['key' => '18', 'label' => '18インチ', 'desc' => '旧車・ネイキッドの前輪'],
         ['key' => '17', 'label' => '17インチ', 'desc' => 'スポーツ・ネイキッドの前輪（最も多い）'],
         ['key' => '16', 'label' => '16インチ', 'desc' => 'アメリカン・大型クルーザーの前輪'],
+        ['key' => '15', 'label' => '15インチ', 'desc' => 'ビッグスクーターの前輪'],
         ['key' => '12-14', 'label' => '12〜14インチ', 'desc' => 'スクーター・ミニバイク'],
         ['key' => '10', 'label' => '10インチ以下', 'desc' => '原付スクーター'],
         ['key' => 'other', 'label' => 'その他', 'desc' => '寸法を図示できない表記のサイズ'],

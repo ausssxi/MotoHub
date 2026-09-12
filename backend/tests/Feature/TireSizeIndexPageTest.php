@@ -70,6 +70,18 @@ it('groups sizes by rim size into the fixed buckets', function () {
     expect(array_column($other['sizes'], 'size'))->toContain('MT90B16');
 });
 
+it('puts 15-inch sizes into the new 15インチ group', function () {
+    seedIndexModels('120/70R15', 5, 'TMAX');
+
+    $groups = TireSize::indexData();
+    $g15 = collect($groups)->firstWhere('label', '15インチ');
+
+    expect($g15)->not->toBeNull();
+    expect($g15['desc'])->toBe('ビッグスクーターの前輪');
+    expect(array_column($g15['sizes'], 'size'))->toContain('120/70R15');
+    expect($g15['sizes'][0]['svg'])->toContain('<svg'); // 図も出る
+});
+
 it('renders the index page with server-side svg and model-name text', function () {
     seedIndexModels('120/70ZR17', 6, 'Z900RS');
 

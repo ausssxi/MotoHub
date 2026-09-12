@@ -25,6 +25,29 @@ it('parses the metric variants R / -/ B separators', function () {
     expect(TireSize::dimensions('100/90-19')['aspect'])->toBe(0.9);
 });
 
+it('accepts 3-digit aspect ratios used by off-road tires', function () {
+    $a = TireSize::dimensions('80/100-21');
+    expect($a['width_mm'])->toBe(80.0);
+    expect($a['aspect'])->toBe(1.0);
+    expect($a['rim_inch'])->toBe(21);
+    expect(TireSize::dimensionText($a))->toBe('幅80mm・扁平100%・外径約693mm');
+
+    $b = TireSize::dimensions('70/100-19');
+    expect($b['rim_inch'])->toBe(19);
+    expect(TireSize::dimensionText($b))->toBe('幅70mm・扁平100%・外径約623mm');
+});
+
+it('still requires a separator so slash-missing data stays null', function () {
+    expect(TireSize::dimensions('100/9019'))->toBeNull();
+});
+
+it('rejects out-of-range aspect / width / rim (no guessing)', function () {
+    expect(TireSize::dimensions('120/200-17'))->toBeNull(); // 扁平200 は範囲外
+    expect(TireSize::dimensions('350/70-17'))->toBeNull();  // 断面幅350mm は範囲外
+    expect(TireSize::dimensions('120/70-25'))->toBeNull();  // リム25 は範囲外
+    expect(TireSize::dimensions('120/70-5'))->toBeNull();   // リム5 は範囲外
+});
+
 // ─────────── dimensions(): インチ ───────────
 
 it('computes inch (bias) dimensions for 2.75-21', function () {
