@@ -674,6 +674,9 @@
                 + open24hBadge(item)
                 + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
                 + (item.opening_hours ? '<div class="bg-gray-50 rounded-lg p-3 mb-3"><div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">営業時間</span><span class="text-xs text-gray-700">' + escapeHtml(item.opening_hours) + '</span></div></div>' : '')
+                // 詳細ページ導線（他層と同じ「詳細を見る」ボタン）。短縮URL /gs/{id} が prefecture/city を解決して正規URLへ301。
+                // ★色クラスは既にビルド済みCSSにある bg-blue-600/700 のみ使う（public/js は Tailwind 走査対象外。sky-600 で透明化した前例あり）。
+                + (item.id ? '<a href="/gs/' + item.id + '" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition">詳細を見る &rarr;</a>' : '')
                 + gmapBtn + routeBtn + osmDataCredit();
         } else if (layerKey === 'convenience_store') {
             var cvs = gsDisplayName(item);
@@ -682,6 +685,8 @@
                 + open24hBadge(item)
                 + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
                 + (item.opening_hours ? '<div class="bg-gray-50 rounded-lg p-3 mb-3"><div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">営業時間</span><span class="text-xs text-gray-700">' + escapeHtml(item.opening_hours) + '</span></div></div>' : '')
+                // 詳細ページ導線。短縮URL /konbini/{id} が prefecture/city を解決して正規URLへ301。色は bg-blue-600/700 のみ（上と同じ理由）。
+                + (item.id ? '<a href="/konbini/' + item.id + '" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition">詳細を見る &rarr;</a>' : '')
                 + gmapBtn + routeBtn + osmDataCredit();
         } else if (layerKey === 'car_wash') {
             // A1修正: car_wash の分岐が無く本文が空だった。pois が持つ name/brand/address/opening_hours で構成。
