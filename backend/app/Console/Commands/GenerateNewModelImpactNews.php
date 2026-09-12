@@ -198,7 +198,7 @@ final class GenerateNewModelImpactNews extends Command
             // トリガー要約は Claude 優先、空なら本文の最初の h3 から取る（既存書き換えと同じ扱い）。
             $trigger = ModelImpactTitleBuilder::sanitizeTrigger($result['trigger_summary']);
             if ($trigger === null) {
-                $trigger = ModelImpactTitleBuilder::triggerFromContent($result['body'], $officialName);
+                $trigger = ModelImpactTitleBuilder::triggerFromContent($result['body']);
             }
 
             $isNewModel = $result['is_new_model'] && $this->sourceLooksLikeNewModel($sourceNews->title);

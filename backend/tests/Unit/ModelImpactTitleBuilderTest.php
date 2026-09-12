@@ -86,20 +86,20 @@ it('builds a date-based fallback title', function () {
 
 // ─────────── sanitizeTrigger() ───────────
 
-it('drops evaluative-only or empty triggers', function () {
+it('drops empty or placeholder-only triggers', function () {
     expect(ModelImpactTitleBuilder::sanitizeTrigger(null))->toBeNull();
     expect(ModelImpactTitleBuilder::sanitizeTrigger(''))->toBeNull();
     expect(ModelImpactTitleBuilder::sanitizeTrigger('　'))->toBeNull();
     expect(ModelImpactTitleBuilder::sanitizeTrigger('〜'))->toBeNull();
-    expect(ModelImpactTitleBuilder::sanitizeTrigger('注目の'))->toBeNull();
 });
 
-it('strips evaluative words from an otherwise valid trigger', function () {
-    expect(ModelImpactTitleBuilder::sanitizeTrigger('注目のOVER Racingが新マフラー発売'))
-        ->toBe('OVER Racingが新マフラー発売');
+it('does not strip evaluative words (partial-match damage avoided)', function () {
+    // 「注目」等を部分一致で消さない。文をそのまま保つ。
+    expect(ModelImpactTitleBuilder::sanitizeTrigger('注目度が高まるZ900発表'))
+        ->toBe('注目度が高まるZ900発表');
 });
 
-it('drops triggers that are too long to be a summary', function () {
+it('drops triggers that are too long (>30)', function () {
     $long = str_repeat('あ', 40);
     expect(ModelImpactTitleBuilder::sanitizeTrigger($long))->toBeNull();
 });
@@ -196,32 +196,69 @@ it('does not globally uppercase names that already contain uppercase', function 
     expect(ModelImpactTitleBuilder::formatModelName('Ninja ZX−4rr'))->toBe('Ninja ZX-4RR');
 });
 
-// ─────────── 修正A: 本文 h3 からトリガー要約 ───────────
+// ─────────── 修正A（改）: h3 はできるだけそのまま使う ───────────
 
-it('derives a trigger from the first h3 and strips the model name', function () {
+it('uses the first h3 as-is (no model-name or evaluative-word removal)', function () {
     $html = '<h3>新型レブル250にEクラッチ搭載</h3><p>ホンダから2026年モデルのレブル250が発表されました。</p>';
 
-    expect(ModelImpactTitleBuilder::triggerFromContent($html, 'レブル250'))->toBe('新型にEクラッチ搭載');
+    expect(ModelImpactTitleBuilder::triggerFromContent($html))->toBe('新型レブル250にEクラッチ搭載');
 });
 
-it('strips evaluative words and trailing particles from the h3 trigger', function () {
-    $html = '<h3>ポッシュフェイス製スプロケットカバーでZ900RSがさらに進化</h3><p>本文</p>';
+it('collapses whitespace but keeps the wording intact', function () {
+    $html = "<h3>カワサキ「Ninja 250」\n 2027年モデルが発表</h3>";
 
-    expect(ModelImpactTitleBuilder::triggerFromContent($html, 'Z900RS'))
-        ->toBe('ポッシュフェイス製スプロケットカバー');
+    expect(ModelImpactTitleBuilder::triggerFromContent($html))->toBe('カワサキ「Ninja 250」 2027年モデルが発表');
+});
+
+it('does not turn 注目度 into 度 (no substring evaluative removal)', function () {
+    $html = '<h3>注目度が高まる新型が登場</h3>';
+
+    expect(ModelImpactTitleBuilder::triggerFromContent($html))->toBe('注目度が高まる新型が登場');
 });
 
 it('returns null when there is no h3', function () {
-    expect(ModelImpactTitleBuilder::triggerFromContent('<p>h3 のない本文</p>', 'Z900RS'))->toBeNull();
+    expect(ModelImpactTitleBuilder::triggerFromContent('<p>h3 のない本文</p>'))->toBeNull();
 });
 
-it('truncates an over-long h3 trigger at a separator without adding ellipsis', function () {
-    $html = '<h3>とても長い見出しがここにあります、そしてさらに続く追加の説明文もあります</h3>';
+it('truncates an over-long h3 only right after 、 or 。 without ellipsis', function () {
+    $html = '<h3>各社の新型情報をまとめた特集です、続きは本文で詳しく解説する長い見出しの文章になります</h3>';
 
-    $trigger = ModelImpactTitleBuilder::triggerFromContent($html, null);
-    expect(mb_strlen($trigger))->toBeLessThanOrEqual(24);
+    $trigger = ModelImpactTitleBuilder::triggerFromContent($html);
+    expect($trigger)->toBe('各社の新型情報をまとめた特集です');
     expect($trigger)->not->toContain('…');
-    expect($trigger)->not->toContain('、そして');
+});
+
+it('omits the trigger when an over-long h3 cannot be cut safely (no punctuation)', function () {
+    // 31文字・「、」「。」なし → どこでも安全に切れない → 省略。
+    $html = '<h3>ポッシュフェイス製スプロケットカバーでZ900RSがさらに進化</h3>';
+
+    expect(ModelImpactTitleBuilder::triggerFromContent($html))->toBeNull();
+});
+
+it('never cuts inside brackets (no dangling opening bracket)', function () {
+    $html = '<h3>各社が動いた特集「新型Ninja、ついに登場」を詳しく解説する長い見出しの文章です</h3>';
+
+    // 唯一の「、」は「」の内側なので切れない → 省略。
+    expect(ModelImpactTitleBuilder::triggerFromContent($html))->toBeNull();
+});
+
+it('never produces a trigger ending with a separator like ／', function () {
+    $html = '<h3>今週の新型情報まとめはこちら／、さらに続きます各社の動向を追った特集記事です</h3>';
+
+    $trigger = ModelImpactTitleBuilder::triggerFromContent($html);
+    if ($trigger !== null) {
+        expect(mb_substr($trigger, -1))->not->toBe('／');
+    } else {
+        expect($trigger)->toBeNull();
+    }
+});
+
+it('never produces a trigger ending with a particle', function () {
+    $html = '<h3>最新モデルの詳細情報はこちらが、続きを読むと各社の戦略が見えてくる特集記事です</h3>';
+
+    $trigger = ModelImpactTitleBuilder::triggerFromContent($html);
+    // 「、」の手前が「が」で終わるため切れない → 省略。
+    expect($trigger)->toBeNull();
 });
 
 // ─────────── 修正E: 「その他」カテゴリは車種でない ───────────

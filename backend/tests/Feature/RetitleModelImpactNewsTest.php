@@ -72,8 +72,9 @@ it('adds a trigger summary from the first h3 (revision A)', function () {
 
     $this->artisan('news:retitle-model-impact')->assertSuccessful();
 
+    // h3 はそのまま使う（車種名の重複除去はしない）。
     expect($news->fresh()->title)
-        ->toBe('レブル250の中古相場、平均58.2万円・在庫1019台｜新型にEクラッチ搭載（2026年8月）');
+        ->toBe('レブル250の中古相場、平均58.2万円・在庫1019台｜新型レブル250にEクラッチ搭載（2026年8月）');
 });
 
 it('uses the no-numbers relative form when only a trigger is available', function () {

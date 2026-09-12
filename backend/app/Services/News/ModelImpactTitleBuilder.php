@@ -25,11 +25,8 @@ use App\Models\BikeModel;
  */
 final class ModelImpactTitleBuilder
 {
-    /** タイトル要約から取り除く評価語（事実ベースにするため）。 */
-    private const EVALUATIVE_WORDS = [
-        'さらに進化', 'さらなる進化', '注目の', '注目', '話題の', '話題', '人気の',
-        '魅力的な', '魅力の', '待望の', '衝撃の', '驚きの', '究極の', '最強の', '期待の',
-    ];
+    /** トリガー要約の最大長（全角30文字）。超える場合のみ「、」「。」の切れ目で切る。 */
+    private const TRIGGER_MAX = 30;
 
     /**
      * 通常タイトルを組み立てる。車種名が無ければ null。
@@ -174,7 +171,8 @@ final class ModelImpactTitleBuilder
     }
 
     /**
-     * トリガー要約を事実ベースに整える。空・評価語のみ・長すぎる場合は null（＝タイトルから省く）。
+     * トリガー要約を最小限に整える。空・「〜」のみ・長すぎ（>30）は null（＝タイトルから省く）。
+     * 評価語や車種名の除去はしない（部分一致で文が壊れるため）。
      */
     public static function sanitizeTrigger(?string $trigger): ?string
     {
@@ -182,22 +180,13 @@ final class ModelImpactTitleBuilder
             return null;
         }
 
-        $trigger = self::mbTrim($trigger);
-        if ($trigger === '') {
-            return null;
-        }
-
-        foreach (self::EVALUATIVE_WORDS as $word) {
-            $trigger = str_replace($word, '', $trigger);
-        }
         $trigger = self::normalizeDashes(self::mbTrim($trigger));
 
         if ($trigger === '' || $trigger === '〜' || $trigger === '～') {
             return null;
         }
 
-        // 20文字程度の要約を想定。極端に長いものは要約失敗とみなし省く。
-        if (mb_strlen($trigger) > 32) {
+        if (mb_strlen($trigger) > self::TRIGGER_MAX) {
             return null;
         }
 
@@ -207,89 +196,86 @@ final class ModelImpactTitleBuilder
     /**
      * 本文の最初の h3 をトリガー要約に使う（既存記事書き換え／新規生成の空フォールバック共通）。
      *
-     * 手順: タグ除去 → 車種名を除去（前半と重複するため）→ 評価語を落とす → ダッシュ正規化 →
-     *       全角24文字を超えたら句読点・助詞の切れ目で切る（… は付けない）→ 末尾の助詞・記号を除去。
-     * h3 が無い・整形後に空なら null（＝トリガー句ごと省略）。
+     * 方針: h3 をできるだけそのまま使う。
+     *   1) タグ除去し空白を詰める（連続スペースは1つに）
+     *   2) 車種名・評価語の除去は一切しない
+     *   3) 全角30文字までならそのまま採用
+     *   4) 30文字超は「、」「。」の直後でのみ切る。ただし
+     *      ・括弧（「」『』（））の内側では切らない（開き括弧だけを含んで終わる結果を作らない）
+     *      ・末尾が「／」「/」「＆」「&」「・」や助詞（が・の・に・を・で・と・は・も・へ）になる位置では切らない
+     *      ・安全に切れる位置が無ければトリガー句ごと省略（null）
+     * h3 が無い・整形後に空なら null。
      */
-    public static function triggerFromContent(string $html, ?string $officialName): ?string
+    public static function triggerFromContent(string $html): ?string
     {
         if (preg_match('/<h3\b[^>]*>(.*?)<\/h3>/isu', $html, $m) !== 1) {
             return null;
         }
 
-        $text = self::normalizeDashes(self::mbTrim(strip_tags($m[1])));
+        $text = self::normalizeDashes(self::plainText($m[1]));
         if ($text === '') {
             return null;
         }
 
-        // 車種名を除去（ラテンは大小無視）。officialName は既に整形済み。
-        if ($officialName !== null && $officialName !== '') {
-            $removed = str_ireplace($officialName, '', $text);
-            $removed = self::mbTrim($removed);
-            if ($removed !== '') {
-                $text = $removed;
-            }
-        }
-
-        // 評価語を落とす。落とした結果が空になるなら落とさない（元のまま使う）。
-        $stripped = $text;
-        foreach (self::EVALUATIVE_WORDS as $word) {
-            $stripped = str_replace($word, '', $stripped);
-        }
-        $stripped = self::mbTrim($stripped);
-        if ($stripped !== '') {
-            $text = $stripped;
-        }
-
-        // 24文字超は切れ目で切る。
-        $text = self::truncateTrigger($text, 24);
-
-        // 末尾に残った助詞・記号を落として体言止め寄りにする。
-        $text = self::trimTrailingParticles($text);
-
-        return $text === '' ? null : $text;
-    }
-
-    /**
-     * 全角24文字を超える場合、句読点・区切り記号の切れ目で切る。無ければ 24 で切る（… は付けない）。
-     */
-    private static function truncateTrigger(string $text, int $max): string
-    {
-        if (mb_strlen($text) <= $max) {
+        if (mb_strlen($text) <= self::TRIGGER_MAX) {
             return $text;
         }
 
-        $separators = ['、', '。', '，', '．', '・', '　', ' '];
-        $cut = null;
-        for ($i = 1; $i <= $max; $i++) {
-            if (in_array(mb_substr($text, $i - 1, 1), $separators, true)) {
-                $cut = $i - 1; // 区切り記号の手前で切る
-            }
-        }
-
-        if ($cut !== null && $cut > 0) {
-            return self::mbTrim(mb_substr($text, 0, $cut));
-        }
-
-        return self::mbTrim(mb_substr($text, 0, $max));
+        return self::cutTriggerAtSentence($text);
     }
 
     /**
-     * 末尾の助詞・区切り記号を繰り返し除去する（「…カバーでが」→「…カバー」）。
+     * 30文字を超えるトリガーを「、」「。」の直後（＝記号の手前まで）で安全に切る。
+     * 括弧の内側・末尾が区切り/助詞になる位置は避ける。安全に切れなければ null。
      */
-    private static function trimTrailingParticles(string $text): string
+    private static function cutTriggerAtSentence(string $text): ?string
     {
-        $trailing = ['で', 'に', 'を', 'が', 'は', 'と', 'の', 'へ', 'も', 'や', '、', '。', '，', '．', '・', ' ', '　'];
+        $limit = min(mb_strlen($text), self::TRIGGER_MAX);
+        $best = null;
 
-        while ($text !== '') {
-            $last = mb_substr($text, -1);
-            if (! in_array($last, $trailing, true)) {
-                break;
+        for ($i = 0; $i < $limit; $i++) {
+            $ch = mb_substr($text, $i, 1);
+            if ($ch !== '、' && $ch !== '。') {
+                continue;
             }
-            $text = mb_substr($text, 0, -1);
+
+            $kept = self::mbTrim(mb_substr($text, 0, $i)); // 「、」「。」は含めない
+            if ($kept === '') {
+                continue;
+            }
+            if (! self::bracketsBalanced($kept)) {
+                continue;
+            }
+            if (self::endsWithSeparatorOrParticle($kept)) {
+                continue;
+            }
+
+            $best = $kept; // 条件を満たす最後（最長）の位置を採用
         }
 
-        return $text;
+        return $best;
+    }
+
+    private static function bracketsBalanced(string $text): bool
+    {
+        $pairs = ['「' => '」', '『' => '』', '（' => '）'];
+        foreach ($pairs as $open => $close) {
+            if (substr_count($text, $open) !== substr_count($text, $close)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static function endsWithSeparatorOrParticle(string $text): bool
+    {
+        $bad = [
+            '／', '/', '＆', '&', '・',            // 区切り
+            'が', 'の', 'に', 'を', 'で', 'と', 'は', 'も', 'へ', // 助詞
+        ];
+
+        return in_array(mb_substr($text, -1), $bad, true);
     }
 
     /**

@@ -87,7 +87,7 @@ final class RetitleModelImpactNews extends Command
             $yearMonth = $date->format('Y年n月');
             $yearMonthDay = $date->format('Y年n月j日');
 
-            $trigger = ModelImpactTitleBuilder::triggerFromContent((string) $news->content, $officialName);
+            $trigger = ModelImpactTitleBuilder::triggerFromContent((string) $news->content);
             $numbers = ModelImpactTitleBuilder::extractNumbers((string) $news->content);
 
             if ($numbers !== null) {
