@@ -40,29 +40,43 @@
         </div>
 
         <div class="max-w-7xl mx-auto px-4 py-8">
-            @if(empty($sizes))
+            @if(empty($groups))
                 <p class="text-sm text-gray-500">現在、掲載条件を満たすタイヤサイズがありません。</p>
             @else
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                @foreach($sizes as $s)
-                <a href="{{ route('bikes.tire_size.show', ['sizeSlug' => $s['size_slug']]) }}"
-                   class="block rounded-xl bg-white border border-gray-100 p-4 hover:shadow-md transition-shadow">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm font-black text-gray-900">{{ $s['size'] }}</span>
-                        <span class="text-[11px] font-bold text-gray-400">{{ number_format((int) $s['count']) }}車種</span>
+            <div class="space-y-10">
+                @foreach($groups as $group)
+                <section>
+                    {{-- リム径グループの見出し＋説明。説明が「自分は17インチかも」の入口になる。 --}}
+                    <div class="flex items-baseline gap-3 mb-4">
+                        <h2 class="text-lg font-black text-gray-900">{{ $group['label'] }}</h2>
+                        <span class="text-[11px] font-bold text-gray-400">{{ number_format((int) $group['count']) }}サイズ</span>
                     </div>
-                    {{-- 代表画像（在庫多い順・画像有りのみ最大3枚）。1枚も無ければ領域自体を出さない。 --}}
-                    @if(! empty($s['images']))
-                    <div class="mt-3 grid grid-cols-3 gap-1.5">
-                        @foreach($s['images'] as $img)
-                        <div class="aspect-[4/3] rounded-lg overflow-hidden bg-gray-50">
-                            <img src="{{ $img['url'] }}" alt="{{ $img['name'] }}" width="120" height="90"
-                                 class="w-full h-full object-cover" loading="lazy" decoding="async">
-                        </div>
+                    @if($group['desc'] !== '')
+                    <p class="text-xs text-gray-500 -mt-3 mb-4">{{ $group['desc'] }}</p>
+                    @endif
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        @foreach($group['sizes'] as $s)
+                        <a href="{{ route('bikes.tire_size.show', ['sizeSlug' => $s['size_slug']]) }}"
+                           class="flex items-start gap-3 rounded-xl bg-white border border-gray-100 p-4 hover:shadow-md transition-shadow">
+                            {{-- サーバー側で描いた同心円のタイヤ断面図（共通縮尺）。描けないサイズは枠ごと省略。 --}}
+                            @if(! empty($s['svg']))
+                            <span class="shrink-0 w-[92px] h-[92px]">{!! $s['svg'] !!}</span>
+                            @endif
+                            <span class="min-w-0 flex-1">
+                                <span class="block text-sm font-black text-gray-900">{{ $s['size'] }}</span>
+                                @if(! empty($s['dim_text']))
+                                <span class="block text-[11px] text-gray-500 mt-0.5">{{ $s['dim_text'] }}</span>
+                                @endif
+                                <span class="block text-[11px] font-bold text-gray-400 mt-1">{{ number_format((int) $s['count']) }}車種</span>
+                                @if(! empty($s['names']))
+                                <span class="block text-xs text-gray-600 mt-1 line-clamp-2">{{ implode('、', $s['names']) }}{{ $s['more'] ? ' ほか' : '' }}</span>
+                                @endif
+                            </span>
+                        </a>
                         @endforeach
                     </div>
-                    @endif
-                </a>
+                </section>
                 @endforeach
             </div>
             @endif

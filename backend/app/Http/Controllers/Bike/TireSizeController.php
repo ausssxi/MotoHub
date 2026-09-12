@@ -18,9 +18,10 @@ final class TireSizeController extends Controller
 {
     public function index(): View
     {
-        $sizes = TireSize::pageableIndex(); // 多い順・[['size','size_slug','count'], ...]
+        // リム径でグループ化した索引（各サイズに寸法・SVG図・代表車種名付き）。
+        $groups = TireSize::indexData();
 
-        return view('bikes.tire-size-index', compact('sizes'));
+        return view('bikes.tire-size-index', compact('groups'));
     }
 
     public function show(string $sizeSlug): View

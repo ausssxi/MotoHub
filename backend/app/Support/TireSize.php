@@ -20,6 +20,12 @@ use Illuminate\Support\Str;
 final class TireSize
 {
     /**
+     * 全カード共通の縮尺。720mm を 92px として描く。カードごとに拡大縮小しない
+     * （共通縮尺だからこそ 21インチと 10インチの大きさの差が実比率どおりに見える）。
+     */
+    public const PX_PER_MM = 92 / 720;
+
+    /**
      * 生のタイヤ表記を比較用のコア文字列へ正規化する。突き合わせ不能・データ無しは null。
      */
     public static function normalize(?string $raw): ?string
@@ -174,6 +180,243 @@ final class TireSize
     public static function isValidSizeSlug(string $sizeSlug): bool
     {
         return $sizeSlug !== '' && preg_match('/^[a-z0-9\-]+$/', $sizeSlug) === 1;
+    }
+
+    /**
+     * タイヤ表記から寸法を算出する。解釈できない表記は null（推測で描かないため）。
+     *
+     * メトリック（120/70ZR17 等）: 幅=第1数値mm、扁平=第2数値/100、リム=第3数値インチ。
+     *   アスペクトとリムの間に英字（ZR/R/B 等）か「-」の区切りが必須。区切りが無い連結
+     *   （100/9019 等の汚れデータ）は解釈しない。
+     * インチ（2.75-21 等）: 幅=第1数値×25.4mm、扁平=1.0（バイアスの慣例で100%）。
+     * サイドウォール=幅×扁平、外径=リム径×25.4 + サイドウォール×2。
+     *
+     * @return array{type:string,width_mm:float,aspect:float,rim_inch:int,sidewall_mm:float,outer_mm:float}|null
+     */
+    public static function dimensions(?string $raw): ?array
+    {
+        $s = self::normalize($raw);
+        if ($s === null) {
+            return null;
+        }
+
+        // メトリック: 幅 / 扁平(2桁) [英字|-] リム。区切り必須で 100/9019 のような連結を弾く。
+        if (preg_match('/^(\d{2,3})\/(\d{2})(?:[A-Z]{1,2}|-)(\d{1,2})$/', $s, $m) === 1) {
+            $width = (float) $m[1];
+            $aspect = ((float) $m[2]) / 100;
+            $rim = (int) $m[3];
+            $sidewall = $width * $aspect;
+
+            return [
+                'type' => 'metric',
+                'width_mm' => $width,
+                'aspect' => $aspect,
+                'rim_inch' => $rim,
+                'sidewall_mm' => round($sidewall, 1),
+                'outer_mm' => round($rim * 25.4 + $sidewall * 2, 1),
+            ];
+        }
+
+        // インチ（バイアス）: 幅(×25.4) - リム。扁平は100%固定。
+        if (preg_match('/^(\d\.\d{2})-(\d{1,2})$/', $s, $m) === 1) {
+            $width = ((float) $m[1]) * 25.4;
+            $rim = (int) $m[2];
+
+            return [
+                'type' => 'inch',
+                'width_mm' => round($width, 2),
+                'aspect' => 1.0,
+                'rim_inch' => $rim,
+                'sidewall_mm' => round($width, 2),
+                'outer_mm' => round($rim * 25.4 + $width * 2, 1),
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * 寸法から同心円のタイヤ断面 SVG を組み立てる。dimensions() が null なら null（図なし）。
+     * トレッドは破線円1本で表現（線を並べると要素が膨れるため）。装飾なので aria-hidden。
+     */
+    public static function svg(?array $dimensions): ?string
+    {
+        if ($dimensions === null) {
+            return null;
+        }
+
+        $px = self::PX_PER_MM;
+        $outerR = round($dimensions['outer_mm'] / 2 * $px, 2);
+        $rimR = round($dimensions['rim_inch'] * 25.4 / 2 * $px, 2);
+        $hubR = round($rimR * 0.32, 2);
+        $treadR = round($outerR - 2.7, 2);
+
+        return '<svg viewBox="0 0 92 92" width="92" height="92" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">'
+            .'<circle cx="46" cy="46" r="'.$outerR.'" fill="#1e293b"/>'
+            .'<circle cx="46" cy="46" r="'.$treadR.'" fill="none" stroke="#94a3b8" stroke-width="3" stroke-dasharray="2 2.4"/>'
+            .'<circle cx="46" cy="46" r="'.$rimR.'" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1"/>'
+            .'<circle cx="46" cy="46" r="'.$hubR.'" fill="#cbd5e1"/>'
+            .'</svg>';
+    }
+
+    /**
+     * カードに出す寸法テキスト。メトリックは扁平率あり、インチは扁平率を出さない。null なら null。
+     */
+    public static function dimensionText(?array $dimensions): ?string
+    {
+        if ($dimensions === null) {
+            return null;
+        }
+
+        $outer = (int) round($dimensions['outer_mm']);
+        if ($dimensions['type'] === 'metric') {
+            $width = (int) round($dimensions['width_mm']);
+            $aspect = (int) round($dimensions['aspect'] * 100);
+
+            return "幅{$width}mm・扁平{$aspect}%・外径約{$outer}mm";
+        }
+
+        $width = (int) round($dimensions['width_mm']);
+
+        return "幅約{$width}mm・外径約{$outer}mm";
+    }
+
+    /** リム径 → グループキー。dimensions() が null（判定不能）や規定外リムは 'other'。 */
+    private static function rimBucket(?array $dimensions): string
+    {
+        if ($dimensions === null) {
+            return 'other';
+        }
+
+        $rim = (int) $dimensions['rim_inch'];
+
+        return match (true) {
+            $rim === 21 => '21',
+            $rim === 19 => '19',
+            $rim === 18 => '18',
+            $rim === 17 => '17',
+            $rim === 16 => '16',
+            $rim >= 12 && $rim <= 14 => '12-14',
+            $rim <= 10 => '10',
+            default => 'other', // 11/15/20 等の稀なリムは索引の見出しに無いのでその他へ
+        };
+    }
+
+    /** 索引ページのリムグループ定義（表示順・見出し・説明）。 */
+    private const RIM_GROUPS = [
+        ['key' => '21', 'label' => '21インチ', 'desc' => 'オフロード・アドベンチャーの前輪'],
+        ['key' => '19', 'label' => '19インチ', 'desc' => 'クラシック・クルーザーの前輪'],
+        ['key' => '18', 'label' => '18インチ', 'desc' => '旧車・ネイキッドの前輪'],
+        ['key' => '17', 'label' => '17インチ', 'desc' => 'スポーツ・ネイキッドの前輪（最も多い）'],
+        ['key' => '16', 'label' => '16インチ', 'desc' => 'アメリカン・大型クルーザーの前輪'],
+        ['key' => '12-14', 'label' => '12〜14インチ', 'desc' => 'スクーター・ミニバイク'],
+        ['key' => '10', 'label' => '10インチ以下', 'desc' => '原付スクーター'],
+        ['key' => 'other', 'label' => 'その他', 'desc' => '寸法を図示できない表記のサイズ'],
+    ];
+
+    /**
+     * 索引ページ用データ。ページ化サイズ（前輪一致5件以上）をリム径でグループ化し、
+     * 各サイズに寸法・SVG・寸法テキスト・代表車種名（display_name 上位3）を添える。
+     *
+     * N+1 回避: 全車種を1クエリ、在庫を1クエリで取得し PHP 側で振り分ける（カード毎に引かない）。
+     * SVG・テキスト・車種名は素の文字列だけをキャッシュ（Eloquent は入れない）。
+     *
+     * @return array<int, array{label:string, desc:string, count:int, sizes:array<int, array<string,mixed>>}>
+     */
+    public static function indexData(): array
+    {
+        return Cache::remember('tire_size_index_page_v1', 86400, function (): array {
+            $all = BikeModel::query()
+                ->select('id', 'name', 'display_name', 'manufacturer_id', 'tire_size_front')
+                ->get();
+
+            $groups = []; // 正規化サイズ => メンバー車種
+            foreach ($all as $m) {
+                $nf = self::normalize($m->tire_size_front);
+                if ($nf !== null) {
+                    $groups[$nf][] = $m;
+                }
+            }
+            $pageable = array_filter($groups, static fn (array $members): bool => count($members) >= 5);
+
+            // 在庫（is_sold_out=0）をページ化メンバー全部まとめて1クエリ。
+            $allIds = [];
+            foreach ($pageable as $members) {
+                foreach ($members as $m) {
+                    $allIds[] = (int) $m->id;
+                }
+            }
+            $stock = empty($allIds)
+                ? collect()
+                : Listing::query()->whereIn('bike_model_id', $allIds)->where('is_sold_out', 0)
+                    ->selectRaw('bike_model_id, COUNT(*) as cnt')->groupBy('bike_model_id')->pluck('cnt', 'bike_model_id');
+
+            $cards = [];
+            foreach ($pageable as $size => $members) {
+                // ルート制約に収まらない slug（想定外記号残り）はリンク不能なので索引から除外。
+                $slug = self::sizeSlug((string) $size);
+                if (! self::isValidSizeSlug($slug)) {
+                    continue;
+                }
+
+                // 在庫多い順 → 車種名昇順（代表車種の選出順）。
+                usort($members, static function ($a, $b) use ($stock): int {
+                    $sa = (int) ($stock[$a->id] ?? 0);
+                    $sb = (int) ($stock[$b->id] ?? 0);
+                    if ($sa !== $sb) {
+                        return $sb <=> $sa;
+                    }
+
+                    return strcmp((string) $a->name, (string) $b->name);
+                });
+
+                // 代表車種名は display_name のみ（name の小文字表示は出さない）。最大3件。
+                $names = [];
+                foreach ($members as $m) {
+                    $dn = trim((string) ($m->display_name ?? ''));
+                    if ($dn === '') {
+                        continue;
+                    }
+                    $names[] = $dn;
+                    if (count($names) >= 3) {
+                        break;
+                    }
+                }
+
+                $count = count($members);
+                $dims = self::dimensions((string) $size);
+
+                $cards[] = [
+                    'size' => (string) $size,
+                    'size_slug' => $slug,
+                    'count' => $count,
+                    'svg' => self::svg($dims),
+                    'dim_text' => self::dimensionText($dims),
+                    'names' => $names,
+                    'more' => $count > count($names), // 代表名より車種が多ければ「ほか」
+                    'rim_bucket' => self::rimBucket($dims),
+                ];
+            }
+
+            // 規定のリム順にグループ化。各グループ内は車種数の多い順。空グループは出さない。
+            $out = [];
+            foreach (self::RIM_GROUPS as $def) {
+                $inGroup = array_values(array_filter($cards, static fn (array $c): bool => $c['rim_bucket'] === $def['key']));
+                if (empty($inGroup)) {
+                    continue;
+                }
+                usort($inGroup, static fn (array $a, array $b): int => $b['count'] <=> $a['count']);
+
+                $out[] = [
+                    'label' => $def['label'],
+                    'desc' => $def['desc'],
+                    'count' => count($inGroup),
+                    'sizes' => $inGroup,
+                ];
+            }
+
+            return $out;
+        });
     }
 
     /**
