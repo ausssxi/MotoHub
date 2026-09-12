@@ -146,12 +146,13 @@ Schedule::command('pois:assign-municipality --execute')->dailyAt('04:10')->appen
 // POI住所逆ジオコーディング（毎日4:30 — 5000件ずつ段階処理）
 Schedule::command('poi:geocode')->dailyAt('04:30')->appendOutputTo(storage_path('logs/poi.log'));
 
-// POI最近傍の事前計算（週1・日曜5:30 — 「次のGS/コンビニまで◯km」を表示時ではなく夜間に1回だけ計算）。
-// GS/コンビニの場所は滅多に変わらないので日次不要。週次で未計算(nearest_computed_at IS NULL)の差分だけ処理する。
-// 時刻の根拠: その晩の poi:fetch(3:30)→assign(4:10)→geocode(4:30) と 04:40 ogp / 04:50 sold-out precompute /
-//   05:10 cache:warm-ranking の後の空き枠。既存ジョブと同一分に重ねない（06:00 news の手前）。
-// withoutOverlapping: 前週分が長引いても翌週と多重起動しないため。初回の全件バックフィルは手動実行(--limit/--force)で行う。
-Schedule::command('poi:compute-nearest')->weeklyOn(0, '05:30')->withoutOverlapping()->appendOutputTo(storage_path('logs/poi.log'));
+// POI最近傍の事前計算（毎晩4:50 — 「次のGS/コンビニまで◯km」を表示時ではなく夜間に計算）。
+// ★毎晩にする理由: poi:fetch(3:30)が毎晩POIを追加するため、週次だと最大7日分の未計算行が溜まり、
+//   「離島(近傍なし)」と「未計算」を区別できず誤って『他にありません』表示になる（本番で佐久市等が該当）。
+//   既定は nearest_computed_at IS NULL の差分だけ処理＝新規分は数秒（全件79秒は初回のみ）。
+// 種別指定なし＝gas_station/convenience_store/car_wash/michi_no_eki の未計算行をまとめて処理する。
+// 時刻の根拠: その晩の poi:geocode(4:30)の後・05:10 cache:warm-ranking の前の空き枠。初回全件は手動(--limit/--force)。
+Schedule::command('poi:compute-nearest')->dailyAt('04:50')->withoutOverlapping()->appendOutputTo(storage_path('logs/poi.log'));
 
 // OGP画像キャッシュの掃除（毎日4:40 — 30日より古い ogp/ 配下のキャッシュを削除）。
 // 遅延生成キャッシュなので消えても次アクセスで再生成される。掃除が無く月2GB増だった対策。

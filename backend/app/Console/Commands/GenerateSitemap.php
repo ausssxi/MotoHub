@@ -1215,10 +1215,10 @@ class GenerateSitemap extends Command
 
                 // 離島: 100km以内に他のGSが無い（計算済みで nearest_same_type_id が null）。実測3件。
                 // A群の予測値には含まれない（m が null のため）が、給油計画上もっとも価値が高いので必ず載せる。
+                // ★未計算(nearest_computed_at IS NULL)は genuinelyIsolated() が除外する＝毎晩追加分を離島として載せない。
                 $gsIsland = 0;
                 $poiDetailBase()
-                    ->whereNotNull('nearest_computed_at')
-                    ->whereNull('nearest_same_type_id')
+                    ->genuinelyIsolated()
                     ->orderBy('id')
                     ->chunk(500, function ($rows) use ($writePoiDetail, &$gsIsland) {
                         foreach ($rows as $poi) {

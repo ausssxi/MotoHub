@@ -79,6 +79,34 @@ final class Poi extends Model
     }
 
     /**
+     * 最近傍が計算済みか（nearest_computed_at IS NOT NULL）。
+     * これが false の行は「離島」でも「近傍あり」でもなく“判定不能”。
+     * poi:fetch(毎晩) が追加した未計算行を、間違って離島扱いしないための唯一の判定入口。
+     */
+    public function nearestComputed(): bool
+    {
+        return $this->nearest_computed_at !== null;
+    }
+
+    /**
+     * 本物の離島か（計算済み かつ 100km以内に同種別POIが無い）。
+     * 未計算（nearest_computed_at IS NULL）は false を返す（「他にありません」を出さない）。
+     */
+    public function isGenuinelyIsolated(): bool
+    {
+        return $this->nearest_computed_at !== null && $this->nearest_same_type_id === null;
+    }
+
+    /**
+     * 本物の離島だけを選ぶスコープ（表示・サイトマップ・各種別で共通の唯一の条件）。
+     * 未計算行は除外する。isGenuinelyIsolated() の SQL 版。
+     */
+    public function scopeGenuinelyIsolated(Builder $query): Builder
+    {
+        return $query->whereNotNull('nearest_computed_at')->whereNull('nearest_same_type_id');
+    }
+
+    /**
      * GS(type=gas_station)の brand から地図ピンの運営分類キーを返す。
      *
      *   'eneos'|'idemitsu'|'cosmo'|'ja-ss'|'hokuren'|'kygnus'|'solato' … 固有色

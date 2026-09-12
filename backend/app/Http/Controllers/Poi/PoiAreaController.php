@@ -295,6 +295,7 @@ final class PoiAreaController extends Controller
         $carWashSummary = '';
         $gasSummary = '';
         $nextGas = null;
+        $gasIsolated = false;
 
         if ($isCarWash) {
             [$nearbyShops, $nearbyParkings, $nearbyGarages, $nearestStation, $carWashSummary]
@@ -320,16 +321,24 @@ final class PoiAreaController extends Controller
                     return [$shops, $parkings, $garages, $station, $this->carWashSummary($poi, $prefecture, $city, $station, $counts)];
                 });
         } elseif ($isGas) {
-            // 周辺は2種類だけ（洗車場・バイク駐車場）。16,546ページ規模のため4種類は投げない。TTLは7日。
-            // 「次のGS」は $poi->nearest_same_type_* を読むだけ（フェーズ1の事前計算）で空間クエリを投げない。
-            [$nearbyWashes, $nearbyParkings, $nearestStation, $nextGas, $gasSummary]
-                = Cache::remember("gs_detail_nearby:v1:{$poi->id}", 604800, function () use ($poi, $prefecture, $city, $lat, $lng) {
+            // 周辺は2種類だけ（洗車場・バイク駐車場）。16,546ページ規模のため4種類は投げない。空間クエリのみ7日キャッシュ。
+            // v1→v2: 「次のGS/離島」判定をキャッシュから外し毎回 $poi の事前計算列から出す構造に変更（旧キャッシュ無効化も兼ねる）。
+            [$nearbyWashes, $nearbyParkings, $nearestStation]
+                = Cache::remember("gs_detail_nearby:v2:{$poi->id}", 604800, function () use ($lat, $lng) {
                     $washes = $this->nearbyFacilities(Poi::query()->where('type', 'car_wash'), $lat, $lng);
                     $parkings = $this->nearbyFacilities(BikeParking::query()->where('is_active', 1), $lat, $lng);
                     $station = $this->nearestStation($lat, $lng);
 
-                    return [$washes, $parkings, $station, $this->resolveNextGas($poi), $this->gasSummary($poi, $prefecture, $city)];
+                    return [$washes, $parkings, $station];
                 });
+
+            // 「次のGSまで」「離島」は事前計算列を読むだけ（空間クエリ無し）＝キャッシュに載せず毎回最新。
+            // ★未計算(nearest_computed_at IS NULL)の行は離島扱いしない。poi:fetch(毎晩)追加分の誤表示を防ぐ核心。
+            $gasIsolated = $poi->isGenuinelyIsolated();
+            $nextGas = ($poi->nearestComputed() && $poi->nearest_same_type_id !== null)
+                ? $this->resolveNextGas($poi)
+                : null;
+            $gasSummary = $this->gasSummary($poi, $prefecture, $city);
         }
 
         // 見出しを近接GSのブランドで一意化するため、$display より先に近接GSを取得する（追加クエリなし・値を使い回す）。
@@ -371,6 +380,8 @@ final class PoiAreaController extends Controller
             // GSのみ内容を持つ（他種別は空／null/false）。ビュー側は gs でのみ表示する。
             'nearbyWashes' => $nearbyWashes,
             'nextGas' => $nextGas,
+            // 本物の離島（計算済み＆近傍なし）のときだけ true。未計算は false＝「他にありません」を出さない。
+            'gasIsolated' => $gasIsolated,
             'gasSummary' => $gasSummary,
             'gas24h' => $isGas ? $this->isGas24h($poi) : false,
             'crossLinks' => $this->listingCrossLinks(),
@@ -471,14 +482,18 @@ final class PoiAreaController extends Controller
             $text .= '24時間営業。';
         }
 
-        if ($poi->nearest_same_type_id === null) {
-            // 離島など（100km以内に他のGSが無い3件）。ツーリングでは価値の高い情報。
-            $text .= 'この付近に他のガソリンスタンドはありません。';
-        } elseif ($poi->nearest_same_type_m !== null) {
-            $km = round(((int) $poi->nearest_same_type_m) / 1000, 1);
-            $text .= $km < 0.1
-                ? '次のガソリンスタンドはすぐ近くにあります。'
-                : '次のガソリンスタンドまで約'.number_format($km, 1).'km。';
+        // 次のGS／離島は「計算済み」のときだけ言及する。未計算(nearest_computed_at IS NULL)は何も言わない
+        // （毎晩追加される未計算行を誤って「他にありません」と断定しないため。判定は Poi の共通入口に集約）。
+        if ($poi->nearestComputed()) {
+            if ($poi->nearest_same_type_id === null) {
+                // 本物の離島（100km以内に他のGSが無い）。ツーリングでは価値の高い情報。
+                $text .= 'この付近に他のガソリンスタンドはありません。';
+            } elseif ($poi->nearest_same_type_m !== null) {
+                $km = round(((int) $poi->nearest_same_type_m) / 1000, 1);
+                $text .= $km < 0.1
+                    ? '次のガソリンスタンドはすぐ近くにあります。'
+                    : '次のガソリンスタンドまで約'.number_format($km, 1).'km。';
+            }
         }
 
         return $text;

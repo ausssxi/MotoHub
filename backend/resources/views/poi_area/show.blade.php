@@ -95,7 +95,8 @@
                 @endif
 
                 {{-- GS詳細の目玉「次のガソリンスタンドまで◯km」。事前計算列を読むだけ（空間クエリ無し）。 --}}
-                @if($routePrefix === 'gs')
+                {{-- 未計算行（$nextGas も $gasIsolated も無い）はボックス自体を出さない＝「他にありません」の誤表示を防ぐ。 --}}
+                @if($routePrefix === 'gs' && ($nextGas || $gasIsolated))
                 <div class="bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 mb-4">
                     @if($nextGas)
                     <p class="text-[11px] font-bold text-gray-400 mb-0.5"><i data-lucide="fuel" class="inline w-3 h-3"></i> 次のガソリンスタンド</p>
