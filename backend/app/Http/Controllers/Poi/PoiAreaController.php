@@ -11,6 +11,7 @@ use App\Models\RentalGarage;
 use App\Models\RoadsideStation;
 use App\Models\Shop;
 use App\Models\Station;
+use App\Support\ShopNameNormalizer;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -168,7 +169,8 @@ final class PoiAreaController extends Controller
             ->orderBy('brand')
             ->orderBy('name')
             ->orderBy('id')
-            ->get(['id', 'name', 'brand', 'address', 'opening_hours', 'self_service', 'automated', 'latitude', 'longitude', 'municipality_code']);
+            // type は normalizedBrand() の種別分岐に必須（欠けると生の brand のまま出る）。
+            ->get(['id', 'type', 'name', 'brand', 'address', 'opening_hours', 'self_service', 'automated', 'latitude', 'longitude', 'municipality_code']);
 
         if ($pois->isEmpty()) {
             abort(404);
@@ -466,38 +468,41 @@ final class PoiAreaController extends Controller
             return $this->carWashLabel($poi, $prefecture, $city, $gasBrand);
         }
 
-        if ($type === 'gas_station') {
-            return $this->gasDisplay($poi, $prefecture, $city);
-        }
-
-        if ($type === 'convenience_store') {
-            return $this->konbiniDisplay($poi, $prefecture, $city);
+        if ($type === 'gas_station' || $type === 'convenience_store') {
+            return $this->brandHeading($poi, $prefecture, $city);
         }
 
         return $display;
     }
 
     /**
-     * GSの表示名。name を持つ施設（例「三菱商事エネルギー 牛潟SS」）はそのまま返す（name 内は一切いじらない）。
-     * name が無く brand から見出しを組む行（apollostation / ENEOS 等が同一市内に複数並ぶ）だけ、
-     * ブランドを正規化名（gasOperatorLabel: エネオス→ENEOS 等）にしたうえで townPart() の町名を併記して
-     * 見出しの重複を解消する（例: ENEOS（荏田東二丁目）/ apollostation（平台））。brand が無ければ displayName()。
+     * GS/コンビニ詳細の見出し。ブランドの表記ゆれを統一しつつ具体的店名は温存する（gas/コンビニ共通）。
+     *   - name が具体的店名（例「三菱商事エネルギー 牛潟SS」「apollostation 牛潟SS」）→ そのまま（name 内は一切いじらない）
+     *   - name が素のブランド名そのもの（正規化して config patterns と【完全一致】。例「エネオス」「JA」）→ 正規化名へ
+     *   - name が無い → brand を正規化名に（gas/cvsOperatorLabel）
+     *   正規化名になった見出しだけ townPart() の町名を併記して同一市内の重複を解消する（例: ENEOS（荏田東二丁目））。
+     *
+     * ★完全一致に限る＝「エネオス安波給油所」は patterns の「エネオス」を含むが完全一致でないので触らない（誤爆しない）。
      */
-    private function gasDisplay(Poi $poi, string $prefecture, string $city): string
+    private function brandHeading(Poi $poi, string $prefecture, string $city): string
     {
         $name = trim((string) ($poi->name ?? ''));
         if ($name !== '') {
-            return $name;
-        }
-
-        $brandLabel = $this->normalizedBrand($poi);
-        if ($brandLabel === null || $brandLabel === '') {
-            return $this->displayName($poi);
+            $exact = $this->exactBrandLabel($poi);
+            if ($exact === null) {
+                return $name; // 具体的店名 → 温存
+            }
+            $base = $exact; // 素のブランド名（完全一致）→ 正規化して町名併記へ
+        } else {
+            $base = $this->normalizedBrand($poi);
+            if ($base === null || $base === '') {
+                return $this->displayName($poi);
+            }
         }
 
         $town = $this->townPart($prefecture, $city, $poi->address);
 
-        return $town !== '' ? $brandLabel.'（'.$town.'）' : $brandLabel;
+        return $town !== '' ? $base.'（'.$town.'）' : $base;
     }
 
     /**
@@ -573,39 +578,15 @@ final class PoiAreaController extends Controller
             ? route($prefix.'.show', [$n->prefecture, $n->city, $n->id])
             : null;
 
-        $display = match ($n->type) {
-            'gas_station' => $this->gasDisplay($n, (string) $n->prefecture, (string) $n->city),
-            'convenience_store' => $this->konbiniDisplay($n, (string) $n->prefecture, (string) $n->city),
-            default => $this->displayName($n),
-        };
+        $display = ($n->type === 'gas_station' || $n->type === 'convenience_store')
+            ? $this->brandHeading($n, (string) $n->prefecture, (string) $n->city)
+            : $this->displayName($n);
 
         return [
             'display' => $display,
             'km' => round(((int) ($poi->nearest_same_type_m ?? 0)) / 1000, 1),
             'url' => $url,
         ];
-    }
-
-    /**
-     * コンビニの表示名。name を持つ行（例「セブンイレブン 柏あけぼの１丁目店」）はそのまま返す（name 内は一切いじらない）。
-     * name が無く brand から見出しを組む行だけ、ブランドを正規化名（cvsOperatorLabel: 7-ELEVEN→セブン-イレブン 等）に
-     * したうえで townPart() の町名を併記して重複を解消する（例: セブン-イレブン（下倉田町））。brand が無ければ displayName()。
-     */
-    private function konbiniDisplay(Poi $poi, string $prefecture, string $city): string
-    {
-        $name = trim((string) ($poi->name ?? ''));
-        if ($name !== '') {
-            return $name;
-        }
-
-        $brandLabel = $this->normalizedBrand($poi);
-        if ($brandLabel === null || $brandLabel === '') {
-            return $this->displayName($poi);
-        }
-
-        $town = $this->townPart($prefecture, $city, $poi->address);
-
-        return $town !== '' ? $brandLabel.'（'.$town.'）' : $brandLabel;
     }
 
     /**
@@ -626,6 +607,74 @@ final class PoiAreaController extends Controller
             'convenience_store' => Poi::cvsOperatorLabel($brand, Poi::cvsBrand($brand)) ?? $brand,
             default => $brand,
         };
+    }
+
+    /**
+     * name が「素のブランド名そのもの」のときだけ、その正規化表示名を返す（そうでなければ null）。
+     * 判定は name を ShopNameNormalizer で正規化し、config の brand トークンと【完全一致】するか。
+     * 部分一致では絶対に置換しない＝「エネオス安波給油所」は触らない（構造的に誤爆しない）。GS/コンビニのみ対象。
+     */
+    private function exactBrandLabel(Poi $poi): ?string
+    {
+        if ($poi->type !== 'gas_station' && $poi->type !== 'convenience_store') {
+            return null;
+        }
+        $name = trim((string) ($poi->name ?? ''));
+        if ($name === '') {
+            return null;
+        }
+
+        $tokens = $this->exactBrandTokens()[$poi->type] ?? [];
+
+        return $tokens[ShopNameNormalizer::normalize($name)] ?? null;
+    }
+
+    /** @var array<string, array<string, string>>|null  type => (正規化トークン => 正規化ブランド名) */
+    private ?array $exactBrandTokens = null;
+
+    /**
+     * 完全一致用の「正規化トークン → 正規化ブランド名」表を config から構築（1リクエスト1回・メモ化）。
+     * 各ブランドの patterns と表示名(name)を正規化してトークン化。cosmo / ja-ss は patterns が空で
+     * gasBrand() のガード判定に依存するため、そのガードのキーワードを完全一致トークンとして補う。
+     *
+     * @return array<string, array<string, string>>
+     */
+    private function exactBrandTokens(): array
+    {
+        if ($this->exactBrandTokens !== null) {
+            return $this->exactBrandTokens;
+        }
+
+        $build = static function (string $configKey): array {
+            $map = [];
+            foreach ((array) config($configKey, []) as $def) {
+                $name = $def['name'] ?? null;
+                if (! is_string($name) || $name === '') {
+                    continue;
+                }
+                foreach (array_merge($def['patterns'] ?? [], [$name]) as $token) {
+                    $k = ShopNameNormalizer::normalize((string) $token);
+                    if ($k !== '') {
+                        $map[$k] = $name;
+                    }
+                }
+            }
+
+            return $map;
+        };
+
+        $gas = $build('gas.brands');
+        // cosmo / ja-ss は gasBrand() のガード判定（patterns 空）。完全一致トークンを手当てする。
+        $cosmo = (string) config('gas.brands.cosmo.name', 'コスモ石油');
+        $jass = (string) config('gas.brands.ja-ss.name', 'JA-SS');
+        foreach (['コスモ' => $cosmo, 'cosmo' => $cosmo, 'ja' => $jass, 'ja-ss' => $jass, 'jass' => $jass, '全農' => $jass, '農協' => $jass] as $tok => $canonical) {
+            $gas[ShopNameNormalizer::normalize($tok)] = $canonical;
+        }
+
+        return $this->exactBrandTokens = [
+            'gas_station' => $gas,
+            'convenience_store' => $build('convenience.brands'),
+        ];
     }
 
     /**
@@ -1086,7 +1135,8 @@ final class PoiAreaController extends Controller
     {
         $name = trim((string) ($poi->name ?? ''));
         if ($name !== '') {
-            return $name;
+            // 素のブランド名そのもの（完全一致）だけ正規化名へ。具体的店名はそのまま。
+            return $this->exactBrandLabel($poi) ?? $name;
         }
 
         $brandLabel = $this->normalizedBrand($poi);

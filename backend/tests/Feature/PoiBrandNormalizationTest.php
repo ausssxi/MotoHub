@@ -117,3 +117,43 @@ it('GS詳細: name のある行は h1 をそのまま出し、ブランド欄だ
         ->assertSee('エネオス 南1条SS') // h1（name）は無変更
         ->assertSee('ENEOS');          // 「ブランド」欄は正規化
 });
+
+it('GS詳細: name が素のブランド名そのもの（完全一致）なら正規化する', function () {
+    $poi = bnPoi(['name' => 'エネオス', 'brand' => 'エネオス', 'address' => '青森県つがる市柏0-1', 'prefecture' => '青森県', 'city' => 'つがる市', 'municipality_code' => '02209']);
+    Cache::put("gs_detail_nearby:v2:{$poi->id}", [[], [], null], 600);
+
+    $this->get(route('gs.show', ['青森県', 'つがる市', $poi->id]))
+        ->assertOk()->assertSee('ENEOS')->assertDontSee('エネオス');
+});
+
+it('GS詳細: 部分一致は誤爆しない（エネオス安波給油所はそのまま）', function () {
+    $poi = bnPoi(['name' => 'エネオス安波給油所', 'brand' => 'エネオス', 'address' => '青森県つがる市柏0-1', 'prefecture' => '青森県', 'city' => 'つがる市', 'municipality_code' => '02209']);
+    Cache::put("gs_detail_nearby:v2:{$poi->id}", [[], [], null], 600);
+
+    // patterns の「エネオス」を含むが完全一致でないので name はそのまま（h1 無変更）。
+    $this->get(route('gs.show', ['青森県', 'つがる市', $poi->id]))
+        ->assertOk()->assertSee('エネオス安波給油所');
+});
+
+it('GS詳細: ガード系 name=JA も完全一致で JA-SS に正規化', function () {
+    $poi = bnPoi(['name' => 'JA', 'brand' => '', 'address' => '青森県つがる市柏0-1', 'prefecture' => '青森県', 'city' => 'つがる市', 'municipality_code' => '02209']);
+    Cache::put("gs_detail_nearby:v2:{$poi->id}", [[], [], null], 600);
+
+    $this->get(route('gs.show', ['青森県', 'つがる市', $poi->id]))
+        ->assertOk()->assertSee('JA-SS');
+});
+
+it('市区町村一覧: ブランドバッジが正規化される（typeを含めて解決）', function () {
+    // nearbyPois() の空間クエリ（SQLite不可）を避けるため同一市区町村に10件以上作る。
+    for ($i = 0; $i < 9; $i++) {
+        bnPoi(['name' => "GS{$i}", 'brand' => null, 'prefecture' => '青森県', 'city' => 'つがる市', 'municipality_code' => '02209']);
+    }
+    bnPoi(['name' => 'apollostation 牛潟SS', 'brand' => 'apollostation', 'prefecture' => '青森県', 'city' => 'つがる市', 'municipality_code' => '02209']);
+    bnPoi(['name' => 'エネオス安波給油所', 'brand' => 'エネオス', 'prefecture' => '青森県', 'city' => 'つがる市', 'municipality_code' => '02209']);
+
+    $this->get(route('gs.city', ['青森県', 'つがる市']))
+        ->assertOk()
+        ->assertSee('apollostation 牛潟SS') // 店名（display）はそのまま
+        ->assertSee('出光')                 // バッジ: apollostation → 出光（正規化）
+        ->assertSee('ENEOS');               // バッジ: エネオス → ENEOS（正規化）
+});
