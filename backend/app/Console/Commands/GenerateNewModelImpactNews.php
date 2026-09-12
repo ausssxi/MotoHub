@@ -132,6 +132,13 @@ final class GenerateNewModelImpactNews extends Command
                 continue;
             }
 
+            // 「その他(251〜400cc)」等は排気量カテゴリで車種ではない。記事が成立しないので生成しない。
+            if (str_starts_with($officialName, 'その他')) {
+                $this->warn("  → {$officialName}: 車種でない（排気量カテゴリ）、スキップ");
+
+                continue;
+            }
+
             // 同一cron実行内の車種重複チェック
             if (in_array($bikeModel->id, $processedModelNames, true)) {
                 $this->warn("  → {$bikeModel->name}: 同一実行内で処理済み、スキップ");
@@ -188,8 +195,14 @@ final class GenerateNewModelImpactNews extends Command
             }
 
             // タイトルは Claude ではなく事実ベースの部品から PHP 側で確定させる。
+            // トリガー要約は Claude 優先、空なら本文の最初の h3 から取る（既存書き換えと同じ扱い）。
+            $trigger = ModelImpactTitleBuilder::sanitizeTrigger($result['trigger_summary']);
+            if ($trigger === null) {
+                $trigger = ModelImpactTitleBuilder::triggerFromContent($result['body'], $officialName);
+            }
+
             $isNewModel = $result['is_new_model'] && $this->sourceLooksLikeNewModel($sourceNews->title);
-            $title = $this->buildTitle($officialName, $marketData, $result['trigger_summary'], $isNewModel, $titleDate);
+            $title = $this->buildTitle($officialName, $marketData, $trigger, $isNewModel, $titleDate);
 
             if ($title === null) {
                 $this->warn('  → タイトルを組み立てられず、スキップ');

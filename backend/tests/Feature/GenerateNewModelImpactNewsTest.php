@@ -91,8 +91,14 @@ it('resolves the official name from display_name, not the lowercase name', funct
     expect(ModelImpactTitleBuilder::officialName($model))->toBe('Z900RS');
 });
 
-it('returns null when only an all-lowercase latin name is available', function () {
+it('uppercases an all-lowercase latin name (rule D rescue)', function () {
     $model = impactModel(['name' => 'pcx', 'display_name' => null]);
+
+    expect(ModelImpactTitleBuilder::officialName($model))->toBe('PCX');
+});
+
+it('still rejects an unusable name with no latin letters nor japanese', function () {
+    $model = impactModel(['name' => '250', 'display_name' => null]);
 
     expect(ModelImpactTitleBuilder::officialName($model))->toBeNull();
 });

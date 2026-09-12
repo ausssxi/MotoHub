@@ -141,6 +141,95 @@ it('returns null when numbers cannot be extracted', function () {
     expect(ModelImpactTitleBuilder::extractNumbers('<p>数字のない本文です。</p>'))->toBeNull();
 });
 
+// ─────────── 修正B: strong 無し・動詞ゆれ・誤抽出防止 ───────────
+
+it('extracts numbers without strong tags and with the 流通 verb', function () {
+    $html = '<p>中古市場では1019台が流通しており、平均価格は58.2万円となっています。</p>';
+
+    expect(ModelImpactTitleBuilder::extractNumbers($html))->toBe(['count' => '1019', 'avg' => '58.2']);
+});
+
+it('does not pick 最安値 or 価格帯 prices as the average', function () {
+    $html = '<p>中古車は120台が流通。最安値は98.8万円、価格帯は27.5万円から184.5万円。'
+        .'平均は120万円です。</p>';
+
+    $result = ModelImpactTitleBuilder::extractNumbers($html);
+    expect($result['avg'])->toBe('120');
+    expect($result['avg'])->not->toBe('98.8');
+    expect($result['avg'])->not->toBe('27.5');
+});
+
+it('rejects an average when 平均 is not immediately followed by the number', function () {
+    // 「平均を下回る最安値は98.8万円」は平均として拾わない。
+    $html = '<p>掲載は200台。平均を下回る最安値は98.8万円です。</p>';
+
+    expect(ModelImpactTitleBuilder::extractNumbers($html))->toBeNull();
+});
+
+// ─────────── 修正C: 全角ダッシュ正規化 ───────────
+
+it('normalizes full-width minus and hyphen to ascii hyphen', function () {
+    expect(ModelImpactTitleBuilder::normalizeDashes('YZF−R7'))->toBe('YZF-R7'); // U+2212
+    expect(ModelImpactTitleBuilder::normalizeDashes('YZF－R7'))->toBe('YZF-R7'); // U+FF0D
+});
+
+it('never touches the long-vowel mark (ー)', function () {
+    expect(ModelImpactTitleBuilder::normalizeDashes('スーパーカブ'))->toBe('スーパーカブ');
+    expect(ModelImpactTitleBuilder::normalizeDashes('テネレ'))->toBe('テネレ');
+    // 長音を含みつつ全角マイナスも含む場合、マイナスだけ直る。
+    expect(ModelImpactTitleBuilder::normalizeDashes('スーパーカブ−C125'))->toBe('スーパーカブ-C125');
+});
+
+// ─────────── 修正D: 小文字のみラテン連続だけ大文字化 ───────────
+
+it('uppercases lowercase-only latin runs but leaves mixed-case alone', function () {
+    expect(ModelImpactTitleBuilder::formatModelName('z900rs'))->toBe('Z900RS');
+    expect(ModelImpactTitleBuilder::formatModelName('シグナスx sr'))->toBe('シグナスX SR');
+    expect(ModelImpactTitleBuilder::formatModelName('dio110・ベーシック'))->toBe('DIO110・ベーシック');
+    expect(ModelImpactTitleBuilder::formatModelName('z900rsカフェ'))->toBe('Z900RSカフェ');
+});
+
+it('does not globally uppercase names that already contain uppercase', function () {
+    expect(ModelImpactTitleBuilder::formatModelName('Ninja 250'))->toBe('Ninja 250');
+    expect(ModelImpactTitleBuilder::formatModelName('CBR400R'))->toBe('CBR400R');
+    // C→D の順で、Ninja ZX−4rr は Ninja ZX-4RR になる（Ninja は大文字を含むので不変）。
+    expect(ModelImpactTitleBuilder::formatModelName('Ninja ZX−4rr'))->toBe('Ninja ZX-4RR');
+});
+
+// ─────────── 修正A: 本文 h3 からトリガー要約 ───────────
+
+it('derives a trigger from the first h3 and strips the model name', function () {
+    $html = '<h3>新型レブル250にEクラッチ搭載</h3><p>ホンダから2026年モデルのレブル250が発表されました。</p>';
+
+    expect(ModelImpactTitleBuilder::triggerFromContent($html, 'レブル250'))->toBe('新型にEクラッチ搭載');
+});
+
+it('strips evaluative words and trailing particles from the h3 trigger', function () {
+    $html = '<h3>ポッシュフェイス製スプロケットカバーでZ900RSがさらに進化</h3><p>本文</p>';
+
+    expect(ModelImpactTitleBuilder::triggerFromContent($html, 'Z900RS'))
+        ->toBe('ポッシュフェイス製スプロケットカバー');
+});
+
+it('returns null when there is no h3', function () {
+    expect(ModelImpactTitleBuilder::triggerFromContent('<p>h3 のない本文</p>', 'Z900RS'))->toBeNull();
+});
+
+it('truncates an over-long h3 trigger at a separator without adding ellipsis', function () {
+    $html = '<h3>とても長い見出しがここにあります、そしてさらに続く追加の説明文もあります</h3>';
+
+    $trigger = ModelImpactTitleBuilder::triggerFromContent($html, null);
+    expect(mb_strlen($trigger))->toBeLessThanOrEqual(24);
+    expect($trigger)->not->toContain('…');
+    expect($trigger)->not->toContain('、そして');
+});
+
+// ─────────── 修正E: 「その他」カテゴリは車種でない ───────────
+
+it('keeps the その他 prefix so callers can skip non-model categories', function () {
+    expect(ModelImpactTitleBuilder::formatModelName('その他(251〜400cc)'))->toStartWith('その他');
+});
+
 // ─────────── formatMan() は本文と桁を合わせる ───────────
 
 it('formats man-yen consistently with the body (drops trailing zero)', function () {

@@ -63,6 +63,52 @@ it('rewrites the title with numbers that match the body', function () {
     expect($newTitle)->toContain('平均'.$avgMatch[1].'万円');
 });
 
+it('adds a trigger summary from the first h3 (revision A)', function () {
+    $model = retitleModel(['name' => 'rebel-250', 'display_name' => 'レブル250', 'slug' => 'rebel-250']);
+    $news = retitleArticle($model, [
+        'content' => '<h3>新型レブル250にEクラッチ搭載</h3>'
+            .'<p>中古市場では1019台が流通しており、平均価格は58.2万円となっています。</p>',
+    ]);
+
+    $this->artisan('news:retitle-model-impact')->assertSuccessful();
+
+    expect($news->fresh()->title)
+        ->toBe('レブル250の中古相場、平均58.2万円・在庫1019台｜新型にEクラッチ搭載（2026年8月）');
+});
+
+it('uses the no-numbers relative form when only a trigger is available', function () {
+    $model = retitleModel();
+    $news = retitleArticle($model, [
+        'content' => '<h3>OVER Racingが新マフラー発売</h3><p>数字は本文にありません。</p>',
+    ]);
+
+    $this->artisan('news:retitle-model-impact')->assertSuccessful();
+
+    expect($news->fresh()->title)
+        ->toBe('Z900RSの中古相場｜OVER Racingが新マフラー発売（2026年8月）');
+});
+
+it('rewrites (does not skip) その他 category articles', function () {
+    $mfr = new Manufacturer(['slug' => 'other']);
+    $mfr->name = 'その他';
+    $mfr->save();
+    $model = BikeModel::create([
+        'manufacturer_id' => $mfr->id,
+        'name' => 'その他(251〜400cc)',
+        'slug' => 'other-251-400',
+    ]);
+    $news = retitleArticle($model, [
+        'title' => 'その他(251〜400cc)の新型発表で旧型中古相場はどう動く？｜データで予測',
+        'content' => '<p>中古市場では120台が流通しており、平均価格は58.2万円となっています。</p>',
+    ]);
+
+    $this->artisan('news:retitle-model-impact')->assertSuccessful();
+
+    // 「cc」は小文字のみのラテン連続なので D で大文字化される（非車種カテゴリなので許容）。
+    expect($news->fresh()->title)
+        ->toBe('その他(251〜400CC)の中古相場、平均58.2万円・在庫120台（2026年8月）');
+});
+
 it('falls back to a date-based title when numbers cannot be extracted', function () {
     $model = retitleModel();
     $news = retitleArticle($model, ['content' => '<p>数字のない本文。</p>']);
@@ -106,8 +152,9 @@ it('breaks identical-title collisions with the date form', function () {
 });
 
 it('leaves articles whose model lacks an official name untouched', function () {
-    $model = retitleModel(['name' => 'pcx', 'display_name' => null]);
-    $news = retitleArticle($model, ['title' => 'pcxの新型発表で旧型中古相場はどう動く？｜データで予測']);
+    // 大文字ラテンも日本語も無い実質使えない名前（display_name 無し）は officialName=null。
+    $model = retitleModel(['name' => '250', 'display_name' => null]);
+    $news = retitleArticle($model, ['title' => '250の新型発表で旧型中古相場はどう動く？｜データで予測']);
     $original = $news->title;
 
     $this->artisan('news:retitle-model-impact')->assertSuccessful();

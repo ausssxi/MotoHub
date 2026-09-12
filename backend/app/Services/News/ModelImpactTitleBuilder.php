@@ -103,10 +103,14 @@ final class ModelImpactTitleBuilder
     }
 
     /**
-     * bike_models から正式車種名を引く。
-     * title の小文字（z900rs 等）をそのまま使わないため display_name を優先。
-     * display_name が無い場合、name は「既に大文字を含む」または「日本語を含む」ときのみ採用
-     * （小細工で先頭を大文字化したりはしない）。取れなければ null。
+     * bike_models から正式車種名を引く。title の小文字（z900rs 等）をそのまま使わないため
+     * display_name を優先し、整形（全角ダッシュ正規化＋小文字のみラテンの大文字化）を施す。
+     *
+     * - 全角マイナス（−, U+2212）/全角ハイフン（－, U+FF0D）は半角 - に正規化。長音符（ー）は不変。
+     * - 大文字を1つも含まないラテン連続だけ大文字化（z900rs→Z900RS, シグナスx→シグナスX）。
+     *   Ninja 250 のように大文字を含むものは触らない。
+     * - display_name が無い場合の「最後の砦」: 整形後も大文字ラテンも日本語も無い（＝実質使えない）
+     *   ものは採用しない（生成しない）。整形を先に通すため、全小文字ラテンの多くは救済される。
      */
     public static function officialName(?BikeModel $model): ?string
     {
@@ -114,23 +118,59 @@ final class ModelImpactTitleBuilder
             return null;
         }
 
-        $display = trim((string) ($model->display_name ?? ''));
-        if ($display !== '') {
-            return $display;
-        }
+        $display = self::mbTrim((string) ($model->display_name ?? ''));
+        $fromDisplay = $display !== '';
 
-        $name = trim((string) ($model->name ?? ''));
-        if ($name === '') {
+        $raw = $fromDisplay ? $display : self::mbTrim((string) ($model->name ?? ''));
+        if ($raw === '') {
             return null;
         }
 
-        // 既に正式表記になっているもの（大文字を含む / 日本語を含む）はそのまま使える。
-        // "z900rs" "pcx" のような全小文字ラテンは正式表記ではないので採用しない。
-        if (preg_match('/[A-Z]/u', $name) === 1 || preg_match('/[^\x00-\x7F]/u', $name) === 1) {
-            return $name;
+        $formatted = self::formatModelName($raw);
+
+        if (! $fromDisplay) {
+            // display_name が無いときだけ、使えない表記（整形しても大文字ラテンも日本語も無い）を落とす。
+            $hasUpperLatin = preg_match('/[A-Z]/', $formatted) === 1;
+            $hasJapanese = preg_match('/[^\x00-\x7F]/u', $formatted) === 1;
+            if (! $hasUpperLatin && ! $hasJapanese) {
+                return null;
+            }
         }
 
-        return null;
+        return $formatted;
+    }
+
+    /**
+     * 車種名の整形: 全角ダッシュ正規化（C）→ 小文字のみラテン連続の大文字化（D）。
+     */
+    public static function formatModelName(string $name): string
+    {
+        return self::upperLowercaseOnlyRuns(self::normalizeDashes($name));
+    }
+
+    /**
+     * 全角マイナス（U+2212）と全角ハイフン（U+FF0D）だけを半角ハイフンにする。
+     * 長音符（ー, U+30FC）やその他のダッシュ類には一切触れない。
+     */
+    public static function normalizeDashes(string $value): string
+    {
+        return str_replace(["\u{2212}", "\u{FF0D}"], '-', $value);
+    }
+
+    /**
+     * ラテン英数字の連続トークンのうち、小文字を含み大文字を1つも含まないものだけ大文字化する。
+     * 文字列全体の mb_strtoupper はしない（Ninja 250 → NINJA 250 を防ぐ）。
+     */
+    private static function upperLowercaseOnlyRuns(string $value): string
+    {
+        return (string) preg_replace_callback('/[A-Za-z0-9]+/', function (array $m): string {
+            $token = $m[0];
+            if (preg_match('/[a-z]/', $token) === 1 && preg_match('/[A-Z]/', $token) === 0) {
+                return strtoupper($token);
+            }
+
+            return $token;
+        }, $value);
     }
 
     /**
@@ -150,7 +190,7 @@ final class ModelImpactTitleBuilder
         foreach (self::EVALUATIVE_WORDS as $word) {
             $trigger = str_replace($word, '', $trigger);
         }
-        $trigger = self::mbTrim($trigger);
+        $trigger = self::normalizeDashes(self::mbTrim($trigger));
 
         if ($trigger === '' || $trigger === '〜' || $trigger === '～') {
             return null;
@@ -165,15 +205,105 @@ final class ModelImpactTitleBuilder
     }
 
     /**
+     * 本文の最初の h3 をトリガー要約に使う（既存記事書き換え／新規生成の空フォールバック共通）。
+     *
+     * 手順: タグ除去 → 車種名を除去（前半と重複するため）→ 評価語を落とす → ダッシュ正規化 →
+     *       全角24文字を超えたら句読点・助詞の切れ目で切る（… は付けない）→ 末尾の助詞・記号を除去。
+     * h3 が無い・整形後に空なら null（＝トリガー句ごと省略）。
+     */
+    public static function triggerFromContent(string $html, ?string $officialName): ?string
+    {
+        if (preg_match('/<h3\b[^>]*>(.*?)<\/h3>/isu', $html, $m) !== 1) {
+            return null;
+        }
+
+        $text = self::normalizeDashes(self::mbTrim(strip_tags($m[1])));
+        if ($text === '') {
+            return null;
+        }
+
+        // 車種名を除去（ラテンは大小無視）。officialName は既に整形済み。
+        if ($officialName !== null && $officialName !== '') {
+            $removed = str_ireplace($officialName, '', $text);
+            $removed = self::mbTrim($removed);
+            if ($removed !== '') {
+                $text = $removed;
+            }
+        }
+
+        // 評価語を落とす。落とした結果が空になるなら落とさない（元のまま使う）。
+        $stripped = $text;
+        foreach (self::EVALUATIVE_WORDS as $word) {
+            $stripped = str_replace($word, '', $stripped);
+        }
+        $stripped = self::mbTrim($stripped);
+        if ($stripped !== '') {
+            $text = $stripped;
+        }
+
+        // 24文字超は切れ目で切る。
+        $text = self::truncateTrigger($text, 24);
+
+        // 末尾に残った助詞・記号を落として体言止め寄りにする。
+        $text = self::trimTrailingParticles($text);
+
+        return $text === '' ? null : $text;
+    }
+
+    /**
+     * 全角24文字を超える場合、句読点・区切り記号の切れ目で切る。無ければ 24 で切る（… は付けない）。
+     */
+    private static function truncateTrigger(string $text, int $max): string
+    {
+        if (mb_strlen($text) <= $max) {
+            return $text;
+        }
+
+        $separators = ['、', '。', '，', '．', '・', '　', ' '];
+        $cut = null;
+        for ($i = 1; $i <= $max; $i++) {
+            if (in_array(mb_substr($text, $i - 1, 1), $separators, true)) {
+                $cut = $i - 1; // 区切り記号の手前で切る
+            }
+        }
+
+        if ($cut !== null && $cut > 0) {
+            return self::mbTrim(mb_substr($text, 0, $cut));
+        }
+
+        return self::mbTrim(mb_substr($text, 0, $max));
+    }
+
+    /**
+     * 末尾の助詞・区切り記号を繰り返し除去する（「…カバーでが」→「…カバー」）。
+     */
+    private static function trimTrailingParticles(string $text): string
+    {
+        $trailing = ['で', 'に', 'を', 'が', 'は', 'と', 'の', 'へ', 'も', 'や', '、', '。', '，', '．', '・', ' ', '　'];
+
+        while ($text !== '') {
+            $last = mb_substr($text, -1);
+            if (! in_array($last, $trailing, true)) {
+                break;
+            }
+            $text = mb_substr($text, 0, -1);
+        }
+
+        return $text;
+    }
+
+    /**
      * 既存記事の本文 HTML から、在庫台数と平均価格（万円）を抽出する。
-     * 表現ゆれに複数パターンで対応。両方取れなければ null。
+     * <strong> の有無に依存しないよう strip_tags してから抽出する。両方取れなければ null。
      *
      * @return array{count: string, avg: string}|null
      */
     public static function extractNumbers(string $html): ?array
     {
-        $count = self::extractCount($html);
-        $avg = self::extractAvgMan($html);
+        $text = self::plainText($html);
+
+        $count = self::extractCount($text);
+        $avg = self::extractAvgMan($text);
 
         if ($count === null || $avg === null) {
             return null;
@@ -182,46 +312,58 @@ final class ModelImpactTitleBuilder
         return ['count' => $count, 'avg' => $avg];
     }
 
-    private static function extractCount(string $html): ?string
+    private static function extractCount(string $text): ?string
     {
-        // 「掲載/在庫/中古車」文脈に紐づく台数を優先し、min/max とは無関係な台数だけ拾う。
+        // 「中古」文脈に紐づく台数だけを拾う。動詞（掲載/流通/在庫…）は限定しない。
         $anchored = [
-            '/掲載台数は?\s*<strong>\s*([\d,]+)\s*台/u',
-            '/中古車は\s*<strong>\s*([\d,]+)\s*台/u',
-            '/在庫(?:台数|数)?は?\s*<strong>\s*([\d,]+)\s*台/u',
-            '/<strong>\s*([\d,]+)\s*台\s*<\/strong>\s*(?:が|も)?\s*掲載/u',
-            '/<strong>\s*([\d,]+)\s*台\s*<\/strong>\s*と豊富/u',
+            // 中古 … N台（同一文内）
+            '/中古[^。]{0,24}?([\d,]+)\s*台/u',
+            // N台 … 中古/流通/掲載/在庫（同一文内・語順逆）
+            '/([\d,]+)\s*台[^。]{0,24}?(?:中古|流通|掲載|在庫)/u',
+            // 流通/掲載/在庫 … N台
+            '/(?:流通|掲載|在庫)[^。]{0,16}?([\d,]+)\s*台/u',
         ];
         foreach ($anchored as $pattern) {
-            if (preg_match($pattern, $html, $m) === 1) {
+            if (preg_match($pattern, $text, $m) === 1) {
                 return str_replace(',', '', $m[1]);
             }
         }
 
-        // フォールバック: 最初に出てくる <strong>N台</strong>。
-        if (preg_match('/<strong>\s*([\d,]+)\s*台/u', $html, $m) === 1) {
+        // フォールバック: 最初に出てくる N台。
+        if (preg_match('/([\d,]+)\s*台/u', $text, $m) === 1) {
             return str_replace(',', '', $m[1]);
         }
 
         return null;
     }
 
-    private static function extractAvgMan(string $html): ?string
+    private static function extractAvgMan(string $text): ?string
     {
-        // 「平均」文脈の万円のみ拾う（最安値/最高値の万円を誤取得しないため anchor 必須）。
+        // 「平均」直後の万円のみ拾う（最安値/最高値/価格帯の万円を誤取得しないため anchor 必須）。
+        // 「平均を下回る最安値は98.8万円」のように平均の直後が数字でないものは弾く。
         $anchored = [
-            '/平均価格は?[約]?\s*<strong>\s*([\d,]+(?:\.\d+)?)\s*万円/u',
-            '/平均価格は?[約]?\s*<strong>\s*([\d,]+(?:\.\d+)?)\s*<\/strong>\s*万円/u',
-            '/平均(?:相場|価格)?は?[約]?\s*<strong>\s*([\d,]+(?:\.\d+)?)\s*万円/u',
-            '/平均[^<]{0,12}<strong>\s*([\d,]+(?:\.\d+)?)\s*万円/u',
+            '/平均(?:相場|価格)?は?[約]?\s*([\d,]+(?:\.\d+)?)\s*万円/u',
         ];
         foreach ($anchored as $pattern) {
-            if (preg_match($pattern, $html, $m) === 1) {
+            if (preg_match($pattern, $text, $m) === 1) {
                 return self::normalizeMan(str_replace(',', '', $m[1]));
             }
         }
 
         return null;
+    }
+
+    /**
+     * HTML をプレーンテキスト化。&nbsp; 等の実体参照も空白へ均す。
+     */
+    private static function plainText(string $html): string
+    {
+        $text = strip_tags($html);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // 全角・半角の空白の連続を1つに畳む（アンカー距離判定を安定させる）。
+        $text = (string) preg_replace('/[\s\x{3000}]+/u', ' ', $text);
+
+        return self::mbTrim($text);
     }
 
     /**
