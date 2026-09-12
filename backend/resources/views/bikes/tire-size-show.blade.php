@@ -7,6 +7,13 @@
         $price = $data['price']; // null または ['min','max','avg']（すべて円・int）
         $sampleNames = $data['sample_names'] ?? [];
 
+        // タイヤ商品検索（楽天／Yahoo）への導線。
+        // キーワードは表示用サイズ（$size 例:120/70ZR17）＋" タイヤ"。slug からの復元はしない。
+        // 「タイヤ」を付けるのはホイール/チューブの混入を避けるため。from は計測用（canonical は
+        // url()->current() でクエリ非依存のため重複URLにならない）。route() が RFC3986 でエンコードする。
+        $tireSearchKeyword = $size.' タイヤ';
+        $tireSearchUrl = route('parts.index', ['keyword' => $tireSearchKeyword, 'from' => 'tire-size']);
+
         // title: 在庫0台のときは在庫の部分を出さない。
         $pageTitle = 'タイヤサイズ'.$size.'の適合車種一覧'
             .($stockTotal > 0 ? '｜中古在庫'.number_format($stockTotal).'台' : '')
@@ -78,6 +85,17 @@
                 </div>
                 <p class="text-[10px] text-gray-400 mt-2">※価格は支払総額（車両本体価格＋諸費用込み）の目安です。</p>
                 @endif
+
+                {{-- このサイズのタイヤを探す（楽天／Yahoo商品検索への導線）。車種一覧より上に置く。
+                     価格・在庫数は出さない（APIを叩かないと分からず表示が重くなるため）。 --}}
+                <div class="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4 sm:p-5">
+                    <h2 class="text-base font-black text-gray-900">このサイズのタイヤを探す</h2>
+                    <p class="text-xs text-gray-600 mt-1">{{ $size }} のタイヤを、楽天市場とYahoo!ショッピングから検索できます。</p>
+                    <a href="{{ $tireSearchUrl }}"
+                       class="mt-3 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-6 py-2.5 rounded-lg transition-colors inline-flex items-center justify-center gap-2">
+                        <i data-lucide="search" class="w-4 h-4"></i>{{ $size }} のタイヤを探す
+                    </a>
+                </div>
             </div>
         </div>
 
