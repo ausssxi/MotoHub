@@ -41,6 +41,23 @@ it('still requires a separator so slash-missing data stays null', function () {
     expect(TireSize::dimensions('100/9019'))->toBeNull();
 });
 
+it('accepts the MC (motorcycle) suffix in all its forms', function () {
+    foreach (['130/70ZR16MC', '130/70ZR16 MC', '130/70ZR16M/C', '130/70zr16mc'] as $raw) {
+        $d = TireSize::dimensions($raw);
+        expect($d)->not->toBeNull();
+        expect($d['width_mm'])->toBe(130.0);
+        expect($d['aspect'])->toBe(0.7);
+        expect($d['rim_inch'])->toBe(16);
+        expect(TireSize::dimensionText($d))->toBe('幅130mm・扁平70%・外径約588mm');
+    }
+});
+
+it('keeps Harley old notations null (not covered by MC handling)', function () {
+    expect(TireSize::dimensions('MT90B16'))->toBeNull();
+    expect(TireSize::dimensions('MT90-B16'))->toBeNull();
+    expect(TireSize::dimensions('MH90-21'))->toBeNull();
+});
+
 it('rejects out-of-range aspect / width / rim (no guessing)', function () {
     expect(TireSize::dimensions('120/200-17'))->toBeNull(); // 扁平200 は範囲外
     expect(TireSize::dimensions('350/70-17'))->toBeNull();  // 断面幅350mm は範囲外
