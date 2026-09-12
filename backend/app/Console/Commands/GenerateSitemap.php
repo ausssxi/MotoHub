@@ -1157,39 +1157,93 @@ class GenerateSitemap extends Command
                 $poiAreaCount++;
             }
 
-            // 詳細ページ（*.show）。詳細ルートを持つのは car_wash だけなので、この分岐の中だけで完結させる
-            // （gs/コンビニは show ルートが無く、出力も一切変えない）。685件程度なのでファイル分割は不要。
+            // 詳細ページ（*.show）。詳細ルートを持つのは car_wash と gas_station。コンビニ(konbini)は
+            // まだ show ルートが無い（フェーズ3）ため、この分岐に入らず出力も一切変えない。
+            //
+            // base フィルタは市区町村ページと同条件（municipality_code / prefecture / city）＋「名称不明」除外。
+            // municipality_code の NULL 除外を外すと、存在しない市区町村ページ配下のURLを載せてしまう。
+            $poiDetailBase = fn () => \App\Models\Poi::query()
+                ->where('type', $poiArea['type'])
+                ->whereNotNull('municipality_code')
+                ->whereNotNull('prefecture')->where('prefecture', '!=', '')
+                ->whereNotNull('city')->where('city', '!=', '')
+                ->where(function ($q) {
+                    foreach (['name', 'brand', 'address'] as $col) {
+                        $q->orWhere(function ($sub) use ($col) {
+                            $sub->whereNotNull($col)->where($col, '!=', '');
+                        });
+                    }
+                });
+
+            // 1件を sitemap-*.xml に書く共通処理（監視: monthly / 0.5 は市区町村ページ 0.6 より下）。
+            $writePoiDetail = function ($poi) use ($handle, $poiArea, &$poiAreaCount): void {
+                $lastmod = $poi->updated_at
+                    ? \Carbon\Carbon::parse($poi->updated_at)->format('Y-m-d')
+                    : date('Y-m-d');
+                $this->writeUrl(
+                    $handle,
+                    route($poiArea['prefix'].'.show', [$poi->prefecture, $poi->city, $poi->id]),
+                    $lastmod,
+                    'monthly',
+                    '0.5'
+                );
+                $poiAreaCount++;
+            };
+
             if ($poiArea['type'] === 'car_wash') {
-                \App\Models\Poi::query()
-                    ->where('type', $poiArea['type'])
-                    // municipality_code の NULL 除外は市区町村ページと同条件。外すと存在しない市区町村ページ配下のURLを載せてしまう。
-                    ->whereNotNull('municipality_code')
-                    ->whereNotNull('prefecture')->where('prefecture', '!=', '')
-                    ->whereNotNull('city')->where('city', '!=', '')
-                    // 見出しが「名称不明」になる行（name/brand/address がすべて空）は中身が無いので載せない。
-                    ->where(function ($q) {
-                        foreach (['name', 'brand', 'address'] as $col) {
-                            $q->orWhere(function ($sub) use ($col) {
-                                $sub->whereNotNull($col)->where($col, '!=', '');
-                            });
-                        }
-                    })
-                    ->orderBy('id')
-                    ->chunk(500, function ($rows) use ($handle, $poiArea, &$poiAreaCount) {
+                // 685件程度なので全件・分割不要。
+                $poiDetailBase()->orderBy('id')->chunk(500, function ($rows) use ($writePoiDetail) {
+                    foreach ($rows as $poi) {
+                        $writePoiDetail($poi);
+                    }
+                });
+            } elseif ($poiArea['type'] === 'gas_station') {
+                // 詳細ページ自体は 16,546 件すべて存在し一覧からも全件リンクするが、サイトマップは第一弾として
+                // 情報価値の高い群にクロール予算を集中させる。Search Console でインデックス率を比較するため、
+                // A群(孤立GS) → 離島 → B群(神奈川の対照群) の順に「連続して」並べる。二重登録は除外条件で防ぐ。
+                //
+                // A群: 孤立GS（nearest_same_type_m >= 3000）。フェーズ1本番実測 = 1,090件。
+                $gsA = 0;
+                $poiDetailBase()->where('nearest_same_type_m', '>=', 3000)->orderBy('id')
+                    ->chunk(500, function ($rows) use ($writePoiDetail, &$gsA) {
                         foreach ($rows as $poi) {
-                            $lastmod = $poi->updated_at
-                                ? \Carbon\Carbon::parse($poi->updated_at)->format('Y-m-d')
-                                : date('Y-m-d');
-                            $this->writeUrl(
-                                $handle,
-                                route($poiArea['prefix'].'.show', [$poi->prefecture, $poi->city, $poi->id]),
-                                $lastmod,
-                                'monthly',
-                                '0.5' // 市区町村ページ(0.6)より下
-                            );
-                            $poiAreaCount++;
+                            $writePoiDetail($poi);
+                            $gsA++;
                         }
                     });
+                $this->info("   GS A群（孤立 >=3km）: {$gsA} URL");
+
+                // 離島: 100km以内に他のGSが無い（計算済みで nearest_same_type_id が null）。実測3件。
+                // A群の予測値には含まれない（m が null のため）が、給油計画上もっとも価値が高いので必ず載せる。
+                $gsIsland = 0;
+                $poiDetailBase()
+                    ->whereNotNull('nearest_computed_at')
+                    ->whereNull('nearest_same_type_id')
+                    ->orderBy('id')
+                    ->chunk(500, function ($rows) use ($writePoiDetail, &$gsIsland) {
+                        foreach ($rows as $poi) {
+                            $writePoiDetail($poi);
+                            $gsIsland++;
+                        }
+                    });
+                $this->info("   GS 離島（近隣GS無し）: {$gsIsland} URL");
+
+                // B群: 神奈川県の全GS（都市部の対照群）。A群・離島と重複する神奈川の行は除外して二重登録を防ぐ。
+                $gsB = 0;
+                $poiDetailBase()->where('prefecture', '神奈川県')
+                    ->where(function ($q) {
+                        // 孤立(>=3000)でも離島(id null)でもない神奈川の通常GSだけ。
+                        $q->where('nearest_same_type_m', '<', 3000)
+                            ->whereNotNull('nearest_same_type_id');
+                    })
+                    ->orderBy('id')
+                    ->chunk(500, function ($rows) use ($writePoiDetail, &$gsB) {
+                        foreach ($rows as $poi) {
+                            $writePoiDetail($poi);
+                            $gsB++;
+                        }
+                    });
+                $this->info("   GS B群（神奈川県の対照群）: {$gsB} URL");
             }
 
             $this->closeSitemap($handle);

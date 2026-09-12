@@ -24,6 +24,8 @@ use App\Http\Controllers\Bike\ReviewOgpController;
 use App\Http\Controllers\Bike\TrendController;
 use App\Http\Controllers\DealOgpController;
 use App\Http\Controllers\Feature\FeatureController;
+use App\Http\Controllers\License\LicenseController;
+use App\Http\Controllers\License\LicenseSchoolController;
 use App\Http\Controllers\MyBike\GarageOgpController;
 use App\Http\Controllers\MyBike\GaragePublicController;
 use App\Http\Controllers\MyBike\MyBikeController;
@@ -42,8 +44,6 @@ use App\Http\Controllers\Shindan\ShindanController;
 use App\Http\Controllers\Shop\ShopAreaController;
 use App\Http\Controllers\Shop\ShopController;
 use App\Http\Controllers\Trouble\TroubleController;
-use App\Http\Controllers\License\LicenseController;
-use App\Http\Controllers\License\LicenseSchoolController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -459,10 +459,17 @@ Route::get('/michinoeki/{station_code}', [\App\Http\Controllers\RoadsideStation\
 // 地名は日本語をそのままURLに使う（michinoeki.area と同流儀）。
 Route::get('/gs', [\App\Http\Controllers\Poi\PoiAreaController::class, 'index'])
     ->defaults('type', 'gas_station')->name('gs.index');
+// 短縮URL /gs/{id}（地図ピン等 prefecture/city を持たない導線用）→ 正規URLへリダイレクト。
+// ★必ず /gs/{prefecture} より前に宣言する（senshajo.short と同じ理由）。whereNumber('id') と宣言順の両方が必須。
+Route::get('/gs/{id}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'short'])
+    ->whereNumber('id')->defaults('type', 'gas_station')->name('gs.short');
 Route::get('/gs/{prefecture}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'prefecture'])
     ->defaults('type', 'gas_station')->name('gs.prefecture');
 Route::get('/gs/{prefecture}/{city}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'city'])
     ->defaults('type', 'gas_station')->name('gs.city');
+Route::get('/gs/{prefecture}/{city}/{id}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'show'])
+    ->whereNumber('id')
+    ->defaults('type', 'gas_station')->name('gs.show');
 Route::get('/konbini', [\App\Http\Controllers\Poi\PoiAreaController::class, 'index'])
     ->defaults('type', 'convenience_store')->name('konbini.index');
 Route::get('/konbini/{prefecture}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'prefecture'])
@@ -475,7 +482,7 @@ Route::get('/senshajo', [\App\Http\Controllers\Poi\PoiAreaController::class, 'in
 // ★必ず /senshajo/{prefecture} より前に宣言する。Laravel は宣言順マッチのため、後ろに置くと
 //   /senshajo/49773 が senshajo.prefecture に吸われる。whereNumber('id') と宣言順の両方が必須。
 Route::get('/senshajo/{id}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'short'])
-    ->whereNumber('id')->name('senshajo.short');
+    ->whereNumber('id')->defaults('type', 'car_wash')->name('senshajo.short');
 Route::get('/senshajo/{prefecture}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'prefecture'])
     ->defaults('type', 'car_wash')->name('senshajo.prefecture');
 Route::get('/senshajo/{prefecture}/{city}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'city'])

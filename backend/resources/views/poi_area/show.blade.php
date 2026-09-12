@@ -69,9 +69,49 @@
                 </div>
                 @endif
 
+                {{-- GSの設備バッジ（セルフ／洗車機は上の共通ブロックで既出。ここは フルサービス・24時間 を追加）。 --}}
+                @if($routePrefix === 'gs')
+                @php $isFullService = strtolower(trim((string) $poi->self_service)) === 'no'; @endphp
+                @if($isFullService || $gas24h)
+                <div class="flex flex-wrap gap-1 mb-4">
+                    @if($isFullService)
+                    <span class="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-100 rounded-full px-2 py-0.5"><i data-lucide="user-round" class="w-3 h-3"></i>フルサービス</span>
+                    @endif
+                    @if($gas24h)
+                    <span class="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-100 rounded-full px-2 py-0.5"><i data-lucide="clock" class="w-3 h-3"></i>24時間</span>
+                    @endif
+                </div>
+                @endif
+                @endif
+
                 {{-- 施設ごとに数字が変わる自動生成の紹介文（所在地・最寄り駅・半径5km以内の件数）。洗車場のみ。 --}}
                 @if($routePrefix === 'senshajo' && filled($carWashSummary))
                 <p class="text-sm leading-relaxed text-gray-600 mb-4">{{ $carWashSummary }}</p>
+                @endif
+
+                {{-- GSの自動生成の紹介文（所在地・セルフ/フルサービス・24時間・次のGSまでの距離）。 --}}
+                @if($routePrefix === 'gs' && filled($gasSummary))
+                <p class="text-sm leading-relaxed text-gray-600 mb-4">{{ $gasSummary }}</p>
+                @endif
+
+                {{-- GS詳細の目玉「次のガソリンスタンドまで◯km」。事前計算列を読むだけ（空間クエリ無し）。 --}}
+                @if($routePrefix === 'gs')
+                <div class="bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 mb-4">
+                    @if($nextGas)
+                    <p class="text-[11px] font-bold text-gray-400 mb-0.5"><i data-lucide="fuel" class="inline w-3 h-3"></i> 次のガソリンスタンド</p>
+                    <p class="text-sm text-gray-700">
+                        @if($nextGas['url'])
+                        <a href="{{ $nextGas['url'] }}" class="text-purple-700 font-bold hover:underline">{{ $nextGas['display'] }}</a>
+                        @else
+                        <span class="font-bold text-gray-800">{{ $nextGas['display'] }}</span>
+                        @endif
+                        <span class="text-gray-500">まで{{ $nextGas['km'] < 0.1 ? 'すぐ' : '約'.number_format($nextGas['km'], 1).'km' }}</span>
+                    </p>
+                    @else
+                    <p class="text-sm font-bold text-gray-800"><i data-lucide="fuel" class="inline w-3.5 h-3.5"></i> この付近に他のガソリンスタンドはありません</p>
+                    <p class="text-xs text-gray-500 mt-1">半径100km以内に別のガソリンスタンドが見当たりません。ツーリングの際は給油計画にご注意ください。</p>
+                    @endif
+                </div>
                 @endif
 
                 @if($routePrefix === 'senshajo')
@@ -128,6 +168,41 @@
                     ['label' => 'バイクショップ', 'items' => $nearbyShops, 'route' => 'shops.show'],
                     ['label' => 'バイク駐車場', 'items' => $nearbyParkings, 'route' => 'parking.show'],
                     ['label' => 'レンタルガレージ', 'items' => $nearbyGarages, 'route' => 'rental-garage.show'],
+                ] as $group)
+                    @if(!empty($group['items']))
+                    <div class="mb-4 last:mb-0">
+                        <h3 class="text-xs font-bold text-gray-400 mb-1.5">{{ $group['label'] }}</h3>
+                        <ul class="divide-y divide-gray-50">
+                            @foreach($group['items'] as $f)
+                            <li class="py-2">
+                                <a href="{{ route($group['route'], $f['id']) }}" class="text-sm text-purple-700 font-bold hover:underline">{{ $f['name'] }}</a>
+                                <span class="text-[11px] text-gray-400 ml-1">{{ $f['km'] < 0.1 ? '同じ敷地内' : '約'.number_format($f['km'], 1).'km' }}</span>
+                            </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+            @endif
+
+            {{-- GSのみ: 周辺2種類（洗車場・バイク駐車場）と最寄り駅。16,546ページ規模のため2種類に限定。 --}}
+            @if($routePrefix === 'gs' && (!empty($nearbyWashes) || !empty($nearbyParkings) || $nearestStation))
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mt-6">
+                <h2 class="text-sm font-black text-gray-900 mb-3">周辺のバイク関連施設（直線距離）</h2>
+
+                @if($nearestStation)
+                <p class="text-xs text-gray-500 mb-4">
+                    <i data-lucide="train-front" class="inline w-3.5 h-3.5"></i>
+                    最寄り駅: <span class="font-bold text-gray-700">{{ $nearestStation['name'] }}</span>
+                    <span class="text-gray-400">{{ $nearestStation['km'] < 0.1 ? '同じ敷地内' : '約'.number_format($nearestStation['km'], 1).'km' }}</span>
+                </p>
+                @endif
+
+                {{-- 洗車場は prefecture/city を持たない導線でも壊れないよう senshajo.short（→正規URLへ301）に飛ばす。 --}}
+                @foreach([
+                    ['label' => '洗車場', 'items' => $nearbyWashes, 'route' => 'senshajo.short'],
+                    ['label' => 'バイク駐車場', 'items' => $nearbyParkings, 'route' => 'parking.show'],
                 ] as $group)
                     @if(!empty($group['items']))
                     <div class="mb-4 last:mb-0">

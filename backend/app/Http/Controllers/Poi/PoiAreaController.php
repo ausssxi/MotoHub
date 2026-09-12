@@ -281,14 +281,22 @@ final class PoiAreaController extends Controller
                 'address' => filled($p->address) ? (string) $p->address : null,
             ])->all();
 
-        // 洗車場だけ、周辺のバイク関連施設（ショップ・駐車場・レンタルガレージ）と最寄り駅、
-        // および件数入りの自動生成文を添える。GS・コンビニ詳細は従来どおりなので空で渡す。
-        // 8本前後の空間クエリになるため、変動の少ないデータとして POI 単位で24時間キャッシュする。
+        // 洗車場は周辺のバイク関連施設（ショップ・駐車場・レンタルガレージ）＋最寄り駅＋件数入り紹介文。
+        // GSは周辺2種類（洗車場・バイク駐車場）＋最寄り駅＋「次のGSまで◯km」（事前計算列を読むだけ・空間クエリ無し）。
+        // どちらも空間クエリを含むため POI 単位でキャッシュする（洗車場24h / GSは変化が遅く7日）。
         $isCarWash = $type === 'car_wash';
-        if ($isCarWash) {
-            $lat = (float) $poi->latitude;
-            $lng = (float) $poi->longitude;
+        $isGas = $type === 'gas_station';
+        $lat = (float) $poi->latitude;
+        $lng = (float) $poi->longitude;
 
+        // 既定（コンビニ詳細＝フェーズ3までは素の表示）。
+        $nearbyShops = $nearbyParkings = $nearbyGarages = $nearbyWashes = [];
+        $nearestStation = null;
+        $carWashSummary = '';
+        $gasSummary = '';
+        $nextGas = null;
+
+        if ($isCarWash) {
             [$nearbyShops, $nearbyParkings, $nearbyGarages, $nearestStation, $carWashSummary]
                 // 世代付きキー。説明文(carWashSummary)はここにキャッシュされるため、文言に影響する変更ごとに必ず上げる。
                 // 本番は cache:clear 不可（別機能の6000件規模が飛ぶ）で、世代を進めるのが唯一の即時反映手段。
@@ -311,24 +319,34 @@ final class PoiAreaController extends Controller
 
                     return [$shops, $parkings, $garages, $station, $this->carWashSummary($poi, $prefecture, $city, $station, $counts)];
                 });
-        } else {
-            $nearbyShops = $nearbyParkings = $nearbyGarages = [];
-            $nearestStation = null;
-            $carWashSummary = '';
+        } elseif ($isGas) {
+            // 周辺は2種類だけ（洗車場・バイク駐車場）。16,546ページ規模のため4種類は投げない。TTLは7日。
+            // 「次のGS」は $poi->nearest_same_type_* を読むだけ（フェーズ1の事前計算）で空間クエリを投げない。
+            [$nearbyWashes, $nearbyParkings, $nearestStation, $nextGas, $gasSummary]
+                = Cache::remember("gs_detail_nearby:v1:{$poi->id}", 604800, function () use ($poi, $prefecture, $city, $lat, $lng) {
+                    $washes = $this->nearbyFacilities(Poi::query()->where('type', 'car_wash'), $lat, $lng);
+                    $parkings = $this->nearbyFacilities(BikeParking::query()->where('is_active', 1), $lat, $lng);
+                    $station = $this->nearestStation($lat, $lng);
+
+                    return [$washes, $parkings, $station, $this->resolveNextGas($poi), $this->gasSummary($poi, $prefecture, $city)];
+                });
         }
 
         // 見出しを近接GSのブランドで一意化するため、$display より先に近接GSを取得する（追加クエリなし・値を使い回す）。
-        $nearbyGas = $type === 'gas_station' ? [] : $this->nearbyByType($poi, 'gas_station');
-        $nearbyStore = $type === 'convenience_store' ? [] : $this->nearbyByType($poi, 'convenience_store');
+        // GSは「次のGS」を事前計算で出すため近接GSの空間クエリは張らない。コンビニは近接GSを出す（フェーズ3で調整）。
+        $nearbyGas = $isGas ? [] : $this->nearbyByType($poi, 'gas_station');
+        // GS詳細は周辺2種類（洗車場・駐車場）に限定するため、近接コンビニは出さない。
+        $nearbyStore = ($isGas || $type === 'convenience_store') ? [] : $this->nearbyByType($poi, 'convenience_store');
 
         // 名前を持たない洗車場のみ、50m以内で自前の名称を持つGSのブランドを見出しに併記して同名重複を解消する。
         // resolveDisplay 側で「設備ラベルに落ちるケース」だけに適用されるため、名前を持つ施設の見出しは変わらない。
         $gasBrand = $type === 'car_wash' ? $this->nearbyGasBrand($nearbyGas) : null;
         $display = $this->resolveDisplay($poi, $type, $prefecture, $city, $gasBrand);
 
-        // ブランド併記だけでは同名ラベルが残る（本番92件・42グループ）ため、<title> にだけ最寄り駅節を足して一意化する。
-        // h1 / JSON-LD name は人が読む見出しとして簡潔さを優先し $display のまま変えない。gs/コンビニは null → ビュー側で従来 title。
-        $pageTitle = $isCarWash ? $this->carWashTitle($display, $nearestStation, $city, $meta['label']) : null;
+        // 同名見出しの重複対策で <title> にだけ最寄り駅節を足して一意化する（洗車場・GS）。
+        // 例: GSの「apollostation」が同一市内に4件並ぶ問題（h1 は townPart 併記、title は駅節でさらに一意化）。
+        // h1 / JSON-LD name は簡潔さ優先で $display のまま。コンビニは null → ビュー側で従来 title。
+        $pageTitle = ($isCarWash || $isGas) ? $this->carWashTitle($display, $nearestStation, $city, $meta['label']) : null;
 
         return view('poi_area.show', [
             'routePrefix' => $meta['prefix'],
@@ -336,7 +354,7 @@ final class PoiAreaController extends Controller
             'prefecture' => $prefecture,
             'city' => $city,
             'poi' => $poi,
-            // h1 / JSON-LD name はこの $display を参照。<title> だけは $pageTitle（洗車場は駅節つき）を使う。
+            // h1 / JSON-LD name はこの $display を参照。<title> だけは $pageTitle（洗車場・GSは駅節つき）を使う。
             'display' => $display,
             'pageTitle' => $pageTitle,
             // JSON-LD の streetAddress も townPart() を通し、郡部・政令市の二重表記を構造化データからも排除する。
@@ -350,28 +368,38 @@ final class PoiAreaController extends Controller
             'nearbyGarages' => $nearbyGarages,
             'nearestStation' => $nearestStation,
             'carWashSummary' => $carWashSummary,
+            // GSのみ内容を持つ（他種別は空／null/false）。ビュー側は gs でのみ表示する。
+            'nearbyWashes' => $nearbyWashes,
+            'nextGas' => $nextGas,
+            'gasSummary' => $gasSummary,
+            'gas24h' => $isGas ? $this->isGas24h($poi) : false,
             'crossLinks' => $this->listingCrossLinks(),
         ]);
     }
 
     /**
-     * 短縮URL /senshajo/{id} → 正規URLへのリダイレクト。地図ピン等、prefecture/city を持たない導線用。
-     * car_wash 以外は404。prefecture/city が両方そろえば canonical へ301。片方でも欠ける（行政区未割当）行は
-     * 正規URLを組めないので一覧へ302で逃がす（データが埋まれば正しい遷移になるため、恒久リダイレクトにしない）。
+     * 短縮URL /{prefix}/{id} → 正規URLへのリダイレクト。地図ピン等、prefecture/city を持たない導線用。
+     * 種別はルート defaults('type', ...) で渡す（/senshajo/{id}=car_wash, /gs/{id}=gas_station）。
+     * 指定種別に一致しない行は404（senshajo.short に GS の id が来ても従来どおり404のまま挙動を保つ）。
+     * prefecture/city が両方そろえば canonical へ301。片方でも欠ける（行政区未割当）行は正規URLを組めないので
+     * 一覧へ302で逃がす（データが埋まれば正しい遷移になるため、恒久リダイレクトにしない）。
      */
-    public function short(string $id): RedirectResponse
+    public function short(Request $request, string $id): RedirectResponse
     {
+        $type = (string) $request->route('type');
+        $meta = self::TYPES[$type] ?? abort(404);
+
         $poi = Poi::query()->where('id', (int) $id)->first();
 
-        if ($poi === null || $poi->type !== 'car_wash') {
+        if ($poi === null || $poi->type !== $type) {
             abort(404);
         }
 
         if (blank($poi->prefecture) || blank($poi->city)) {
-            return redirect()->route('senshajo.index', [], 302);
+            return redirect()->route($meta['prefix'].'.index', [], 302);
         }
 
-        return redirect()->route('senshajo.show', [$poi->prefecture, $poi->city, $poi->id], 301);
+        return redirect()->route($meta['prefix'].'.show', [$poi->prefecture, $poi->city, $poi->id], 301);
     }
 
     /**
@@ -389,7 +417,109 @@ final class PoiAreaController extends Controller
             return $this->carWashLabel($poi, $prefecture, $city, $gasBrand);
         }
 
+        if ($type === 'gas_station') {
+            return $this->gasDisplay($poi, $prefecture, $city);
+        }
+
         return $display;
+    }
+
+    /**
+     * GSの表示名。name を持つ施設（例「三菱商事エネルギー 牛潟SS」）はそのまま返す。
+     * name が無く brand しか無い行（apollostation / ENEOS 等が同一市内に複数並ぶ）だけ、
+     * townPart() の町名を括弧で併記して見出しの重複を解消する（例: apollostation（平台））。
+     * name も brand も無い行は displayName()（住所→「名称不明」）にフォールバックする。
+     */
+    private function gasDisplay(Poi $poi, string $prefecture, string $city): string
+    {
+        $name = trim((string) ($poi->name ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        $brand = trim((string) ($poi->brand ?? ''));
+        if ($brand === '') {
+            return $this->displayName($poi);
+        }
+
+        $town = $this->townPart($prefecture, $city, $poi->address);
+
+        return $town !== '' ? $brand.'（'.$town.'）' : $brand;
+    }
+
+    /**
+     * GS詳細の自動生成文（所在地＋セルフ/フルサービス＋24時間＋次のGSまでの距離）。
+     * 例:「神奈川県横浜市青葉区荏田東にあるセルフのガソリンスタンドです。24時間営業。次のGSまで約0.5km。」
+     * 孤立GS（nearest_same_type_id が null）は「この付近に他のガソリンスタンドはありません。」に切り替える。
+     */
+    private function gasSummary(Poi $poi, string $prefecture, string $city): string
+    {
+        $town = $this->townPart($prefecture, $city, $poi->address);
+        $place = $prefecture.$city.$town;
+
+        $selfRaw = strtolower(trim((string) ($poi->self_service ?? '')));
+        if (in_array($selfRaw, ['yes', 'only'], true)) {
+            $kind = 'セルフのガソリンスタンド';
+        } elseif ($selfRaw === 'no') {
+            $kind = 'フルサービスのガソリンスタンド';
+        } else {
+            $kind = 'ガソリンスタンド';
+        }
+        $text = $place.'にある'.$kind.'です。';
+
+        if ($this->isGas24h($poi)) {
+            $text .= '24時間営業。';
+        }
+
+        if ($poi->nearest_same_type_id === null) {
+            // 離島など（100km以内に他のGSが無い3件）。ツーリングでは価値の高い情報。
+            $text .= 'この付近に他のガソリンスタンドはありません。';
+        } elseif ($poi->nearest_same_type_m !== null) {
+            $km = round(((int) $poi->nearest_same_type_m) / 1000, 1);
+            $text .= $km < 0.1
+                ? '次のガソリンスタンドはすぐ近くにあります。'
+                : '次のガソリンスタンドまで約'.number_format($km, 1).'km。';
+        }
+
+        return $text;
+    }
+
+    /** opening_hours から24時間営業を判定する（OSMの 24/7・和文表記の双方に対応）。 */
+    private function isGas24h(Poi $poi): bool
+    {
+        $oh = strtolower(trim((string) ($poi->opening_hours ?? '')));
+
+        return $oh !== '' && (str_contains($oh, '24/7') || str_contains($oh, '24時間') || str_contains($oh, '24 hours'));
+    }
+
+    /**
+     * 「次のGS」を事前計算列（nearest_same_type_id / _m）から解決する。空間クエリは投げない。
+     * 参照先の name/brand と正規URLを組むため id 直引き（PK1件）だけ行う。孤立GS（id が null）や
+     * 参照先消失時は null を返し、ビュー側で「他のGSはありません」表示に切り替える。
+     *
+     * @return array{display: string, km: float, url: ?string}|null
+     */
+    private function resolveNextGas(Poi $poi): ?array
+    {
+        if ($poi->nearest_same_type_id === null) {
+            return null;
+        }
+
+        $n = Poi::query()->where('id', $poi->nearest_same_type_id)
+            ->first(['id', 'name', 'brand', 'address', 'prefecture', 'city']);
+        if ($n === null) {
+            return null;
+        }
+
+        $url = (filled($n->prefecture) && filled($n->city))
+            ? route('gs.show', [$n->prefecture, $n->city, $n->id])
+            : null;
+
+        return [
+            'display' => $this->gasDisplay($n, (string) $n->prefecture, (string) $n->city),
+            'km' => round(((int) ($poi->nearest_same_type_m ?? 0)) / 1000, 1),
+            'url' => $url,
+        ];
     }
 
     /**
@@ -577,7 +707,7 @@ final class PoiAreaController extends Controller
     {
         // 1文目: 所在地＋設備。町名は townPart() で住所から行政区分を除いて取り出す（郡部の二重表記対策込み）。
         $town = $this->townPart($prefecture, $city, $poi->address);
-        $place = $prefecture . $city . $town;
+        $place = $prefecture.$city.$town;
 
         // 設備は carWashLabel と同じ self_service / automated 判定に合わせる（'yes'/'only' を真とみなす）。
         $yes = static fn ($v): bool => in_array(strtolower(trim((string) ($v ?? ''))), ['yes', 'only'], true);
@@ -592,24 +722,24 @@ final class PoiAreaController extends Controller
         } else {
             $kind = '洗車場';
         }
-        $text = $place . 'にある' . $kind . 'です。';
+        $text = $place.'にある'.$kind.'です。';
 
         // 2文目: 最寄り駅（15km以内に無ければ省く）。距離は 0.1km 未満なら「同じ敷地内」に統一。
         if ($station !== null) {
             $text .= $station['km'] < 0.1
-                ? '最寄りは' . $station['name'] . 'で、同じ敷地内にあります。'
-                : '最寄りは' . $station['name'] . 'から約' . number_format($station['km'], 1) . 'km。';
+                ? '最寄りは'.$station['name'].'で、同じ敷地内にあります。'
+                : '最寄りは'.$station['name'].'から約'.number_format($station['km'], 1).'km。';
         }
 
         // 3文目: 半径5km以内の周辺件数。0件カテゴリは省き、すべて0なら文自体を出さない。
         $parts = [];
         foreach ($counts as [$label, $count, $unit]) {
             if ($count > 0) {
-                $parts[] = $label . $count . $unit;
+                $parts[] = $label.$count.$unit;
             }
         }
         if ($parts !== []) {
-            $text .= '半径5km以内に、' . implode('、', $parts) . 'があります。';
+            $text .= '半径5km以内に、'.implode('、', $parts).'があります。';
         }
 
         return $text;
@@ -629,10 +759,10 @@ final class PoiAreaController extends Controller
         if ($station !== null) {
             // 距離は詳細ページと同じルール: 0.1km未満は距離を出さず「すぐ」に留める。
             $nodes[] = $station['km'] < 0.1
-                ? $station['name'] . 'すぐ'
-                : $station['name'] . 'から約' . number_format($station['km'], 1) . 'km';
+                ? $station['name'].'すぐ'
+                : $station['name'].'から約'.number_format($station['km'], 1).'km';
         }
-        $nodes[] = $city . 'の' . $label;
+        $nodes[] = $city.'の'.$label;
 
         // mb_strwidth は全角=2/半角=1。全角35文字＝幅70を上限に、末尾要素から落として収める。
         while (count($nodes) > 1 && mb_strwidth(implode('｜', $nodes)) > 70) {
@@ -728,10 +858,10 @@ final class PoiAreaController extends Controller
             $parts[] = $town;
         }
         if (filled($gasBrand)) {
-            $parts[] = $gasBrand . '併設';
+            $parts[] = $gasBrand.'併設';
         }
 
-        return $parts !== [] ? $label . '（' . implode('・', $parts) . '）' : $label;
+        return $parts !== [] ? $label.'（'.implode('・', $parts).'）' : $label;
     }
 
     /**
