@@ -84,9 +84,21 @@
                 @endif
                 @endif
 
+                {{-- コンビニの設備バッジ（24時間のみ。セルフ等は該当しない）。 --}}
+                @if($routePrefix === 'konbini' && $konbini24h)
+                <div class="flex flex-wrap gap-1 mb-4">
+                    <span class="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-100 rounded-full px-2 py-0.5"><i data-lucide="clock" class="w-3 h-3"></i>24時間</span>
+                </div>
+                @endif
+
                 {{-- 施設ごとに数字が変わる自動生成の紹介文（所在地・最寄り駅・半径5km以内の件数）。洗車場のみ。 --}}
                 @if($routePrefix === 'senshajo' && filled($carWashSummary))
                 <p class="text-sm leading-relaxed text-gray-600 mb-4">{{ $carWashSummary }}</p>
+                @endif
+
+                {{-- コンビニの自動生成の紹介文（所在地・24時間・孤立時のみ次のコンビニまで）。 --}}
+                @if($routePrefix === 'konbini' && filled($konbiniSummary))
+                <p class="text-sm leading-relaxed text-gray-600 mb-4">{{ $konbiniSummary }}</p>
                 @endif
 
                 {{-- GSの自動生成の紹介文（所在地・セルフ/フルサービス・24時間・次のGSまでの距離）。 --}}
@@ -111,6 +123,28 @@
                     @else
                     <p class="text-sm font-bold text-gray-800"><i data-lucide="fuel" class="inline w-3.5 h-3.5"></i> この付近に他のガソリンスタンドはありません</p>
                     <p class="text-xs text-gray-500 mt-1">半径100km以内に別のガソリンスタンドが見当たりません。ツーリングの際は給油計画にご注意ください。</p>
+                    @endif
+                </div>
+                @endif
+
+                {{-- コンビニ詳細の目玉「この先、次のコンビニまで約◯km」。孤立(3km以上)/離島のときだけ出す。 --}}
+                {{-- 都市部(<3km)や未計算はボックス自体を出さない（0.2kmや誤った離島表示を避ける）。 --}}
+                @if($routePrefix === 'konbini' && ($nextKonbini || $konbiniIsolated))
+                <div class="bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 mb-4">
+                    @if($nextKonbini)
+                    <p class="text-[11px] font-bold text-gray-400 mb-0.5"><i data-lucide="store" class="inline w-3 h-3"></i> 次のコンビニ</p>
+                    <p class="text-sm text-gray-700">
+                        @if($nextKonbini['url'])
+                        <a href="{{ $nextKonbini['url'] }}" class="text-purple-700 font-bold hover:underline">{{ $nextKonbini['display'] }}</a>
+                        @else
+                        <span class="font-bold text-gray-800">{{ $nextKonbini['display'] }}</span>
+                        @endif
+                        <span class="text-gray-500">まで約{{ number_format($nextKonbini['km'], 1) }}km</span>
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">この先しばらくコンビニがありません。買い物・トイレは早めにお済ませください。</p>
+                    @else
+                    <p class="text-sm font-bold text-gray-800"><i data-lucide="store" class="inline w-3.5 h-3.5"></i> この付近に他のコンビニはありません</p>
+                    <p class="text-xs text-gray-500 mt-1">半径100km以内に別のコンビニが見当たりません。買い物・トイレは早めにお済ませください。</p>
                     @endif
                 </div>
                 @endif
@@ -219,6 +253,49 @@
                     </div>
                     @endif
                 @endforeach
+            </div>
+            @endif
+
+            {{-- コンビニのみ: 周辺2種類（道の駅・GS）と最寄り駅。トイレは書かず、トイレが確実な道の駅を出す。 --}}
+            @if($routePrefix === 'konbini' && (!empty($nearbyRoadside) || !empty($nearbyGasList) || $nearestStation))
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mt-6">
+                <h2 class="text-sm font-black text-gray-900 mb-3">周辺の施設（直線距離）</h2>
+
+                @if($nearestStation)
+                <p class="text-xs text-gray-500 mb-4">
+                    <i data-lucide="train-front" class="inline w-3.5 h-3.5"></i>
+                    最寄り駅: <span class="font-bold text-gray-700">{{ $nearestStation['name'] }}</span>
+                    <span class="text-gray-400">{{ $nearestStation['km'] < 0.1 ? '同じ敷地内' : '約'.number_format($nearestStation['km'], 1).'km' }}</span>
+                </p>
+                @endif
+
+                @if(!empty($nearbyRoadside))
+                <div class="mb-4 last:mb-0">
+                    <h3 class="text-xs font-bold text-gray-400 mb-1.5">道の駅（トイレあり）</h3>
+                    <ul class="divide-y divide-gray-50">
+                        @foreach($nearbyRoadside as $f)
+                        <li class="py-2">
+                            <a href="{{ route('michinoeki.show', $f['station_code']) }}" class="text-sm text-purple-700 font-bold hover:underline">{{ $f['name'] }}</a>
+                            <span class="text-[11px] text-gray-400 ml-1">{{ $f['km'] < 0.1 ? '同じ敷地内' : '約'.number_format($f['km'], 1).'km' }}</span>
+                        </li>
+                        @endforeach
+                    </ul>
+                </div>
+                @endif
+
+                @if(!empty($nearbyGasList))
+                <div class="mb-4 last:mb-0">
+                    <h3 class="text-xs font-bold text-gray-400 mb-1.5">ガソリンスタンド</h3>
+                    <ul class="divide-y divide-gray-50">
+                        @foreach($nearbyGasList as $f)
+                        <li class="py-2">
+                            <a href="{{ route('gs.short', $f['id']) }}" class="text-sm text-purple-700 font-bold hover:underline">{{ $f['name'] }}</a>
+                            <span class="text-[11px] text-gray-400 ml-1">{{ $f['km'] < 0.1 ? '同じ敷地内' : '約'.number_format($f['km'], 1).'km' }}</span>
+                        </li>
+                        @endforeach
+                    </ul>
+                </div>
+                @endif
             </div>
             @endif
 

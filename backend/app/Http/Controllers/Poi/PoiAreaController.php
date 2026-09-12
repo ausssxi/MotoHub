@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BikeParking;
 use App\Models\Poi;
 use App\Models\RentalGarage;
+use App\Models\RoadsideStation;
 use App\Models\Shop;
 use App\Models\Station;
 use Illuminate\Contracts\View\View;
@@ -286,16 +287,21 @@ final class PoiAreaController extends Controller
         // どちらも空間クエリを含むため POI 単位でキャッシュする（洗車場24h / GSは変化が遅く7日）。
         $isCarWash = $type === 'car_wash';
         $isGas = $type === 'gas_station';
+        $isKonbini = $type === 'convenience_store';
         $lat = (float) $poi->latitude;
         $lng = (float) $poi->longitude;
 
-        // 既定（コンビニ詳細＝フェーズ3までは素の表示）。
+        // 既定値（各種別で使う分だけ後段で埋める）。
         $nearbyShops = $nearbyParkings = $nearbyGarages = $nearbyWashes = [];
+        $nearbyRoadside = $nearbyGasList = [];
         $nearestStation = null;
         $carWashSummary = '';
         $gasSummary = '';
+        $konbiniSummary = '';
         $nextGas = null;
+        $nextKonbini = null;
         $gasIsolated = false;
+        $konbiniIsolated = false;
 
         if ($isCarWash) {
             [$nearbyShops, $nearbyParkings, $nearbyGarages, $nearestStation, $carWashSummary]
@@ -336,26 +342,48 @@ final class PoiAreaController extends Controller
             // ★未計算(nearest_computed_at IS NULL)の行は離島扱いしない。poi:fetch(毎晩)追加分の誤表示を防ぐ核心。
             $gasIsolated = $poi->isGenuinelyIsolated();
             $nextGas = ($poi->nearestComputed() && $poi->nearest_same_type_id !== null)
-                ? $this->resolveNextGas($poi)
+                ? $this->resolveNextSameType($poi)
                 : null;
             $gasSummary = $this->gasSummary($poi, $prefecture, $city);
+        } elseif ($isKonbini) {
+            // 周辺は2種類だけ（道の駅・GS）。31,050ページ規模のため空間クエリのみ7日キャッシュ。
+            // トイレ有無は書かない方針のため、トイレが確実な道の駅を代わりに出す。
+            [$nearbyRoadside, $nearbyGasList, $nearestStation]
+                = Cache::remember("konbini_detail_nearby:v1:{$poi->id}", 604800, function () use ($lat, $lng) {
+                    $roadside = $this->nearbyRoadsideStations($lat, $lng);
+                    $gas = $this->nearbyFacilities(Poi::query()->where('type', 'gas_station'), $lat, $lng);
+                    $station = $this->nearestStation($lat, $lng);
+
+                    return [$roadside, $gas, $station];
+                });
+
+            // 離島/次コンビニ判定は事前計算列を読むだけ＝キャッシュ外で毎回算出（GSと同じ理由・佐久市の再発防止）。
+            // 都市部（近傍<3km）は「次のコンビニまで」を出さない（0.2kmと書いても意味が無い）＝孤立(>=3km)時のみ。
+            $konbiniIsolated = $poi->isGenuinelyIsolated();
+            $isFarKonbini = $poi->nearestComputed()
+                && $poi->nearest_same_type_id !== null
+                && $poi->nearest_same_type_m !== null
+                && $poi->nearest_same_type_m >= 3000;
+            $nextKonbini = $isFarKonbini ? $this->resolveNextSameType($poi) : null;
+            $konbiniSummary = $this->konbiniSummary($poi, $prefecture, $city);
         }
 
         // 見出しを近接GSのブランドで一意化するため、$display より先に近接GSを取得する（追加クエリなし・値を使い回す）。
-        // GSは「次のGS」を事前計算で出すため近接GSの空間クエリは張らない。コンビニは近接GSを出す（フェーズ3で調整）。
-        $nearbyGas = $isGas ? [] : $this->nearbyByType($poi, 'gas_station');
-        // GS詳細は周辺2種類（洗車場・駐車場）に限定するため、近接コンビニは出さない。
-        $nearbyStore = ($isGas || $type === 'convenience_store') ? [] : $this->nearbyByType($poi, 'convenience_store');
+        // GS/コンビニは周辺を専用ブロック（事前計算＋2種のみ）で出すため、洗車場用の nearbyByType 空間クエリは張らない。
+        $nearbyGas = ($isGas || $isKonbini) ? [] : $this->nearbyByType($poi, 'gas_station');
+        $nearbyStore = ($isGas || $isKonbini) ? [] : $this->nearbyByType($poi, 'convenience_store');
 
         // 名前を持たない洗車場のみ、50m以内で自前の名称を持つGSのブランドを見出しに併記して同名重複を解消する。
         // resolveDisplay 側で「設備ラベルに落ちるケース」だけに適用されるため、名前を持つ施設の見出しは変わらない。
         $gasBrand = $type === 'car_wash' ? $this->nearbyGasBrand($nearbyGas) : null;
         $display = $this->resolveDisplay($poi, $type, $prefecture, $city, $gasBrand);
 
-        // 同名見出しの重複対策で <title> にだけ最寄り駅節を足して一意化する（洗車場・GS）。
-        // 例: GSの「apollostation」が同一市内に4件並ぶ問題（h1 は townPart 併記、title は駅節でさらに一意化）。
-        // h1 / JSON-LD name は簡潔さ優先で $display のまま。コンビニは null → ビュー側で従来 title。
-        $pageTitle = ($isCarWash || $isGas) ? $this->carWashTitle($display, $nearestStation, $city, $meta['label']) : null;
+        // 同名見出しの重複対策で <title> にだけ最寄り駅節を足して一意化する（洗車場・GS・コンビニ）。
+        // 例: GS「apollostation」×4、コンビニ「セブン-イレブン」×53（h1 は townPart 併記、title は駅節でさらに一意化）。
+        // h1 / JSON-LD name は簡潔さ優先で $display のまま。
+        $pageTitle = ($isCarWash || $isGas || $isKonbini)
+            ? $this->carWashTitle($display, $nearestStation, $city, $meta['label'])
+            : null;
 
         return view('poi_area.show', [
             'routePrefix' => $meta['prefix'],
@@ -384,6 +412,13 @@ final class PoiAreaController extends Controller
             'gasIsolated' => $gasIsolated,
             'gasSummary' => $gasSummary,
             'gas24h' => $isGas ? $this->isGas24h($poi) : false,
+            // コンビニのみ内容を持つ（他種別は空／null/false）。周辺は道の駅＋GSの2種。
+            'nearbyRoadside' => $nearbyRoadside,
+            'nearbyGasList' => $nearbyGasList,
+            'nextKonbini' => $nextKonbini,
+            'konbiniIsolated' => $konbiniIsolated,
+            'konbiniSummary' => $konbiniSummary,
+            'konbini24h' => $isKonbini ? $this->isGas24h($poi) : false,
             'crossLinks' => $this->listingCrossLinks(),
         ]);
     }
@@ -430,6 +465,10 @@ final class PoiAreaController extends Controller
 
         if ($type === 'gas_station') {
             return $this->gasDisplay($poi, $prefecture, $city);
+        }
+
+        if ($type === 'convenience_store') {
+            return $this->konbiniDisplay($poi, $prefecture, $city);
         }
 
         return $display;
@@ -499,7 +538,7 @@ final class PoiAreaController extends Controller
         return $text;
     }
 
-    /** opening_hours から24時間営業を判定する（OSMの 24/7・和文表記の双方に対応）。 */
+    /** opening_hours から24時間営業を判定する（OSMの 24/7・和文表記の双方に対応）。GS/コンビニ共用。 */
     private function isGas24h(Poi $poi): bool
     {
         $oh = strtolower(trim((string) ($poi->opening_hours ?? '')));
@@ -508,33 +547,151 @@ final class PoiAreaController extends Controller
     }
 
     /**
-     * 「次のGS」を事前計算列（nearest_same_type_id / _m）から解決する。空間クエリは投げない。
-     * 参照先の name/brand と正規URLを組むため id 直引き（PK1件）だけ行う。孤立GS（id が null）や
-     * 参照先消失時は null を返し、ビュー側で「他のGSはありません」表示に切り替える。
+     * 「次の同種別POI（GS/コンビニ）」を事前計算列（nearest_same_type_id / _m）から解決する。空間クエリは投げない。
+     * 参照先の name/brand と正規URLを組むため id 直引き（PK1件）だけ行う。孤立（id が null）や参照先消失時は null。
+     * 表示名・URLは参照先の type に合わせる（gasDisplay/konbiniDisplay と {prefix}.show）。
      *
      * @return array{display: string, km: float, url: ?string}|null
      */
-    private function resolveNextGas(Poi $poi): ?array
+    private function resolveNextSameType(Poi $poi): ?array
     {
         if ($poi->nearest_same_type_id === null) {
             return null;
         }
 
         $n = Poi::query()->where('id', $poi->nearest_same_type_id)
-            ->first(['id', 'name', 'brand', 'address', 'prefecture', 'city']);
+            ->first(['id', 'type', 'name', 'brand', 'address', 'prefecture', 'city']);
         if ($n === null) {
             return null;
         }
 
-        $url = (filled($n->prefecture) && filled($n->city))
-            ? route('gs.show', [$n->prefecture, $n->city, $n->id])
+        $prefix = self::TYPES[$n->type]['prefix'] ?? null;
+        $url = ($prefix !== null && filled($n->prefecture) && filled($n->city))
+            ? route($prefix.'.show', [$n->prefecture, $n->city, $n->id])
             : null;
 
+        $display = match ($n->type) {
+            'gas_station' => $this->gasDisplay($n, (string) $n->prefecture, (string) $n->city),
+            'convenience_store' => $this->konbiniDisplay($n, (string) $n->prefecture, (string) $n->city),
+            default => $this->displayName($n),
+        };
+
         return [
-            'display' => $this->gasDisplay($n, (string) $n->prefecture, (string) $n->city),
+            'display' => $display,
             'km' => round(((int) ($poi->nearest_same_type_m ?? 0)) / 1000, 1),
             'url' => $url,
         ];
+    }
+
+    /**
+     * コンビニの表示名。具体的な店名を持つ行（例「セブンイレブン 柏あけぼの１丁目店」）はそのまま返す。
+     * 素のチェーン名だけの行（「セブン-イレブン」が同一市内に数十件並ぶ）だけ townPart() の町名を併記して
+     * 見出しの重複を解消する（例: セブン-イレブン（下倉田町））。name も brand も無ければ displayName()。
+     */
+    private function konbiniDisplay(Poi $poi, string $prefecture, string $city): string
+    {
+        $name = trim((string) ($poi->name ?? ''));
+        $base = $name !== '' ? $name : trim((string) ($poi->brand ?? ''));
+        if ($base === '') {
+            return $this->displayName($poi);
+        }
+
+        if ($this->isBareConvenienceChain($base)) {
+            $town = $this->townPart($prefecture, $city, $poi->address);
+
+            return $town !== '' ? $base.'（'.$town.'）' : $base;
+        }
+
+        return $base;
+    }
+
+    /** 主要コンビニチェーンの「素の名称」。これ単体の name/brand は同一市内で大量重複するため町名併記の対象。 */
+    private const CONVENIENCE_CHAINS = [
+        'セブン-イレブン', 'セブンイレブン', '7-eleven',
+        'ローソン', 'lawson', 'ローソンストア100', 'ナチュラルローソン', 'ローソン・スリーエフ',
+        'ファミリーマート', 'familymart', 'ファミマ',
+        'ミニストップ', 'ministop',
+        'デイリーヤマザキ', 'ヤマザキデイリーストア', 'ヤマザキショップ',
+        'セイコーマート', 'seicomart', 'セコマ',
+        'ポプラ', 'スリーエフ', 'コミュニティストア', 'コミュニティ・ストア',
+        'ニューデイズ', 'newdays', 'セーブオン',
+    ];
+
+    /**
+     * 素のチェーン名か（表記ゆれ吸収: 大小文字・空白・ハイフン類・中黒・長音を除いて突合）。
+     * 「セブンイレブン 柏あけぼの１丁目店」のような具体的店名は一致しない＝町名併記の対象外（そのまま残す）。
+     */
+    private function isBareConvenienceChain(string $value): bool
+    {
+        $normalize = static fn (string $s): string => str_replace(
+            [' ', "\u{3000}", '-', "\u{2010}", "\u{2212}", "\u{FF0D}", "\u{30FC}", '・'],
+            '',
+            mb_strtolower(trim($s))
+        );
+        $norm = $normalize($value);
+        foreach (self::CONVENIENCE_CHAINS as $chain) {
+            if ($norm === $normalize($chain)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * コンビニ詳細の自動生成文（所在地＋24時間＋孤立時のみ「次のコンビニまで」）。
+     * 都市部（近傍<3km）は距離を出さない（0.2kmと書いても意味が無い）。判定は計算済みのときだけ（[[未計算は無言]]）。
+     */
+    private function konbiniSummary(Poi $poi, string $prefecture, string $city): string
+    {
+        $town = $this->townPart($prefecture, $city, $poi->address);
+        $text = $prefecture.$city.$town.'にあるコンビニです。';
+
+        if ($this->isGas24h($poi)) {
+            $text .= '24時間営業。';
+        }
+
+        if ($poi->nearestComputed()) {
+            if ($poi->nearest_same_type_id === null) {
+                $text .= 'この付近に他のコンビニはありません。';
+            } elseif ($poi->nearest_same_type_m !== null && $poi->nearest_same_type_m >= 3000) {
+                // 孤立（3km以上）のときだけ距離を主役にする。都市部は言及しない。
+                $km = round(((int) $poi->nearest_same_type_m) / 1000, 1);
+                $text .= 'この先、次のコンビニまで約'.number_format($km, 1).'km。';
+            }
+        }
+
+        return $text;
+    }
+
+    /**
+     * 起点周辺の道の駅（RoadsideStation・トイレが確実）を直線距離順に返す。link は michinoeki.show({station_code})。
+     * nearbyFacilities と同流儀（矩形で粗絞り→ST_Distance_Sphere で実距離）だが、リンクキーが station_code のため専用。
+     *
+     * @return array<int, array{station_code: string, name: string, km: float}>
+     */
+    private function nearbyRoadsideStations(float $lat, float $lng, float $radiusKm = 10.0, int $limit = 3): array
+    {
+        $deg = $radiusKm / 111.0;
+
+        return RoadsideStation::query()
+            ->whereNotNull('latitude')->whereNotNull('longitude')
+            ->whereBetween('latitude', [$lat - $deg, $lat + $deg])
+            ->whereBetween('longitude', [$lng - $deg, $lng + $deg])
+            ->selectRaw(
+                'station_code, name, ST_Distance_Sphere(POINT(longitude, latitude), POINT(?, ?)) AS dist_m',
+                [$lng, $lat]
+            )
+            ->havingRaw('dist_m <= ?', [$radiusKm * 1000])
+            ->orderBy('dist_m')
+            ->limit($limit)
+            ->get()
+            ->map(fn ($r): array => [
+                'station_code' => (string) $r->station_code,
+                'name' => (string) $r->name,
+                'km' => round(((float) $r->dist_m) / 1000, 1),
+            ])
+            ->all();
     }
 
     /**

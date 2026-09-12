@@ -1244,6 +1244,35 @@ class GenerateSitemap extends Command
                         }
                     });
                 $this->info("   GS B群（神奈川県の対照群）: {$gsB} URL");
+            } elseif ($poiArea['type'] === 'convenience_store') {
+                // ページは全31,050件存在し一覧から全件リンクするが、サイトマップは孤立コンビニだけに絞る
+                // （都市部の薄いページ2,400件を出すデメリットが大きい）。GSのようなB群（対照群）は作らない。
+                // 孤立(>=3km) 実測841件 ＋ 離島(近隣コンビニ無し)。どちらも「計算済み」に限る＝未計算は載せない。
+                $konbiniFar = 0;
+                $poiDetailBase()
+                    ->whereNotNull('nearest_computed_at')
+                    ->where('nearest_same_type_m', '>=', 3000)
+                    ->orderBy('id')
+                    ->chunk(500, function ($rows) use ($writePoiDetail, &$konbiniFar) {
+                        foreach ($rows as $poi) {
+                            $writePoiDetail($poi);
+                            $konbiniFar++;
+                        }
+                    });
+                $this->info("   コンビニ 孤立(>=3km): {$konbiniFar} URL");
+
+                // 離島（計算済み＆近隣コンビニ無し）。GSと同じく genuinelyIsolated() で未計算を除外。
+                $konbiniIsland = 0;
+                $poiDetailBase()
+                    ->genuinelyIsolated()
+                    ->orderBy('id')
+                    ->chunk(500, function ($rows) use ($writePoiDetail, &$konbiniIsland) {
+                        foreach ($rows as $poi) {
+                            $writePoiDetail($poi);
+                            $konbiniIsland++;
+                        }
+                    });
+                $this->info("   コンビニ 離島（近隣コンビニ無し）: {$konbiniIsland} URL");
             }
 
             $this->closeSitemap($handle);

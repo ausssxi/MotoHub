@@ -472,10 +472,17 @@ Route::get('/gs/{prefecture}/{city}/{id}', [\App\Http\Controllers\Poi\PoiAreaCon
     ->defaults('type', 'gas_station')->name('gs.show');
 Route::get('/konbini', [\App\Http\Controllers\Poi\PoiAreaController::class, 'index'])
     ->defaults('type', 'convenience_store')->name('konbini.index');
+// 短縮URL /konbini/{id} → 正規URLへリダイレクト。★必ず /konbini/{prefecture} より前（gs.short と同じ理由）。
+// whereNumber('id') と宣言順の両方が必須（/konbini/北海道 が short に吸われないように）。
+Route::get('/konbini/{id}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'short'])
+    ->whereNumber('id')->defaults('type', 'convenience_store')->name('konbini.short');
 Route::get('/konbini/{prefecture}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'prefecture'])
     ->defaults('type', 'convenience_store')->name('konbini.prefecture');
 Route::get('/konbini/{prefecture}/{city}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'city'])
     ->defaults('type', 'convenience_store')->name('konbini.city');
+Route::get('/konbini/{prefecture}/{city}/{id}', [\App\Http\Controllers\Poi\PoiAreaController::class, 'show'])
+    ->whereNumber('id')
+    ->defaults('type', 'convenience_store')->name('konbini.show');
 Route::get('/senshajo', [\App\Http\Controllers\Poi\PoiAreaController::class, 'index'])
     ->defaults('type', 'car_wash')->name('senshajo.index');
 // 短縮URL /senshajo/{id}（prefecture/city を持たない地図ピン等の内部導線用）→ 正規URLへリダイレクト。
