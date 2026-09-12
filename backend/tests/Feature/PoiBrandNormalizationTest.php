@@ -99,7 +99,7 @@ it('コンビニ config変更④: ローソンストア100 を lawson から分�
 
 it('GS詳細: brand由来の見出し・ブランド欄は正規化名になる', function () {
     $poi = bnPoi(['name' => null, 'brand' => 'エネオス', 'address' => '北海道札幌市中央区南1条西5-1']);
-    Cache::put("gs_detail_nearby:v2:{$poi->id}", [[], [], null], 600);
+    Cache::put("gs_detail_nearby:v3:{$poi->id}", [[], [], null], 600);
 
     $this->get(route('gs.show', ['北海道', '札幌市中央区', $poi->id]))
         ->assertOk()
@@ -109,7 +109,7 @@ it('GS詳細: brand由来の見出し・ブランド欄は正規化名になる'
 
 it('GS詳細: name のある行は h1 をそのまま出し、ブランド欄だけ正規化', function () {
     $poi = bnPoi(['name' => 'エネオス 南1条SS', 'brand' => 'エネオス', 'address' => '北海道札幌市中央区南1条西5-1']);
-    Cache::put("gs_detail_nearby:v2:{$poi->id}", [[], [], null], 600);
+    Cache::put("gs_detail_nearby:v3:{$poi->id}", [[], [], null], 600);
 
     // name は一切いじらない（h1 はそのまま）。ブランド欄は正規化名。
     $this->get(route('gs.show', ['北海道', '札幌市中央区', $poi->id]))
@@ -120,7 +120,7 @@ it('GS詳細: name のある行は h1 をそのまま出し、ブランド欄だ
 
 it('GS詳細: name が素のブランド名そのもの（完全一致）なら正規化する', function () {
     $poi = bnPoi(['name' => 'エネオス', 'brand' => 'エネオス', 'address' => '青森県つがる市柏0-1', 'prefecture' => '青森県', 'city' => 'つがる市', 'municipality_code' => '02209']);
-    Cache::put("gs_detail_nearby:v2:{$poi->id}", [[], [], null], 600);
+    Cache::put("gs_detail_nearby:v3:{$poi->id}", [[], [], null], 600);
 
     $this->get(route('gs.show', ['青森県', 'つがる市', $poi->id]))
         ->assertOk()->assertSee('ENEOS')->assertDontSee('エネオス');
@@ -128,7 +128,7 @@ it('GS詳細: name が素のブランド名そのもの（完全一致）なら�
 
 it('GS詳細: 部分一致は誤爆しない（エネオス安波給油所はそのまま）', function () {
     $poi = bnPoi(['name' => 'エネオス安波給油所', 'brand' => 'エネオス', 'address' => '青森県つがる市柏0-1', 'prefecture' => '青森県', 'city' => 'つがる市', 'municipality_code' => '02209']);
-    Cache::put("gs_detail_nearby:v2:{$poi->id}", [[], [], null], 600);
+    Cache::put("gs_detail_nearby:v3:{$poi->id}", [[], [], null], 600);
 
     // patterns の「エネオス」を含むが完全一致でないので name はそのまま（h1 無変更）。
     $this->get(route('gs.show', ['青森県', 'つがる市', $poi->id]))
@@ -137,7 +137,7 @@ it('GS詳細: 部分一致は誤爆しない（エネオス安波給油所はそ
 
 it('GS詳細: ガード系 name=JA も完全一致で JA-SS に正規化', function () {
     $poi = bnPoi(['name' => 'JA', 'brand' => '', 'address' => '青森県つがる市柏0-1', 'prefecture' => '青森県', 'city' => 'つがる市', 'municipality_code' => '02209']);
-    Cache::put("gs_detail_nearby:v2:{$poi->id}", [[], [], null], 600);
+    Cache::put("gs_detail_nearby:v3:{$poi->id}", [[], [], null], 600);
 
     $this->get(route('gs.show', ['青森県', 'つがる市', $poi->id]))
         ->assertOk()->assertSee('JA-SS');

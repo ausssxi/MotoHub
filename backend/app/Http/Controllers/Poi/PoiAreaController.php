@@ -11,6 +11,7 @@ use App\Models\RentalGarage;
 use App\Models\RoadsideStation;
 use App\Models\Shop;
 use App\Models\Station;
+use App\Support\AddressFormatter;
 use App\Support\ShopNameNormalizer;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -311,7 +312,7 @@ final class PoiAreaController extends Controller
                 // 世代付きキー。説明文(carWashSummary)はここにキャッシュされるため、文言に影響する変更ごとに必ず上げる。
                 // 本番は cache:clear 不可（別機能の6000件規模が飛ぶ）で、世代を進めるのが唯一の即時反映手段。
                 // v2: townPart() 導入で町名表記を修正 / v3: townPart() 実データ準拠に再修正＋50m重複除外に合わせて再生成。
-                = Cache::remember("senshajo_detail_nearby:v3:{$poi->id}", 86400, function () use ($poi, $prefecture, $city, $lat, $lng) {
+                = Cache::remember("senshajo_detail_nearby:v4:{$poi->id}", 86400, function () use ($poi, $prefecture, $city, $lat, $lng) {
                     $shops = $this->nearbyFacilities(Shop::query(), $lat, $lng);
                     // is_active=1 のみ（非公開の駐車場・ガレージは出さない）。
                     $parkings = $this->nearbyFacilities(BikeParking::query()->where('is_active', 1), $lat, $lng);
@@ -333,7 +334,7 @@ final class PoiAreaController extends Controller
             // 周辺は2種類だけ（洗車場・バイク駐車場）。16,546ページ規模のため4種類は投げない。空間クエリのみ7日キャッシュ。
             // v1→v2: 「次のGS/離島」判定をキャッシュから外し毎回 $poi の事前計算列から出す構造に変更（旧キャッシュ無効化も兼ねる）。
             [$nearbyWashes, $nearbyParkings, $nearestStation]
-                = Cache::remember("gs_detail_nearby:v2:{$poi->id}", 604800, function () use ($lat, $lng) {
+                = Cache::remember("gs_detail_nearby:v3:{$poi->id}", 604800, function () use ($lat, $lng) {
                     $washes = $this->nearbyFacilities(Poi::query()->where('type', 'car_wash'), $lat, $lng);
                     $parkings = $this->nearbyFacilities(BikeParking::query()->where('is_active', 1), $lat, $lng);
                     $station = $this->nearestStation($lat, $lng);
@@ -352,7 +353,7 @@ final class PoiAreaController extends Controller
             // 周辺は2種類だけ（道の駅・GS）。31,050ページ規模のため空間クエリのみ7日キャッシュ。
             // トイレ有無は書かない方針のため、トイレが確実な道の駅を代わりに出す。
             [$nearbyRoadside, $nearbyGasList, $nearestStation]
-                = Cache::remember("konbini_detail_nearby:v1:{$poi->id}", 604800, function () use ($lat, $lng) {
+                = Cache::remember("konbini_detail_nearby:v2:{$poi->id}", 604800, function () use ($lat, $lng) {
                     $roadside = $this->nearbyRoadsideStations($lat, $lng);
                     $gas = $this->nearbyFacilities(Poi::query()->where('type', 'gas_station'), $lat, $lng);
                     $station = $this->nearestStation($lat, $lng);
@@ -826,31 +827,81 @@ final class PoiAreaController extends Controller
      * （最終的な半径判定は ST_Distance_Sphere が担保するので粗絞りは広めで良い）。SRID 0 の POINT は
      * 「経度・緯度」の順（POINT(longitude, latitude)）。
      *
+     * 対象が Poi のときは name/brand/address から facilityLabel() でラベルを組む（type 分岐に必要な列も SELECT する）。
+     * ★ラベルが作れない（name/brand が空 かつ 住所から町名が取れない）行は配列から除外する
+     *   ＝「空リンク」や「種別名だけ」の無意味な導線を出さない。除外で 0 件ならビュー側の @if(!empty()) で節ごと消える。
+     *
      * @param  \Illuminate\Database\Eloquent\Builder  $query  対象テーブルの基底クエリ
      * @return array<int, array{id: int, name: string, km: float}>
      */
     private function nearbyFacilities($query, float $lat, float $lng, float $radiusKm = 10.0, int $limit = 3): array
     {
         $deg = $radiusKm / 111.0;
+        $isPoi = $query->getModel() instanceof Poi;
+
+        // Poi は type/brand/address/prefecture/city も要る（type 欠落だと facilityLabel が既定に落ちる）。
+        $columns = $isPoi ? 'id, type, name, brand, address, prefecture, city' : 'id, name';
 
         return $query
             ->whereNotNull('latitude')->whereNotNull('longitude')
             ->whereBetween('latitude', [$lat - $deg, $lat + $deg])
             ->whereBetween('longitude', [$lng - $deg, $lng + $deg])
             ->selectRaw(
-                'id, name, ST_Distance_Sphere(POINT(longitude, latitude), POINT(?, ?)) AS dist_m',
+                $columns.', ST_Distance_Sphere(POINT(longitude, latitude), POINT(?, ?)) AS dist_m',
                 [$lng, $lat]
             )
             ->havingRaw('dist_m <= ?', [$radiusKm * 1000])
             ->orderBy('dist_m')
             ->limit($limit)
             ->get()
-            ->map(fn ($r): array => [
-                'id' => (int) $r->id,
-                'name' => (string) $r->name,
-                'km' => round(((float) $r->dist_m) / 1000, 1),
-            ])
+            ->map(function ($r) use ($isPoi): ?array {
+                // Poi は name/brand/住所町名でラベルを作る。他テーブル(shops/parkings/garages)は name をそのまま。
+                $label = $isPoi
+                    ? $this->facilityLabel($r)
+                    : (filled($r->name) ? (string) $r->name : null);
+
+                if ($label === null || $label === '') {
+                    return null; // ラベルが作れない行は落とす（無意味なリンクを出さない）
+                }
+
+                return [
+                    'id' => (int) $r->id,
+                    'name' => $label,
+                    'km' => round(((float) $r->dist_m) / 1000, 1),
+                ];
+            })
+            ->filter()
+            ->values()
             ->all();
+    }
+
+    /**
+     * 周辺リストに出す Poi のラベル。順に見て最初に決まったものを返し、全部だめなら null（＝その行は出さない）。
+     *   1) name が非空 → name をそのまま（具体的店名を温存）
+     *   2) brand が非空 → normalizedBrand()（gas/cvsOperatorLabel で表記ゆれ統一）
+     *   3) address から町名が取れる → 「{種別ラベル}（{町名}）」（例: ガソリンスタンド（新砂一丁目））
+     *   4) それ以外 → null
+     */
+    private function facilityLabel(Poi $poi): ?string
+    {
+        $name = trim((string) ($poi->name ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        $brandLabel = $this->normalizedBrand($poi);
+        if ($brandLabel !== null && $brandLabel !== '') {
+            return $brandLabel;
+        }
+
+        $town = AddressFormatter::townPart($poi->prefecture, $poi->city, $poi->address);
+        if ($town !== '') {
+            $typeLabel = self::TYPES[$poi->type]['label'] ?? 'スポット';
+
+            return $typeLabel.'（'.$town.'）';
+        }
+
+        return null;
     }
 
     /**
@@ -1091,39 +1142,8 @@ final class PoiAreaController extends Controller
      */
     private function townPart(string $prefecture, string $city, ?string $address): string
     {
-        $town = trim((string) $address);
-        if ($town === '') {
-            return '';
-        }
-
-        // (1) 先頭の行政区分（都道府県・市区町村）を除く。ずれ吸収のため候補を増やして長い順に置換。
-        $strip = [$prefecture, $city];
-        if (preg_match('/郡(.+)$/u', $city, $m)) {
-            $strip[] = $m[1]; // 郡以降（例: 山武郡横芝光町 → 横芝光町）
-        }
-        if (preg_match('/^(.+?市)/u', $city, $m)) {
-            $strip[] = $m[1]; // 市まで（例: 横浜市鶴見区 → 横浜市）
-        }
-        if (preg_match('/市(.+区)$/u', $city, $m)) {
-            $strip[] = $m[1]; // 区のみ（例: 横浜市港北区 → 港北区。address が区名始まりのケース用）
-        }
-        usort($strip, static fn (string $a, string $b): int => mb_strlen($b) <=> mb_strlen($a));
-        $town = trim(str_replace($strip, '', $town));
-
-        // (2) 先頭の「大字」「字」を落とす（北海道・東北・沖縄に多い。例: 大字津久礼 → 津久礼 / 字森川町 → 森川町）。
-        $town = (string) preg_replace('/^(?:大字|字)/u', '', $town);
-
-        // (3) 末尾の番地（数字・ハイフン類・空白）を落とす。丁目名は漢数字なので残る（例: 金岡町6 → 金岡町）。
-        //     長音記号「ー」は名前の一部なので除外し、- ‐ ‑ − －（U+2212/FF0D 等）と全角空白のみ対象にする。
-        $town = (string) preg_replace('/[\s\x{3000}0-9０-９\-\x{2010}\x{2011}\x{2212}\x{FF0D}]+$/u', '', $town);
-
-        // (4) 妥当性チェック。漢字・かな・カナが1文字も残らなければ地名として無効とみなし空を返す
-        //     （括弧付きラベルを出さずラベルだけにする）。例: 刈羽村962-1 → 962-1 → 空 / 喬木村− → − → 空。
-        if (! preg_match('/[\p{Han}\p{Hiragana}\p{Katakana}]/u', $town)) {
-            return '';
-        }
-
-        return trim($town);
+        // ロジックの正本は AddressFormatter に集約（Poi::getDisplayNameAttribute と共用・分裂防止）。
+        return AddressFormatter::townPart($prefecture, $city, $address);
     }
 
     /**

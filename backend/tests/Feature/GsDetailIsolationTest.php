@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Cache;
  * この不具合は poi:fetch(毎晩) が未計算行を増やすたび再発しうるので、テストで固定する。
  *
  * 詳細ページは周辺施設で ST_Distance_Sphere を使う（SQLite不可）ため、その空間クエリ結果だけ
- * キャッシュキー gs_detail_nearby:v2:{id} に事前投入して回避する。離島/次のGS判定はキャッシュ外なので
+ * キャッシュキー gs_detail_nearby:v3:{id} に事前投入して回避する。離島/次のGS判定はキャッシュ外なので
  * このテストで実際のHTML描画まで検証できる。
  */
 
@@ -44,7 +44,7 @@ function isoPoi(array $overrides = []): Poi
 /** show() 内の周辺施設（空間クエリ）を実行させないよう、キャッシュを空で事前投入する。 */
 function seedGsNearbyCache(Poi $poi): void
 {
-    Cache::put("gs_detail_nearby:v2:{$poi->id}", [[], [], null], 600);
+    Cache::put("gs_detail_nearby:v3:{$poi->id}", [[], [], null], 600);
 }
 
 it('未計算のGS（nearest_computed_at=NULL）は「他にありません」を出さない（本番バグの固定）', function () {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Support\AddressFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -46,7 +47,12 @@ final class Poi extends Model
 
     /**
      * 表示名フォールバック（name が null/空でも空文字にしない・センチネルも使わない）。
-     * 順序: name → brand → 種別名。map.js の resolveName と同順序（PHP側の単一実装）。
+     * 順序: name → brand → 種別名（町名） → 種別名。「種別名（町名）」段は住所から町名を取り出せた時だけ
+     * （例: 洗車場（新砂一丁目））。address/prefecture/city が未SELECTだと町名段は静かに飛ばされ種別名に落ちる。
+     *
+     * ※ map.js の resolveName（poi-name.js）は name→brand→種別名 で、この「町名」段を持たない＝1段ずれる。
+     *   ただし地図APIは display_name を出力に含めない（resolveName が item.name 等を直接読む）ため実害は無い。
+     *   使用箇所: レンタルガレージ/道の駅 詳細の周辺リスト（モデルを full-select して表示時に解決）。
      */
     public function getDisplayNameAttribute(): string
     {
@@ -59,7 +65,13 @@ final class Poi extends Model
             return $brand;
         }
 
-        return self::TYPE_LABELS[$this->type] ?? 'スポット';
+        $label = self::TYPE_LABELS[$this->type] ?? 'スポット';
+        $town = AddressFormatter::townPart($this->prefecture, $this->city, $this->address);
+        if ($town !== '') {
+            return $label.'（'.$town.'）';
+        }
+
+        return $label;
     }
 
     public function scopeInBounds(Builder $query, float $swLat, float $swLng, float $neLat, float $neLng): Builder

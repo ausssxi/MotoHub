@@ -187,7 +187,7 @@ final class RoadsideStationController extends Controller
 
         // 周辺情報（座標があるときのみ）。素の配列に落として24時間キャッシュ。
         $nearby = $hasCoords
-            ? Cache::remember("roadside_nearby_v2:{$stationCode}", 86400, fn () => $this->buildNearby($station))
+            ? Cache::remember("roadside_nearby_v3:{$stationCode}", 86400, fn () => $this->buildNearby($station))
             : $this->emptyNearby();
 
         // 回遊リンク（道の駅向け）。route() 名は実在するもののみ。
@@ -254,11 +254,12 @@ final class RoadsideStationController extends Controller
         $lat = (float) $station->latitude;
         $lng = (float) $station->longitude;
 
-        // POI は詳細ページが無いため、リンク先はライダーズマップに座標＋レイヤーを付ける
-        // （レンタルガレージ詳細の「近くの洗車場」と同じ書き方）。
+        // POI は詳細ページ(gs/konbini/senshajo)へ短縮URL経由でリンク（/{prefix}/{id} が prefecture/city を解決し正規URLへ301）。
+        // 以前は詳細ページが無く riders.map に飛ばしていたが、684+16,546+31,050 ページが公開済みなので詳細へ繋ぐ。
+        $layerPrefix = ['gas_station' => 'gs', 'convenience_store' => 'konbini', 'car_wash' => 'senshajo'];
         $poiItem = fn ($r, string $layer): array => [
             'label' => $r->display_name,
-            'url' => route('riders.map', ['lat' => $r->latitude, 'lng' => $r->longitude, 'zoom' => 16, 'layer' => $layer]),
+            'url' => route($layerPrefix[$layer].'.short', $r->id),
             'distance_km' => (float) $r->dist_km,
         ];
 

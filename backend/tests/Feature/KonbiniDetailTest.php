@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Cache;
  * コンビニ詳細ページ（フェーズ3）: ルーティング宣言順・短縮URL・離島出し分け・表示名一意化。
  *
  * 詳細ページの周辺施設は ST_Distance_Sphere（SQLite不可）を使うため、その結果だけ
- * konbini_detail_nearby:v1:{id} に事前投入して回避する。離島/次コンビニ/表示名はキャッシュ外なので描画まで検証できる。
+ * konbini_detail_nearby:v2:{id} に事前投入して回避する。離島/次コンビニ/表示名はキャッシュ外なので描画まで検証できる。
  */
 
 uses(RefreshDatabase::class);
@@ -39,7 +39,7 @@ function konPoi(array $overrides = []): Poi
 
 function seedKonbiniCache(Poi $poi): void
 {
-    Cache::put("konbini_detail_nearby:v1:{$poi->id}", [[], [], null], 600);
+    Cache::put("konbini_detail_nearby:v2:{$poi->id}", [[], [], null], 600);
 }
 
 it('konbini.show / konbini.short ルートが登録されている', function () {
