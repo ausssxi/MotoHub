@@ -182,13 +182,14 @@ final class PoiAreaController extends Controller
             if ($type === 'car_wash' && filled($p->address) && $display === trim((string) $p->address)) {
                 $display = $this->carWashLabel($p, $prefecture, $city);
             }
-            $brand = filled($p->brand) ? (string) $p->brand : null;
+            // ブランド副見出しも表記ゆれを統一（GS/コンビニは正規化名・洗車場等は生の brand）。
+            $brand = $this->normalizedBrand($p);
 
             return [
                 'id' => (int) $p->id,
                 'display' => $display,
                 // 表示名（name→brand→address）と同一のブランドは重複行になるので出さない。
-                'brand' => ($brand !== null && $brand !== $display) ? $brand : null,
+                'brand' => ($brand !== null && $brand !== '' && $brand !== $display) ? $brand : null,
                 'address' => filled($p->address) ? (string) $p->address : null,
                 'opening_hours' => filled($p->opening_hours) ? (string) $p->opening_hours : null,
                 // 洗車場の設備フラグ（OSM の生値）。バッジ判定はビュー側で行う。GS/コンビニは通常 NULL。
@@ -394,6 +395,8 @@ final class PoiAreaController extends Controller
             // h1 / JSON-LD name はこの $display を参照。<title> だけは $pageTitle（洗車場・GSは駅節つき）を使う。
             'display' => $display,
             'pageTitle' => $pageTitle,
+            // 「ブランド」欄用の正規化名（GS/コンビニ=表記ゆれ統一・洗車場等=生の brand・exclude/空=null）。
+            'brandLabel' => $this->normalizedBrand($poi),
             // JSON-LD の streetAddress も townPart() を通し、郡部・政令市の二重表記を構造化データからも排除する。
             'streetAddress' => $this->townPart($prefecture, $city, $poi->address),
             'nearbyGas' => $nearbyGas,
@@ -475,10 +478,10 @@ final class PoiAreaController extends Controller
     }
 
     /**
-     * GSの表示名。name を持つ施設（例「三菱商事エネルギー 牛潟SS」）はそのまま返す。
-     * name が無く brand しか無い行（apollostation / ENEOS 等が同一市内に複数並ぶ）だけ、
-     * townPart() の町名を括弧で併記して見出しの重複を解消する（例: apollostation（平台））。
-     * name も brand も無い行は displayName()（住所→「名称不明」）にフォールバックする。
+     * GSの表示名。name を持つ施設（例「三菱商事エネルギー 牛潟SS」）はそのまま返す（name 内は一切いじらない）。
+     * name が無く brand から見出しを組む行（apollostation / ENEOS 等が同一市内に複数並ぶ）だけ、
+     * ブランドを正規化名（gasOperatorLabel: エネオス→ENEOS 等）にしたうえで townPart() の町名を併記して
+     * 見出しの重複を解消する（例: ENEOS（荏田東二丁目）/ apollostation（平台））。brand が無ければ displayName()。
      */
     private function gasDisplay(Poi $poi, string $prefecture, string $city): string
     {
@@ -487,14 +490,14 @@ final class PoiAreaController extends Controller
             return $name;
         }
 
-        $brand = trim((string) ($poi->brand ?? ''));
-        if ($brand === '') {
+        $brandLabel = $this->normalizedBrand($poi);
+        if ($brandLabel === null || $brandLabel === '') {
             return $this->displayName($poi);
         }
 
         $town = $this->townPart($prefecture, $city, $poi->address);
 
-        return $town !== '' ? $brand.'（'.$town.'）' : $brand;
+        return $town !== '' ? $brandLabel.'（'.$town.'）' : $brandLabel;
     }
 
     /**
@@ -584,58 +587,45 @@ final class PoiAreaController extends Controller
     }
 
     /**
-     * コンビニの表示名。具体的な店名を持つ行（例「セブンイレブン 柏あけぼの１丁目店」）はそのまま返す。
-     * 素のチェーン名だけの行（「セブン-イレブン」が同一市内に数十件並ぶ）だけ townPart() の町名を併記して
-     * 見出しの重複を解消する（例: セブン-イレブン（下倉田町））。name も brand も無ければ displayName()。
+     * コンビニの表示名。name を持つ行（例「セブンイレブン 柏あけぼの１丁目店」）はそのまま返す（name 内は一切いじらない）。
+     * name が無く brand から見出しを組む行だけ、ブランドを正規化名（cvsOperatorLabel: 7-ELEVEN→セブン-イレブン 等）に
+     * したうえで townPart() の町名を併記して重複を解消する（例: セブン-イレブン（下倉田町））。brand が無ければ displayName()。
      */
     private function konbiniDisplay(Poi $poi, string $prefecture, string $city): string
     {
         $name = trim((string) ($poi->name ?? ''));
-        $base = $name !== '' ? $name : trim((string) ($poi->brand ?? ''));
-        if ($base === '') {
+        if ($name !== '') {
+            return $name;
+        }
+
+        $brandLabel = $this->normalizedBrand($poi);
+        if ($brandLabel === null || $brandLabel === '') {
             return $this->displayName($poi);
         }
 
-        if ($this->isBareConvenienceChain($base)) {
-            $town = $this->townPart($prefecture, $city, $poi->address);
+        $town = $this->townPart($prefecture, $city, $poi->address);
 
-            return $town !== '' ? $base.'（'.$town.'）' : $base;
-        }
-
-        return $base;
+        return $town !== '' ? $brandLabel.'（'.$town.'）' : $brandLabel;
     }
 
-    /** 主要コンビニチェーンの「素の名称」。これ単体の name/brand は同一市内で大量重複するため町名併記の対象。 */
-    private const CONVENIENCE_CHAINS = [
-        'セブン-イレブン', 'セブンイレブン', '7-eleven',
-        'ローソン', 'lawson', 'ローソンストア100', 'ナチュラルローソン', 'ローソン・スリーエフ',
-        'ファミリーマート', 'familymart', 'ファミマ',
-        'ミニストップ', 'ministop',
-        'デイリーヤマザキ', 'ヤマザキデイリーストア', 'ヤマザキショップ',
-        'セイコーマート', 'seicomart', 'セコマ',
-        'ポプラ', 'スリーエフ', 'コミュニティストア', 'コミュニティ・ストア',
-        'ニューデイズ', 'newdays', 'セーブオン',
-    ];
-
     /**
-     * 素のチェーン名か（表記ゆれ吸収: 大小文字・空白・ハイフン類・中黒・長音を除いて突合）。
-     * 「セブンイレブン 柏あけぼの１丁目店」のような具体的店名は一致しない＝町名併記の対象外（そのまま残す）。
+     * brand の正規化表示名（表記ゆれ統一の単一入口）。種別ごとに config 駆動の分類を通す。
+     *   GS       → Poi::gasOperatorLabel（config/gas.php: ENEOS/出光/コスモ石油/カーエネクス/コストコ 等）
+     *   コンビニ → Poi::cvsOperatorLabel（config/convenience.php: セブン-イレブン/ローソンストア100 等）
+     * 分類できない独立系は生の屋号（>10字は…）を返す。exclude/空は null。地図/API と同じ config を共有する。
      */
-    private function isBareConvenienceChain(string $value): bool
+    private function normalizedBrand(Poi $poi): ?string
     {
-        $normalize = static fn (string $s): string => str_replace(
-            [' ', "\u{3000}", '-', "\u{2010}", "\u{2212}", "\u{FF0D}", "\u{30FC}", '・'],
-            '',
-            mb_strtolower(trim($s))
-        );
-        $norm = $normalize($value);
-        foreach (self::CONVENIENCE_CHAINS as $chain) {
-            if ($norm === $normalize($chain)) {
-                return true;
-            }
+        $brand = trim((string) ($poi->brand ?? ''));
+        if ($brand === '') {
+            return null;
         }
 
-        return false;
+        return match ($poi->type) {
+            'gas_station' => Poi::gasOperatorLabel($brand, Poi::gasBrand($brand)) ?? $brand,
+            'convenience_store' => Poi::cvsOperatorLabel($brand, Poi::cvsBrand($brand)) ?? $brand,
+            default => $brand,
+        };
     }
 
     /**
@@ -767,7 +757,10 @@ final class PoiAreaController extends Controller
         }
 
         if (($nearest['dist_m'] ?? INF) <= 50 && filled($nearest['own_name'] ?? null)) {
-            return (string) $nearest['own_name'];
+            // 「ENEOS併設」と「エネオス併設」の揺れを消すため、近接GSの屋号も正規化名に寄せる。
+            $own = (string) $nearest['own_name'];
+
+            return Poi::gasOperatorLabel($own, Poi::gasBrand($own)) ?? $own;
         }
 
         return null;
@@ -1084,13 +1077,26 @@ final class PoiAreaController extends Controller
         return trim($town);
     }
 
+    /**
+     * 表示名フォールバック: name → brand（種別ごとに正規化）→ address →「名称不明」。
+     * name は一切いじらない。brand を見出しに使う場合だけ normalizedBrand() で表記ゆれを統一する
+     * （GS/コンビニ。エネオス→ENEOS 等。それ以外の種別は生の brand）。
+     */
     private function displayName(Poi $poi): string
     {
-        foreach ([$poi->name, $poi->brand, $poi->address] as $candidate) {
-            $v = trim((string) ($candidate ?? ''));
-            if ($v !== '') {
-                return $v;
-            }
+        $name = trim((string) ($poi->name ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        $brandLabel = $this->normalizedBrand($poi);
+        if ($brandLabel !== null && $brandLabel !== '') {
+            return $brandLabel;
+        }
+
+        $address = trim((string) ($poi->address ?? ''));
+        if ($address !== '') {
+            return $address;
         }
 
         return '名称不明';

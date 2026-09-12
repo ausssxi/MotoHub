@@ -167,8 +167,8 @@
                     @if(filled($poi->address))
                     <div class="flex gap-3"><dt class="text-gray-400 shrink-0 w-16 text-xs pt-0.5">住所</dt><dd>{{ $poi->address }}</dd></div>
                     @endif
-                    @if(filled($poi->brand))
-                    <div class="flex gap-3"><dt class="text-gray-400 shrink-0 w-16 text-xs pt-0.5">ブランド</dt><dd>{{ $poi->brand }}</dd></div>
+                    @if(filled($brandLabel))
+                    <div class="flex gap-3"><dt class="text-gray-400 shrink-0 w-16 text-xs pt-0.5">ブランド</dt><dd>{{ $brandLabel }}</dd></div>
                     @endif
                     @if(filled($poi->opening_hours))
                     <div class="flex gap-3"><dt class="text-gray-400 shrink-0 w-16 text-xs pt-0.5">営業時間</dt><dd>{{ $poi->opening_hours }}</dd></div>

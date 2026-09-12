@@ -43,7 +43,7 @@ return [
             ],
         ],
         'cosmo' => [
-            'name' => 'コスモ',
+            'name' => 'コスモ石油',
             // 実照合は gasBrand() の cosmo ガード（コスモ / latin cosmo〈cosmos除外〉）
             'patterns' => [],
         ],
@@ -64,16 +64,32 @@ return [
             'name' => '太陽石油',
             'patterns' => ['solato', 'sorato', 'solalt', '太陽石油', 'ソラト'],
         ],
+        // 伊藤忠エネクスのSSブランド。従来 other に散っていた実在チェーンを1ブランドに束ねる。
+        'carenex' => [
+            'name' => 'カーエネクス',
+            'patterns' => ['carenex', 'カーエネクス'],
+        ],
+        // コストコのガスステーション（実在GS）。旧 exclude から昇格。'costco'/'コストコ'/'kirkland' で拾う。
+        'costco' => [
+            'name' => 'コストコ',
+            'patterns' => ['costco', 'コストコ', 'kirkland'],
+        ],
+        // 丸紅エネルギーのSSブランド。旧 exclude(navi) から昇格。'navi'/'ナヴィ' で拾う。
+        'navi' => [
+            'name' => 'navi',
+            'patterns' => ['navi', 'ナヴィ'],
+        ],
     ],
 
     /*
     | 明確な非GS（GS層の誤ラベル）→ ペイロードから除外。正規化後の部分一致。
     | ハングル表記（GS칼텍스/SK주유소/현대오일뱅크/에쓰오일 等）は文字種で一括除外（gasBrand内）。
     | 「迷う実在GS屋号」はここに入れない＝残して 'other'。
+    | ★コストコ('costco'系)と navi は実在GSのため exclude から外し brands へ昇格した。
     */
     'exclude' => [
-        'bing', 'navi',
-        'lawson', 'ローソン', '7-eleven', 'セブンイレブン', 'コストコ', 'costco', 'kirkland',
+        'bing',
+        'lawson', 'ローソン', '7-eleven', 'セブンイレブン',
         'isuzu', 'いすゞ', 'オートバックス', 'autobacs', 'ビバホーム', 'イエローハット',
         '水素', 'iwatani', '岩谷', 'イワタニ',
         '東京ガス', '日本ガス', 'アストモス', '都市ガス', '充電',

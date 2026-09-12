@@ -30,8 +30,14 @@ return [
             // サークルK/サンクスは統合済みのため familymart に束ねる
             'patterns' => ['familymart', 'ファミリーマート', 'サークルk', 'サンクス', 'sunkus', 'sankus'],
         ],
+        // ★lawson より前に置く（'ローソン'/'lawson' に食われないため）。看板も業態も別なので独立キー。
+        'lawson-store-100' => [
+            'name' => 'ローソンストア100',
+            'patterns' => ['lawsonstore100', 'ローソンストア100', 'ローソン100'],
+        ],
         'lawson' => [
             'name' => 'ローソン',
+            // STORE100 は上で分離済み。NATURAL/スリーエフ/ポプラ派生はローソンに束ねる。
             'patterns' => ['lawson', 'ローソン'],
         ],
         'ministop' => [

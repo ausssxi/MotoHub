@@ -114,9 +114,11 @@ it('都市部（<3km）は「次のコンビニまで」を出さない', functi
         ->assertDontSee('次のコンビニ');
 });
 
-it('素のチェーン名は町名を併記し、具体的な店名は変えない', function () {
-    $bare = konPoi(['name' => 'セブン-イレブン', 'address' => '北海道富良野市朝日町1-1']);
-    $named = konPoi(['name' => 'セブンイレブン 富良野朝日町店', 'address' => '北海道富良野市朝日町1-1']);
+it('brandから見出しを組む行は正規化名＋町名、name のある行はそのまま（name内は触らない）', function () {
+    // name 無し・brand のみ → 正規化名(7-ELEVEN→セブン-イレブン)＋町名で一意化。
+    $bare = konPoi(['name' => null, 'brand' => '7-ELEVEN', 'address' => '北海道富良野市朝日町1-1']);
+    // name に具体的店名 → そのまま（町名併記もしない・name内置換もしない）。
+    $named = konPoi(['name' => 'セブンイレブン 富良野朝日町店', 'brand' => '7-ELEVEN', 'address' => '北海道富良野市朝日町1-1']);
     seedKonbiniCache($bare);
     seedKonbiniCache($named);
 
