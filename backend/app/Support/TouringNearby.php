@@ -43,15 +43,8 @@ final class TouringNearby
 
     private const CACHE_TTL = 86400;
 
-    /** roadside_stations の設備フラグ → バッジ表示名（true のものだけ・最大4）。 */
-    private const STATION_BADGES = [
-        'has_onsen' => '温泉',
-        'has_camp' => 'キャンプ',
-        'has_ev_charging' => 'EV充電',
-        'has_shower' => 'シャワー',
-        'has_observatory' => '展望台',
-        'has_restaurant' => '食事',
-    ];
+    /** 道の駅バッジの最大表示数（詳細ページは全件、ガイド周辺は最大4）。 */
+    private const STATION_BADGE_LIMIT = 4;
 
     private PoiDisplayResolver $resolver;
 
@@ -136,7 +129,7 @@ final class TouringNearby
         $query = RoadsideStation::query()
             ->select(array_merge(
                 ['id', 'station_code', 'name', 'nickname', 'prefecture', 'city', 'latitude', 'longitude'],
-                array_keys(self::STATION_BADGES),
+                array_keys(RoadsideStation::FACILITY_BADGES), // バッジ判定に全10フラグが要る
             ))
             ->whereNotNull('latitude')
             ->whereNotNull('longitude');
@@ -151,22 +144,13 @@ final class TouringNearby
                 continue;
             }
 
-            $badges = [];
-            foreach (self::STATION_BADGES as $col => $label) {
-                if ($station->{$col}) {
-                    $badges[] = $label;
-                }
-                if (count($badges) >= 4) {
-                    break;
-                }
-            }
-
             $items[] = [
                 'name' => $name,
                 'nickname' => $this->stationNickname($station->nickname, $name),
                 'city' => (string) $station->city,
                 'distance_km' => $this->roundKm($dist),
-                'badges' => $badges,
+                // バッジは希少度順・最大4（詳細ページと同一定義 RoadsideStation::FACILITY_BADGES）。
+                'badges' => $station->facilityBadges(self::STATION_BADGE_LIMIT),
                 'url' => route('michinoeki.show', ['station_code' => $station->station_code]),
             ];
         }

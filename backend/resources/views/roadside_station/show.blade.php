@@ -197,18 +197,14 @@
                 </figure>
                 @endif
 
-                {{-- 施設情報グリッド（2値: あり/なし）。
-                     summary が空の駅は施設フラグが全て false のまま＝未収集のため、
-                     $hasFacilityData が false のときはセクションごと出さない（代替テキストも無し）。 --}}
+                {{-- 施設情報。true の設備だけを希少度順のバッジで出す（false は「なし」も枠も出さない）。
+                     全て false（$hasFacilityData=false）ならセクションごと非表示。
+                     解決は共有コンポーネント <x-michinoeki-facilities>（ツーリングガイドと同一定義）。 --}}
                 @if($hasFacilityData)
                 <h2 class="text-sm font-black text-gray-900 mb-2">施設情報</h2>
-                <div class="grid grid-cols-2 gap-2 mb-4">
-                    @foreach($facilities as $field => $label)
-                    <div class="flex items-center justify-between px-3 py-2 border border-gray-100 rounded-lg text-sm">
-                        <span class="text-gray-600">{{ $label }}</span>
-                        <span class="font-bold {{ $station->$field ? 'text-emerald-600' : 'text-gray-400' }}">{{ $station->$field ? 'あり' : 'なし' }}</span>
-                    </div>
-                    @endforeach
+                <div class="mb-4">
+                    <x-michinoeki-facilities :station="$station" />
+                    <p class="text-[11px] text-gray-400 mt-2">上記以外の設備は未確認です。</p>
                 </div>
                 @endif
 

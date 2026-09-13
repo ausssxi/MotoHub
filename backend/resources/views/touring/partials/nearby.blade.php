@@ -46,12 +46,9 @@
                     道の駅 {{ $st['name'] }}@if($st['nickname'])<span class="text-xs font-bold text-gray-400">（{{ $st['nickname'] }}）</span>@endif
                 </span>
                 <span class="block text-[11px] text-gray-400 mt-0.5">{{ $st['city'] }}・約{{ $st['distance_km'] }}km</span>
+                {{-- 詳細ページと同じ共有コンポーネント（TouringNearby が算出済みの最大4件ラベル配列を渡す）。 --}}
                 @if(! empty($st['badges']))
-                <span class="flex flex-wrap gap-1 mt-2">
-                    @foreach($st['badges'] as $b)
-                    <span class="inline-block px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-bold">{{ $b }}</span>
-                    @endforeach
-                </span>
+                <x-michinoeki-facilities :badges="$st['badges']" class="mt-2" />
                 @endif
             </a>
             @endforeach

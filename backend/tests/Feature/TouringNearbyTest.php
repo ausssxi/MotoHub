@@ -118,6 +118,19 @@ it('collects nearby spots/stations/gas/carwash within the radius', function () {
     expect($n['car_wash'][0]['display'])->toContain('洗車場');
 });
 
+it('caps station badges at 4 in rarity order (component parity)', function () {
+    $guide = guideAt();
+    stationAt(3, [
+        'has_gas_station' => true, 'has_shower' => true, 'has_camp' => true,
+        'has_atm' => true, 'has_onsen' => true, 'has_shop' => true, // 6件 true
+    ]);
+
+    $n = (new TouringNearby)->forGuide($guide);
+
+    expect($n['stations'][0]['badges'])->toHaveCount(4); // 最大4のまま
+    expect($n['stations'][0]['badges'][0])->toBe('ガソリンスタンド併設'); // 希少度順（GS先頭）
+});
+
 it('returns empty arrays and does not throw when nothing is nearby', function () {
     $guide = guideAt();
 

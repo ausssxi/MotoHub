@@ -8,6 +8,49 @@ use Illuminate\Database\Eloquent\Model;
 
 final class RoadsideStation extends Model
 {
+    /**
+     * 設備フラグ → 表示ラベル。全国での希少度が高い順（＝「そこを選ぶ理由」になる順）。
+     * バッジ表示・「温泉のある道の駅」等の一覧で共用する単一定義（Blade に直書きしない）。
+     * 件数の目安: gas_station 7 / shower 41 / camp 46 / atm 108 / onsen 139 /
+     * observatory 212 / ev 320 / wifi 454 / restaurant 1030 / shop 1081。
+     */
+    public const FACILITY_BADGES = [
+        'has_gas_station' => 'ガソリンスタンド併設',
+        'has_shower' => 'シャワー',
+        'has_camp' => 'キャンプ',
+        'has_atm' => 'ATM',
+        'has_onsen' => '温泉',
+        'has_observatory' => '展望台',
+        'has_ev_charging' => 'EV充電',
+        'has_wifi' => 'Wi-Fi',
+        'has_restaurant' => 'レストラン',
+        'has_shop' => '売店・物産',
+    ];
+
+    /** バッジを1段強調する対象（給油＋休憩が一度に済む＝立ち寄る理由）。 */
+    public const GAS_BADGE_LABEL = 'ガソリンスタンド併設';
+
+    /**
+     * true の設備だけを希少度順のラベル配列で返す。$limit 指定で先頭から打ち切る。
+     * false は含めない（「なし」を作らない）。1つも無ければ空配列。
+     *
+     * @return array<int, string>
+     */
+    public function facilityBadges(?int $limit = null): array
+    {
+        $labels = [];
+        foreach (self::FACILITY_BADGES as $col => $label) {
+            if ($this->{$col}) {
+                $labels[] = $label;
+                if ($limit !== null && count($labels) >= $limit) {
+                    break;
+                }
+            }
+        }
+
+        return $labels;
+    }
+
     protected $fillable = [
         'station_code',
         'name',
