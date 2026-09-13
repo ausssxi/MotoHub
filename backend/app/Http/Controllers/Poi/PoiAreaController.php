@@ -12,7 +12,7 @@ use App\Models\RoadsideStation;
 use App\Models\Shop;
 use App\Models\Station;
 use App\Support\AddressFormatter;
-use App\Support\ShopNameNormalizer;
+use App\Support\PoiDisplayResolver;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -463,17 +463,15 @@ final class PoiAreaController extends Controller
      */
     private function resolveDisplay(Poi $poi, string $type, string $prefecture, string $city, ?string $gasBrand = null): string
     {
-        $display = $this->displayName($poi);
+        // 解決ロジックの正本は PoiDisplayResolver（地図JS/API と共有・分裂防止）。
+        return $this->displayResolver()->resolve($poi, $type, $prefecture, $city, $gasBrand);
+    }
 
-        if ($type === 'car_wash' && filled($poi->address) && $display === trim((string) $poi->address)) {
-            return $this->carWashLabel($poi, $prefecture, $city, $gasBrand);
-        }
+    private ?PoiDisplayResolver $displayResolver = null;
 
-        if ($type === 'gas_station' || $type === 'convenience_store') {
-            return $this->brandHeading($poi, $prefecture, $city);
-        }
-
-        return $display;
+    private function displayResolver(): PoiDisplayResolver
+    {
+        return $this->displayResolver ??= new PoiDisplayResolver;
     }
 
     /**
@@ -487,23 +485,7 @@ final class PoiAreaController extends Controller
      */
     private function brandHeading(Poi $poi, string $prefecture, string $city): string
     {
-        $name = trim((string) ($poi->name ?? ''));
-        if ($name !== '') {
-            $exact = $this->exactBrandLabel($poi);
-            if ($exact === null) {
-                return $name; // 具体的店名 → 温存
-            }
-            $base = $exact; // 素のブランド名（完全一致）→ 正規化して町名併記へ
-        } else {
-            $base = $this->normalizedBrand($poi);
-            if ($base === null || $base === '') {
-                return $this->displayName($poi);
-            }
-        }
-
-        $town = $this->townPart($prefecture, $city, $poi->address);
-
-        return $town !== '' ? $base.'（'.$town.'）' : $base;
+        return $this->displayResolver()->brandHeading($poi, $prefecture, $city);
     }
 
     /**
@@ -598,16 +580,7 @@ final class PoiAreaController extends Controller
      */
     private function normalizedBrand(Poi $poi): ?string
     {
-        $brand = trim((string) ($poi->brand ?? ''));
-        if ($brand === '') {
-            return null;
-        }
-
-        return match ($poi->type) {
-            'gas_station' => Poi::gasOperatorLabel($brand, Poi::gasBrand($brand)) ?? $brand,
-            'convenience_store' => Poi::cvsOperatorLabel($brand, Poi::cvsBrand($brand)) ?? $brand,
-            default => $brand,
-        };
+        return $this->displayResolver()->normalizedBrand($poi);
     }
 
     /**
@@ -617,65 +590,7 @@ final class PoiAreaController extends Controller
      */
     private function exactBrandLabel(Poi $poi): ?string
     {
-        if ($poi->type !== 'gas_station' && $poi->type !== 'convenience_store') {
-            return null;
-        }
-        $name = trim((string) ($poi->name ?? ''));
-        if ($name === '') {
-            return null;
-        }
-
-        $tokens = $this->exactBrandTokens()[$poi->type] ?? [];
-
-        return $tokens[ShopNameNormalizer::normalize($name)] ?? null;
-    }
-
-    /** @var array<string, array<string, string>>|null  type => (正規化トークン => 正規化ブランド名) */
-    private ?array $exactBrandTokens = null;
-
-    /**
-     * 完全一致用の「正規化トークン → 正規化ブランド名」表を config から構築（1リクエスト1回・メモ化）。
-     * 各ブランドの patterns と表示名(name)を正規化してトークン化。cosmo / ja-ss は patterns が空で
-     * gasBrand() のガード判定に依存するため、そのガードのキーワードを完全一致トークンとして補う。
-     *
-     * @return array<string, array<string, string>>
-     */
-    private function exactBrandTokens(): array
-    {
-        if ($this->exactBrandTokens !== null) {
-            return $this->exactBrandTokens;
-        }
-
-        $build = static function (string $configKey): array {
-            $map = [];
-            foreach ((array) config($configKey, []) as $def) {
-                $name = $def['name'] ?? null;
-                if (! is_string($name) || $name === '') {
-                    continue;
-                }
-                foreach (array_merge($def['patterns'] ?? [], [$name]) as $token) {
-                    $k = ShopNameNormalizer::normalize((string) $token);
-                    if ($k !== '') {
-                        $map[$k] = $name;
-                    }
-                }
-            }
-
-            return $map;
-        };
-
-        $gas = $build('gas.brands');
-        // cosmo / ja-ss は gasBrand() のガード判定（patterns 空）。完全一致トークンを手当てする。
-        $cosmo = (string) config('gas.brands.cosmo.name', 'コスモ石油');
-        $jass = (string) config('gas.brands.ja-ss.name', 'JA-SS');
-        foreach (['コスモ' => $cosmo, 'cosmo' => $cosmo, 'ja' => $jass, 'ja-ss' => $jass, 'jass' => $jass, '全農' => $jass, '農協' => $jass] as $tok => $canonical) {
-            $gas[ShopNameNormalizer::normalize($tok)] = $canonical;
-        }
-
-        return $this->exactBrandTokens = [
-            'gas_station' => $gas,
-            'convenience_store' => $build('convenience.brands'),
-        ];
+        return $this->displayResolver()->exactBrandLabel($poi);
     }
 
     /**
@@ -1101,32 +1016,7 @@ final class PoiAreaController extends Controller
      */
     private function carWashLabel(Poi $poi, string $prefecture, string $city, ?string $gasBrand = null): string
     {
-        $yes = static fn ($v): bool => in_array(strtolower(trim((string) ($v ?? ''))), ['yes', 'only'], true);
-        $self = $yes($poi->self_service);
-        $auto = $yes($poi->automated);
-
-        if ($self && $auto) {
-            $label = 'コイン洗車場';
-        } elseif ($self) {
-            $label = 'セルフ洗車場';
-        } elseif ($auto) {
-            $label = '洗車機';
-        } else {
-            $label = '洗車場';
-        }
-
-        $town = $this->townPart($prefecture, $city, $poi->address);
-
-        // 括弧内の要素: 町名（あれば）＋近接GSブランド（あれば「◯◯併設」）。要素が2つのときだけ中黒で連結する。
-        $parts = [];
-        if ($town !== '') {
-            $parts[] = $town;
-        }
-        if (filled($gasBrand)) {
-            $parts[] = $gasBrand.'併設';
-        }
-
-        return $parts !== [] ? $label.'（'.implode('・', $parts).'）' : $label;
+        return $this->displayResolver()->carWashLabel($poi, $prefecture, $city, $gasBrand);
     }
 
     /**
@@ -1153,23 +1043,7 @@ final class PoiAreaController extends Controller
      */
     private function displayName(Poi $poi): string
     {
-        $name = trim((string) ($poi->name ?? ''));
-        if ($name !== '') {
-            // 素のブランド名そのもの（完全一致）だけ正規化名へ。具体的店名はそのまま。
-            return $this->exactBrandLabel($poi) ?? $name;
-        }
-
-        $brandLabel = $this->normalizedBrand($poi);
-        if ($brandLabel !== null && $brandLabel !== '') {
-            return $brandLabel;
-        }
-
-        $address = trim((string) ($poi->address ?? ''));
-        if ($address !== '') {
-            return $address;
-        }
-
-        return '名称不明';
+        return $this->displayResolver()->displayName($poi);
     }
 
     /**

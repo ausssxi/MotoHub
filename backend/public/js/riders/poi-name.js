@@ -27,6 +27,7 @@
 
     window.MotoHub.resolvePoiName = function (layerKey, item) {
         item = item || {};
+        if (item.display) return item.display;   // サーバ側で解決済み（GS/コンビニ/洗車場・詳細ページと一致）
         if (item.name) return item.name;
 
         var alt = null;

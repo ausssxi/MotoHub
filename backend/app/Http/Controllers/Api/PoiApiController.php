@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Poi;
 use App\Models\RoadsideStation;
+use App\Support\PoiDisplayResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -33,9 +34,11 @@ final class PoiApiController extends Controller
             ? explode(',', $request->input('type'))
             : ['gas_station', 'convenience_store'];
 
-        // 3桁丸めでキャッシュキー生成
+        // 3桁丸めでキャッシュキー生成。
+        // ★ v2: prefecture/city/self_service/automated を SELECT に足したため世代を上げる
+        //   （上げないと新列の無い旧キャッシュが1時間残り display の町名が欠ける）。
         $cacheKey = sprintf(
-            'pois:%s:%.3f:%.3f:%.3f:%.3f',
+            'pois:v2:%s:%.3f:%.3f:%.3f:%.3f',
             implode(',', $types),
             $swLat, $swLng, $neLat, $neLng
         );
@@ -44,7 +47,7 @@ final class PoiApiController extends Controller
             return Poi::inBounds($swLat, $swLng, $neLat, $neLng)
                 ->ofType($types)
                 ->limit(200)
-                ->get(['id', 'osm_id', 'type', 'name', 'latitude', 'longitude', 'address', 'brand', 'opening_hours']);
+                ->get($this->poiColumns());
         });
 
         return response()->json($this->withPoiBrands($pois));
@@ -59,7 +62,9 @@ final class PoiApiController extends Controller
      */
     private function withPoiBrands(\Illuminate\Support\Collection|\Illuminate\Database\Eloquent\Collection $pois): \Illuminate\Support\Collection
     {
-        return $pois->map(function (Poi $poi) {
+        $resolver = new PoiDisplayResolver;
+
+        return $pois->map(function (Poi $poi) use ($resolver) {
             if ($poi->type === 'gas_station') {
                 $brand = Poi::gasBrand($poi->brand);
                 if ($brand === 'exclude') {
@@ -76,8 +81,32 @@ final class PoiApiController extends Controller
                 $poi->setAttribute('cvs_operator', Poi::cvsOperatorLabel($poi->brand, $brand));
             }
 
+            // 地図と詳細ページで施設名を揃える（display）。解決は PoiDisplayResolver に一本化。
+            // ★キャッシュの外で付与＝デプロイ直後から反映。gas_operator/cvs_operator の隣に置く。
+            if (in_array($poi->type, ['gas_station', 'convenience_store', 'car_wash'], true)) {
+                $poi->setAttribute('display', $resolver->resolve(
+                    $poi,
+                    $poi->type,
+                    (string) $poi->prefecture,
+                    (string) $poi->city,
+                ));
+            }
+
             return $poi;
         })->filter()->values();
+    }
+
+    /**
+     * pois の取得列。display 解決に prefecture/city（町名）と self_service/automated（洗車場ラベル）が要る。
+     *
+     * @return array<int, string>
+     */
+    private function poiColumns(): array
+    {
+        return [
+            'id', 'osm_id', 'type', 'name', 'latitude', 'longitude', 'address', 'brand', 'opening_hours',
+            'prefecture', 'city', 'self_service', 'automated',
+        ];
     }
 
     public function alongRoute(Request $request): JsonResponse
@@ -96,8 +125,8 @@ final class PoiApiController extends Controller
         // 道の駅は roadside_stations 由来へ一本化。既定から除外し、明示指定時のみ下で roadside から取得。
         $types = $request->input('types', ['gas_station', 'convenience_store']);
 
-        // Cache key from coordinate hash
-        $cacheKey = 'pois_along:' . md5(json_encode($coordinates)) . ':' . $bufferKm . ':' . implode(',', $types);
+        // Cache key from coordinate hash（v2: 取得列に prefecture/city/self_service/automated を追加）
+        $cacheKey = 'pois_along:v2:'.md5(json_encode($coordinates)).':'.$bufferKm.':'.implode(',', $types);
 
         $pois = Cache::remember($cacheKey, 1800, function () use ($coordinates, $bufferKm, $types) {
             // Bounding box from route coordinates + buffer
@@ -121,7 +150,7 @@ final class PoiApiController extends Controller
                     Poi::inBounds($swLat, $swLng, $neLat, $neLng)
                         ->ofType($poiTypes)
                         ->limit(2000)
-                        ->get(['id', 'osm_id', 'type', 'name', 'latitude', 'longitude', 'address', 'brand', 'opening_hours'])
+                        ->get($this->poiColumns())
                 );
             }
 
@@ -136,7 +165,7 @@ final class PoiApiController extends Controller
                     ->get(['id', 'name', 'latitude', 'longitude', 'address']);
 
                 $candidates = $candidates->merge(
-                    $stations->map(fn (RoadsideStation $s) => (new Poi())->forceFill([
+                    $stations->map(fn (RoadsideStation $s) => (new Poi)->forceFill([
                         'id' => $s->id,
                         'type' => 'michi_no_eki',
                         'name' => $s->name,
