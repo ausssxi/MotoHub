@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Models\BikeModel;
 use App\Models\BikeNews;
 use App\Models\Manufacturer;
+use App\Support\NewsJunkFilter;
 use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Http;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 class FetchBikeNews extends Command
 {
     protected $signature = 'news:fetch';
+
     protected $description = 'Google News RSSからバイク関連ニュースを取得してDBに保存';
 
     /** saveNews() の結果 */
@@ -24,7 +26,15 @@ class FetchBikeNews extends Command
 
     private const RESULT_DUPLICATE = 'duplicate';
 
+    private const RESULT_JUNK = 'junk';
+
     private const RESULT_FAILED = 'failed';
+
+    /** 同一 title＋同一 source の重複とみなす期間（保険）。 */
+    private const RECENT_DUPLICATE_DAYS = 30;
+
+    /** @var array<string, int> 除外したゴミの理由別件数 */
+    private array $junkReasons = [];
 
     /** MySQL: 一意制約違反（SQLSTATE 23000 / errno 1062） */
     private const SQLSTATE_INTEGRITY_CONSTRAINT_VIOLATION = '23000';
@@ -68,6 +78,7 @@ class FetchBikeNews extends Command
         $created = 0;
         $updated = 0;
         $duplicated = 0;
+        $junk = 0;
         $rssFailed = 0;
         $saveFailed = 0;
 
@@ -94,6 +105,9 @@ class FetchBikeNews extends Command
                     case self::RESULT_DUPLICATE:
                         $duplicated++;
                         break;
+                    case self::RESULT_JUNK:
+                        $junk++;
+                        break;
                     default:
                         $saveFailed++;
                         break;
@@ -111,12 +125,25 @@ class FetchBikeNews extends Command
             $failed
         ));
         $this->line(sprintf(
-            '  内訳: 既存更新 %d 件 / RSS取得失敗 %d クエリ（全 %d クエリ中） / 保存失敗 %d 件',
+            '  内訳: 既存更新 %d 件 / ゴミ除外 %d 件 / RSS取得失敗 %d クエリ（全 %d クエリ中） / 保存失敗 %d 件',
             $updated,
+            $junk,
             $rssFailed,
             count($queries),
             $saveFailed
         ));
+
+        // 何を弾いたかが見えないと正当な記事を消していても気づけないので理由別に出す。
+        if ($junk > 0) {
+            $breakdown = collect($this->junkReasons)
+                ->map(fn (int $n, string $reason): string => "{$reason}={$n}")
+                ->implode(', ');
+            $this->line("  ゴミ除外の内訳: {$breakdown}");
+            Log::info('news:fetch ゴミを除外しました', [
+                'total' => $junk,
+                'reasons' => $this->junkReasons,
+            ]);
+        }
 
         if ($failed > 0) {
             Log::warning('news:fetch に失敗が含まれます', [
@@ -170,10 +197,10 @@ class FetchBikeNews extends Command
     private function fetchRss(string $query, int $limit = 10): ?array
     {
         try {
-            $url = 'https://news.google.com/rss/search?' . http_build_query([
-                'q'    => $query,
-                'hl'   => 'ja',
-                'gl'   => 'JP',
+            $url = 'https://news.google.com/rss/search?'.http_build_query([
+                'q' => $query,
+                'hl' => 'ja',
+                'gl' => 'JP',
                 'ceid' => 'JP:ja',
             ]);
 
@@ -190,7 +217,7 @@ class FetchBikeNews extends Command
             }
 
             $xml = @simplexml_load_string($response->body());
-            if ($xml === false || !isset($xml->channel->item)) {
+            if ($xml === false || ! isset($xml->channel->item)) {
                 Log::warning('news:fetch RSSの解析に失敗', ['query' => $query]);
                 $this->warn("RSS解析失敗 ({$query})");
 
@@ -216,9 +243,9 @@ class FetchBikeNews extends Command
                 $pubDate = (string) $item->pubDate;
 
                 $items[] = [
-                    'title'        => $title,
-                    'url'          => $link,
-                    'source'       => $source,
+                    'title' => $title,
+                    'url' => $link,
+                    'source' => $source,
                     'thumbnail_url' => $image,
                     'published_at' => $pubDate ? date('Y-m-d H:i:s', strtotime($pubDate)) : null,
                 ];
@@ -243,20 +270,20 @@ class FetchBikeNews extends Command
         if (isset($media->group->content)) {
             foreach ($media->group->content as $content) {
                 $attrs = $content->attributes();
-                if (!empty($attrs['url'])) {
+                if (! empty($attrs['url'])) {
                     return (string) $attrs['url'];
                 }
             }
         }
         if (isset($media->content)) {
             $attrs = $media->content->attributes();
-            if (!empty($attrs['url'])) {
+            if (! empty($attrs['url'])) {
                 return (string) $attrs['url'];
             }
         }
         if (isset($media->thumbnail)) {
             $attrs = $media->thumbnail->attributes();
-            if (!empty($attrs['url'])) {
+            if (! empty($attrs['url'])) {
                 return (string) $attrs['url'];
             }
         }
@@ -265,7 +292,7 @@ class FetchBikeNews extends Command
         if (isset($item->enclosure)) {
             $attrs = $item->enclosure->attributes();
             $type = (string) ($attrs['type'] ?? '');
-            if (str_starts_with($type, 'image/') && !empty($attrs['url'])) {
+            if (str_starts_with($type, 'image/') && ! empty($attrs['url'])) {
                 return (string) $attrs['url'];
             }
         }
@@ -312,6 +339,21 @@ class FetchBikeNews extends Command
      */
     private function saveNews(array $item): string
     {
+        // 修正1: ゴミ（トップ/一覧/掲示板ページ等）は保存しない。理由を集計する。
+        $junkReason = NewsJunkFilter::junkReason((string) $item['title'], (string) $item['source']);
+        if ($junkReason !== null) {
+            $this->junkReasons[$junkReason] = ($this->junkReasons[$junkReason] ?? 0) + 1;
+
+            return self::RESULT_JUNK;
+        }
+
+        // 修正2: url をキーにした updateOrCreate はそのまま残しつつ、手前で保険をかける。
+        // Google News の URL は時間で変わり重複判定をすり抜けるため、直近30日に同一 title＋同一 source が
+        // あれば「同じものが何百件」を防ぐためスキップする。
+        if ($this->hasRecentDuplicate((string) $item['title'], (string) $item['source'])) {
+            return self::RESULT_DUPLICATE;
+        }
+
         // 自動タグ付け
         $bikeModelId = null;
         $manufacturerId = null;
@@ -337,16 +379,16 @@ class FetchBikeNews extends Command
 
         // サムネイルのフォールバック: RSS → bike_model画像 → メーカーロゴ
         $thumbnailUrl = $item['thumbnail_url'];
-        if (!$thumbnailUrl && $bikeModelId) {
+        if (! $thumbnailUrl && $bikeModelId) {
             $model = BikeModel::find($bikeModelId);
             if ($model) {
                 $thumbnailUrl = $model->image_url;
             }
         }
-        if (!$thumbnailUrl && $manufacturerId) {
+        if (! $thumbnailUrl && $manufacturerId) {
             $mfr = Manufacturer::find($manufacturerId);
             if ($mfr && $mfr->local_logo_path) {
-                $thumbnailUrl = asset('storage/' . ltrim($mfr->local_logo_path, '/'));
+                $thumbnailUrl = asset('storage/'.ltrim($mfr->local_logo_path, '/'));
             } elseif ($mfr && $mfr->logo_url) {
                 $thumbnailUrl = $mfr->logo_url;
             }
@@ -356,11 +398,11 @@ class FetchBikeNews extends Command
             $news = BikeNews::updateOrCreate(
                 ['url' => $item['url']],
                 [
-                    'title'           => $item['title'],
-                    'source'          => $item['source'],
-                    'thumbnail_url'   => $thumbnailUrl,
-                    'published_at'    => $item['published_at'],
-                    'bike_model_id'   => $bikeModelId,
+                    'title' => $item['title'],
+                    'source' => $item['source'],
+                    'thumbnail_url' => $thumbnailUrl,
+                    'published_at' => $item['published_at'],
+                    'bike_model_id' => $bikeModelId,
                     'manufacturer_id' => $manufacturerId,
                 ]
             );
@@ -389,6 +431,17 @@ class FetchBikeNews extends Command
 
             return self::RESULT_FAILED;
         }
+    }
+
+    /**
+     * 直近 RECENT_DUPLICATE_DAYS 日以内に同一 title＋同一 source のレコードがあるか（重複の保険）。
+     */
+    public function hasRecentDuplicate(string $title, string $source): bool
+    {
+        return BikeNews::where('title', $title)
+            ->where('source', $source)
+            ->where('created_at', '>=', now()->subDays(self::RECENT_DUPLICATE_DAYS))
+            ->exists();
     }
 
     /**
