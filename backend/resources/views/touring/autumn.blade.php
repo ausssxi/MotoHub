@@ -37,25 +37,18 @@
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     @foreach($score3 as $s)
                     @php($tag = $s['url'] ? 'a' : 'div')
+                    {{-- image_url は現状 全件空のため画像枠は描かない（横幅はテキストに回す）。
+                         将来 image_url が入ったら、ここにサムネイルを復活させる。 --}}
                     <{{ $tag }} @if($s['url']) href="{{ $s['url'] }}" @endif
-                        class="flex gap-4 rounded-2xl bg-white border border-gray-200 p-4 {{ $s['url'] ? 'hover:shadow-md transition-shadow' : '' }}">
-                        <span class="shrink-0 w-28 h-24 rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center">
-                            @if($s['image_url'])
-                            <img src="{{ $s['image_url'] }}" alt="{{ $s['name'] }}" width="112" height="96" class="w-full h-full object-cover" loading="lazy" decoding="async">
-                            @else
-                            <i data-lucide="mountain" class="w-6 h-6 text-gray-300"></i>
-                            @endif
-                        </span>
-                        <span class="min-w-0 flex-1">
-                            <span class="block text-base font-black text-gray-900">{{ $s['name'] }}</span>
-                            <span class="block text-[11px] font-bold text-gray-400 mt-0.5">{{ $s['prefecture'] }}</span>
-                            @if($s['season'])
-                            <span class="inline-block mt-2 px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 text-[11px] font-bold">{{ $s['season'] }}</span>
-                            @endif
-                            @if($s['description'])
-                            <span class="block text-xs text-gray-600 mt-2 line-clamp-2">{{ $s['description'] }}</span>
-                            @endif
-                        </span>
+                        class="block rounded-2xl bg-white border border-gray-200 p-4 {{ $s['url'] ? 'hover:shadow-md transition-shadow' : '' }}">
+                        <span class="block text-base font-black text-gray-900">{{ $s['name'] }}</span>
+                        <span class="block text-[11px] font-bold text-gray-400 mt-0.5">{{ $s['prefecture'] }}</span>
+                        @if($s['season'])
+                        <span class="inline-block mt-2 px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 text-[11px] font-bold">{{ $s['season'] }}</span>
+                        @endif
+                        @if($s['description'])
+                        <span class="block text-xs text-gray-600 mt-2 line-clamp-2">{{ $s['description'] }}</span>
+                        @endif
                     </{{ $tag }}>
                     @endforeach
                 </div>
@@ -69,22 +62,14 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     @foreach($area['items'] as $s)
                     @php($tag = $s['url'] ? 'a' : 'div')
+                    {{-- image_url は現状 全件空のため画像枠は描かない。将来入ったらサムネイルを復活。 --}}
                     <{{ $tag }} @if($s['url']) href="{{ $s['url'] }}" @endif
-                        class="flex items-start gap-3 rounded-xl bg-white border border-gray-100 p-3 {{ $s['url'] ? 'hover:shadow-md transition-shadow' : '' }}">
-                        <span class="shrink-0 w-16 h-12 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
-                            @if($s['image_url'])
-                            <img src="{{ $s['image_url'] }}" alt="{{ $s['name'] }}" width="64" height="48" class="w-full h-full object-cover" loading="lazy" decoding="async">
-                            @else
-                            <i data-lucide="mountain" class="w-5 h-5 text-gray-300"></i>
-                            @endif
-                        </span>
-                        <span class="min-w-0 flex-1">
-                            <span class="block text-sm font-black text-gray-900 truncate">{{ $s['name'] }}</span>
-                            <span class="block text-[11px] font-bold text-gray-400 mt-0.5">{{ $s['prefecture'] }}</span>
-                            @if($s['description'])
-                            <span class="block text-[11px] text-gray-500 mt-1 line-clamp-2">{{ $s['description'] }}</span>
-                            @endif
-                        </span>
+                        class="block rounded-xl bg-white border border-gray-100 p-3 {{ $s['url'] ? 'hover:shadow-md transition-shadow' : '' }}">
+                        <span class="block text-sm font-black text-gray-900 truncate">{{ $s['name'] }}</span>
+                        <span class="block text-[11px] font-bold text-gray-400 mt-0.5">{{ $s['prefecture'] }}</span>
+                        @if($s['description'])
+                        <span class="block text-[11px] text-gray-500 mt-1 line-clamp-2">{{ $s['description'] }}</span>
+                        @endif
                     </{{ $tag }}>
                     @endforeach
                 </div>

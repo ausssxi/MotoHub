@@ -16,19 +16,11 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             @foreach($nearby['spots'] as $s)
             @php($tag = $s['url'] ? 'a' : 'div')
+            {{-- image_url は現状 全件空のため画像枠は描かない。将来入ったらサムネイルを復活。 --}}
             <{{ $tag }} @if($s['url']) href="{{ $s['url'] }}" @endif
-                class="flex items-center gap-3 rounded-xl bg-white border border-gray-100 p-3 {{ $s['url'] ? 'hover:shadow-md transition-shadow' : '' }}">
-                <span class="shrink-0 w-16 h-12 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
-                    @if($s['image_url'])
-                    <img src="{{ $s['image_url'] }}" alt="{{ $s['name'] }}" width="64" height="48" class="w-full h-full object-cover" loading="lazy" decoding="async">
-                    @else
-                    <i data-lucide="mountain" class="w-5 h-5 text-gray-300"></i>
-                    @endif
-                </span>
-                <span class="min-w-0 flex-1">
-                    <span class="block text-sm font-black text-gray-900 truncate">{{ $s['name'] }}</span>
-                    <span class="block text-[11px] text-gray-400 mt-0.5">{{ $s['prefecture'] }}・約{{ $s['distance_km'] }}km</span>
-                </span>
+                class="block rounded-xl bg-white border border-gray-100 p-3 {{ $s['url'] ? 'hover:shadow-md transition-shadow' : '' }}">
+                <span class="block text-sm font-black text-gray-900 truncate">{{ $s['name'] }}</span>
+                <span class="block text-[11px] text-gray-400 mt-0.5">{{ $s['prefecture'] }}・約{{ $s['distance_km'] }}km</span>
             </{{ $tag }}>
             @endforeach
         </div>

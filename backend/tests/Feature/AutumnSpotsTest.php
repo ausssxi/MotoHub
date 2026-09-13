@@ -90,6 +90,9 @@ it('renders the autumn feature page with score3 above score1 and dynamic count',
     $res->assertSee('3箇所');
     // スコア3が score1 より前に出る。
     expect(mb_strpos($html, '見頃の名所'))->toBeLessThan(mb_strpos($html, '本文だけの場所'));
+    // 画像枠（空プレースホルダ）を描かないこと。image_url は全件空。
+    // mountain アイコンは撤去した空枠の目印（バナーの mountain-snow はナビ層で別物）。
+    $res->assertDontSee('data-lucide="mountain"', false);
     // score1 はテキストリンク（「ほかにも…」見出し配下）。
     $res->assertSee('ほかにも紅葉が楽しめるスポット');
     // リンク先が touring.spot.show（404にならない実在ルート）。
