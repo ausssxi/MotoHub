@@ -20,5 +20,8 @@ return [
         'GooBike',
         'goobike.com',
         'グーバイク',
+        // 自転車専門メディア（MotoHub のニュースとしては場違い）。
+        'サイクルスポーツ.jp',
+        'cyclowired.jp',
     ],
 ];
