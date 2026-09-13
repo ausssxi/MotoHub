@@ -368,10 +368,10 @@
             var marker = L.marker([lat, lng], { icon: icon }).addTo(clusterGroup);
             marker.on('click', function() { showDetail(layerKey, item); });
 
+            // 施設名は共通の resolvePoiName（item.display 優先＝地図と詳細ページで一致）。
+            // 以前は GS/コンビニだけ gsDisplayName().main が brand（住所）を自前組み立てし、
+            // サーバの display（例 ENEOS（代沢四丁目））と二重括弧になっていた。
             var displayName = resolveName(layerKey, item);
-            if (layerKey === 'gas_station' || layerKey === 'convenience_store') {
-                displayName = gsDisplayName(item).main;
-            }
 
             allMarkers.push({
                 layerKey: layerKey,
@@ -668,7 +668,7 @@
             html += routeBtn;
         } else if (layerKey === 'gas_station') {
             var gs = gsDisplayName(item);
-            html = '<h3 class="text-base font-black text-gray-900 mb-1">' + escapeHtml(gs.main) + '</h3>'
+            html = '<h3 class="text-base font-black text-gray-900 mb-1">' + escapeHtml(resolveName(layerKey, item)) + '</h3>'
                 + (gs.sub ? '<p class="text-sm font-bold text-gray-500 mb-2">' + escapeHtml(gs.sub) + '</p>' : '')
                 + (item.gas_operator ? '<span class="inline-block px-2.5 py-1 bg-red-50 text-red-700 text-[11px] font-bold rounded-md mb-3">運営: ' + escapeHtml(item.gas_operator) + '</span>' : '')
                 + open24hBadge(item)
@@ -679,8 +679,7 @@
                 + (item.id ? '<a href="/gs/' + item.id + '" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition">詳細を見る &rarr;</a>' : '')
                 + gmapBtn + routeBtn + osmDataCredit();
         } else if (layerKey === 'convenience_store') {
-            var cvs = gsDisplayName(item);
-            html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(cvs.main) + '</h3>'
+            html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(resolveName(layerKey, item)) + '</h3>'
                 + (item.cvs_operator ? '<span class="inline-block px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-md mb-3">' + escapeHtml(item.cvs_operator) + '</span>' : '')
                 + open24hBadge(item)
                 + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '')
