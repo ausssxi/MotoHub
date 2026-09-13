@@ -95,8 +95,6 @@
     {{-- ページごとの独自のCSS --}}
     {{ $styles ?? '' }}
 
-    {{-- AdSense用ID (JS内で使用) --}}
-    <meta name="adsense-id" content="{{ config('app.adsense_id', 'ca-pub-3690883624273126') }}">
 
     <style>
         [x-cloak] { display: none !important; }
@@ -118,6 +116,18 @@
         }
     </style>
     <x-jsonld.website />
+
+    {{-- Google AdSense。enabled のときだけローダーを1回読み込む（自動広告はOFF・配置はコード側で指定）。
+         広告枠の CLS 対策（min-height）と未フィル時の折りたたみもここで一度だけ定義。 --}}
+    @if(config('adsense.enabled') && config('adsense.client'))
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ config('adsense.client') }}" crossorigin="anonymous"></script>
+    <style>
+        .ad-unit ins.adsbygoogle { min-height: 250px; }
+        @media (min-width: 768px) { .ad-unit ins.adsbygoogle { min-height: 280px; } }
+        /* 広告が返らなかった枠は丸ごと畳んで空白を残さない */
+        .ad-unit:has(ins.adsbygoogle[data-ad-status="unfilled"]) { display: none; }
+    </style>
+    @endif
 </head>
 <body class="bg-white text-gray-900 font-sans min-h-screen flex flex-col pb-[60px] md:pb-0" data-logged-in="{{ Auth::check() ? 'true' : 'false' }}">
 
@@ -161,33 +171,8 @@
             if (typeof lucide !== 'undefined') lucide.createIcons();
         });
 
-        // ==========================================
-        // ★修正: JSのエラー（関数名の不一致）を解消しました
-        // ==========================================
-        let loadedAdSense = false;
-        const loadAdSenseScript = () => {
-            if (loadedAdSense) return;
-            loadedAdSense = true;
-
-            const adsenseId = document.querySelector('meta[name="adsense-id"]')?.content;
-
-            // Google AdSense の読み込み
-            if (adsenseId) {
-                const adsScript = document.createElement('script');
-                adsScript.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseId}`;
-                adsScript.async = true;
-                adsScript.crossOrigin = "anonymous";
-                document.head.appendChild(adsScript);
-            }
-        };
-
-        // ユーザーアクション（スクロール、マウス移動、タップ）で発火
-        window.addEventListener('scroll', loadAdSenseScript, { once: true, passive: true });
-        window.addEventListener('mousemove', loadAdSenseScript, { once: true, passive: true });
-        window.addEventListener('touchstart', loadAdSenseScript, { once: true, passive: true });
-        
-        // 保険: ユーザーが何もしなくても3秒後には自動で読み込む
-        setTimeout(loadAdSenseScript, 3000);
+        // AdSense のローダーは config('adsense.enabled') 駆動で head に1回だけ出力する
+        // （旧: meta[name=adsense-id] を全ページで遅延ロードする実装は撤去。段階導入と無効化制御のため）。
     </script>
     {{-- 登録促進プロモーション（未ログイン時のみ） --}}
     @guest

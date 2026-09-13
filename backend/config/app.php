@@ -93,8 +93,6 @@ return [
 
     'ga_id' => env('GA_MEASUREMENT_ID'),
 
-    'adsense_id' => env('ADSENSE_PUBLISHER_ID'),
-
     /*
     |--------------------------------------------------------------------------
     | Encryption Key

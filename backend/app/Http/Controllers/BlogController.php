@@ -7,6 +7,7 @@ use App\Models\BlogTag;
 use App\Services\Blog\ShortcodeService;
 use App\Services\BlogRelatedPostService;
 use App\Services\MarkdownService;
+use App\Support\AdPlacement;
 use Illuminate\Http\Request;
 
 class BlogController extends Controller
@@ -33,9 +34,9 @@ class BlogController extends Controller
         $isBot = preg_match('/bot|crawl|spider|slurp|facebookexternalhit|semrushbot|ahrefsbot|yandex/i', $userAgent);
 
         // PVカウント（セッションで30分間の重複除外）
-        if (!$isBot) {
+        if (! $isBot) {
             $sessionKey = "blog_viewed_{$post->id}";
-            if (!$request->session()->has($sessionKey)) {
+            if (! $request->session()->has($sessionKey)) {
                 $post->increment('view_count');
                 $request->session()->put($sessionKey, true);
                 $request->session()->put("{$sessionKey}_at", now()->timestamp);
@@ -51,6 +52,10 @@ class BlogController extends Controller
         $html = $markdown->toHtml($post->body);
         $shortcodeResult = $shortcode->processShortcodes($html);
         $html = $shortcodeResult['html'];
+
+        // 記事中盤（中盤の h2 の直前）へ広告を差し込む。無効時/見出し3未満は素通し。
+        $html = AdPlacement::injectMidUnit($html, 'blog_mid');
+
         $hasMap = $shortcodeResult['hasMap'] || ($post->latitude && $post->longitude);
         $toc = $markdown->generateToc($post->body);
         $relatedPosts = $relatedService->getRelatedPosts($post);
@@ -59,7 +64,7 @@ class BlogController extends Controller
         $seriesNav = null;
         if ($post->series_id) {
             $seriesPosts = $post->series->publishedPosts()->get();
-            $currentIndex = $seriesPosts->search(fn($p) => $p->id === $post->id);
+            $currentIndex = $seriesPosts->search(fn ($p) => $p->id === $post->id);
             $seriesNav = [
                 'series' => $post->series,
                 'posts' => $seriesPosts,
