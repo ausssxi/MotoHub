@@ -188,6 +188,9 @@
                 </div>
             </div>
 
+            {{-- ルート周辺の立ち寄り先（読み終えた直後の回遊導線）。0件の種別は見出しごと非表示。 --}}
+            @include('touring.partials.nearby')
+
             {{-- シェアボタン --}}
             <div class="mt-10 pt-6 border-t border-gray-200">
                 <div class="flex items-center gap-3">

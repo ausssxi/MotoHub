@@ -8,7 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-function rssNews(array $attrs = []): BikeNews
+function purgeRssNews(array $attrs = []): BikeNews
 {
     return BikeNews::create(array_merge([
         'title' => 'RSS記事',
@@ -21,7 +21,7 @@ function rssNews(array $attrs = []): BikeNews
 // ─────────── 修正2: 30日重複の保険 ───────────
 
 it('treats a same title+source within 30 days as a recent duplicate', function () {
-    rssNews(['title' => '新型Ninja 250が発表', 'source' => 'Webike', 'created_at' => now()->subDays(10)]);
+    purgeRssNews(['title' => '新型Ninja 250が発表', 'source' => 'Webike', 'created_at' => now()->subDays(10)]);
 
     $cmd = new FetchBikeNews;
 
@@ -31,7 +31,7 @@ it('treats a same title+source within 30 days as a recent duplicate', function (
 });
 
 it('does not treat a 31-day-old record as a recent duplicate', function () {
-    $n = rssNews(['title' => '新型Ninja 250が発表', 'source' => 'Webike']);
+    $n = purgeRssNews(['title' => '新型Ninja 250が発表', 'source' => 'Webike']);
     $n->forceFill(['created_at' => now()->subDays(31)])->save();
 
     $cmd = new FetchBikeNews;
@@ -42,8 +42,8 @@ it('does not treat a 31-day-old record as a recent duplicate', function () {
 // ─────────── 修正3: purge コマンド ───────────
 
 it('dry-run reports junk but deletes nothing', function () {
-    rssNews(['title' => 'ホーム｜MOTOCLE', 'source' => 'MOTOCLE']);
-    rssNews(['title' => 'Z900RSの投稿一覧', 'source' => 'みんカラ']);
+    purgeRssNews(['title' => 'ホーム｜MOTOCLE', 'source' => 'MOTOCLE']);
+    purgeRssNews(['title' => 'Z900RSの投稿一覧', 'source' => 'みんカラ']);
     $before = BikeNews::count();
 
     $this->artisan('news:purge-junk', ['--dry-run' => true])->assertSuccessful();
@@ -52,10 +52,10 @@ it('dry-run reports junk but deletes nothing', function () {
 });
 
 it('deletes junk external RSS records but keeps legitimate ones', function () {
-    $junk1 = rssNews(['title' => 'ホーム｜MOTOCLE', 'source' => 'MOTOCLE']);
-    $junk2 = rssNews(['title' => 'Z900RSの投稿一覧', 'source' => 'みんカラ']);
-    $junk3 = rssNews(['title' => 'GooBike(グーバイク)', 'source' => 'GooBike']);
-    $legit = rssNews(['title' => '新型Ninja 250が発表', 'source' => 'Webike']);
+    $junk1 = purgeRssNews(['title' => 'ホーム｜MOTOCLE', 'source' => 'MOTOCLE']);
+    $junk2 = purgeRssNews(['title' => 'Z900RSの投稿一覧', 'source' => 'みんカラ']);
+    $junk3 = purgeRssNews(['title' => 'GooBike(グーバイク)', 'source' => 'GooBike']);
+    $legit = purgeRssNews(['title' => '新型Ninja 250が発表', 'source' => 'Webike']);
 
     $this->artisan('news:purge-junk')->assertSuccessful();
 
@@ -81,9 +81,9 @@ it('never deletes MotoHub (own) articles even if they look junk', function () {
 it('purges records from config-driven excluded sources but keeps 試乗レポート', function () {
     config()->set('news.excluded_sources', ['GooBike', 'goobike.com', 'グーバイク']);
 
-    $stock = rssNews(['title' => 'ホンダトゥデイ・Ｆ 外装新品タイヤ4分山', 'source' => 'GooBike']);
-    $review = rssNews(['title' => 'デルビ ランブラ 250i 試乗レポート', 'source' => 'GooBike']);
-    $other = rssNews(['title' => '新型が登場したというニュース記事', 'source' => 'ヤングマシン']);
+    $stock = purgeRssNews(['title' => 'ホンダトゥデイ・Ｆ 外装新品タイヤ4分山', 'source' => 'GooBike']);
+    $review = purgeRssNews(['title' => 'デルビ ランブラ 250i 試乗レポート', 'source' => 'GooBike']);
+    $other = purgeRssNews(['title' => '新型が登場したというニュース記事', 'source' => 'ヤングマシン']);
 
     $this->artisan('news:purge-junk')->assertSuccessful();
 
@@ -95,7 +95,7 @@ it('purges records from config-driven excluded sources but keeps 試乗レポー
 it('does not purge excluded sources when config list is empty', function () {
     config()->set('news.excluded_sources', []);
 
-    $stock = rssNews(['title' => 'ホンダトゥデイ・Ｆ 外装新品タイヤ4分山', 'source' => 'GooBike']);
+    $stock = purgeRssNews(['title' => 'ホンダトゥデイ・Ｆ 外装新品タイヤ4分山', 'source' => 'GooBike']);
 
     $this->artisan('news:purge-junk')->assertSuccessful();
 
@@ -103,7 +103,7 @@ it('does not purge excluded sources when config list is empty', function () {
 });
 
 it('never deletes junk that has comments', function () {
-    $commented = rssNews(['title' => 'Z900RSの投稿一覧', 'source' => 'みんカラ', 'comments_count' => 3]);
+    $commented = purgeRssNews(['title' => 'Z900RSの投稿一覧', 'source' => 'みんカラ', 'comments_count' => 3]);
 
     $this->artisan('news:purge-junk')->assertSuccessful();
 

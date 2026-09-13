@@ -8,6 +8,7 @@ use App\Models\TouringGuide;
 use App\Models\TouringSpot;
 use App\Services\Blog\ShortcodeService;
 use App\Services\MarkdownService;
+use App\Support\TouringNearby;
 use Illuminate\Http\Request;
 
 final class TouringController extends Controller
@@ -50,6 +51,9 @@ final class TouringController extends Controller
         $hasMap = true;
         $toc = $markdown->generateToc($guide->body);
 
-        return view('touring.show', compact('guide', 'html', 'hasMap', 'toc'));
+        // ルート周辺の立ち寄り先（スポット/道の駅/GS/洗車場）。空間クエリは TouringNearby に集約。
+        $nearby = (new TouringNearby)->forGuide($guide);
+
+        return view('touring.show', compact('guide', 'html', 'hasMap', 'toc', 'nearby'));
     }
 }
