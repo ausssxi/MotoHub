@@ -340,7 +340,12 @@ class FetchBikeNews extends Command
     private function saveNews(array $item): string
     {
         // 修正1: ゴミ（トップ/一覧/掲示板ページ等）は保存しない。理由を集計する。
-        $junkReason = NewsJunkFilter::junkReason((string) $item['title'], (string) $item['source']);
+        //   除外 source（中古車検索サイト等）は config 駆動でハードコードしない。
+        $junkReason = NewsJunkFilter::junkReason(
+            (string) $item['title'],
+            (string) $item['source'],
+            (array) config('news.excluded_sources', []),
+        );
         if ($junkReason !== null) {
             $this->junkReasons[$junkReason] = ($this->junkReasons[$junkReason] ?? 0) + 1;
 

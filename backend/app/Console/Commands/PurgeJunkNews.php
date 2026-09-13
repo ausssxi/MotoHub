@@ -33,6 +33,9 @@ final class PurgeJunkNews extends Command
         $reasons = [];
         $samples = [];
 
+        // 除外 source は config 駆動（ハードコードしない）。走査前に1度だけ読む。
+        $excludedSources = (array) config('news.excluded_sources', []);
+
         // 外部RSS（source != MotoHub）かつコメント無しだけを走査する。
         BikeNews::query()
             ->where('source', '!=', BikeNews::SOURCE_ORIGINAL)
@@ -41,9 +44,9 @@ final class PurgeJunkNews extends Command
             })
             ->select('id', 'title', 'source', 'bike_model_id', 'comments_count')
             ->orderBy('id')
-            ->chunkById(500, function ($rows) use (&$junkIds, &$reasons, &$samples, $limit): bool {
+            ->chunkById(500, function ($rows) use (&$junkIds, &$reasons, &$samples, $limit, $excludedSources): bool {
                 foreach ($rows as $row) {
-                    $reason = NewsJunkFilter::junkReason((string) $row->title, (string) $row->source);
+                    $reason = NewsJunkFilter::junkReason((string) $row->title, (string) $row->source, $excludedSources);
                     if ($reason === null) {
                         continue;
                     }

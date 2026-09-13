@@ -16,8 +16,12 @@ final class NewsJunkFilter
 {
     /**
      * ゴミなら理由ラベルを、正当な記事なら null を返す。理由はログ・出力の内訳に使う。
+     *
+     * @param  array<int, string>  $excludedSources  ニュース扱いしない source（部分一致・大小無視）。
+     *                                               config('news.excluded_sources') を呼び出し側が渡す。
+     *                                               （NewsJunkFilter を Unit テストで使うため内部で config() は呼ばない）
      */
-    public static function junkReason(string $title, string $source): ?string
+    public static function junkReason(string $title, string $source, array $excludedSources = []): ?string
     {
         $t = trim($title);
 
@@ -54,12 +58,44 @@ final class NewsJunkFilter
             return 'slug_like';
         }
 
+        // (g) ニュースメディアでない source（中古車検索サイト等）。source 単位で切る。
+        //     ★例外: タイトルに「試乗レポート」を含むものは記事として成立するので残す。
+        if (self::isExcludedSource($source, $excludedSources) && ! str_contains($t, '試乗レポート')) {
+            return 'excluded_source';
+        }
+
         return null;
     }
 
-    public static function isJunk(string $title, string $source): bool
+    /**
+     * @param  array<int, string>  $excludedSources
+     */
+    public static function isJunk(string $title, string $source, array $excludedSources = []): bool
     {
-        return self::junkReason($title, $source) !== null;
+        return self::junkReason($title, $source, $excludedSources) !== null;
+    }
+
+    /**
+     * source が除外リストのいずれかを部分一致（大小無視）で含むか。
+     *
+     * @param  array<int, string>  $excludedSources
+     */
+    private static function isExcludedSource(string $source, array $excludedSources): bool
+    {
+        $source = trim($source);
+        if ($source === '' || $excludedSources === []) {
+            return false;
+        }
+
+        $haystack = mb_strtolower($source);
+        foreach ($excludedSources as $ex) {
+            $ex = mb_strtolower(trim((string) $ex));
+            if ($ex !== '' && str_contains($haystack, $ex)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

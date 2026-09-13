@@ -49,6 +49,31 @@ it('does NOT exclude english article titles because they contain spaces', functi
     expect(NewsJunkFilter::isJunk('New Ninja 250 unveiled', 'Bennetts'))->toBeFalse();
 });
 
+it('excludes non-news sources (partial, case-insensitive) passed in', function () {
+    $excluded = ['GooBike', 'goobike.com', 'グーバイク'];
+
+    expect(NewsJunkFilter::junkReason('ホンダトゥデイ・Ｆ 外装新品タイヤ4分山', 'GooBike', $excluded))
+        ->toBe('excluded_source');
+    expect(NewsJunkFilter::junkReason('Under125[スポーツ系]', 'goobike.com', $excluded))
+        ->toBe('excluded_source');
+    // 別 source は除外しない。
+    expect(NewsJunkFilter::junkReason('新型が登場したというニュース', 'ヤングマシン', $excluded))
+        ->toBeNull();
+});
+
+it('keeps 試乗レポート even from an excluded source', function () {
+    // ★重要: GooBike の試乗レポートは記事として成立するので残す。
+    $excluded = ['GooBike', 'goobike.com', 'グーバイク'];
+
+    expect(NewsJunkFilter::junkReason('デルビ ランブラ 250i 試乗レポート｜懐かしの2スト', 'GooBike', $excluded))
+        ->toBeNull();
+});
+
+it('does not exclude sources unless the list is provided (no hardcoding)', function () {
+    // リスト未指定なら GooBike でも除外しない＝ハードコードされていないことの確認。
+    expect(NewsJunkFilter::junkReason('ホンダトゥデイ・Ｆ 外装新品タイヤ4分山', 'GooBike'))->toBeNull();
+});
+
 it('keeps legitimate news articles', function () {
     expect(NewsJunkFilter::isJunk('新型Ninja 250が発表', 'Webike'))->toBeFalse();
     expect(NewsJunkFilter::isJunk('Z900RSの新型マフラーが登場', 'Response'))->toBeFalse();

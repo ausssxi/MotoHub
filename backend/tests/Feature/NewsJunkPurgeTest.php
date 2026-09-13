@@ -78,6 +78,30 @@ it('never deletes MotoHub (own) articles even if they look junk', function () {
     expect(BikeNews::find($own->id))->not->toBeNull();
 });
 
+it('purges records from config-driven excluded sources but keeps 試乗レポート', function () {
+    config()->set('news.excluded_sources', ['GooBike', 'goobike.com', 'グーバイク']);
+
+    $stock = rssNews(['title' => 'ホンダトゥデイ・Ｆ 外装新品タイヤ4分山', 'source' => 'GooBike']);
+    $review = rssNews(['title' => 'デルビ ランブラ 250i 試乗レポート', 'source' => 'GooBike']);
+    $other = rssNews(['title' => '新型が登場したというニュース記事', 'source' => 'ヤングマシン']);
+
+    $this->artisan('news:purge-junk')->assertSuccessful();
+
+    expect(BikeNews::find($stock->id))->toBeNull();          // 除外 source は削除
+    expect(BikeNews::find($review->id))->not->toBeNull();    // 試乗レポートは残す
+    expect(BikeNews::find($other->id))->not->toBeNull();     // 別 source は無傷
+});
+
+it('does not purge excluded sources when config list is empty', function () {
+    config()->set('news.excluded_sources', []);
+
+    $stock = rssNews(['title' => 'ホンダトゥデイ・Ｆ 外装新品タイヤ4分山', 'source' => 'GooBike']);
+
+    $this->artisan('news:purge-junk')->assertSuccessful();
+
+    expect(BikeNews::find($stock->id))->not->toBeNull();
+});
+
 it('never deletes junk that has comments', function () {
     $commented = rssNews(['title' => 'Z900RSの投稿一覧', 'source' => 'みんカラ', 'comments_count' => 3]);
 
