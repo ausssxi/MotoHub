@@ -52,10 +52,38 @@ it('accepts the MC (motorcycle) suffix in all its forms', function () {
     }
 });
 
-it('keeps Harley old notations null (not covered by MC handling)', function () {
-    expect(TireSize::dimensions('MT90B16'))->toBeNull();
-    expect(TireSize::dimensions('MT90-B16'))->toBeNull();
-    expect(TireSize::dimensions('MH90-21'))->toBeNull();
+it('parses alpha-numeric (Harley) notations via the conversion table', function () {
+    // ハイフン有無どちらも同じ。末尾 B（構造記号）は読み飛ばす。換算値をテキストに添える。
+    foreach (['MT90B16', 'MT90-B16'] as $raw) {
+        $d = TireSize::dimensions($raw);
+        expect($d['type'])->toBe('alpha');
+        expect($d['width_mm'])->toBe(130.0);
+        expect($d['aspect'])->toBe(0.9);
+        expect($d['rim_inch'])->toBe(16);
+        expect($d['outer_mm'])->toBe(640.4);
+        expect(TireSize::dimensionText($d))->toBe('幅130mm・扁平90%・外径約640mm（≒130/90-16 相当）');
+    }
+
+    $mh = TireSize::dimensions('MH90-21');
+    expect($mh['width_mm'])->toBe(80.0);
+    expect($mh['aspect'])->toBe(0.9);
+    expect($mh['rim_inch'])->toBe(21);
+    expect($mh['outer_mm'])->toBe(677.4);
+});
+
+it('reads code and aspect from the table, not from the trailing number', function () {
+    // ★ MV85 は 150/80（末尾85を扁平率にしない）。
+    $d = TireSize::dimensions('MV85B16');
+    expect($d['width_mm'])->toBe(150.0);
+    expect($d['aspect'])->toBe(0.8);
+    expect(TireSize::dimensionText($d))->toContain('扁平80%');
+
+    // MP85 は 110/90（コード末尾85でも扁平90）。
+    expect(TireSize::dimensions('MP85B16')['aspect'])->toBe(0.9);
+});
+
+it('returns null for alpha-numeric codes not in the table', function () {
+    expect(TireSize::dimensions('MX90B16'))->toBeNull();
 });
 
 it('rejects out-of-range aspect / width / rim (no guessing)', function () {
@@ -80,7 +108,7 @@ it('computes inch (bias) dimensions for 2.75-21', function () {
 // ─────────── dimensions(): 解釈不能は null（例外を投げない） ───────────
 
 it('returns null for unparseable or dirty notations without throwing', function () {
-    expect(TireSize::dimensions('MT90B16'))->toBeNull();
+    expect(TireSize::dimensions('MX90B16'))->toBeNull();                // 表に無いアルファコード
     expect(TireSize::dimensions('100/9019'))->toBeNull();               // スラッシュ抜け（区切り無し連結）
     expect(TireSize::dimensions('120/70ZR17120/70R17'))->toBeNull();    // 2つ連結
     expect(TireSize::dimensions(''))->toBeNull();
@@ -101,7 +129,7 @@ it('produces an svg string for a valid size', function () {
 });
 
 it('does not break when called for a null (undrawable) size', function () {
-    expect(TireSize::svg(TireSize::dimensions('MT90B16')))->toBeNull();
+    expect(TireSize::svg(TireSize::dimensions('MX90B16')))->toBeNull(); // 表に無い＝図なし
     expect(TireSize::svg(null))->toBeNull();
 });
 

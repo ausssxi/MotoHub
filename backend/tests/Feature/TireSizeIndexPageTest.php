@@ -49,7 +49,7 @@ function seedIndexModels(string $front, int $count = 5, string $displayPrefix = 
 it('groups sizes by rim size into the fixed buckets', function () {
     seedIndexModels('120/70ZR17', 6, 'Z900RS'); // リム17 → 17インチ
     seedIndexModels('130/70-13', 5, 'PCX');      // リム13 → 12〜14インチ
-    seedIndexModels('MT90B16', 5, 'ハーレー');    // 判定不能 → その他
+    seedIndexModels('MX90B16', 5, '不明');        // 表に無いコード＝判定不能 → その他
 
     $groups = TireSize::indexData();
     $labels = array_column($groups, 'label');
@@ -67,7 +67,7 @@ it('groups sizes by rim size into the fixed buckets', function () {
     // その他は図が描けない（svg=null）。
     $other = collect($groups)->firstWhere('label', 'その他');
     expect($other['sizes'][0]['svg'])->toBeNull();
-    expect(array_column($other['sizes'], 'size'))->toContain('MT90B16');
+    expect(array_column($other['sizes'], 'size'))->toContain('MX90B16');
 });
 
 it('puts 15-inch sizes into the new 15インチ group', function () {
@@ -80,6 +80,28 @@ it('puts 15-inch sizes into the new 15インチ group', function () {
     expect($g15['desc'])->toBe('ビッグスクーターの前輪');
     expect(array_column($g15['sizes'], 'size'))->toContain('120/70R15');
     expect($g15['sizes'][0]['svg'])->toContain('<svg'); // 図も出る
+});
+
+it('places alpha-numeric (Harley) sizes into rim groups with a figure', function () {
+    seedIndexModels('MT90B16', 5, 'FLH');  // → 16インチ・外径約640mm
+    seedIndexModels('MH90-21', 5, 'XL');   // → 21インチ
+
+    $groups = TireSize::indexData();
+
+    $g16 = collect($groups)->firstWhere('label', '16インチ');
+    $mt = collect($g16['sizes'])->firstWhere('size', 'MT90B16');
+    expect($mt)->not->toBeNull();
+    expect($mt['svg'])->toContain('<svg'); // 図が出る
+    expect($mt['dim_text'])->toContain('≒130/90-16 相当');
+
+    $g21 = collect($groups)->firstWhere('label', '21インチ');
+    expect(array_column($g21['sizes'], 'size'))->toContain('MH90-21');
+
+    // 「その他」に落ちていないこと。
+    $other = collect($groups)->firstWhere('label', 'その他');
+    $otherSizes = $other ? array_column($other['sizes'], 'size') : [];
+    expect($otherSizes)->not->toContain('MT90B16');
+    expect($otherSizes)->not->toContain('MH90-21');
 });
 
 it('renders the index page with server-side svg and model-name text', function () {

@@ -196,15 +196,35 @@ final class TireSize
     private const RIM_MAX = 23;
 
     /**
+     * アルファニューメリック表記（ハーレー等の旧表記）の換算表。コード先頭4文字 => [断面幅mm, 扁平率%]。
+     * コンチネンタル公式換算表。★末尾の 90/85 は扁平率ではないので計算せず必ずこの表で引く
+     * （例: MV85 は 150/80）。表に無いコードは null（推測しない）。
+     */
+    private const ALPHA_CODES = [
+        'MH90' => [80, 90],
+        'MJ90' => [90, 90],
+        'MM90' => [100, 90],
+        'MN90' => [110, 90],
+        'MP85' => [110, 90],
+        'MR90' => [120, 90],
+        'MT90' => [130, 90],
+        'MU85' => [140, 90],
+        'MU90' => [140, 90],
+        'MV85' => [150, 80],
+    ];
+
+    /**
      * タイヤ表記から寸法を算出する。解釈できない・妥当でない表記は null（推測で描かないため）。
      *
      * メトリック（120/70ZR17 / 80/100-21 等）: 幅=第1数値mm、扁平=第2数値/100、リム=第3数値インチ。
      *   アスペクトとリムの間に英字（ZR/R/B 等）か「-」の区切りが必須。区切りが無い連結
      *   （100/9019 等の汚れデータ）は解釈しない。扁平率は 2〜3桁（オフ車の 100 表記を許可）。
      * インチ（2.75-21 等）: 幅=第1数値×25.4mm、扁平=1.0（バイアスの慣例で100%）。
+     * アルファニューメリック（MT90B16 等）: 先頭4文字を ALPHA_CODES で引き、続く B（バイアスベルテッド
+     *   構造記号）は読み飛ばし、残りの数字をリム径とする。表に無いコードは null。
      * サイドウォール=幅×扁平、外径=リム径×25.4 + サイドウォール×2。
      *
-     * @return array{type:string,width_mm:float,aspect:float,rim_inch:int,sidewall_mm:float,outer_mm:float}|null
+     * @return array{type:string,width_mm:float,aspect:float,rim_inch:int,sidewall_mm:float,outer_mm:float,equivalent:?string}|null
      */
     public static function dimensions(?string $raw): ?array
     {
@@ -235,6 +255,25 @@ final class TireSize
             return self::buildDimensions('inch', $width, 1.0, $rim);
         }
 
+        // アルファニューメリック（ハーレー等の旧表記）。ハイフンを除去してから引く（MT90-B16 → MT90B16）。
+        $alpha = str_replace('-', '', $s);
+        if (preg_match('/^(M[A-Z]\d{2})B?(\d{1,2})$/', $alpha, $m) === 1) {
+            $code = $m[1];
+            if (! isset(self::ALPHA_CODES[$code])) {
+                return null; // 表に無いコードは推測しない
+            }
+
+            [$width, $aspectPct] = self::ALPHA_CODES[$code];
+            $rim = (int) $m[2];
+            $dims = self::buildDimensions('alpha', (float) $width, $aspectPct / 100, $rim);
+            if ($dims !== null) {
+                // 元の表記のままカードに出すが、寸法テキストに換算値を添えるため保持する。
+                $dims['equivalent'] = $width.'/'.$aspectPct.'-'.$rim;
+            }
+
+            return $dims;
+        }
+
         return null;
     }
 
@@ -242,7 +281,7 @@ final class TireSize
      * 妥当性チェック（扁平30〜120 / 断面幅40〜300mm / リム8〜23）を通ったものだけ寸法配列にする。
      * 範囲外は null（異常表記や汚れデータを図示しない）。
      *
-     * @return array{type:string,width_mm:float,aspect:float,rim_inch:int,sidewall_mm:float,outer_mm:float}|null
+     * @return array{type:string,width_mm:float,aspect:float,rim_inch:int,sidewall_mm:float,outer_mm:float,equivalent:?string}|null
      */
     private static function buildDimensions(string $type, float $widthMm, float $aspect, int $rim): ?array
     {
@@ -266,6 +305,7 @@ final class TireSize
             'rim_inch' => $rim,
             'sidewall_mm' => round($sidewall, 2),
             'outer_mm' => round($rim * 25.4 + $sidewall * 2, 1),
+            'equivalent' => null, // アルファニューメリックのみ換算値を後付けする
         ];
     }
 
@@ -303,16 +343,24 @@ final class TireSize
         }
 
         $outer = (int) round($dimensions['outer_mm']);
-        if ($dimensions['type'] === 'metric') {
-            $width = (int) round($dimensions['width_mm']);
-            $aspect = (int) round($dimensions['aspect'] * 100);
 
-            return "幅{$width}mm・扁平{$aspect}%・外径約{$outer}mm";
+        // インチ（バイアス）は扁平率を出さない。
+        if ($dimensions['type'] === 'inch') {
+            $width = (int) round($dimensions['width_mm']);
+
+            return "幅約{$width}mm・外径約{$outer}mm";
         }
 
+        // メトリック / アルファニューメリックは扁平率あり。後者は換算値を添える。
         $width = (int) round($dimensions['width_mm']);
+        $aspect = (int) round($dimensions['aspect'] * 100);
+        $text = "幅{$width}mm・扁平{$aspect}%・外径約{$outer}mm";
 
-        return "幅約{$width}mm・外径約{$outer}mm";
+        if ($dimensions['type'] === 'alpha' && ! empty($dimensions['equivalent'])) {
+            $text .= "（≒{$dimensions['equivalent']} 相当）";
+        }
+
+        return $text;
     }
 
     /** リム径 → グループキー。dimensions() が null（判定不能）や規定外リムは 'other'。 */
