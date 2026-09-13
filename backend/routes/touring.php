@@ -1,11 +1,11 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Admin\TouringGuideController;
 use App\Http\Controllers\TouringController;
 use App\Http\Controllers\TouringOgpController;
 use App\Http\Controllers\TouringSpotController;
-use App\Http\Controllers\Admin\TouringGuideController;
 use App\Models\TouringSpot;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,6 +30,8 @@ Route::prefix('touring')->name('touring.spot.')->group(function () {
 Route::prefix('touring')->name('touring.')->group(function () {
     Route::get('/', [TouringController::class, 'index'])->name('index');
     Route::get('/planner', [TouringSpotController::class, 'planner'])->name('planner');
+    // 季節特集（紅葉）。★必ず /{slug} より前（後ろだと 'autumn' がガイド slug として 404）。
+    Route::get('/autumn', [TouringController::class, 'autumn'])->name('autumn');
     Route::get('/{slug}', [TouringController::class, 'show'])->name('show');
 });
 

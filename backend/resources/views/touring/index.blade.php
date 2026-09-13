@@ -10,6 +10,17 @@
     <div class="max-w-4xl mx-auto px-4 py-8">
         <h1 class="text-2xl font-bold mb-6">ツーリングガイド</h1>
 
+        {{-- 季節特集への導線（常設ではなくページ内リンク。フッターには入れない） --}}
+        <a href="{{ route('touring.autumn') }}"
+           class="flex items-center gap-3 rounded-xl bg-amber-50 border border-gray-200 p-4 mb-6 hover:shadow-md transition-shadow">
+            <i data-lucide="mountain-snow" class="w-6 h-6 text-amber-700 shrink-0"></i>
+            <span class="min-w-0 flex-1">
+                <span class="block text-sm font-black text-gray-900">特集：バイクで行く紅葉ツーリングスポット</span>
+                <span class="block text-xs text-gray-500 mt-0.5">見頃がわかる場所・エリア別に、全国の紅葉スポットをまとめました。</span>
+            </span>
+            <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400 shrink-0"></i>
+        </a>
+
         {{-- 都道府県フィルタ --}}
         <div class="flex flex-wrap gap-2 mb-6">
             <a href="{{ route('touring.index') }}"
