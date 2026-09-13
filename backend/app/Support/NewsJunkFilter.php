@@ -47,12 +47,36 @@ final class NewsJunkFilter
             return 'site_name';
         }
 
+        // (f) slug/画像ページ由来（image / oppo_2 / "oppo_2 | サイト名" 等）。
+        //     区切り（| ｜ の最初）より前を見て、スペース無し・日本語無し・英数字と _-. のみなら除外。
+        //     ★スペースの有無が唯一の防波堤: 英語の正当な記事タイトルは必ずスペースを含む。
+        if (self::isSlugLike($t)) {
+            return 'slug_like';
+        }
+
         return null;
     }
 
     public static function isJunk(string $title, string $source): bool
     {
         return self::junkReason($title, $source) !== null;
+    }
+
+    /**
+     * slug/画像ページ由来のタイトルか。区切り（| ｜ の最初）より前、無ければ全体を見て、
+     * 英数字と _ - . のみ（＝スペース無し・日本語無し）なら true。
+     */
+    private static function isSlugLike(string $title): bool
+    {
+        // 最初の縦棒（半角 | / 全角 ｜）より前を対象にする。無ければ全体。
+        $target = preg_split('/[|｜]/u', $title, 2)[0];
+        $target = trim($target);
+        if ($target === '') {
+            return false;
+        }
+
+        // 英数字と _ - . のみ = スペースも日本語も含まない。
+        return preg_match('/^[A-Za-z0-9_.\-]+$/', $target) === 1;
     }
 
     /**

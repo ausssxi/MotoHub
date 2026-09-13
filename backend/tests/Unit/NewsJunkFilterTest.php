@@ -33,11 +33,25 @@ it('excludes too-short or empty titles', function () {
     expect(NewsJunkFilter::isJunk('', 'X'))->toBeTrue();
     expect(NewsJunkFilter::isJunk('新型', 'X'))->toBeTrue();      // 2文字
     expect(NewsJunkFilter::junkReason('1234', 'X'))->toBe('too_short'); // 4文字
-    expect(NewsJunkFilter::junkReason('12345', 'X'))->toBeNull();       // 5文字は通す
+    expect(NewsJunkFilter::junkReason('バイク速報だ', 'X'))->toBeNull();  // 5文字以上の日本語は通す
+});
+
+it('excludes slug / image-page titles (slug_like)', function () {
+    expect(NewsJunkFilter::junkReason('image', 'Motor-Fan'))->toBe('slug_like');
+    expect(NewsJunkFilter::junkReason('oppo_2', 'Motor-Fan'))->toBe('slug_like');
+    // 「| の前」が slug 状ならゴミ。
+    expect(NewsJunkFilter::junkReason('oppo_2 | Motor-Fan[モーターファン] 自動車関連ニュース', 'Motor-Fan'))
+        ->toBe('slug_like');
+});
+
+it('does NOT exclude english article titles because they contain spaces', function () {
+    // ★重要: スペースを含む英語記事は通す。
+    expect(NewsJunkFilter::isJunk('New Ninja 250 unveiled', 'Bennetts'))->toBeFalse();
 });
 
 it('keeps legitimate news articles', function () {
     expect(NewsJunkFilter::isJunk('新型Ninja 250が発表', 'Webike'))->toBeFalse();
     expect(NewsJunkFilter::isJunk('Z900RSの新型マフラーが登場', 'Response'))->toBeFalse();
     expect(NewsJunkFilter::junkReason('ホンダCB400の生産終了を発表', 'Car Watch'))->toBeNull();
+    expect(NewsJunkFilter::junkReason('ホンダ・ADV160は通勤も楽しい', 'WEB Mr.Bike'))->toBeNull();
 });
