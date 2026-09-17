@@ -23,7 +23,9 @@
             </nav>
 
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
-                <h1 class="text-xl font-black text-gray-900 mb-6">{{ $prefecture }}{{ $city }}のレンタルガレージ（{{ number_format($count) }}件）</h1>
+                <h1 class="text-xl font-black text-gray-900 mb-2">{{ $prefecture }}{{ $city }}のレンタルガレージ（{{ number_format($count) }}件）</h1>
+                {{-- 参考価格の断り書き（宿題①: 料金は月単位で変わる）。詳細ページと表記を揃える。 --}}
+                <p class="text-[11px] text-gray-500 mb-6 leading-relaxed">※表示の料金は参考価格です。料金は変更される場合があります。最新の情報は各物件の公式サイトでご確認ください。</p>
 
                 <ul class="divide-y divide-gray-50">
                     @foreach($items as $it)
@@ -41,7 +43,7 @@
                         {{-- 月額・区画サイズ。どちらも未取得の行があるため、ある項目だけ出す --}}
                         <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                             @if($it['feeText'])
-                            <span class="text-[11px] text-gray-700 font-bold"><i data-lucide="japanese-yen" class="inline w-3 h-3 text-gray-400"></i> 月額{{ $it['feeText'] }}{{ $it['kaseMaskLower'] ? '（全区画）' : '' }}</span>
+                            <span class="text-[11px] text-gray-700 font-bold"><i data-lucide="japanese-yen" class="inline w-3 h-3 text-gray-400"></i> 参考価格 月額{{ $it['feeText'] }}{{ $it['kaseMaskLower'] ? '（全区画）' : '' }}</span>
                             @endif
                             @if($it['sizeText'])
                             <span class="text-[11px] text-gray-500"><i data-lucide="ruler" class="inline w-3 h-3"></i> {{ $it['sizeText'] }}</span>

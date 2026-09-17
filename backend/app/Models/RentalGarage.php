@@ -7,6 +7,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 final class RentalGarage extends Model
@@ -65,6 +66,12 @@ final class RentalGarage extends Model
     public function submitter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'submitted_by');
+    }
+
+    /** 加瀬倉庫の区画種別（cntn / bike / bike-out / trnk）。他社は空。 */
+    public function types(): HasMany
+    {
+        return $this->hasMany(RentalGarageType::class);
     }
 
     public function scopeActive(Builder $query): Builder
@@ -189,5 +196,102 @@ final class RentalGarage extends Model
         $upper = rtrim(rtrim(number_format($hi, 1), '0'), '.'); // 8.0→"8" / 10.1→"10.1"
 
         return '1.6畳以上〜'.$upper.'畳';
+    }
+
+    /**
+     * この物件が持つ加瀬区画種別コードの配列（未取得なら空）。
+     *
+     * @return array<int, string>
+     */
+    public function kaseTypeCodes(): array
+    {
+        return $this->types->pluck('type_code')->all();
+    }
+
+    /**
+     * 与えたコードのいずれかを持つか。
+     *
+     * @param  array<int, string>  $codes
+     */
+    public function hasAnyKaseType(array $codes): bool
+    {
+        return $this->types->whereIn('type_code', $codes)->isNotEmpty();
+    }
+
+    /**
+     * 表示用の種別ラベル [code => label]（config 駆動。未知コードは除外）。
+     * 種別を分けて見せるための唯一の整形口。表示名はコードに直書きせず config から引く。
+     *
+     * @return array<string, string>
+     */
+    public function kaseTypeLabels(): array
+    {
+        $map = (array) config('rental_garage.kase_types', []);
+        $out = [];
+        foreach ($this->kaseTypeCodes() as $code) {
+            if (isset($map[$code])) {
+                $out[$code] = $map[$code];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * 「バイク収納可能な区画は原則 下段・1.6畳以上」注記（安武さん要望）を出すか。
+     *
+     * cntn / trnk を含むときのみ true。bike / bike-out（バイク専用）には出さない。
+     * ★ types 未取得（コマンド未実行）の間は名前ベースの isKaseRentalBox() でフォールバックし、
+     *   誤認防止側（注記を出す側）に倒す。types が入れば type_code 判定に切り替わる。
+     */
+    public function showsKaseBikeSizeNote(): bool
+    {
+        $noteTypes = (array) config('rental_garage.kase_bike_size_note_types', ['cntn', 'trnk']);
+
+        if ($this->relationLoaded('types') && $this->types->isNotEmpty()) {
+            return $this->hasAnyKaseType($noteTypes);
+        }
+
+        return $this->isKaseRentalBox();
+    }
+
+    /** レンタルボックス(cntn)を持つ＝バイク保管に使える売り(宿題④)を出すか。 */
+    public function showsKaseRentalBoxUse(): bool
+    {
+        return $this->hasAnyKaseType(['cntn']);
+    }
+
+    /**
+     * バイクスロープ無料レンタル(宿題④)の対象か。
+     * 対象都道府県 かつ cntn を持ち かつ 対象外物件でないこと。
+     */
+    public function showsKaseSlopeRental(): bool
+    {
+        $prefs = (array) config('rental_garage.kase_slope.prefectures', []);
+        if (! in_array($this->prefecture, $prefs, true)) {
+            return false;
+        }
+        if (! $this->hasAnyKaseType(['cntn'])) {
+            return false;
+        }
+
+        return ! $this->matchesKaseSlopeExcluded();
+    }
+
+    /**
+     * スロープ・レンタル対象外物件（name 照合）か。
+     * 表記ゆれ（事業者名プレフィックス等）に備え、config のトークンを部分一致で判定する。
+     */
+    public function matchesKaseSlopeExcluded(): bool
+    {
+        $excluded = (array) config('rental_garage.kase_slope.excluded', []);
+        $name = (string) $this->name;
+        foreach ($excluded as $token) {
+            if ($token !== '' && mb_strpos($name, (string) $token) !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

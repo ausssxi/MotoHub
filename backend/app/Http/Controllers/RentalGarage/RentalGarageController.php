@@ -30,7 +30,8 @@ final class RentalGarageController extends Controller
      */
     public function show(int $id): View
     {
-        $garage = RentalGarage::query()->where('id', $id)->where('is_active', true)->firstOrFail();
+        // types を eager load（加瀬の区画種別。注記・売り・スロープの出し分けに使う。他社は空）。
+        $garage = RentalGarage::query()->with('types')->where('id', $id)->where('is_active', true)->firstOrFail();
 
         $lat = (float) $garage->latitude;
         $lng = (float) $garage->longitude;
@@ -51,7 +52,7 @@ final class RentalGarageController extends Controller
                     BikeParking::query()->where('is_active', true), $lat, $lng
                 ),
             ])
-            : ['garages' => new Collection(), 'car_washes' => new Collection(), 'parkings' => new Collection()];
+            : ['garages' => new Collection, 'car_washes' => new Collection, 'parkings' => new Collection];
 
         $nearbyGarages = $nearby['garages'];
         $nearbyCarWashes = $nearby['car_washes'];

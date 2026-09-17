@@ -17,6 +17,13 @@
         $kaseMaskLower   = $garage->kaseLowerBelowBikeMin();
         $displaySize     = $garage->displaySizeText();
 
+        // 加瀬の区画種別（type_code 駆動。表示名は config）。注記・売り・スロープの出し分けに使う。
+        $kaseTypeLabels    = $garage->kaseTypeLabels();          // [code => label]（種別を分けて見せる）
+        $showsBikeSizeNote = $garage->showsKaseBikeSizeNote();   // cntn/trnk のみ（bike/bike-out には出さない）
+        $showsRentalBoxUse = $garage->showsKaseRentalBoxUse();   // cntn を持つ＝バイク保管に使える売り
+        $showsSlope        = $garage->showsKaseSlopeRental();    // 対象県 + cntn + 対象外でない
+        $slopeCfg          = config('rental_garage.kase_slope');
+
         // 設備 3値表示: null=情報なし / true=あり / false=なし
         $eq = fn ($v) => is_null($v) ? '情報なし' : ($v ? 'あり' : 'なし');
         $eqClass = fn ($v) => is_null($v) ? 'text-gray-400' : ($v ? 'text-emerald-600' : 'text-gray-500');
@@ -176,6 +183,10 @@
                 @endif
                 <div class="flex flex-wrap items-center gap-2 mb-4">
                     <span class="inline-block px-2.5 py-1 bg-violet-50 text-violet-700 text-[11px] font-bold rounded-md">{{ $garage->garage_type_label }}</span>
+                    {{-- 加瀬の区画種別（config ラベル）。種別を分けて見せる。bike と bike-out は別物として並ぶ。 --}}
+                    @foreach($kaseTypeLabels as $code => $label)
+                    <span class="inline-block px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-md">{{ $label }}</span>
+                    @endforeach
                     @if($isKaseBikeYard)
                     <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-black rounded-md"><i data-lucide="bike" class="w-3.5 h-3.5"></i>バイク専用</span>
                     @endif
@@ -207,7 +218,9 @@
                 <div class="bg-gray-50 rounded-lg p-4 mb-4 space-y-2">
                     <div class="flex items-start gap-2">
                         <span class="text-[11px] font-bold text-gray-400 w-24 shrink-0 pt-0.5">月額</span>
-                        <span class="text-sm text-gray-800 font-bold">{{ $feeText ?? '情報なし' }}<span class="text-[10px] font-normal text-gray-400 ml-1">{{ $kaseMaskLower ? '（全区画）' : '（区画により変動）' }}</span></span>
+                        <span class="text-sm text-gray-800 font-bold">
+                            <span class="inline-block text-[10px] font-bold text-gray-500 bg-gray-100 rounded px-1 py-0.5 mr-1 align-middle">参考価格</span>{{ $feeText ?? '情報なし' }}<span class="text-[10px] font-normal text-gray-400 ml-1">{{ $kaseMaskLower ? '（全区画）' : '（区画により変動）' }}</span>
+                        </span>
                     </div>
                     <div class="flex items-start gap-2">
                         <span class="text-[11px] font-bold text-gray-400 w-24 shrink-0 pt-0.5">区画サイズ</span>
@@ -219,6 +232,12 @@
                         <span class="text-sm text-gray-700">{{ $garage->capacity }}台</span>
                     </div>
                     @endif
+                    {{-- 参考価格の断り書き（宿題①: 料金は月単位で変わる）。公式サイトへ送客（nofollow は付けない）。 --}}
+                    @if($feeText)
+                    <p class="text-[11px] text-gray-500 leading-relaxed pt-1">
+                        ※料金は変更される場合があります。最新の情報は@if($garage->website_url)<a href="{{ route('rental-garage.go', $garage->id) }}" target="_blank" rel="noopener" class="text-violet-600 font-bold hover:underline">公式サイト</a>@else公式サイト@endifでご確認ください。
+                    </p>
+                    @endif
                 </div>
 
                 {{-- 加瀬レンタルボックス：下限がバイク不可(1.6畳未満)のとき、料金帯が何の料金かを明示する。
@@ -229,11 +248,40 @@
                 </p>
                 @endif
 
-                {{-- 加瀬レンタルボックス：1.6畳ルールの注記（全レンタルボックスに表示。バイクヤード・他社には出さない） --}}
-                @if($isKaseRentalBox)
-                <p class="text-xs text-gray-600 bg-violet-50 rounded-lg px-3 py-2 mb-4 leading-relaxed">
-                    バイクを収納できる区画は、原則として下段・1.6畳以上です（加瀬倉庫）。区画の段・扉の幅・前面の通路幅などにより収納できない場合があります。空室状況と区画の詳細は公式ページでご確認ください。
-                </p>
+                {{-- バイク収納の注記（安武さん要望）。type_code に cntn / trnk を含む物件のみ。
+                     bike / bike-out（バイク専用＝バイクヤード）には出さない（1.4畳標準で最初からバイク用のため）。 --}}
+                @if($showsBikeSizeNote)
+                <div class="text-xs text-gray-600 bg-violet-50 rounded-lg px-3 py-2 mb-4 leading-relaxed space-y-2">
+                    {{-- 公式サイトの文言をそのまま引用（こちらで文言を作らない）。 --}}
+                    <p>
+                        「バイクをレンタルボックスに収納する際は、バイクのサイズによって入らない場合があります。地面の段差、前面の通路幅、扉の幅などを現地でご確認のうえ、お申し込みください。」
+                        @if($garage->website_url)
+                        <a href="{{ route('rental-garage.go', $garage->id) }}" target="_blank" rel="noopener" class="text-violet-600 font-bold hover:underline">（加瀬倉庫 公式サイトより）</a>
+                        @else
+                        <span class="text-gray-500">（加瀬倉庫 公式サイトより）</span>
+                        @endif
+                    </p>
+                    <p>バイク収納が可能な区画は、原則として下段・1.6畳以上となります。区画ごとの広さ・寸法は公式サイトでご確認ください。</p>
+                </div>
+                @endif
+
+                {{-- 売り（宿題④）。レンタルボックス(cntn)を持つ物件に、バイク保管に使える点＋24時間を出す。 --}}
+                @if($showsRentalBoxUse)
+                <div class="text-xs text-gray-700 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-4 leading-relaxed">
+                    <p class="font-bold text-gray-900 mb-1"><i data-lucide="check-circle" class="inline w-3.5 h-3.5 text-emerald-600"></i> バイクの保管場所として使えます</p>
+                    <p>レンタルボックス（屋外型コンテナ）はバイクの保管場所として利用できます。@if($garage->is_24h === true)出し入れは24時間可能です。@endif</p>
+                </div>
+                @endif
+
+                {{-- バイクスロープの無料レンタル（宿題④）。対象県 + cntn + 対象外でない物件のみ。
+                     「無料」だけを残さない。送料が別途かかる旨を必ず併記する（誤認防止）。 --}}
+                @if($showsSlope)
+                <div class="text-xs text-gray-700 bg-amber-50 border border-gray-100 rounded-lg px-3 py-2 mb-4 leading-relaxed space-y-1">
+                    <p class="font-bold text-gray-900"><i data-lucide="bike" class="inline w-3.5 h-3.5"></i> バイクスロープの無料レンタルあり</p>
+                    <p>※送料は別途必要です（初回契約時 {{ number_format($slopeCfg['shipping_first_yen']) }}円 / 契約後 {{ number_format($slopeCfg['shipping_after_yen']) }}円・税込）</p>
+                    <p>※{{ implode('・', $slopeCfg['prefectures']) }}の物件が対象です</p>
+                    <p><a href="{{ $slopeCfg['help_url'] }}" target="_blank" rel="noopener" class="text-violet-600 font-bold hover:underline">詳細は公式サイトでご確認ください</a></p>
+                </div>
                 @endif
 
                 {{-- 設備（あり／なし／情報なし。null を「なし」と表示しない） --}}
