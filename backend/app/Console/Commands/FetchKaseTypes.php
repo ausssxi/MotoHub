@@ -172,7 +172,7 @@ final class FetchKaseTypes extends Command
 
     /**
      * スロープ・レンタル対象外物件（config）が name で何件一致するかを報告する。
-     * 表示ロジック（RentalGarage::matchesKaseSlopeExcluded）と同じ部分一致で数える。
+     * 表示ロジック（RentalGarage::matchesKaseSlopeExcluded）と同じ完全一致で数える。
      * ネットワークに依存しないため dry-run でも本実行でも常に出す。
      */
     private function reportSlopeExcluded(): void
@@ -188,7 +188,7 @@ final class FetchKaseTypes extends Command
         foreach ($excluded as $token) {
             $n = RentalGarage::query()
                 ->where('operator', self::OPERATOR)
-                ->where('name', 'like', '%'.$token.'%')
+                ->where('name', $token)
                 ->count();
             $matchedTotal += $n;
             $flag = $n === 0 ? ' ← 一致0' : '';

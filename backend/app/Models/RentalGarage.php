@@ -280,14 +280,15 @@ final class RentalGarage extends Model
 
     /**
      * スロープ・レンタル対象外物件（name 照合）か。
-     * 表記ゆれ（事業者名プレフィックス等）に備え、config のトークンを部分一致で判定する。
+     * config のトークンを name と完全一致で判定する（部分一致は「旭」等の断片が
+     * 別物件を巻き込むため不可。config には実 name のフル値を入れること）。
      */
     public function matchesKaseSlopeExcluded(): bool
     {
         $excluded = (array) config('rental_garage.kase_slope.excluded', []);
         $name = (string) $this->name;
         foreach ($excluded as $token) {
-            if ($token !== '' && mb_strpos($name, (string) $token) !== false) {
+            if ($token !== '' && $name === (string) $token) {
                 return true;
             }
         }
