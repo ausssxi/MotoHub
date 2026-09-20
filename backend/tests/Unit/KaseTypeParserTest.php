@@ -74,3 +74,21 @@ it('許可外コードは除外する', function () {
     $codes = KaseTypeParser::parse(kaseFixtureHtml(), '101025', ['cntn']);
     expect($codes)->toBe(['cntn']);
 });
+
+it('inspect は対象物件自身の id => name を返す（周辺物件・凡例は混ざらない）', function () {
+    $map = KaseTypeParser::inspect(kaseFixtureHtml(), '101025');
+
+    // 対象物件 101025 の types[].name 実文字列（許可コードで絞らない）。
+    expect($map)->toBe([
+        'cntn' => 'レンタルボックス',
+        'bike' => 'バイクヤード',
+        'bike-out' => 'バイクヤード',
+    ]);
+    // 近隣物件 031307 の trnk（トランクルーム）は入らない。
+    expect($map)->not->toHaveKey('trnk');
+});
+
+it('inspect は存在しない物件ID・不正IDで空配列を返す', function () {
+    expect(KaseTypeParser::inspect(kaseFixtureHtml(), '999999'))->toBe([]);
+    expect(KaseTypeParser::inspect(kaseFixtureHtml(), 'abc'))->toBe([]);
+});
