@@ -66,6 +66,21 @@ it('保存カラムは type_code のみ（空き状況・画像のキーは存�
     expect($keys)->toBe(['created_at', 'id', 'rental_garage_id', 'type_code', 'updated_at']);
 });
 
+it('--inspect-types は DB を変更せず 種別ID×表示名 を出力する', function () {
+    Http::fake(['www.kase3535.com/*' => Http::response(fakeKasePageHtml(), 200)]);
+    makeKaseTypeGarage();
+
+    $this->artisan('kase:fetch-types', ['--inspect-types' => true])
+        ->expectsOutputToContain('種別ID確定用 診断出力')
+        ->expectsOutputToContain('cntn')
+        ->expectsOutputToContain('レンタルボックス')
+        ->expectsOutputToContain('バイクヤード')
+        ->assertOk();
+
+    // 診断モードは dry-run を強制。DB は1件も増えない。
+    expect(RentalGarageType::count())->toBe(0);
+});
+
 it('二重実行しても重複しない（冪等）', function () {
     Http::fake(['www.kase3535.com/*' => Http::response(fakeKasePageHtml(), 200)]);
     $garage = makeKaseTypeGarage();

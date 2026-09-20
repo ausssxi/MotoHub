@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Http;
  * 使い方:
  *   php artisan kase:fetch-types --dry-run            集計のみ（DB を一切書き換えない）
  *   php artisan kase:fetch-types --dry-run --limit=50 先頭50件だけ
+ *   php artisan kase:fetch-types --inspect-types      種別ID確定用の診断出力（DB非変更を強制）
  *   php artisan kase:fetch-types                      本実行（dry-run で内容を確認してから）
  *
  *   718ページ × 2秒 ≒ 25分。tail は使わず nohup でホームにログを出すこと:
@@ -28,7 +29,7 @@ use Illuminate\Support\Facades\Http;
  */
 final class FetchKaseTypes extends Command
 {
-    protected $signature = 'kase:fetch-types {--dry-run : DB を書き換えず集計のみ表示} {--limit= : 先頭N件だけ処理}';
+    protected $signature = 'kase:fetch-types {--dry-run : DB を書き換えず集計のみ表示} {--limit= : 先頭N件だけ処理} {--inspect-types : 種別IDと実表示名の対応を確定する診断出力（DB非変更を強制）}';
 
     protected $description = '加瀬倉庫の物件ページから区画種別(type_code)を取得して rental_garage_types へ保存する';
 
@@ -42,7 +43,9 @@ final class FetchKaseTypes extends Command
 
     public function handle(): int
     {
-        $dryRun = (bool) $this->option('dry-run');
+        $inspect = (bool) $this->option('inspect-types');
+        // 診断モードは種別IDの対応確認だけが目的。DB は絶対に触らないため dry-run を強制する。
+        $dryRun = (bool) $this->option('dry-run') || $inspect;
         $limit = $this->option('limit') !== null ? max(0, (int) $this->option('limit')) : null;
 
         $query = RentalGarage::query()
@@ -69,6 +72,11 @@ final class FetchKaseTypes extends Command
         $rowsWritten = 0;
         $typeTally = array_fill_keys($allowed, 0); // code => 物件数
         $withAny = 0;
+
+        // --inspect-types 用の収集箱（診断表示のみ・DB には書かない）。
+        $samples = ['cntn' => [], 'bike' => [], 'bike-out' => []]; // 各種別「のみ」の物件（各3件まで）
+        $trnkList = [];                                            // trnk を含む物件（全件）
+        $nameTally = [];                                          // id => [name => 物件数]
 
         foreach ($garages as $garage) {
             $objectId = $this->objectIdFromUrl((string) $garage->source_url);
@@ -100,6 +108,23 @@ final class FetchKaseTypes extends Command
                 }
             }
 
+            if ($inspect) {
+                // 「その種別のみ」の物件を各3件まで採取（保存対象と同じ allowed 絞り済みの $codes で判定）。
+                foreach (['cntn', 'bike', 'bike-out'] as $only) {
+                    if ($codes === [$only] && count($samples[$only]) < 3) {
+                        $samples[$only][] = $garage;
+                    }
+                }
+                // trnk を含む物件は全件。
+                if (in_array('trnk', $codes, true)) {
+                    $trnkList[] = $garage;
+                }
+                // JSON の types[].name を id ごとに集計（許可コードで絞らず実文字列を確認する）。
+                foreach (KaseTypeParser::inspect($html, $objectId) as $id => $name) {
+                    $nameTally[$id][$name] = ($nameTally[$id][$name] ?? 0) + 1;
+                }
+            }
+
             if (! $dryRun) {
                 $rowsWritten += $this->sync($garage->id, $codes);
             }
@@ -122,6 +147,10 @@ final class FetchKaseTypes extends Command
         foreach ($typeTally as $code => $n) {
             $label = (string) config("rental_garage.kase_types.{$code}", $code);
             $this->line(sprintf('  %-9s %-16s : %d', $code, $label, $n));
+        }
+
+        if ($inspect) {
+            $this->reportInspection($samples, $trnkList, $nameTally);
         }
 
         $this->reportSlopeExcluded();
@@ -197,6 +226,65 @@ final class FetchKaseTypes extends Command
         $this->line('  合計一致: '.$matchedTotal.' 件');
         if ($matchedTotal === 0) {
             $this->warn('  ※ 8件すべて未一致。表記ゆれの可能性。config/rental_garage.php の excluded を見直すこと。');
+        }
+    }
+
+    /**
+     * --inspect-types の診断出力。種別ID と実表示名の対応を人手で確定するための表示のみ。
+     * DB は一切変更しない。
+     *
+     * @param  array<string, array<int, RentalGarage>>  $samples  種別コード => 「その種別のみ」の物件
+     * @param  array<int, RentalGarage>  $trnkList  trnk を含む物件（全件）
+     * @param  array<string, array<string, int>>  $nameTally  id => [name => 物件数]
+     */
+    private function reportInspection(array $samples, array $trnkList, array $nameTally): void
+    {
+        $this->newLine();
+        $this->info('══ 種別ID確定用 診断出力（DB は変更していません）══');
+
+        $labels = ['cntn' => 'cntn のみ', 'bike' => 'bike のみ', 'bike-out' => 'bike-out のみ'];
+        foreach ($labels as $code => $label) {
+            $this->newLine();
+            $this->line("── types が {$label} の物件（先頭3件）──");
+            $this->printGarageList($samples[$code]);
+        }
+
+        $this->newLine();
+        $this->line('── types に trnk を含む物件（全件: '.count($trnkList).'）──');
+        $this->printGarageList($trnkList);
+
+        $this->newLine();
+        $this->line('── JSON内 types[].name の実文字列（ID × 表示名 → 物件数）──');
+        if ($nameTally === []) {
+            $this->warn('  収集なし');
+
+            return;
+        }
+        ksort($nameTally);
+        foreach ($nameTally as $id => $names) {
+            arsort($names); // 出現の多い表記を上に
+            foreach ($names as $name => $n) {
+                $shown = $name === '' ? '(name無し)' : $name;
+                $this->line(sprintf('  %-9s %-24s : %d 件', $id, $shown, $n));
+            }
+        }
+    }
+
+    /**
+     * 物件一覧（garage_id / name / URL）を診断用に出力する。空なら「該当なし」。
+     *
+     * @param  array<int, RentalGarage>  $garages
+     */
+    private function printGarageList(array $garages): void
+    {
+        if ($garages === []) {
+            $this->warn('  該当なし');
+
+            return;
+        }
+        foreach ($garages as $garage) {
+            $this->line(sprintf('  garage_id=%d  %s', $garage->id, (string) $garage->name));
+            $this->line('    '.(string) $garage->source_url);
         }
     }
 

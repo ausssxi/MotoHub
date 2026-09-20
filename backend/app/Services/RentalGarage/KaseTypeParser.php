@@ -46,9 +46,69 @@ final class KaseTypeParser
     {
         $allowed ??= self::KNOWN_CODES;
 
+        $items = self::locateTargetTypes($html, $objectId);
+        if ($items === null) {
+            return [];
+        }
+
+        $codes = [];
+        foreach ($items as $item) {
+            // id（type_code）のみ採用。isAvailable / availableCount / name は捨てる。
+            $code = is_array($item) ? ($item['id'] ?? null) : null;
+            if (is_string($code) && in_array($code, $allowed, true)) {
+                $codes[] = $code;
+            }
+        }
+
+        return array_values(array_unique($codes));
+    }
+
+    /**
+     * 診断専用: 対象物件自身の types を [id => name] で返す（許可コードで絞らない）。
+     *
+     * ★ 種別ID と実際の表示名の対応を人手で確定するためだけに使う。
+     *   DB には一切保存しない（本番の保存経路は parse() の type_code のみ）。
+     *   name はリアルタイムの空き状況ではなく静的なラベル文字列なので診断表示に限り扱う。
+     *
+     * @return array<string, string> id => name（name が無ければ空文字）
+     */
+    public static function inspect(string $html, string $objectId): array
+    {
+        $items = self::locateTargetTypes($html, $objectId);
+        if ($items === null) {
+            return [];
+        }
+
+        $map = [];
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $id = $item['id'] ?? null;
+            if (! is_string($id) || $id === '') {
+                continue;
+            }
+            $name = $item['name'] ?? '';
+            $map[$id] = is_string($name) ? $name : '';
+        }
+
+        return $map;
+    }
+
+    /**
+     * 対象物件自身の types 配列（デコード済みの生要素列）を返す。見つからなければ null。
+     *
+     * "object":{"id":"<id>" アンカーを順に走査し、直後のインライン types が
+     * nearbyObjects より前にあるものを対象物件とみなす（参照形はインライン [{ に一致せず飛ばされる）。
+     * parse() と inspect() で共有する。
+     *
+     * @return array<int, mixed>|null
+     */
+    private static function locateTargetTypes(string $html, string $objectId): ?array
+    {
         // 数字IDのみ受け付ける（不正入力での誤マッチを防ぐ）。
         if (! preg_match('/^[0-9]+$/', $objectId)) {
-            return [];
+            return null;
         }
 
         $q = '\\"'; // Flight ペイロード内の 1 つの二重引用符
@@ -58,28 +118,25 @@ final class KaseTypeParser
         $nearbyPos = strpos($html, $q.'nearbyObjects'.$q);
         $bound = $nearbyPos === false ? strlen($html) : $nearbyPos;
 
-        // "object":{"id":"<id>" アンカーを順に走査し、直後のインライン types が
-        // nearbyObjects より前にあるものを対象物件とみなす（参照形はインライン [{ に一致せず飛ばされる）。
         $from = 0;
         while (($objPos = strpos($html, $anchor, $from)) !== false) {
             $typesPos = strpos($html, $inlineTypes, $objPos);
             if ($typesPos !== false && $typesPos < $bound) {
-                return self::decodeCodesAt($html, $typesPos + strlen($q.'types'.$q.':'), $allowed);
+                return self::decodeTypesAt($html, $typesPos + strlen($q.'types'.$q.':'));
             }
             $from = $objPos + strlen($anchor);
         }
 
-        return [];
+        return null;
     }
 
     /**
      * $start（エスケープされた JSON 配列の '[' 位置）から配列を括弧対応で切り出し、
-     * アンエスケープ→json_decode して id（type_code）だけを取り出す。
+     * アンエスケープ→json_decode して要素配列（type オブジェクト列）を返す。壊れていれば空配列。
      *
-     * @param  array<int, string>  $allowed
-     * @return array<int, string>
+     * @return array<int, mixed>
      */
-    private static function decodeCodesAt(string $html, int $start, array $allowed): array
+    private static function decodeTypesAt(string $html, int $start): array
     {
         $len = strlen($html);
         $depth = 0;
@@ -118,19 +175,7 @@ final class KaseTypeParser
         $json = str_replace(['\\\\', '\\"'], ['\\', '"'], $escaped);
 
         $decoded = json_decode($json, true);
-        if (! is_array($decoded)) {
-            return [];
-        }
 
-        $codes = [];
-        foreach ($decoded as $item) {
-            // id（type_code）のみ採用。isAvailable / availableCount / name は捨てる。
-            $code = is_array($item) ? ($item['id'] ?? null) : null;
-            if (is_string($code) && in_array($code, $allowed, true)) {
-                $codes[] = $code;
-            }
-        }
-
-        return array_values(array_unique($codes));
+        return is_array($decoded) ? $decoded : [];
     }
 }
