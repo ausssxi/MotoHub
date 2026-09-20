@@ -31,8 +31,8 @@ namespace App\Services\RentalGarage;
  */
 final class KaseTypeParser
 {
-    /** 既知の区画種別コード。bike と bike-out は表示名が同じでも別物（id で判定）。 */
-    public const KNOWN_CODES = ['cntn', 'bike', 'bike-out', 'trnk'];
+    /** 既知の区画種別コード。bike / bike-in / bike-out は表示名が同じ（サイトJSONは「バイクヤード」）でも別物（id で判定）。 */
+    public const KNOWN_CODES = ['cntn', 'bike', 'bike-in', 'bike-out', 'trnk'];
 
     /**
      * 物件ページHTMLから対象物件自身の区画種別コード配列を返す。取れなければ空配列。

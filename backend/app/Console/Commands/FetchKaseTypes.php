@@ -76,6 +76,7 @@ final class FetchKaseTypes extends Command
         // --inspect-types 用の収集箱（診断表示のみ・DB には書かない）。
         $samples = ['cntn' => [], 'bike' => [], 'bike-out' => []]; // 各種別「のみ」の物件（各3件まで）
         $trnkList = [];                                            // trnk を含む物件（全件）
+        $bikeInList = [];                                          // bike-in を含む物件（全件）
         $nameTally = [];                                          // id => [name => 物件数]
 
         foreach ($garages as $garage) {
@@ -119,6 +120,10 @@ final class FetchKaseTypes extends Command
                 if (in_array('trnk', $codes, true)) {
                     $trnkList[] = $garage;
                 }
+                // bike-in を含む物件は全件（許可リスト追加直後の少数を全件確認するため）。
+                if (in_array('bike-in', $codes, true)) {
+                    $bikeInList[] = $garage;
+                }
                 // JSON の types[].name を id ごとに集計（許可コードで絞らず実文字列を確認する）。
                 foreach (KaseTypeParser::inspect($html, $objectId) as $id => $name) {
                     $nameTally[$id][$name] = ($nameTally[$id][$name] ?? 0) + 1;
@@ -150,7 +155,7 @@ final class FetchKaseTypes extends Command
         }
 
         if ($inspect) {
-            $this->reportInspection($samples, $trnkList, $nameTally);
+            $this->reportInspection($samples, $trnkList, $bikeInList, $nameTally);
         }
 
         $this->reportSlopeExcluded();
@@ -235,9 +240,10 @@ final class FetchKaseTypes extends Command
      *
      * @param  array<string, array<int, RentalGarage>>  $samples  種別コード => 「その種別のみ」の物件
      * @param  array<int, RentalGarage>  $trnkList  trnk を含む物件（全件）
+     * @param  array<int, RentalGarage>  $bikeInList  bike-in を含む物件（全件）
      * @param  array<string, array<string, int>>  $nameTally  id => [name => 物件数]
      */
-    private function reportInspection(array $samples, array $trnkList, array $nameTally): void
+    private function reportInspection(array $samples, array $trnkList, array $bikeInList, array $nameTally): void
     {
         $this->newLine();
         $this->info('══ 種別ID確定用 診断出力（DB は変更していません）══');
@@ -252,6 +258,10 @@ final class FetchKaseTypes extends Command
         $this->newLine();
         $this->line('── types に trnk を含む物件（全件: '.count($trnkList).'）──');
         $this->printGarageList($trnkList);
+
+        $this->newLine();
+        $this->line('── types に bike-in を含む物件（全件: '.count($bikeInList).'）──');
+        $this->printGarageList($bikeInList);
 
         $this->newLine();
         $this->line('── JSON内 types[].name の実文字列（ID × 表示名 → 物件数）──');
