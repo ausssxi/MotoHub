@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\RentalGarage\StoreRentalGarageRequest;
 use App\Models\BikeParking;
 use App\Models\Poi;
+use App\Models\RentalBikeShop;
 use App\Models\RentalGarage;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -40,8 +41,9 @@ final class RentalGarageController extends Controller
         // 半径3km以内の関連（薄いページ対策の内部リンク）。周辺検索3種を1つのキャッシュにまとめる（24時間）。
         // 各値は従来どおり Collection のまま保持（ビューの isNotEmpty() 前提を変えない）。
         // 座標が無いガレージはキャッシュを引かず、従来と同じ空 Collection を返す。
+        // v1→v2: 周辺に「レンタルバイク店」を追加したためキーを更新（旧キャッシュに rental_bikes が無いため）。
         $nearby = $hasCoords
-            ? Cache::remember("rental_garage_nearby_v1:{$garage->id}", 86400, fn (): array => [
+            ? Cache::remember("rental_garage_nearby_v2:{$garage->id}", 86400, fn (): array => [
                 'garages' => $this->nearby(
                     RentalGarage::query()->where('is_active', true)->where('id', '!=', $garage->id), $lat, $lng
                 ),
@@ -51,12 +53,16 @@ final class RentalGarageController extends Controller
                 'parkings' => $this->nearby(
                     BikeParking::query()->where('is_active', true), $lat, $lng
                 ),
+                'rental_bikes' => $this->nearby(
+                    RentalBikeShop::query()->where('is_active', true), $lat, $lng
+                ),
             ])
-            : ['garages' => new Collection, 'car_washes' => new Collection, 'parkings' => new Collection];
+            : ['garages' => new Collection, 'car_washes' => new Collection, 'parkings' => new Collection, 'rental_bikes' => new Collection];
 
         $nearbyGarages = $nearby['garages'];
         $nearbyCarWashes = $nearby['car_washes'];
         $nearbyParkings = $nearby['parkings'];
+        $nearbyRentalBikes = $nearby['rental_bikes'];
 
         // 同一都道府県の月額中央値（比較の一文用）。
         $prefMedian = $garage->prefecture ? $this->prefectureMonthlyMedian($garage->prefecture) : null;
@@ -95,7 +101,7 @@ final class RentalGarageController extends Controller
         ];
 
         return view('rental_garage.show', compact(
-            'garage', 'nearbyGarages', 'nearbyCarWashes', 'nearbyParkings', 'prefMedian', 'noindex', 'crossLinks'
+            'garage', 'nearbyGarages', 'nearbyCarWashes', 'nearbyParkings', 'nearbyRentalBikes', 'prefMedian', 'noindex', 'crossLinks'
         ));
     }
 

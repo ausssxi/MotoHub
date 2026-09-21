@@ -344,7 +344,7 @@
             </div>
 
             {{-- 周辺の関連（薄いページ対策・内部リンク） --}}
-            @if($nearbyGarages->isNotEmpty() || $nearbyCarWashes->isNotEmpty() || $nearbyParkings->isNotEmpty())
+            @if($nearbyGarages->isNotEmpty() || $nearbyCarWashes->isNotEmpty() || $nearbyParkings->isNotEmpty() || $nearbyRentalBikes->isNotEmpty())
             <div class="mt-6 grid gap-4 sm:grid-cols-3">
                 @if($nearbyGarages->isNotEmpty())
                 <div class="bg-white rounded-2xl border border-gray-100 p-4">
@@ -373,6 +373,17 @@
                     <ul class="space-y-1.5">
                         @foreach($nearbyParkings as $p)
                         <li><a href="{{ route('parking.show', $p->id) }}" class="text-xs text-green-600 hover:underline font-bold">{{ $p->name }}</a></li>
+                        @endforeach
+                    </ul>
+                </div>
+                @endif
+                {{-- 近くのレンタルバイク店（相互リンク）。★1件も無いブロックは出さない。 --}}
+                @if($nearbyRentalBikes->isNotEmpty())
+                <div class="bg-white rounded-2xl border border-gray-100 p-4">
+                    <h2 class="text-xs font-black text-gray-900 mb-2">近くのレンタルバイク</h2>
+                    <ul class="space-y-1.5">
+                        @foreach($nearbyRentalBikes as $rb)
+                        <li><a href="{{ route('rental-bike.show', $rb->id) }}" class="text-xs text-violet-600 hover:underline font-bold">{{ $rb->name }}</a></li>
                         @endforeach
                     </ul>
                 </div>

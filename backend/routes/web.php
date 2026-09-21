@@ -444,6 +444,17 @@ Route::get('/rental-garages/{id}', [\App\Http\Controllers\RentalGarage\RentalGar
 Route::get('/go/rental-garage/{id}', [\App\Http\Controllers\RentalGarage\RentalGarageClickController::class, 'go'])
     ->name('rental-garage.go')->where('id', '[0-9]+');
 
+// レンタルバイク店舗（公開・認証なし）。事業者横断で集めた事実情報のみ（★画像・紹介文・在庫は扱わない）。
+// 全国一覧 → 都道府県別（地図あり）→ 詳細。★市区町村ページは作らない（薄いページ量産を避ける）。
+Route::get('/rental-bikes', [\App\Http\Controllers\RentalBike\RentalBikeController::class, 'index'])
+    ->name('rental-bike.index');
+// 詳細は {id}（[0-9]+ 制約）。都道府県別 {prefecture}（日本語）とは制約で衝突しないが、先に宣言しておく。
+Route::get('/rental-bikes/{id}', [\App\Http\Controllers\RentalBike\RentalBikeController::class, 'show'])
+    ->name('rental-bike.show')->where('id', '[0-9]+');
+// 都道府県別（{id} の数字制約に外れた文字列＝都道府県名がここに来る）。該当0件は404。
+Route::get('/rental-bikes/{prefecture}', [\App\Http\Controllers\RentalBike\RentalBikeController::class, 'prefecture'])
+    ->name('rental-bike.prefecture');
+
 // 道の駅 一覧・都道府県別（公開・認証なし）
 Route::get('/michinoeki', [\App\Http\Controllers\RoadsideStation\RoadsideStationController::class, 'index'])
     ->name('michinoeki.index');
