@@ -178,27 +178,6 @@ final class RentalGarage extends Model
     }
 
     /**
-     * 表示用サイズ文字列。加瀬レンタルボックスで下限がバイク不可なら「1.6畳以上〜{上限}畳」に置換する。
-     * それ以外（バイクヤード・他社・下限が1.6畳以上）は size_text をそのまま返す。
-     *
-     * ※全レンタルボックスで上限≥1.6畳（最大<1.6は0件）＝「1.6畳以上の区画が存在する」は断定可。
-     *   一方、ちょうど1.6畳区画の存在はデータから不明なので「1.6畳〜」とは書かない。
-     */
-    public function displaySizeText(): ?string
-    {
-        if (! $this->kaseLowerBelowBikeMin()) {
-            return $this->size_text;
-        }
-        [, $hi] = $this->sizeJoBounds();
-        if ($hi === null) {
-            return '1.6畳以上';
-        }
-        $upper = rtrim(rtrim(number_format($hi, 1), '0'), '.'); // 8.0→"8" / 10.1→"10.1"
-
-        return '1.6畳以上〜'.$upper.'畳';
-    }
-
-    /**
      * この物件が持つ加瀬区画種別コードの配列（未取得なら空）。
      *
      * @return array<int, string>
@@ -255,10 +234,26 @@ final class RentalGarage extends Model
         return $this->isKaseRentalBox();
     }
 
-    /** レンタルボックス(cntn)を持つ＝バイク保管に使える売り(宿題④)を出すか。 */
-    public function showsKaseRentalBoxUse(): bool
+    /**
+     * この物件が持つ区画種別の説明 [['label'=>…, 'body'=>…], …]（阿部さん要望）。
+     * config の kase_type_descriptions のうち、この物件が持つ type_code に該当し
+     * label / body が揃っているものだけを config の並び順で返す（未取得なら空）。
+     * 種別を分けて売りを見せるための唯一の整形口。文言はコードに直書きせず config から引く。
+     *
+     * @return array<int, array{label: string, body: string}>
+     */
+    public function kaseTypeDescriptions(): array
     {
-        return $this->hasAnyKaseType(['cntn']);
+        $defs = (array) config('rental_garage.kase_type_descriptions', []);
+        $codes = $this->kaseTypeCodes();
+        $out = [];
+        foreach ($defs as $code => $def) { // config の並び順で安定させる
+            if (in_array($code, $codes, true) && isset($def['label'], $def['body'])) {
+                $out[] = ['label' => (string) $def['label'], 'body' => (string) $def['body']];
+            }
+        }
+
+        return $out;
     }
 
     /**

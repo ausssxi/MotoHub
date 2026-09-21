@@ -15,12 +15,13 @@
         $isKaseBikeYard  = $garage->isKaseBikeYard();
         $isKaseRentalBox = $garage->isKaseRentalBox();
         $kaseMaskLower   = $garage->kaseLowerBelowBikeMin();
-        $displaySize     = $garage->displaySizeText();
+        // 区画サイズは施設の実サイズを書き換えずそのまま出す（バイク可条件は下の注記で補う）。
+        $displaySize     = $garage->size_text;
 
         // 加瀬の区画種別（type_code 駆動。表示名は config）。注記・売り・スロープの出し分けに使う。
         $kaseTypeLabels    = $garage->kaseTypeLabels();          // [code => label]（種別を分けて見せる）
         $showsBikeSizeNote = $garage->showsKaseBikeSizeNote();   // cntn/trnk のみ（bike/bike-out には出さない）
-        $showsRentalBoxUse = $garage->showsKaseRentalBoxUse();   // cntn を持つ＝バイク保管に使える売り
+        $kaseTypeDescs     = $garage->kaseTypeDescriptions();    // この物件が持つ種別の説明（config 駆動）
         $showsSlope        = $garage->showsKaseSlopeRental();    // 対象県 + cntn + 対象外でない
         $slopeCfg          = config('rental_garage.kase_slope');
 
@@ -49,7 +50,7 @@
         } elseif ($garage->monthly_fee_min) {
             $autoSentences[] = $feePrefix.number_format($garage->monthly_fee_min).'円です。';
         }
-        // 3) 区画サイズ（加瀬レンタルボックスで下限がバイク不可なら displaySize が「1.6畳以上〜…」に置換済み）
+        // 3) 区画サイズ（施設の実サイズをそのまま出す。書き換えない）
         if ($displaySize) {
             $autoSentences[] = '区画サイズは'.$displaySize.'です。';
         }
@@ -265,11 +266,17 @@
                 </div>
                 @endif
 
-                {{-- 売り（宿題④）。レンタルボックス(cntn)を持つ物件に、バイク保管に使える点＋24時間を出す。 --}}
-                @if($showsRentalBoxUse)
-                <div class="text-xs text-gray-700 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-4 leading-relaxed">
-                    <p class="font-bold text-gray-900 mb-1"><i data-lucide="check-circle" class="inline w-3.5 h-3.5 text-emerald-600"></i> バイクの保管場所として使えます</p>
-                    <p>レンタルボックス（屋外型コンテナ）はバイクの保管場所として利用できます。@if($garage->is_24h === true)出し入れは24時間可能です。@endif</p>
+                {{-- 売り（阿部さん要望）。この物件が持つ区画種別の説明を config から出す（畳数は書かない）。
+                     文言はコードに直書きせず config/rental_garage.php の kase_type_descriptions から引く。 --}}
+                @if(!empty($kaseTypeDescs))
+                <div class="text-xs text-gray-700 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-4 leading-relaxed space-y-2">
+                    <p class="font-bold text-gray-900"><i data-lucide="check-circle" class="inline w-3.5 h-3.5 text-emerald-600"></i> バイクの保管場所として使えます</p>
+                    @foreach($kaseTypeDescs as $desc)
+                    <div>
+                        <p class="font-bold text-gray-900">{{ $desc['label'] }}</p>
+                        <p>{{ $desc['body'] }}</p>
+                    </div>
+                    @endforeach
                 </div>
                 @endif
 
