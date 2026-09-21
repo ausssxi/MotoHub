@@ -240,7 +240,7 @@ final class RentalGarage extends Model
      * label / body が揃っているものだけを config の並び順で返す（未取得なら空）。
      * 種別を分けて売りを見せるための唯一の整形口。文言はコードに直書きせず config から引く。
      *
-     * @return array<int, array{label: string, body: string}>
+     * @return array<int, array{code: string, label: string, body: string}>
      */
     public function kaseTypeDescriptions(): array
     {
@@ -249,7 +249,7 @@ final class RentalGarage extends Model
         $out = [];
         foreach ($defs as $code => $def) { // config の並び順で安定させる
             if (in_array($code, $codes, true) && isset($def['label'], $def['body'])) {
-                $out[] = ['label' => (string) $def['label'], 'body' => (string) $def['body']];
+                $out[] = ['code' => (string) $code, 'label' => (string) $def['label'], 'body' => (string) $def['body']];
             }
         }
 
