@@ -223,6 +223,12 @@
                             <span class="inline-block text-[10px] font-bold text-gray-500 bg-gray-100 rounded px-1 py-0.5 mr-1 align-middle">参考価格</span>{{ $feeText ?? '情報なし' }}<span class="text-[10px] font-normal text-gray-400 ml-1">{{ $kaseMaskLower ? '（全区画）' : '（区画により変動）' }}</span>
                         </span>
                     </div>
+                    {{-- 加瀬レンタルボックスで下限がバイク不可のときの料金の補足。枠を外し料金行の直下に小さく置く（文言は変えない）。 --}}
+                    @if($kaseMaskLower)
+                    <p class="text-[11px] text-gray-500 leading-relaxed">
+                        ※上の月額は全区画の料金帯です。バイクを収納できる区画（1.6畳以上）の料金は、上記の下限より高くなります。
+                    </p>
+                    @endif
                     <div class="flex items-start gap-2">
                         <span class="text-[11px] font-bold text-gray-400 w-24 shrink-0 pt-0.5">区画サイズ</span>
                         <span class="text-sm text-gray-700">{{ $displaySize ?: '情報なし' }}</span>
@@ -241,28 +247,28 @@
                     @endif
                 </div>
 
-                {{-- 加瀬レンタルボックス：下限がバイク不可(1.6畳未満)のとき、料金帯が何の料金かを明示する。
-                     （下限を隠さず「全区画の料金」と正しく言い、バイク可区画はそれより高いと断る） --}}
-                @if($kaseMaskLower)
-                <p class="text-[11px] text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mb-4 leading-relaxed">
-                    ※上の月額は全区画の料金帯です。バイクを収納できる区画（1.6畳以上）の料金は、上記の下限より高くなります。
-                </p>
-                @endif
-
                 {{-- バイク収納の注記（安武さん要望）。type_code に cntn / trnk を含む物件のみ。
                      bike / bike-out（バイク専用＝バイクヤード）には出さない（1.4畳標準で最初からバイク用のため）。 --}}
                 @if($showsBikeSizeNote)
-                <div class="text-xs text-gray-600 bg-violet-50 rounded-lg px-3 py-2 mb-4 leading-relaxed space-y-2">
-                    {{-- 公式サイトの文言をそのまま引用（こちらで文言を作らない）。 --}}
-                    <p>
-                        「バイクをレンタルボックスに収納する際は、バイクのサイズによって入らない場合があります。地面の段差、前面の通路幅、扉の幅などを現地でご確認のうえ、お申し込みください。」
-                        @if($garage->website_url)
-                        <a href="{{ route('rental-garage.go', $garage->id) }}" target="_blank" rel="noopener" class="text-violet-600 font-bold hover:underline">（加瀬倉庫 公式サイトより）</a>
-                        @else
-                        <span class="text-gray-500">（加瀬倉庫 公式サイトより）</span>
-                        @endif
-                    </p>
-                    <p>バイク収納が可能な区画は、原則として下段・1.6畳以上となります。区画ごとの広さ・寸法は公式サイトでご確認ください。</p>
+                {{-- 注意喚起。売り（黄色）と性質が違うので薄いグレーに落とし、左に情報アイコン（inline SVG）を1つ。 --}}
+                <div class="flex items-start gap-2 text-xs text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-4 leading-relaxed">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-gray-400" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9"/>
+                        <line x1="12" y1="11" x2="12" y2="16"/>
+                        <line x1="12" y1="8" x2="12" y2="8"/>
+                    </svg>
+                    <div class="space-y-2">
+                        {{-- 公式サイトの文言をそのまま引用（こちらで文言を作らない）。引用体裁は保つ。 --}}
+                        <p>
+                            「バイクをレンタルボックスに収納する際は、バイクのサイズによって入らない場合があります。地面の段差、前面の通路幅、扉の幅などを現地でご確認のうえ、お申し込みください。」
+                            @if($garage->website_url)
+                            <a href="{{ route('rental-garage.go', $garage->id) }}" target="_blank" rel="noopener" class="text-violet-600 font-bold hover:underline">（加瀬倉庫 公式サイトより）</a>
+                            @else
+                            <span class="text-gray-500">（加瀬倉庫 公式サイトより）</span>
+                            @endif
+                        </p>
+                        <p>バイク収納が可能な区画は、原則として下段・1.6畳以上となります。区画ごとの広さ・寸法は公式サイトでご確認ください。</p>
+                    </div>
                 </div>
                 @endif
 
@@ -272,9 +278,13 @@
                 <div class="text-xs text-gray-700 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-4 leading-relaxed space-y-2">
                     <p class="font-bold text-gray-900"><i data-lucide="check-circle" class="inline w-3.5 h-3.5 text-emerald-600"></i> バイクの保管場所として使えます</p>
                     @foreach($kaseTypeDescs as $desc)
-                    <div>
-                        <p class="font-bold text-gray-900">{{ $desc['label'] }}</p>
-                        <p>{{ $desc['body'] }}</p>
+                    {{-- 種別ごとに形の分かる inline SVG アイコンを付ける（partial・未知コードは汎用で落とさない）。 --}}
+                    <div class="flex items-start gap-2">
+                        @include('rental_garage.partials.type-icon', ['code' => $desc['code']])
+                        <div>
+                            <p class="font-bold text-gray-900">{{ $desc['label'] }}</p>
+                            <p>{{ $desc['body'] }}</p>
+                        </div>
                     </div>
                     @endforeach
                 </div>
@@ -284,7 +294,7 @@
                      「無料」だけを残さない。送料が別途かかる旨を必ず併記する（誤認防止）。 --}}
                 @if($showsSlope)
                 <div class="text-xs text-gray-700 bg-amber-50 border border-gray-100 rounded-lg px-3 py-2 mb-4 leading-relaxed space-y-1">
-                    <p class="font-bold text-gray-900"><i data-lucide="bike" class="inline w-3.5 h-3.5"></i> バイクスロープの無料レンタルあり</p>
+                    <p class="font-bold text-gray-900"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-middle shrink-0" aria-hidden="true"><line x1="3" y1="20" x2="21" y2="20"/><line x1="4" y1="20" x2="19" y2="7"/><line x1="19" y1="7" x2="19" y2="20"/></svg> バイクスロープの無料レンタルあり</p>
                     <p>※送料は別途必要です（初回契約時 {{ number_format($slopeCfg['shipping_first_yen']) }}円 / 契約後 {{ number_format($slopeCfg['shipping_after_yen']) }}円・税込）</p>
                     <p>※{{ implode('・', $slopeCfg['prefectures']) }}の物件が対象です</p>
                     <p><a href="{{ $slopeCfg['help_url'] }}" target="_blank" rel="noopener" class="text-violet-600 font-bold hover:underline">詳細は公式サイトでご確認ください</a></p>

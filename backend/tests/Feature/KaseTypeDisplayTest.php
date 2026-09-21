@@ -177,3 +177,25 @@ it('バイクライン系の種別説明に畳数を書かない', function () {
         expect($defs[$code]['body'])->not->toContain('畳');
     }
 });
+
+/*
+ * 種別アイコン（inline SVG パーシャル）。既知コードは専用、未知コードは汎用で落とさない。
+ */
+it('種別説明ブロックに inline SVG アイコンが出る（trnk は汎用アイコン）', function () {
+    $garage = makeKaseGarage(['trnk'], ['name' => '加瀬倉庫 トランクテスト']);
+
+    $this->get('/rental-garages/'.$garage->id)
+        ->assertOk()
+        ->assertSee('屋内型の収納スペースです。')
+        ->assertSee('<svg', false); // アイコンがサーバー側 HTML に inline SVG で入る
+});
+
+it('type-icon パーシャルは未知コードでも例外を投げず SVG を返す', function () {
+    $html = view('rental_garage.partials.type-icon', ['code' => 'unknown-xyz'])->render();
+    expect($html)->toContain('<svg');
+});
+
+it('type-icon パーシャルは code 未指定でも例外を投げず SVG を返す', function () {
+    $html = view('rental_garage.partials.type-icon')->render();
+    expect($html)->toContain('<svg');
+});
