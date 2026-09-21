@@ -147,8 +147,8 @@ final class RentalGarageAreaController extends Controller
             'address' => filled($g->address) ? (string) $g->address : null,
             'feeText' => $this->feeText($g),
             // size_text は未投入の行があるため null 前提で扱う（ビュー側で行ごと出し分け）。
-            // 加瀬レンタルボックスで下限がバイク不可なら「1.6畳以上〜…」に置換（判定・整形は Model に集約）。
-            'sizeText' => filled($g->displaySizeText()) ? (string) $g->displaySizeText() : null,
+            // 区画サイズは施設の実サイズをそのまま出す（下限の書き換えはしない）。
+            'sizeText' => filled($g->size_text) ? (string) $g->size_text : null,
             // 対象行の月額は最小区画（バイク不可）を含むため、一覧では「（全区画）」と明示する。
             'kaseMaskLower' => $g->kaseLowerBelowBikeMin(),
             // 設備は true のみバッジ表示。false（なし）と null（不明）は出さない。
