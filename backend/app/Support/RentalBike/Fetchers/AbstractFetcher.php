@@ -20,10 +20,14 @@ abstract class AbstractFetcher implements ShopFetcher
     /** 1リクエストごとの待機秒数。 */
     protected const REQUEST_INTERVAL_SEC = 2;
 
-    /** URL を取得して本文を返す。失敗時は null。 */
+    /**
+     * URL を取得して本文を返す。失敗時は null。
+     * ★リダイレクトを追従する（例: rental819 は www → non-www の 301。追従しないと一覧が取れない）。
+     */
     protected function get(string $url): ?string
     {
         $res = Http::withHeaders(['User-Agent' => self::USER_AGENT])
+            ->withOptions(['allow_redirects' => ['max' => 5, 'referer' => true]])
             ->timeout(20)
             ->get($url);
 
