@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Support\RentalBike\Fetchers\BikeCenterFetcher;
 use App\Support\RentalBike\Fetchers\MotobaseFetcher;
+use App\Support\RentalBike\Fetchers\Rental819Fetcher;
 
 return [
     /*
@@ -16,5 +17,6 @@ return [
     'fetchers' => [
         'bikecenter' => BikeCenterFetcher::class,
         'motobase' => MotobaseFetcher::class,
+        'rental819' => Rental819Fetcher::class,
     ],
 ];
