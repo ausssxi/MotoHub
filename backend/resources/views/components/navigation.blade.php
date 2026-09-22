@@ -204,6 +204,15 @@
                             <i data-lucide="camera" class="w-3.5 h-3.5"></i>
                             AR駐車場ファインダー
                         </a>
+                        {{-- 施設・サービス系（従来はフッターのみで導線が弱かったため「その他」に追加） --}}
+                        <a href="{{ route('rental-garage.area.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="warehouse" class="w-3.5 h-3.5"></i>
+                            レンタルガレージ
+                        </a>
+                        <a href="{{ route('rental-bike.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            <i data-lucide="bike" class="w-3.5 h-3.5"></i>
+                            レンタルバイク
+                        </a>
                         <div class="my-1 border-t border-gray-100"></div>
                         {{-- ガイドセクション --}}
                         <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-widest">ガイド</p>
