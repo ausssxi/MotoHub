@@ -7,25 +7,27 @@ namespace App\Support\RentalBike\Fetchers;
 /**
  * レンタル819（rental819.com）。国内最大規模・全国展開。
  *
- * 構造（2026-09 時点で確認。robots.txt は無し＝Disallow無し）:
- *   - 一覧 /store/ の1ページに全国 約103店舗が地域別に並ぶ（ページ送り無し）。
- *     各店舗は詳細ページ /store/{数値ID} へのリンクを持つ。一覧には店舗名・住所のみ（〒/TEL/営業時間は無い）。
- *   - 詳細 /store/{id} に 店舗名・〒・住所・電話・営業時間 がある。official_url は詳細ページURL。
+ * 構造（2026-09 時点で本番HTMLを確認。robots.txt は無し＝Disallow無し）:
+ *   - ★接続先は canonical な https://rental819.com/（non-www）。www は non-www へ 301（AbstractFetcher が追従）。
+ *   - 一覧 /store/ の1ページに全国 約108店舗（ページ送り無し・地域別）。各店舗は
+ *       <a href="/store/{id}">
+ *         <span class="p-store-list__store-name"><i class="las ..."></i>店名</span>
+ *         <span class="p-store-list__store-adress">市区町村＋番地（都道府県は省略）</span>
+ *       </a>
+ *     ★店名は name span のテキスト（内側の <i> アイコンをタグ除去で落とす）。
+ *     ★一覧の住所は都道府県が省略されるので使わない → 都道府県込みの住所は詳細から取る。
+ *   - 詳細 /store/{id} に 〒・住所（都道府県込み）・電話・営業時間 がある。official_url は詳細ページURL。
  *
- * ★リクエストは「一覧1回 ＋ 店舗詳細 約103回」。1リクエストごとに2秒待つ・並列にしない・同じページを取り直さない。
- * ★img は解析対象にしない（写真・ロゴ・紹介文・料金・車種・在庫は扱わない）。
- * ★返す配列に画像キーを持たせない。
- *
- * NOTE: サイトは接続元の地域で言語が変わる（英語版が返る場合がある）。本番（日本）からは日本語HTMLが返る前提で、
- *   住所抽出は言語非依存の 〒/都道府県 判定（AddressParser）に寄せ、TEL は日本の電話番号パターンで拾う。
+ * ★リクエストは「一覧1回 ＋ 店舗詳細 約108回」。1リクエストごとに2秒待つ・並列にしない・同じページを取り直さない。
+ * ★img は解析対象にしない（写真・ロゴ・紹介文・料金・車種・在庫は扱わない）。返す配列に画像キーを持たせない。
  */
 final class Rental819Fetcher extends AbstractFetcher
 {
-    /** 事業者の公式サイト（トップ）。 */
-    private const SITE = 'https://www.rental819.com/';
+    /** 事業者の公式サイト（トップ・canonical=non-www）。 */
+    private const SITE = 'https://rental819.com/';
 
     /** 店舗一覧（全国が1ページ・ページ送り無し）。 */
-    private const LIST_URL = 'https://www.rental819.com/store/';
+    private const LIST_URL = 'https://rental819.com/store/';
 
     public function slug(): string
     {
@@ -50,13 +52,13 @@ final class Rental819Fetcher extends AbstractFetcher
         }
 
         $records = [];
-        foreach ($this->extractStoreUrls($list) as $url) {
+        foreach ($this->extractStores($list) as $store) {
             $this->pause(); // ★店舗詳細を1つ開くごとに待つ
-            $body = $this->get($url);
+            $body = $this->get($store['url']);
             if ($body === null) {
                 continue;
             }
-            $record = $this->parseDetail($body, $url);
+            $record = $this->buildRecord($store, $body);
             if ($record !== null) {
                 $records[] = $record;
             }
@@ -66,78 +68,68 @@ final class Rental819Fetcher extends AbstractFetcher
     }
 
     /**
-     * 一覧HTMLから店舗詳細URL（/store/{数値ID} のみ）を重複無しで取り出す（テスト用に公開）。
-     * 一覧トップ /store/ 自身（数値IDを持たない）は対象外。
+     * 一覧HTMLから店舗（店名＋詳細URL＋ID）を重複無しで取り出す（テスト用に公開）。
+     * 店名は span.p-store-list__store-name のテキスト（内側の <i> アイコン等はタグ除去で落とす）。
+     * name span を持たない /store/ リンク（ナビ・フッター等）は店舗ではないので除外する。
      *
-     * @return array<int, string>
+     * @return array<int, array{id: string, url: string, name: string}>
      */
-    public function extractStoreUrls(string $html): array
+    public function extractStores(string $html): array
     {
-        if (preg_match_all('~/store/(\d+)~', $html, $m) === false || empty($m[0])) {
+        if (preg_match_all('~<a\b[^>]*href="/store/(\d+)"[^>]*>(.*?)</a>~is', $html, $anchors, PREG_SET_ORDER) === false) {
             return [];
         }
 
-        $urls = [];
-        foreach ($m[1] as $id) {
-            $abs = self::SITE.'store/'.$id;
-            $urls[$abs] = true; // 重複（同一店舗への複数リンク）を潰す
+        $stores = [];
+        $seen = [];
+        foreach ($anchors as $a) {
+            $id = $a[1];
+            if (isset($seen[$id])) {
+                continue; // 同一店舗への複数リンクを潰す
+            }
+            if (preg_match('~<span[^>]*class="[^"]*p-store-list__store-name[^"]*"[^>]*>(.*?)</span>~is', $a[2], $nm) !== 1) {
+                continue; // 店名 span を持たない /store/ リンクは店舗ではない
+            }
+            // ★内側の <i class="las ..."> アイコン等をタグ除去で落としてから店名を取る（アイコンが名前に混入するのを防ぐ）。
+            $name = trim(html_entity_decode(strip_tags($nm[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            if ($name === '') {
+                continue;
+            }
+            $seen[$id] = true;
+            $stores[] = ['id' => $id, 'url' => self::SITE.'store/'.$id, 'name' => $name];
         }
 
-        return array_keys($urls);
+        return $stores;
     }
 
     /**
-     * 店舗詳細HTMLから1店舗を組み立てる（テスト用に公開）。住所が取れない場合は null（地図・エリアに出せないため）。
+     * 一覧の店舗（店名）と詳細HTML（〒・住所・電話・営業時間）から1レコードを組み立てる（テスト用に公開）。
+     * ★住所は詳細ページから取る（一覧は都道府県が省略されているため）。都道府県込みの住所が取れなければ null。
      *
+     * @param  array{id: string, url: string, name: string}  $store
      * @return array<string, mixed>|null
      */
-    public function parseDetail(string $html, string $url): ?array
+    public function buildRecord(array $store, string $detailHtml): ?array
     {
-        $text = $this->htmlToText($html);
+        $text = $this->htmlToText($detailHtml);
 
-        $name = $this->extractName($html);
         $address = $this->firstAddressLine($text);
-        if ($name === null || $address === null) {
-            return null;
+        if ($address === null) {
+            return null; // 都道府県が取れない＝地図/エリアに出せないのでレコードにしない
         }
 
-        // external_id は URL の数値ID（company_slug と組で dedup_key の安定キーになる）。
-        $externalId = preg_match('~/store/(\d+)~', $url, $mm) === 1 ? $mm[1] : null;
-
         return $this->makeRecord(
-            name: $name,
+            name: $store['name'],
             address: $address,
             postalCode: $this->extractPostal($text),
             tel: $this->extractTel($text),
             openingHours: $this->extractHours($text),
-            externalId: $externalId,
-            officialUrl: $url,
+            externalId: $store['id'],
+            officialUrl: $store['url'],
         );
     }
 
-    /** 店舗名を <h1>、無ければ <title>（サイト名サフィックスを落とす）から取る。 */
-    private function extractName(string $html): ?string
-    {
-        if (preg_match('/<h1\b[^>]*>(.*?)<\/h1>/is', $html, $m) === 1) {
-            $name = trim(html_entity_decode(strip_tags($m[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-            if ($name !== '') {
-                return $name;
-            }
-        }
-        if (preg_match('/<title\b[^>]*>(.*?)<\/title>/is', $html, $m) === 1) {
-            $title = trim(html_entity_decode(strip_tags($m[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-            // 「店名｜レンタル819…」等のサフィックスを落とす（区切りは全角/半角の縦棒・ハイフン）。
-            $title = (string) preg_split('/\s*[｜|\-–—]\s*/u', $title, 2)[0];
-            $title = trim($title);
-            if ($title !== '') {
-                return $title;
-            }
-        }
-
-        return null;
-    }
-
-    /** テキストから最初の「住所らしい行」（都道府県で始まる行＝AddressParser で都道府県が取れる行）を返す。 */
+    /** 詳細テキストから最初の「住所らしい行」（都道府県で始まる行＝AddressParser で都道府県が取れる行）を返す。 */
     private function firstAddressLine(string $text): ?string
     {
         foreach (explode("\n", $text) as $line) {
