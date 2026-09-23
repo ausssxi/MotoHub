@@ -157,6 +157,9 @@
                         <a href="{{ route('rental-garage.area.index') }}" class="footer-link">エリアからレンタルガレージを探す</a>
                     </li>
                     <li>
+                        <a href="{{ route('rental-bike.index') }}" class="footer-link">エリアからレンタルバイクを探す</a>
+                    </li>
+                    <li>
                         <a href="{{ route('shops.area.index') }}" class="footer-link">エリアからバイクショップを探す</a>
                     </li>
                     <li>
