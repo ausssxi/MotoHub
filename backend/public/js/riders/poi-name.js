@@ -19,6 +19,7 @@
         car_wash: '洗車場',
         michi_no_eki: '道の駅',
         rental_garage: 'レンタルガレージ',
+        rental_bike: 'レンタルバイク',
         blog: '記事',
         saved_spots: 'お気に入り',
     };
