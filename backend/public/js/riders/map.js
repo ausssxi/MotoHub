@@ -12,6 +12,7 @@
         convenience_store: { endpoint: '/api/pois?type=convenience_store', color: '#ea580c', label: '\uD83C\uDFEA', title: 'コンビニ' },
         michi_no_eki:      { endpoint: '/api/roadside-stations', color: '#9333ea', label: '\uD83D\uDEE3\uFE0F', title: '道の駅' },
         rental_garage:     { endpoint: '/api/rental-garages', color: '#7c3aed', label: '\uD83C\uDFE0', title: 'レンタルガレージ' },
+        rental_bike:       { endpoint: '/api/rental-bikes', color: '#ec4899', label: '🔑', title: 'レンタルバイク' },
         blog:              { endpoint: '/api/blog/map-pins', color: '#0891b2', label: '\u270D\uFE0F', title: '記事' },
         car_wash:          { endpoint: '/api/pois?type=car_wash', color: '#0ea5e9', label: '\uD83D\uDEBF', title: '洗車場' },
         saved_spots:       { endpoint: '/api/spots', color: '#f59e0b', label: '\u2B50', title: 'お気に入り' },
@@ -285,7 +286,7 @@
     // Fetch all enabled layers
     function fetchAllLayers() {
         var gen = ++fetchGeneration;
-        var layers = window.ridersMapLayers || { shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, car_wash: false, rental_garage: false, blog: false, saved_spots: false };
+        var layers = window.ridersMapLayers || { shop: true, parking: true, gas_station: false, convenience_store: false, michi_no_eki: false, car_wash: false, rental_garage: false, rental_bike: false, blog: false, saved_spots: false };
         var bounds = map.getBounds();
         var ne = bounds.getNorthEast();
         var sw = bounds.getSouthWest();
@@ -730,6 +731,19 @@
             // MotoHub内の詳細ページ（公式サイトリンクはページ内に配置）。既存の /parking/ 等と同じ内部パス方式。
             if (item.id) {
                 html += '<a href="/rental-garages/' + item.id + '" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition">詳細を見る &rarr;</a>';
+            }
+            html += gmapBtn + routeBtn;
+        } else if (layerKey === 'rental_bike') {
+            // レンタルバイク店舗: 店名・会社名バッジ・住所・電話番号（無い店は項目ごと非表示）・詳細ページ導線。
+            // ★画像・紹介文・在庫は扱わない。★色クラスは build 済みCSSに存在する pink を使用（public/js は新規色クラス禁止）。
+            html = '<h3 class="text-base font-black text-gray-900 mb-2">' + escapeHtml(resolveName('rental_bike', item)) + '</h3>'
+                + (item.company ? '<span class="inline-block px-2.5 py-1 bg-pink-50 text-pink-700 text-[11px] font-bold rounded-md mb-3">' + escapeHtml(item.company) + '</span>' : '')
+                + (item.address ? '<p class="text-xs text-gray-500 mb-3">' + escapeHtml(item.address) + '</p>' : '');
+            if (item.tel) {
+                html += '<div class="bg-gray-50 rounded-lg p-3 mb-3"><div class="flex items-start gap-2"><span class="text-[10px] font-bold text-gray-400 w-14 shrink-0 pt-0.5">電話番号</span><span class="text-xs text-gray-700">' + escapeHtml(item.tel) + '</span></div></div>';
+            }
+            if (item.id) {
+                html += '<a href="/rental-bikes/' + item.id + '" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-pink-600 text-white text-xs font-bold rounded-lg hover:bg-pink-700 transition">詳細を見る &rarr;</a>';
             }
             html += gmapBtn + routeBtn;
         } else if (layerKey === 'michi_no_eki') {
