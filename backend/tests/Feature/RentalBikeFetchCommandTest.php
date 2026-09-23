@@ -1,6 +1,9 @@
 <?php
 
 use App\Models\RentalBikeShop;
+use App\Support\RentalBike\Fetchers\BikeCenterFetcher;
+use App\Support\RentalBike\Fetchers\MotobaseFetcher;
+use App\Support\RentalBike\Fetchers\Rental819Fetcher;
 use App\Support\RentalBike\ShopFetcher;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -116,4 +119,26 @@ it('keeps the record when geocoding fails (only stamps geocode_failed_at)', func
     expect($shop->latitude)->toBeNull()
         ->and($shop->longitude)->toBeNull()
         ->and($shop->geocode_failed_at)->not->toBeNull();
+});
+
+// ★取得の言語ヘッダ回帰: rental819 はヘッダ無しだと詳細ページが英語で返り、日本語専用の
+//   AddressParser が都道府県を取れず buildRecord が全件 null 落ち→3件しか残らない。ja を要求して回避する。
+//   一覧HTMLに /store/N を含めない＝店舗ループに入らないので pause（2秒待機）は発生しない。
+it('rental819 requests Japanese content (Accept-Language: ja)', function () {
+    Http::fake(['*' => Http::response('<html>no store links here</html>', 200)]);
+
+    (new Rental819Fetcher)->fetch();
+
+    Http::assertSent(fn ($request) => $request->hasHeader('Accept-Language', 'ja-JP,ja;q=0.9'));
+});
+
+// ★既存 Fetcher（bikecenter / motobase）は日本語サイトなので Accept-Language を送らない＝リクエスト不変。
+//   空HTMLなら bikecenter は1回 / motobase はハブ1回で終わり、いずれもループ・pause 無し。
+it('bikecenter / motobase do NOT send Accept-Language (existing behavior unchanged)', function () {
+    Http::fake(['*' => Http::response('<html></html>', 200)]);
+
+    (new BikeCenterFetcher)->fetch();
+    (new MotobaseFetcher)->fetch();
+
+    Http::assertSent(fn ($request) => ! $request->hasHeader('Accept-Language'));
 });

@@ -7,33 +7,40 @@ use App\Support\RentalBike\Fetchers\Rental819Fetcher;
  * ★保存したHTMLの断片を食わせて期待する配列が返ること（★外部アクセスはしない）。
  * ★返る配列に画像キーが無いこと。★取れない項目（TEL/営業時間）は null で残ること。
  * ★住所→都道府県/市区町村は既存 AddressParser に揃うこと。
+ * ★取得ヘッダ（Accept-Language: ja）の回帰は tests/Feature/RentalBikeFetchCommandTest.php（要アプリbootstrap）。
  *
- * 一覧の断片は本番HTMLの実構造（2026-09 確認）:
- *   <a href="/store/{id}">
- *     <span class="p-store-list__store-name"><i class="las la-store-alt"></i>店名</span>
- *     <span class="p-store-list__store-adress">市区町村＋番地（都道府県は省略）</span>
- *   </a>
+ * 一覧の断片は本番HTMLの実構造（2026-09 確認・日本語版 ~/rental819-store-list-ja.html）:
+ *   <div class="p-store-list__area-inner">
+ *     <a href="/store/{id}">
+ *       <span class="p-store-list__store-name"><i class="las la-store-alt"></i>店名</span>
+ *       <span class="p-store-list__store-adress">市区町村＋番地（都道府県は省略）</span>
+ *     </a>
+ *   </div>
  * ★店名 span 内の <i> アイコンはタグ除去で落とす（アイコンが店名に混入していた不具合の回帰防止）。
  * ★一覧の住所は都道府県が省略されるので使わず、詳細ページの住所を使う。
  */
 
 // 一覧ページ断片（実構造）。重複ID・店名spanを持たない /store/ リンク・/store/ トップは店舗ではない。
 $listHtml = <<<'HTML'
-<ul class="p-store-list">
-  <li><a href="/store/39">
+<div class="p-store-list__area-inner">
+  <a href="/store/39">
     <span class="p-store-list__store-name"><i class="las la-store-alt"></i>北見店</span>
     <span class="p-store-list__store-adress">北見市並木町144-19</span>
-  </a></li>
-  <li><a href="/store/31">
+  </a>
+</div>
+<div class="p-store-list__area-inner">
+  <a href="/store/31">
     <span class="p-store-list__store-name"><i class="las la-store-alt"></i>お台場店</span>
     <span class="p-store-list__store-adress">港区台場1-6-1</span>
-  </a></li>
-  <li><a href="/store/39">
+  </a>
+</div>
+<div class="p-store-list__area-inner">
+  <a href="/store/39">
     <span class="p-store-list__store-name"><i class="las la-store-alt"></i>北見店（重複導線）</span>
-  </a></li>
-  <li><a href="/store/">店舗一覧トップ</a></li>
-  <li><nav><a href="/store/999">フッターのstoreリンク（店名span無し）</a></nav></li>
-</ul>
+  </a>
+</div>
+<a href="/store/">店舗一覧トップ</a>
+<nav><a href="/store/999">フッターのstoreリンク（店名span無し）</a></nav>
 HTML;
 
 // 店舗詳細（日本語）: 〒・住所（都道府県込み）・TEL・営業時間が揃うケース。
