@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Support\RentalBike\Fetchers;
 
+use Illuminate\Support\Facades\Log;
+
 /**
  * レンタル819（rental819.com）。国内最大規模・全国展開。
  *
@@ -25,8 +27,13 @@ namespace App\Support\RentalBike\Fetchers;
  *     ★店名は name span のテキスト（内側の <i> アイコンをタグ除去で落とす）。
  *     ★都道府県は「直前の p-store-list__pref 見出し」を正とする（一覧の住所・詳細の都道府県行に依存しない）。
  *       詳細ページに都道府県が出ない店（特別区・一般市）があり、以前は 103→32 に脱落していたため。
- *   - 詳細 /store/{id} に 〒・住所（市区町村＋番地）・電話・営業時間 がある。official_url は詳細ページURL。
- *     市区町村・番地は詳細から、都道府県は一覧見出しから取り、両者を連結して AddressParser に渡す。
+ *   - 詳細 /store/{id} の <dl class="p-store-detail__store-info"> に <dt>住所/電話番号/営業時間</dt><dd>値</dd> がある。
+ *     ★このdlに限定し、ラベルで dd を引く（本文=intro/news/article/アクセスは走査しない＝案内文・お知らせ・
+ *       「移転前」ノートを構造的に混入させない）。位置ではなくラベルで引くので項目の有無に強い。
+ *     ★住所に都道府県は入らない → 都道府県は一覧見出しから取り、前置して AddressParser に渡す。
+ *     ★営業時間の dt が無い店がある → 無ければ null（本文へのフォールバックはしない）。
+ *     ★店名末尾の付記「(…移転)」・住所末尾の括弧書き「（…内）」は除去し、除去前をログに出す（ジオコーディング対策）。
+ *     official_url は詳細ページURL。
  *
  * ★リクエストは「一覧1回 ＋ 店舗詳細 約108回」。1リクエストごとに2秒待つ・並列にしない・同じページを取り直さない。
  * ★img は解析対象にしない（写真・ロゴ・紹介文・料金・車種・在庫は扱わない）。返す配列に画像キーを持たせない。
@@ -133,6 +140,8 @@ final class Rental819Fetcher extends AbstractFetcher
             if ($name === '') {
                 continue;
             }
+            // ★末尾の付記「北軽井沢店(2026年4月移転)」等を落とす（除去したら除去前をログに出す）。
+            $name = $this->stripTrailingParen($name, 'name');
             $seen[$id] = true;
             $stores[] = [
                 'id' => $id,
@@ -146,62 +155,102 @@ final class Rental819Fetcher extends AbstractFetcher
     }
 
     /**
-     * 一覧の店舗（店名・都道府県）と詳細HTML（〒・住所・電話・営業時間）から1レコードを組み立てる（テスト用に公開）。
-     * ★都道府県は一覧見出しを正とし、市区町村・番地は詳細ページの住所から取る。両者を連結して AddressParser に渡す。
-     *   詳細に都道府県が出ない店（特別区・一般市）でも都道府県が埋まる。市区町村すら取れなければ null。
+     * 一覧の店舗（店名・都道府県）と詳細HTMLから1レコードを組み立てる（テスト用に公開）。
+     * ★住所・電話・営業時間は詳細ページの情報 dl（p-store-detail__store-info）から「ラベルで dd を引く」。
+     *   本文（intro/news/article/アクセス）は走査しないので、案内文・お知らせ・「移転前」ノートは混入しない。
+     * ★都道府県は一覧見出しを正とし、住所へ前置して AddressParser に渡す。市区町村すら取れなければ null。
      *
      * @param  array{id: string, url: string, name: string, prefecture?: ?string}  $store
      * @return array<string, mixed>|null
      */
     public function buildRecord(array $store, string $detailHtml): ?array
     {
-        $text = $this->htmlToText($detailHtml);
-
-        $address = $this->firstAddressLine($text);
-        if ($address === null) {
-            return null; // 市区町村すら取れない＝地図/エリアに出せないのでレコードにしない
+        $dl = $this->storeInfoBlock($detailHtml);
+        if ($dl === null) {
+            return null; // 情報 dl が無い＝住所を信頼できないのでレコードにしない
         }
 
-        // ★都道府県は一覧見出しを正とする。住所行の先頭に都道府県が付いていれば剥がしてから前置し、
+        $addressField = $this->detailField($dl, '住所');
+        if ($addressField === null) {
+            return null;
+        }
+
+        $postal = $this->extractPostal($addressField);
+        // 〒 と 末尾の括弧書き（「（ASAMA PEAKs内）」等・ジオコーディングを乱す）を落として住所本体にする。
+        $address = $this->stripTrailingParen($this->stripLeadingPostal($addressField), 'address');
+
+        if ($this->splitAddress($address)['city'] === null) {
+            return null; // 市区町村すら取れない＝地図/エリアに出せない
+        }
+
+        // ★都道府県は一覧見出しを正とする。住所の先頭に都道府県が付いていれば剥がしてから前置し、
         //   AddressParser が prefecture=一覧値・city=詳細住所 で解決できるようにする（二重都道府県を防ぐ）。
         $prefecture = $store['prefecture'] ?? null;
         if ($prefecture !== null && $prefecture !== '') {
             $address = $prefecture.$this->stripLeadingPrefecture($address);
         }
 
+        // ★営業時間は dt が無い店がある → 無ければ null（本文へのフォールバックはしない）。
+        $hours = $this->detailField($dl, '営業時間');
+
         return $this->makeRecord(
             name: $store['name'],
             address: $address,
-            postalCode: $this->extractPostal($text),
-            tel: $this->extractTel($text),
-            openingHours: $this->extractHours($text),
+            postalCode: $postal,
+            tel: $this->extractTel((string) $this->detailField($dl, '電話番号')),
+            openingHours: $hours !== null ? mb_substr($hours, 0, 100) : null,
             externalId: $store['id'],
             officialUrl: $store['url'],
         );
     }
 
-    /**
-     * 詳細テキストから最初の「住所らしい行」を返す。
-     * ★都道府県は一覧見出しから付けるので、ここでは「番地（数字）を含み、市区町村が取れる行」であれば足りる。
-     *   これで詳細に都道府県が出ない特別区・一般市（例: 杉並区阿佐谷北4-27-3）も住所行として拾える。
-     */
-    private function firstAddressLine(string $text): ?string
+    /** 詳細HTMLから店舗情報の定義リスト（dl.p-store-detail__store-info）の中身を取り出す。無ければ null。 */
+    private function storeInfoBlock(string $html): ?string
     {
-        foreach (explode("\n", $text) as $line) {
-            // 行頭の 〒NNN-NNNN を落として住所本体だけにする（同一行に郵便番号が付くケース）。
-            $line = trim((string) preg_replace('/^〒?\s*\d{3}[-ー－]?\d{4}\s*/u', '', trim($line)));
-            if ($line === '') {
-                continue;
-            }
-            if (preg_match('/[0-9０-９]/u', $line) !== 1) {
-                continue; // 番地（数字）が無い行は住所本体ではない（見出し・都道府県名だけの行など）
-            }
-            if ($this->splitAddress($line)['city'] !== null) {
-                return $line;
-            }
+        if (preg_match('~<dl[^>]*class="[^"]*p-store-detail__store-info[^"]*"[^>]*>(.*?)</dl>~is', $html, $m) === 1) {
+            return $m[1];
         }
 
         return null;
+    }
+
+    /**
+     * 情報 dl から <dt>{ラベル}</dt><dd>値</dd> の値をラベル一致で取る（位置ではなくラベルで引く＝項目の有無に強い）。
+     * dd 内のタグは落とし、<br> は空白に。空なら null。
+     */
+    private function detailField(string $dl, string $label): ?string
+    {
+        $pattern = '~<dt[^>]*>\s*'.preg_quote($label, '~').'\s*</dt>\s*<dd[^>]*>(.*?)</dd>~is';
+        if (preg_match($pattern, $dl, $m) !== 1) {
+            return null;
+        }
+        $inner = (string) preg_replace('~<br\s*/?>~i', ' ', $m[1]);
+        $text = html_entity_decode(strip_tags($inner), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = trim((string) preg_replace('/[\t\x{3000} ]+/u', ' ', $text));
+
+        return $text !== '' ? $text : null;
+    }
+
+    /** 行頭の 〒NNN-NNNN を落として住所本体だけにする。 */
+    private function stripLeadingPostal(string $address): string
+    {
+        return trim((string) preg_replace('/^〒?\s*\d{3}[-ー－]?\d{4}\s*/u', '', trim($address)));
+    }
+
+    /**
+     * 末尾の括弧書き（「北軽井沢店(2026年4月移転)」「…1053-26（ASAMA PEAKs内）」等）を1つ落とす。
+     * 除去したら「除去前 → 除去後」をログに出す（想定外の巻き込みを後で確認できるように）。$kind はログ区別用（name/address）。
+     */
+    private function stripTrailingParen(string $value, string $kind): string
+    {
+        $stripped = rtrim((string) preg_replace('/[\s\x{3000}]*[（(][^（(]*[)）][\s\x{3000}]*$/u', '', $value));
+        if ($stripped !== '' && $stripped !== $value) {
+            Log::info(sprintf('rental819: [%s] %s → %s', $kind, $value, $stripped));
+
+            return $stripped;
+        }
+
+        return $value;
     }
 
     /** 住所行の先頭に都道府県が付いていれば剥がす（一覧見出しの都道府県を前置し直すため。二重都道府県の防止）。 */
@@ -237,21 +286,6 @@ final class Rental819Fetcher extends AbstractFetcher
             $tel = $this->cleanTel($m[1]);
 
             return $tel !== '' ? $tel : null;
-        }
-
-        return null;
-    }
-
-    /** 営業時間を取る。「営業時間」ラベルのある行の以降を返す。無ければ null。 */
-    private function extractHours(string $text): ?string
-    {
-        foreach (explode("\n", $text) as $line) {
-            if (preg_match('/営業時間[:：]?\s*(.+)$/u', trim($line), $m) === 1) {
-                $hours = trim($m[1]);
-                if ($hours !== '') {
-                    return mb_substr($hours, 0, 100); // 過剰な連結を避けて上限を切る
-                }
-            }
         }
 
         return null;
