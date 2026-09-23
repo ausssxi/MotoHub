@@ -9,6 +9,9 @@ namespace App\Support\RentalBike\Fetchers;
  *
  * 構造（2026-09 時点で本番HTMLを確認。robots.txt は無し＝Disallow無し）:
  *   - ★接続先は canonical な https://rental819.com/（non-www）。www は non-www へ 301（AbstractFetcher が追従）。
+ *   - ★取得は Accept-Language: ja を送る（acceptLanguage()）。ヘッダ無しだと詳細ページが英語
+ *     （例: "144-19 Namiki-cho, Kitami-shi, Hokkaido, Japan"）で返り、日本語専用の AddressParser が
+ *     都道府県を取れず buildRecord が全件 null 落ちして 3件しか残らない（2026-09 本番検証）。
  *   - 一覧 /store/ の1ページに全国 約108店舗（ページ送り無し・地域別）。各店舗は
  *       <a href="/store/{id}">
  *         <span class="p-store-list__store-name"><i class="las ..."></i>店名</span>
@@ -42,6 +45,15 @@ final class Rental819Fetcher extends AbstractFetcher
     public function officialUrl(): string
     {
         return self::SITE;
+    }
+
+    /**
+     * ★日本語を要求する。ヘッダ無しだと詳細ページが英語で返り、AddressParser が都道府県を取れず
+     *   buildRecord が全件 null 落ちして 3件だけになる（2026-09 本番検証: このヘッダ有りで「北海道」が返る）。
+     */
+    protected function acceptLanguage(): ?string
+    {
+        return 'ja-JP,ja;q=0.9';
     }
 
     public function fetch(): array

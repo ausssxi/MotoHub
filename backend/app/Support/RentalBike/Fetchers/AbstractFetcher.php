@@ -21,12 +21,27 @@ abstract class AbstractFetcher implements ShopFetcher
     protected const REQUEST_INTERVAL_SEC = 2;
 
     /**
+     * 取得時に要求する言語（Accept-Language ヘッダの値）。null=送らない（既定）。
+     * ★既定 null なので既存 Fetcher のリクエストは不変（＝取得結果に影響しない）。日本語で
+     *   返させたい Fetcher（rental819 はヘッダ無しだと英語で返る）だけがオーバーライドする。
+     */
+    protected function acceptLanguage(): ?string
+    {
+        return null;
+    }
+
+    /**
      * URL を取得して本文を返す。失敗時は null。
      * ★リダイレクトを追従する（例: rental819 は www → non-www の 301。追従しないと一覧が取れない）。
      */
     protected function get(string $url): ?string
     {
-        $res = Http::withHeaders(['User-Agent' => self::USER_AGENT])
+        $headers = ['User-Agent' => self::USER_AGENT];
+        if (($lang = $this->acceptLanguage()) !== null) {
+            $headers['Accept-Language'] = $lang; // ★rental819 が英語で返るのを防ぐ
+        }
+
+        $res = Http::withHeaders($headers)
             ->withOptions(['allow_redirects' => ['max' => 5, 'referer' => true]])
             ->timeout(20)
             ->get($url);
