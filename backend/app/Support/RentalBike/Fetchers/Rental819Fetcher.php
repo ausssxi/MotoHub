@@ -12,14 +12,21 @@ namespace App\Support\RentalBike\Fetchers;
  *   - ★取得は Accept-Language: ja を送る（acceptLanguage()）。ヘッダ無しだと詳細ページが英語
  *     （例: "144-19 Namiki-cho, Kitami-shi, Hokkaido, Japan"）で返り、日本語専用の AddressParser が
  *     都道府県を取れず buildRecord が全件 null 落ちして 3件しか残らない（2026-09 本番検証）。
- *   - 一覧 /store/ の1ページに全国 約108店舗（ページ送り無し・地域別）。各店舗は
- *       <a href="/store/{id}">
- *         <span class="p-store-list__store-name"><i class="las ..."></i>店名</span>
- *         <span class="p-store-list__store-adress">市区町村＋番地（都道府県は省略）</span>
- *       </a>
+ *   - 一覧 /store/ の1ページに全国 約108店舗（ページ送り無し・都道府県別グルーピング）。構造は
+ *       <div class="p-store-list__area-wrap">
+ *         <p class="p-store-list__pref">北海道</p>            ← ★都道府県見出し（日本語フルネーム）
+ *         <div class="p-store-list__area-inner">
+ *           <a href="/store/{id}">
+ *             <span class="p-store-list__store-name"><i class="las ..."></i>店名</span>
+ *             <span class="p-store-list__store-adress">市区町村＋番地（都道府県は省略）</span>
+ *           </a>
+ *         </div> ...
+ *       </div> ...
  *     ★店名は name span のテキスト（内側の <i> アイコンをタグ除去で落とす）。
- *     ★一覧の住所は都道府県が省略されるので使わない → 都道府県込みの住所は詳細から取る。
- *   - 詳細 /store/{id} に 〒・住所（都道府県込み）・電話・営業時間 がある。official_url は詳細ページURL。
+ *     ★都道府県は「直前の p-store-list__pref 見出し」を正とする（一覧の住所・詳細の都道府県行に依存しない）。
+ *       詳細ページに都道府県が出ない店（特別区・一般市）があり、以前は 103→32 に脱落していたため。
+ *   - 詳細 /store/{id} に 〒・住所（市区町村＋番地）・電話・営業時間 がある。official_url は詳細ページURL。
+ *     市区町村・番地は詳細から、都道府県は一覧見出しから取り、両者を連結して AddressParser に渡す。
  *
  * ★リクエストは「一覧1回 ＋ 店舗詳細 約108回」。1リクエストごとに2秒待つ・並列にしない・同じページを取り直さない。
  * ★img は解析対象にしない（写真・ロゴ・紹介文・料金・車種・在庫は扱わない）。返す配列に画像キーを持たせない。
@@ -80,26 +87,45 @@ final class Rental819Fetcher extends AbstractFetcher
     }
 
     /**
-     * 一覧HTMLから店舗（店名＋詳細URL＋ID）を重複無しで取り出す（テスト用に公開）。
+     * 一覧HTMLから店舗（店名＋詳細URL＋ID＋都道府県）を重複無しで取り出す（テスト用に公開）。
+     * 一覧は「都道府県見出し（p.p-store-list__pref）→ その都道府県の店舗（a[href=/store/N]）」の順で並ぶので、
+     * 見出しと店舗リンクを出現順に走査し、直近の都道府県を各店舗へ紐づける（詳細ページの都道府県行に依存しない）。
      * 店名は span.p-store-list__store-name のテキスト（内側の <i> アイコン等はタグ除去で落とす）。
      * name span を持たない /store/ リンク（ナビ・フッター等）は店舗ではないので除外する。
      *
-     * @return array<int, array{id: string, url: string, name: string}>
+     * @return array<int, array{id: string, url: string, name: string, prefecture: ?string}>
      */
     public function extractStores(string $html): array
     {
-        if (preg_match_all('~<a\b[^>]*href="/store/(\d+)"[^>]*>(.*?)</a>~is', $html, $anchors, PREG_SET_ORDER) === false) {
+        // 都道府県見出しと店舗アンカーを1本のパターンで出現順に拾う（どちらが来たかは名前付きグループで判別）。
+        $pattern = '~<p\b[^>]*class="[^"]*p-store-list__pref[^"]*"[^>]*>(?<pref>.*?)</p>'
+            .'|<a\b[^>]*href="/store/(?<id>\d+)"[^>]*>(?<inner>.*?)</a>~is';
+
+        if (preg_match_all($pattern, $html, $matches, PREG_SET_ORDER) === false) {
             return [];
         }
 
         $stores = [];
         $seen = [];
-        foreach ($anchors as $a) {
-            $id = $a[1];
+        $currentPref = null;
+
+        foreach ($matches as $m) {
+            // 都道府県見出し（id グループが空＝アンカーではない）→ 直近の都道府県を更新する。
+            if (($m['id'] ?? '') === '') {
+                $pref = trim(html_entity_decode(strip_tags($m['pref'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                if ($pref !== '') {
+                    $currentPref = $pref;
+                }
+
+                continue;
+            }
+
+            // 店舗アンカー。
+            $id = $m['id'];
             if (isset($seen[$id])) {
                 continue; // 同一店舗への複数リンクを潰す
             }
-            if (preg_match('~<span[^>]*class="[^"]*p-store-list__store-name[^"]*"[^>]*>(.*?)</span>~is', $a[2], $nm) !== 1) {
+            if (preg_match('~<span[^>]*class="[^"]*p-store-list__store-name[^"]*"[^>]*>(.*?)</span>~is', $m['inner'], $nm) !== 1) {
                 continue; // 店名 span を持たない /store/ リンクは店舗ではない
             }
             // ★内側の <i class="las ..."> アイコン等をタグ除去で落としてから店名を取る（アイコンが名前に混入するのを防ぐ）。
@@ -108,17 +134,23 @@ final class Rental819Fetcher extends AbstractFetcher
                 continue;
             }
             $seen[$id] = true;
-            $stores[] = ['id' => $id, 'url' => self::SITE.'store/'.$id, 'name' => $name];
+            $stores[] = [
+                'id' => $id,
+                'url' => self::SITE.'store/'.$id,
+                'name' => $name,
+                'prefecture' => $currentPref, // ★一覧の地域見出しから（詳細に依存しない）
+            ];
         }
 
         return $stores;
     }
 
     /**
-     * 一覧の店舗（店名）と詳細HTML（〒・住所・電話・営業時間）から1レコードを組み立てる（テスト用に公開）。
-     * ★住所は詳細ページから取る（一覧は都道府県が省略されているため）。都道府県込みの住所が取れなければ null。
+     * 一覧の店舗（店名・都道府県）と詳細HTML（〒・住所・電話・営業時間）から1レコードを組み立てる（テスト用に公開）。
+     * ★都道府県は一覧見出しを正とし、市区町村・番地は詳細ページの住所から取る。両者を連結して AddressParser に渡す。
+     *   詳細に都道府県が出ない店（特別区・一般市）でも都道府県が埋まる。市区町村すら取れなければ null。
      *
-     * @param  array{id: string, url: string, name: string}  $store
+     * @param  array{id: string, url: string, name: string, prefecture?: ?string}  $store
      * @return array<string, mixed>|null
      */
     public function buildRecord(array $store, string $detailHtml): ?array
@@ -127,7 +159,14 @@ final class Rental819Fetcher extends AbstractFetcher
 
         $address = $this->firstAddressLine($text);
         if ($address === null) {
-            return null; // 都道府県が取れない＝地図/エリアに出せないのでレコードにしない
+            return null; // 市区町村すら取れない＝地図/エリアに出せないのでレコードにしない
+        }
+
+        // ★都道府県は一覧見出しを正とする。住所行の先頭に都道府県が付いていれば剥がしてから前置し、
+        //   AddressParser が prefecture=一覧値・city=詳細住所 で解決できるようにする（二重都道府県を防ぐ）。
+        $prefecture = $store['prefecture'] ?? null;
+        if ($prefecture !== null && $prefecture !== '') {
+            $address = $prefecture.$this->stripLeadingPrefecture($address);
         }
 
         return $this->makeRecord(
@@ -141,7 +180,11 @@ final class Rental819Fetcher extends AbstractFetcher
         );
     }
 
-    /** 詳細テキストから最初の「住所らしい行」（都道府県で始まる行＝AddressParser で都道府県が取れる行）を返す。 */
+    /**
+     * 詳細テキストから最初の「住所らしい行」を返す。
+     * ★都道府県は一覧見出しから付けるので、ここでは「番地（数字）を含み、市区町村が取れる行」であれば足りる。
+     *   これで詳細に都道府県が出ない特別区・一般市（例: 杉並区阿佐谷北4-27-3）も住所行として拾える。
+     */
     private function firstAddressLine(string $text): ?string
     {
         foreach (explode("\n", $text) as $line) {
@@ -150,12 +193,26 @@ final class Rental819Fetcher extends AbstractFetcher
             if ($line === '') {
                 continue;
             }
-            if ($this->splitAddress($line)['prefecture'] !== null) {
+            if (preg_match('/[0-9０-９]/u', $line) !== 1) {
+                continue; // 番地（数字）が無い行は住所本体ではない（見出し・都道府県名だけの行など）
+            }
+            if ($this->splitAddress($line)['city'] !== null) {
                 return $line;
             }
         }
 
         return null;
+    }
+
+    /** 住所行の先頭に都道府県が付いていれば剥がす（一覧見出しの都道府県を前置し直すため。二重都道府県の防止）。 */
+    private function stripLeadingPrefecture(string $address): string
+    {
+        $pref = $this->splitAddress($address)['prefecture'];
+        if ($pref !== null && str_starts_with($address, $pref)) {
+            return ltrim(mb_substr($address, mb_strlen($pref)));
+        }
+
+        return $address;
     }
 
     /** テキストから郵便番号（NNN-NNNN）を取る。無ければ null。 */
