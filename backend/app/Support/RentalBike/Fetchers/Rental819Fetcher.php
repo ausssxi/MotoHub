@@ -32,7 +32,8 @@ use Illuminate\Support\Facades\Log;
  *       「移転前」ノートを構造的に混入させない）。位置ではなくラベルで引くので項目の有無に強い。
  *     ★住所に都道府県は入らない → 都道府県は一覧見出しから取り、前置して AddressParser に渡す。
  *     ★営業時間の dt が無い店がある → 無ければ null（本文へのフォールバックはしない）。
- *     ★店名末尾の付記「(…移転)」・住所末尾の括弧書き「（…内）」は除去し、除去前をログに出す（ジオコーディング対策）。
+ *     ★店名末尾は告知系（移転/閉店/休業/OPEN/日付）の括弧だけ除去（通称「(伊丹空港)」等は残す）。
+ *       住所末尾の括弧書き「（…内）」は無条件に除去（ジオコーディング対策）。いずれも除去時は除去前をログに出す。
  *     official_url は詳細ページURL。
  *
  * ★リクエストは「一覧1回 ＋ 店舗詳細 約108回」。1リクエストごとに2秒待つ・並列にしない・同じページを取り直さない。
@@ -140,8 +141,8 @@ final class Rental819Fetcher extends AbstractFetcher
             if ($name === '') {
                 continue;
             }
-            // ★末尾の付記「北軽井沢店(2026年4月移転)」等を落とす（除去したら除去前をログに出す）。
-            $name = $this->stripTrailingParen($name, 'name');
+            // ★末尾の告知系の付記「北軽井沢店(2026年4月移転)」等だけ落とす（通称「(伊丹空港)」等は残す）。除去時は除去前をログ。
+            $name = $this->stripTrailingParen($name, 'name', true);
             $seen[$id] = true;
             $stores[] = [
                 'id' => $id,
@@ -238,19 +239,35 @@ final class Rental819Fetcher extends AbstractFetcher
     }
 
     /**
-     * 末尾の括弧書き（「北軽井沢店(2026年4月移転)」「…1053-26（ASAMA PEAKs内）」等）を1つ落とす。
-     * 除去したら「除去前 → 除去後」をログに出す（想定外の巻き込みを後で確認できるように）。$kind はログ区別用（name/address）。
+     * 末尾の括弧書きを1つ落とす。除去したら「除去前 → 除去後」をログに出す（想定外の巻き込みを後で確認できるように）。
+     * $kind はログ区別用（name/address）。
+     * $onlyAnnouncement=true のときは「告知系（移転/閉店/休業/OPEN/日付）」の括弧だけ落とし、通称・目印
+     *   （「(伊丹空港)」「(関西空港)」等・検索で使われる語）は残す。店名に使う。
+     * 住所は $onlyAnnouncement=false（無条件に除去。目印「(◯◯向かい)」はジオコーディングに不要なので落とす）。
      */
-    private function stripTrailingParen(string $value, string $kind): string
+    private function stripTrailingParen(string $value, string $kind, bool $onlyAnnouncement = false): string
     {
-        $stripped = rtrim((string) preg_replace('/[\s\x{3000}]*[（(][^（(]*[)）][\s\x{3000}]*$/u', '', $value));
-        if ($stripped !== '' && $stripped !== $value) {
-            Log::info(sprintf('rental819: [%s] %s → %s', $kind, $value, $stripped));
-
-            return $stripped;
+        $pattern = '/[\s\x{3000}]*[（(]([^（(]*)[)）][\s\x{3000}]*$/u';
+        if (preg_match($pattern, $value, $m) !== 1) {
+            return $value;
+        }
+        if ($onlyAnnouncement && ! $this->looksLikeAnnouncement($m[1])) {
+            return $value; // 通称・目印は残す
         }
 
-        return $value;
+        $stripped = rtrim((string) preg_replace($pattern, '', $value));
+        if ($stripped === '' || $stripped === $value) {
+            return $value;
+        }
+        Log::info(sprintf('rental819: [%s] %s → %s', $kind, $value, $stripped));
+
+        return $stripped;
+    }
+
+    /** 括弧の中身が「告知系」（移転・閉店・休業・OPEN/オープン・日付）かどうか。通称と区別するために使う。 */
+    private function looksLikeAnnouncement(string $paren): bool
+    {
+        return preg_match('/移転|閉店|休業|OPEN|オープン|\d+\s*[年月日]/ui', $paren) === 1;
     }
 
     /** 住所行の先頭に都道府県が付いていれば剥がす（一覧見出しの都道府県を前置し直すため。二重都道府県の防止）。 */
@@ -287,7 +304,22 @@ final class Rental819Fetcher extends AbstractFetcher
 
             return $tel !== '' ? $tel : null;
         }
+        // ★ハイフン無し（例: 08027137701）。全角→半角にして 10〜11桁の 0 始まりを拾い、携帯は 3-4-4 に整形。
+        $digits = (string) preg_replace('/\D/', '', mb_convert_kana($text, 'n'));
+        if (preg_match('/^(0\d{9,10})$/', $digits, $m) === 1) {
+            return $this->formatJpTel($m[1]);
+        }
 
         return null;
+    }
+
+    /** 数字だけの電話番号を整形。11桁の携帯（070/080/090）は 3-4-4、それ以外は数字のまま。 */
+    private function formatJpTel(string $digits): string
+    {
+        if (preg_match('/^0[789]0(\d{4})(\d{4})$/', $digits, $m) === 1) {
+            return substr($digits, 0, 3).'-'.$m[1].'-'.$m[2];
+        }
+
+        return $digits;
     }
 }

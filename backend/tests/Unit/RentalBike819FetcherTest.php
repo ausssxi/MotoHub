@@ -37,7 +37,7 @@ uses(Tests\TestCase::class);
 
 beforeEach(function () {
     AddressParser::setMunicipalitiesForTesting([
-        '北見市', '港区', '杉並区', '横浜市緑区', '吾妻郡嬬恋村',
+        '北見市', '港区', '杉並区', '横浜市緑区', '吾妻郡嬬恋村', '大野城市',
     ]);
 });
 
@@ -116,7 +116,7 @@ it('extracts store name + detail url + prefecture from the list, stripping the i
         ->and($stores[0]['name'])->not->toContain('las');
 });
 
-it('strips a trailing parenthetical note from the store name', function () {
+it('strips only announcement-type parentheticals from the store name, keeping common nicknames', function () {
     $list = <<<'HTML'
 <div class="p-store-list__area-wrap">
   <p class="p-store-list__pref">群馬県</p>
@@ -125,14 +125,22 @@ it('strips a trailing parenthetical note from the store name', function () {
       <span class="p-store-list__store-name"><i class="las la-store-alt"></i>北軽井沢店(2026年4月移転)</span>
     </a>
   </div>
+  <div class="p-store-list__area-inner">
+    <a href="/store/90">
+      <span class="p-store-list__store-name"><i class="las la-store-alt"></i>大阪国際空港店(伊丹空港)</span>
+    </a>
+  </div>
 </div>
 HTML;
 
     $stores = (new Rental819Fetcher)->extractStores($list);
 
-    expect($stores)->toHaveCount(1);
-    expect($stores[0]['name'])->toBe('北軽井沢店')       // ★末尾の (…) を除去
+    expect($stores)->toHaveCount(2);
+    // 告知系（移転・日付）は除去。
+    expect($stores[0]['name'])->toBe('北軽井沢店')
         ->and($stores[0]['prefecture'])->toBe('群馬県');
+    // 通称（検索で使われる語）は残す。
+    expect($stores[1]['name'])->toBe('大阪国際空港店(伊丹空港)');
 });
 
 it('builds a record using the list name + prefecture and the detail dl (address / postal / tel / hours)', function () use ($detailFull) {
@@ -223,6 +231,27 @@ HTML;
 
     expect($record['address'])->not->toContain('長野原')
         ->and($record['address'])->not->toContain('ASAMA');
+});
+
+// ★回帰: 電話番号 dd がハイフン無し（08027137701）でも拾い、携帯は 3-4-4 に整形する（本番 store/96）。
+//   アクセス dd の全角ハイフン番号は dl 内でも別 dt なので影響しない。
+it('normalizes a hyphenless mobile number from the 電話番号 dd (3-4-4)', function () {
+    $store = ['id' => '96', 'url' => 'https://rental819.com/store/96', 'name' => '福岡南店', 'prefecture' => '福岡県'];
+    $detail = <<<'HTML'
+<div class="p-store-detail__info">
+  <dl class="p-store-detail__store-info">
+    <dt>住所</dt><dd>〒816-0952 大野城市下大利3-6-1</dd>
+    <dt>アクセス</dt><dd>お電話は営業時間内に080-2713－7701（店舗直通）まで</dd>
+    <dt>電話番号</dt><dd>08027137701</dd>
+  </dl>
+</div>
+HTML;
+
+    $record = (new Rental819Fetcher)->buildRecord($store, $detail);
+
+    expect($record)->not->toBeNull()
+        ->and($record['city'])->toBe('大野城市')
+        ->and($record['tel'])->toBe('080-2713-7701'); // ★ハイフン無し11桁 → 3-4-4
 });
 
 it('leaves tel and hours null when the detail dl has no 電話番号 / 営業時間 dt', function () use ($detailNoTel) {
