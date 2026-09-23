@@ -31,7 +31,7 @@
             </div>
 
             <!-- 右側のアクションエリア -->
-            <div class="flex items-center gap-1 sm:gap-2 md:gap-3 flex-shrink-0">
+            <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
 
                 <!-- スマホ用検索ボタン -->
                 @if($showSearch)
@@ -42,7 +42,7 @@
 
                 {{-- PC用検索アイコン（$showSearch=false のTOPページでは非表示） --}}
                 @if($showSearch)
-                <button class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-widest"
+                <button class="hidden md:flex items-center gap-1 px-2 py-2 text-[10px] font-black text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition uppercase tracking-wider"
                         title="検索"
                         onclick="document.getElementById('nav-search-panel').classList.toggle('hidden'); this.querySelector('[data-lucide]') && lucide.createIcons(); setTimeout(() => document.getElementById('nav-search-input')?.focus(), 100);">
                     <i data-lucide="search" class="w-4 h-4"></i>
@@ -51,7 +51,7 @@
                 @endif
 
                 {{-- AIで探す --}}
-                <a href="{{ route('ai-search') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $navIs('ai-search*') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest group relative" title="AIで探す">
+                <a href="{{ route('ai-search') }}" class="hidden md:flex items-center gap-1 px-2 py-2 text-[10px] font-black {{ $navIs('ai-search*') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-wider group relative" title="AIで探す">
                     <i data-lucide="bot" class="w-4 h-4 text-purple-500 group-hover:animate-pulse"></i>
                     <span class="hidden xl:inline">AIで探す</span>
                     <span class="absolute -top-0.5 -right-0.5 flex h-2 w-2">
@@ -61,7 +61,7 @@
                 </a>
 
                 {{-- バイク相性診断 --}}
-                <a href="{{ route('shindan.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isShindan ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest group relative" title="あなたにぴったりの1台を診断">
+                <a href="{{ route('shindan.index') }}" class="hidden md:flex items-center gap-1 px-2 py-2 text-[10px] font-black {{ $isShindan ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-wider group relative" title="あなたにぴったりの1台を診断">
                     <i data-lucide="sparkles" class="w-4 h-4 text-blue-500 group-hover:animate-pulse"></i>
                     <span class="hidden xl:inline">バイク相性診断</span>
                     <span class="absolute -top-0.5 -right-0.5 flex h-2 w-2">
@@ -71,31 +71,31 @@
                 </a>
 
                 {{-- ランキング --}}
-                <a href="{{ route('ranking.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isRanking ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="売れ筋ランキング">
+                <a href="{{ route('ranking.index') }}" class="hidden md:flex items-center gap-1 px-2 py-2 text-[10px] font-black {{ $isRanking ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-wider" title="売れ筋ランキング">
                     <i data-lucide="trophy" class="w-4 h-4"></i>
                     <span class="hidden xl:inline">ランキング</span>
                 </a>
 
                 {{-- ニュース --}}
-                <a href="{{ route('news.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isNews ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="バイク業界の最新ニュース">
+                <a href="{{ route('news.index') }}" class="hidden md:flex items-center gap-1 px-2 py-2 text-[10px] font-black {{ $isNews ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-wider" title="バイク業界の最新ニュース">
                     <i data-lucide="newspaper" class="w-4 h-4"></i>
                     <span class="hidden xl:inline">ニュース</span>
                 </a>
 
                 {{-- マ���プ --}}
-                <a href="{{ route('riders.map') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isMap ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="ライダーズマップ">
+                <a href="{{ route('riders.map') }}" class="hidden md:flex items-center gap-1 px-2 py-2 text-[10px] font-black {{ $isMap ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-wider" title="ライダーズマップ">
                     <i data-lucide="map" class="w-4 h-4"></i>
                     <span class="hidden xl:inline">マップ</span>
                 </a>
 
                 {{-- ショップを探す（一覧・店名検索・投稿の玄関。マップ=地図で探す との棲み分け） --}}
-                <a href="{{ route('shops.area.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isShop ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="バイクショップを探す（地域・店名検索・掲載リクエスト）">
+                <a href="{{ route('shops.area.index') }}" class="hidden md:flex items-center gap-1 px-2 py-2 text-[10px] font-black {{ $isShop ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-wider" title="バイクショップを探す（地域・店名検索・掲載リクエスト）">
                     <i data-lucide="store" class="w-4 h-4"></i>
                     <span class="hidden xl:inline">ショップを探す</span>
                 </a>
 
                 {{-- ブログ --}}
-                <a href="{{ route('blog.index') }}" class="hidden md:flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isBlog ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="ブログ記事">
+                <a href="{{ route('blog.index') }}" class="hidden md:flex items-center gap-1 px-2 py-2 text-[10px] font-black {{ $isBlog ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-wider" title="ブログ記事">
                     <i data-lucide="pen-line" class="w-4 h-4"></i>
                     <span class="hidden xl:inline">ブログ</span>
                 </a>
@@ -103,7 +103,7 @@
                 {{-- 相場 ドロップダウン --}}
                 <div class="hidden md:flex relative" x-data="{ open: false }">
                     <button @click="open = !open" @click.outside="open = false"
-                        class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isSouba ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-widest" title="相場">
+                        class="flex items-center gap-1 px-2 py-2 text-[10px] font-black {{ $isSouba ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }} rounded-xl transition uppercase tracking-wider" title="相場">
                         <i data-lucide="trending-up" class="w-4 h-4"></i>
                         <span class="hidden xl:inline">相場</span>
                         <i data-lucide="chevron-down" class="w-3 h-3 transition-transform duration-200" x-bind:class="{ 'rotate-180': open }"></i>
@@ -133,7 +133,7 @@
                 {{-- その他 ドロップダウン --}}
                 <div class="hidden md:flex relative" x-data="{ open: false }">
                     <button @click="open = !open" @click.outside="open = false"
-                        class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black {{ $isOther ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100' }} rounded-xl transition uppercase tracking-widest" title="その他">
+                        class="flex items-center gap-1 px-2 py-2 text-[10px] font-black {{ $isOther ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100' }} rounded-xl transition uppercase tracking-wider" title="その他">
                         <i data-lucide="more-horizontal" class="w-4 h-4"></i>
                         <span class="hidden xl:inline">その他</span>
                         <i data-lucide="chevron-down" class="w-3 h-3 transition-transform duration-200" x-bind:class="{ 'rotate-180': open }"></i>
@@ -156,7 +156,7 @@
                         </a>
                         <div class="my-1 border-t border-gray-100"></div>
                         {{-- ゲームセクション --}}
-                        <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-widest">ゲーム</p>
+                        <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-wider">ゲーム</p>
                         <a href="{{ route('games.subaracity') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors whitespace-nowrap">
                             <i data-lucide="gamepad-2" class="w-3.5 h-3.5"></i>
                             バイクガレージパズル
@@ -175,7 +175,7 @@
                         </a>
                         <div class="my-1 border-t border-gray-100"></div>
                         {{-- ツ��ルセクション --}}
-                        <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-widest">ツール</p>
+                        <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-wider">ツール</p>
                         <a href="{{ route('ai-search') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors whitespace-nowrap">
                             <i data-lucide="bot" class="w-3.5 h-3.5"></i>
                             AIで探す
@@ -206,7 +206,7 @@
                         </a>
                         <div class="my-1 border-t border-gray-100"></div>
                         {{-- ガイドセクション --}}
-                        <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-widest">ガイド</p>
+                        <p class="px-4 pt-2 pb-1 text-[9px] font-black text-gray-400 uppercase tracking-wider">ガイド</p>
                         <a href="{{ route('touring.index') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-cyan-50 hover:text-cyan-600 transition-colors whitespace-nowrap">
                             <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
                             ツーリングガイド・スポット
@@ -425,7 +425,7 @@
             </form>
             
             {{-- ツールセクション --}}
-            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">ツール</p>
+            <p class="text-[9px] font-black text-gray-400 uppercase tracking-wider mb-1 px-1">ツール</p>
             <a href="{{ route('ai-search') }}" class="flex items-center justify-between p-4 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl text-white shadow-lg active:scale-[0.98] transition-all">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
@@ -488,7 +488,7 @@
             </a>
 
             {{-- ゲームセクション --}}
-            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-4 mb-1 px-1">ゲーム</p>
+            <p class="text-[9px] font-black text-gray-400 uppercase tracking-wider mt-4 mb-1 px-1">ゲーム</p>
             <div class="grid grid-cols-2 gap-2">
                 <a href="{{ route('games.subaracity') }}" class="flex items-center gap-2 p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
                     <div class="w-7 h-7 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
@@ -517,7 +517,7 @@
             </div>
 
             {{-- 情報セクション --}}
-            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-4 mb-1 px-1">情報</p>
+            <p class="text-[9px] font-black text-gray-400 uppercase tracking-wider mt-4 mb-1 px-1">情報</p>
             <a href="{{ route('blog.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
@@ -565,7 +565,7 @@
             </a>
 
             {{-- ガイドセクション --}}
-            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-4 mb-1 px-1">ガイド</p>
+            <p class="text-[9px] font-black text-gray-400 uppercase tracking-wider mt-4 mb-1 px-1">ガイド</p>
             <a href="{{ route('touring.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 bg-cyan-100 rounded-full flex items-center justify-center">
@@ -607,7 +607,7 @@
             </a>
 
             {{-- マイページセクション --}}
-            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-4 mb-1 px-1">マイページ</p>
+            <p class="text-[9px] font-black text-gray-400 uppercase tracking-wider mt-4 mb-1 px-1">マイページ</p>
             <a href="{{ route('mybikes.index') }}" class="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-200 active:scale-[0.98] transition-all">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center">
