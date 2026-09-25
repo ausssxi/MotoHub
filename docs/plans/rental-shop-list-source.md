@@ -17,3 +17,9 @@
 - 掲載項目は 店舗名・市区町村・電話・住所・緯度経度・公式サイトURL
 - 現在の掲載はレンタル819のみ
 - レンタル819のデータは（ここに取得方法）
+
+## 結論
+
+- OpenStreetMap / Google Places API は調べなかった
+- 各事業者の公式サイトをチェックリスト（docs/plans/rental-bike-provider-checklist.md）で判定して取り込む方式で確定
+- この調査は完了
