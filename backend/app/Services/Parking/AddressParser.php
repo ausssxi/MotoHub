@@ -18,6 +18,15 @@ final class AddressParser
      */
     private static ?array $municipalitySet = null;
 
+    /**
+     * 正規化済み full_name → 都道府県の逆引き（★複数都道府県に同名がある市区町村は含めない＝一意のみ）。
+     * 住所に都道府県が付かず、かつ政令市マップでも補えない市区町村（東大阪市・豊中市 等）の都道府県補完に使う。
+     * null=未ロード、[]=ロード済み（DB接続不可・テスト等で空）。
+     *
+     * @var array<string,string>|null
+     */
+    private static ?array $cityPrefecture = null;
+
     private const PREFECTURES = [
         '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
         '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
@@ -291,7 +300,7 @@ final class AddressParser
         }
 
         // 市区町村郡で終わらない → 有効な市区町村名ではない
-        if (!preg_match('/[市区町村郡]$/u', $city)) {
+        if (! preg_match('/[市区町村郡]$/u', $city)) {
             return '';
         }
 
@@ -359,6 +368,60 @@ final class AddressParser
     }
 
     /**
+     * 市区町村（full_name）から都道府県を逆引きする。★複数都道府県に同名がある場合（府中市＝東京/広島 等）は
+     * 一意に決まらないので null を返す。parse() の挙動は変えない（追加API）。
+     * 使い所: 住所に都道府県が付かず、政令市マップでも補えない市区町村の都道府県補完。
+     */
+    public function prefectureForCity(string $city): ?string
+    {
+        $key = self::normalizeForMatch($city);
+        if ($key === '') {
+            return null;
+        }
+
+        return self::cityPrefectureMap()[$key] ?? null;
+    }
+
+    /**
+     * full_name → 都道府県 の逆引きマップ（一意のもののみ）をプロセス内で1回だけ読み込む。
+     * 同名 full_name が複数都道府県にまたがる場合は曖昧なので除外する。DB接続不可時は空（＝補完しない）。
+     *
+     * @return array<string,string> key=正規化済みfull_name, value=都道府県
+     */
+    private static function cityPrefectureMap(): array
+    {
+        if (self::$cityPrefecture !== null) {
+            return self::$cityPrefecture;
+        }
+
+        self::$cityPrefecture = [];
+
+        try {
+            $counts = [];
+            $pref = [];
+            foreach (DB::table('municipalities')->get(['full_name', 'prefecture']) as $row) {
+                $key = self::normalizeForMatch((string) $row->full_name);
+                if ($key === '') {
+                    continue;
+                }
+                $counts[$key] = ($counts[$key] ?? 0) + 1;
+                $pref[$key] = (string) $row->prefecture;
+            }
+            $map = [];
+            foreach ($pref as $key => $p) {
+                if ($counts[$key] === 1 && $p !== '') {
+                    $map[$key] = $p; // ★一意の市区町村だけ
+                }
+            }
+            self::$cityPrefecture = $map;
+        } catch (\Throwable $e) {
+            self::$cityPrefecture = [];
+        }
+
+        return self::$cityPrefecture;
+    }
+
+    /**
      * 照合用の正規化: 「ヶ」→「ケ」の表記ゆれ吸収 + 空白除去。
      * （N03は「龍ケ崎市」、住所は「龍ヶ崎市」のような差があるため）
      */
@@ -386,13 +449,33 @@ final class AddressParser
             }
         }
         self::$municipalitySet = $set;
+        // 逆引きは未設定なら空にしておく（テストで DB を引きに行かせない。補完を検証したいテストだけ下で設定）。
+        self::$cityPrefecture ??= [];
     }
 
     /**
-     * テスト用: キャッシュ済みの municipalities 集合を破棄し、次回再読み込みさせる。
+     * テスト用: 市区町村→都道府県の逆引きをモックする（full_name => 都道府県）。
+     *
+     * @param  array<string,string>  $map
+     */
+    public static function setCityPrefecturesForTesting(array $map): void
+    {
+        $out = [];
+        foreach ($map as $name => $prefecture) {
+            $key = self::normalizeForMatch((string) $name);
+            if ($key !== '') {
+                $out[$key] = $prefecture;
+            }
+        }
+        self::$cityPrefecture = $out;
+    }
+
+    /**
+     * テスト用: キャッシュ済みの municipalities 集合・逆引きを破棄し、次回再読み込みさせる。
      */
     public static function flushMunicipalityCache(): void
     {
         self::$municipalitySet = null;
+        self::$cityPrefecture = null;
     }
 }

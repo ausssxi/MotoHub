@@ -85,6 +85,42 @@ abstract class AbstractFetcher implements ShopFetcher
         return trim((string) preg_replace('/[^\d\-]/', '', $s), '-');
     }
 
+    /**
+     * 電話番号をハイフン付きに正規化する。cleanTel を通したうえで、ハイフン無しの数字列だけ
+     * 日本の桁構成でハイフンを挿入する（元からハイフンがあれば元の区切りを尊重）。空なら null。
+     * ★市外局番は 03/06 を2桁、050/0120/0800/携帯を既知区切り、それ以外の10桁は3桁市外局番(3-3-4)として扱う。
+     *   4桁市外局番の地域（0942 等）は完全一致しないが、掲載範囲（近畿・福岡都市部の 06/072/075/078/079/092）
+     *   には出ない。
+     */
+    protected function hyphenateJpTel(string $raw): ?string
+    {
+        $t = $this->cleanTel($raw);
+        if ($t === '') {
+            return null;
+        }
+        if (str_contains($t, '-')) {
+            return $t; // 元からハイフンがある＝元データの区切りを尊重する
+        }
+
+        $d = $t; // ここは数字だけ
+        if (preg_match('/^0[789]0\d{8}$/', $d) === 1 || preg_match('/^050\d{8}$/', $d) === 1) {
+            return substr($d, 0, 3).'-'.substr($d, 3, 4).'-'.substr($d, 7, 4); // 携帯・IP = 3-4-4
+        }
+        if (preg_match('/^0120(\d{3})(\d{3})$/', $d, $m) === 1) {
+            return '0120-'.$m[1].'-'.$m[2];
+        }
+        if (preg_match('/^0800(\d{3})(\d{4})$/', $d, $m) === 1) {
+            return '0800-'.$m[1].'-'.$m[2];
+        }
+        if (strlen($d) === 10) {
+            return preg_match('/^0[36]/', $d) === 1
+                ? substr($d, 0, 2).'-'.substr($d, 2, 4).'-'.substr($d, 6, 4)  // 03/06 = 2-4-4
+                : substr($d, 0, 3).'-'.substr($d, 3, 3).'-'.substr($d, 6, 4); // 3桁市外局番 = 3-3-4
+        }
+
+        return $d; // 桁が読めないものは数字のまま
+    }
+
     /** 郵便番号の整形（NNN-NNNN）。取れなければ null。 */
     protected function cleanPostal(?string $raw): ?string
     {
@@ -113,11 +149,20 @@ abstract class AbstractFetcher implements ShopFetcher
      */
     protected function splitAddress(string $address): array
     {
-        $parsed = (new AddressParser)->parse($address);
+        $parser = new AddressParser;
+        $parsed = $parser->parse($address);
+        $prefecture = $parsed['prefecture'] !== '' ? $parsed['prefecture'] : null;
+        $city = $parsed['city'] !== '' ? $parsed['city'] : null;
+
+        // ★住所に都道府県が付かず（政令市マップでも補えず）市区町村だけ取れた場合、
+        //   市区町村→都道府県の逆引き（一意のもののみ）で都道府県を補完する。例: 東大阪市・豊中市 → 大阪府。
+        if ($prefecture === null && $city !== null) {
+            $prefecture = $parser->prefectureForCity($city);
+        }
 
         return [
-            'prefecture' => $parsed['prefecture'] !== '' ? $parsed['prefecture'] : null,
-            'city' => $parsed['city'] !== '' ? $parsed['city'] : null,
+            'prefecture' => $prefecture,
+            'city' => $city,
         ];
     }
 
