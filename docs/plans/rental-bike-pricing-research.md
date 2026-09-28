@@ -114,3 +114,66 @@
 
 ### この調査での結論（819）
 - **819 の料金は取り込める（静的HTML表・OK）が、P-class→車格の対応は公開されていない**。2-2 の前に検索API等で**1回だけ実データ確定→config の class_map に固定**する方針。またがりは下位車格へ寄せる。月次自動判定はしない。
+
+### 方針確定（2026-09-28）
+- **819 の非公開検索APIは叩かない**（公開されていないため）。**819 は問い合わせで P-class の定義を確認し、返答が来てから追加**する。
+- **2-2 は ヤマハ・二輪処 の2社で先に進める**（819・AJ は含めない）。
+- 2社の実装後、819 の定義が判明したら **company_slug='rental819' として同じテーブル／同じ仕組みに後から追加**する（スキーマ変更不要な設計にする）。
+
+## 2-2 設計案（レビュー待ち・実装は内田のOK後）
+
+### 1. 保存テーブル `rental_bike_prices`（819を後から追加できる汎用形）
+| 列 | 型 | 説明 |
+|---|---|---|
+| id | bigint | PK |
+| company_slug | string | 'yamaha'/'nirinsho'（後で 'rental819' も同形で追加） |
+| vehicle_class | string | MotoHub5車格の固定値（原付/125cc/250cc/400cc/大型） |
+| plan | string | 基準プランのキー。当面 `daily`（＝1日相当）。将来 4h/8h/1week 等を足せる |
+| plan_label | string | 原文ラベル（ヤマハ「24時間」／二輪処「1日」）。透明性のため保持 |
+| price_yen | integer | 基本料金（保険・補償は含めない） |
+| source_url | string | 取得元URL（料金ページ） |
+| fetched_at | datetime | 取得日時 |
+| timestamps | | |
+- ユニーク: `(company_slug, vehicle_class, plan)` … updateOrCreate の照合キー。
+- ★819 は company_slug と vehicle_class が汎用なので**スキーマ変更なしで追加可能**（P-class→車格の変換は取得時に config class_map で行い、保存は MotoHub 車格で入れる）。
+- SQLite テスト対応: 生SQL/ENUM を使わない素の `Schema::create` にする（[[sqlite-test-needs-driver-guarded-migrations]]）。
+
+### 2. 料金フェッチャ（`app/Support/RentalBike/PriceFetchers/`）
+- I/F `PriceFetcher`（`fetch(): array` … 各要素 `{vehicle_class, plan, plan_label, price_yen}`）＋ `AbstractPriceFetcher`（UA・2秒待ち・並列なし・get は既存 AbstractFetcher と同じ作法）。company_slug と source_url は各 Fetcher が持つ。
+- **YamahaPriceFetcher**: `/jp/bike/info/fee` の料金表(table0)から **「24時間」列**を取得。排気量クラス→MotoHub5車格:
+  - ～50cc→原付 / 51cc～→125cc / 126cc～→250cc / 251cc～→400cc / 401cc～→大型（★大型は 401cc～ を代表値。801cc～・EX は取り込まない）。
+  - ヘルメット等オプション表・補償表は取らない。
+- **NirinshoPriceFetcher**: `/price/` の基本料金表から **「1日」列・通常クラスのみ**を取得。50cc→原付/125cc→125cc/250cc→250cc/400cc→400cc/大型→大型。
+  - ★「夏季料金」表・保険表・特クラスは**除外**（見出し文字で判別）。★表が多い(17)ので dry-run で表の取り違えが無いか必ず確認。
+- config `rental_bike.php` に `price_fetchers => ['yamaha'=>..., 'nirinsho'=>...]` を1行ずつ（819は定義判明後に追加）。将来の 819 用 `class_map` の置き場も用意（今は空）。
+
+### 3. 取得失敗時の安全策（コマンド側）
+- 会社単位で **0件 or 取得例外 → その会社の既存行は一切上書きしない**（skip・warnログ）。
+- 行単位で、**新価格が既存の 1/2 以下 または 2倍以上 → 上書きせず warn ログに残す**（内田が気づける形）。それ以外は updateOrCreate。
+- ログは `storage/logs/rental-bike-price.log` 等に集約（appendOutputTo）。※月1回の自動実行は 2-3。
+
+### 4. 店舗詳細ページの表示案（`rental_bike/show.blade.php`）
+- その店の company_slug に料金データがあるときだけ「**参考料金（1日／24時間・税込・保険別）**」ブロックを出す（無ければ第1段階の公式リンクのみ）。
+- 内容: 車格別（原付〜大型）の price_yen を一覧。注記を必ず添える:
+  - 「参考価格・{fetched_at の年月日}時点」
+  - 「最新の料金は公式でご確認ください」＋公式リンク（第1段階のボタンを流用）
+  - 「保険・補償は別途」
+  - **二輪処のみ「夏季は別料金」**
+- コントローラ `RentalBikeController::show()` で `RentalBikePrice::where('company_slug',...)` を車格順に取得して渡す（キャッシュは既存 rental_bike_nearby と同じ方針で可）。※「取得日が古すぎ(60日超)なら非表示」は 2-3 で足す。
+
+### 5. dry-run コマンド
+- `rental-bike:fetch-price {company?} {--dry-run}`（既存 `rental-bike:fetch` と同型）。
+- `--dry-run`: 会社ごとに new/update/skip(0件)/anomaly(半分以下・倍以上) の内訳と各行(車格・plan・金額)を表示し、**DBには書かない**。
+
+### 6. 変更するファイル一覧
+- 追加: `database/migrations/xxxx_create_rental_bike_prices_table.php`
+- 追加: `app/Models/RentalBikePrice.php`
+- 追加: `app/Support/RentalBike/PriceFetchers/PriceFetcher.php` / `AbstractPriceFetcher.php` / `YamahaPriceFetcher.php` / `NirinshoPriceFetcher.php`
+- 追加: `app/Console/Commands/FetchRentalBikePrices.php`（`rental-bike:fetch-price`）
+- 変更: `config/rental_bike.php`（`price_fetchers` ＋ 819用 `class_map` の空枠）
+- 変更: `app/Http/Controllers/RentalBike/RentalBikeController.php`（show で料金を渡す）
+- 変更: `resources/views/rental_bike/show.blade.php`（参考料金ブロック）
+- 追加(テスト): `tests/Unit/YamahaPriceFetcherTest.php` / `NirinshoPriceFetcherTest.php`（保存HTML断片でパース検証・DB非依存）。コマンドの安全策(0件/半倍)の回帰は Feature で。
+
+### やらないこと（2-2）
+- 月1回の自動実行（2-3）／819・AJ の料金取得／`cache:clear`・`optimize:clear`。
