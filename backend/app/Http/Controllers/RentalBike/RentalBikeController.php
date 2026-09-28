@@ -6,6 +6,7 @@ namespace App\Http\Controllers\RentalBike;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\RoadsideStation\RoadsideStationController;
+use App\Models\RentalBikePrice;
 use App\Models\RentalBikeShop;
 use App\Models\RentalGarage;
 use App\Models\Station;
@@ -140,8 +141,23 @@ final class RentalBikeController extends Controller
         $nearbyStations = $nearby['stations'];
         $nearbyGarages = $nearby['garages'];
 
+        // 車格別の参考価格（第2段階・ヤマハ/二輪処のみデータあり。無ければ空＝表示しない）。
+        // 件数は最大5行なので都度クエリで足りる（キャッシュしない＝取得直後に反映される）。
+        $prices = RentalBikePrice::query()
+            ->where('company_slug', $shop->company_slug)
+            ->get()
+            // ★車格の並びは 原付→125cc→250cc→400cc→大型 に固定（array_search が index 0 を返す原付を
+            //   末尾に送らないよう false を明示判定する）。
+            ->sortBy(function (RentalBikePrice $p): int {
+                $i = array_search($p->vehicle_class, RentalBikePrice::CLASS_ORDER, true);
+
+                return $i === false ? 99 : $i;
+            })
+            ->values();
+        $pricesFetchedAt = $prices->max('fetched_at');
+
         return view('rental_bike.show', compact(
-            'shop', 'nearbyStations', 'nearbyGarages'
+            'shop', 'nearbyStations', 'nearbyGarages', 'prices', 'pricesFetchedAt'
         ) + ['crossLinks' => $this->crossLinks()]);
     }
 

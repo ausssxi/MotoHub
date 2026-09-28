@@ -172,6 +172,31 @@
                 @if($shop->latitude && $shop->longitude)
                 <a href="https://www.google.com/maps/dir/?api=1&destination={{ $shop->latitude }},{{ $shop->longitude }}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-200 transition mb-2">ルート案内</a>
                 @endif
+
+                {{-- 第2段階：車格別の参考価格（データがある会社＝ヤマハ/二輪処のみ表示。無ければ出さない）。 --}}
+                @if($prices->isNotEmpty())
+                <div class="mt-5 pt-5 border-t border-gray-100">
+                    <h2 class="text-sm font-black text-gray-900 mb-1">参考料金</h2>
+                    <p class="text-[11px] text-gray-400 mb-3">{{ $prices->first()->plan_label }}・税込／保険別　参考価格・{{ optional($pricesFetchedAt)->format('Y年n月j日') }}時点／最新の料金は公式でご確認ください</p>
+                    <div class="border border-gray-100 rounded-xl divide-y divide-gray-100 overflow-hidden">
+                        @foreach($prices as $p)
+                        <div class="flex items-center justify-between px-3 py-2">
+                            <span class="text-xs font-bold text-gray-700">{{ $p->vehicle_class }}</span>
+                            <span class="text-right">
+                                <span class="text-sm font-black text-gray-900">¥{{ number_format($p->price_yen) }}{{ $p->price_is_from ? '〜' : '' }}</span>
+                                @if($p->note)<span class="block text-[10px] text-gray-400">{{ $p->note }}</span>@endif
+                            </span>
+                        </div>
+                        @endforeach
+                    </div>
+                    <ul class="mt-2 space-y-0.5 text-[11px] text-gray-500">
+                        <li>・保険・補償は別途（公式でご確認ください）</li>
+                        @if($shop->company_slug === 'nirinsho')
+                        <li>・250cc以上の追加日・週単位の料金は季節により異なります（公式でご確認ください）</li>
+                        @endif
+                    </ul>
+                </div>
+                @endif
             </div>
 
             {{-- 周辺の関連（薄いページ対策・内部リンク）。★1件も無いブロックは出さない。 --}}
