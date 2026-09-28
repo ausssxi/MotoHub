@@ -192,7 +192,7 @@
                     <ul class="mt-2 space-y-0.5 text-[11px] text-gray-500">
                         <li>・保険・補償は別途（公式でご確認ください）</li>
                         @if($shop->company_slug === 'nirinsho')
-                        <li>・夏季は別料金（公式でご確認ください）</li>
+                        <li>・250cc以上の追加日・週単位の料金は季節により異なります（公式でご確認ください）</li>
                         @endif
                     </ul>
                 </div>

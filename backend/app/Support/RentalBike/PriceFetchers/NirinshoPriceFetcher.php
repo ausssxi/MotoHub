@@ -27,8 +27,6 @@ final class NirinshoPriceFetcher extends AbstractPriceFetcher
     /** 季節料金表の cc 表記 → MotoHub車格。 */
     private const SEASON_MAP = ['250cc' => self::CLASS_250, '400cc' => self::CLASS_400, '大型' => self::CLASS_LARGE];
 
-    private const SEASON_NOTE = '季節料金あり（1日料金は通年同額・追加日/週は季節で変動）';
-
     public function slug(): string
     {
         return 'nirinsho';
@@ -137,8 +135,9 @@ final class NirinshoPriceFetcher extends AbstractPriceFetcher
         foreach ($seen as $class => $values) {
             $unique = array_values(array_unique($values));
             // 夏季・冬季の両方（2回以上）現れ、かつ全て同額のときだけ「通年の1日」として採用。
+            // ★季節の但し書きは行ごとの note ではなく、店舗詳細ページ下部の一括注記で出す（note は付けない）。
             if (count($values) >= 2 && count($unique) === 1) {
-                $out[$class] = $this->row($class, $unique[0], false, self::SEASON_NOTE);
+                $out[$class] = $this->row($class, $unique[0], false, null);
             }
         }
 

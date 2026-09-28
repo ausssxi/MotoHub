@@ -146,7 +146,13 @@ final class RentalBikeController extends Controller
         $prices = RentalBikePrice::query()
             ->where('company_slug', $shop->company_slug)
             ->get()
-            ->sortBy(fn (RentalBikePrice $p): int => array_search($p->vehicle_class, RentalBikePrice::CLASS_ORDER, true) ?: 99)
+            // ★車格の並びは 原付→125cc→250cc→400cc→大型 に固定（array_search が index 0 を返す原付を
+            //   末尾に送らないよう false を明示判定する）。
+            ->sortBy(function (RentalBikePrice $p): int {
+                $i = array_search($p->vehicle_class, RentalBikePrice::CLASS_ORDER, true);
+
+                return $i === false ? 99 : $i;
+            })
             ->values();
         $pricesFetchedAt = $prices->max('fetched_at');
 

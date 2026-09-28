@@ -49,10 +49,9 @@ it('takes 通常クラス「1日」for 50cc/125cc and season-invariant「1日」
     // 車格順で返る。
     expect(array_column($rows, 'vehicle_class'))->toBe(['原付', '125cc', '250cc', '400cc', '大型']);
 
-    // 50/125 は注記なし、250/400/大型 は季節料金ありの注記。
-    expect($byClass['原付']['note'])->toBeNull();
-    foreach (['250cc', '400cc', '大型'] as $c) {
-        expect($byClass[$c]['note'])->toBe('季節料金あり（1日料金は通年同額・追加日/週は季節で変動）');
+    // 行ごとの note は付けない（季節の但し書きは詳細ページ下部の一括注記で出す）。
+    foreach (['原付', '125cc', '250cc', '400cc', '大型'] as $c) {
+        expect($byClass[$c]['note'])->toBeNull();
     }
     foreach ($rows as $r) {
         expect($r['plan'])->toBe('daily')->and($r['plan_label'])->toBe('1日（当日返却）')->and($r['is_from'])->toBeFalse();
