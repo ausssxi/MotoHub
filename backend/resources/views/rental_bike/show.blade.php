@@ -48,6 +48,22 @@
                 'item' => $c['item'],
             ];
         }
+
+        // 第1段階：料金・車種への公式リンク（config駆動・データは取得しない）。
+        //   per_shop（819・AJ）＝official_url がその店の車種・料金ページ → それを「車種・料金」ボタンにする。
+        //   common（ヤマハ・二輪処）＝事業者の料金ページURL（config）を「料金表」ボタンにする。
+        //   未登録の会社はボタンを出さない（従来の「公式サイトで見る」のみ）。
+        $pricing = config('rental_bike.pricing_links.'.$shop->company_slug);
+        $pricingCta = null;      // ['label' => ..., 'url' => ...]
+        $hidePlainOfficial = false;
+        if (is_array($pricing)) {
+            if (($pricing['mode'] ?? '') === 'per_shop' && filled($shop->official_url)) {
+                $pricingCta = ['label' => 'この店の車種・料金を見る（公式）', 'url' => $shop->official_url];
+                $hidePlainOfficial = true; // official_url と同じURLなので二重に出さない
+            } elseif (($pricing['mode'] ?? '') === 'common' && filled($pricing['url'] ?? null)) {
+                $pricingCta = ['label' => '料金表を見る（公式）', 'url' => $pricing['url']];
+            }
+        }
     @endphp
 
     <x-slot:title>{{ $shop->name }}｜{{ $titleArea !== '' ? $titleArea.'の' : '' }}レンタルバイク - MotoHub</x-slot:title>
@@ -133,17 +149,28 @@
                 <p class="text-sm text-gray-700 leading-relaxed mb-4">{{ $autoBody }}</p>
                 @endif
 
-                {{-- ★公式サイトへの送客。rel="nofollow" は付けない。電話が無い店舗ほど目立たせる。 --}}
-                @if($shop->official_url)
-                <a href="{{ $shop->official_url }}" target="_blank" rel="noopener" class="flex items-center justify-center gap-1.5 w-full px-4 py-3 bg-violet-600 text-white text-sm font-bold rounded-lg hover:bg-violet-700 transition mb-2">
+                {{-- 第1段階：料金・車種への公式リンク（primary）。★データは取得せず公式へ誘導するだけ。 --}}
+                @if($pricingCta)
+                <a href="{{ $pricingCta['url'] }}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-1.5 w-full px-4 py-3 bg-violet-600 text-white text-sm font-bold rounded-lg hover:bg-violet-700 transition mb-2">
+                    <i data-lucide="tag" class="w-4 h-4"></i> {{ $pricingCta['label'] }}
+                </a>
+                @endif
+
+                {{-- ★公式サイトへの送客。rel="nofollow" は付けない。per_shop は料金CTAと同URLなので出さない。 --}}
+                @if($shop->official_url && ! $hidePlainOfficial)
+                <a href="{{ $shop->official_url }}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-1.5 w-full px-4 {{ $pricingCta ? 'py-2.5 bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs' : 'py-3 bg-violet-600 text-white hover:bg-violet-700 text-sm' }} font-bold rounded-lg transition mb-2">
                     <i data-lucide="external-link" class="w-4 h-4"></i> 公式サイトで見る
                 </a>
-                @unless($shop->tel)
-                <p class="text-xs text-gray-500 text-center mb-2">予約・お問い合わせは公式サイトから</p>
-                @endunless
                 @endif
+
+                {{-- 電話が無い店舗は公式への誘導を補足（料金CTA or 公式ボタンがあるとき） --}}
+                @unless($shop->tel)
+                @if($pricingCta || $shop->official_url)
+                <p class="text-xs text-gray-500 text-center mb-2">予約・お問い合わせは公式サイトから</p>
+                @endif
+                @endunless
                 @if($shop->latitude && $shop->longitude)
-                <a href="https://www.google.com/maps/dir/?api=1&destination={{ $shop->latitude }},{{ $shop->longitude }}" target="_blank" rel="noopener" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-200 transition mb-2">ルート案内</a>
+                <a href="https://www.google.com/maps/dir/?api=1&destination={{ $shop->latitude }},{{ $shop->longitude }}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-200 transition mb-2">ルート案内</a>
                 @endif
             </div>
 
