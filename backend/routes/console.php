@@ -199,3 +199,13 @@ $inabaFetch = Schedule::command('rental_garage:fetch --operator=inaba')
     ->weeklyOn(6, '00:30')->withoutOverlapping()->runInBackground()
     ->appendOutputTo(storage_path('logs/rental_garages.log'));
 $inabaFetch->onFailure(fn () => ScheduledTaskFailureLog::recordEvent($inabaFetch));
+
+// レンタルバイクの参考料金（ヤマハ・二輪処）を月1回更新する。
+//   毎月2日 05:10: 1日はスクレイパー集中＋monthlyレポート(07:00/08:00)があるので2日にずらす。
+//   05:10 は POI/shops の夜間チェーン(〜05:00)後・news系(06:00〜)前の空きスロット（04:40 ogp:prune 等と非衝突）。
+//   前景実行（runInBackground を付けない）: リクエスト2ページ＋数行更新の短時間処理で、非0終了は
+//   ScheduleRunCommand が自動で失敗記録する（0件/例外/異常は 2-2 で Log::error/warning も出す＝ops:daily-report に載る）。
+//   withoutOverlapping: 万一の長引きでも多重起動しない。timezone は Asia/Tokyo（config/app.php）＝JST。
+Schedule::command('rental-bike:fetch-price')
+    ->monthlyOn(2, '05:10')->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/rental_bike.log'));
