@@ -145,6 +145,7 @@ final class RentalBikeController extends Controller
         // 件数は最大5行なので都度クエリで足りる（キャッシュしない＝取得直後に反映される）。
         $prices = RentalBikePrice::query()
             ->where('company_slug', $shop->company_slug)
+            ->fresh() // ★取得から70日を超えた料金は出さない（自動更新が止まっても古い料金を出し続けない）
             ->get()
             // ★車格の並びは 原付→125cc→250cc→400cc→大型 に固定（array_search が index 0 を返す原付を
             //   末尾に送らないよう false を明示判定する）。
