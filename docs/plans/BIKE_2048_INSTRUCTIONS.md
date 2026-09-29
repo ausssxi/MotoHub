@@ -512,8 +512,7 @@ sudo chmod -R 777 backend/public/build/
 git fetch origin && git reset --hard origin/main
 cd backend
 php artisan view:clear
-php artisan config:cache
-php artisan route:cache
+# ★config:cache / route:cache は本番で運用していない（config はキャッシュしないため変更は自動反映）。打たない。
 ```
 
 Cloudflare Purge Everything。
