@@ -100,6 +100,9 @@ class GenerateSitemap extends Command
         foreach (glob(public_path('sitemap-rental-garage*.xml')) as $old) {
             unlink($old);
         }
+        foreach (glob(public_path('sitemap-rental-bikes*.xml')) as $old) {
+            unlink($old);
+        }
         $this->info('古いサイトマップファイルを削除しました。');
 
         $sitemapFiles = [];
@@ -1020,6 +1023,68 @@ class GenerateSitemap extends Command
 
         $this->closeSitemap($handle);
         $this->info(" -> {$rgAreaCount} URL (Rental Garage Area)");
+
+        // =========================================================
+        // 4.5b-3. レンタルバイク (sitemap-rental-bikes.xml)
+        //   料金比較ハブ + 車格別(config が正本) + 一覧 + 都道府県別(実在のみ) + 各店舗詳細。
+        //   ★公開店舗（is_active=true）のみ。0件の都道府県は prefecture() が 404 するため載せない。
+        // =========================================================
+        $this->info('レンタルバイクサイトマップを生成中...');
+        $rentalBikeFileName = 'sitemap-rental-bikes.xml';
+        $handle = $this->openSitemap($rentalBikeFileName);
+        $sitemapFiles[] = $rentalBikeFileName;
+        $rentalBikeCount = 0;
+
+        // 料金比較ハブ + 車格別（原付〜大型）。固定URL。
+        $this->writeUrl($handle, route('rental-bike.price.index'), date('Y-m-d'), 'weekly', '0.7');
+        $rentalBikeCount++;
+        foreach (array_keys(config('rental_bike.price_page_classes', [])) as $classSlug) {
+            $this->writeUrl($handle, route('rental-bike.price.show', $classSlug), date('Y-m-d'), 'weekly', '0.6');
+            $rentalBikeCount++;
+        }
+
+        // 一覧トップ。
+        $this->writeUrl($handle, route('rental-bike.index'), date('Y-m-d'), 'daily', '0.8');
+        $rentalBikeCount++;
+
+        $rbWhitelist = \App\Http\Controllers\RoadsideStation\RoadsideStationController::prefectures();
+
+        // 都道府県別（公開店舗のある県のみ・正準ホワイトリストで絞る）。
+        $rbPrefs = \App\Models\RentalBikeShop::query()
+            ->where('is_active', true)
+            ->whereNotNull('prefecture')
+            ->where('prefecture', '!=', '')
+            ->distinct()
+            ->orderBy('prefecture')
+            ->pluck('prefecture');
+        foreach ($rbPrefs as $pref) {
+            if (! in_array($pref, $rbWhitelist, true)) {
+                continue;
+            }
+            $this->writeUrl($handle, route('rental-bike.prefecture', $pref), date('Y-m-d'), 'weekly', '0.7');
+            $rentalBikeCount++;
+        }
+
+        // 各店舗詳細（公開のみ）。
+        \App\Models\RentalBikeShop::query()
+            ->where('is_active', true)
+            ->select('id', 'updated_at')
+            ->orderByDesc('updated_at')
+            ->chunk(1000, function ($shops) use (&$handle, &$rentalBikeCount) {
+                foreach ($shops as $shop) {
+                    $this->writeUrl(
+                        $handle,
+                        route('rental-bike.show', $shop->id),
+                        optional($shop->updated_at)->format('Y-m-d') ?? date('Y-m-d'),
+                        'weekly',
+                        '0.6'
+                    );
+                    $rentalBikeCount++;
+                }
+            });
+
+        $this->closeSitemap($handle);
+        $this->info(" -> {$rentalBikeCount} URL (Rental Bike)");
 
         // =========================================================
         // 4.5c. 道の駅 (sitemap-roadside.xml)

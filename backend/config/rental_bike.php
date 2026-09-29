@@ -67,4 +67,31 @@ return [
     'price_class_map' => [
         'rental819' => [],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | 車格別の料金比較ページ（第3段階）
+    |--------------------------------------------------------------------------
+    | URL スラッグ → MotoHub の車格（RentalBikePrice::CLASS_ORDER の値）。
+    | 原付=gentsuki / 大型=oogata は免許ガイド（license.show）の表記に合わせる。
+    | このリストが /rental-bikes/price/{class} の許可スラッグの正本（未定義は404）。
+    */
+    'price_page_classes' => [
+        'gentsuki' => '原付',
+        '125cc' => '125cc',
+        '250cc' => '250cc',
+        '400cc' => '400cc',
+        'oogata' => '大型',
+    ],
+
+    /*
+    | 事業者名の表示に迷ったときのフォールバック（通常は shops.company を使う）。
+    | company_slug → 表示名。DB に該当店舗が無い環境（テスト等）向けの保険。
+    */
+    'company_names' => [
+        'yamaha' => 'ヤマハ バイクレンタル',
+        'nirinsho' => '二輪処グループ',
+        'rental819' => 'レンタル819',
+        'aj-osaka' => 'AJ OSAKA',
+    ],
 ];

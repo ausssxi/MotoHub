@@ -451,6 +451,12 @@ Route::get('/rental-bikes', [\App\Http\Controllers\RentalBike\RentalBikeControll
 // 詳細は {id}（[0-9]+ 制約）。都道府県別 {prefecture}（日本語）とは制約で衝突しないが、先に宣言しておく。
 Route::get('/rental-bikes/{id}', [\App\Http\Controllers\RentalBike\RentalBikeController::class, 'show'])
     ->name('rental-bike.show')->where('id', '[0-9]+');
+// 車格別の料金比較（第3段階）。★{prefecture}（制約なし）が "price" を飲み込むため、必ずその前に宣言する。
+//   /rental-bikes/price（ハブ）と /rental-bikes/price/{class}（原付/125cc/250cc/400cc/大型）。
+Route::get('/rental-bikes/price', [\App\Http\Controllers\RentalBike\RentalBikeController::class, 'priceIndex'])
+    ->name('rental-bike.price.index');
+Route::get('/rental-bikes/price/{class}', [\App\Http\Controllers\RentalBike\RentalBikeController::class, 'priceShow'])
+    ->name('rental-bike.price.show');
 // 都道府県別（{id} の数字制約に外れた文字列＝都道府県名がここに来る）。該当0件は404。
 Route::get('/rental-bikes/{prefecture}', [\App\Http\Controllers\RentalBike\RentalBikeController::class, 'prefecture'])
     ->name('rental-bike.prefecture');
