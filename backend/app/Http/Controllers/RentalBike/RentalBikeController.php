@@ -162,6 +162,189 @@ final class RentalBikeController extends Controller
         ) + ['crossLinks' => $this->crossLinks()]);
     }
 
+    /** 事業者の店舗数を数字で出す下限。これ未満は数字を伏せて「店舗を探す」導線のみにする。 */
+    private const PRICE_STORE_COUNT_MIN = 10;
+
+    /**
+     * 料金比較ハブ（/rental-bikes/price）。5車格への入口。
+     * ★車格の集合は config('rental_bike.price_page_classes') が正本。
+     */
+    public function priceIndex(): View
+    {
+        $classes = config('rental_bike.price_page_classes', []);
+
+        // 各車格に「表示できる（鮮度内の）料金が何社あるか」を添える（0社の車格も入口は出す＝公式リンクで拾う）。
+        $counts = Cache::remember('rental_bike_price_class_counts_v1', self::CACHE_TTL, fn (): array => RentalBikePrice::query()
+            ->fresh()
+            ->selectRaw('vehicle_class, COUNT(DISTINCT company_slug) as cnt')
+            ->groupBy('vehicle_class')
+            ->pluck('cnt', 'vehicle_class')
+            ->map(fn ($v) => (int) $v)
+            ->all());
+
+        $cards = [];
+        foreach ($classes as $slug => $vehicleClass) {
+            $cards[] = [
+                'slug' => (string) $slug,
+                'vehicle_class' => (string) $vehicleClass,
+                'providers' => $counts[$vehicleClass] ?? 0,
+            ];
+        }
+
+        return view('rental_bike.price_index', [
+            'cards' => $cards,
+            'crossLinks' => $this->crossLinks(),
+        ]);
+    }
+
+    /**
+     * 車格別の料金比較（/rental-bikes/price/{class}）。事業者ごとの参考料金を1画面で並べる。
+     * ★時間制（ヤマハ=24時間）と日数制（二輪処=1日）は等価でないため、条件を明示して単純比較はしない。
+     * ★819・AJ は料金を持たない（店舗ごとに異なる）＝公式リンクのみ。
+     */
+    public function priceShow(string $class): View
+    {
+        $classes = config('rental_bike.price_page_classes', []);
+        if (! array_key_exists($class, $classes)) {
+            abort(404);
+        }
+        $vehicleClass = (string) $classes[$class];
+
+        $directory = $this->providerDirectory();
+
+        // 鮮度内の料金行（この車格）。安い順。条件差があるため「最安」表記はしない。
+        $rows = RentalBikePrice::query()
+            ->where('vehicle_class', $vehicleClass)
+            ->fresh() // ★70日超は出さない
+            ->orderBy('price_yen')
+            ->get()
+            ->map(function (RentalBikePrice $p) use ($directory): array {
+                $info = $directory[$p->company_slug] ?? null;
+                $common = config('rental_bike.pricing_links.'.$p->company_slug);
+
+                return [
+                    'company_slug' => $p->company_slug,
+                    'company' => $info['label'] ?? (config('rental_bike.company_names.'.$p->company_slug) ?? $p->company_slug),
+                    'shop_count' => $info['count'] ?? 0,
+                    'price_yen' => (int) $p->price_yen,
+                    'price_is_from' => (bool) $p->price_is_from,
+                    'plan_label' => (string) $p->plan_label,
+                    'note' => $p->note,
+                    // 公式の料金ページ（common＝全社共通ページのみ。per_shop はここには来ない）。
+                    'official_url' => (is_array($common) && ($common['mode'] ?? '') === 'common') ? ($common['url'] ?? null) : null,
+                ];
+            })
+            ->values();
+
+        $pricesFetchedAt = RentalBikePrice::query()
+            ->where('vehicle_class', $vehicleClass)
+            ->fresh()
+            ->max('fetched_at');
+        $pricesFetchedAt = $pricesFetchedAt ? \Illuminate\Support\Carbon::parse($pricesFetchedAt) : null;
+
+        // 料金を持たない per_shop 事業者（819・AJ）。店舗があるものだけ「公式で確認」カードに出す。
+        $perShop = [];
+        foreach ((array) config('rental_bike.pricing_links', []) as $slug => $link) {
+            if (($link['mode'] ?? '') !== 'per_shop') {
+                continue;
+            }
+            $info = $directory[$slug] ?? null;
+            if ($info === null || ($info['count'] ?? 0) < 1) {
+                continue; // 店舗が無ければ出さない
+            }
+            $perShop[] = [
+                'company_slug' => (string) $slug,
+                'company' => $info['label'],
+                'shop_count' => $info['count'],
+            ];
+        }
+
+        // FAQ（★実データと事実だけ。根拠のない相場・金額は書かない）。表示とJSON-LDで同一文言を使う。
+        $faqs = $this->priceFaqs($vehicleClass, $rows, $perShop, $pricesFetchedAt);
+
+        return view('rental_bike.price_show', [
+            'classSlug' => $class,
+            'vehicleClass' => $vehicleClass,
+            'rows' => $rows,
+            'perShop' => $perShop,
+            'pricesFetchedAt' => $pricesFetchedAt,
+            'faqs' => $faqs,
+            'storeCountMin' => self::PRICE_STORE_COUNT_MIN,
+            'otherClasses' => $classes,
+            'crossLinks' => $this->crossLinks(),
+        ]);
+    }
+
+    /**
+     * 事業者ディレクトリ [company_slug => ['label' => 会社名, 'count' => 公開店舗数]]。
+     * 表示名・店舗数とも公開店舗（is_active）から実データで作る。24時間キャッシュ。
+     *
+     * @return array<string, array{label: string, count: int}>
+     */
+    private function providerDirectory(): array
+    {
+        return Cache::remember('rental_bike_provider_dir_v1', self::CACHE_TTL, function (): array {
+            $out = [];
+            $this->publicScope()
+                ->whereNotNull('company_slug')
+                ->selectRaw('company_slug, MAX(company) as company, COUNT(*) as cnt')
+                ->groupBy('company_slug')
+                ->get()
+                ->each(function ($r) use (&$out): void {
+                    $slug = (string) $r->company_slug;
+                    $out[$slug] = [
+                        'label' => filled($r->company) ? (string) $r->company : (config('rental_bike.company_names.'.$slug) ?? $slug),
+                        'count' => (int) $r->cnt,
+                    ];
+                });
+
+            return $out;
+        });
+    }
+
+    /**
+     * 料金比較ページの FAQ（事実のみ）。回答は $rows（実料金）と確定事実（保険別・公式で確認）だけで作る。
+     *
+     * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $rows
+     * @param  array<int, array<string, mixed>>  $perShop
+     * @return array<int, array{q: string, a: string}>
+     */
+    private function priceFaqs(string $vehicleClass, Collection $rows, array $perShop, ?\Illuminate\Support\Carbon $fetchedAt): array
+    {
+        $faqs = [];
+        $asOf = $fetchedAt ? $fetchedAt->format('Y年n月') : null;
+
+        if ($rows->isNotEmpty()) {
+            // 各社の実料金だけを列挙（相場・平均は作らない）。
+            $parts = $rows->map(function (array $r): string {
+                $price = '¥'.number_format($r['price_yen']).($r['price_is_from'] ? '〜' : '');
+
+                return $r['company'].'が'.$r['plan_label'].'で'.$price;
+            })->all();
+            $faqs[] = [
+                'q' => 'レンタルバイク（'.$vehicleClass.'）の料金はいくらくらいですか？',
+                'a' => '参考価格として、'.implode('、', $parts).'です。'
+                    .($asOf ? $asOf.'時点の参考価格で、' : '')
+                    .'保険・補償は別途です。時間の数え方が事業者ごとに異なるため単純な比較はできません。最新の料金は各公式サイトでご確認ください。',
+            ];
+        }
+
+        if ($perShop !== []) {
+            $names = array_map(fn (array $p): string => $p['company'], $perShop);
+            $faqs[] = [
+                'q' => implode('・', $names).'の'.$vehicleClass.'の料金は？',
+                'a' => implode('・', $names).'は店舗ごとに料金が異なるため、各店舗の公式ページでご確認ください。',
+            ];
+        }
+
+        $faqs[] = [
+            'q' => '表示されている料金に保険は含まれますか？',
+            'a' => '含まれていません。保険・補償は別途で、金額は事業者・プランにより異なります。最新の料金・補償内容は各公式サイトでご確認ください。',
+        ];
+
+        return $faqs;
+    }
+
     /**
      * 一覧行（店舗名 / 事業者名 / 市区町村 / 電話〔あれば〕）。電話が無ければ null（＝ビューで非表示）。
      *

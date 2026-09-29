@@ -64,6 +64,16 @@
 - 車格（原付 / 125cc / 250cc / 400cc / 大型）ごとに、事業者の料金を並べる
 - 事業者ごとに料金体系（時間・日数・保険）が違うので、比べ方は第2段階のデータを見て決める
 
+#### 決めたこと・作ったもの（2026-09-29）
+- URL: `/rental-bikes/price`（ハブ）＋ `/rental-bikes/price/{class}`（gentsuki / 125cc / 250cc / 400cc / oogata。原付・大型は免許ページの表記に合わせる）
+- 比べ方: 安い順に並べるが、条件（`plan_label`＝24時間 / 1日（当日返却））を必ず併記。時間制と日数制は等価でないため「最安」表記はしない
+- 店舗数: 10店以上のみ数字を出し、10店未満は「店舗を探す→」導線のみ
+- 819・AJ: 料金は持たない（店舗ごとに異なる）＝「店舗ごとに料金が異なる事業者」カードで公式導線のみ
+- 注記（必須）: 参考価格 / ○年○月○日時点（fresh 行の max(fetched_at)）/ 最新は公式で / 保険・補償は別途。70日超は `scopeFresh` で非表示
+- 構造化データ: BreadcrumbList ＋ FAQPage（回答は `rental_bike_prices` の実データと事実のみ・相場や平均は書かない）
+- sitemap: `sitemap-rental-bikes.xml` を新設（料金比較6本＋一覧＋都道府県別〔is_active のある県〕＋店舗詳細〔is_active〕）。インデックス（sitemap.xml）へ自動登録・robots.txt はインデックスを指すため変更不要
+- 本番反映: route:cache/config:cache は非運用なので追加しない。ルート追加は自動反映＋view:clear＋sitemap:generate（`cache:clear`/`optimize:clear` は不使用）
+
 ## やらないこと
 
 - 予約機能は作らない（予約は各社の公式へ）
@@ -74,7 +84,8 @@
 ## 進捗
 
 - 第1段階: 完了（PR `feat/rental-bike-pricing-links`）
-- 第2段階: 決めること3つは決定済み（上記）。次は 2-1 調査
+- 第2段階: 完了（表示 2-2 ＋ 月1回自動更新・70日超非表示 2-3 まで本番反映済み）
+- 第3段階: 完了（車格別の比較ページ・branch `feat/rental-bike-pricing-3`）。本番は migrate 不要・route:clear＋view:clear＋sitemap:generate
 
 ## 成功条件
 

@@ -195,6 +195,10 @@
                         <li>・250cc以上の追加日・週単位の料金は季節により異なります（公式でご確認ください）</li>
                         @endif
                     </ul>
+                    {{-- 車格別に他社と比べる（第3段階） --}}
+                    <a href="{{ route('rental-bike.price.index') }}" class="inline-flex items-center gap-1 mt-3 text-xs font-bold text-violet-700 hover:underline">
+                        車格別に他社の料金と比べる <i data-lucide="chevron-right" class="w-3 h-3"></i>
+                    </a>
                 </div>
                 @endif
             </div>

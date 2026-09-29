@@ -20,7 +20,13 @@
 
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
                 <h1 class="text-xl font-black text-gray-900 mb-2">レンタルバイク店舗一覧</h1>
-                <p class="text-xs text-gray-500 mb-6">全国のレンタルバイク店舗を都道府県別にまとめています。</p>
+                <p class="text-xs text-gray-500 mb-4">全国のレンタルバイク店舗を都道府県別にまとめています。</p>
+
+                {{-- 料金比較ハブへの導線（第3段階） --}}
+                <a href="{{ route('rental-bike.price.index') }}" class="flex items-center justify-between px-4 py-3 mb-6 bg-violet-50 border border-violet-100 rounded-xl hover:bg-violet-100 transition">
+                    <span class="text-sm font-bold text-violet-800"><i data-lucide="tag" class="inline w-4 h-4"></i> 車格別に料金を比較する（原付〜大型）</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-violet-400"></i>
+                </a>
 
                 {{-- ★総数（「全◯店舗」）は出さない。都道府県ごとにグルーピングして表示。★地図は出さない（重くなる）。 --}}
                 <div class="space-y-8">
