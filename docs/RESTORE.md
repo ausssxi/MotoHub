@@ -85,8 +85,8 @@ docker compose exec -T db mysql -uroot -p"$DB_PASSWORD" motohub -e "
   UNION ALL SELECT 'shop_acceptance_reports', COUNT(*) FROM shop_acceptance_reports;"
 ```
 - サイト表示（トップ・ブログ記事・店舗詳細・投稿画像）が出るか目視。
-- キャッシュ整合のため `php artisan config:cache && php artisan view:cache`、必要なら
-  Meilisearch 再インデックス（`scout:import`）。
+- キャッシュ整合のため `php artisan view:cache`（★本番は `config:cache` を運用していない＝config は自動反映）、
+  必要なら Meilisearch 再インデックス（`scout:import`）。
 
 ---
 

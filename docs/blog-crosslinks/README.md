@@ -130,5 +130,6 @@ feat/trouble-symptoms-expand で追加。新症状 lights/stranded（config/diag
 ## 本番反映（内田）
 
 - 記事本文：上記5本を管理画面で反映（64/70はアンカー行が含まれることを目視確認してから貼る）。
-- あわせて config/diagnosis.php の新症状 lights/stranded が入るので **`php artisan config:cache` 必須**
-  （このコマンド反映は feat/trouble-symptoms-expand のコード側デプロイに含む）。
+- あわせて config/diagnosis.php に新症状 lights/stranded が入るが、**本番は `config:cache` を運用していない**
+  （config はキャッシュしないため、変更は次リクエストで自動反映される）。特別なキャッシュ操作は不要
+  （反映は feat/trouble-symptoms-expand のコード側デプロイに含む）。

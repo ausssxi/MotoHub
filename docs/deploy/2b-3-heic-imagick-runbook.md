@@ -51,7 +51,7 @@ docker compose run --rm --no-deps app php -r '
 ## 5. app コンテナを新イメージで再作成（web は据え置き＝無停止）
 ```bash
 docker compose up -d --no-deps app     # app のみ再作成。web/db/redis は触らない
-docker compose exec app php artisan config:cache   # 念のため
+# ★config:cache は運用しない（config はキャッシュしないため変更は自動反映）。
 docker compose exec app php artisan view:cache
 docker compose exec app php artisan opcache_reset 2>/dev/null || docker compose restart app
 ```
@@ -87,7 +87,7 @@ docker image tag motohub-app:rollback-YYYYMMDD motohub-app
 docker compose up -d --no-deps app
 # 2) コードも前コミットへ戻す場合
 git reset --hard <直前のコミット>
-docker compose exec app php artisan view:cache && docker compose exec app php artisan config:cache
+docker compose exec app php artisan view:cache   # ★config:cache は運用しない（config は自動反映）
 # 3) 確認
 docker compose exec app php -m | grep -i imagick   # 旧イメージなら imagick なし＝戻った
 curl -sI https://motohub.jp/ | head -1
