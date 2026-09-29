@@ -23,10 +23,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **許可されている操作**
 
 ```
-✅ php artisan config:clear → php artisan config:cache
 ✅ php artisan view:clear
 ✅ php artisan route:clear
+✅ php artisan config:clear   # 設定を読み直したいときのみ
 ```
+
+★ **本番は `config:cache` / `route:cache` を運用していない**（config はキャッシュしていない）。
+  そのため config ファイル（例: `config/rental_bike.php`）の変更は**次リクエストで自動反映**され、`config:cache` は不要。
+  むしろ本番で打つと `bootstrap/cache` に `config.php` / `routes-v7.php` を作り、設定・ルートが固定される
+  （残っていると `deploy.sh` が「運用外キャッシュ」として警告する）。正は `deploy.sh` と `docs/DEPLOY.md`。
 
 キャッシュキーには必ず世代（v1）を入れること。
 `cache:clear` が打てないため、作り直すときは v2 に上げます。
@@ -140,10 +145,10 @@ php artisan test --testsuite=Feature
 # Frontend build
 npm run build
 
-# Cache (★ cache:clear / optimize:clear は禁止。上記参照)
-php artisan config:clear && php artisan config:cache
+# Cache (★ cache:clear / optimize:clear は禁止。config:cache / route:cache は本番で運用していない＝打たない)
 php artisan view:clear
 php artisan route:clear
+php artisan config:clear   # 設定を読み直したいときのみ（config:cache は打たない）
 
 # Meilisearch
 php artisan scout:import "App\Models\Listing"
@@ -213,15 +218,19 @@ Programmatic landing pages (`/bikes/area/{pref}/{slug}`, `/bikes/catalog/{slug}`
 
 ## Deploy
 
+通常は **`./deploy.sh`**（`git pull` → `view:clear` → php-fpm graceful reload → スモーク）。詳細は `docs/DEPLOY.md`。
+
+手で行う場合の最小手順:
+
 ```bash
 cd /var/www/motohub/backend
 git pull origin main
 docker exec -e HOME=/tmp motohub-app php artisan migrate --force   # 保留がある場合のみ
-docker exec -e HOME=/tmp motohub-app php artisan config:clear
-docker exec -e HOME=/tmp motohub-app php artisan config:cache
 docker exec -e HOME=/tmp motohub-app php artisan view:clear
-docker exec -e HOME=/tmp motohub-app php artisan route:clear
+# php-fpm を graceful reload（OPcache 再検証窓を閉じる。Web を通るクラス変更の反映）
+docker compose exec app sh -c 'kill -USR2 1'
 ```
 
 ★ `cache:clear` / `optimize:clear` は打たないこと。
-★ OPcache のリセットは、Web を通るクラスを変更したときのみ検討する。
+★ **`config:cache` / `route:cache` は本番で運用していない**（config はキャッシュしていないので config ファイルの変更は次リクエストで自動反映される）。打つと設定・ルートが固定され、`bootstrap/cache` に残ったキャッシュを `deploy.sh` が警告する。
+★ OPcache のリセットは、Web を通るクラスを変更したときのみ検討する（詳細は `docs/DEPLOY.md`）。
