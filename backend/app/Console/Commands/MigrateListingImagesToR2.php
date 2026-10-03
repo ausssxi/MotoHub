@@ -32,7 +32,7 @@ class MigrateListingImagesToR2 extends Command
     protected $signature = 'listings:migrate-images-to-r2
         {--target=listings : 対象ツリー（listings | models）}
         {--dry-run : 実際にはコピーせず、対象件数・合計サイズ・スキップ予定数だけ集計}
-        {--site= : 対象サイトを限定（goobike / bds / webike）。--target=listings のときのみ有効}
+        {--site= : 対象サイトを限定（goobike / bds）。--target=listings のときのみ有効。webike は掲載停止のため指定不可}
         {--limit= : 評価するファイル数の上限（動作確認・部分移行用）}
         {--since-hours= : 指定時間以内に更新されたファイルだけを対象にする（日次の差分転送用）}';
 
@@ -40,6 +40,14 @@ class MigrateListingImagesToR2 extends Command
 
     /** --target で受け付ける値 */
     private const TARGETS = ['listings', 'models'];
+
+    /**
+     * R2 へ移行してはいけないサイトのディレクトリ名。
+     * webike: 権利者（ウェビック）より 2026-08-10 付で「取得済の画像も含めた掲載の停止」を要請され承諾。
+     *   Listing::IMAGE_SUPPRESSED_SITE_IDS=[3] と同思想で、R2 へは一切コピーしない
+     *   （--site 無指定でも listings/webike は列挙対象から必ず外す。旧画像の掃除は webike:purge-images）。
+     */
+    private const EXCLUDED_SITES = ['webike'];
 
     /** 進捗ログを出す間隔（ファイル数） */
     private const LOG_EVERY = 500;
@@ -61,6 +69,13 @@ class MigrateListingImagesToR2 extends Command
         if ($targetTree === 'models' && $siteFilter !== null) {
             $this->warn('--site は --target=listings 専用のため無視します。');
             $siteFilter = null;
+        }
+
+        // 掲載停止サイト（webike）は R2 へ移行しない。明示指定されたら誤操作としてエラーで止める。
+        if ($siteFilter !== null && in_array($siteFilter, self::EXCLUDED_SITES, true)) {
+            $this->error("--site={$siteFilter} は掲載停止のため R2 へ移行できません（画像の掃除は webike:purge-images を使ってください）。");
+
+            return self::FAILURE;
         }
 
         // 差分転送用の時間窓（時間）。指定されたら正の整数のみ許可。
@@ -217,6 +232,8 @@ class MigrateListingImagesToR2 extends Command
 
         $sites = collect($source->directories('listings'))
             ->map(fn ($dir) => basename($dir))
+            // 掲載停止サイト（webike）は --site 無指定でも必ず除外する。
+            ->reject(fn ($s) => in_array($s, self::EXCLUDED_SITES, true))
             ->when($siteFilter, fn ($c) => $c->filter(fn ($s) => $s === $siteFilter))
             ->values();
 
