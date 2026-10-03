@@ -1784,7 +1784,7 @@
                                     {{ $listing->bike_model_name ?? 'この車種' }}の販売中車両を探す
                                 </a>
                                 @else
-                                <a href="{{ $listing->url }}" target="_blank" class="block w-full bg-red-600 hover:bg-red-500 text-white font-black text-center py-4 rounded-xl shadow-lg shadow-red-500/30 transition hover:-translate-y-1">
+                                <a href="{{ $listing->url }}" target="_blank" rel="noopener" class="block w-full bg-red-600 hover:bg-red-500 text-white font-black text-center py-4 rounded-xl shadow-lg shadow-red-500/30 transition hover:-translate-y-1">
                                     {{ $listing->site_name ?? '販売店' }} で在庫確認・見積もり
                                     <span class="block text-[10px] font-medium opacity-80 mt-0.5">（無料・別タブで開きます）</span>
                                 </a>
@@ -2129,7 +2129,7 @@
                 @endif
             </div>
 
-            <a href="{{ $listing->url }}" target="_blank" class="w-36 sm:w-48 bg-red-600 text-white font-black flex flex-col items-center justify-center rounded-xl shadow-lg shadow-red-500/30 py-2 sm:py-2.5 active:scale-95 transition-transform shrink-0">
+            <a href="{{ $listing->url }}" target="_blank" rel="noopener" class="w-36 sm:w-48 bg-red-600 text-white font-black flex flex-col items-center justify-center rounded-xl shadow-lg shadow-red-500/30 py-2 sm:py-2.5 active:scale-95 transition-transform shrink-0">
                 <span class="text-xs sm:text-sm">在庫確認・見積</span>
                 <span class="text-[8px] sm:text-[9px] font-medium opacity-90 flex items-center gap-1 mt-0.5">
                     <i data-lucide="users" class="w-2.5 h-2.5"></i> {{ $listing->engagement['favorite_count'] ?? 0 }}名が検討中
