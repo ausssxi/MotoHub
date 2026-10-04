@@ -210,7 +210,21 @@ if [ "${BAK_TOTAL:-0}" -gt "$KEEP_BAKS" ]; then
     printf '%s\n' "$BAK_LIST" | tail -n +"$((KEEP_BAKS + 1))" | while IFS= read -r bak; do
         [ -n "$bak" ] || continue
         bak_base="$(basename "$bak")"
-        # root 所有の中身ごと、コンテナ（root）で削除する。
+        # ★安全策: 削除名が「build.bak-」で始まり、かつスラッシュや空を含まないことを厳密に確認する。
+        #   変数が空・想定外（例: basename が "." や空）のまま rm -rf すると /var/www/public 自体や
+        #   その配下を巻き込んで消しかねないため、少しでも外れたら削除せず警告して次へ。
+        case "$bak_base" in
+            build.bak-?*) : ;;                                   # build.bak- の後ろに1文字以上あるものだけ許可
+            *)
+                warn "想定外の退避名のためスキップ（削除しない）: '${bak_base}'"
+                continue
+                ;;
+        esac
+        if [ -z "$bak_base" ] || printf '%s' "$bak_base" | grep -q '/'; then
+            warn "不正な退避名のためスキップ（削除しない）: '${bak_base}'"
+            continue
+        fi
+        # root 所有の中身ごと、コンテナ（root）で削除する。パスは固定接頭辞 + 検証済みの名前のみ。
         if docker compose exec -T app rm -rf "/var/www/public/${bak_base}"; then
             ok "削除: $bak"
         else
