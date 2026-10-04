@@ -194,11 +194,45 @@ else
     exit 1
 fi
 
-# e. 退避が溜まりすぎたら警告（自動削除はしない・人が判断して消す）。
-BAK_COUNT="$(ls -1d ${BUILD_DIR}.bak-* 2>/dev/null | wc -l | tr -d ' ' || true)"
-if [ "${BAK_COUNT:-0}" -ge 5 ]; then
-    warn "public/build の退避が ${BAK_COUNT} 個あります。古いものは手動で削除してよいです（自動削除はしません）:"
-    echo "      ls -1dt ${BUILD_DIR}.bak-*   # 新しい順に確認し、不要分を rm -rf"
+# e. 退避は新しい3つだけ残し、古いものは自動削除する。
+#    ★権限: 退避ディレクトリの中身は、コンテナ内 npm run build が root で生成した root 所有ファイル。
+#      ホストユーザーでは rm -rf できない（Permission denied）ため、削除は root で動く app コンテナ
+#      経由で行う。ホストの backend/public はコンテナの /var/www/public に対応する
+#      （docker-compose.yml: volumes `./backend:/var/www`）。
+#    並び順は mtime 降順（ls -1dt）。mv はリネームで元ディレクトリの mtime を保つため、
+#    退避名の日時とも一致し「ビルドが新しい順」になる。
+KEEP_BAKS=3
+BAK_LIST="$(ls -1dt ${BUILD_DIR}.bak-* 2>/dev/null || true)"
+BAK_TOTAL="$(printf '%s\n' "$BAK_LIST" | grep -c . || true)"
+if [ "${BAK_TOTAL:-0}" -gt "$KEEP_BAKS" ]; then
+    echo "  public/build の退避が ${BAK_TOTAL} 個あります。新しい ${KEEP_BAKS} 個を残し、古いものを削除します。"
+    # 新しい順に KEEP_BAKS 個を飛ばした残り（＝古い退避）だけを削除対象にする。
+    printf '%s\n' "$BAK_LIST" | tail -n +"$((KEEP_BAKS + 1))" | while IFS= read -r bak; do
+        [ -n "$bak" ] || continue
+        bak_base="$(basename "$bak")"
+        # ★安全策: 削除名が「build.bak-」で始まり、かつスラッシュや空を含まないことを厳密に確認する。
+        #   変数が空・想定外（例: basename が "." や空）のまま rm -rf すると /var/www/public 自体や
+        #   その配下を巻き込んで消しかねないため、少しでも外れたら削除せず警告して次へ。
+        case "$bak_base" in
+            build.bak-?*) : ;;                                   # build.bak- の後ろに1文字以上あるものだけ許可
+            *)
+                warn "想定外の退避名のためスキップ（削除しない）: '${bak_base}'"
+                continue
+                ;;
+        esac
+        if [ -z "$bak_base" ] || printf '%s' "$bak_base" | grep -q '/'; then
+            warn "不正な退避名のためスキップ（削除しない）: '${bak_base}'"
+            continue
+        fi
+        # root 所有の中身ごと、コンテナ（root）で削除する。パスは固定接頭辞 + 検証済みの名前のみ。
+        if docker compose exec -T app rm -rf "/var/www/public/${bak_base}"; then
+            ok "削除: $bak"
+        else
+            warn "削除失敗: $bak（手動で: docker compose exec app rm -rf /var/www/public/${bak_base}）"
+        fi
+    done
+else
+    ok "public/build の退避は ${BAK_TOTAL:-0} 個（${KEEP_BAKS} 個以下。削除なし）"
 fi
 
 # ── 4. composer.lock の差分確認（自動実行はしない） ──────
