@@ -225,7 +225,10 @@ if [ "${BAK_TOTAL:-0}" -gt "$KEEP_BAKS" ]; then
             continue
         fi
         # root 所有の中身ごと、コンテナ（root）で削除する。パスは固定接頭辞 + 検証済みの名前のみ。
-        if docker compose exec -T app rm -rf "/var/www/public/${bak_base}"; then
+        # ★ </dev/null 必須: docker compose exec -T は stdin がアタッチされたままで、
+        #   このループ（パイプ）の残り行を飲み込んでしまう。付けないと2個目以降が
+        #   読み捨てられ、1回で削除が止まる（5個→1個しか消えない事故）。
+        if docker compose exec -T app rm -rf "/var/www/public/${bak_base}" </dev/null; then
             ok "削除: $bak"
         else
             warn "削除失敗: $bak（手動で: docker compose exec app rm -rf /var/www/public/${bak_base}）"
