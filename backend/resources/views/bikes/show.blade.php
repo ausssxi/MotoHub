@@ -127,11 +127,13 @@
         <script src="{{ asset('js/bikes/review.js') }}?v={{ asset_buster(public_path('js/bikes/review.js')) }}"></script>
         <script src="{{ asset('js/search/seamless-nav.js') }}?v={{ asset_buster(public_path('js/search/seamless-nav.js')) }}"></script>
         <script src="{{ asset('js/bikes/show.js') }}?v={{ asset_buster(public_path('js/bikes/show.js')) }}"></script>
+        {{-- GA4: 在庫サイトへの送客クリック計測。Webike / GooBike / BDS 共通で、source で判別する
+             （Webike 送客数 = source=webike で絞り込み）。リンク先URL・表示は変えず、クリックを拾って
+             gtag イベントを送るだけ（リダイレクトページは挟まない）。値は <a> 側の data-* 属性から読む
+             （data-* は Blade 側でエスケープ済み＝車種名の引用符や日本語でも安全）。
+             ★下の script には二重波括弧を一切書かない（Blade が echo と誤解釈して空 echo→500 になる。
+               @verbatim は x-slot 内で剥がれて消えるため使わない）。オブジェクトは単一波括弧のみ。 --}}
         <script>
-            // GA4: 在庫サイトへの送客クリック計測。Webike / GooBike / BDS 共通で、source で判別する
-            // （Webike 送客数 = source:'webike' で絞り込み）。リンク先URL・表示は変えず、クリックを拾って
-            // gtag イベントを送るだけ（リダイレクトページは挟まない）。値は data-* 属性から読む
-            // （Blade の {{ }} でエスケープ済み＝車種名の引用符や日本語でも安全）。
             document.addEventListener('click', function (e) {
                 var a = e.target.closest('a[data-outbound="listing"]');
                 if (!a || typeof gtag !== 'function') return;
