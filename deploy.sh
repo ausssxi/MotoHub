@@ -47,6 +47,13 @@ SMOKE_BASE="${SMOKE_BASE:-https://motohub.jp}"
 #   maintenance partial が mode=none で描画されず、出典表示や適合表まわりの Blade を
 #   通らない＝空振りになる。適合表のある zoomer / super-cub-110 なら、その描画経路
 #   （partial・出典URL表示）を実際にレンダリングして構文崩れを検出できる。
+#
+# ★在庫詳細ページ（/bikes/{id}＝resources/views/bikes/show.blade.php）も必ず通す。
+#   2026-10-07 に show.blade.php のインライン JS の二重波括弧を Blade が echo と誤解釈して
+#   このページだけ 500 になったが、車種詳細（/bikes/{maker}/{slug}）とは別テンプレートのため
+#   既存スモークでは検知できなかった。ただし在庫は入れ替わるので ID は固定せず、
+#   スモーク時に /bikes/bargains（サーバーレンダリングで現存在庫をリンク）から1件拾う
+#   （下の [8/8] 参照）。
 SMOKE_PATHS=(
     "/"
     "/bikes/search"
@@ -318,6 +325,17 @@ fi
 
 # ── 8. スモークテスト ───────────────────────────────────
 step "[8/8] スモークテスト（${SMOKE_BASE}）"
+
+# 在庫詳細ページ（/bikes/{id}）を動的に1件追加する。IDは入れ替わるので固定せず、
+# /bikes/bargains（サーバーレンダリングで現存在庫を /bikes/{数字} でリンク）から先頭を拾う。
+listing_path="$(curl -s --max-time 20 "${SMOKE_BASE}/bikes/bargains" | grep -oE '/bikes/[0-9]+' | head -n1 || true)"
+if [ -n "$listing_path" ]; then
+    SMOKE_PATHS+=("$listing_path")
+    ok "在庫詳細スモークURLを動的取得: ${listing_path}"
+else
+    warn "在庫詳細のスモークURLを /bikes/bargains から取得できませんでした（在庫詳細はスキップ）。"
+fi
+
 smoke_failed=0
 for path in "${SMOKE_PATHS[@]}"; do
     code="$(curl -s --max-time 20 -o /dev/null -w '%{http_code}' "${SMOKE_BASE}${path}" || true)"
