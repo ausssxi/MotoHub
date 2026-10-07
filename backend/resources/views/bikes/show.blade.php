@@ -127,6 +127,23 @@
         <script src="{{ asset('js/bikes/review.js') }}?v={{ asset_buster(public_path('js/bikes/review.js')) }}"></script>
         <script src="{{ asset('js/search/seamless-nav.js') }}?v={{ asset_buster(public_path('js/search/seamless-nav.js')) }}"></script>
         <script src="{{ asset('js/bikes/show.js') }}?v={{ asset_buster(public_path('js/bikes/show.js')) }}"></script>
+        <script>
+            // GA4: 在庫サイトへの送客クリック計測。Webike / GooBike / BDS 共通で、source で判別する
+            // （Webike 送客数 = source:'webike' で絞り込み）。リンク先URL・表示は変えず、クリックを拾って
+            // gtag イベントを送るだけ（リダイレクトページは挟まない）。値は data-* 属性から読む
+            // （Blade の {{ }} でエスケープ済み＝車種名の引用符や日本語でも安全）。
+            document.addEventListener('click', function (e) {
+                var a = e.target.closest('a[data-outbound="listing"]');
+                if (!a || typeof gtag !== 'function') return;
+                gtag('event', 'outbound_listing_click', {
+                    source: a.dataset.source || 'unknown',          // webike / goobike / bds / default
+                    position: a.dataset.position || null,           // detail_cta / sticky_bar
+                    listing_id: a.dataset.listingId ? Number(a.dataset.listingId) : null,
+                    bike_model_id: a.dataset.modelId ? Number(a.dataset.modelId) : null,
+                    bike_model_name: a.dataset.modelName || null
+                });
+            }, { capture: true });
+        </script>
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -1784,7 +1801,14 @@
                                     {{ $listing->bike_model_name ?? 'この車種' }}の販売中車両を探す
                                 </a>
                                 @else
-                                <a href="{{ $listing->url }}" target="_blank" rel="noopener" class="block w-full bg-red-600 hover:bg-red-500 text-white font-black text-center py-4 rounded-xl shadow-lg shadow-red-500/30 transition hover:-translate-y-1">
+                                <a href="{{ $listing->url }}" target="_blank" rel="noopener"
+                                   data-outbound="listing"
+                                   data-source="{{ $listing->source_icon_key }}"
+                                   data-position="detail_cta"
+                                   data-listing-id="{{ $listing->id }}"
+                                   data-model-id="{{ $listing->bike_model_id }}"
+                                   data-model-name="{{ $listing->bike_model_name }}"
+                                   class="block w-full bg-red-600 hover:bg-red-500 text-white font-black text-center py-4 rounded-xl shadow-lg shadow-red-500/30 transition hover:-translate-y-1">
                                     {{ $listing->site_name ?? '販売店' }} で在庫確認・見積もり
                                     <span class="block text-[10px] font-medium opacity-80 mt-0.5">（無料・別タブで開きます）</span>
                                 </a>
@@ -2129,7 +2153,14 @@
                 @endif
             </div>
 
-            <a href="{{ $listing->url }}" target="_blank" rel="noopener" class="w-36 sm:w-48 bg-red-600 text-white font-black flex flex-col items-center justify-center rounded-xl shadow-lg shadow-red-500/30 py-2 sm:py-2.5 active:scale-95 transition-transform shrink-0">
+            <a href="{{ $listing->url }}" target="_blank" rel="noopener"
+               data-outbound="listing"
+               data-source="{{ $listing->source_icon_key }}"
+               data-position="sticky_bar"
+               data-listing-id="{{ $listing->id }}"
+               data-model-id="{{ $listing->bike_model_id }}"
+               data-model-name="{{ $listing->bike_model_name }}"
+               class="w-36 sm:w-48 bg-red-600 text-white font-black flex flex-col items-center justify-center rounded-xl shadow-lg shadow-red-500/30 py-2 sm:py-2.5 active:scale-95 transition-transform shrink-0">
                 <span class="text-xs sm:text-sm">在庫確認・見積</span>
                 <span class="text-[8px] sm:text-[9px] font-medium opacity-90 flex items-center gap-1 mt-0.5">
                     <i data-lucide="users" class="w-2.5 h-2.5"></i> {{ $listing->engagement['favorite_count'] ?? 0 }}名が検討中
