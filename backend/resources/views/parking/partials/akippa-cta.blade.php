@@ -17,7 +17,14 @@
         <div class="min-w-0">
             <p class="text-sm font-black text-gray-900">満車が心配なら、予約できる駐車場</p>
             <p class="text-xs text-gray-500 leading-relaxed mt-0.5">事前予約でスペースを確保。バイク可の駐車場も探せます（akippa）。</p>
+            {{-- GA4 送客計測用の data-*（値は Blade でエスケープ済み＝安全）。
+                 リンク先・表示は変えず、委譲リスナーが outbound_parking_click を送るだけ。 --}}
             <a href="{{ $akippaCta['url'] }}" target="_blank" rel="{{ $akippaCta['affiliate'] ? 'nofollow sponsored noopener' : 'nofollow noopener' }}"
+               data-outbound="parking"
+               data-partner="akippa"
+               data-position="detail_cta"
+               data-parking-id="{{ $parking->id }}"
+               data-prefecture="{{ $parking->prefecture }}"
                class="mt-3 inline-flex items-center gap-1.5 bg-gray-900 hover:bg-black text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-colors">
                 <i data-lucide="calendar-check" class="w-4 h-4"></i>{{ $akippaCta['deeplink'] ? 'この駐車場を予約' : '予約できる駐車場を探す' }}
             </a>
