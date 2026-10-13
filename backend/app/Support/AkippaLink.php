@@ -28,6 +28,22 @@ final class AkippaLink
     private const AKIPPA_URL_PATTERN = '#https://www\.akippa\.com/[^\s　「」『』【】（）]+#u';
 
     /**
+     * 生URL撤去後に残る「リンク先を見てね」系の宙に浮いた文言。
+     * URLを消したため指す先が無くなった文を、自然な文（akippa予約ページ案内）へ置換する。
+     * ★置換は「元テキストに akippa URL があった」ときだけ行う（cleanDisplayText がゲート）。
+     *   akippa以外のURL（撤去しない）を指す文言には触れない。
+     * 追加の言い回しが見つかったらここに足す（notes/description の集計で洗い出す）。
+     */
+    private const DANGLING_LINK_PHRASES = [
+        '#詳細は(?:備考(?:欄)?の?)?(?:下記(?:の)?)?(?:URL|ＵＲＬ)(?:の)?(?:リンク)?(?:先)?を?(?:ご|御)?確認(?:ください|下さい)。?#u',
+        '#詳細は(?:下記(?:の)?)?リンク先?を?(?:ご|御)?確認(?:ください|下さい)。?#u',
+        '#(?:詳しく|詳細)は(?:上記|下記|備考)?の?(?:URL|ＵＲＬ|リンク)(?:先)?(?:より|から|を)(?:ご|御)?(?:確認|参照)(?:ください|下さい)。?#u',
+    ];
+
+    /** 宙に浮いた文言の置換先（akippa予約ページ案内）。 */
+    private const AKIPPA_FALLBACK_SENTENCE = '詳細は akippa の予約ページでご確認ください。';
+
+    /**
      * CTA用のリンク解決。表示不可（非akippa物件・個別URL抽出不可）は null。
      *
      * @return array{url:string, deeplink:bool, affiliate:bool}|null
@@ -92,5 +108,63 @@ final class AkippaLink
         $stripped = preg_replace('/[ \t　]{2,}/u', ' ', $stripped) ?? $stripped;
 
         return trim($stripped);
+    }
+
+    /**
+     * 表示用にテキストを整える（DBは書き換えず表示側で整形）。
+     *
+     * ① akippa の生URLを撤去（stripAkippaUrl）。
+     * ② 元テキストに akippa URL があった場合のみ、撤去の名残を掃除する：
+     *    ・宙に浮いた「リンク先をご確認ください」系の文言を akippa 予約ページ案内へ置換。
+     *    ・先頭等の「▼」「▽」記号を除去。
+     *    ・URL撤去で空になった日本語括弧「」『』（）【】を除去し、閉じ括弧の余りを落とす。
+     * akippa URL が無いテキスト（＝撤去していない）には①以外手を加えない。
+     */
+    public static function cleanDisplayText(?string $text): string
+    {
+        if ($text === null || $text === '') {
+            return '';
+        }
+
+        $hadAkippaUrl = preg_match(self::AKIPPA_URL_PATTERN, $text) === 1;
+
+        $out = self::stripAkippaUrl($text);
+
+        if (! $hadAkippaUrl) {
+            return $out;
+        }
+
+        // 宙に浮いたリンク誘導文を自然な案内へ置換。
+        foreach (self::DANGLING_LINK_PHRASES as $pattern) {
+            $out = preg_replace($pattern, self::AKIPPA_FALLBACK_SENTENCE, $out) ?? $out;
+        }
+
+        $out = self::tidyUrlRemovalArtifacts($out);
+
+        return trim($out);
+    }
+
+    /** URL撤去の名残（▼記号・空/余り括弧・連続空白）を掃除する。 */
+    private static function tidyUrlRemovalArtifacts(string $text): string
+    {
+        // 誘導用の三角記号を除去。
+        $text = preg_replace('/[▼▽]/u', '', $text) ?? $text;
+
+        // URL撤去で空になった日本語括弧ペアを除去（「」→ 消す）。
+        $text = preg_replace('/「」|『』|（）|【】/u', '', $text) ?? $text;
+
+        // 閉じ括弧の数が開き括弧より多ければ、余った閉じ括弧を末尾から落とす
+        // （元が 「URL」 のうち開き括弧だけURLと一緒に消えた等の余り対策）。
+        foreach ([['「', '」'], ['『', '』'], ['（', '）'], ['【', '】']] as [$open, $close]) {
+            $diff = substr_count($text, $close) - substr_count($text, $open);
+            for ($i = 0; $i < $diff; $i++) {
+                $text = preg_replace('/'.$close.'(?=[^'.$close.']*$)/u', '', $text, 1) ?? $text;
+            }
+        }
+
+        // 連続空白を1つに。
+        $text = preg_replace('/[ \t　]{2,}/u', ' ', $text) ?? $text;
+
+        return $text;
     }
 }

@@ -252,8 +252,8 @@
                     </div>
 
                     @if($parking->notes || $parking->price_detail)
-                    {{-- notes内の生akippa URLは除去（成果漏れ防止・導線はディープリンクCTAに一本化・文言は残す） --}}
-                    <p class="text-sm text-gray-500 mt-2">※{{ $parking->notes ? \App\Support\AkippaLink::stripAkippaUrl($parking->notes) : $parking->price_detail }}</p>
+                    {{-- notes内の生akippa URLは除去し、URL撤去の名残（▼・宙に浮いた「リンク先をご確認」系）も表示側で整形（DBは不変・導線はCTAに一本化） --}}
+                    <p class="text-sm text-gray-500 mt-2">※{{ $parking->notes ? \App\Support\AkippaLink::cleanDisplayText($parking->notes) : $parking->price_detail }}</p>
                     @endif
                 </div>
 
@@ -300,7 +300,7 @@
                 {{-- description（notesと別の補足情報がある場合のみ表示） --}}
                 @if($parking->description && $parking->description !== $parking->notes)
                 <div class="bg-gray-50 rounded-xl p-4 mb-5">
-                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ \App\Support\AkippaLink::stripAkippaUrl($parking->description) }}</p>
+                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ \App\Support\AkippaLink::cleanDisplayText($parking->description) }}</p>
                 </div>
                 @endif
 

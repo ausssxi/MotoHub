@@ -25,6 +25,40 @@ it('strips the akippa url from text but keeps the surrounding wording', function
         ->toContain('ご予約ください');                           // 文言は残る
 });
 
+it('cleans display text: drops the ▼ and the orphan 」 left after url removal', function () {
+    $out = AkippaLink::cleanDisplayText(AKIPPA_NOTES);
+
+    expect($out)
+        ->not->toContain('https://www.akippa.com') // URLは消える
+        ->not->toContain('▼')                       // 誘導三角は消える
+        ->not->toContain('」」')                     // 余り括弧の二重化なし
+        ->toContain('ご予約ください')                // 本文は残る
+        ->and(mb_substr($out, -1))->not->toBe('」'); // 末尾の余り閉じ括弧は落ちる
+});
+
+it('cleans display text: rewrites dangling "リンク先をご確認ください" into an akippa page notice', function () {
+    $notes = 'バイク駐車可。詳細はリンク先をご確認ください。 https://www.akippa.com/parking/abc123';
+    $out = AkippaLink::cleanDisplayText($notes);
+
+    expect($out)
+        ->toContain('詳細は akippa の予約ページでご確認ください。')
+        ->not->toContain('リンク先をご確認')
+        ->not->toContain('https://www.akippa.com');
+});
+
+it('cleans display text: rewrites "備考のURLのリンク先" variant too', function () {
+    $notes = '予約制。詳細は備考のURLのリンク先をご確認ください https://www.akippa.com/parking/xyz';
+    expect(AkippaLink::cleanDisplayText($notes))
+        ->toContain('詳細は akippa の予約ページでご確認ください。')
+        ->not->toContain('備考のURL');
+});
+
+it('cleans display text: leaves text untouched when there is no akippa url', function () {
+    // akippa URLが無い＝撤去していない → リンク誘導文も▼も触らない（別サイトのリンクを指す文言かもしれない）。
+    $notes = '▼詳細はリンク先をご確認ください';
+    expect(AkippaLink::cleanDisplayText($notes))->toBe('▼詳細はリンク先をご確認ください');
+});
+
 it('generates a per-parking A8 deeplink (affiliate) from notes when A8MAT is set', function () {
     config(['parking.affiliate.akippa.a8mat' => 'ABC123']);
 
