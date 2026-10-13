@@ -336,6 +336,17 @@ else
     warn "在庫詳細のスモークURLを /bikes/bargains から取得できませんでした（在庫詳細はスキップ）。"
 fi
 
+# 駐車場詳細ページ（/parking/{id}）を動的に1件追加する（/bikes/{id} と同方式）。
+# IDは入れ替わるので固定せず、/parking/reviews（口コミ新着フィード・サーバーレンダリングで
+# 実在駐車場を /parking/{数字} でリンク）から先頭を拾う。akippaのCTA/文言整形を含むページを通す。
+parking_path="$(curl -s --max-time 20 "${SMOKE_BASE}/parking/reviews" | grep -oE '/parking/[0-9]+' | head -n1 || true)"
+if [ -n "$parking_path" ]; then
+    SMOKE_PATHS+=("$parking_path")
+    ok "駐車場詳細スモークURLを動的取得: ${parking_path}"
+else
+    warn "駐車場詳細のスモークURLを /parking/reviews から取得できませんでした（駐車場詳細はスキップ）。"
+fi
+
 smoke_failed=0
 for path in "${SMOKE_PATHS[@]}"; do
     code="$(curl -s --max-time 20 -o /dev/null -w '%{http_code}' "${SMOKE_BASE}${path}" || true)"

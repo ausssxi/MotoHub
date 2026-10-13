@@ -15,6 +15,7 @@ use App\Repositories\Parking\ParkingReviewRepository;
 use App\Services\NearbyService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 final class ParkingService
@@ -236,18 +237,41 @@ final class ParkingService
      */
     private function getBikeCompatibility(array $displacementLimit): array
     {
-        return Cache::remember('parking_bike_compat_samples', 86400, function () {
-            // 代表的なバイクを排気量別に取得
-            $sampleNames = ['PCX', 'スーパーカブ110', 'レブル250', 'Ninja400', 'CB400SF', 'Z900RS', 'ハヤブサ'];
+        // v2: 表示名を正式表記で固定。DBの name は照合（MySQLは照合順序が大小文字無視のため
+        //     pcx/ninja400/z900rs 等の小文字行にも当たる）に使い、画面には label を出す。
+        //     排気量・slug は DB由来のまま。cache:clear は打てないため世代を上げて作り直す。
+        return Cache::remember('parking_bike_compat_samples_v2', 86400, function () {
+            // 代表的なバイク。['name' => DB照合キー, 'label' => 表示する正式表記]。
+            // スーパーカブ110・ハヤブサは日本語表記のまま。レブル250は Rebel 250、Ninja400 は Ninja 400 に。
+            $samples = [
+                ['name' => 'PCX', 'label' => 'PCX'],
+                ['name' => 'スーパーカブ110', 'label' => 'スーパーカブ110'],
+                ['name' => 'レブル250', 'label' => 'Rebel 250'],
+                ['name' => 'Ninja400', 'label' => 'Ninja 400'],
+                ['name' => 'CB400SF', 'label' => 'CB400SF'],
+                ['name' => 'Z900RS', 'label' => 'Z900RS'],
+                ['name' => 'ハヤブサ', 'label' => 'ハヤブサ'],
+            ];
 
-            return BikeModel::whereIn('name', $sampleNames)
+            // name の大小文字差（pcx/ninja400 等）を吸収。MySQLの照合順序任せにせず
+            // LOWER() で明示的に突合する（照合依存を外し SQLite でも同じ結果になる）。
+            $keysLower = array_map(fn (array $s) => mb_strtolower($s['name']), $samples);
+            $models = BikeModel::whereIn(DB::raw('LOWER(name)'), $keysLower)
                 ->select('id', 'name', 'displacement', 'slug')
-                ->get()
-                ->map(fn (BikeModel $m) => [
-                    'name' => $m->name,
-                    'displacement' => $m->displacement,
-                    'slug' => $m->slug,
-                ])
+                ->get();
+
+            return collect($samples)
+                ->map(function (array $s) use ($models) {
+                    // DBの name は大小文字差があり得るため大文字小文字を無視して突合。
+                    $m = $models->first(fn (BikeModel $model) => mb_strtolower($model->name) === mb_strtolower($s['name']));
+
+                    return $m === null ? null : [
+                        'name' => $s['label'],
+                        'displacement' => $m->displacement,
+                        'slug' => $m->slug,
+                    ];
+                })
+                ->filter()
                 ->sortBy('displacement')
                 ->values()
                 ->toArray();
