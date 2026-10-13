@@ -68,6 +68,23 @@
             }
 
         </script>
+        {{-- GA4: akippa（予約駐車場）CTA への送客クリック計測。bikes/show.blade.php の outbound_listing_click と
+             同方式で、リンクを拾って gtag イベントを送るだけ（リダイレクトページは挟まない）。値は <a> 側の
+             data-* 属性から読む（Blade でエスケープ済み＝安全）。
+             ★この script には二重波括弧を一切書かない（Blade が echo と誤解釈して空 echo→500 になる）。
+               値は必ず data-* から読み、dataset で取り出す。 --}}
+        <script>
+            document.addEventListener('click', function (e) {
+                var a = e.target.closest('a[data-outbound="parking"]');
+                if (!a || typeof gtag !== 'function') return;
+                gtag('event', 'outbound_parking_click', {
+                    partner: a.dataset.partner || 'unknown',        // akippa
+                    position: a.dataset.position || null,           // detail_cta
+                    parking_id: a.dataset.parkingId ? Number(a.dataset.parkingId) : null,
+                    prefecture: a.dataset.prefecture || null
+                });
+            }, { capture: true });
+        </script>
     </x-slot:scripts>
 
     <x-slot:navigation>

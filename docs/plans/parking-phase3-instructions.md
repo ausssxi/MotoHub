@@ -150,6 +150,12 @@ bike_parkingsにused_count INT DEFAULT 0を追加。
 
 ## Part 3: 管理者シードレビュー投入
 
+> **【方針により不採用・コマンド削除済み】**
+> 利用者を装ったレビューを自動生成する施策は方針により採用しない。
+> `parking:seed-reviews`（`SeedParkingReviews` コマンド）は削除済み。
+> 本番の `parking_reviews` にシードレビューは0件（確認済み）。
+> 以下は削除前の内容を記録として残す。
+
 ```bash
 php artisan parking:seed-reviews --count=20
 ```

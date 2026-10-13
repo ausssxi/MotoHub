@@ -40,3 +40,28 @@ it('renders parking show with 200 when both prefecture and city are set', functi
         ->assertOk()
         ->assertSee('渋谷区');
 });
+
+it('renders akippa CTA with GA4 outbound tracking data attributes', function () {
+    config()->set('parking.affiliate.akippa.a8mat', '');
+
+    $parking = BikeParking::create([
+        'name' => 'akippa予約駐車場',
+        'address' => 'テスト住所7-8-9',
+        'latitude' => 35.6595,
+        'longitude' => 139.7005,
+        'prefecture' => '東京都',
+        'city' => '渋谷区',
+        'parking_type' => 'bike_only',
+        'management_company' => 'akippa株式会社',
+        'notes' => '予約はこちら https://www.akippa.com/park/12345 からどうぞ',
+    ]);
+
+    $this->get("/parking/{$parking->id}")
+        ->assertOk()
+        ->assertSee('data-outbound="parking"', false)
+        ->assertSee('data-partner="akippa"', false)
+        ->assertSee('data-position="detail_cta"', false)
+        ->assertSee('data-parking-id="'.$parking->id.'"', false)
+        ->assertSee('data-prefecture="東京都"', false)
+        ->assertSee('outbound_parking_click', false);
+});
