@@ -65,3 +65,50 @@ it('renders akippa CTA with GA4 outbound tracking data attributes', function () 
         ->assertSee('data-prefecture="東京都"', false)
         ->assertSee('outbound_parking_click', false);
 });
+
+it('cleans dangling link phrases in all text fields for an akippa parking (200, phrases rewritten)', function () {
+    config()->set('parking.affiliate.akippa.a8mat', '');
+
+    $parking = BikeParking::create([
+        'name' => 'akippa予約駐車場2',
+        'address' => 'テスト住所10-11-12',
+        'latitude' => 35.6595,
+        'longitude' => 139.7005,
+        'prefecture' => '東京都',
+        'city' => '渋谷区',
+        'parking_type' => 'bike_only',
+        'management_company' => 'akippa株式会社',
+        'notes' => 'ご予約は https://www.akippa.com/parking/f5eb4aa1 から。',
+        'closed_days' => 'なし（詳細は備考のURLのリンク先をご確認ください）',
+        'vehicle_restriction' => '排気量による制限はありません。詳細はリンク先をご確認ください。',
+    ]);
+
+    $this->get("/parking/{$parking->id}")
+        ->assertOk()
+        // URLを持たない欄（定休日・排気量制限）も整形される。
+        ->assertSee('なし（詳細は akippa の予約ページでご確認ください）')
+        ->assertSee('排気量による制限はありません。詳細は akippa の予約ページでご確認ください。')
+        // 宙に浮いた誘導文は残らない。
+        ->assertDontSee('リンク先をご確認ください')
+        ->assertDontSee('備考のURL');
+});
+
+it('does not touch dangling phrases for a non-akippa parking', function () {
+    $parking = BikeParking::create([
+        'name' => '一般コインパーキング',
+        'address' => 'テスト住所13-14-15',
+        'latitude' => 35.6595,
+        'longitude' => 139.7005,
+        'prefecture' => '東京都',
+        'city' => '渋谷区',
+        'parking_type' => 'bike_only',
+        'management_company' => 'パラカ株式会社',
+        'closed_days' => 'なし（詳細は備考のURLのリンク先をご確認ください）',
+    ]);
+
+    $this->get("/parking/{$parking->id}")
+        ->assertOk()
+        // akippa以外は原文のまま。
+        ->assertSee('なし（詳細は備考のURLのリンク先をご確認ください）')
+        ->assertDontSee('akippa の予約ページで');
+});

@@ -30,18 +30,21 @@ final class AkippaLink
     /**
      * 生URL撤去後に残る「リンク先を見てね」系の宙に浮いた文言。
      * URLを消したため指す先が無くなった文を、自然な文（akippa予約ページ案内）へ置換する。
-     * ★置換は「元テキストに akippa URL があった」ときだけ行う（cleanDisplayText がゲート）。
-     *   akippa以外のURL（撤去しない）を指す文言には触れない。
-     * 追加の言い回しが見つかったらここに足す（notes/description の集計で洗い出す）。
+     * ★置換は akippa駐車場（cleanDisplayText の $isAkippaParking=true）か、
+     *   このテキスト自体に akippa URL があったときだけ行う。
+     *   akippa以外の駐車場・akippa以外のURLを指す文言には触れない。
+     * 末尾の句点（。．.）は group1 で捕捉し、置換後も元の有無を保つ
+     *   （「なし（詳細は…ください）」は括弧前に句点を足さない／文末の「。」は残す）。
+     * 追加の言い回しが見つかったらここに足す（notes/description 等の集計で洗い出す）。
      */
     private const DANGLING_LINK_PHRASES = [
-        '#詳細は(?:備考(?:欄)?の?)?(?:下記(?:の)?)?(?:URL|ＵＲＬ)(?:の)?(?:リンク)?(?:先)?を?(?:ご|御)?確認(?:ください|下さい)。?#u',
-        '#詳細は(?:下記(?:の)?)?リンク先?を?(?:ご|御)?確認(?:ください|下さい)。?#u',
-        '#(?:詳しく|詳細)は(?:上記|下記|備考)?の?(?:URL|ＵＲＬ|リンク)(?:先)?(?:より|から|を)(?:ご|御)?(?:確認|参照)(?:ください|下さい)。?#u',
+        '#詳細は(?:備考(?:欄)?の?)?(?:下記(?:の)?)?(?:URL|ＵＲＬ)(?:の)?(?:リンク)?(?:先)?を?(?:ご|御)?確認(?:ください|下さい)(。|．|\.)?#u',
+        '#詳細は(?:下記(?:の)?)?リンク先?を?(?:ご|御)?確認(?:ください|下さい)(。|．|\.)?#u',
+        '#(?:詳しく|詳細)は(?:上記|下記|備考)?の?(?:URL|ＵＲＬ|リンク)(?:先)?(?:より|から|を)(?:ご|御)?(?:確認|参照)(?:ください|下さい)(。|．|\.)?#u',
     ];
 
-    /** 宙に浮いた文言の置換先（akippa予約ページ案内）。 */
-    private const AKIPPA_FALLBACK_SENTENCE = '詳細は akippa の予約ページでご確認ください。';
+    /** 宙に浮いた文言の置換先（akippa予約ページ案内）。$1 は元の末尾句点を引き継ぐ。 */
+    private const AKIPPA_FALLBACK_REPLACEMENT = '詳細は akippa の予約ページでご確認ください$1';
 
     /**
      * CTA用のリンク解決。表示不可（非akippa物件・個別URL抽出不可）は null。
@@ -110,17 +113,26 @@ final class AkippaLink
         return trim($stripped);
     }
 
+    /** akippa駐車場か（CTAリンクが取れる＝management_company が akippa かつ個別URLあり）。 */
+    public static function isAkippaParking(?string $managementCompany, ?string $notes, ?string $description = null): bool
+    {
+        return self::ctaFor($managementCompany, $notes, $description) !== null;
+    }
+
     /**
      * 表示用にテキストを整える（DBは書き換えず表示側で整形）。
      *
      * ① akippa の生URLを撤去（stripAkippaUrl）。
-     * ② 元テキストに akippa URL があった場合のみ、撤去の名残を掃除する：
+     * ② akippa駐車場（$isAkippaParking=true）か、このテキスト自体に akippa URL が
+     *    あった場合に、撤去の名残を掃除する：
      *    ・宙に浮いた「リンク先をご確認ください」系の文言を akippa 予約ページ案内へ置換。
      *    ・先頭等の「▼」「▽」記号を除去。
      *    ・URL撤去で空になった日本語括弧「」『』（）【】を除去し、閉じ括弧の余りを落とす。
-     * akippa URL が無いテキスト（＝撤去していない）には①以外手を加えない。
+     * akippa以外の駐車場で、このテキストに akippa URL も無いなら①以外手を加えない。
+     *
+     * @param  bool  $isAkippaParking  その駐車場が akippa（＝URLを持たない欄も整形対象にする）か
      */
-    public static function cleanDisplayText(?string $text): string
+    public static function cleanDisplayText(?string $text, bool $isAkippaParking = false): string
     {
         if ($text === null || $text === '') {
             return '';
@@ -130,13 +142,14 @@ final class AkippaLink
 
         $out = self::stripAkippaUrl($text);
 
-        if (! $hadAkippaUrl) {
+        // akippa駐車場なら全欄を整形。非akippaでもこの欄にURLがあった場合のみ名残掃除。
+        if (! $isAkippaParking && ! $hadAkippaUrl) {
             return $out;
         }
 
-        // 宙に浮いたリンク誘導文を自然な案内へ置換。
+        // 宙に浮いたリンク誘導文を自然な案内へ置換（末尾句点は元の有無を維持）。
         foreach (self::DANGLING_LINK_PHRASES as $pattern) {
-            $out = preg_replace($pattern, self::AKIPPA_FALLBACK_SENTENCE, $out) ?? $out;
+            $out = preg_replace($pattern, self::AKIPPA_FALLBACK_REPLACEMENT, $out) ?? $out;
         }
 
         $out = self::tidyUrlRemovalArtifacts($out);
