@@ -46,11 +46,38 @@ it('cleans display text: rewrites dangling "リンク先をご確認ください
         ->not->toContain('https://www.akippa.com');
 });
 
-it('cleans display text: rewrites "備考のURLのリンク先" variant too', function () {
+it('cleans display text: rewrites "備考のURLのリンク先" variant too (no url present => no trailing 。 forced)', function () {
+    // 元文に句点が無い（直後はURL）→ 置換後も句点を足さない（元の句読点を維持）。
     $notes = '予約制。詳細は備考のURLのリンク先をご確認ください https://www.akippa.com/parking/xyz';
     expect(AkippaLink::cleanDisplayText($notes))
-        ->toContain('詳細は akippa の予約ページでご確認ください。')
+        ->toContain('詳細は akippa の予約ページでご確認ください')
+        ->not->toContain('ください。') // 元に句点が無いので足さない
         ->not->toContain('備考のURL');
+});
+
+it('cleans display text: isAkippaParking cleans a field that has no url (closed_days 定休日)', function () {
+    // 括弧内がそのまま誘導文＝括弧は残して中身だけ置換（句点は足さない）。
+    $closedDays = 'なし（詳細は備考のURLのリンク先をご確認ください）';
+    expect(AkippaLink::cleanDisplayText($closedDays, true))
+        ->toBe('なし（詳細は akippa の予約ページでご確認ください）');
+});
+
+it('cleans display text: isAkippaParking cleans the displacement restriction field (句点は維持)', function () {
+    $restriction = '排気量による制限はありません。詳細はリンク先をご確認ください。';
+    expect(AkippaLink::cleanDisplayText($restriction, true))
+        ->toBe('排気量による制限はありません。詳細は akippa の予約ページでご確認ください。');
+});
+
+it('cleans display text: non-akippa parking leaves url-less text untouched', function () {
+    // isAkippaParking=false かつ URL無し → リンク誘導文も▼も触らない（別サイトのリンクかもしれない）。
+    $closedDays = 'なし（詳細は備考のURLのリンク先をご確認ください）';
+    expect(AkippaLink::cleanDisplayText($closedDays, false))->toBe($closedDays);
+});
+
+it('isAkippaParking: true only for akippa company with an extractable url', function () {
+    expect(AkippaLink::isAkippaParking('akippa株式会社', AKIPPA_NOTES, null))->toBeTrue()
+        ->and(AkippaLink::isAkippaParking('akippa株式会社', 'URL無し', 'これも無し'))->toBeFalse()
+        ->and(AkippaLink::isAkippaParking('パラカ株式会社', AKIPPA_NOTES, null))->toBeFalse();
 });
 
 it('cleans display text: leaves text untouched when there is no akippa url', function () {

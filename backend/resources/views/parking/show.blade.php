@@ -94,6 +94,10 @@
     <div class="bg-gray-50 min-h-screen py-8">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 
+            {{-- akippa駐車場なら、URL撤去の名残（▼・宙に浮いた「リンク先をご確認」系）を表示する全テキスト欄で整形する。
+                 akippa以外は触らない。判定はCTAと同じ AkippaLink（DBは不変・表示側のみ）。 --}}
+            @php $isAkippaParking = \App\Support\AkippaLink::isAkippaParking($parking->management_company ?? null, $parking->notes ?? null, $parking->description ?? null); @endphp
+
             {{-- ===== 13. パンくずリスト改善（都道府県→市区町村→駅→駐車場名） ===== --}}
             <nav class="overflow-x-auto text-xs font-bold text-gray-400 mb-6 scrollbar-hide" aria-label="Breadcrumb">
                 <ol class="flex items-center space-x-2 whitespace-nowrap">
@@ -178,7 +182,7 @@
                                 <span class="text-3xl font-bold text-gray-900">¥{{ number_format($parking->price_per_hour) }}</span>
                                 <span class="text-sm text-gray-500">/1時間</span>
                                 @if($parking->available_hours)
-                                <span class="text-xs text-gray-400 ml-1">{{ $parking->available_hours }}</span>
+                                <span class="text-xs text-gray-400 ml-1">{{ \App\Support\AkippaLink::cleanDisplayText($parking->available_hours, $isAkippaParking) }}</span>
                                 @endif
                             </div>
                         </div>
@@ -253,7 +257,7 @@
 
                     @if($parking->notes || $parking->price_detail)
                     {{-- notes内の生akippa URLは除去し、URL撤去の名残（▼・宙に浮いた「リンク先をご確認」系）も表示側で整形（DBは不変・導線はCTAに一本化） --}}
-                    <p class="text-sm text-gray-500 mt-2">※{{ $parking->notes ? \App\Support\AkippaLink::cleanDisplayText($parking->notes) : $parking->price_detail }}</p>
+                    <p class="text-sm text-gray-500 mt-2">※{{ \App\Support\AkippaLink::cleanDisplayText($parking->notes ?: $parking->price_detail, $isAkippaParking) }}</p>
                     @endif
                 </div>
 
@@ -274,25 +278,25 @@
                     @if($parking->available_hours)
                     <div class="flex items-start gap-3">
                         <i data-lucide="clock" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
-                        <span class="text-sm text-gray-700">{{ $parking->available_hours }}</span>
+                        <span class="text-sm text-gray-700">{{ \App\Support\AkippaLink::cleanDisplayText($parking->available_hours, $isAkippaParking) }}</span>
                     </div>
                     @endif
                     @if($parking->closed_days)
                     <div class="flex items-start gap-3">
                         <i data-lucide="calendar-off" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
-                        <span class="text-sm text-gray-700">{{ $parking->closed_days }}</span>
+                        <span class="text-sm text-gray-700">{{ \App\Support\AkippaLink::cleanDisplayText($parking->closed_days, $isAkippaParking) }}</span>
                     </div>
                     @endif
                     @if($parking->parking_form)
                     <div class="flex items-start gap-3">
                         <i data-lucide="tag" class="w-4 h-4 text-gray-400 mt-0.5 shrink-0"></i>
-                        <span class="text-sm text-gray-700">{{ $parking->parking_form }}</span>
+                        <span class="text-sm text-gray-700">{{ \App\Support\AkippaLink::cleanDisplayText($parking->parking_form, $isAkippaParking) }}</span>
                     </div>
                     @endif
                     @if($parking->vehicle_restriction)
                     <div class="flex items-start gap-3">
                         <i data-lucide="alert-triangle" class="w-4 h-4 text-yellow-500 mt-0.5 shrink-0"></i>
-                        <span class="text-sm text-gray-700">{{ $parking->vehicle_restriction }}</span>
+                        <span class="text-sm text-gray-700">{{ \App\Support\AkippaLink::cleanDisplayText($parking->vehicle_restriction, $isAkippaParking) }}</span>
                     </div>
                     @endif
                 </div>
@@ -300,7 +304,7 @@
                 {{-- description（notesと別の補足情報がある場合のみ表示） --}}
                 @if($parking->description && $parking->description !== $parking->notes)
                 <div class="bg-gray-50 rounded-xl p-4 mb-5">
-                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ \App\Support\AkippaLink::cleanDisplayText($parking->description) }}</p>
+                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ \App\Support\AkippaLink::cleanDisplayText($parking->description, $isAkippaParking) }}</p>
                 </div>
                 @endif
 
