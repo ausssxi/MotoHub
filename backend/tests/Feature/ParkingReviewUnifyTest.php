@@ -18,14 +18,20 @@ function unifyParking(): BikeParking
 
 // ─────────── A: 投稿導線をレビュー1つに統合 ───────────
 
-it('removes the used-counter dead-end (button and route gone)', function () {
+it('keeps the old used-counter dead-end copy gone (the new button links to the review form instead)', function () {
     $p = unifyParking();
 
+    // 旧「押して終わり」の文言は復活させない（レビュー統合の回帰ガード）。
     $this->get("/parking/{$p->id}")->assertOk()
         ->assertDontSee('使った！')
         ->assertDontSee('人が「使った」と回答');
 
-    expect(Route::has('parking.used'))->toBeFalse(); // 押して終わりの導線ルートを撤去
+    // 新しい「使ったことある」ワンタップは行き止まりではなく口コミ投稿への導線を持つ。
+    expect(Route::has('parking.used'))->toBeTrue();
+    $this->get("/parking/{$p->id}")->assertOk()
+        ->assertSee('ここ、使ったことある')
+        ->assertSee('よければ口コミも書いてみませんか？')
+        ->assertSee('href="#write-review"', false);
 });
 
 it('keeps a single review input where tapping a star opens the comment field', function () {

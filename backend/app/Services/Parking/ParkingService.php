@@ -8,6 +8,7 @@ use App\Models\BikeModel;
 use App\Models\BikeParking;
 use App\Models\BikeParkingImage;
 use App\Models\Listing;
+use App\Models\ParkingUsage;
 use App\Models\TouringSpot;
 use App\Models\User;
 use App\Repositories\Parking\BikeParkingRepository;
@@ -112,9 +113,13 @@ final class ParkingService
                 ->get(['name', 'slug', 'prefecture']);
         }
 
+        // 「使ったことある」件数（parking_usages の行数。bike_parkings には持たせない）
+        $usedCount = ParkingUsage::where('parking_id', $parking->id)->count();
+
         return [
             'parking' => $parking,
             'reviews' => $reviews,
+            'usedCount' => $usedCount,
             'nearbyParkings' => $nearbyParkings,
             'nearbyShops' => $nearbyShops,
             'nearbyListings' => $nearbyListings,

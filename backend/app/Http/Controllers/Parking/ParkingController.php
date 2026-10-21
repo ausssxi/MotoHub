@@ -9,6 +9,7 @@ use App\Http\Requests\Parking\StoreParkingRequest;
 use App\Http\Requests\Parking\StoreParkingReviewRequest;
 use App\Http\Requests\Parking\UpdateParkingRequest;
 use App\Models\BikeParking;
+use App\Models\ParkingUsage;
 use App\Services\Parking\ParkingService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -130,6 +131,31 @@ class ParkingController extends Controller
 
         return redirect()->route('parking.show', $bikeParking)
             ->with('success', '駐車場情報を更新しました！');
+    }
+
+    /**
+     * 「使ったことある」ワンタップ反応（ログイン不要）。
+     *
+     * レビューより軽い反応として件数だけ数える。生IPは保存せず sha256(ip|ua|app.key) の
+     * visitor_hash で重複を弾く（同じ訪問者は2回目以降も成功扱いで現在の件数を返すだけ）。
+     */
+    public function used(BikeParking $bikeParking, Request $request): JsonResponse
+    {
+        // 非公開（is_active=false）の投稿は show と同じく直リンクでも扱わない。
+        abort_if(! $bikeParking->is_active, 404);
+
+        $visitorHash = hash('sha256', $request->ip().'|'.$request->userAgent().'|'.config('app.key'));
+
+        // (parking_id, visitor_hash) のユニーク制約が重複を防ぐ。既存なら wasRecentlyCreated=false。
+        $usage = ParkingUsage::firstOrCreate([
+            'parking_id' => $bikeParking->id,
+            'visitor_hash' => $visitorHash,
+        ]);
+
+        return response()->json([
+            'count' => ParkingUsage::where('parking_id', $bikeParking->id)->count(),
+            'already' => ! $usage->wasRecentlyCreated,
+        ]);
     }
 
     /**

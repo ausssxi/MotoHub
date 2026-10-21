@@ -85,6 +85,71 @@
                 });
             }, { capture: true });
         </script>
+        {{-- GA4: 「使ったことある」ワンタップのクリック計測。outbound_parking_click と同じく委譲リスナー＋data-*方式。
+             ★この script には二重波括弧を一切書かない（値は必ず data-* から dataset で読む）。 --}}
+        <script>
+            document.addEventListener('click', function (e) {
+                var b = e.target.closest('[data-parking-used]');
+                if (!b || typeof gtag !== 'function') return;
+                gtag('event', 'parking_used_click', {
+                    parking_id: b.dataset.parkingId ? Number(b.dataset.parkingId) : null,
+                    prefecture: b.dataset.prefecture || null
+                });
+            }, { capture: true });
+        </script>
+        {{-- 「使ったことある」本体: POST→件数更新＋localStorage記録。CSRFはmetaタグから読む。
+             localStorage が使えない環境でも try/catch で落ちない。値は data-* から dataset で読む。 --}}
+        <script>
+            (function () {
+                var box = document.getElementById('parking-used');
+                if (!box) return;
+                var btn = document.getElementById('parking-used-btn');
+                var countEl = document.getElementById('parking-used-count');
+                var thanks = document.getElementById('parking-used-thanks');
+                var url = box.dataset.usedUrl;
+                var storageKey = 'parking_used_' + (box.dataset.parkingId || '');
+
+                function markPressed() {
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.classList.add('opacity-60', 'cursor-default');
+                        btn.classList.remove('hover:bg-pink-600');
+                    }
+                    if (thanks) thanks.classList.remove('hidden');
+                }
+
+                function renderCount(n) {
+                    if (!countEl) return;
+                    countEl.textContent = n > 0 ? (n + '人が利用') : '最初の1人になりませんか？';
+                }
+
+                // 再訪時: localStorage に記録があれば押下済み表示（count はサーバー描画のまま）
+                var pressed = false;
+                try { pressed = localStorage.getItem(storageKey) === '1'; } catch (e) {}
+                if (pressed) markPressed();
+
+                if (btn) btn.addEventListener('click', function () {
+                    if (btn.disabled) return;
+                    btn.disabled = true; // 二重送信防止
+                    var meta = document.querySelector('meta[name="csrf-token"]');
+                    fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': meta ? meta.content : '',
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        }
+                    })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        renderCount(data.count);
+                        markPressed();
+                        try { localStorage.setItem(storageKey, '1'); } catch (e) {}
+                    })
+                    .catch(function () { btn.disabled = false; });
+                });
+            })();
+        </script>
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -857,6 +922,38 @@
             </div>
             @endif
 
+            {{-- 「使ったことある」ワンタップ反応（レビューより軽い・ログイン不要）。口コミ欄の直前に置く。
+                 値は data-* に出し、JS からは dataset で読む（inline script に {{ }} を書かない）。 --}}
+            <div id="parking-used"
+                 data-parking-id="{{ $parking->id }}"
+                 data-prefecture="{{ $parking->prefecture }}"
+                 data-used-url="{{ route('parking.used', $parking->id) }}"
+                 class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6 text-center">
+                <p class="text-sm font-bold text-gray-800 mb-3">この駐車場を使ったことはありますか？</p>
+                <button type="button" id="parking-used-btn"
+                        data-parking-used
+                        data-parking-id="{{ $parking->id }}"
+                        data-prefecture="{{ $parking->prefecture }}"
+                        class="inline-flex items-center gap-2 bg-pink-500 text-white font-black text-sm px-6 py-3 rounded-2xl hover:bg-pink-600 transition-colors">
+                    🏍️ ここ、使ったことある
+                </button>
+                <p id="parking-used-count" class="text-xs font-bold text-gray-500 mt-3">
+                    @if($usedCount > 0)
+                    {{ $usedCount }}人が利用
+                    @else
+                    最初の1人になりませんか？
+                    @endif
+                </p>
+                {{-- 押下後に表示するお礼＋口コミ導線（初期は hidden） --}}
+                <div id="parking-used-thanks" class="hidden mt-3">
+                    <p class="text-sm font-black text-gray-800">ありがとうございます！</p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        よければ口コミも書いてみませんか？
+                        <a href="#write-review" class="font-bold text-green-600 hover:text-green-700 underline">口コミを書く</a>
+                    </p>
+                </div>
+            </div>
+
             {{-- レビュー一覧（口コミサマリーのアンカー先） --}}
             <div id="reviews" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6 scroll-mt-20">
                 <h2 class="text-sm font-black text-gray-900 mb-4 flex items-center gap-2">
@@ -929,7 +1026,7 @@
             </div>
 
             {{-- レビュー投稿フォーム（口コミ一覧の直後＝読んで→書く。星タップ→コメント欄が開く唯一の投稿導線） --}}
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+            <div id="write-review" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6 scroll-mt-20">
                 <h2 class="text-lg font-black text-gray-900 mb-1">この駐車場のレビューを書く</h2>
                 <p class="text-xs text-gray-400 mb-4">星をタップすると一言コメント欄が開きます（コメントは任意・即反映）。</p>
 
