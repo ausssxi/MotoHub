@@ -1,4 +1,4 @@
-@props(['nearbyShops', 'latitude' => null, 'longitude' => null])
+@props(['nearbyShops', 'latitude' => null, 'longitude' => null, 'parkingId' => null])
 
 @if($nearbyShops->isNotEmpty())
 <section class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
@@ -18,7 +18,16 @@
 
     <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
         @foreach($nearbyShops as $s)
-        <a href="{{ route('shops.show', $s->id) }}" class="snap-start shrink-0 w-56 sm:w-64 group bg-blue-50/50 rounded-xl p-4 border border-blue-100 hover:border-blue-300 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 block">
+        {{-- 駐車場詳細からの送客のみ GA4 計測（parkingId 指定時）。他ページ（ショップ/車種）では data-* を出さない。
+             値は data-* に出し、委譲リスナー側で dataset から読む（shops.map 等 outbound と同方式）。 --}}
+        <a href="{{ route('shops.show', $s->id) }}"
+            @if($parkingId)
+            data-parking-to-shop
+            data-parking-id="{{ $parkingId }}"
+            data-shop-id="{{ $s->id }}"
+            data-position="{{ $loop->iteration }}"
+            @endif
+            class="snap-start shrink-0 w-56 sm:w-64 group bg-blue-50/50 rounded-xl p-4 border border-blue-100 hover:border-blue-300 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 block">
             <h4 class="text-xs font-black text-gray-800 group-hover:text-blue-700 transition-colors line-clamp-2 mb-2">{{ $s->name }}</h4>
             @if($s->prefecture)
             <span class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full mb-2">

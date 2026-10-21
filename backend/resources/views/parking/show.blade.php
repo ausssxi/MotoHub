@@ -85,6 +85,20 @@
                 });
             }, { capture: true });
         </script>
+        {{-- GA4: 「近くのバイクショップ」カードからショップ詳細への回遊クリック計測。
+             outbound_parking_click と同じく委譲リスナー＋data-*方式。値は data-* から dataset で読む。
+             ★この script には二重波括弧を一切書かない。 --}}
+        <script>
+            document.addEventListener('click', function (e) {
+                var a = e.target.closest('a[data-parking-to-shop]');
+                if (!a || typeof gtag !== 'function') return;
+                gtag('event', 'parking_to_shop_click', {
+                    parking_id: a.dataset.parkingId ? Number(a.dataset.parkingId) : null,
+                    shop_id: a.dataset.shopId ? Number(a.dataset.shopId) : null,
+                    position: a.dataset.position ? Number(a.dataset.position) : null
+                });
+            }, { capture: true });
+        </script>
     </x-slot:scripts>
 
     <x-slot:navigation>
@@ -1118,7 +1132,7 @@
             {{-- 近くの駐車場・ショップ・回遊リンク --}}
             <div class="mt-6 space-y-6">
                 <x-nearby-parkings :nearbyParkings="$nearbyParkings" :latitude="$parking->latitude" :longitude="$parking->longitude" :prefecture="$parking->prefecture" />
-                <x-nearby-shops :nearbyShops="$nearbyShops" :latitude="$parking->latitude" :longitude="$parking->longitude" />
+                <x-nearby-shops :nearbyShops="$nearbyShops" :latitude="$parking->latitude" :longitude="$parking->longitude" :parkingId="$parking->id" />
 
                 {{-- ===== 10. 周辺ツーリングスポット ===== --}}
                 @if($touringSpots->isNotEmpty())
