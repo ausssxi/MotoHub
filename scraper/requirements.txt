@@ -4,6 +4,8 @@ cryptography           ==44.0.0
 python-dotenv          ==1.0.1
 httpx                  ==0.28.1
 Scrapy                 ==2.11.0
+# Scrapy 2.11.0 は w3lib.url._safe_chars を使うが w3lib 2.5.0 で削除され ImportError になるため固定（Scrapy本体の更新は別作業）
+w3lib                  ==2.4.1
 requests               ==2.32.3
 Pillow                 ==11.0.0
 mysql-connector-python ==9.6.0
