@@ -48,6 +48,8 @@ final class BikeParking extends Model
         'used_count',
         'is_verified',
         'is_active',
+        'delisted_at',
+        'delisted_reason',
         'station_id',
         'geocode_failed_at',
     ];
@@ -70,8 +72,22 @@ final class BikeParking extends Model
         'used_count' => 'integer',
         'is_verified' => 'boolean',
         'is_active' => 'boolean',
+        'delisted_at' => 'datetime',
         'geocode_failed_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        // 掲載削除依頼で非公開（delisted_at あり）の行は、どの経路からでも公開へ戻さない。
+        // 取り込み（parking:import-jmpsa / import-bikepark の updateOrCreate で is_active=true を渡す等）や
+        // enrich が誤って公開に戻すのを一点で防ぐ。★is_active の自動化は非公開方向のみ（CLAUDE.md）。
+        // 公開へ戻すときは delisted_at も同時に NULL にすること（parking:delist --relist がそうする）。
+        self::saving(function (BikeParking $parking): void {
+            if ($parking->delisted_at !== null && $parking->is_active === true) {
+                $parking->is_active = false;
+            }
+        });
+    }
 
     public function user(): BelongsTo
     {
@@ -133,6 +149,23 @@ final class BikeParking extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * 掲載削除依頼で非公開にした駐車場（delisted_at あり）。
+     * ユーザー投稿の承認待ち（is_active=false だが delisted_at は NULL）とは別物。
+     */
+    public function scopeDelisted(Builder $query): Builder
+    {
+        return $query->whereNotNull('delisted_at');
+    }
+
+    /**
+     * 掲載削除依頼で非公開にされたか。取り込みで公開へ戻してはいけない行の判定に使う。
+     */
+    public function isDelisted(): bool
+    {
+        return $this->delisted_at !== null;
     }
 
     public function scopeVerified(Builder $query): Builder

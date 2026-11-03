@@ -234,15 +234,20 @@ class ImportJmpsaParkings extends Command
             return;
         }
 
-        // 重複チェック（source_url or 名前+住所）
-        $exists = BikeParking::where('source_url', $item['source_url'])
+        // 重複チェック（source_url or 名前+住所）。既存はスキップ（更新は enrich 側の役割）。
+        $existing = BikeParking::where('source_url', $item['source_url'])
             ->orWhere(function ($q) use ($item) {
                 $q->where('name', $item['name'])
                     ->where('address', $item['address']);
             })
-            ->exists();
+            ->first();
 
-        if ($exists) {
+        if ($existing !== null) {
+            // ★掲載削除依頼で非公開にした行は、取り込みで公開へ戻さない（is_active の自動化は非公開方向のみ）。
+            //   既存行はもともと updateOrCreate まで進まずスキップされるが、意図を明示してログに残す。
+            if ($existing->isDelisted()) {
+                $this->line("  [除外] 掲載削除依頼済みのためスキップ: {$existing->name} (ID {$existing->id})");
+            }
             $this->skipped++;
             return;
         }
