@@ -21,6 +21,7 @@ final class NearbyService
     public function getNearbyParkings(float $lat, float $lng, ?int $excludeId = null): Collection
     {
         return BikeParking::query()
+            ->active() // 非公開（承認待ち・掲載削除依頼）は「近くの駐車場」に出さない
             ->inBounds(
                 $lat - self::LAT_OFFSET,
                 $lng - self::LNG_OFFSET,
